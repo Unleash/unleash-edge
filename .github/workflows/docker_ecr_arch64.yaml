@@ -1,0 +1,77 @@
+---
+name: Build docker image for aarch64 (ECR)
+
+on:
+  push:
+    branches:
+      - main
+    files:
+      - '**.rs'
+      - '**.toml'
+  tags:
+    - 'v*'
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Install rust
+        run: |
+          rustup set auto-self-update disable
+          rustup toolchain install stable --profile default
+          rustup show
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+      - name: Install cross (cross compile)
+        run: |
+          cargo install cross
+      - name: Build release
+        run: |
+          cross build --release --target=aarch64-unknown-linux-musl
+      - name: Setup QEMU (to support multiplatform)
+        uses: docker/setup-qemu-action@v2
+      - name: Configure aws credentials
+        uses: aws/actions/configure-aws-credentials@v1-node16
+        id: aws-eu-north
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-north-1
+      - name: Login to ECR
+        id: login-ecr-eu-north
+        uses: aws-actions/amazon-ecr-login@v1
+      - name: Setup docker buildx
+        uses: docker/setup-buildx-action@v2
+      - name: Docker meta configuration (set image and tag)
+        uses: docker/metadata-action@v4
+        id: meta
+        with:
+          images: |
+            ${{ steps.login-ecr-eu-north.outputs.registry }}/unleash-edge
+          tags: |
+            type=ref,event=branch
+            type=sha
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+      - name: Build tag and push image to Amazon ECR
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          platforms: linux/arm64
+          push: true
+          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.meta.outputs.tags }}
+  notifypipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: docker
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Send to pipeline
+        run: |
+          bash ./.github/notify_pipeline.sh
+        env:
+          DOCKER_IMAGE: "726824350591.dkr.ecr.eu-north-1.amazonaws.com/unleash-edge"

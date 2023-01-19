@@ -29,8 +29,8 @@ jobs:
           rustup set auto-self-update disable
           rustup toolchain install stable --profile minimal
           rustup show
-      - uses: 
-      - name: Install required cargo pacakges for reporting test coverage
+      - uses: Swatinem/rust-cache@v2
+      - name: Install required cargo packages for reporting test coverage
         run: cargo install cargo-tarpaulin
       - name: Run Tarpaulin (Reporting to coveralls)
         run: |

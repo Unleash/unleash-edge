@@ -1,6 +1,6 @@
 # Unleash Edge
 
-Unleash Edge is the successor to Unleash-Proxy.
+Unleash Edge is the successor to the Unleash Proxy.
 
 
 ## Development

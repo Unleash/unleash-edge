@@ -1,2 +1,46 @@
 ---
-name: Run Code quality checks on code (reporting to )
+name: Clippy
+
+on:
+  push:
+    branches:
+      - main
+    files:
+      - '**.rs'
+      - '**.toml'
+  pull_request:
+    branches:
+      - main
+    files:
+      - '**.rs'
+      - '**.toml'
+
+jobs:
+  clippy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Install rust
+        run: |
+          rustup set auto-self-update disable
+          rustup toolchain install stable --profile default
+          rustup show
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+      - name: Install required cargo packages for reporting format
+        run: cargo install clippy-sarif sarif-fmt
+      - name: Run rust-clippy
+        run: |
+          cargo clippy --all-features --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
+        continue-on-error: true
+      - name: Upload analysis results to Github
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: rust-clippy-results.sarif
+          category: clippy
+          wait-for-processing: true

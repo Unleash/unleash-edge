@@ -4,6 +4,7 @@ debug/
 *.iml
 *.ipr
 *.iws
+./vscode
 
 .project
 .classpath
