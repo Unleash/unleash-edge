@@ -2,10 +2,21 @@ use std::path::PathBuf;
 
 use clap::{Args, Parser};
 
+#[derive(clap::ValueEnum, Debug, Clone)]
+pub enum EdgeMode {
+    Offline,
+}
+
 #[derive(Parser, Debug, Clone)]
 pub struct CliArgs {
     #[clap(flatten)]
     pub http: HttpServerArgs,
+
+    #[arg(value_enum)]
+    pub mode: EdgeMode,
+
+    #[clap(short, long, env)]
+    pub bootstrap_file: Option<PathBuf>,
 }
 
 impl CliArgs {
