@@ -8,8 +8,8 @@ on:
     files:
       - '**.rs'
       - '**.toml'
-  tags:
-    - 'v*'
+    tags:
+      - 'v*'
 
 jobs:
   docker:
