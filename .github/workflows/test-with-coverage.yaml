@@ -1,0 +1,38 @@
+---
+name: Run tests with coverage on code
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**.rs'
+      - '**.toml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '**.rs'
+      - '**.toml'
+
+jobs:
+  tarpaulin:
+    runs-on: ubuntu-latest
+    name: Run test coverage using Tarpaulin
+    env: 
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Install rust
+        run: |
+          rustup set auto-self-update disable
+          rustup toolchain install stable --profile minimal
+          rustup show
+      - uses: 
+      - name: Install required cargo pacakges for reporting test coverage
+        run: cargo install cargo-tarpaulin
+      - name: Run Tarpaulin (Reporting to coveralls)
+        run: |
+          cargo tarpaulin --all-features --coveralls ${{ secrets.COVERALLS_KEY }}
+        
