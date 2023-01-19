@@ -6,10 +6,11 @@ on:
     branches:
       - main
     files:
-      - '**.rs'
-      - '**.toml'
+      - "**.rs"
+      - "**.toml"
+      - ".github/workflows/docker_ecr_arch64.yaml"
     tags:
-      - 'v*'
+      - "v*"
 
 jobs:
   docker:
@@ -33,7 +34,7 @@ jobs:
       - name: Setup QEMU (to support multiplatform)
         uses: docker/setup-qemu-action@v2
       - name: Configure aws credentials
-        uses: aws/actions/configure-aws-credentials@v1-node16
+        uses: aws-actions/configure-aws-credentials@v1-node16
         id: aws-eu-north
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
