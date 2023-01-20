@@ -1,8 +1,8 @@
 use actix_web::{
     get,
     web::{self, Json},
-    HttpRequest,
 };
+use actix_web_opentelemetry::PrometheusMetricsHandler;
 use serde::Serialize;
 
 use crate::types::EdgeJsonResult;
@@ -20,12 +20,16 @@ impl EdgeStatus {
     }
 }
 #[get("/health")]
-pub async fn health(_req: HttpRequest) -> EdgeJsonResult<EdgeStatus> {
+pub async fn health() -> EdgeJsonResult<EdgeStatus> {
     Ok(Json(EdgeStatus::ok()))
 }
 
-pub fn configure_internal_backstage(cfg: &mut web::ServiceConfig) {
-    cfg.service(health);
+pub fn configure_internal_backstage(
+    cfg: &mut web::ServiceConfig,
+    metrics_handler: PrometheusMetricsHandler,
+) {
+    cfg.service(health)
+        .service(web::resource("/metrics").route(web::get().to(metrics_handler)));
 }
 
 #[cfg(test)]
@@ -34,9 +38,9 @@ mod tests {
 
     #[actix_web::test]
     async fn test_health_ok() {
-        let app = test::init_service(App::new().service(
-            web::scope("/internal-backstage").configure(super::configure_internal_backstage),
-        ))
+        let app = test::init_service(
+            App::new().service(web::scope("/internal-backstage").service(super::health)),
+        )
         .await;
         let req = test::TestRequest::get()
             .uri("/internal-backstage/health")
