@@ -30,9 +30,11 @@ jobs:
           rustup toolchain install stable --profile minimal
           rustup show
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
       - name: Install required cargo packages for reporting test coverage
         run: cargo install cargo-tarpaulin
       - name: Run Tarpaulin (Reporting to coveralls)
         run: |
-          cargo tarpaulin --all-features --coveralls ${{ secrets.COVERALLS_KEY }}
+          cargo tarpaulin --all-features --coveralls ${{ secrets.COVERALLS_KEY }} --skip-clean
         
