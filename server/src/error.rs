@@ -5,8 +5,11 @@ use actix_web::{http::StatusCode, HttpResponseBuilder, ResponseError};
 
 #[derive(Debug)]
 pub enum EdgeError {
+    AuthorizationDenied,
     InvalidBackupFile(String, String),
     NoFeaturesFile,
+    NoTokenProvider,
+    TokenParseError,
     TlsError,
 }
 
@@ -22,6 +25,9 @@ impl Display for EdgeError {
             ),
             EdgeError::TlsError => write!(f, "Could not configure TLS"),
             EdgeError::NoFeaturesFile => write!(f, "No features file located"),
+            EdgeError::AuthorizationDenied => write!(f, "Not allowed to access"),
+            EdgeError::NoTokenProvider => write!(f, "Could not get a TokenProvider"),
+            EdgeError::TokenParseError => write!(f, "Could not parse edge token"),
         }
     }
 }
@@ -32,6 +38,9 @@ impl ResponseError for EdgeError {
             EdgeError::InvalidBackupFile(_, _) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::TlsError => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::NoFeaturesFile => StatusCode::INTERNAL_SERVER_ERROR,
+            EdgeError::AuthorizationDenied => StatusCode::FORBIDDEN,
+            EdgeError::NoTokenProvider => StatusCode::INTERNAL_SERVER_ERROR,
+            EdgeError::TokenParseError => StatusCode::UNAUTHORIZED,
         }
     }
 
