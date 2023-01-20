@@ -18,6 +18,7 @@ jobs:
         name: Checkout code
         with:
           token: ${{ secrets.GH_PUSH_TOKEN }}
+          fetch-depth: 0
       - name: setup git config
         run: |
           git config user.name "Github Release Bot"
@@ -27,7 +28,10 @@ jobs:
           rustup set auto-self-update disable
           rustup toolchain install stable --profile minimal
           rustup show
-      - uses: Swatinem/rust-cache@v2
+      - name: Use rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
       - name: Install cargo smart-release
         run: |
           cargo install cargo-smart-release
