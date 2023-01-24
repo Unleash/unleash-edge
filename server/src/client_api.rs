@@ -1,11 +1,12 @@
-use crate::types::{EdgeJsonResult, FeaturesProvider};
+use crate::types::{EdgeJsonResult, EdgeProvider, EdgeToken};
 use actix_web::get;
 use actix_web::web::{self, Json};
 use unleash_types::client_features::ClientFeatures;
 
 #[get("/client/features")]
 async fn features(
-    features_source: web::Data<dyn FeaturesProvider>,
+    _edge_token: EdgeToken,
+    features_source: web::Data<dyn EdgeProvider>,
 ) -> EdgeJsonResult<ClientFeatures> {
     let client_features = features_source.get_client_features();
     Ok(Json(client_features))

@@ -6,7 +6,7 @@ use actix_web::{middleware, web, App, HttpServer};
 use actix_web_opentelemetry::RequestTracing;
 use clap::Parser;
 use cli::CliArgs;
-use types::FeaturesProvider;
+use types::EdgeProvider;
 
 mod cli;
 mod client_api;
@@ -25,11 +25,14 @@ async fn main() -> Result<(), anyhow::Error> {
     let args = CliArgs::parse();
     let (metrics_handler, request_metrics) = metrics::instantiate(None);
     let client_provider = match args.mode {
-        EdgeMode::Offline => OfflineProvider::instantiate_provider(args.clone().bootstrap_file),
+        EdgeMode::Offline => OfflineProvider::instantiate_provider(
+            args.clone().bootstrap_file,
+            args.clone().client_keys,
+        ),
     }
     .map_err(anyhow::Error::new)?;
     let server = HttpServer::new(move || {
-        let client_provider_arc: Arc<dyn FeaturesProvider> = Arc::new(client_provider.clone());
+        let client_provider_arc: Arc<dyn EdgeProvider> = Arc::new(client_provider.clone());
         let client_provider_data = web::Data::from(client_provider_arc);
         App::new()
             .app_data(client_provider_data)

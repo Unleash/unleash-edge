@@ -29,3 +29,6 @@ tracing-opentelemetry = "0.18.0"
 tracing-subscriber = { version = "0.3.16", features = ["json", "env-filter"] }
 unleash-types = "0.4.1"
 unleash-yggdrasil = "0.2.0"
+
+[dev-dependencies]
+test-case = "2.2.2"

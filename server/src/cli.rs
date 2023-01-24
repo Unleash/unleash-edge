@@ -17,6 +17,9 @@ pub struct CliArgs {
 
     #[clap(short, long, env)]
     pub bootstrap_file: Option<PathBuf>,
+
+    #[clap(short, long, env)]
+    pub client_keys: Vec<String>,
 }
 
 impl CliArgs {
