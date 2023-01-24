@@ -2111,20 +2111,8 @@ dependencies = [
  "tracing",
  "tracing-opentelemetry",
  "tracing-subscriber",
- "unleash-types 0.4.1",
+ "unleash-types",
  "unleash-yggdrasil",
-]
-
-[[package]]
-name = "unleash-types"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd02ee0e5dca295018290a6e4d7bdd53a961f58a08695ef3e9fc34180a581e0d"
-dependencies = [
- "chrono",
- "derive_builder",
- "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -2156,7 +2144,7 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
- "unleash-types 0.5.1",
+ "unleash-types",
 ]
 
 [[package]]
