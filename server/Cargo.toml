@@ -9,6 +9,7 @@ repository = "https://github.com/Unleash/unleash-edge"
 homepage = "https://github.com/Unleash/unleash-edge"
 
 [dependencies]
+actix-cors = "0.6.4"
 actix-tls = { version = "3.0.3", features = ["rustls"] }
 actix-web = { version = "4.3.0", features = ["rustls"] }
 actix-web-opentelemetry = { version = "0.13.0", features = ["metrics", "metrics-prometheus"] }
