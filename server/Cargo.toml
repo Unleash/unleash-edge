@@ -2,16 +2,19 @@
 name = "unleash-edge"
 version = "0.0.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors = ["Christopher Kolstad <chriswk@getunleash.io>", "Simon Hornby <simon@getunleash.io>", "Nuno Gois <nuno@getunleash.io>", "Gaston Fournier <gaston@getunleash.io>"]
+license = "MIT"
+description = "Unleash edge is a proxy for Unleash. It can return both evaluated feature toggles as well as the raw data from Unleash's client API"
+repository = "https://github.com/Unleash/unleash-edge"
+homepage = "https://github.com/Unleash/unleash-edge"
 
 [dependencies]
 actix-tls = { version = "3.0.3", features = ["rustls"] }
-actix-web = { version = "4.2.1", features = ["rustls"] }
+actix-web = { version = "4.3.0", features = ["rustls"] }
 actix-web-opentelemetry = { version = "0.13.0", features = ["metrics", "metrics-prometheus"] }
 anyhow = "1.0.68"
 chrono = { version = "0.4.23", features = ["serde"] }
-clap = { version = "4.1.1", features = ["derive", "env"] }
+clap = { version = "4.1.3", features = ["derive", "env"] }
 dotenv = { version = "0.15.0", features = ["clap"] }
 opentelemetry = { version = "0.18.0", features = ["trace", "rt-tokio", "metrics"] }
 opentelemetry-prometheus = "0.11.0"
