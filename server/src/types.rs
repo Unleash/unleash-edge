@@ -86,7 +86,7 @@ impl TryFrom<HeaderValue> for EdgeToken {
         value
             .to_str()
             .map_err(|_| EdgeError::AuthorizationDenied)
-            .and_then(|t| EdgeToken::from_str(t))
+            .and_then(EdgeToken::from_str)
     }
 }
 
@@ -103,12 +103,7 @@ impl FromStr for EdgeToken {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.contains(':') && s.contains('.') {
-            let token_parts: Vec<String> = s
-                .clone()
-                .split(":")
-                .take(2)
-                .map(|s| s.to_string())
-                .collect();
+            let token_parts: Vec<String> = s.split(':').take(2).map(|s| s.to_string()).collect();
             let token_projects = if let Some(projects) = token_parts.get(0) {
                 if projects == "[]" {
                     vec![]
@@ -120,7 +115,7 @@ impl FromStr for EdgeToken {
             };
             if let Some(env_and_key) = token_parts.get(1) {
                 let e_a_k: Vec<String> = env_and_key
-                    .split(".")
+                    .split('.')
                     .take(2)
                     .map(|s| s.to_string())
                     .collect();
@@ -137,7 +132,7 @@ impl FromStr for EdgeToken {
                     alias: None,
                 })
             } else {
-                return Err(EdgeError::TokenParseError);
+                Err(EdgeError::TokenParseError)
             }
         } else {
             Ok(EdgeToken::no_project_or_environment(s))
@@ -160,7 +155,7 @@ pub trait FeaturesProvider {
 
 pub trait TokenProvider {
     fn get_known_tokens(&self) -> Vec<EdgeToken>;
-    fn secret_is_valid(&self, secret: &String) -> bool;
+    fn secret_is_valid(&self, secret: &str) -> bool;
     fn token_details(&self, secret: String) -> Option<EdgeToken>;
 }
 

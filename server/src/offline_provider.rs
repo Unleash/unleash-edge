@@ -22,8 +22,8 @@ impl TokenProvider for OfflineProvider {
         self.valid_tokens.clone()
     }
 
-    fn secret_is_valid(&self, secret: &String) -> bool {
-        self.valid_tokens.iter().any(|t| &t.secret == secret)
+    fn secret_is_valid(&self, secret: &str) -> bool {
+        self.valid_tokens.iter().any(|t| t.secret == secret)
     }
 
     fn token_details(&self, secret: String) -> Option<EdgeToken> {
@@ -58,9 +58,8 @@ impl OfflineProvider {
             features,
             valid_tokens: valid_tokens
                 .into_iter()
-                .map(|t| EdgeToken::try_from(t))
-                .filter(|t| t.is_ok())
-                .map(|t| t.unwrap())
+                .map(EdgeToken::try_from)
+                .filter_map(|t| t.ok())
                 .collect(),
         }
     }
