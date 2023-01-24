@@ -4,7 +4,7 @@ Unleash Edge is the successor to the Unleash Proxy.
 
 ## Running Unleash Edge
 
-Unleash edge is compiled to a single binary. We use clap to parse arguments/environment variables to configure Unleash Edge. All modes [See Concepts/Modes](#modes) share http configuration variables.
+Unleash edge is compiled to a single binary. We use Clap to parse arguments/environment variables to configure Unleash Edge. All modes [See Concepts/Modes](#modes) share http configuration variables.
 
 ```shell
 $ ./unleash-edge --help
@@ -27,7 +27,7 @@ Options:
 
 ### Modes
 
-We support running in various modes, from a [local version](#offline) to a full blown [edge mode](#edge) supporting dynamic keys, metrics
+We support running in various modes, from a [local version](#offline) to a full blown [edge mode](#edge) supporting dynamic keys, metrics.
 
 #### Offline
 
@@ -37,7 +37,7 @@ If your keys follow the Unleash API key format `[project]:[environment].<somesec
 
 If you'd rather use a simple key like `secret-123`, any query against `/api/client/features` will receive the dump passed in on the command line. 
 
-Any query against `/api/frontend` or `/api/proxy` with a valid key will receive only enabled  
+Any query against `/api/frontend` or `/api/proxy` with a valid key will receive only enabled  toggles.
 To launch in this mode, run
 
 ```bash
