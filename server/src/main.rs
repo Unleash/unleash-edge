@@ -23,11 +23,12 @@ mod types;
 async fn main() -> Result<(), anyhow::Error> {
     dotenv::dotenv().ok();
     let args = CliArgs::parse();
+    let http_args = args.clone().http;
     let (metrics_handler, request_metrics) = metrics::instantiate(None);
     let client_provider = match args.mode {
-        EdgeMode::Offline => OfflineProvider::instantiate_provider(
-            args.clone().bootstrap_file,
-            args.clone().client_keys,
+        EdgeMode::Offline(offline_args) => OfflineProvider::instantiate_provider(
+            offline_args.bootstrap_file,
+            offline_args.client_keys,
         ),
     }
     .map_err(anyhow::Error::new)?;
@@ -52,14 +53,14 @@ async fn main() -> Result<(), anyhow::Error> {
             )
             .service(web::scope("/edge").configure(edge_api::configure_edge_api))
     });
-    let server = if args.http.tls.tls_enable {
-        let config = tls::config(args.clone().http.tls)
+    let server = if http_args.tls.tls_enable {
+        let config = tls::config(http_args.clone().tls)
             .expect("Was expecting to succeed in configuring TLS");
         server
-            .bind_rustls(args.https_server_tuple(), config)?
-            .bind(args.http_server_tuple())
+            .bind_rustls(http_args.https_server_tuple(), config)?
+            .bind(http_args.http_server_tuple())
     } else {
-        server.bind(args.http_server_tuple())
+        server.bind(http_args.http_server_tuple())
     };
     server?
         .shutdown_timeout(5)

@@ -1,10 +1,18 @@
 use std::path::PathBuf;
 
-use clap::{Args, Parser};
+use clap::{Args, Parser, Subcommand};
 
-#[derive(clap::ValueEnum, Debug, Clone)]
+#[derive(Subcommand, Debug, Clone)]
 pub enum EdgeMode {
-    Offline,
+    Offline(OfflineArgs),
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct OfflineArgs {
+    #[clap(short, long, env)]
+    pub bootstrap_file: Option<PathBuf>,
+    #[clap(short, long, env)]
+    pub client_keys: Vec<String>,
 }
 
 #[derive(Parser, Debug, Clone)]
@@ -12,24 +20,8 @@ pub struct CliArgs {
     #[clap(flatten)]
     pub http: HttpServerArgs,
 
-    #[arg(value_enum)]
+    #[command(subcommand)]
     pub mode: EdgeMode,
-
-    #[clap(short, long, env)]
-    pub bootstrap_file: Option<PathBuf>,
-
-    #[clap(short, long, env)]
-    pub client_keys: Vec<String>,
-}
-
-impl CliArgs {
-    pub fn http_server_tuple(&self) -> (String, u16) {
-        (self.http.interface.clone(), self.http.port)
-    }
-
-    pub fn https_server_tuple(&self) -> (String, u16) {
-        (self.http.interface.clone(), self.http.tls.tls_server_port)
-    }
 }
 
 #[derive(Args, Debug, Clone)]
@@ -58,4 +50,14 @@ pub struct HttpServerArgs {
     pub interface: String,
     #[clap(flatten)]
     pub tls: TlsOptions,
+}
+
+impl HttpServerArgs {
+    pub fn http_server_tuple(&self) -> (String, u16) {
+        (self.interface.clone(), self.port)
+    }
+
+    pub fn https_server_tuple(&self) -> (String, u16) {
+        (self.interface.clone(), self.tls.tls_server_port)
+    }
 }
