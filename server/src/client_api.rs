@@ -5,10 +5,10 @@ use unleash_types::client_features::ClientFeatures;
 
 #[get("/client/features")]
 async fn features(
-    _edge_token: EdgeToken,
+    edge_token: EdgeToken,
     features_source: web::Data<dyn EdgeProvider>,
 ) -> EdgeJsonResult<ClientFeatures> {
-    let client_features = features_source.get_client_features();
+    let client_features = features_source.get_client_features(edge_token);
     Ok(Json(client_features))
 }
 
