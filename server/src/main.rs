@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use crate::cli::EdgeMode;
 use crate::offline_provider::OfflineProvider;
-use actix_web::{middleware, web, App, HttpServer};
+use actix_cors::Cors;
+use actix_web::{http, middleware, web, App, HttpServer};
 use actix_web_opentelemetry::RequestTracing;
 use clap::Parser;
 use cli::CliArgs;
@@ -35,8 +36,15 @@ async fn main() -> Result<(), anyhow::Error> {
     let server = HttpServer::new(move || {
         let client_provider_arc: Arc<dyn EdgeProvider> = Arc::new(client_provider.clone());
         let client_provider_data = web::Data::from(client_provider_arc);
+
+        let cors_middleware = Cors::default()
+            .allowed_origin("*")
+            .allowed_methods(vec!["GET", "POST"])
+            .allowed_headers(vec![http::header::AUTHORIZATION, http::header::ACCEPT])
+            .allowed_header(http::header::CONTENT_TYPE);
         App::new()
             .app_data(client_provider_data)
+            .wrap(cors_middleware)
             .wrap(RequestTracing::new())
             .wrap(request_metrics.clone())
             .wrap(middleware::Logger::default())
