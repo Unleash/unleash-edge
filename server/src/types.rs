@@ -150,7 +150,7 @@ pub struct ValidatedTokens {
 }
 
 pub trait FeaturesProvider {
-    fn get_client_features(&self) -> ClientFeatures;
+    fn get_client_features(&self, token: EdgeToken) -> ClientFeatures;
 }
 
 pub trait TokenProvider {
