@@ -38,7 +38,8 @@ async fn main() -> Result<(), anyhow::Error> {
         let client_provider_data = web::Data::from(client_provider_arc);
 
         let cors_middleware = Cors::default()
-            .allowed_origin("*")
+            .allow_any_origin()
+            .send_wildcard()
             .allowed_methods(vec!["GET", "POST"])
             .allowed_headers(vec![http::header::AUTHORIZATION, http::header::ACCEPT])
             .allowed_header(http::header::CONTENT_TYPE);
