@@ -1,5 +1,5 @@
 use actix_web::{
-    get,
+    get, post,
     web::{self, Json},
 };
 use unleash_types::{
@@ -26,7 +26,7 @@ async fn get_frontend_features(
     }))
 }
 
-#[actix_web::post("/proxy/all")]
+#[post("/proxy/all")]
 async fn post_frontend_features(
     edge_token: EdgeToken,
     features_source: web::Data<dyn EdgeProvider>,
@@ -99,9 +99,9 @@ mod tests {
 
     impl MockDataSource {
         fn with(self, features: ClientFeatures) -> Self {
-            return MockDataSource {
+            MockDataSource {
                 features: Some(features),
-            };
+            }
         }
     }
 
@@ -133,8 +133,7 @@ mod tests {
     impl Into<Data<dyn EdgeProvider>> for MockDataSource {
         fn into(self) -> Data<dyn EdgeProvider> {
             let client_provider_arc: Arc<dyn EdgeProvider> = Arc::new(self.clone());
-            let provider = Data::from(client_provider_arc);
-            provider
+            Data::from(client_provider_arc)
         }
     }
 
