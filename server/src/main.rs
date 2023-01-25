@@ -19,7 +19,6 @@ mod metrics;
 mod offline_provider;
 mod tls;
 mod types;
-mod unleash;
 
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {

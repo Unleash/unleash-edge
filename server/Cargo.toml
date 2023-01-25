@@ -14,7 +14,6 @@ actix-tls = { version = "3.0.3", features = ["rustls"] }
 actix-web = { version = "4.3.0", features = ["rustls"] }
 actix-web-opentelemetry = { version = "0.13.0", features = ["metrics", "metrics-prometheus"] }
 anyhow = "1.0.68"
-awc = { version = "3.1.0", features = ["rustls"] }
 chrono = { version = "0.4.23", features = ["serde"] }
 clap = { version = "4.1.4", features = ["derive", "env"] }
 dotenv = { version = "0.15.0", features = ["clap"] }
@@ -30,7 +29,6 @@ tokio = { version = "1.24.2", features = ["macros", "rt-multi-thread", "tracing"
 tracing = { version = "0.1.37", features = ["log"] }
 tracing-opentelemetry = "0.18.0"
 tracing-subscriber = { version = "0.3.16", features = ["json", "env-filter"] }
-ulid = "1.0.0"
 unleash-types = "0.5.1"
 unleash-yggdrasil = "0.4.0"
 

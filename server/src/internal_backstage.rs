@@ -41,7 +41,9 @@ pub fn configure_internal_backstage(
 
 #[cfg(test)]
 mod tests {
-    use actix_web::{http::header::ContentType, test, web, App};
+    use actix_web::{body::MessageBody, http::header::ContentType, test, web, App};
+
+    use crate::types::BuildInfo;
 
     #[actix_web::test]
     async fn test_health_ok() {
@@ -55,5 +57,22 @@ mod tests {
             .to_request();
         let resp = test::call_service(&app, req).await;
         assert!(resp.status().is_success())
+    }
+
+    #[actix_web::test]
+    async fn test_build_info_ok() {
+        let app = test::init_service(
+            App::new().service(web::scope("/internal-backstage").service(super::info)),
+        )
+        .await;
+        let req = test::TestRequest::get()
+            .uri("/internal-backstage/info")
+            .insert_header(ContentType::json())
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert!(resp.status().is_success());
+        let body = resp.into_body().try_into_bytes().unwrap();
+        let info: BuildInfo = serde_json::from_slice(&body).unwrap();
+        assert_eq!(info.app_name, "unleash-edge");
     }
 }

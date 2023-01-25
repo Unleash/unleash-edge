@@ -14,7 +14,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use shadow_rs::shadow;
 use tracing::warn;
-use ulid::Ulid;
 use unleash_types::client_features::ClientFeatures;
 
 pub type EdgeJsonResult<T> = Result<Json<T>, EdgeError>;
@@ -206,9 +205,6 @@ impl BuildInfo {
             build_os: build::BUILD_OS.into(),
             build_target: build::BUILD_TARGET.into(),
         }
-    }
-    pub fn instance_id(&self) -> String {
-        format!("{}", Ulid::new().to_string())
     }
 }
 
