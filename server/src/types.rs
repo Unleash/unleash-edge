@@ -6,7 +6,7 @@ use std::{
 use crate::error::EdgeError;
 use actix_web::{
     dev::Payload,
-    http::header::HeaderValue,
+    http::header::{EntityTag, HeaderValue},
     web::{Data, Json},
     FromRequest, HttpRequest,
 };
@@ -25,6 +25,21 @@ pub enum TokenType {
     Client,
     Admin,
 }
+
+pub struct ClientFeaturesRequest {
+    pub api_key: String,
+    pub etag: EntityTag,
+}
+
+impl ClientFeaturesRequest {
+    pub fn new(api_key: String, etag: String) -> Self {
+        Self {
+            api_key,
+            etag: EntityTag::new_weak(etag),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct EdgeToken {
