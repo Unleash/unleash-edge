@@ -83,30 +83,34 @@ mod tests {
     use actix_web::{
         http::header::ContentType,
         test,
-        web::{self, Bytes},
+        web::{self, Data},
         App,
     };
     use serde_json::json;
     use unleash_types::{
-        client_features::{ClientFeature, ClientFeatures, Variant},
+        client_features::{ClientFeature, ClientFeatures, Constraint, Operator, Strategy},
         frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult},
     };
 
-    #[derive(Clone)]
-    struct MockDataSource {}
+    #[derive(Clone, Default)]
+    struct MockDataSource {
+        features: Option<ClientFeatures>,
+    }
+
+    impl MockDataSource {
+        fn with(self, features: ClientFeatures) -> Self {
+            return MockDataSource {
+                features: Some(features),
+            };
+        }
+    }
 
     impl FeaturesProvider for MockDataSource {
         fn get_client_features(&self, _token: crate::types::EdgeToken) -> ClientFeatures {
-            return ClientFeatures {
-                version: 1,
-                features: vec![ClientFeature {
-                    name: "test".into(),
-                    enabled: true,
-                    ..ClientFeature::default()
-                }],
-                segments: None,
-                query: None,
-            };
+            self.features
+                .as_ref()
+                .expect("You need to populate the mock data for your test")
+                .clone()
         }
     }
 
@@ -126,19 +130,54 @@ mod tests {
 
     impl EdgeProvider for MockDataSource {}
 
+    impl Into<Data<dyn EdgeProvider>> for MockDataSource {
+        fn into(self) -> Data<dyn EdgeProvider> {
+            let client_provider_arc: Arc<dyn EdgeProvider> = Arc::new(self.clone());
+            let provider = Data::from(client_provider_arc);
+            provider
+        }
+    }
+
+    fn client_features_with_constraint_requiring_user_id_of_seven() -> ClientFeatures {
+        ClientFeatures {
+            version: 1,
+            features: vec![ClientFeature {
+                name: "test".into(),
+                enabled: true,
+                strategies: Some(vec![Strategy {
+                    name: "default".into(),
+                    sort_order: None,
+                    segments: None,
+                    constraints: Some(vec![Constraint {
+                        context_name: "userId".into(),
+                        operator: Operator::In,
+                        case_insensitive: false,
+                        inverted: false,
+                        values: Some(vec!["7".into()]),
+                        value: None,
+                    }]),
+                    parameters: None,
+                }]),
+                ..ClientFeature::default()
+            }],
+            segments: None,
+            query: None,
+        }
+    }
+
     #[actix_web::test]
     async fn calling_post_requests_resolves_context_values_correctly() {
-        env_logger::init();
-        let mock_data = MockDataSource {};
-        let client_provider_arc: Arc<dyn EdgeProvider> = Arc::new(mock_data.clone());
-        let client_provider_data = web::Data::from(client_provider_arc);
+        let client_provider: Data<dyn EdgeProvider> = MockDataSource::default()
+            .with(client_features_with_constraint_requiring_user_id_of_seven())
+            .into();
 
         let app = test::init_service(
             App::new()
-                .app_data(client_provider_data)
+                .app_data(client_provider)
                 .service(web::scope("/api").service(super::post_frontend_features)),
         )
         .await;
+
         let req = test::TestRequest::post()
             .uri("/api/proxy/all")
             .insert_header(ContentType::json())
@@ -146,7 +185,49 @@ mod tests {
                 "Authorization",
                 "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7",
             ))
-            .set_json(json!({}))
+            .set_json(json!({
+                "userId": "7"
+            }))
+            .to_request();
+
+        let result = test::call_and_read_body(&app, req).await;
+
+        let expected = FrontendResult {
+            toggles: vec![EvaluatedToggle {
+                name: "test".into(),
+                enabled: true,
+                variant: EvaluatedVariant {
+                    name: "disabled".into(),
+                    enabled: false,
+                    payload: None,
+                },
+                impression_data: false,
+            }],
+        };
+
+        assert_eq!(result, serde_json::to_vec(&expected).unwrap());
+    }
+
+    #[actix_web::test]
+    async fn calling_get_requests_resolves_context_values_correctly() {
+        let client_provider: Data<dyn EdgeProvider> = MockDataSource::default()
+            .with(client_features_with_constraint_requiring_user_id_of_seven())
+            .into();
+
+        let app = test::init_service(
+            App::new()
+                .app_data(client_provider)
+                .service(web::scope("/api").service(super::get_frontend_features)),
+        )
+        .await;
+
+        let req = test::TestRequest::get()
+            .uri("/api/proxy/all?userId=7")
+            .insert_header(ContentType::json())
+            .insert_header((
+                "Authorization",
+                "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7",
+            ))
             .to_request();
 
         let result = test::call_and_read_body(&app, req).await;
