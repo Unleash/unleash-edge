@@ -5,7 +5,7 @@ use actix_web::{
 use actix_web_opentelemetry::PrometheusMetricsHandler;
 use serde::Serialize;
 
-use crate::types::EdgeJsonResult;
+use crate::types::{BuildInfo, EdgeJsonResult};
 
 #[derive(Debug, Serialize)]
 pub struct EdgeStatus {
@@ -24,11 +24,18 @@ pub async fn health() -> EdgeJsonResult<EdgeStatus> {
     Ok(Json(EdgeStatus::ok()))
 }
 
+#[get("/info")]
+pub async fn info() -> EdgeJsonResult<BuildInfo> {
+    let data = BuildInfo::new();
+    Ok(Json(data))
+}
+
 pub fn configure_internal_backstage(
     cfg: &mut web::ServiceConfig,
     metrics_handler: PrometheusMetricsHandler,
 ) {
     cfg.service(health)
+        .service(info)
         .service(web::resource("/metrics").route(web::get().to(metrics_handler)));
 }
 
