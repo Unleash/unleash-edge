@@ -19,11 +19,9 @@ async fn get_frontend_features(
     let client_features = features_source.get_client_features(edge_token);
     let context = context.into_inner();
 
-    let evaluated_features = resolve_frontend_features(client_features, context);
+    let toggles = resolve_frontend_features(client_features, context).collect();
 
-    Ok(Json(FrontendResult {
-        toggles: evaluated_features,
-    }))
+    Ok(Json(FrontendResult { toggles }))
 }
 
 #[post("/proxy/all")]
@@ -35,40 +33,66 @@ async fn post_frontend_features(
     let client_features = features_source.get_client_features(edge_token);
     let context = context.into_inner();
 
-    let evaluated_features = resolve_frontend_features(client_features, context);
+    let toggles = resolve_frontend_features(client_features, context).collect();
 
-    Ok(Json(FrontendResult {
-        toggles: evaluated_features,
-    }))
+    Ok(Json(FrontendResult { toggles }))
+}
+
+#[get("/proxy")]
+async fn get_enabled_frontend_features(
+    edge_token: EdgeToken,
+    features_source: web::Data<dyn EdgeProvider>,
+    context: web::Query<Context>,
+) -> EdgeJsonResult<FrontendResult> {
+    let client_features = features_source.get_client_features(edge_token);
+    let context = context.into_inner();
+
+    let toggles: Vec<EvaluatedToggle> = resolve_frontend_features(client_features, context)
+        .filter(|toggle| toggle.enabled)
+        .collect();
+
+    Ok(Json(FrontendResult { toggles }))
+}
+
+#[post("/proxy")]
+async fn post_enabled_frontend_features(
+    edge_token: EdgeToken,
+    features_source: web::Data<dyn EdgeProvider>,
+    context: web::Query<Context>,
+) -> EdgeJsonResult<FrontendResult> {
+    let client_features = features_source.get_client_features(edge_token);
+    let context = context.into_inner();
+
+    let toggles: Vec<EvaluatedToggle> = resolve_frontend_features(client_features, context)
+        .filter(|toggle| toggle.enabled)
+        .collect();
+
+    Ok(Json(FrontendResult { toggles }))
 }
 
 fn resolve_frontend_features(
     client_features: ClientFeatures,
     context: Context,
-) -> Vec<EvaluatedToggle> {
+) -> impl Iterator<Item = EvaluatedToggle> {
     let mut engine = EngineState::default();
     engine.take_state(client_features.clone());
 
-    client_features
-        .features
-        .into_iter()
-        .map(|toggle| {
-            let variant = engine.get_variant(toggle.name.clone(), &context);
-            EvaluatedToggle {
-                name: toggle.name.clone(),
-                enabled: engine.is_enabled(toggle.name, &context),
-                variant: EvaluatedVariant {
-                    name: variant.name,
-                    enabled: variant.enabled,
-                    payload: variant.payload.map(|succ| Payload {
-                        payload_type: succ.payload_type,
-                        value: succ.value,
-                    }),
-                },
-                impression_data: false,
-            }
-        })
-        .collect()
+    client_features.features.into_iter().map(move |toggle| {
+        let variant = engine.get_variant(toggle.name.clone(), &context);
+        EvaluatedToggle {
+            name: toggle.name.clone(),
+            enabled: engine.is_enabled(toggle.name, &context),
+            variant: EvaluatedVariant {
+                name: variant.name,
+                enabled: variant.enabled,
+                payload: variant.payload.map(|succ| Payload {
+                    payload_type: succ.payload_type,
+                    value: succ.value,
+                }),
+            },
+            impression_data: false,
+        }
+    })
 }
 
 pub fn configure_frontend_api(cfg: &mut web::ServiceConfig) {
@@ -130,9 +154,9 @@ mod tests {
 
     impl EdgeProvider for MockDataSource {}
 
-    impl Into<Data<dyn EdgeProvider>> for MockDataSource {
-        fn into(self) -> Data<dyn EdgeProvider> {
-            let client_provider_arc: Arc<dyn EdgeProvider> = Arc::new(self.clone());
+    impl From<MockDataSource> for Data<dyn EdgeProvider> {
+        fn from(val: MockDataSource) -> Self {
+            let client_provider_arc: Arc<dyn EdgeProvider> = Arc::new(val);
             Data::from(client_provider_arc)
         }
     }
@@ -159,6 +183,29 @@ mod tests {
                 }]),
                 ..ClientFeature::default()
             }],
+            segments: None,
+            query: None,
+        }
+    }
+
+    fn client_features_with_constraint_one_enabled_toggle_and_one_disabled_toggle() -> ClientFeatures
+    {
+        ClientFeatures {
+            version: 1,
+            features: vec![
+                ClientFeature {
+                    name: "test".into(),
+                    enabled: true,
+                    strategies: None,
+                    ..ClientFeature::default()
+                },
+                ClientFeature {
+                    name: "test2".into(),
+                    enabled: false,
+                    strategies: None,
+                    ..ClientFeature::default()
+                },
+            ],
             segments: None,
             query: None,
         }
@@ -245,5 +292,32 @@ mod tests {
         };
 
         assert_eq!(result, serde_json::to_vec(&expected).unwrap());
+    }
+
+    #[actix_web::test]
+    async fn calling_get_requests_resolves_context_values_correctly_with_enabled_filter() {
+        let client_provider: Data<dyn EdgeProvider> = MockDataSource::default()
+            .with(client_features_with_constraint_one_enabled_toggle_and_one_disabled_toggle())
+            .into();
+
+        let app = test::init_service(
+            App::new()
+                .app_data(client_provider)
+                .service(web::scope("/api").service(super::get_enabled_frontend_features)),
+        )
+        .await;
+
+        let req = test::TestRequest::get()
+            .uri("/api/proxy?userId=7")
+            .insert_header(ContentType::json())
+            .insert_header((
+                "Authorization",
+                "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7",
+            ))
+            .to_request();
+
+        let result: FrontendResult = test::call_and_read_body_json(&app, req).await;
+
+        assert_eq!(result.toggles.len(), 1);
     }
 }
