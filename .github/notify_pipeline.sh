@@ -20,7 +20,7 @@ function generate_buildinfo() {
     "project": "unleash-edge",
     "trigger": {
       "type": "commit",
-      "source": "Unleash/unleash-operator-rs",
+      "source": "Unleash/unleash-edge",
       "commitIds": ["${self_git_sha}"]
     },
     "docker": {
