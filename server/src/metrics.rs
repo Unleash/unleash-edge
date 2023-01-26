@@ -6,6 +6,7 @@ use opentelemetry::{
         metrics::{controllers, processors, selectors},
     },
 };
+#[cfg(target_os = "linux")]
 use prometheus::process_collector::ProcessCollector;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::{EnvFilter, Registry};
@@ -33,7 +34,7 @@ fn instantiate_prometheus_metrics_handler(
 ) -> (PrometheusMetricsHandler, RequestMetrics) {
     let controller = controllers::basic(
         processors::factory(
-            selectors::simple::histogram([1.0, 2.0, 5.0, 10.0, 20.0, 50.0]), // Will give histogram for with resolution in n ms
+            selectors::simple::histogram([0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0]), // Will give histogram for with resolution in n ms
             aggregation::cumulative_temporality_selector(),
         )
         .with_memory(true),
@@ -52,11 +53,13 @@ fn instantiate_prometheus_metrics_handler(
 }
 
 fn instantiate_registry() -> prometheus::Registry {
-    let registry = prometheus::Registry::new();
-
     #[cfg(target_os = "linux")]
-    let process_collector = ProcessCollector::for_self();
-    let _register_result = registry.register(Box::new(process_collector));
-
-    registry
+    {
+        let registry = prometheus::Registry::new();
+        let process_collector = ProcessCollector::for_self();
+        let _register_result = registry.register(Box::new(process_collector));
+        registry
+    }
+    #[cfg(not(target_os = "linux"))]
+    prometheus::Registry::new()
 }
