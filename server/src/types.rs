@@ -6,7 +6,7 @@ use std::{
 use crate::error::EdgeError;
 use actix_web::{
     dev::Payload,
-    http::header::HeaderValue,
+    http::header::{EntityTag, HeaderValue},
     web::{Data, Json},
     FromRequest, HttpRequest,
 };
@@ -25,6 +25,28 @@ pub enum TokenType {
     Client,
     Admin,
 }
+
+#[derive(Debug, Clone)]
+pub struct ProviderState {
+    pub token: EdgeToken,
+    pub features: ClientFeatures,
+    pub hash: EntityTag,
+}
+
+impl ProviderState {
+    pub fn from_token_and_features(token: EdgeToken, features: ClientFeatures) -> Self {
+        ProviderState {
+            token,
+            features: features.clone(),
+            hash: EntityTag::new_weak(
+                features
+                    .xx3_hash()
+                    .expect("Could not convert content to bytes"),
+            ),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct EdgeToken {
@@ -152,13 +174,17 @@ pub trait FeaturesProvider {
     fn get_client_features(&self, token: EdgeToken) -> ClientFeatures;
 }
 
+pub trait StateProvider {
+    fn get_provider_state(&self, token: EdgeToken) -> Option<ProviderState>;
+}
+
 pub trait TokenProvider {
     fn get_known_tokens(&self) -> Vec<EdgeToken>;
     fn secret_is_valid(&self, secret: &str) -> bool;
     fn token_details(&self, secret: String) -> Option<EdgeToken>;
 }
 
-pub trait EdgeProvider: FeaturesProvider + TokenProvider {}
+pub trait EdgeProvider: FeaturesProvider + TokenProvider + StateProvider {}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BuildInfo {

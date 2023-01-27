@@ -684,6 +684,7 @@ dependencies = [
  "lock_api",
  "once_cell",
  "parking_lot_core",
+ "serde",
 ]
 
 [[package]]
@@ -1047,6 +1048,7 @@ checksum = "1885e79c1fc4b10f0e172c475f458b7f7b93061064d98c3293e98c5ba0c8b399"
 dependencies = [
  "autocfg",
  "hashbrown",
+ "serde",
 ]
 
 [[package]]
@@ -2235,6 +2237,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "clap 4.1.4",
+ "dashmap",
  "dotenv",
  "env_logger",
  "opentelemetry",
@@ -2250,7 +2253,7 @@ dependencies = [
  "tracing",
  "tracing-opentelemetry",
  "tracing-subscriber",
- "unleash-types",
+ "unleash-types 0.7.0",
  "unleash-yggdrasil",
 ]
 
@@ -2264,6 +2267,21 @@ dependencies = [
  "derive_builder",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "unleash-types"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ff1a05ee1d0f25bc011b86a232855cca981e1a1bf0839f9e9e1a1299f0bdbcc"
+dependencies = [
+ "base64",
+ "chrono",
+ "derive_builder",
+ "serde",
+ "serde_json",
+ "utoipa",
+ "xxhash-rust",
 ]
 
 [[package]]
@@ -2283,7 +2301,7 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
- "unleash-types",
+ "unleash-types 0.5.1",
 ]
 
 [[package]]
@@ -2301,6 +2319,30 @@ dependencies = [
  "form_urlencoded",
  "idna",
  "percent-encoding",
+]
+
+[[package]]
+name = "utoipa"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3aa64500a27ca10b80b00a6b96613734f0ff59aea87ccd4e10153da8ad11ddee"
+dependencies = [
+ "indexmap",
+ "serde",
+ "serde_json",
+ "utoipa-gen",
+]
+
+[[package]]
+name = "utoipa-gen"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f02ddae6d8c5e5cf920f8010dfd5bed9183f856899b0cf2d87b1bfbb012d32ad"
+dependencies = [
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -2509,6 +2551,12 @@ name = "windows_x86_64_msvc"
 version = "0.42.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "447660ad36a13288b1db4d4248e857b510e8c3a225c822ba4fb748c0aafecffd"
+
+[[package]]
+name = "xxhash-rust"
+version = "0.8.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "735a71d46c4d68d71d4b24d03fdc2b98e38cea81730595801db779c04fe80d70"
 
 [[package]]
 name = "zstd"

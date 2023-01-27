@@ -1,5 +1,8 @@
 use crate::error::EdgeError;
-use crate::types::{EdgeProvider, EdgeToken, FeaturesProvider, TokenProvider};
+use crate::types::{
+    self, EdgeProvider, EdgeToken, FeaturesProvider, ProviderState, StateProvider, TokenProvider,
+};
+use actix_web::http::header::EntityTag;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
@@ -8,6 +11,7 @@ use unleash_types::client_features::ClientFeatures;
 #[derive(Debug, Clone)]
 pub struct OfflineProvider {
     pub features: ClientFeatures,
+    pub features_hash: EntityTag,
     pub valid_tokens: Vec<EdgeToken>,
 }
 
@@ -34,7 +38,26 @@ impl TokenProvider for OfflineProvider {
     }
 }
 
+impl StateProvider for OfflineProvider {
+    fn get_provider_state(&self, token: EdgeToken) -> Option<ProviderState> {
+        match self.valid_tokens.contains(&token) {
+            true => Some(ProviderState {
+                features: self.features.clone(),
+                token,
+                hash: self.features_hash.clone(),
+            }),
+            false => None,
+        }
+    }
+}
+
 impl EdgeProvider for OfflineProvider {}
+
+pub fn read_file(path: PathBuf) -> Result<BufReader<File>, EdgeError> {
+    File::open(path)
+        .map_err(|_| EdgeError::NoFeaturesFile)
+        .map(BufReader::new)
+}
 
 impl OfflineProvider {
     pub fn instantiate_provider(
@@ -42,8 +65,7 @@ impl OfflineProvider {
         valid_tokens: Vec<String>,
     ) -> Result<OfflineProvider, EdgeError> {
         if let Some(bootstrap) = bootstrap_file {
-            let file = File::open(bootstrap.clone()).map_err(|_| EdgeError::NoFeaturesFile)?;
-            let reader = BufReader::new(file);
+            let reader = read_file(bootstrap.clone())?;
             let client_features: ClientFeatures = serde_json::from_reader(reader).map_err(|e| {
                 let path = format!("{}", bootstrap.clone().display());
                 EdgeError::InvalidBackupFile(path, e.to_string())
@@ -53,14 +75,52 @@ impl OfflineProvider {
             Err(EdgeError::NoFeaturesFile)
         }
     }
-    pub fn new(features: ClientFeatures, valid_tokens: Vec<String>) -> Self {
+
+    pub fn new(client_features: ClientFeatures, valid_tokens: Vec<String>) -> Self {
+        let hash = types::calculate_hash(client_features.clone());
+        let second_hash = types::calculate_hash(client_features.clone());
+        assert_eq!(hash, second_hash);
         OfflineProvider {
-            features,
+            features: client_features,
+            features_hash: EntityTag::new_weak(hash),
             valid_tokens: valid_tokens
                 .into_iter()
                 .map(EdgeToken::try_from)
                 .filter_map(|t| t.ok())
                 .collect(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use actix_web::http::header::EntityTag;
+    use test_case::test_case;
+    use unleash_types::client_features::ClientFeatures;
+
+    use super::{read_file, OfflineProvider};
+
+    #[test_case("../examples/features.json".into(), "secret-123".into(), "XnJNYQuTw_PL91C1wkR58A".into() ; "Example features file and one key")]
+    #[test_case("../examples/features2.json".into(), "secret-123,proxy-123".into(), "YbqhuJGV7mHeO1hVhzYNKg".into() ; "Different features file and two keys")]
+    pub fn can_build_provider(path: PathBuf, keys: String, expected_hash: String) {
+        let e_tag = EntityTag::new_weak(expected_hash);
+        let k: Vec<String> = keys.split(',').map(|s| s.into()).collect();
+        let provider = OfflineProvider::instantiate_provider(Some(path), k).unwrap();
+        assert_eq!(provider.features_hash, e_tag);
+    }
+
+    #[test_case("../examples/features.json".into())]
+    #[test_case("../examples/features2.json".into())]
+    pub fn can_read_file_and_serde_is_idempotent(path: PathBuf) {
+        let file_reader = read_file(path).unwrap();
+        let client_features: ClientFeatures =
+            serde_json::from_reader(file_reader).expect("Could not read json");
+        let to_string = serde_json::to_string(&client_features).unwrap();
+        let resered: String = serde_json::from_str::<ClientFeatures>(to_string.as_str())
+            .and_then(|client_features| serde_json::to_string(&client_features))
+            .expect("features");
+        assert_eq!(to_string, resered);
     }
 }

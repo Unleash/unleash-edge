@@ -103,7 +103,7 @@ pub fn configure_frontend_api(cfg: &mut web::ServiceConfig) {
 mod tests {
     use std::sync::Arc;
 
-    use crate::types::{EdgeProvider, FeaturesProvider, TokenProvider};
+    use crate::types::{EdgeProvider, FeaturesProvider, StateProvider, TokenProvider};
     use actix_web::{
         http::header::ContentType,
         test,
@@ -148,6 +148,15 @@ mod tests {
         }
 
         fn token_details(&self, _secret: String) -> Option<crate::types::EdgeToken> {
+            todo!()
+        }
+    }
+
+    impl StateProvider for MockDataSource {
+        fn get_provider_state(
+            &self,
+            token: crate::types::EdgeToken,
+        ) -> Option<crate::types::ProviderState> {
             todo!()
         }
     }
