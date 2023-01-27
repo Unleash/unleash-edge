@@ -1,5 +1,4 @@
-FROM alpine:3.17
+FROM scratch
 
-WORKDIR /app
-COPY target/aarch64-unknown-linux-musl/release/unleash-edge /app/
-ENTRYPOINT ["/app/unleash-edge"]
+COPY target/aarch64-unknown-linux-musl/release/unleash-edge /unleash-edge
+ENTRYPOINT ["/unleash-edge"]
