@@ -11,7 +11,7 @@ pub enum EdgeMode {
 pub struct OfflineArgs {
     #[clap(short, long, env)]
     pub bootstrap_file: Option<PathBuf>,
-    #[clap(short, long, env)]
+    #[clap(short, long, env, value_delimiter = ',')]
     pub client_keys: Vec<String>,
 }
 

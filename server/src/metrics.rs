@@ -5,9 +5,11 @@ use opentelemetry::{
         export::metrics::aggregation,
         metrics::{controllers, processors, selectors},
     },
+    trace::FutureExt,
 };
 #[cfg(target_os = "linux")]
 use prometheus::process_collector::ProcessCollector;
+use tracing::instrument::WithSubscriber;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::{EnvFilter, Registry};
 
@@ -39,6 +41,11 @@ fn instantiate_prometheus_metrics_handler(
         )
         .with_memory(true),
     )
+    .with_resource(opentelemetry::sdk::Resource::new(vec![
+        opentelemetry::KeyValue::new("service.name", "unleash-edge"),
+        opentelemetry::KeyValue::new("edge.version", crate::types::build::PKG_VERSION),
+        opentelemetry::KeyValue::new("edge.githash", crate::types::build::SHORT_COMMIT),
+    ]))
     .build();
 
     let exporter = opentelemetry_prometheus::exporter(controller)
