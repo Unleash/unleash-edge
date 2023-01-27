@@ -10,9 +10,11 @@ homepage = "https://github.com/Unleash/unleash-edge"
 
 [dependencies]
 actix-cors = "0.6.4"
+actix-middleware-etag = "0.1.1"
 actix-tls = { version = "3.0.3", features = ["rustls"] }
 actix-web = { version = "4.3.0", features = ["rustls"] }
 actix-web-opentelemetry = { version = "0.13.0", features = ["metrics", "metrics-prometheus"] }
+
 anyhow = "1.0.68"
 chrono = { version = "0.4.23", features = ["serde"] }
 clap = { version = "4.1.4", features = ["derive", "env"] }

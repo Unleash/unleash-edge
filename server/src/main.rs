@@ -3,6 +3,7 @@ use std::sync::Arc;
 use crate::cli::EdgeMode;
 use crate::offline_provider::OfflineProvider;
 use actix_cors::Cors;
+use actix_middleware_etag::Etag;
 use actix_web::{http, middleware, web, App, HttpServer};
 use actix_web_opentelemetry::RequestTracing;
 use clap::Parser;
@@ -45,6 +46,7 @@ async fn main() -> Result<(), anyhow::Error> {
             .allowed_header(http::header::CONTENT_TYPE);
         App::new()
             .app_data(client_provider_data)
+            .wrap(Etag::default())
             .wrap(cors_middleware)
             .wrap(RequestTracing::new())
             .wrap(request_metrics.clone())
