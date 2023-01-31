@@ -1,13 +1,16 @@
 # Unleash Edge
 
-Unleash Edge is the successor to the Unleash Proxy.
+Unleash Edge is the successor to the [Unleash Proxy](https://docs.getunleash.io/how-to/how-to-run-the-unleash-proxy).
 
 ## Running Unleash Edge
 
-Unleash edge is compiled to a single binary. We use Clap to parse arguments/environment variables to configure Unleash Edge. All modes [See Concepts/Modes](#modes) share http configuration variables.
+Unleash Edge is compiled to a single binary. You can configure it by passing in arguments or setting environment variables.
 
 ```shell
 $ ./unleash-edge --help
+Commands:
+  offline  Run in offline mode
+  edge     Run in edge mode
 Options:
   -p, --port <PORT>
           Which port should this server listen for HTTP traffic on [env: PORT=] [default: 3063]
@@ -23,11 +26,13 @@ Options:
           Port to listen for https connection on (will use the interfaces already defined) [env: TLS_SERVER_PORT=] [default: 3043]
 ```
 
+All supported [modes](#modes) share common configuration variables.
+
 ## Concepts
 
 ### Modes
 
-We support running in various modes, from a [local version](#offline) to a full blown [edge mode](#edge) supporting dynamic keys, metrics.
+Edge supports various modes, from a local [offline](#offline) mode to a full blown [edge](#edge) mode supporting dynamic keys, metrics and other advanced features.
 
 #### Offline
 
@@ -37,7 +42,7 @@ If your keys follow the Unleash API key format `[project]:[environment].<somesec
 
 If you'd rather use a simple key like `secret-123`, any query against `/api/client/features` will receive the dump passed in on the command line.
 
-Any query against `/api/frontend` or `/api/proxy` with a valid key will receive only enabled  toggles.
+Any query against `/api/frontend` or `/api/proxy` with a valid key will receive only enabled toggles.
 To launch in this mode, run
 
 ```bash
@@ -49,12 +54,15 @@ Options:
   -c, --client-keys <CLIENT_KEYS>        [env: CLIENT_KEYS=]
 
 ```
+
 #### Proxy
+
 TODO: Document proxy mode
 
-
 #### Edge
+
 TODO: Document edge mode
 
 ## Development
+
 See our [Contributors guide](./CONTRIBUTING.md) as well as our [development-guide](./development-guide.md)
