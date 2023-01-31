@@ -2295,7 +2295,7 @@ dependencies = [
  "tracing",
  "tracing-opentelemetry",
  "tracing-subscriber",
- "unleash-types",
+ "unleash-types 0.5.1",
  "unleash-yggdrasil",
 ]
 
@@ -2312,10 +2312,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "unleash-yggdrasil"
-version = "0.4.0"
+name = "unleash-types"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d88efbc43355e9b702eac6119201ff853a780fb3f1518c7ad94830a413544bb"
+checksum = "9ff1a05ee1d0f25bc011b86a232855cca981e1a1bf0839f9e9e1a1299f0bdbcc"
+dependencies = [
+ "chrono",
+ "derive_builder",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "unleash-yggdrasil"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47940364b4cf67b37049458dfece5b87fb9b542aa8d672e91e7626ab34331e81"
 dependencies = [
  "chrono",
  "convert_case 0.6.0",
@@ -2328,7 +2340,7 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
- "unleash-types",
+ "unleash-types 0.7.0",
 ]
 
 [[package]]
