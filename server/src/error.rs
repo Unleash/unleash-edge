@@ -11,6 +11,8 @@ pub enum EdgeError {
     NoTokenProvider,
     TokenParseError,
     TlsError,
+    DataSourceError(String),
+    JsonParseError(String),
 }
 
 impl Error for EdgeError {}
@@ -20,14 +22,15 @@ impl Display for EdgeError {
         match self {
             EdgeError::InvalidBackupFile(path, why_invalid) => write!(
                 f,
-                "file at path: {} was invalid due to {}",
-                path, why_invalid
+                "file at path: {path} was invalid due to {why_invalid}"
             ),
             EdgeError::TlsError => write!(f, "Could not configure TLS"),
             EdgeError::NoFeaturesFile => write!(f, "No features file located"),
             EdgeError::AuthorizationDenied => write!(f, "Not allowed to access"),
             EdgeError::NoTokenProvider => write!(f, "Could not get a TokenProvider"),
             EdgeError::TokenParseError => write!(f, "Could not parse edge token"),
+            EdgeError::DataSourceError(msg) => write!(f, "{msg}"),
+            EdgeError::JsonParseError(msg) => write!(f, "{msg}"),
         }
     }
 }
@@ -41,11 +44,19 @@ impl ResponseError for EdgeError {
             EdgeError::AuthorizationDenied => StatusCode::FORBIDDEN,
             EdgeError::NoTokenProvider => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::TokenParseError => StatusCode::UNAUTHORIZED,
+            EdgeError::DataSourceError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            EdgeError::JsonParseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 
     fn error_response(&self) -> actix_web::HttpResponse<actix_web::body::BoxBody> {
         HttpResponseBuilder::new(self.status_code()).finish()
+    }
+}
+
+impl From<serde_json::Error> for EdgeError {
+    fn from(value: serde_json::Error) -> Self {
+        EdgeError::JsonParseError(value.to_string())
     }
 }
 

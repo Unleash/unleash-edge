@@ -26,7 +26,7 @@ pub async fn health() -> EdgeJsonResult<EdgeStatus> {
 
 #[get("/info")]
 pub async fn info() -> EdgeJsonResult<BuildInfo> {
-    let data = BuildInfo::new();
+    let data = BuildInfo::default();
     Ok(Json(data))
 }
 

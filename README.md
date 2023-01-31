@@ -33,9 +33,9 @@ We support running in various modes, from a [local version](#offline) to a full 
 
 You have a need to have full control of both the data your clients will get and which keys can be used to access the server. This mode needs a downloaded JSON dump of a result from a query against an Unleash server on the [/api/client/features](https://docs.getunleash.io/reference/api/unleash/get-client-feature) endpoint as well as a comma-separated list of keys that should be allowed to access the server.
 
-If your keys follow the Unleash API key format `[project]:[environment].<somesecret>`, Edge will filter the features dump to match the project contained in the key. 
+If your keys follow the Unleash API key format `[project]:[environment].<somesecret>`, Edge will filter the features dump to match the project contained in the key.
 
-If you'd rather use a simple key like `secret-123`, any query against `/api/client/features` will receive the dump passed in on the command line. 
+If you'd rather use a simple key like `secret-123`, any query against `/api/client/features` will receive the dump passed in on the command line.
 
 Any query against `/api/frontend` or `/api/proxy` with a valid key will receive only enabled  toggles.
 To launch in this mode, run
