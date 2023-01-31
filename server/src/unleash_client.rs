@@ -1,12 +1,9 @@
 use std::str::FromStr;
 use std::time::Duration;
 
-use actix_web::{
-    http::{
-        header::{ContentType, EntityTag, IfNoneMatch},
-        StatusCode,
-    },
-    Either,
+use actix_web::http::{
+    header::{ContentType, EntityTag, IfNoneMatch},
+    StatusCode,
 };
 use awc::{Client, ClientRequest};
 use ulid::Ulid;
@@ -63,7 +60,7 @@ impl UnleashClient {
     }
 
     fn awc_client_features_req(&self, req: ClientFeaturesRequest) -> ClientRequest {
-        let mut client_req = self
+        let client_req = self
             .backing_client
             .get(self.urls.client_features_url.to_string())
             .insert_header(("Authorization", req.api_key));
@@ -99,7 +96,7 @@ impl UnleashClient {
                     .headers()
                     .get("ETag")
                     .map(|tag| tag.to_str().unwrap())
-                    .map(|tag_str| EntityTag::new_weak(tag_str.to_string())),
+                    .map(|tag_str| EntityTag::from_str(tag_str).unwrap()),
             })
         }
     }
@@ -126,11 +123,6 @@ async fn client_can_get_features() {
 
 #[test]
 pub fn can_parse_entity_tag() {
-    // let etag = EntityTag::new_weak("W/\"b5e6-DPC/1RShRw1J/jtxvRtTo1jf4+o\"".into());
-    let another_one = EntityTag::new_weak("W/\"8085S7fGmgFKhF0c3IXsu5BwlFoMcM\"".into());
-    // assert!(etag.weak);
-    assert!(another_one.weak);
+    let etag = EntityTag::from_str("W/\"b5e6-DPC/1RShRw1J/jtxvRtTo1jf4+o\"".into()).unwrap();
+    assert!(etag.weak);
 }
-
-// #[actix_web::test]
-// async fn client_
