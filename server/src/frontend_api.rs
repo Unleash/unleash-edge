@@ -103,7 +103,7 @@ pub fn configure_frontend_api(cfg: &mut web::ServiceConfig) {
 mod tests {
     use std::sync::Arc;
 
-    use crate::types::{EdgeProvider, EdgeResult, FeaturesProvider, TokenProvider, EdgeToken};
+    use crate::types::{EdgeProvider, EdgeResult, EdgeToken, FeaturesProvider, TokenProvider};
     use actix_web::{
         http::header::ContentType,
         test,

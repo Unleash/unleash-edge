@@ -1,4 +1,4 @@
-use std::{sync::RwLock};
+use std::sync::RwLock;
 
 use redis::{Client, Commands, RedisError};
 use unleash_types::client_features::ClientFeatures;
@@ -8,7 +8,7 @@ pub const TOKENS_KEY: &str = "tokens";
 
 use crate::{
     error::EdgeError,
-    types::{EdgeResult, EdgeToken, FeaturesProvider, TokenProvider, EdgeProvider},
+    types::{EdgeProvider, EdgeResult, EdgeToken, FeaturesProvider, TokenProvider},
 };
 
 pub struct RedisProvider {
