@@ -5,11 +5,9 @@ use opentelemetry::{
         export::metrics::aggregation,
         metrics::{controllers, processors, selectors},
     },
-    trace::FutureExt,
 };
 #[cfg(target_os = "linux")]
 use prometheus::process_collector::ProcessCollector;
-use tracing::instrument::WithSubscriber;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::{EnvFilter, Registry};
 

@@ -1,6 +1,6 @@
 ### Tools
 * Install Rust using [rustup](https://rustup.rs)
-* Copy the pre-commit hook in the hooks folder into .git/hooks/pre-commit 
+* Copy the pre-commit hook in the hooks folder into .git/hooks/pre-commit
 
 ```shell
 cp hooks/* .git/hooks/
@@ -19,3 +19,8 @@ cp hooks/* .git/hooks/
 ### Common commands
 
  - `cargo add ...` - Add a dependency to the Cargo.toml file
+
+
+### Testing
+
+By default `cargo test` will run all the tests. If you want to exclude the expensive integration tests you can instead run `cargo test --bin unleash-edge`.

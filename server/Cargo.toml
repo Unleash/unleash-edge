@@ -22,6 +22,7 @@ dotenv = { version = "0.15.0", features = ["clap"] }
 opentelemetry = { version = "0.18.0", features = ["trace", "rt-tokio", "metrics"] }
 opentelemetry-prometheus = "0.11.0"
 prometheus = { version = "0.13.3", features = ["process"] }
+redis = "0.22.3"
 rustls = "0.20.8"
 rustls-pemfile = "1.0.2"
 serde = { version = "1.0.152", features = ["derive"] }
@@ -31,12 +32,13 @@ tokio = { version = "1.25.0", features = ["macros", "rt-multi-thread", "tracing"
 tracing = { version = "0.1.37", features = ["log"] }
 tracing-opentelemetry = "0.18.0"
 tracing-subscriber = { version = "0.3.16", features = ["json", "env-filter"] }
-unleash-types = "0.5.1"
-unleash-yggdrasil = "0.4.0"
+unleash-types = { version = "0.7.0", features = ["openapi", "hashes"] }
+unleash-yggdrasil = "0.4.2"
 
 [dev-dependencies]
 env_logger = "0.10.0"
 test-case = "2.2.2"
+testcontainers = "0.14.0"
 
 [build-dependencies]
 shadow-rs = "0.20.0"

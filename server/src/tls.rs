@@ -3,7 +3,8 @@ use std::{fs::File, io::BufReader};
 use rustls::{Certificate, PrivateKey, ServerConfig};
 use rustls_pemfile::{certs, pkcs8_private_keys};
 
-use crate::{cli::TlsOptions, error::EdgeError};
+use crate::{cli::TlsOptions};
+use unleash_edge::error::EdgeError;
 
 pub(crate) fn config(tls_config: TlsOptions) -> Result<ServerConfig, EdgeError> {
     let config = ServerConfig::builder()
