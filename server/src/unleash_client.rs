@@ -16,7 +16,10 @@ use unleash_types::{
 };
 use url::Url;
 
-use crate::types::EdgeResult;
+use crate::types::{
+    ClientFeaturesResponse, EdgeResult, RegisterClientApplicationRequest,
+    RegisterClientMetricsRequest,
+};
 use crate::urls::UnleashUrls;
 use crate::{error::EdgeError, types::ClientFeaturesRequest};
 
@@ -59,37 +62,75 @@ impl UnleashClient {
         })
     }
 
-    async fn register_app(&self, app: ClientApplication) -> Result<(), EdgeError> {
-        todo!()
-    }
-    async fn post_metrics(&self, metrics: ClientMetrics) -> Result<(), EdgeError> {
-        todo!()
-    }
-
     fn awc_client_features_req(&self, req: ClientFeaturesRequest) -> ClientRequest {
-        self.backing_client
+        let mut client_req = self
+            .backing_client
             .get(self.urls.client_features_url.to_string())
-            .insert_header(IfNoneMatch::Items(vec![req.etag]))
-            .insert_header(("Authorization", req.api_key))
+            .insert_header(("Authorization", req.api_key));
+        if let Some(tag) = req.etag {
+            client_req.insert_header(IfNoneMatch::Items(vec![tag]))
+        } else {
+            client_req
+        }
     }
 
     pub async fn get_client_features(
         &self,
         request: ClientFeaturesRequest,
-    ) -> EdgeResult<Either<(), ClientFeatures>> {
+    ) -> EdgeResult<ClientFeaturesResponse> {
         let mut result = self
-            .awc_client_features_req(request)
+            .awc_client_features_req(request.clone())
             .send()
             .await
             .map_err(|_| EdgeError::ClientFeaturesFetchError)?;
         if result.status() == StatusCode::NOT_MODIFIED {
-            Ok(Either::Left(()))
+            Ok(ClientFeaturesResponse {
+                features: None,
+                etag: request.etag,
+            })
         } else {
-            result
-                .json::<ClientFeatures>()
-                .await
-                .map(Either::Right)
-                .map_err(|payload_error| EdgeError::ClientFeaturesParseError(payload_error))
+            Ok(ClientFeaturesResponse {
+                features: result
+                    .json::<ClientFeatures>()
+                    .await
+                    .map(Some)
+                    .map_err(|payload_error| EdgeError::ClientFeaturesParseError(payload_error))?,
+                etag: result
+                    .headers()
+                    .get("ETag")
+                    .map(|tag| tag.to_str().unwrap())
+                    .map(|tag_str| EntityTag::new_weak(tag_str.to_string())),
+            })
         }
     }
 }
+
+#[cfg(test)]
+#[actix_web::test]
+async fn client_can_get_features() {
+    let api_key = "*:development.a113e11e04133c367f5fa7c731f9293c492322cf9d6060812cfe3fea";
+    let client = UnleashClient::new("https://app.unleash-hosted.com/demo", None).unwrap();
+    let client_features_result = client
+        .get_client_features(ClientFeaturesRequest::new(api_key.to_string(), None))
+        .await;
+    assert!(client_features_result.is_ok());
+    let client_features_response = client_features_result.unwrap();
+    assert!(client_features_response.features.is_some());
+    assert!(!client_features_response
+        .features
+        .unwrap()
+        .features
+        .is_empty());
+    assert!(client_features_response.etag.is_some());
+}
+
+#[test]
+pub fn can_parse_entity_tag() {
+    // let etag = EntityTag::new_weak("W/\"b5e6-DPC/1RShRw1J/jtxvRtTo1jf4+o\"".into());
+    let another_one = EntityTag::new_weak("W/\"8085S7fGmgFKhF0c3IXsu5BwlFoMcM\"".into());
+    // assert!(etag.weak);
+    assert!(another_one.weak);
+}
+
+// #[actix_web::test]
+// async fn client_
