@@ -22,16 +22,15 @@ impl Display for EdgeError {
         match self {
             EdgeError::InvalidBackupFile(path, why_invalid) => write!(
                 f,
-                "file at path: {} was invalid due to {}",
-                path, why_invalid
+                "file at path: {path} was invalid due to {why_invalid}"
             ),
             EdgeError::TlsError => write!(f, "Could not configure TLS"),
             EdgeError::NoFeaturesFile => write!(f, "No features file located"),
             EdgeError::AuthorizationDenied => write!(f, "Not allowed to access"),
             EdgeError::NoTokenProvider => write!(f, "Could not get a TokenProvider"),
             EdgeError::TokenParseError => write!(f, "Could not parse edge token"),
-            EdgeError::DataSourceError(msg) => write!(f, "{}", msg),
-            EdgeError::JsonParseError(msg) => write!(f, "{}", msg),
+            EdgeError::DataSourceError(msg) => write!(f, "{msg}"),
+            EdgeError::JsonParseError(msg) => write!(f, "{msg}"),
         }
     }
 }

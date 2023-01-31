@@ -180,8 +180,8 @@ pub struct BuildInfo {
 }
 
 shadow!(build); // Get build information set to build placeholder
-impl BuildInfo {
-    pub fn new() -> Self {
+impl Default for BuildInfo {
+    fn default() -> Self {
         BuildInfo {
             package_version: build::PKG_VERSION.into(),
             app_name: build::PROJECT_NAME.into(),

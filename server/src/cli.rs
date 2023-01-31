@@ -13,15 +13,15 @@ pub enum EdgeArg {
     Dynamo(String),
 }
 
-impl Into<EdgeArg> for EdgeArgs {
-    fn into(self) -> EdgeArg {
-        if let Some(redis_url) = self.redis_url {
+impl From<EdgeArgs> for EdgeArg {
+    fn from(value: EdgeArgs) -> Self {
+        if let Some(redis_url) = value.redis_url {
             return EdgeArg::Redis(redis_url);
         };
-        if let Some(dynamo_url) = self.dynamo_url {
+        if let Some(dynamo_url) = value.dynamo_url {
             return EdgeArg::Dynamo(dynamo_url);
         }
-        panic!("Unknown argument for edge type");
+        panic!("Unknown argument for edge type"); //This shouldn't be reachable without programmer error, that's what it's for
     }
 }
 

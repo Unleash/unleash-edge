@@ -1,4 +1,4 @@
-use std::{cell::RefCell, sync::RwLock};
+use std::{sync::RwLock};
 
 use redis::{Client, Commands, RedisError};
 use unleash_types::client_features::ClientFeatures;
@@ -17,7 +17,7 @@ pub struct RedisProvider {
 
 impl From<RedisError> for EdgeError {
     fn from(err: RedisError) -> Self {
-        EdgeError::DataSourceError(format!("Error connecting to Redis: {}", err.to_string()))
+        EdgeError::DataSourceError(format!("Error connecting to Redis: {err}"))
     }
 }
 
