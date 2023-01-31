@@ -1091,6 +1091,7 @@ checksum = "1885e79c1fc4b10f0e172c475f458b7f7b93061064d98c3293e98c5ba0c8b399"
 dependencies = [
  "autocfg",
  "hashbrown",
+ "serde",
 ]
 
 [[package]]
@@ -2301,21 +2302,24 @@ dependencies = [
 
 [[package]]
 name = "unleash-types"
-version = "0.5.1"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f43013ceb8e2fd53372794655f96f6f7974081c4ac9c0bf5393f25b460472ec9"
+checksum = "9ff1a05ee1d0f25bc011b86a232855cca981e1a1bf0839f9e9e1a1299f0bdbcc"
 dependencies = [
+ "base64 0.21.0",
  "chrono",
  "derive_builder",
  "serde",
  "serde_json",
+ "utoipa",
+ "xxhash-rust",
 ]
 
 [[package]]
 name = "unleash-yggdrasil"
-version = "0.4.0"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d88efbc43355e9b702eac6119201ff853a780fb3f1518c7ad94830a413544bb"
+checksum = "47940364b4cf67b37049458dfece5b87fb9b542aa8d672e91e7626ab34331e81"
 dependencies = [
  "chrono",
  "convert_case 0.6.0",
@@ -2346,6 +2350,30 @@ dependencies = [
  "form_urlencoded",
  "idna",
  "percent-encoding",
+]
+
+[[package]]
+name = "utoipa"
+version = "3.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3920fa753064b1be7842bea26175ffa0dfc4a8f30bcb52b8ff03fddf8889914c"
+dependencies = [
+ "indexmap",
+ "serde",
+ "serde_json",
+ "utoipa-gen",
+]
+
+[[package]]
+name = "utoipa-gen"
+version = "3.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "720298fac6efca20df9e457e67a1eab41a20d1c3101380b5c4dca1ca60ae0062"
+dependencies = [
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
