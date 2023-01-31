@@ -15,8 +15,7 @@ async fn validate(
         .into_inner()
         .tokens
         .into_iter()
-        .filter(|t| token_provider.secret_is_valid(t))
-        .map(|t| token_provider.token_details(t).unwrap()) // Guaranteed because we just checked that the secret exists
+        .filter_map(|t| token_provider.token_details(t).unwrap_or_default())
         .collect();
     Ok(Json(ValidatedTokens {
         tokens: valid_tokens,

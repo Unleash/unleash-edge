@@ -19,7 +19,7 @@ async fn get_frontend_features(
     let client_features = features_source.get_client_features(edge_token);
     let context = context.into_inner();
 
-    let toggles = resolve_frontend_features(client_features, context).collect();
+    let toggles = resolve_frontend_features(client_features?, context).collect();
 
     Ok(Json(FrontendResult { toggles }))
 }
@@ -33,7 +33,7 @@ async fn post_frontend_features(
     let client_features = features_source.get_client_features(edge_token);
     let context = context.into_inner();
 
-    let toggles = resolve_frontend_features(client_features, context).collect();
+    let toggles = resolve_frontend_features(client_features?, context).collect();
 
     Ok(Json(FrontendResult { toggles }))
 }
@@ -47,7 +47,7 @@ async fn get_enabled_frontend_features(
     let client_features = features_source.get_client_features(edge_token);
     let context = context.into_inner();
 
-    let toggles: Vec<EvaluatedToggle> = resolve_frontend_features(client_features, context)
+    let toggles: Vec<EvaluatedToggle> = resolve_frontend_features(client_features?, context)
         .filter(|toggle| toggle.enabled)
         .collect();
 
@@ -63,7 +63,7 @@ async fn post_enabled_frontend_features(
     let client_features = features_source.get_client_features(edge_token);
     let context = context.into_inner();
 
-    let toggles: Vec<EvaluatedToggle> = resolve_frontend_features(client_features, context)
+    let toggles: Vec<EvaluatedToggle> = resolve_frontend_features(client_features?, context)
         .filter(|toggle| toggle.enabled)
         .collect();
 
@@ -103,7 +103,7 @@ pub fn configure_frontend_api(cfg: &mut web::ServiceConfig) {
 mod tests {
     use std::sync::Arc;
 
-    use crate::types::{EdgeProvider, FeaturesProvider, TokenProvider};
+    use crate::types::{EdgeProvider, EdgeResult, FeaturesProvider, TokenProvider, EdgeToken};
     use actix_web::{
         http::header::ContentType,
         test,
@@ -130,24 +130,28 @@ mod tests {
     }
 
     impl FeaturesProvider for MockDataSource {
-        fn get_client_features(&self, _token: crate::types::EdgeToken) -> ClientFeatures {
-            self.features
+        fn get_client_features(
+            &self,
+            _token: crate::types::EdgeToken,
+        ) -> EdgeResult<ClientFeatures> {
+            Ok(self
+                .features
                 .as_ref()
                 .expect("You need to populate the mock data for your test")
-                .clone()
+                .clone())
         }
     }
 
     impl TokenProvider for MockDataSource {
-        fn get_known_tokens(&self) -> Vec<crate::types::EdgeToken> {
+        fn get_known_tokens(&self) -> EdgeResult<Vec<crate::types::EdgeToken>> {
             todo!()
         }
 
-        fn secret_is_valid(&self, _secret: &str) -> bool {
-            true
+        fn secret_is_valid(&self, _secret: &str) -> EdgeResult<bool> {
+            Ok(true)
         }
 
-        fn token_details(&self, _secret: String) -> Option<crate::types::EdgeToken> {
+        fn token_details(&self, _secret: String) -> EdgeResult<Option<EdgeToken>> {
             todo!()
         }
     }

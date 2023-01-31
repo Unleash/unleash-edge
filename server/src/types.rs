@@ -64,7 +64,7 @@ impl FromRequest for EdgeToken {
                 None => Err(EdgeError::AuthorizationDenied),
             }
             .and_then(|client_token| {
-                if token_provider.secret_is_valid(&client_token.secret) {
+                if token_provider.secret_is_valid(&client_token.secret)? {
                     Ok(client_token)
                 } else {
                     Err(EdgeError::AuthorizationDenied)
@@ -149,16 +149,16 @@ pub struct ValidatedTokens {
 }
 
 pub trait FeaturesProvider {
-    fn get_client_features(&self, token: EdgeToken) -> ClientFeatures;
+    fn get_client_features(&self, token: EdgeToken) -> EdgeResult<ClientFeatures>;
 }
 
 pub trait TokenProvider {
-    fn get_known_tokens(&self) -> Vec<EdgeToken>;
-    fn secret_is_valid(&self, secret: &str) -> bool;
-    fn token_details(&self, secret: String) -> Option<EdgeToken>;
+    fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>>;
+    fn secret_is_valid(&self, secret: &str) -> EdgeResult<bool>;
+    fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>>;
 }
 
-pub trait EdgeProvider: FeaturesProvider + TokenProvider {}
+pub trait EdgeProvider: FeaturesProvider + TokenProvider + Send + Sync {}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BuildInfo {

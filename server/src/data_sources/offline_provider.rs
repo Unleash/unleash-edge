@@ -1,5 +1,5 @@
 use crate::error::EdgeError;
-use crate::types::{EdgeProvider, EdgeToken, FeaturesProvider, TokenProvider};
+use crate::types::{EdgeProvider, EdgeResult, EdgeToken, FeaturesProvider, TokenProvider};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
@@ -12,25 +12,26 @@ pub struct OfflineProvider {
 }
 
 impl FeaturesProvider for OfflineProvider {
-    fn get_client_features(&self, _: EdgeToken) -> ClientFeatures {
-        self.features.clone()
+    fn get_client_features(&self, _: EdgeToken) -> Result<ClientFeatures, EdgeError> {
+        Ok(self.features.clone())
     }
 }
 
 impl TokenProvider for OfflineProvider {
-    fn get_known_tokens(&self) -> Vec<EdgeToken> {
-        self.valid_tokens.clone()
+    fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
+        Ok(self.valid_tokens.clone())
     }
 
-    fn secret_is_valid(&self, secret: &str) -> bool {
-        self.valid_tokens.iter().any(|t| t.secret == secret)
+    fn secret_is_valid(&self, secret: &str) -> EdgeResult<bool> {
+        Ok(self.valid_tokens.iter().any(|t| t.secret == secret))
     }
 
-    fn token_details(&self, secret: String) -> Option<EdgeToken> {
-        self.valid_tokens
+    fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>> {
+        Ok(self
+            .valid_tokens
             .clone()
             .into_iter()
-            .find(|t| t.secret == secret)
+            .find(|t| t.secret == secret))
     }
 }
 
