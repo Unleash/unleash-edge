@@ -95,8 +95,7 @@ impl UnleashClient {
                 etag: result
                     .headers()
                     .get("ETag")
-                    .map(|tag| tag.to_str().unwrap())
-                    .map(|tag_str| EntityTag::from_str(tag_str).unwrap()),
+                    .and_then(|etag| EntityTag::from_str(etag.to_str().unwrap().into()).ok()),
             })
         }
     }
