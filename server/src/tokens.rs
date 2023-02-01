@@ -1,6 +1,6 @@
 use crate::types::EdgeToken;
 
-pub fn simplify(tokens: &[EdgeToken]) -> Vec<EdgeToken> {
+pub(crate) fn simplify(tokens: &[EdgeToken]) -> Vec<EdgeToken> {
     tokens
         .iter()
         .filter_map(|token| {
