@@ -33,7 +33,7 @@ impl RedisProvider {
 impl EdgeProvider for RedisProvider {}
 
 impl FeaturesProvider for RedisProvider {
-    fn get_client_features(&self, _token: EdgeToken) -> EdgeResult<ClientFeatures> {
+    fn get_client_features(&self, _token: &EdgeToken) -> EdgeResult<ClientFeatures> {
         let mut client = self.client.write().unwrap();
         let client_features: String = client.get(FEATURE_KEY)?;
 

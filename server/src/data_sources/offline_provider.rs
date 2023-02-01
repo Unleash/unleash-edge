@@ -12,7 +12,7 @@ pub struct OfflineProvider {
 }
 
 impl FeaturesProvider for OfflineProvider {
-    fn get_client_features(&self, _: EdgeToken) -> Result<ClientFeatures, EdgeError> {
+    fn get_client_features(&self, _: &EdgeToken) -> Result<ClientFeatures, EdgeError> {
         Ok(self.features.clone())
     }
 }
