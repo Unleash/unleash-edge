@@ -4,7 +4,9 @@ use clap::{ArgGroup, Args, Parser, Subcommand};
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum EdgeMode {
+    /// Run in offline mode
     Offline(OfflineArgs),
+    /// Run in edge mode
     Edge(EdgeArgs),
 }
 
