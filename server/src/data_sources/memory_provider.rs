@@ -62,22 +62,6 @@ mod test {
         }
     }
 
-    //Yes, Clippy is correct but right now, this is test code and I don't want add a derive that's broken for prod code
-    #[allow(clippy::derivable_impls)]
-    impl Default for EdgeToken {
-        fn default() -> Self {
-            Self {
-                secret: Default::default(),
-                token_type: Default::default(),
-                environment: Default::default(),
-                projects: Default::default(),
-                expires_at: Default::default(),
-                seen_at: Default::default(),
-                alias: Default::default(),
-            }
-        }
-    }
-
     #[test]
     fn memory_provider_correctly_deduplicates_tokens() {
         let mut provider = MemoryProvider::default();

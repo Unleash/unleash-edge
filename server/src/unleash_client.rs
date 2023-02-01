@@ -44,7 +44,7 @@ impl UnleashClient {
         }
     }
     pub fn new(server_url: &str, instance_id_opt: Option<String>) -> Result<Self, EdgeError> {
-        let instance_id = instance_id_opt.unwrap_or(Ulid::new().to_string());
+        let instance_id = instance_id_opt.unwrap_or_else(|| Ulid::new().to_string());
         Ok(Self {
             urls: UnleashUrls::from_str(server_url)?,
             backing_client: new_awc_client(instance_id),

@@ -48,6 +48,7 @@ impl ClientFeaturesRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(Default))]
 #[serde(rename_all = "camelCase")]
 pub struct EdgeToken {
     pub secret: String,
@@ -71,6 +72,14 @@ impl EdgeToken {
             seen_at: Some(Utc::now()),
             alias: None,
         }
+    }
+
+    pub fn subsumes(&self, other: &EdgeToken) -> bool {
+        return self.token_type == other.token_type
+            && self.environment == other.environment
+            && (self.projects.contains(&"*".into())
+                || (self.projects.len() >= other.projects.len()
+                    && other.projects.iter().all(|p| self.projects.contains(p))));
     }
 }
 
@@ -244,6 +253,21 @@ mod tests {
 
     use crate::types::EdgeToken;
 
+    fn test_str(token: &str) -> EdgeToken {
+        EdgeToken::from_str(
+            &(token.to_owned() + ".614a75cf68bef8703aa1bd8304938a81ec871f86ea40c975468eabd6"),
+        )
+        .unwrap()
+    }
+
+    fn test_token(env: Option<&str>, projects: Vec<&str>) -> EdgeToken {
+        EdgeToken {
+            environment: env.map(|env| env.into()),
+            projects: projects.into_iter().map(|p| p.into()).collect(),
+            ..EdgeToken::default()
+        }
+    }
+
     #[test_case("943ca9171e2c884c545c5d82417a655fb77cec970cc3b78a8ff87f4406b495d0"; "old java client token")]
     #[test_case("demo-app:production.614a75cf68bef8703aa1bd8304938a81ec871f86ea40c975468eabd6"; "demo token with project and environment")]
     #[test_case("secret-123"; "old example proxy token")]
@@ -259,5 +283,49 @@ mod tests {
                 panic!("Could not parse token");
             }
         }
+    }
+
+    #[test_case(
+        "demo-app:production",
+        "demo-app:production"
+        => true
+    ; "idepmotency")]
+    #[test_case(
+        "aproject:production",
+        "another:production"
+        => false
+    ; "project mismatch")]
+    #[test_case(
+        "demo-app:development",
+        "demo-app:production"
+        => false
+    ; "environment mismatch")]
+    #[test_case(
+        "*:production",
+        "demo-app:production"
+        => true
+    ; "* subsumes a project token")]
+    fn edge_token_subsumes_edge_token(token1: &str, token2: &str) -> bool {
+        let t1 = test_str(token1);
+        let t2 = test_str(token2);
+        t1.subsumes(&t2)
+    }
+
+    #[test]
+    fn edge_token_unrleated_by_subsume() {
+        let t1 = test_str("demo-app:production");
+        let t2 = test_str("another:production");
+        assert!(!t1.subsumes(&t2));
+        assert!(!t2.subsumes(&t1));
+    }
+
+    #[test]
+    fn edge_token_does_not_subsume_if_projects_is_subset_of_other_tokens_project() {
+        let token1 = test_token(None, vec!["p1", "p2"]);
+
+        let token2 = test_token(None, vec!["p1"]);
+
+        assert!(token1.subsumes(&token2));
+        assert!(!token2.subsumes(&token1));
     }
 }
