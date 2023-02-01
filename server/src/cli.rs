@@ -4,13 +4,15 @@ use clap::{ArgGroup, Args, Parser, Subcommand};
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum EdgeMode {
+    /// Run in offline mode
     Offline(OfflineArgs),
+    /// Run in edge mode
     Edge(EdgeArgs),
 }
 
 pub enum EdgeArg {
     Redis(String),
-    Dynamo(String),
+    InMemory,
 }
 
 impl From<EdgeArgs> for EdgeArg {
@@ -18,24 +20,21 @@ impl From<EdgeArgs> for EdgeArg {
         if let Some(redis_url) = value.redis_url {
             return EdgeArg::Redis(redis_url);
         };
-        if let Some(dynamo_url) = value.dynamo_url {
-            return EdgeArg::Dynamo(dynamo_url);
-        }
-        panic!("Unknown argument for edge type"); //This shouldn't be reachable without programmer error, that's what it's for
+
+        EdgeArg::InMemory
     }
 }
 
 #[derive(Args, Debug, Clone)]
 #[command(group(
     ArgGroup::new("data-provider")
-        .required(true)
-        .args(["redis_url", "dynamo_url"]),
+        .args(["redis_url"]),
 ))]
 pub struct EdgeArgs {
     #[clap(short, long, env)]
-    pub redis_url: Option<String>,
+    pub unleash_url: String,
     #[clap(short, long, env)]
-    pub dynamo_url: Option<String>,
+    pub redis_url: Option<String>,
 }
 
 #[derive(Args, Debug, Clone)]

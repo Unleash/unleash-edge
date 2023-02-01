@@ -175,7 +175,7 @@ pub struct ValidatedTokens {
 }
 
 pub trait FeaturesProvider {
-    fn get_client_features(&self, token: EdgeToken) -> EdgeResult<ClientFeatures>;
+    fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<ClientFeatures>;
 }
 
 pub trait TokenProvider {
@@ -185,6 +185,11 @@ pub trait TokenProvider {
 }
 
 pub trait EdgeProvider: FeaturesProvider + TokenProvider + Send + Sync {}
+
+pub trait EdgeSink {
+    fn sink_features(&mut self, token: &EdgeToken, features: ClientFeatures);
+    fn sink_tokens(&mut self, token: Vec<EdgeToken>);
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BuildInfo {

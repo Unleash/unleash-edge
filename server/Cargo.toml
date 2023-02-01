@@ -18,6 +18,7 @@ actix-web-opentelemetry = { version = "0.13.0", features = ["metrics", "metrics-
 anyhow = "1.0.68"
 chrono = { version = "0.4.23", features = ["serde"] }
 clap = { version = "4.1.4", features = ["derive", "env"] }
+dashmap = "5.4.0"
 dotenv = { version = "0.15.0", features = ["clap"] }
 opentelemetry = { version = "0.18.0", features = ["trace", "rt-tokio", "metrics"] }
 opentelemetry-prometheus = "0.11.0"
@@ -28,7 +29,7 @@ rustls-pemfile = "1.0.2"
 serde = { version = "1.0.152", features = ["derive"] }
 serde_json = "1.0.91"
 shadow-rs = "0.20.0"
-tokio = { version = "1.24.2", features = ["macros", "rt-multi-thread", "tracing"] }
+tokio = { version = "1.25.0", features = ["macros", "rt-multi-thread", "tracing"] }
 tracing = { version = "0.1.37", features = ["log"] }
 tracing-opentelemetry = "0.18.0"
 tracing-subscriber = { version = "0.3.16", features = ["json", "env-filter"] }

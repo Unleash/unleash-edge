@@ -33,9 +33,10 @@ impl RedisProvider {
 impl EdgeProvider for RedisProvider {}
 
 impl FeaturesProvider for RedisProvider {
-    fn get_client_features(&self, _token: EdgeToken) -> EdgeResult<ClientFeatures> {
+    fn get_client_features(&self, _token: &EdgeToken) -> EdgeResult<ClientFeatures> {
         let mut client = self.client.write().unwrap();
         let client_features: String = client.get(FEATURE_KEY)?;
+
         serde_json::from_str::<ClientFeatures>(&client_features).map_err(EdgeError::from)
     }
 }
@@ -44,7 +45,14 @@ impl TokenProvider for RedisProvider {
     fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
         let mut client = self.client.write().unwrap();
         let tokens: String = client.get(TOKENS_KEY)?;
-        serde_json::from_str::<Vec<EdgeToken>>(&tokens).map_err(EdgeError::from)
+
+        let raw_tokens = serde_json::from_str::<Vec<String>>(&tokens)?;
+
+        Ok(raw_tokens
+            .into_iter()
+            .map(EdgeToken::try_from)
+            .filter_map(|t| t.ok())
+            .collect())
     }
 
     fn secret_is_valid(&self, secret: &str) -> EdgeResult<bool> {
