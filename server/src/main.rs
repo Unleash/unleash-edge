@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-
 use crate::cli::EdgeMode;
 use actix_cors::Cors;
 use actix_middleware_etag::Etag;
