@@ -265,7 +265,7 @@ mod tests {
                 }
             },
             Err(e) => {
-                panic!("Error validation token: {e}");
+                panic!("Error validating token: {e}");
             }
         }
     }
