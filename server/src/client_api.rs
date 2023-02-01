@@ -8,7 +8,7 @@ async fn features(
     edge_token: EdgeToken,
     features_source: web::Data<dyn EdgeProvider>,
 ) -> EdgeJsonResult<ClientFeatures> {
-    let client_features = features_source.get_client_features(edge_token)?;
+    let client_features = features_source.get_client_features(&edge_token)?;
     Ok(Json(client_features))
 }
 

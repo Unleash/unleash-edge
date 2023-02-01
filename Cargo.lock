@@ -2488,6 +2488,7 @@ dependencies = [
  "awc",
  "chrono",
  "clap 4.1.4",
+ "dashmap",
  "dotenv",
  "env_logger",
  "opentelemetry",
