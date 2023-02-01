@@ -8,4 +8,6 @@ pub mod frontend_api;
 pub mod metrics;
 pub mod types;
 
+pub mod tokens;
+
 pub mod internal_backstage;

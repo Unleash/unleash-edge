@@ -36,9 +36,14 @@ unleash-types = { version = "0.7.0", features = ["openapi", "hashes"] }
 unleash-yggdrasil = "0.4.2"
 
 [dev-dependencies]
+criterion = "0.4.0"
 env_logger = "0.10.0"
 test-case = "2.2.2"
 testcontainers = "0.14.0"
 
 [build-dependencies]
 shadow-rs = "0.20.0"
+
+[[bench]]
+name = "benchmark"
+harness = false

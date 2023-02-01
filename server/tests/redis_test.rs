@@ -16,8 +16,7 @@ async fn redis_provider_returns_expected_data() {
 
     let mut client = redis::Client::open(url.clone()).unwrap();
 
-    let content =
-        fs::read_to_string("../examples/features.json".to_string()).expect("Could not read file");
+    let content = fs::read_to_string("../examples/features.json").expect("Could not read file");
 
     //Wants a type annotation but we don't care about the result so we immediately discard the data coming back
     let _: () = client.set(FEATURE_KEY, content).unwrap();

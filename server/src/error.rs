@@ -20,10 +20,9 @@ impl Error for EdgeError {}
 impl Display for EdgeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            EdgeError::InvalidBackupFile(path, why_invalid) => write!(
-                f,
-                "file at path: {path} was invalid due to {why_invalid}"
-            ),
+            EdgeError::InvalidBackupFile(path, why_invalid) => {
+                write!(f, "file at path: {path} was invalid due to {why_invalid}")
+            }
             EdgeError::TlsError => write!(f, "Could not configure TLS"),
             EdgeError::NoFeaturesFile => write!(f, "No features file located"),
             EdgeError::AuthorizationDenied => write!(f, "Not allowed to access"),
