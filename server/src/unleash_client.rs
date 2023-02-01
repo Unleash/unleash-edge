@@ -1,13 +1,16 @@
 use actix_web::http::header::{ContentType, EntityTag, IfNoneMatch};
 use actix_web::http::StatusCode;
 use awc::{Client, ClientRequest};
+use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use std::time::Duration;
 use ulid::Ulid;
 use unleash_types::client_features::ClientFeatures;
 use url::Url;
 
-use crate::types::{ClientFeaturesResponse, EdgeResult};
+use crate::types::{
+    ClientFeaturesResponse, EdgeResult, EdgeToken, TokenStatus, ValidateTokenRequest,
+};
 use crate::urls::UnleashUrls;
 use crate::{error::EdgeError, types::ClientFeaturesRequest};
 
@@ -34,6 +37,10 @@ pub fn new_awc_client(instance_id: String) -> Client {
         .add_default_header(ContentType::json())
         .timeout(Duration::from_secs(5))
         .finish()
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct EdgeTokens {
+    pub tokens: Vec<EdgeToken>,
 }
 
 impl UnleashClient {
@@ -62,6 +69,10 @@ impl UnleashClient {
             client_req
         }
     }
+    fn awc_validate_token_req(&self) -> ClientRequest {
+        self.backing_client
+            .post(self.urls.edge_validate_url.to_string())
+    }
 
     pub async fn get_client_features(
         &self,
@@ -88,12 +99,43 @@ impl UnleashClient {
             Ok(ClientFeaturesResponse::Updated(features, etag))
         }
     }
+    pub async fn validate_secret(&self, request: ValidateTokenRequest) -> EdgeResult<TokenStatus> {
+        let mut result = self
+            .awc_validate_token_req()
+            .send_body(serde_json::to_string(&request.validation_request).unwrap())
+            .await
+            .map_err(|_| EdgeError::EdgeTokenError)?;
+        match result.status() {
+            StatusCode::FORBIDDEN => Ok(TokenStatus::Invalid),
+            StatusCode::OK => {
+                println!("Had an ok response");
+                let token_response = result
+                    .json::<EdgeTokens>()
+                    .await
+                    .map_err(|_| EdgeError::EdgeTokenParseError)?;
+                match token_response.tokens.len() {
+                    0 => Ok(TokenStatus::Invalid),
+                    _ => {
+                        let validated_token = token_response.tokens.get(0).unwrap();
+                        Ok(TokenStatus::Valid(validated_token.clone()))
+                    }
+                }
+            }
+            _ => {
+                println!("{}", result.status());
+                Err(EdgeError::EdgeTokenError)
+            }
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::{
-        types::{ClientFeaturesRequest, ClientFeaturesResponse},
+        types::{
+            ClientFeaturesRequest, ClientFeaturesResponse, TokenStatus, ValidateTokenRequest,
+            ValidationRequest,
+        },
         unleash_client::UnleashClient,
     };
     use actix_http::HttpService;
@@ -187,6 +229,36 @@ mod tests {
                 assert_eq!(t, EntityTag::new_weak(tag));
             }
             _ => panic!("Got an update when no update was expected"),
+        }
+    }
+
+    #[actix_web::test]
+    async fn can_validate_secret() {
+        let api_key = "[]:development.08bce4267a3b1aa";
+        let client = UnleashClient::new("https://app.unleash-hosted.com/hosted", None)
+            .expect("Couldn't create client");
+        let validate_result = client
+            .validate_secret(ValidateTokenRequest {
+                api_key: api_key.to_string(),
+                validation_request: ValidationRequest {
+                    tokens: vec![api_key.to_string()],
+                },
+            })
+            .await;
+        match validate_result {
+            Ok(token_status) => match token_status {
+                TokenStatus::Valid(data) => {
+                    println!("Had a valid token {data:#?}");
+                    assert_eq!(data.token, api_key.to_string());
+                }
+                TokenStatus::Invalid => {
+                    panic!("Had a valid but got an invalid status");
+                }
+            },
+            Err(e) => {
+                println!("{e:#?}");
+                panic!("Invalid");
+            }
         }
     }
 
