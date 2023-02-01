@@ -252,7 +252,7 @@ mod tests {
                     assert_eq!(data.token, api_key.to_string());
                 }
                 TokenStatus::Invalid => {
-                    panic!("Had a valid but got an invalid status");
+                    panic!("Expected my token to be valid, but got an invalid status instead");
                 }
             },
             Err(e) => {
