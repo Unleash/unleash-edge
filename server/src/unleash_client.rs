@@ -26,9 +26,10 @@ pub fn new_awc_client(instance_id: String) -> Client {
     Client::builder()
         .add_default_header((UNLEASH_APPNAME_HEADER, "unleash-edge"))
         .add_default_header((UNLEASH_INSTANCE_ID_HEADER, instance_id))
-        .add_default_header(
-            (UNLEASH_CLIENT_SPEC_HEADER, "4.2.2"), // yggdrasil::CLIENT_SPEC_VERSION).into(),
-        )
+        .add_default_header((
+            UNLEASH_CLIENT_SPEC_HEADER,
+            unleash_yggdrasil::SUPPORTED_SPEC_VERSION,
+        ))
         .add_default_header((USER_AGENT_HEADER, "unleash_edge"))
         .add_default_header(ContentType::json())
         .timeout(Duration::from_secs(5))
