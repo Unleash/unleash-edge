@@ -73,29 +73,29 @@ impl UnleashClient {
             .await
             .map_err(|_| EdgeError::ClientFeaturesFetchError)?;
         if result.status() == StatusCode::NOT_MODIFIED {
-            Ok(ClientFeaturesResponse {
-                features: None,
-                etag: request.etag,
-            })
+            Ok(ClientFeaturesResponse::NoUpdate(
+                request.etag.expect("Got NOT_MODIFIED without an ETag"),
+            ))
         } else {
-            Ok(ClientFeaturesResponse {
-                features: result
-                    .json::<ClientFeatures>()
-                    .await
-                    .map(Some)
-                    .map_err(EdgeError::ClientFeaturesParseError)?,
-                etag: result
-                    .headers()
-                    .get("ETag")
-                    .and_then(|etag| EntityTag::from_str(etag.to_str().unwrap()).ok()),
-            })
+            let features = result
+                .json::<ClientFeatures>()
+                .await
+                .map_err(EdgeError::ClientFeaturesParseError)?;
+            let etag = result
+                .headers()
+                .get("ETag")
+                .and_then(|etag| EntityTag::from_str(etag.to_str().unwrap()).ok());
+            Ok(ClientFeaturesResponse::Updated(features, etag))
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{types::ClientFeaturesRequest, unleash_client::UnleashClient};
+    use crate::{
+        types::{ClientFeaturesRequest, ClientFeaturesResponse},
+        unleash_client::UnleashClient,
+    };
     use actix_http::HttpService;
     use actix_http_test::{test_server, TestServer};
     use actix_middleware_etag::Etag;
@@ -145,7 +145,7 @@ mod tests {
         let len = serde_json::to_string(&features)
             .map(|string| string.as_bytes().len())
             .unwrap();
-        format!("{:x}-{}", len, hash)
+        format!("{len:x}-{hash}")
     }
     #[actix_web::test]
     async fn client_can_get_features() {
@@ -158,14 +158,14 @@ mod tests {
             .await;
         assert!(client_features_result.is_ok());
         let client_features_response = client_features_result.unwrap();
-        assert!(client_features_response.features.is_some());
-        assert!(!client_features_response
-            .features
-            .unwrap()
-            .features
-            .is_empty());
-        assert!(client_features_response.etag.is_some());
-        assert_eq!(client_features_response.etag.unwrap(), tag)
+        match client_features_response {
+            ClientFeaturesResponse::Updated(f, e) => {
+                assert!(e.is_some());
+                assert_eq!(e.unwrap(), tag);
+                assert!(!f.features.is_empty());
+            }
+            _ => panic!("Got no update when expecting an update"),
+        }
     }
 
     #[actix_web::test]
@@ -175,12 +175,19 @@ mod tests {
         let tag = expected_etag(two_client_features());
         let client = UnleashClient::new(srv.url("/").as_str(), None).unwrap();
         let client_features_result = client
-            .get_client_features(ClientFeaturesRequest::new(api_key.to_string(), Some(tag)))
+            .get_client_features(ClientFeaturesRequest::new(
+                api_key.to_string(),
+                Some(tag.clone()),
+            ))
             .await;
         assert!(client_features_result.is_ok());
         let client_features_response = client_features_result.unwrap();
-        assert!(client_features_response.features.is_none());
-        assert!(client_features_response.etag.is_some());
+        match client_features_response {
+            ClientFeaturesResponse::NoUpdate(t) => {
+                assert_eq!(t, EntityTag::new_weak(tag));
+            }
+            _ => panic!("Got an update when no update was expected"),
+        }
     }
 
     #[test]

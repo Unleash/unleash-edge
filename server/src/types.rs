@@ -15,7 +15,6 @@ use serde::{Deserialize, Serialize};
 use shadow_rs::shadow;
 use tracing::warn;
 use unleash_types::client_features::ClientFeatures;
-use unleash_types::client_metrics::{ClientApplication, ClientMetrics};
 
 pub type EdgeJsonResult<T> = Result<Json<T>, EdgeError>;
 pub type EdgeResult<T> = Result<T, EdgeError>;
@@ -28,25 +27,15 @@ pub enum TokenType {
 }
 
 #[derive(Clone, Debug)]
-pub struct ClientFeaturesResponse {
-    pub features: Option<ClientFeatures>,
-    pub etag: Option<EntityTag>,
+pub enum ClientFeaturesResponse {
+    NoUpdate(EntityTag),
+    Updated(ClientFeatures, Option<EntityTag>),
 }
 
 #[derive(Clone, Debug)]
 pub struct ClientFeaturesRequest {
     pub api_key: String,
     pub etag: Option<EntityTag>,
-}
-
-pub struct RegisterClientApplicationRequest {
-    pub api_key: String,
-    pub client_application: ClientApplication,
-}
-
-pub struct RegisterClientMetricsRequest {
-    pub api_key: String,
-    pub client_metrics: ClientMetrics,
 }
 
 impl ClientFeaturesRequest {
