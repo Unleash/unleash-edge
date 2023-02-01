@@ -46,7 +46,7 @@ dependencies = [
  "actix-tls",
  "actix-utils",
  "ahash",
- "base64 0.21.0",
+ "base64",
  "bitflags",
  "brotli",
  "bytes",
@@ -75,6 +75,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "actix-http-test"
+version = "3.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dff10f950882f80a9dc29fb5325db8f66a0692a7c9be3bf547f79e955b699b76"
+dependencies = [
+ "actix-codec",
+ "actix-rt",
+ "actix-server",
+ "actix-service",
+ "actix-tls",
+ "actix-utils",
+ "awc",
+ "bytes",
+ "futures-core",
+ "http",
+ "log",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
+ "slab",
+ "socket2",
+ "tokio",
+]
+
+[[package]]
 name = "actix-macros"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -86,14 +111,15 @@ dependencies = [
 
 [[package]]
 name = "actix-middleware-etag"
-version = "0.1.1"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44ad18cee06216ed944a2bf2d0b9565a879a89ea52d738f8dd8173c8910cd768"
+checksum = "2fd852a334e1a592c2decb06e3fa4e90d2fbaac5dfe3d94b46b3f911d314d047"
 dependencies = [
  "actix-service",
  "actix-web",
- "base64 0.13.1",
+ "base64",
  "futures",
+ "str-buf",
  "xxhash-rust",
 ]
 
@@ -116,6 +142,7 @@ version = "2.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ea16c295198e958ef31930a6ef37d0fb64e9ca3b6116e6b93a8bdae96ee1000"
 dependencies = [
+ "actix-macros",
  "futures-core",
  "tokio",
 ]
@@ -160,6 +187,7 @@ dependencies = [
  "actix-service",
  "actix-utils",
  "futures-core",
+ "http",
  "log",
  "pin-project-lite",
  "tokio-rustls",
@@ -341,10 +369,39 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
-name = "base64"
-version = "0.13.1"
+name = "awc"
+version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
+checksum = "0dff3fc64a176e0d4398c71b0f2c2679ff4a723c6ed8fcc68dfe5baa00665388"
+dependencies = [
+ "actix-codec",
+ "actix-http",
+ "actix-rt",
+ "actix-service",
+ "actix-tls",
+ "actix-utils",
+ "ahash",
+ "base64",
+ "bytes",
+ "cfg-if",
+ "cookie",
+ "derive_more",
+ "futures-core",
+ "futures-util",
+ "h2",
+ "http",
+ "itoa",
+ "log",
+ "mime",
+ "percent-encoding",
+ "pin-project-lite",
+ "rand",
+ "rustls",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
+ "tokio",
+]
 
 [[package]]
 name = "base64"
@@ -1810,7 +1867,7 @@ version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d194b56d58803a43635bdc398cd17e383d6f71f9182b9a192c127ca42494a59b"
 dependencies = [
- "base64 0.21.0",
+ "base64",
 ]
 
 [[package]]
@@ -2001,6 +2058,12 @@ name = "spin"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
+
+[[package]]
+name = "str-buf"
+version = "3.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e75b72ee54e2f93c3ea1354066162be893ee5e25773ab743de3e088cecbb4f31"
 
 [[package]]
 name = "strsim"
@@ -2362,6 +2425,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e79c4d996edb816c91e4308506774452e55e95c3c9de07b6729e17e15a5ef81"
 
 [[package]]
+name = "ulid"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13a3aaa69b04e5b66cc27309710a569ea23593612387d67daaf102e73aa974fd"
+dependencies = [
+ "rand",
+]
+
+[[package]]
 name = "unicode-bidi"
 version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2405,11 +2477,15 @@ name = "unleash-edge"
 version = "0.0.0"
 dependencies = [
  "actix-cors",
+ "actix-http",
+ "actix-http-test",
  "actix-middleware-etag",
+ "actix-service",
  "actix-tls",
  "actix-web",
  "actix-web-opentelemetry",
  "anyhow",
+ "awc",
  "chrono",
  "clap 4.1.4",
  "dashmap",
@@ -2430,17 +2506,19 @@ dependencies = [
  "tracing",
  "tracing-opentelemetry",
  "tracing-subscriber",
+ "ulid",
  "unleash-types",
  "unleash-yggdrasil",
+ "url",
 ]
 
 [[package]]
 name = "unleash-types"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ff1a05ee1d0f25bc011b86a232855cca981e1a1bf0839f9e9e1a1299f0bdbcc"
+checksum = "1c7bb919f4f1abd162b50999843ee729991fdc41a2b58912b3522e79eb1d2167"
 dependencies = [
- "base64 0.21.0",
+ "base64",
  "chrono",
  "derive_builder",
  "serde",

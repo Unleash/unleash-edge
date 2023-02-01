@@ -1,0 +1,95 @@
+use std::str::FromStr;
+use url::Url;
+
+use crate::error::EdgeError;
+use crate::types::EdgeResult;
+
+#[derive(Clone, Debug)]
+pub struct UnleashUrls {
+    pub base_url: Url,
+    pub api_url: Url,
+    pub client_api_url: Url,
+    pub client_features_url: Url,
+    pub client_register_app_url: Url,
+    pub client_metrics_url: Url,
+    pub edge_api_url: Url,
+    pub edge_validate_url: Url,
+}
+
+impl FromStr for UnleashUrls {
+    type Err = EdgeError;
+    fn from_str(base_url: &str) -> EdgeResult<Self> {
+        let mut base =
+            Url::parse(base_url).map_err(|_e| EdgeError::InvalidServerUrl(base_url.into()))?;
+        base.path_segments_mut()
+            .expect("Could not get path")
+            .pop_if_empty();
+        Ok(UnleashUrls::from_base_url(base))
+    }
+}
+impl UnleashUrls {
+    pub fn from_base_url(base_url: Url) -> Self {
+        let mut api_url = base_url.clone();
+        api_url.path_segments_mut().unwrap().push("api");
+
+        let mut client_api_url = api_url.clone();
+        client_api_url.path_segments_mut().unwrap().push("client");
+        let mut client_features_url = client_api_url.clone();
+        client_features_url
+            .path_segments_mut()
+            .unwrap()
+            .push("features");
+        let mut client_register_app_url = client_api_url.clone();
+        client_register_app_url
+            .path_segments_mut()
+            .unwrap()
+            .push("register");
+        let mut client_metrics_url = client_api_url.clone();
+        client_metrics_url
+            .path_segments_mut()
+            .expect("Couldn't get client metrics url")
+            .push("metrics");
+        let mut edge_api_url = base_url.clone();
+        edge_api_url
+            .path_segments_mut()
+            .expect("Could not create /edge url")
+            .push("edge");
+        let mut edge_validate_url = edge_api_url.clone();
+        edge_validate_url
+            .path_segments_mut()
+            .expect("Could not create /edge/validate url")
+            .push("validate");
+        UnleashUrls {
+            base_url,
+            api_url,
+            client_api_url,
+            client_features_url,
+            client_register_app_url,
+            client_metrics_url,
+            edge_api_url,
+            edge_validate_url,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use test_case::test_case;
+
+    #[test_case("https://app.unleash-hosted.com/demo", "https://app.unleash-hosted.com/demo/api", "https://app.unleash-hosted.com/demo/api/client", "https://app.unleash-hosted.com/demo/api/client/features" ; "No trailing slash, https protocol")]
+    #[test_case("https://app.unleash-hosted.com/demo/", "https://app.unleash-hosted.com/demo/api", "https://app.unleash-hosted.com/demo/api/client", "https://app.unleash-hosted.com/demo/api/client/features" ; "One trailing slash, https protocol")]
+    #[test_case("http://app.unleash-hosted.com/demo/", "http://app.unleash-hosted.com/demo/api", "http://app.unleash-hosted.com/demo/api/client", "http://app.unleash-hosted.com/demo/api/client/features" ; "One trailing slash, http protocol")]
+    #[test_case("http://app.unleash-hosted.com/", "http://app.unleash-hosted.com/api", "http://app.unleash-hosted.com/api/client", "http://app.unleash-hosted.com/api/client/features" ; "One trailing slash, no subpath, http protocol")]
+    pub fn can_handle_base_urls(
+        base_url: &str,
+        api_url: &str,
+        client_url: &str,
+        client_features_url: &str,
+    ) {
+        let urls = UnleashUrls::from_str(base_url).unwrap();
+        assert_eq!(urls.api_url.to_string(), api_url);
+        assert_eq!(urls.client_api_url.to_string(), client_url);
+        assert_eq!(urls.client_features_url.to_string(), client_features_url);
+    }
+}
