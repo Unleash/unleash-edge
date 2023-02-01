@@ -1,11 +1,8 @@
+use actix_web::http::header::{ContentType, EntityTag, IfNoneMatch};
+use actix_web::http::StatusCode;
+use awc::{Client, ClientRequest};
 use std::str::FromStr;
 use std::time::Duration;
-
-use actix_web::http::{
-    header::{ContentType, EntityTag, IfNoneMatch},
-    StatusCode,
-};
-use awc::{Client, ClientRequest};
 use ulid::Ulid;
 use unleash_types::client_features::ClientFeatures;
 use url::Url;
@@ -96,26 +93,98 @@ impl UnleashClient {
 }
 
 #[cfg(test)]
-#[actix_web::test]
-async fn client_can_get_features() {
-    let api_key = "*:development.a113e11e04133c367f5fa7c731f9293c492322cf9d6060812cfe3fea";
-    let client = UnleashClient::new("https://app.unleash-hosted.com/demo", None).unwrap();
-    let client_features_result = client
-        .get_client_features(ClientFeaturesRequest::new(api_key.to_string(), None))
-        .await;
-    assert!(client_features_result.is_ok());
-    let client_features_response = client_features_result.unwrap();
-    assert!(client_features_response.features.is_some());
-    assert!(!client_features_response
-        .features
-        .unwrap()
-        .features
-        .is_empty());
-    assert!(client_features_response.etag.is_some());
-}
+mod tests {
+    use crate::{types::ClientFeaturesRequest, unleash_client::UnleashClient};
+    use actix_http::HttpService;
+    use actix_http_test::{test_server, TestServer};
+    use actix_middleware_etag::Etag;
+    use actix_service::map_config;
+    use actix_web::{dev::AppConfig, http::header::EntityTag, web, App, HttpResponse};
+    use std::str::FromStr;
+    use unleash_types::client_features::{ClientFeature, ClientFeatures};
+    fn two_client_features() -> ClientFeatures {
+        ClientFeatures {
+            version: 2,
+            features: vec![
+                ClientFeature {
+                    name: "test1".into(),
+                    feature_type: Some("release".into()),
+                    ..Default::default()
+                },
+                ClientFeature {
+                    name: "test2".into(),
+                    feature_type: Some("release".into()),
+                    ..Default::default()
+                },
+            ],
+            segments: None,
+            query: None,
+        }
+    }
+    async fn return_client_features() -> HttpResponse {
+        HttpResponse::Ok().json(two_client_features())
+    }
 
-#[test]
-pub fn can_parse_entity_tag() {
-    let etag = EntityTag::from_str("W/\"b5e6-DPC/1RShRw1J/jtxvRtTo1jf4+o\"").unwrap();
-    assert!(etag.weak);
+    async fn test_features_server() -> TestServer {
+        test_server(move || {
+            HttpService::new(map_config(
+                App::new().wrap(Etag::default()).service(
+                    web::resource("/api/client/features")
+                        .route(web::get().to(return_client_features)),
+                ),
+                |_| AppConfig::default(),
+            ))
+            .tcp()
+        })
+        .await
+    }
+
+    fn expected_etag(features: ClientFeatures) -> String {
+        let hash = features.xx3_hash().unwrap();
+        let len = serde_json::to_string(&features)
+            .map(|string| string.as_bytes().len())
+            .unwrap();
+        format!("{:x}-{}", len, hash)
+    }
+    #[actix_web::test]
+    async fn client_can_get_features() {
+        let srv = test_features_server().await;
+        let tag = EntityTag::new_weak(expected_etag(two_client_features()));
+
+        let client = UnleashClient::new(srv.url("/").as_str(), None).unwrap();
+        let client_features_result = client
+            .get_client_features(ClientFeaturesRequest::new("somekey".to_string(), None))
+            .await;
+        assert!(client_features_result.is_ok());
+        let client_features_response = client_features_result.unwrap();
+        assert!(client_features_response.features.is_some());
+        assert!(!client_features_response
+            .features
+            .unwrap()
+            .features
+            .is_empty());
+        assert!(client_features_response.etag.is_some());
+        assert_eq!(client_features_response.etag.unwrap(), tag)
+    }
+
+    #[actix_web::test]
+    async fn client_handles_304() {
+        let api_key = "*:development.a113e11e04133c367f5fa7c731f9293c492322cf9d6060812cfe3fea";
+        let srv = test_features_server().await;
+        let tag = expected_etag(two_client_features());
+        let client = UnleashClient::new(srv.url("/").as_str(), None).unwrap();
+        let client_features_result = client
+            .get_client_features(ClientFeaturesRequest::new(api_key.to_string(), Some(tag)))
+            .await;
+        assert!(client_features_result.is_ok());
+        let client_features_response = client_features_result.unwrap();
+        assert!(client_features_response.features.is_none());
+        assert!(client_features_response.etag.is_some());
+    }
+
+    #[test]
+    pub fn can_parse_entity_tag() {
+        let etag = EntityTag::from_str("W/\"b5e6-DPC/1RShRw1J/jtxvRtTo1jf4+o\"").unwrap();
+        assert!(etag.weak);
+    }
 }
