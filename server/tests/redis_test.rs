@@ -30,7 +30,7 @@ async fn redis_provider_returns_expected_data() {
     let provider: Box<dyn EdgeProvider> = Box::new(RedisProvider::new(&url).unwrap());
 
     let features = provider
-        .get_client_features(EdgeToken::try_from(TOKEN.to_string()).unwrap())
+        .get_client_features(&EdgeToken::try_from(TOKEN.to_string()).unwrap())
         .unwrap();
 
     assert!(!features.features.is_empty());

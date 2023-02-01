@@ -13,6 +13,7 @@ use unleash_edge::cli;
 use unleash_edge::cli::EdgeArg;
 use unleash_edge::cli::OfflineArgs;
 use unleash_edge::client_api;
+use unleash_edge::data_sources::memory_provider::MemoryProvider;
 use unleash_edge::data_sources::offline_provider::OfflineProvider;
 use unleash_edge::data_sources::redis_provider::RedisProvider;
 use unleash_edge::edge_api;
@@ -34,6 +35,10 @@ fn build_offline(offline_args: OfflineArgs) -> EdgeResult<Arc<dyn EdgeProvider>>
     )
 }
 
+fn build_memory() -> EdgeResult<Arc<dyn EdgeProvider>> {
+    Ok(Arc::new(MemoryProvider::default()))
+}
+
 fn build_redis(redis_url: String) -> EdgeResult<Arc<dyn EdgeProvider>> {
     Ok(RedisProvider::new(&redis_url).map(Arc::new)?)
 }
@@ -45,7 +50,7 @@ fn build_data_source(args: CliArgs) -> EdgeResult<Arc<dyn EdgeProvider>> {
             let arg: EdgeArg = edge_args.into();
             match arg {
                 EdgeArg::Redis(redis_url) => build_redis(redis_url),
-                EdgeArg::Dynamo(_) => todo!(),
+                EdgeArg::InMemory => build_memory(),
             }
         }
     }

@@ -16,7 +16,7 @@ async fn get_frontend_features(
     features_source: web::Data<dyn EdgeProvider>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let client_features = features_source.get_client_features(edge_token);
+    let client_features = features_source.get_client_features(&edge_token);
     let context = context.into_inner();
 
     let toggles = resolve_frontend_features(client_features?, context).collect();
@@ -30,7 +30,7 @@ async fn post_frontend_features(
     features_source: web::Data<dyn EdgeProvider>,
     context: web::Json<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let client_features = features_source.get_client_features(edge_token);
+    let client_features = features_source.get_client_features(&edge_token);
     let context = context.into_inner();
 
     let toggles = resolve_frontend_features(client_features?, context).collect();
@@ -44,7 +44,7 @@ async fn get_enabled_frontend_features(
     features_source: web::Data<dyn EdgeProvider>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let client_features = features_source.get_client_features(edge_token);
+    let client_features = features_source.get_client_features(&edge_token);
     let context = context.into_inner();
 
     let toggles: Vec<EvaluatedToggle> = resolve_frontend_features(client_features?, context)
@@ -60,7 +60,7 @@ async fn post_enabled_frontend_features(
     features_source: web::Data<dyn EdgeProvider>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let client_features = features_source.get_client_features(edge_token);
+    let client_features = features_source.get_client_features(&edge_token);
     let context = context.into_inner();
 
     let toggles: Vec<EvaluatedToggle> = resolve_frontend_features(client_features?, context)
@@ -130,10 +130,7 @@ mod tests {
     }
 
     impl FeaturesProvider for MockDataSource {
-        fn get_client_features(
-            &self,
-            _token: crate::types::EdgeToken,
-        ) -> EdgeResult<ClientFeatures> {
+        fn get_client_features(&self, _token: &EdgeToken) -> EdgeResult<ClientFeatures> {
             Ok(self
                 .features
                 .as_ref()
