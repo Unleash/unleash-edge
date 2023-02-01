@@ -13,7 +13,7 @@ use actix_web::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use shadow_rs::shadow;
-use tracing::{info, warn};
+use tracing::warn;
 use unleash_types::client_features::ClientFeatures;
 
 pub type EdgeJsonResult<T> = Result<Json<T>, EdgeError>;
@@ -52,24 +52,6 @@ impl EdgeToken {
     }
 
     pub fn subsumes(&self, other: &EdgeToken) -> bool {
-        info!(
-            "token_type equal? {:?}",
-            self.token_type == other.token_type
-        );
-        info!(
-            "Environment subsumes? {:?}",
-            self.environment == other.environment || self.environment == Some("*".into())
-        );
-        info!(
-            "Have more projects? {:?}",
-            self.projects.len() >= other.projects.len()
-        );
-        info!(
-            "All projects contained {:?} into {:?}? {:?}",
-            self.projects,
-            other.projects,
-            self.projects.iter().all(|p| other.projects.contains(p))
-        );
         return self.token_type == other.token_type
             && self.environment == other.environment
             && (self.projects.contains(&"*".into())
