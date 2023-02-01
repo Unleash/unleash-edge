@@ -38,7 +38,7 @@ mod tests {
     }
 
     #[test]
-    fn test_case_1() {
+    fn test_case_1_token_with_two_projects_subsumes_tokens_having_individually_each_token() {
         let tokens = vec![
             test_token(None, vec!["p1", "p2"]),
             test_token(None, vec!["p1"]),
@@ -51,7 +51,7 @@ mod tests {
     }
 
     #[test]
-    fn test_case_2() {
+    fn test_case_2_when_two_environments_are_different_we_have_at_least_two_tokens() {
         let tokens = vec![
             test_token(Some("env1"), vec!["p1", "p2"]),
             test_token(Some("env1"), vec!["p1"]),
@@ -66,7 +66,7 @@ mod tests {
     }
 
     #[test]
-    fn test_case_3() {
+    fn test_case_3_star_token_subsumes_all_tokens() {
         let tokens = vec![
             test_token(None, vec!["p1"]),
             test_token(None, vec!["*"]),
@@ -78,7 +78,7 @@ mod tests {
     }
 
     #[test]
-    fn test_case_4() {
+    fn test_case_4_when_a_project_is_shared_between_two_tokens_we_simplify_as_much_as_we_can() {
         let tokens = vec![
             test_token(None, vec!["p1", "p2"]),
             test_token(Some("env"), vec!["p1", "p2"]),
