@@ -26,8 +26,6 @@ Options:
           Port to listen for https connection on (will use the interfaces already defined) [env: TLS_SERVER_PORT=] [default: 3043]
 ```
 
-All supported [modes](#modes) share common configuration variables.
-
 ## Concepts
 
 ### Modes
