@@ -48,6 +48,7 @@ impl ClientFeaturesRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(Default))]
 #[serde(rename_all = "camelCase")]
 pub struct EdgeToken {
     pub secret: String,
@@ -250,7 +251,7 @@ mod tests {
     use test_case::test_case;
     use tracing::warn;
 
-    use crate::types::{EdgeToken, TokenType};
+    use crate::types::EdgeToken;
 
     fn test_str(token: &str) -> EdgeToken {
         EdgeToken::from_str(
@@ -261,13 +262,9 @@ mod tests {
 
     fn test_token(env: Option<&str>, projects: Vec<&str>) -> EdgeToken {
         EdgeToken {
-            secret: "the-secret".into(),
-            token_type: Some(TokenType::Client),
             environment: env.map(|env| env.into()),
             projects: projects.into_iter().map(|p| p.into()).collect(),
-            expires_at: None,
-            seen_at: None,
-            alias: None,
+            ..EdgeToken::default()
         }
     }
 

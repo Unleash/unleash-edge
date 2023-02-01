@@ -20,20 +20,13 @@ pub(crate) fn simplify(tokens: &[EdgeToken]) -> Vec<EdgeToken> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        tokens::simplify,
-        types::{EdgeToken, TokenType},
-    };
+    use crate::{tokens::simplify, types::EdgeToken};
 
     fn test_token(env: Option<&str>, projects: Vec<&str>) -> EdgeToken {
         EdgeToken {
-            secret: "the-secret".into(),
-            token_type: Some(TokenType::Client),
             environment: env.map(|env| env.into()),
             projects: projects.into_iter().map(|p| p.into()).collect(),
-            expires_at: None,
-            seen_at: None,
-            alias: None,
+            ..EdgeToken::default()
         }
     }
 
