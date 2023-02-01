@@ -2,15 +2,19 @@ use std::error::Error;
 use std::fmt::Display;
 
 use actix_web::{http::StatusCode, HttpResponseBuilder, ResponseError};
+use awc::error::JsonPayloadError;
 
 #[derive(Debug)]
 pub enum EdgeError {
     AuthorizationDenied,
     InvalidBackupFile(String, String),
+    InvalidServerUrl(String),
     NoFeaturesFile,
     NoTokenProvider,
     TokenParseError,
     TlsError,
+    ClientFeaturesFetchError,
+    ClientFeaturesParseError(JsonPayloadError),
     DataSourceError(String),
     JsonParseError(String),
 }
@@ -30,6 +34,13 @@ impl Display for EdgeError {
             EdgeError::TokenParseError => write!(f, "Could not parse edge token"),
             EdgeError::DataSourceError(msg) => write!(f, "{msg}"),
             EdgeError::JsonParseError(msg) => write!(f, "{msg}"),
+            EdgeError::ClientFeaturesFetchError => {
+                write!(f, "Could not fetch client features")
+            }
+            EdgeError::ClientFeaturesParseError(parse_error) => {
+                write!(f, "Failed to parse client features: [{parse_error:#?}]")
+            }
+            EdgeError::InvalidServerUrl(msg) => write!(f, "Failed to parse server url: [{msg}]"),
         }
     }
 }
@@ -43,6 +54,9 @@ impl ResponseError for EdgeError {
             EdgeError::AuthorizationDenied => StatusCode::FORBIDDEN,
             EdgeError::NoTokenProvider => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::TokenParseError => StatusCode::UNAUTHORIZED,
+            EdgeError::ClientFeaturesParseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            EdgeError::ClientFeaturesFetchError => StatusCode::INTERNAL_SERVER_ERROR,
+            EdgeError::InvalidServerUrl(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::DataSourceError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::JsonParseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
