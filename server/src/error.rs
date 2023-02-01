@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fmt::Display;
 
 use actix_web::{http::StatusCode, HttpResponseBuilder, ResponseError};
-use awc::error::{JsonPayloadError, SendRequestError};
+use awc::error::JsonPayloadError;
 
 #[derive(Debug)]
 pub enum EdgeError {
@@ -38,9 +38,9 @@ impl Display for EdgeError {
                 write!(f, "Could not fetch client features")
             }
             EdgeError::ClientFeaturesParseError(parse_error) => {
-                write!(f, "Failed to parse client features: [{:#?}]", parse_error)
+                write!(f, "Failed to parse client features: [{parse_error:#?}]")
             }
-            EdgeError::InvalidServerUrl(msg) => write!(f, "Failed to parse server url: [{}]", msg),
+            EdgeError::InvalidServerUrl(msg) => write!(f, "Failed to parse server url: [{msg}]"),
         }
     }
 }

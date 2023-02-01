@@ -7,16 +7,10 @@ use actix_web::http::{
 };
 use awc::{Client, ClientRequest};
 use ulid::Ulid;
-use unleash_types::{
-    client_features::ClientFeatures,
-    client_metrics::{ClientApplication, ClientMetrics},
-};
+use unleash_types::client_features::ClientFeatures;
 use url::Url;
 
-use crate::types::{
-    ClientFeaturesResponse, EdgeResult, RegisterClientApplicationRequest,
-    RegisterClientMetricsRequest,
-};
+use crate::types::{ClientFeaturesResponse, EdgeResult};
 use crate::urls::UnleashUrls;
 use crate::{error::EdgeError, types::ClientFeaturesRequest};
 
@@ -91,11 +85,11 @@ impl UnleashClient {
                     .json::<ClientFeatures>()
                     .await
                     .map(Some)
-                    .map_err(|payload_error| EdgeError::ClientFeaturesParseError(payload_error))?,
+                    .map_err(EdgeError::ClientFeaturesParseError)?,
                 etag: result
                     .headers()
                     .get("ETag")
-                    .and_then(|etag| EntityTag::from_str(etag.to_str().unwrap().into()).ok()),
+                    .and_then(|etag| EntityTag::from_str(etag.to_str().unwrap()).ok()),
             })
         }
     }
@@ -122,6 +116,6 @@ async fn client_can_get_features() {
 
 #[test]
 pub fn can_parse_entity_tag() {
-    let etag = EntityTag::from_str("W/\"b5e6-DPC/1RShRw1J/jtxvRtTo1jf4+o\"".into()).unwrap();
+    let etag = EntityTag::from_str("W/\"b5e6-DPC/1RShRw1J/jtxvRtTo1jf4+o\"").unwrap();
     assert!(etag.weak);
 }

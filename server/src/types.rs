@@ -53,7 +53,7 @@ impl ClientFeaturesRequest {
     pub fn new(api_key: String, etag: Option<String>) -> Self {
         Self {
             api_key,
-            etag: etag.map(|tag| EntityTag::new_weak(tag)),
+            etag: etag.map(EntityTag::new_weak),
         }
     }
 }
