@@ -18,17 +18,17 @@ fn build_offline(
         offline_args.client_keys,
     )
     .map(Arc::new)?;
-    Ok((provider.clone(), provider.clone()))
+    Ok((provider.clone(), provider))
 }
 
 fn build_memory() -> EdgeResult<(Arc<dyn EdgeSource>, Arc<dyn EdgeSink>)> {
     let data_source = MemoryProvider::default();
-    Ok((Arc::new(data_source.clone()), Arc::new(data_source.clone())))
+    Ok((Arc::new(data_source.clone()), Arc::new(data_source)))
 }
 
 fn build_redis(redis_url: String) -> EdgeResult<(Arc<dyn EdgeSource>, Arc<dyn EdgeSink>)> {
     let data_source = RedisProvider::new(&redis_url).map(Arc::new)?;
-    Ok((data_source.clone(), data_source.clone()))
+    Ok((data_source.clone(), data_source))
 }
 
 pub fn build_source_and_sink(
