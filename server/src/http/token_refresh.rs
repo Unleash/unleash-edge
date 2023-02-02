@@ -1,14 +1,11 @@
 use std::sync::Arc;
 
-use crate::types::{EdgeToken, TokenSink, ValidateTokenRequest};
+use crate::types::{EdgeSink, EdgeToken, ValidateTokenRequest};
 use tokio::sync::mpsc::Receiver;
 
 use super::unleash_client::UnleashClient;
 
-pub async fn poll_for_token_status<T>(mut channel: Receiver<EdgeToken>, _sink: Arc<T>)
-where
-    T: TokenSink,
-{
+pub async fn poll_for_token_status(mut channel: Receiver<EdgeToken>, _sink: Arc<dyn EdgeSink>) {
     loop {
         let token = channel.recv().await;
         if let Some(_token) = token {

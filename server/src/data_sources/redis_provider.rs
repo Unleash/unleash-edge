@@ -10,8 +10,8 @@ pub const TOKENS_KEY: &str = "tokens";
 use crate::{
     error::EdgeError,
     types::{
-        EdgeProvider, EdgeResult, EdgeToken, FeatureSink, FeaturesProvider, TokenProvider,
-        TokenSink,
+        EdgeProvider, EdgeResult, EdgeSink, EdgeSource, EdgeToken, FeatureSink, FeaturesSource,
+        TokenSink, TokenSource,
     },
 };
 
@@ -36,6 +36,9 @@ impl RedisProvider {
 
 impl EdgeProvider for RedisProvider {}
 
+impl EdgeSource for RedisProvider {}
+impl EdgeSink for RedisProvider {}
+
 #[async_trait]
 impl FeatureSink for RedisProvider {
     async fn sink_features(
@@ -53,7 +56,7 @@ impl FeatureSink for RedisProvider {
 impl TokenSink for RedisProvider {}
 
 #[async_trait]
-impl FeaturesProvider for RedisProvider {
+impl FeaturesSource for RedisProvider {
     async fn get_client_features(&self, _token: &EdgeToken) -> EdgeResult<ClientFeatures> {
         let mut client = self.client.write().unwrap();
         let client_features: String = client.get(FEATURE_KEY)?;
@@ -63,7 +66,7 @@ impl FeaturesProvider for RedisProvider {
 }
 
 #[async_trait]
-impl TokenProvider for RedisProvider {
+impl TokenSource for RedisProvider {
     async fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
         let mut client = self.client.write().unwrap();
         let tokens: String = client.get(TOKENS_KEY)?;

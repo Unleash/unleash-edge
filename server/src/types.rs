@@ -182,21 +182,21 @@ pub struct ValidatedTokens {
 }
 
 #[async_trait]
-pub trait FeaturesProvider {
+pub trait FeaturesSource {
     async fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<ClientFeatures>;
 }
 
 #[async_trait]
-pub trait TokenProvider {
+pub trait TokenSource {
     async fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>>;
     async fn secret_is_valid(&self, secret: &str, job: Arc<Sender<EdgeToken>>) -> EdgeResult<bool>;
     async fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>>;
 }
 
-pub trait EdgeProvider:
-    FeaturesProvider + TokenProvider + FeatureSink + TokenSink + Send + Sync
-{
-}
+pub trait EdgeProvider: EdgeSource + EdgeSink + Send + Sync {}
+
+pub trait EdgeSource: FeaturesSource + TokenSource + Send + Sync {}
+pub trait EdgeSink: FeatureSink + TokenSink + Send + Sync {}
 
 #[async_trait]
 pub trait FeatureSink {

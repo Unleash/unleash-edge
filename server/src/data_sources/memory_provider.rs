@@ -8,8 +8,8 @@ use unleash_types::client_features::ClientFeatures;
 use crate::{
     error::EdgeError,
     types::{
-        EdgeProvider, EdgeResult, EdgeToken, FeatureSink, FeaturesProvider, TokenProvider,
-        TokenSink,
+        EdgeProvider, EdgeResult, EdgeSink, EdgeSource, EdgeToken, FeatureSink, FeaturesSource,
+        TokenSink, TokenSource,
     },
 };
 
@@ -32,13 +32,14 @@ impl MemoryProvider {
         self.token_store = deduplicated.into_values().collect();
     }
 }
-
 impl EdgeProvider for MemoryProvider {}
+impl EdgeSource for MemoryProvider {}
+impl EdgeSink for MemoryProvider {}
 
 impl TokenSink for MemoryProvider {}
 
 #[async_trait]
-impl FeaturesProvider for MemoryProvider {
+impl FeaturesSource for MemoryProvider {
     async fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<ClientFeatures> {
         self.data_store
             .get(&token.token)
@@ -48,7 +49,7 @@ impl FeaturesProvider for MemoryProvider {
 }
 
 #[async_trait]
-impl TokenProvider for MemoryProvider {
+impl TokenSource for MemoryProvider {
     async fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
         Ok(self.token_store.clone())
     }

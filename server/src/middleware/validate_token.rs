@@ -5,12 +5,12 @@ use actix_web::{
     HttpResponse,
 };
 
-use crate::types::{EdgeProvider, EdgeToken};
+use crate::types::{EdgeSource, EdgeToken};
 use tokio::sync::mpsc::Sender;
 
 pub async fn validate_token(
     token: EdgeToken,
-    provider: Data<dyn EdgeProvider>,
+    provider: Data<dyn EdgeSource>,
     sender: Data<Sender<EdgeToken>>,
     req: ServiceRequest,
     srv: crate::middleware::as_async_middleware::Next<impl MessageBody + 'static>,

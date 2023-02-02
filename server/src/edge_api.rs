@@ -3,12 +3,12 @@ use actix_web::{
     web::{self, Json},
 };
 
-use crate::types::{EdgeJsonResult, EdgeToken, TokenProvider, TokenStrings, ValidatedTokens};
+use crate::types::{EdgeJsonResult, EdgeSource, EdgeToken, TokenStrings, ValidatedTokens};
 
 #[get("/validate")]
 async fn validate(
     _client_token: EdgeToken,
-    token_provider: web::Data<dyn TokenProvider>,
+    token_provider: web::Data<dyn EdgeSource>,
     tokens: Json<TokenStrings>,
 ) -> EdgeJsonResult<ValidatedTokens> {
     let valid_tokens: Vec<EdgeToken> = vec![];

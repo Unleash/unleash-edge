@@ -1,6 +1,7 @@
 use crate::error::EdgeError;
 use crate::types::{
-    EdgeProvider, EdgeResult, EdgeToken, FeatureSink, FeaturesProvider, TokenProvider, TokenSink,
+    EdgeProvider, EdgeResult, EdgeSink, EdgeSource, EdgeToken, FeatureSink, FeaturesSource,
+    TokenSink, TokenSource,
 };
 use async_trait::async_trait;
 use std::fs::File;
@@ -17,14 +18,14 @@ pub struct OfflineProvider {
 }
 
 #[async_trait]
-impl FeaturesProvider for OfflineProvider {
+impl FeaturesSource for OfflineProvider {
     async fn get_client_features(&self, _: &EdgeToken) -> Result<ClientFeatures, EdgeError> {
         Ok(self.features.clone())
     }
 }
 
 #[async_trait]
-impl TokenProvider for OfflineProvider {
+impl TokenSource for OfflineProvider {
     async fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
         Ok(self.valid_tokens.clone())
     }
@@ -43,6 +44,8 @@ impl TokenProvider for OfflineProvider {
 }
 
 impl EdgeProvider for OfflineProvider {}
+impl EdgeSource for OfflineProvider {}
+impl EdgeSink for OfflineProvider {}
 
 #[async_trait]
 impl FeatureSink for OfflineProvider {

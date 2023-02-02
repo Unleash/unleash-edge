@@ -8,12 +8,12 @@ use unleash_types::{
 };
 use unleash_yggdrasil::{Context, EngineState};
 
-use crate::types::{EdgeJsonResult, EdgeProvider, EdgeToken};
+use crate::types::{EdgeJsonResult, EdgeSource, EdgeToken};
 
 #[get("/proxy/all")]
 async fn get_frontend_features(
     edge_token: EdgeToken,
-    features_source: web::Data<dyn EdgeProvider>,
+    features_source: web::Data<dyn EdgeSource>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
     let client_features = features_source.get_client_features(&edge_token).await;
@@ -27,7 +27,7 @@ async fn get_frontend_features(
 #[post("/proxy/all")]
 async fn post_frontend_features(
     edge_token: EdgeToken,
-    features_source: web::Data<dyn EdgeProvider>,
+    features_source: web::Data<dyn EdgeSource>,
     context: web::Json<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
     let client_features = features_source.get_client_features(&edge_token).await;
@@ -41,7 +41,7 @@ async fn post_frontend_features(
 #[get("/proxy")]
 async fn get_enabled_frontend_features(
     edge_token: EdgeToken,
-    features_source: web::Data<dyn EdgeProvider>,
+    features_source: web::Data<dyn EdgeSource>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
     let client_features = features_source.get_client_features(&edge_token).await;
@@ -57,7 +57,7 @@ async fn get_enabled_frontend_features(
 #[post("/proxy")]
 async fn post_enabled_frontend_features(
     edge_token: EdgeToken,
-    features_source: web::Data<dyn EdgeProvider>,
+    features_source: web::Data<dyn EdgeSource>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
     let client_features = features_source.get_client_features(&edge_token).await;
@@ -104,8 +104,8 @@ mod tests {
     use std::sync::Arc;
 
     use crate::types::{
-        EdgeProvider, EdgeResult, EdgeToken, FeatureSink, FeaturesProvider, TokenProvider,
-        TokenSink,
+        EdgeProvider, EdgeResult, EdgeSink, EdgeSource, EdgeToken, FeatureSink, FeaturesSource,
+        TokenSink, TokenSource,
     };
     use actix_web::{
         http::header::ContentType,
@@ -135,7 +135,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl FeaturesProvider for MockDataSource {
+    impl FeaturesSource for MockDataSource {
         async fn get_client_features(&self, _token: &EdgeToken) -> EdgeResult<ClientFeatures> {
             Ok(self
                 .features
@@ -146,7 +146,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl TokenProvider for MockDataSource {
+    impl TokenSource for MockDataSource {
         async fn get_known_tokens(&self) -> EdgeResult<Vec<crate::types::EdgeToken>> {
             todo!()
         }
@@ -164,9 +164,13 @@ mod tests {
         }
     }
 
-    impl EdgeProvider for MockDataSource {}
+    impl EdgeSource for MockDataSource {}
 
     impl TokenSink for MockDataSource {}
+
+    impl EdgeSink for MockDataSource {}
+
+    impl EdgeProvider for MockDataSource {}
 
     #[async_trait]
     impl FeatureSink for MockDataSource {

@@ -1,6 +1,3 @@
-use std::sync::Arc;
-
-use crate::cli::EdgeMode;
 use actix_cors::Cors;
 
 use actix_middleware_etag::Etag;
@@ -10,54 +7,17 @@ use actix_web_opentelemetry::RequestTracing;
 use clap::Parser;
 use cli::CliArgs;
 use tokio::sync::mpsc;
-use types::EdgeProvider;
-use unleash_edge::cli::EdgeArg;
-use unleash_edge::cli::OfflineArgs;
 use unleash_edge::client_api;
-use unleash_edge::data_sources::memory_provider::MemoryProvider;
-use unleash_edge::data_sources::offline_provider::OfflineProvider;
-use unleash_edge::data_sources::redis_provider::RedisProvider;
+use unleash_edge::data_sources::builder::build_source_and_sink;
 use unleash_edge::edge_api;
 use unleash_edge::frontend_api;
+use unleash_edge::http::token_refresh::poll_for_token_status;
 use unleash_edge::internal_backstage;
 use unleash_edge::metrics;
-use unleash_edge::types;
-use unleash_edge::types::EdgeResult;
 use unleash_edge::types::EdgeToken;
 use unleash_edge::{cli, middleware};
 
 mod tls;
-
-fn build_offline(offline_args: OfflineArgs) -> EdgeResult<Arc<dyn EdgeProvider>> {
-    Ok(
-        OfflineProvider::instantiate_provider(
-            offline_args.bootstrap_file,
-            offline_args.client_keys,
-        )
-        .map(Arc::new)?,
-    )
-}
-
-fn build_memory() -> EdgeResult<Arc<dyn EdgeProvider>> {
-    Ok(Arc::new(MemoryProvider::default()))
-}
-
-fn build_redis(redis_url: String) -> EdgeResult<Arc<dyn EdgeProvider>> {
-    Ok(RedisProvider::new(&redis_url).map(Arc::new)?)
-}
-
-fn build_data_source(args: CliArgs) -> EdgeResult<Arc<dyn EdgeProvider>> {
-    match args.mode {
-        EdgeMode::Offline(offline_args) => build_offline(offline_args),
-        EdgeMode::Edge(edge_args) => {
-            let arg: EdgeArg = edge_args.into();
-            match arg {
-                EdgeArg::Redis(redis_url) => build_redis(redis_url),
-                EdgeArg::InMemory => build_memory(),
-            }
-        }
-    }
-}
 
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -65,13 +25,13 @@ async fn main() -> Result<(), anyhow::Error> {
     let args = CliArgs::parse();
     let http_args = args.clone().http;
     let (metrics_handler, request_metrics) = metrics::instantiate(None);
-    let client_provider: Arc<dyn EdgeProvider> =
-        build_data_source(args).map_err(anyhow::Error::new)?;
+    let (source, sink) = build_source_and_sink(args).map_err(anyhow::Error::new)?;
+    let refresh_sink = sink.clone();
 
-    let (sender, _receiver) = mpsc::channel::<EdgeToken>(32);
+    let (sender, receiver) = mpsc::channel::<EdgeToken>(32);
     let server = HttpServer::new(move || {
-        let client_provider_data = web::Data::from(client_provider.clone());
-
+        let edge_source = web::Data::from(source.clone());
+        let edge_sink = web::Data::from(sink.clone());
         let cors_middleware = Cors::default()
             .allow_any_origin()
             .send_wildcard()
@@ -79,7 +39,8 @@ async fn main() -> Result<(), anyhow::Error> {
             .allowed_headers(vec![http::header::AUTHORIZATION, http::header::ACCEPT])
             .allowed_header(http::header::CONTENT_TYPE);
         App::new()
-            .app_data(client_provider_data)
+            .app_data(edge_source)
+            .app_data(edge_sink)
             .app_data(web::Data::new(sender.clone()))
             .wrap(Etag::default())
             .wrap(cors_middleware)
@@ -117,9 +78,9 @@ async fn main() -> Result<(), anyhow::Error> {
         _ = server.run() => {
             tracing::info!("Actix was shutdown properly");
         },
-        // _ = poll_for_token_status(receiver, client_provider) => {
-        //     tracing::info!("Token validator task is shutting down")
-        // }
+        _ = poll_for_token_status(receiver, refresh_sink) => {
+            tracing::info!("Token validator task is shutting down")
+        }
     }
 
     Ok(())

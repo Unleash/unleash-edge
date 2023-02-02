@@ -41,7 +41,8 @@ If your keys follow the Unleash API key format `[project]:[environment].<somesec
 If you'd rather use a simple key like `secret-123`, any query against `/api/client/features` will receive the dump passed in on the command line.
 
 Any query against `/api/frontend` or `/api/proxy` with a valid key will receive only enabled toggles.
-To launch in this mode, run
+
+To launch in this mode, run:
 
 ```bash
 $ ./target/debug/unleash-edge offline --help
@@ -60,6 +61,18 @@ TODO: Document proxy mode
 #### Edge
 
 TODO: Document edge mode
+
+To launch in this mode, run:
+
+```bash
+$ ./target/debug/unleash-edge edge --help
+Usage: unleash-edge edge [OPTIONS] --unleash-url <UNLEASH_URL>
+
+Options:
+  -u, --unleash-url <UNLEASH_URL>  [env: UNLEASH_URL=]
+  -r, --redis-url <REDIS_URL>      [env: REDIS_URL=]
+
+```
 
 ## Development
 
