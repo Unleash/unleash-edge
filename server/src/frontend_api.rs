@@ -1,3 +1,5 @@
+use std::sync::RwLock;
+
 use actix_web::{
     get, post,
     web::{self, Json},
@@ -13,10 +15,14 @@ use crate::types::{EdgeJsonResult, EdgeSource, EdgeToken};
 #[get("/proxy/all")]
 async fn get_frontend_features(
     edge_token: EdgeToken,
-    features_source: web::Data<dyn EdgeSource>,
+    features_source: web::Data<RwLock<dyn EdgeSource>>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let client_features = features_source.get_client_features(&edge_token).await;
+    let client_features = features_source
+        .read()
+        .unwrap()
+        .get_client_features(&edge_token)
+        .await;
     let context = context.into_inner();
 
     let toggles = resolve_frontend_features(client_features?, context).collect();
@@ -27,10 +33,14 @@ async fn get_frontend_features(
 #[post("/proxy/all")]
 async fn post_frontend_features(
     edge_token: EdgeToken,
-    features_source: web::Data<dyn EdgeSource>,
+    features_source: web::Data<RwLock<dyn EdgeSource>>,
     context: web::Json<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let client_features = features_source.get_client_features(&edge_token).await;
+    let client_features = features_source
+        .read()
+        .unwrap()
+        .get_client_features(&edge_token)
+        .await;
     let context = context.into_inner();
 
     let toggles = resolve_frontend_features(client_features?, context).collect();
@@ -41,10 +51,14 @@ async fn post_frontend_features(
 #[get("/proxy")]
 async fn get_enabled_frontend_features(
     edge_token: EdgeToken,
-    features_source: web::Data<dyn EdgeSource>,
+    features_source: web::Data<RwLock<dyn EdgeSource>>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let client_features = features_source.get_client_features(&edge_token).await;
+    let client_features = features_source
+        .read()
+        .unwrap()
+        .get_client_features(&edge_token)
+        .await;
     let context = context.into_inner();
 
     let toggles: Vec<EvaluatedToggle> = resolve_frontend_features(client_features?, context)
@@ -57,10 +71,14 @@ async fn get_enabled_frontend_features(
 #[post("/proxy")]
 async fn post_enabled_frontend_features(
     edge_token: EdgeToken,
-    features_source: web::Data<dyn EdgeSource>,
+    features_source: web::Data<RwLock<dyn EdgeSource>>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let client_features = features_source.get_client_features(&edge_token).await;
+    let client_features = features_source
+        .read()
+        .unwrap()
+        .get_client_features(&edge_token)
+        .await;
     let context = context.into_inner();
 
     let toggles: Vec<EvaluatedToggle> = resolve_frontend_features(client_features?, context)
@@ -102,7 +120,9 @@ pub fn configure_frontend_api(cfg: &mut web::ServiceConfig) {
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
+    use std::sync::RwLock;
 
+    use crate::data_sources::builder::DataProviderPair;
     use crate::types::{
         EdgeProvider, EdgeResult, EdgeSink, EdgeSource, EdgeToken, FeatureSink, FeaturesSource,
         TokenSink, TokenSource,
@@ -127,10 +147,14 @@ mod tests {
     }
 
     impl MockEdgeProvider {
-        fn with(self, features: ClientFeatures) -> Self {
-            MockEdgeProvider {
+        fn with(self, features: ClientFeatures) -> DataProviderPair {
+            let provider = Arc::new(RwLock::new(MockEdgeProvider {
                 features: Some(features),
-            }
+            }));
+            let source: Arc<RwLock<dyn EdgeSource>> = provider.clone();
+            let sink: Arc<RwLock<dyn EdgeSink>> = provider;
+
+            (source, sink)
         }
     }
 
@@ -244,16 +268,13 @@ mod tests {
 
     #[actix_web::test]
     async fn calling_post_requests_resolves_context_values_correctly() {
-        let provider = MockEdgeProvider::default()
+        let (source, sink) = MockEdgeProvider::default()
             .with(client_features_with_constraint_requiring_user_id_of_seven());
-
-        let edge_source: Arc<dyn EdgeSource> = Arc::new(provider.clone());
-        let edge_sink: Arc<dyn EdgeSink> = Arc::new(provider.clone());
 
         let app = test::init_service(
             App::new()
-                .app_data(Data::from(edge_sink))
-                .app_data(Data::from(edge_source))
+                .app_data(Data::from(source))
+                .app_data(Data::from(sink))
                 .service(web::scope("/api").service(super::post_frontend_features)),
         )
         .await;
@@ -290,16 +311,13 @@ mod tests {
 
     #[actix_web::test]
     async fn calling_get_requests_resolves_context_values_correctly() {
-        let provider = MockEdgeProvider::default()
+        let (source, sink) = MockEdgeProvider::default()
             .with(client_features_with_constraint_requiring_user_id_of_seven());
-
-        let edge_source: Arc<dyn EdgeSource> = Arc::new(provider.clone());
-        let edge_sink: Arc<dyn EdgeSink> = Arc::new(provider.clone());
 
         let app = test::init_service(
             App::new()
-                .app_data(Data::from(edge_sink))
-                .app_data(Data::from(edge_source))
+                .app_data(Data::from(source))
+                .app_data(Data::from(sink))
                 .service(web::scope("/api").service(super::get_frontend_features)),
         )
         .await;
@@ -333,16 +351,13 @@ mod tests {
 
     #[actix_web::test]
     async fn calling_get_requests_resolves_context_values_correctly_with_enabled_filter() {
-        let provider = MockEdgeProvider::default()
+        let (source, sink) = MockEdgeProvider::default()
             .with(client_features_with_constraint_one_enabled_toggle_and_one_disabled_toggle());
-
-        let edge_source: Arc<dyn EdgeSource> = Arc::new(provider.clone());
-        let edge_sink: Arc<dyn EdgeSink> = Arc::new(provider.clone());
 
         let app = test::init_service(
             App::new()
-                .app_data(Data::from(edge_sink))
-                .app_data(Data::from(edge_source))
+                .app_data(Data::from(source))
+                .app_data(Data::from(sink))
                 .service(web::scope("/api").service(super::get_enabled_frontend_features)),
         )
         .await;

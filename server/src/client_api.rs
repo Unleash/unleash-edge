@@ -1,3 +1,5 @@
+use std::sync::RwLock;
+
 use crate::types::{EdgeJsonResult, EdgeSource, EdgeToken};
 use actix_web::get;
 use actix_web::web::{self, Json};
@@ -6,9 +8,13 @@ use unleash_types::client_features::ClientFeatures;
 #[get("/client/features")]
 async fn features(
     edge_token: EdgeToken,
-    features_source: web::Data<dyn EdgeSource>,
+    features_source: web::Data<RwLock<dyn EdgeSource>>,
 ) -> EdgeJsonResult<ClientFeatures> {
-    let client_features = features_source.get_client_features(&edge_token).await?;
+    let client_features = features_source
+        .read()
+        .unwrap()
+        .get_client_features(&edge_token)
+        .await?;
     Ok(Json(client_features))
 }
 
