@@ -99,7 +99,7 @@ impl UnleashClient {
             Ok(ClientFeaturesResponse::Updated(features, etag))
         }
     }
-    pub async fn validate_secret(&self, request: ValidateTokenRequest) -> EdgeResult<TokenStatus> {
+    pub async fn validate_token(&self, request: ValidateTokenRequest) -> EdgeResult<TokenStatus> {
         let mut result = self
             .awc_validate_token_req()
             .send_body(serde_json::to_string(&request).unwrap())
@@ -247,11 +247,11 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn can_validate_secret() {
+    async fn can_validate_token() {
         let srv = test_features_server().await;
         let client = UnleashClient::new(srv.url("/").as_str(), None).unwrap();
         let validate_result = client
-            .validate_secret(ValidateTokenRequest {
+            .validate_token(ValidateTokenRequest {
                 tokens: vec![TEST_TOKEN.to_string()],
             })
             .await;
