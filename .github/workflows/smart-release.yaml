@@ -1,0 +1,42 @@
+name: Run cargo smart-release
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump_version:
+        description: Which type of release would you like to make (patch, minor, major)
+        default: "patch"
+        type: "string"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        name: Checkout code
+        with:
+          token: ${{ secrets.GH_PUSH_TOKEN }}
+          fetch-depth: 0
+      - name: setup git config
+        run: |
+          git config user.name "Github Release Bot"
+          git config user.email "<>"
+      - name: Install rust
+        run: |
+          rustup set auto-self-update disable
+          rustup toolchain install stable --profile minimal
+          rustup show
+      - name: Use rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - name: Install cargo smart-release
+        run: |
+          cargo install cargo-smart-release
+      - name: Run release
+        run: |
+          cargo smart-release -u -b ${{ github.event.inputs.bump_version }} --allow-fully-generated-changelogs --no-changelog-preview --execute
