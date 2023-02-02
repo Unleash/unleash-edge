@@ -1,15 +1,32 @@
+use std::collections::HashMap;
+
+use async_trait::async_trait;
 use dashmap::DashMap;
 use unleash_types::client_features::ClientFeatures;
 
 use crate::{
     error::EdgeError,
-    types::{EdgeProvider, EdgeResult, EdgeToken, FeaturesProvider, TokenProvider},
+    types::{EdgeProvider, EdgeResult, EdgeSink, EdgeToken, FeaturesProvider, TokenProvider},
 };
 
 #[derive(Debug, Clone, Default)]
 pub struct MemoryProvider {
     data_store: DashMap<String, ClientFeatures>,
     token_store: Vec<EdgeToken>,
+}
+
+impl MemoryProvider {
+    fn sink_features(&mut self, token: &EdgeToken, features: ClientFeatures) {
+        self.data_store.insert(token.token.clone(), features);
+    }
+
+    fn sink_tokens(&mut self, tokens: Vec<EdgeToken>) {
+        let joined_tokens = tokens.iter().chain(self.token_store.iter());
+        let deduplicated: HashMap<String, EdgeToken> = joined_tokens
+            .map(|x| (x.token.clone(), x.clone()))
+            .collect();
+        self.token_store = deduplicated.into_values().collect();
+    }
 }
 
 impl EdgeProvider for MemoryProvider {}
@@ -38,29 +55,28 @@ impl TokenProvider for MemoryProvider {
     }
 }
 
+#[async_trait]
+impl EdgeSink for MemoryProvider {
+    async fn sink_features(
+        &mut self,
+        token: &EdgeToken,
+        features: ClientFeatures,
+    ) -> EdgeResult<()> {
+        self.sink_features(token, features);
+        Ok(())
+    }
+
+    async fn sink_tokens(&mut self, tokens: Vec<EdgeToken>) -> EdgeResult<()> {
+        self.sink_tokens(tokens);
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use std::collections::HashMap;
-
     use unleash_types::client_features::ClientFeature;
 
-    use crate::types::EdgeSink;
-
     use super::*;
-
-    impl EdgeSink for MemoryProvider {
-        fn sink_features(&mut self, token: &EdgeToken, features: ClientFeatures) {
-            self.data_store.insert(token.token.clone(), features);
-        }
-
-        fn sink_tokens(&mut self, tokens: Vec<EdgeToken>) {
-            let joined_tokens = tokens.iter().chain(self.token_store.iter());
-            let deduplicated: HashMap<String, EdgeToken> = joined_tokens
-                .map(|x| (x.token.clone(), x.clone()))
-                .collect();
-            self.token_store = deduplicated.into_values().collect();
-        }
-    }
 
     #[test]
     fn memory_provider_correctly_deduplicates_tokens() {

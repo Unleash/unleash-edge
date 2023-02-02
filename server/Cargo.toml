@@ -15,11 +15,13 @@ actix-web = { version = "4.3.0", features = ["rustls"] }
 actix-web-opentelemetry = { version = "0.13.0", features = ["metrics", "metrics-prometheus"] }
 
 anyhow = "1.0.68"
+async-trait = "0.1.64"
 awc = { version = "3.1.0", features = ["rustls"] }
 chrono = { version = "0.4.23", features = ["serde"] }
 clap = { version = "4.1.4", features = ["derive", "env"] }
 dashmap = "5.4.0"
 dotenv = { version = "0.15.0", features = ["clap"] }
+futures = "0.3.26"
 opentelemetry = { version = "0.18.0", features = ["trace", "rt-tokio", "metrics"] }
 opentelemetry-prometheus = "0.11.0"
 prometheus = { version = "0.13.3", features = ["process"] }

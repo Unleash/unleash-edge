@@ -10,6 +10,7 @@ use actix_web::{
     web::{Data, Json},
     FromRequest, HttpRequest,
 };
+use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use shadow_rs::shadow;
@@ -203,9 +204,14 @@ pub trait TokenProvider {
 
 pub trait EdgeProvider: FeaturesProvider + TokenProvider + Send + Sync {}
 
+#[async_trait]
 pub trait EdgeSink {
-    fn sink_features(&mut self, token: &EdgeToken, features: ClientFeatures);
-    fn sink_tokens(&mut self, token: Vec<EdgeToken>);
+    async fn sink_features(
+        &mut self,
+        token: &EdgeToken,
+        features: ClientFeatures,
+    ) -> EdgeResult<()>;
+    async fn sink_tokens(&mut self, token: Vec<EdgeToken>) -> EdgeResult<()>;
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
