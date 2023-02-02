@@ -20,6 +20,7 @@ pub type EdgeJsonResult<T> = Result<Json<T>, EdgeError>;
 pub type EdgeResult<T> = Result<T, EdgeError>;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
 pub enum TokenType {
     Frontend,
     Client,
@@ -33,9 +34,20 @@ pub enum ClientFeaturesResponse {
 }
 
 #[derive(Clone, Debug)]
+pub enum TokenStatus {
+    Invalid,
+    Valid(EdgeToken),
+}
+
+#[derive(Clone, Debug)]
 pub struct ClientFeaturesRequest {
     pub api_key: String,
     pub etag: Option<EntityTag>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ValidateTokenRequest {
+    pub tokens: Vec<String>,
 }
 
 impl ClientFeaturesRequest {
@@ -51,7 +63,7 @@ impl ClientFeaturesRequest {
 #[cfg_attr(test, derive(Default))]
 #[serde(rename_all = "camelCase")]
 pub struct EdgeToken {
-    pub secret: String,
+    pub token: String,
     #[serde(rename = "type")]
     pub token_type: Option<TokenType>,
     pub environment: Option<String>,
@@ -64,7 +76,7 @@ pub struct EdgeToken {
 impl EdgeToken {
     pub fn no_project_or_environment(s: &str) -> Self {
         EdgeToken {
-            secret: s.into(),
+            token: s.into(),
             token_type: None,
             environment: None,
             projects: vec![],
@@ -95,7 +107,7 @@ impl FromRequest for EdgeToken {
                 None => Err(EdgeError::AuthorizationDenied),
             }
             .and_then(|client_token| {
-                if token_provider.secret_is_valid(&client_token.secret)? {
+                if token_provider.secret_is_valid(&client_token.token)? {
                     Ok(client_token)
                 } else {
                     Err(EdgeError::AuthorizationDenied)
@@ -156,7 +168,7 @@ impl FromStr for EdgeToken {
                     environment: e_a_k.get(0).cloned(),
                     projects: token_projects,
                     token_type: None,
-                    secret: s.into(),
+                    token: s.into(),
                     expires_at: None,
                     seen_at: Some(Utc::now()),
                     alias: None,
@@ -276,7 +288,7 @@ mod tests {
         let parsed_token = EdgeToken::from_str(token);
         match parsed_token {
             Ok(t) => {
-                assert_eq!(t.secret, token);
+                assert_eq!(t.token, token);
             }
             Err(e) => {
                 warn!("{}", e);

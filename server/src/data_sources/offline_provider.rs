@@ -23,7 +23,7 @@ impl TokenProvider for OfflineProvider {
     }
 
     fn secret_is_valid(&self, secret: &str) -> EdgeResult<bool> {
-        Ok(self.valid_tokens.iter().any(|t| t.secret == secret))
+        Ok(self.valid_tokens.iter().any(|t| t.token == secret))
     }
 
     fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>> {
@@ -31,7 +31,7 @@ impl TokenProvider for OfflineProvider {
             .valid_tokens
             .clone()
             .into_iter()
-            .find(|t| t.secret == secret))
+            .find(|t| t.token == secret))
     }
 }
 

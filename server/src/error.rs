@@ -7,16 +7,18 @@ use awc::error::JsonPayloadError;
 #[derive(Debug)]
 pub enum EdgeError {
     AuthorizationDenied,
-    InvalidBackupFile(String, String),
-    InvalidServerUrl(String),
-    NoFeaturesFile,
-    NoTokenProvider,
-    TokenParseError,
-    TlsError,
     ClientFeaturesFetchError,
     ClientFeaturesParseError(JsonPayloadError),
     DataSourceError(String),
+    EdgeTokenError,
+    EdgeTokenParseError,
+    InvalidBackupFile(String, String),
+    InvalidServerUrl(String),
     JsonParseError(String),
+    NoFeaturesFile,
+    NoTokenProvider,
+    TlsError,
+    TokenParseError,
 }
 
 impl Error for EdgeError {}
@@ -41,6 +43,8 @@ impl Display for EdgeError {
                 write!(f, "Failed to parse client features: [{parse_error:#?}]")
             }
             EdgeError::InvalidServerUrl(msg) => write!(f, "Failed to parse server url: [{msg}]"),
+            EdgeError::EdgeTokenError => write!(f, "Edge token error"),
+            EdgeError::EdgeTokenParseError => write!(f, "Failed to parse token response"),
         }
     }
 }
@@ -59,6 +63,8 @@ impl ResponseError for EdgeError {
             EdgeError::InvalidServerUrl(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::DataSourceError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::JsonParseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            EdgeError::EdgeTokenError => StatusCode::BAD_REQUEST,
+            EdgeError::EdgeTokenParseError => StatusCode::BAD_REQUEST,
         }
     }
 
