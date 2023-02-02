@@ -2,6 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
 use dashmap::DashMap;
+use std::str::FromStr;
 use tokio::sync::mpsc::Sender;
 use unleash_types::client_features::ClientFeatures;
 
@@ -23,20 +24,22 @@ impl MemoryProvider {
     fn sink_features(&mut self, token: &EdgeToken, features: ClientFeatures) {
         self.data_store.insert(token.token.clone(), features);
     }
-
-    fn sink_tokens(&mut self, tokens: Vec<EdgeToken>) {
-        let joined_tokens = tokens.iter().chain(self.token_store.iter());
-        let deduplicated: HashMap<String, EdgeToken> = joined_tokens
-            .map(|x| (x.token.clone(), x.clone()))
-            .collect();
-        self.token_store = deduplicated.into_values().collect();
-    }
 }
 impl EdgeProvider for MemoryProvider {}
 impl EdgeSource for MemoryProvider {}
 impl EdgeSink for MemoryProvider {}
 
-impl TokenSink for MemoryProvider {}
+#[async_trait]
+impl TokenSink for MemoryProvider {
+    async fn sink_tokens(&mut self, tokens: Vec<EdgeToken>) -> EdgeResult<()> {
+        let joined_tokens = tokens.iter().chain(self.token_store.iter());
+        let deduplicated: HashMap<String, EdgeToken> = joined_tokens
+            .map(|x| (x.token.clone(), x.clone()))
+            .collect();
+        self.token_store = deduplicated.into_values().collect();
+        Ok(())
+    }
+}
 
 #[async_trait]
 impl FeaturesSource for MemoryProvider {
@@ -76,6 +79,15 @@ impl TokenSource for MemoryProvider {
         let tokens = self.get_known_tokens().await?;
         Ok(tokens.into_iter().find(|t| t.token == secret))
     }
+
+    async fn get_valid_tokens(&self, secrets: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
+        let tokens = self.get_known_tokens().await?;
+        Ok(secrets
+            .into_iter()
+            .map(|s| EdgeToken::from_str(s.as_str()).unwrap())
+            .filter(|t| tokens.iter().any(|valid| valid.token == t.token))
+            .collect())
+    }
 }
 
 #[async_trait]
@@ -86,11 +98,6 @@ impl FeatureSink for MemoryProvider {
         features: ClientFeatures,
     ) -> EdgeResult<()> {
         self.sink_features(token, features);
-        Ok(())
-    }
-
-    async fn sink_tokens(&mut self, tokens: Vec<EdgeToken>) -> EdgeResult<()> {
-        self.sink_tokens(tokens);
         Ok(())
     }
 }
@@ -107,15 +114,19 @@ mod test {
     #[tokio::test]
     async fn memory_provider_correctly_deduplicates_tokens() {
         let mut provider = MemoryProvider::default();
-        provider.sink_tokens(vec![EdgeToken {
-            token: "some_secret".into(),
-            ..EdgeToken::default()
-        }]);
+        let _ = provider
+            .sink_tokens(vec![EdgeToken {
+                token: "some_secret".into(),
+                ..EdgeToken::default()
+            }])
+            .await;
 
-        provider.sink_tokens(vec![EdgeToken {
-            token: "some_secret".into(),
-            ..EdgeToken::default()
-        }]);
+        let _ = provider
+            .sink_tokens(vec![EdgeToken {
+                token: "some_secret".into(),
+                ..EdgeToken::default()
+            }])
+            .await;
 
         assert!(provider.get_known_tokens().await.unwrap().len() == 1);
     }
@@ -123,10 +134,12 @@ mod test {
     #[tokio::test]
     async fn memory_provider_correctly_determines_token_to_be_valid() {
         let mut provider = MemoryProvider::default();
-        provider.sink_tokens(vec![EdgeToken {
-            token: "some_secret".into(),
-            ..EdgeToken::default()
-        }]);
+        let _ = provider
+            .sink_tokens(vec![EdgeToken {
+                token: "some_secret".into(),
+                ..EdgeToken::default()
+            }])
+            .await;
 
         let (send, _) = mpsc::channel::<EdgeToken>(32);
 
@@ -158,5 +171,27 @@ mod test {
 
         let found_feature = provider.get_client_features(&token).await.unwrap().features[0].clone();
         assert!(found_feature.name == *"James Bond");
+    }
+
+    #[tokio::test]
+    async fn memory_provider_can_yield_list_of_validated_tokens() {
+        let james_bond = EdgeToken::from_str("jamesbond").unwrap();
+        let frank_drebin = EdgeToken::from_str("frankdrebin").unwrap();
+
+        let mut provider = MemoryProvider::default();
+        let _ = provider
+            .sink_tokens(vec![james_bond.clone(), frank_drebin.clone()])
+            .await;
+        let valid_tokens = provider
+            .get_valid_tokens(vec![
+                "jamesbond".into(),
+                "anotherinvalidone".into(),
+                "frankdrebin".into(),
+            ])
+            .await
+            .unwrap();
+        assert_eq!(valid_tokens.len(), 2);
+        assert!(valid_tokens.iter().any(|t| t.token == james_bond.token));
+        assert!(valid_tokens.iter().any(|t| t.token == frank_drebin.token));
     }
 }

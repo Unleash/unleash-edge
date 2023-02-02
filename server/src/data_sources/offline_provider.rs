@@ -41,6 +41,9 @@ impl TokenSource for OfflineProvider {
             .into_iter()
             .find(|t| t.token == secret))
     }
+    async fn get_valid_tokens(&self, _secrets: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
+        todo!()
+    }
 }
 
 impl EdgeProvider for OfflineProvider {}
@@ -56,12 +59,13 @@ impl FeatureSink for OfflineProvider {
     ) -> EdgeResult<()> {
         todo!()
     }
-
+}
+#[async_trait]
+impl TokenSink for OfflineProvider {
     async fn sink_tokens(&mut self, _token: Vec<EdgeToken>) -> EdgeResult<()> {
         todo!()
     }
 }
-impl TokenSink for OfflineProvider {}
 
 impl OfflineProvider {
     pub fn instantiate_provider(

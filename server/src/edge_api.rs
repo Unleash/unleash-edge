@@ -11,10 +11,9 @@ async fn validate(
     token_provider: web::Data<dyn EdgeSource>,
     tokens: Json<TokenStrings>,
 ) -> EdgeJsonResult<ValidatedTokens> {
-    let valid_tokens: Vec<EdgeToken> = vec![];
-    for token in tokens.into_inner().tokens.into_iter() {
-        let _valid_token = token_provider.token_details(token).await;
-    }
+    let valid_tokens = token_provider
+        .get_valid_tokens(tokens.into_inner().tokens)
+        .await?;
     Ok(Json(ValidatedTokens {
         tokens: valid_tokens,
     }))

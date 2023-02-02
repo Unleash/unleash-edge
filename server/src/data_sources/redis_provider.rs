@@ -48,12 +48,13 @@ impl FeatureSink for RedisProvider {
     ) -> EdgeResult<()> {
         todo!()
     }
-
+}
+#[async_trait]
+impl TokenSink for RedisProvider {
     async fn sink_tokens(&mut self, _token: Vec<EdgeToken>) -> EdgeResult<()> {
         todo!()
     }
 }
-impl TokenSink for RedisProvider {}
 
 #[async_trait]
 impl FeaturesSource for RedisProvider {
@@ -96,6 +97,10 @@ impl TokenSource for RedisProvider {
             let _ = sender.send(EdgeToken::try_from(secret.to_string())?).await;
             Ok(false)
         }
+    }
+
+    async fn get_valid_tokens(&self, _secrets: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
+        todo!()
     }
 
     async fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>> {

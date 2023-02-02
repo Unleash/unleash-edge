@@ -162,11 +162,20 @@ mod tests {
         async fn token_details(&self, _secret: String) -> EdgeResult<Option<EdgeToken>> {
             todo!()
         }
+
+        async fn get_valid_tokens(&self, _tokens: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
+            todo!()
+        }
     }
 
     impl EdgeSource for MockDataSource {}
 
-    impl TokenSink for MockDataSource {}
+    #[async_trait]
+    impl TokenSink for MockDataSource {
+        async fn sink_tokens(&mut self, _token: Vec<EdgeToken>) -> EdgeResult<()> {
+            todo!()
+        }
+    }
 
     impl EdgeSink for MockDataSource {}
 
@@ -174,10 +183,6 @@ mod tests {
 
     #[async_trait]
     impl FeatureSink for MockDataSource {
-        async fn sink_tokens(&mut self, _token: Vec<EdgeToken>) -> EdgeResult<()> {
-            todo!()
-        }
-
         async fn sink_features(
             &mut self,
             _token: &EdgeToken,
@@ -246,7 +251,7 @@ mod tests {
 
     #[actix_web::test]
     async fn calling_post_requests_resolves_context_values_correctly() {
-        let client_provider: Data<dyn EdgeProvider> = MockDataSource::default()
+        let client_sink: Data<dyn EdgeSink> = MockDataSource::default()
             .with(client_features_with_constraint_requiring_user_id_of_seven())
             .into();
 

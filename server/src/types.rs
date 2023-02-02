@@ -191,6 +191,7 @@ pub trait TokenSource {
     async fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>>;
     async fn secret_is_valid(&self, secret: &str, job: Arc<Sender<EdgeToken>>) -> EdgeResult<bool>;
     async fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>>;
+    async fn get_valid_tokens(&self, tokens: Vec<String>) -> EdgeResult<Vec<EdgeToken>>;
 }
 
 pub trait EdgeProvider: EdgeSource + EdgeSink + Send + Sync {}
@@ -205,11 +206,12 @@ pub trait FeatureSink {
         token: &EdgeToken,
         features: ClientFeatures,
     ) -> EdgeResult<()>;
-    async fn sink_tokens(&mut self, token: Vec<EdgeToken>) -> EdgeResult<()>;
 }
 
 #[async_trait]
-pub trait TokenSink {}
+pub trait TokenSink {
+    async fn sink_tokens(&mut self, token: Vec<EdgeToken>) -> EdgeResult<()>;
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BuildInfo {
