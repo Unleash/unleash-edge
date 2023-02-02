@@ -7,6 +7,7 @@ pub mod edge_api;
 pub mod error;
 pub mod frontend_api;
 pub mod metrics;
+pub mod middleware;
 pub mod types;
 pub mod urls;
 

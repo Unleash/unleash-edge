@@ -117,10 +117,7 @@ impl UnleashClient {
                     .map_err(|_| EdgeError::EdgeTokenParseError)?;
                 match token_response.tokens.len() {
                     0 => Ok(TokenStatus::Invalid),
-                    _ => {
-                        let validated_tokens = token_response.tokens.clone();
-                        Ok(TokenStatus::Validated(validated_tokens))
-                    }
+                    _ => Ok(TokenStatus::Validated(token_response.tokens)),
                 }
             }
             _ => Err(EdgeError::EdgeTokenError),
@@ -130,11 +127,8 @@ impl UnleashClient {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        types::{
-            ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenStatus,
-            ValidateTokenRequest,
-        },
+    use crate::types::{
+        ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenStatus, ValidateTokenRequest,
     };
     use actix_http::HttpService;
     use actix_http_test::{test_server, TestServer};

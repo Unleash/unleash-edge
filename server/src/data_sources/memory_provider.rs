@@ -1,13 +1,16 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
-use tokio::sync::mpsc::Sender;
 use dashmap::DashMap;
+use tokio::sync::mpsc::Sender;
 use unleash_types::client_features::ClientFeatures;
 
 use crate::{
     error::EdgeError,
-    types::{EdgeProvider, EdgeResult, EdgeToken, FeaturesProvider, TokenProvider},
+    types::{
+        EdgeProvider, EdgeResult, EdgeToken, FeatureSink, FeaturesProvider, TokenProvider,
+        TokenSink,
+    },
 };
 
 #[derive(Debug, Clone, Default)]
@@ -32,6 +35,8 @@ impl MemoryProvider {
 
 impl EdgeProvider for MemoryProvider {}
 
+impl TokenSink for MemoryProvider {}
+
 #[async_trait]
 impl FeaturesProvider for MemoryProvider {
     async fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<ClientFeatures> {
@@ -48,11 +53,20 @@ impl TokenProvider for MemoryProvider {
         Ok(self.token_store.clone())
     }
 
-    async fn secret_is_valid(&self, secret: &str, sender: Sender<EdgeToken>) -> EdgeResult<bool> {
-        if self.get_known_tokens().await?.iter().any(|t| t.token == secret) {
+    async fn secret_is_valid(
+        &self,
+        secret: &str,
+        sender: Arc<Sender<EdgeToken>>,
+    ) -> EdgeResult<bool> {
+        if self
+            .get_known_tokens()
+            .await?
+            .iter()
+            .any(|t| t.token == secret)
+        {
             Ok(true)
         } else {
-            sender.send(EdgeToken::try_from(secret.to_string())?);
+            let _ = sender.send(EdgeToken::try_from(secret.to_string())?).await;
             Ok(false)
         }
     }
@@ -64,7 +78,7 @@ impl TokenProvider for MemoryProvider {
 }
 
 #[async_trait]
-impl EdgeSink for MemoryProvider {
+impl FeatureSink for MemoryProvider {
     async fn sink_features(
         &mut self,
         token: &EdgeToken,
@@ -82,6 +96,9 @@ impl EdgeSink for MemoryProvider {
 
 #[cfg(test)]
 mod test {
+    use std::sync::Arc;
+
+    use tokio::sync::mpsc;
     use unleash_types::client_features::ClientFeature;
 
     use super::*;
@@ -110,7 +127,12 @@ mod test {
             ..EdgeToken::default()
         }]);
 
-        assert!(provider.secret_is_valid("some_secret").await.unwrap())
+        let (send, _) = mpsc::channel::<EdgeToken>(32);
+
+        assert!(provider
+            .secret_is_valid("some_secret", Arc::new(send))
+            .await
+            .unwrap())
     }
 
     #[tokio::test]

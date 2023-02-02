@@ -2478,6 +2478,7 @@ dependencies = [
  "dotenv",
  "env_logger",
  "futures",
+ "futures-core",
  "opentelemetry",
  "opentelemetry-prometheus",
  "prometheus",

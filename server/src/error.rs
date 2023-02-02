@@ -46,7 +46,9 @@ impl Display for EdgeError {
             EdgeError::InvalidServerUrl(msg) => write!(f, "Failed to parse server url: [{msg}]"),
             EdgeError::EdgeTokenError => write!(f, "Edge token error"),
             EdgeError::EdgeTokenParseError => write!(f, "Failed to parse token response"),
-            EdgeError::AuthorizationPending => write!(f, "No validation for token has happened yet"),
+            EdgeError::AuthorizationPending => {
+                write!(f, "No validation for token has happened yet")
+            }
         }
     }
 }

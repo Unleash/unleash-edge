@@ -1,7 +1,8 @@
-use std::fs;
+use std::{fs, sync::Arc};
 
 use redis::{Client, Commands};
 use testcontainers::{clients::Cli, images::redis::Redis, Container};
+use tokio::sync::mpsc;
 use unleash_edge::{
     data_sources::redis_provider::{RedisProvider, FEATURE_KEY, TOKENS_KEY},
     types::{EdgeProvider, EdgeToken},
@@ -31,6 +32,7 @@ async fn redis_provider_returns_expected_data() {
 
     let features = provider
         .get_client_features(&EdgeToken::try_from(TOKEN.to_string()).unwrap())
+        .await
         .unwrap();
 
     assert!(!features.features.is_empty());
@@ -45,7 +47,7 @@ async fn redis_provider_returns_token_info() {
 
     let provider: Box<dyn EdgeProvider> = Box::new(RedisProvider::new(&url).unwrap());
 
-    let tokens = provider.get_known_tokens().unwrap();
+    let tokens = provider.get_known_tokens().await.unwrap();
     assert_eq!(
         *tokens[0].environment.as_ref().unwrap(),
         "development".to_string()
@@ -57,10 +59,15 @@ async fn redis_provider_correctly_determines_secret_to_be_valid() {
     let docker = Cli::default();
     let (mut client, url, _node) = setup_redis(&docker);
 
+    let (send, _) = mpsc::channel::<EdgeToken>(32);
+
     let _: () = client.set(TOKENS_KEY, format!("[\"{TOKEN}\"]")).unwrap();
 
     let provider: Box<dyn EdgeProvider> = Box::new(RedisProvider::new(&url).unwrap());
 
-    let is_valid_token = provider.secret_is_valid(TOKEN).unwrap();
+    let is_valid_token = provider
+        .secret_is_valid(TOKEN, Arc::new(send))
+        .await
+        .unwrap();
     assert!(is_valid_token)
 }

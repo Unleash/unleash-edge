@@ -1,7 +1,7 @@
-use std::sync::RwLock;
 use async_trait::async_trait;
-use tokio::sync::mpsc::Sender;
 use redis::{Client, Commands, RedisError};
+use std::sync::{Arc, RwLock};
+use tokio::sync::mpsc::Sender;
 use unleash_types::client_features::ClientFeatures;
 
 pub const FEATURE_KEY: &str = "features";
@@ -9,7 +9,10 @@ pub const TOKENS_KEY: &str = "tokens";
 
 use crate::{
     error::EdgeError,
-    types::{EdgeProvider, EdgeResult, EdgeToken, FeaturesProvider, TokenProvider},
+    types::{
+        EdgeProvider, EdgeResult, EdgeToken, FeatureSink, FeaturesProvider, TokenProvider,
+        TokenSink,
+    },
 };
 
 pub struct RedisProvider {
@@ -32,6 +35,22 @@ impl RedisProvider {
 }
 
 impl EdgeProvider for RedisProvider {}
+
+#[async_trait]
+impl FeatureSink for RedisProvider {
+    async fn sink_features(
+        &mut self,
+        _token: &EdgeToken,
+        _features: ClientFeatures,
+    ) -> EdgeResult<()> {
+        todo!()
+    }
+
+    async fn sink_tokens(&mut self, _token: Vec<EdgeToken>) -> EdgeResult<()> {
+        todo!()
+    }
+}
+impl TokenSink for RedisProvider {}
 
 #[async_trait]
 impl FeaturesProvider for RedisProvider {
@@ -58,8 +77,17 @@ impl TokenProvider for RedisProvider {
             .collect())
     }
 
-    async fn secret_is_valid(&self, secret: &str, sender: Sender<EdgeToken>) -> EdgeResult<bool> {
-        if self.get_known_tokens().await?.iter().any(|t| t.token == secret) {
+    async fn secret_is_valid(
+        &self,
+        secret: &str,
+        sender: Arc<Sender<EdgeToken>>,
+    ) -> EdgeResult<bool> {
+        if self
+            .get_known_tokens()
+            .await?
+            .iter()
+            .any(|t| t.token == secret)
+        {
             Ok(true)
         } else {
             let _ = sender.send(EdgeToken::try_from(secret.to_string())?).await;

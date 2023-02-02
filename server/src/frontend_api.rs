@@ -103,15 +103,18 @@ pub fn configure_frontend_api(cfg: &mut web::ServiceConfig) {
 mod tests {
     use std::sync::Arc;
 
-    use crate::types::{EdgeProvider, EdgeResult, EdgeToken, FeaturesProvider, TokenProvider};
+    use crate::types::{
+        EdgeProvider, EdgeResult, EdgeToken, FeatureSink, FeaturesProvider, TokenProvider,
+        TokenSink,
+    };
     use actix_web::{
         http::header::ContentType,
         test,
         web::{self, Data},
         App,
     };
-    use serde_json::json;
     use async_trait::async_trait;
+    use serde_json::json;
     use tokio::sync::mpsc::Sender;
     use unleash_types::{
         client_features::{ClientFeature, ClientFeatures, Constraint, Operator, Strategy},
@@ -148,7 +151,11 @@ mod tests {
             todo!()
         }
 
-        async fn secret_is_valid(&self, _secret: &str, _: Sender<EdgeToken>) -> EdgeResult<bool> {
+        async fn secret_is_valid(
+            &self,
+            _secret: &str,
+            _: Arc<Sender<EdgeToken>>,
+        ) -> EdgeResult<bool> {
             Ok(true)
         }
 
@@ -158,6 +165,23 @@ mod tests {
     }
 
     impl EdgeProvider for MockDataSource {}
+
+    impl TokenSink for MockDataSource {}
+
+    #[async_trait]
+    impl FeatureSink for MockDataSource {
+        async fn sink_tokens(&mut self, _token: Vec<EdgeToken>) -> EdgeResult<()> {
+            todo!()
+        }
+
+        async fn sink_features(
+            &mut self,
+            _token: &EdgeToken,
+            _features: ClientFeatures,
+        ) -> EdgeResult<()> {
+            todo!()
+        }
+    }
 
     impl From<MockDataSource> for Data<dyn EdgeProvider> {
         fn from(val: MockDataSource) -> Self {

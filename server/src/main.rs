@@ -2,15 +2,15 @@ use std::sync::Arc;
 
 use crate::cli::EdgeMode;
 use actix_cors::Cors;
+
 use actix_middleware_etag::Etag;
-use actix_web::{http, middleware, web, App, HttpServer};
+use actix_web::middleware::Logger;
+use actix_web::{http, web, App, HttpServer};
 use actix_web_opentelemetry::RequestTracing;
 use clap::Parser;
 use cli::CliArgs;
-use types::EdgeProvider;
-
 use tokio::sync::mpsc;
-use unleash_edge::cli;
+use types::EdgeProvider;
 use unleash_edge::cli::EdgeArg;
 use unleash_edge::cli::OfflineArgs;
 use unleash_edge::client_api;
@@ -19,12 +19,12 @@ use unleash_edge::data_sources::offline_provider::OfflineProvider;
 use unleash_edge::data_sources::redis_provider::RedisProvider;
 use unleash_edge::edge_api;
 use unleash_edge::frontend_api;
-use unleash_edge::http::token_refresh::poll_for_token_status;
 use unleash_edge::internal_backstage;
 use unleash_edge::metrics;
 use unleash_edge::types;
 use unleash_edge::types::EdgeResult;
 use unleash_edge::types::EdgeToken;
+use unleash_edge::{cli, middleware};
 
 mod tls;
 
@@ -68,8 +68,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let client_provider: Arc<dyn EdgeProvider> =
         build_data_source(args).map_err(anyhow::Error::new)?;
 
-    let (sender, mut receiver) = mpsc::channel::<EdgeToken>(32);
-
+    let (sender, _receiver) = mpsc::channel::<EdgeToken>(32);
     let server = HttpServer::new(move || {
         let client_provider_data = web::Data::from(client_provider.clone());
 
@@ -83,15 +82,10 @@ async fn main() -> Result<(), anyhow::Error> {
             .app_data(client_provider_data)
             .app_data(web::Data::new(sender.clone()))
             .wrap(Etag::default())
-            .wrap_fn(|req, srv| {
-                let token = EdgeToken::from(req);
-                if let Some(provider) = req.app_data::<Data<dyn EdgeProvider>>();
-                    provider.
-            })
             .wrap(cors_middleware)
             .wrap(RequestTracing::new())
             .wrap(request_metrics.clone())
-            .wrap(middleware::Logger::default())
+            .wrap(Logger::default())
             .service(web::scope("/internal-backstage").configure(|service_cfg| {
                 internal_backstage::configure_internal_backstage(
                     service_cfg,
@@ -100,6 +94,9 @@ async fn main() -> Result<(), anyhow::Error> {
             }))
             .service(
                 web::scope("/api")
+                    .wrap(middleware::from_fn::as_async_middleware(
+                        middleware::validate_token::validate_token,
+                    ))
                     .configure(client_api::configure_client_api)
                     .configure(frontend_api::configure_frontend_api),
             )
@@ -120,9 +117,9 @@ async fn main() -> Result<(), anyhow::Error> {
         _ = server.run() => {
             tracing::info!("Actix was shutdown properly");
         },
-        _ = poll_for_token_status(receiver) => {
-            tracing::info!("Token validator task is shutting down")
-        }
+        // _ = poll_for_token_status(receiver, client_provider) => {
+        //     tracing::info!("Token validator task is shutting down")
+        // }
     }
 
     Ok(())

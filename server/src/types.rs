@@ -1,13 +1,14 @@
 use std::{
     future::{ready, Ready},
     str::FromStr,
+    sync::Arc,
 };
 
 use crate::error::EdgeError;
 use actix_web::{
     dev::Payload,
     http::header::{EntityTag, HeaderValue},
-    web::{Data, Json},
+    web::Json,
     FromRequest, HttpRequest,
 };
 use async_trait::async_trait;
@@ -15,7 +16,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use shadow_rs::shadow;
 use tokio::sync::mpsc::Sender;
-use tracing::warn;
 use unleash_types::client_features::ClientFeatures;
 
 pub type EdgeJsonResult<T> = Result<Json<T>, EdgeError>;
@@ -189,7 +189,7 @@ pub trait FeaturesProvider {
 #[async_trait]
 pub trait TokenProvider {
     async fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>>;
-    async fn secret_is_valid(&self, secret: &str, job: Sender<EdgeToken>) -> EdgeResult<bool>;
+    async fn secret_is_valid(&self, secret: &str, job: Arc<Sender<EdgeToken>>) -> EdgeResult<bool>;
     async fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>>;
 }
 
