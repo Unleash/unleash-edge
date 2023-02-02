@@ -13,7 +13,7 @@ pub async fn validate_token(
     provider: Data<dyn EdgeProvider>,
     sender: Data<Sender<EdgeToken>>,
     req: ServiceRequest,
-    srv: crate::middleware::from_fn::Next<impl MessageBody + 'static>,
+    srv: crate::middleware::as_async_middleware::Next<impl MessageBody + 'static>,
 ) -> Result<ServiceResponse<impl MessageBody>, actix_web::Error> {
     let res = if provider
         .secret_is_valid(token.token.as_str(), sender.into_inner())

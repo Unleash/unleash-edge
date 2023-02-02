@@ -25,7 +25,7 @@ use futures_core::{future::LocalBoxFuture, Future};
 /// #     body::MessageBody,
 /// #     dev::{ServiceRequest, ServiceResponse, Service as _},
 /// # };
-/// use unleash_edge::middleware::Next;
+/// use unleash_edge::middleware::as_async_middleware::Next;
 ///
 /// async fn my_mw(
 ///     req: ServiceRequest,
@@ -35,7 +35,7 @@ use futures_core::{future::LocalBoxFuture, Future};
 ///     next.call(req).await
 ///     // post-processing
 /// }
-/// # actix_web::App::new().wrap(unleash_edge::middleware::from_fn(my_mw));
+/// # actix_web::App::new().wrap(unleash_edge::middleware::as_async_middleware::as_async_middleware(my_mw));
 /// ```
 ///
 /// Then use in an app builder like this:
@@ -44,14 +44,14 @@ use futures_core::{future::LocalBoxFuture, Future};
 ///     App, Error,
 ///     dev::{ServiceRequest, ServiceResponse, Service as _},
 /// };
-/// use unleash_edge::middleware::from_fn;
-/// # use unleash_edge::middleware::Next;
+/// use unleash_edge::middleware::as_async_middleware::as_async_middleware;
+/// # use unleash_edge::middleware::as_async_middleware::Next;
 /// # async fn my_mw<B>(req: ServiceRequest, next: Next<B>) -> Result<ServiceResponse<B>, Error> {
 /// #     next.call(req).await
 /// # }
 ///
 /// App::new()
-///     .wrap(from_fn(my_mw))
+///     .wrap(as_async_middleware(my_mw))
 /// # ;
 /// ```
 ///
@@ -65,7 +65,7 @@ use futures_core::{future::LocalBoxFuture, Future};
 /// #     dev::{ServiceRequest, ServiceResponse, Service as _},
 /// #     web,
 /// # };
-/// use unleash_edge::middleware::Next;
+/// use unleash_edge::middleware::as_async_middleware::Next;
 ///
 /// async fn my_extracting_mw(
 ///     string_body: String,
@@ -77,7 +77,7 @@ use futures_core::{future::LocalBoxFuture, Future};
 ///     next.call(req).await
 ///     // post-processing
 /// }
-/// # actix_web::App::new().wrap(unleash_edge::middleware::as_async_middleware(my_extracting_mw));
+/// # actix_web::App::new().wrap(unleash_edge::middleware::as_async_middleware::as_async_middleware(my_extracting_mw));
 pub fn as_async_middleware<F, Es>(mw_fn: F) -> MiddlewareFn<F, Es> {
     MiddlewareFn {
         mw_fn: Rc::new(mw_fn),
@@ -113,7 +113,7 @@ where
     }
 }
 
-/// Middleware service for [`from_fn`].
+/// Middleware service for [`as_async_middleware`].
 pub struct MiddlewareFnService<F, B, Es> {
     service: RcService<ServiceRequest, ServiceResponse<B>, Error>,
     mw_fn: Rc<F>,
@@ -329,7 +329,7 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn closure_capture_and_return_from_fn() {
+    async fn closure_capture_and_return_as_async_middleware() {
         let app = test::init_service(
             App::new()
                 .wrap(Logger::default())

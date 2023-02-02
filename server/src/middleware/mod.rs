@@ -1,2 +1,2 @@
-pub mod from_fn;
+pub mod as_async_middleware;
 pub mod validate_token;

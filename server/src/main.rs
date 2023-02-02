@@ -94,7 +94,7 @@ async fn main() -> Result<(), anyhow::Error> {
             }))
             .service(
                 web::scope("/api")
-                    .wrap(middleware::from_fn::as_async_middleware(
+                    .wrap(middleware::as_async_middleware::as_async_middleware(
                         middleware::validate_token::validate_token,
                     ))
                     .configure(client_api::configure_client_api)
