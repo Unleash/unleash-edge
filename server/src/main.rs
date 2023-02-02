@@ -9,6 +9,7 @@ use clap::Parser;
 use cli::CliArgs;
 use types::EdgeProvider;
 
+use tokio::sync::mpsc;
 use unleash_edge::cli;
 use unleash_edge::cli::EdgeArg;
 use unleash_edge::cli::OfflineArgs;
@@ -18,10 +19,12 @@ use unleash_edge::data_sources::offline_provider::OfflineProvider;
 use unleash_edge::data_sources::redis_provider::RedisProvider;
 use unleash_edge::edge_api;
 use unleash_edge::frontend_api;
+use unleash_edge::http::token_refresh::poll_for_token_status;
 use unleash_edge::internal_backstage;
 use unleash_edge::metrics;
 use unleash_edge::types;
 use unleash_edge::types::EdgeResult;
+use unleash_edge::types::EdgeToken;
 
 mod tls;
 
@@ -64,6 +67,9 @@ async fn main() -> Result<(), anyhow::Error> {
     let (metrics_handler, request_metrics) = metrics::instantiate(None);
     let client_provider: Arc<dyn EdgeProvider> =
         build_data_source(args).map_err(anyhow::Error::new)?;
+
+    let (sender, mut receiver) = mpsc::channel::<EdgeToken>(32);
+
     let server = HttpServer::new(move || {
         let client_provider_data = web::Data::from(client_provider.clone());
 
@@ -75,7 +81,13 @@ async fn main() -> Result<(), anyhow::Error> {
             .allowed_header(http::header::CONTENT_TYPE);
         App::new()
             .app_data(client_provider_data)
+            .app_data(web::Data::new(sender.clone()))
             .wrap(Etag::default())
+            .wrap_fn(|req, srv| {
+                let token = EdgeToken::from(req);
+                if let Some(provider) = req.app_data::<Data<dyn EdgeProvider>>();
+                    provider.
+            })
             .wrap(cors_middleware)
             .wrap(RequestTracing::new())
             .wrap(request_metrics.clone())
@@ -106,6 +118,10 @@ async fn main() -> Result<(), anyhow::Error> {
 
     tokio::select! {
         _ = server.run() => {
+            tracing::info!("Actix was shutdown properly");
+        },
+        _ = poll_for_token_status(receiver) => {
+            tracing::info!("Token validator task is shutting down")
         }
     }
 

@@ -50,6 +50,7 @@ impl UnleashClient {
             backing_client: new_awc_client(Ulid::new().to_string()),
         }
     }
+
     pub fn new(server_url: &str, instance_id_opt: Option<String>) -> Result<Self, EdgeError> {
         let instance_id = instance_id_opt.unwrap_or_else(|| Ulid::new().to_string());
         Ok(Self {
@@ -69,6 +70,7 @@ impl UnleashClient {
             client_req
         }
     }
+
     fn awc_validate_token_req(&self) -> ClientRequest {
         self.backing_client
             .post(self.urls.edge_validate_url.to_string())
@@ -99,6 +101,7 @@ impl UnleashClient {
             Ok(ClientFeaturesResponse::Updated(features, etag))
         }
     }
+
     pub async fn validate_token(&self, request: ValidateTokenRequest) -> EdgeResult<TokenStatus> {
         let mut result = self
             .awc_validate_token_req()
@@ -115,8 +118,8 @@ impl UnleashClient {
                 match token_response.tokens.len() {
                     0 => Ok(TokenStatus::Invalid),
                     _ => {
-                        let validated_token = token_response.tokens.get(0).unwrap();
-                        Ok(TokenStatus::Valid(validated_token.clone()))
+                        let validated_tokens = token_response.tokens.clone();
+                        Ok(TokenStatus::Validated(validated_tokens))
                     }
                 }
             }
@@ -132,7 +135,6 @@ mod tests {
             ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenStatus,
             ValidateTokenRequest,
         },
-        unleash_client::UnleashClient,
     };
     use actix_http::HttpService;
     use actix_http_test::{test_server, TestServer};
@@ -142,7 +144,7 @@ mod tests {
     use std::str::FromStr;
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
-    use super::EdgeTokens;
+    use super::{EdgeTokens, UnleashClient};
 
     const TEST_TOKEN: &str = "[]:development.08bce4267a3b1aa";
 
@@ -165,9 +167,11 @@ mod tests {
             query: None,
         }
     }
+
     async fn return_client_features() -> HttpResponse {
         HttpResponse::Ok().json(two_client_features())
     }
+
     async fn return_validate_tokens() -> HttpResponse {
         HttpResponse::Ok().json(EdgeTokens {
             tokens: vec![EdgeToken {
@@ -204,6 +208,7 @@ mod tests {
             .unwrap();
         format!("{len:x}-{hash}")
     }
+
     #[actix_web::test]
     async fn client_can_get_features() {
         let srv = test_features_server().await;
@@ -257,8 +262,8 @@ mod tests {
             .await;
         match validate_result {
             Ok(token_status) => match token_status {
-                TokenStatus::Valid(data) => {
-                    assert_eq!(data.token, TEST_TOKEN.to_string());
+                TokenStatus::Validated(data) => {
+                    assert_eq!(data.get(0).unwrap().token, TEST_TOKEN.to_string());
                 }
                 TokenStatus::Invalid => {
                     panic!("Expected my token to be valid, but got an invalid status instead");

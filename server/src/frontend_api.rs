@@ -16,7 +16,7 @@ async fn get_frontend_features(
     features_source: web::Data<dyn EdgeProvider>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let client_features = features_source.get_client_features(&edge_token);
+    let client_features = features_source.get_client_features(&edge_token).await;
     let context = context.into_inner();
 
     let toggles = resolve_frontend_features(client_features?, context).collect();
@@ -30,7 +30,7 @@ async fn post_frontend_features(
     features_source: web::Data<dyn EdgeProvider>,
     context: web::Json<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let client_features = features_source.get_client_features(&edge_token);
+    let client_features = features_source.get_client_features(&edge_token).await;
     let context = context.into_inner();
 
     let toggles = resolve_frontend_features(client_features?, context).collect();
@@ -44,7 +44,7 @@ async fn get_enabled_frontend_features(
     features_source: web::Data<dyn EdgeProvider>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let client_features = features_source.get_client_features(&edge_token);
+    let client_features = features_source.get_client_features(&edge_token).await;
     let context = context.into_inner();
 
     let toggles: Vec<EvaluatedToggle> = resolve_frontend_features(client_features?, context)
@@ -60,7 +60,7 @@ async fn post_enabled_frontend_features(
     features_source: web::Data<dyn EdgeProvider>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let client_features = features_source.get_client_features(&edge_token);
+    let client_features = features_source.get_client_features(&edge_token).await;
     let context = context.into_inner();
 
     let toggles: Vec<EvaluatedToggle> = resolve_frontend_features(client_features?, context)
@@ -111,6 +111,8 @@ mod tests {
         App,
     };
     use serde_json::json;
+    use async_trait::async_trait;
+    use tokio::sync::mpsc::Sender;
     use unleash_types::{
         client_features::{ClientFeature, ClientFeatures, Constraint, Operator, Strategy},
         frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult},
@@ -129,8 +131,9 @@ mod tests {
         }
     }
 
+    #[async_trait]
     impl FeaturesProvider for MockDataSource {
-        fn get_client_features(&self, _token: &EdgeToken) -> EdgeResult<ClientFeatures> {
+        async fn get_client_features(&self, _token: &EdgeToken) -> EdgeResult<ClientFeatures> {
             Ok(self
                 .features
                 .as_ref()
@@ -139,16 +142,17 @@ mod tests {
         }
     }
 
+    #[async_trait]
     impl TokenProvider for MockDataSource {
-        fn get_known_tokens(&self) -> EdgeResult<Vec<crate::types::EdgeToken>> {
+        async fn get_known_tokens(&self) -> EdgeResult<Vec<crate::types::EdgeToken>> {
             todo!()
         }
 
-        fn secret_is_valid(&self, _secret: &str) -> EdgeResult<bool> {
+        async fn secret_is_valid(&self, _secret: &str, _: Sender<EdgeToken>) -> EdgeResult<bool> {
             Ok(true)
         }
 
-        fn token_details(&self, _secret: String) -> EdgeResult<Option<EdgeToken>> {
+        async fn token_details(&self, _secret: String) -> EdgeResult<Option<EdgeToken>> {
             todo!()
         }
     }

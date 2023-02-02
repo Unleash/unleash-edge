@@ -7,6 +7,7 @@ use awc::error::JsonPayloadError;
 #[derive(Debug)]
 pub enum EdgeError {
     AuthorizationDenied,
+    AuthorizationPending,
     ClientFeaturesFetchError,
     ClientFeaturesParseError(JsonPayloadError),
     DataSourceError(String),
@@ -45,6 +46,7 @@ impl Display for EdgeError {
             EdgeError::InvalidServerUrl(msg) => write!(f, "Failed to parse server url: [{msg}]"),
             EdgeError::EdgeTokenError => write!(f, "Edge token error"),
             EdgeError::EdgeTokenParseError => write!(f, "Failed to parse token response"),
+            EdgeError::AuthorizationPending => write!(f, "No validation for token has happened yet"),
         }
     }
 }
@@ -57,7 +59,7 @@ impl ResponseError for EdgeError {
             EdgeError::NoFeaturesFile => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::AuthorizationDenied => StatusCode::FORBIDDEN,
             EdgeError::NoTokenProvider => StatusCode::INTERNAL_SERVER_ERROR,
-            EdgeError::TokenParseError => StatusCode::UNAUTHORIZED,
+            EdgeError::TokenParseError => StatusCode::FORBIDDEN,
             EdgeError::ClientFeaturesParseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::ClientFeaturesFetchError => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::InvalidServerUrl(_) => StatusCode::INTERNAL_SERVER_ERROR,
@@ -65,6 +67,7 @@ impl ResponseError for EdgeError {
             EdgeError::JsonParseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::EdgeTokenError => StatusCode::BAD_REQUEST,
             EdgeError::EdgeTokenParseError => StatusCode::BAD_REQUEST,
+            EdgeError::AuthorizationPending => StatusCode::UNAUTHORIZED,
         }
     }
 

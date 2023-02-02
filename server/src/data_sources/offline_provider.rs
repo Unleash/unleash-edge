@@ -4,6 +4,8 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
 use unleash_types::client_features::ClientFeatures;
+use async_trait::async_trait;
+use tokio::sync::mpsc::Sender;
 
 #[derive(Debug, Clone)]
 pub struct OfflineProvider {
@@ -11,22 +13,24 @@ pub struct OfflineProvider {
     pub valid_tokens: Vec<EdgeToken>,
 }
 
+#[async_trait]
 impl FeaturesProvider for OfflineProvider {
-    fn get_client_features(&self, _: &EdgeToken) -> Result<ClientFeatures, EdgeError> {
+    async fn get_client_features(&self, _: &EdgeToken) -> Result<ClientFeatures, EdgeError> {
         Ok(self.features.clone())
     }
 }
 
+#[async_trait]
 impl TokenProvider for OfflineProvider {
-    fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
+    async fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
         Ok(self.valid_tokens.clone())
     }
 
-    fn secret_is_valid(&self, secret: &str) -> EdgeResult<bool> {
+    async fn secret_is_valid(&self, secret: &str, _: Sender<EdgeToken>) -> EdgeResult<bool> {
         Ok(self.valid_tokens.iter().any(|t| t.token == secret))
     }
 
-    fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>> {
+    async fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>> {
         Ok(self
             .valid_tokens
             .clone()

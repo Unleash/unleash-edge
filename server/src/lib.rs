@@ -1,4 +1,5 @@
 pub mod data_sources;
+pub mod http;
 
 pub mod cli;
 pub mod client_api;

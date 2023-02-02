@@ -14,6 +14,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use shadow_rs::shadow;
+use tokio::sync::mpsc::Sender;
 use tracing::warn;
 use unleash_types::client_features::ClientFeatures;
 
@@ -37,7 +38,7 @@ pub enum ClientFeaturesResponse {
 #[derive(Clone, Debug)]
 pub enum TokenStatus {
     Invalid,
-    Valid(EdgeToken),
+    Validated(Vec<EdgeToken>),
 }
 
 #[derive(Clone, Debug)]
@@ -101,24 +102,12 @@ impl FromRequest for EdgeToken {
     type Future = Ready<EdgeResult<Self>>;
 
     fn from_request(req: &HttpRequest, _payload: &mut Payload) -> Self::Future {
-        if let Some(token_provider) = req.app_data::<Data<dyn EdgeProvider>>() {
-            let value = req.headers().get("Authorization");
-            let key = match value {
-                Some(v) => EdgeToken::try_from(v.clone()),
-                None => Err(EdgeError::AuthorizationDenied),
-            }
-            .and_then(|client_token| {
-                if token_provider.secret_is_valid(&client_token.token)? {
-                    Ok(client_token)
-                } else {
-                    Err(EdgeError::AuthorizationDenied)
-                }
-            });
-            ready(key)
-        } else {
-            warn!("Could not find a token provider");
-            ready(Err(EdgeError::NoTokenProvider))
-        }
+        let value = req.headers().get("Authorization");
+        let key = match value {
+            Some(v) => EdgeToken::try_from(v.clone()),
+            None => Err(EdgeError::AuthorizationDenied),
+        };
+        ready(key)
     }
 }
 
@@ -192,20 +181,25 @@ pub struct ValidatedTokens {
     pub tokens: Vec<EdgeToken>,
 }
 
+#[async_trait]
 pub trait FeaturesProvider {
-    fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<ClientFeatures>;
+    async fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<ClientFeatures>;
 }
-
-pub trait TokenProvider {
-    fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>>;
-    fn secret_is_valid(&self, secret: &str) -> EdgeResult<bool>;
-    fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>>;
-}
-
-pub trait EdgeProvider: FeaturesProvider + TokenProvider + Send + Sync {}
 
 #[async_trait]
-pub trait EdgeSink {
+pub trait TokenProvider {
+    async fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>>;
+    async fn secret_is_valid(&self, secret: &str, job: Sender<EdgeToken>) -> EdgeResult<bool>;
+    async fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>>;
+}
+
+pub trait EdgeProvider:
+    FeaturesProvider + TokenProvider + FeatureSink + TokenSink + Send + Sync
+{
+}
+
+#[async_trait]
+pub trait FeatureSink {
     async fn sink_features(
         &mut self,
         token: &EdgeToken,
@@ -213,6 +207,9 @@ pub trait EdgeSink {
     ) -> EdgeResult<()>;
     async fn sink_tokens(&mut self, token: Vec<EdgeToken>) -> EdgeResult<()>;
 }
+
+#[async_trait]
+pub trait TokenSink {}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BuildInfo {

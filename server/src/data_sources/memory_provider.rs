@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
+use tokio::sync::mpsc::Sender;
 use dashmap::DashMap;
 use unleash_types::client_features::ClientFeatures;
 
 use crate::{
     error::EdgeError,
-    types::{EdgeProvider, EdgeResult, EdgeSink, EdgeToken, FeaturesProvider, TokenProvider},
+    types::{EdgeProvider, EdgeResult, EdgeToken, FeaturesProvider, TokenProvider},
 };
 
 #[derive(Debug, Clone, Default)]
@@ -31,8 +32,9 @@ impl MemoryProvider {
 
 impl EdgeProvider for MemoryProvider {}
 
+#[async_trait]
 impl FeaturesProvider for MemoryProvider {
-    fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<ClientFeatures> {
+    async fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<ClientFeatures> {
         self.data_store
             .get(&token.token)
             .map(|v| v.value().clone())
@@ -40,17 +42,23 @@ impl FeaturesProvider for MemoryProvider {
     }
 }
 
+#[async_trait]
 impl TokenProvider for MemoryProvider {
-    fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
+    async fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
         Ok(self.token_store.clone())
     }
 
-    fn secret_is_valid(&self, secret: &str) -> EdgeResult<bool> {
-        Ok(self.get_known_tokens()?.iter().any(|t| t.token == secret))
+    async fn secret_is_valid(&self, secret: &str, sender: Sender<EdgeToken>) -> EdgeResult<bool> {
+        if self.get_known_tokens().await?.iter().any(|t| t.token == secret) {
+            Ok(true)
+        } else {
+            sender.send(EdgeToken::try_from(secret.to_string())?);
+            Ok(false)
+        }
     }
 
-    fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>> {
-        let tokens = self.get_known_tokens()?;
+    async fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>> {
+        let tokens = self.get_known_tokens().await?;
         Ok(tokens.into_iter().find(|t| t.token == secret))
     }
 }
@@ -78,8 +86,8 @@ mod test {
 
     use super::*;
 
-    #[test]
-    fn memory_provider_correctly_deduplicates_tokens() {
+    #[tokio::test]
+    async fn memory_provider_correctly_deduplicates_tokens() {
         let mut provider = MemoryProvider::default();
         provider.sink_tokens(vec![EdgeToken {
             token: "some_secret".into(),
@@ -91,22 +99,22 @@ mod test {
             ..EdgeToken::default()
         }]);
 
-        assert!(provider.get_known_tokens().unwrap().len() == 1);
+        assert!(provider.get_known_tokens().await.unwrap().len() == 1);
     }
 
-    #[test]
-    fn memory_provider_correctly_determines_token_to_be_valid() {
+    #[tokio::test]
+    async fn memory_provider_correctly_determines_token_to_be_valid() {
         let mut provider = MemoryProvider::default();
         provider.sink_tokens(vec![EdgeToken {
             token: "some_secret".into(),
             ..EdgeToken::default()
         }]);
 
-        assert!(provider.secret_is_valid("some_secret").unwrap())
+        assert!(provider.secret_is_valid("some_secret").await.unwrap())
     }
 
-    #[test]
-    fn memory_provider_yields_correct_response_for_token() {
+    #[tokio::test]
+    async fn memory_provider_yields_correct_response_for_token() {
         let mut provider = MemoryProvider::default();
         let token = EdgeToken {
             token: "some-secret".into(),
@@ -125,7 +133,7 @@ mod test {
 
         provider.sink_features(&token, features);
 
-        let found_feature = provider.get_client_features(&token).unwrap().features[0].clone();
+        let found_feature = provider.get_client_features(&token).await.unwrap().features[0].clone();
         assert!(found_feature.name == *"James Bond");
     }
 }
