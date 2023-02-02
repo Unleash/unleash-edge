@@ -17,13 +17,13 @@ pub struct MemoryProvider {
 
 impl MemoryProvider {
     fn sink_features(&mut self, token: &EdgeToken, features: ClientFeatures) {
-        self.data_store.insert(token.secret.clone(), features);
+        self.data_store.insert(token.token.clone(), features);
     }
 
     fn sink_tokens(&mut self, tokens: Vec<EdgeToken>) {
         let joined_tokens = tokens.iter().chain(self.token_store.iter());
         let deduplicated: HashMap<String, EdgeToken> = joined_tokens
-            .map(|x| (x.secret.clone(), x.clone()))
+            .map(|x| (x.token.clone(), x.clone()))
             .collect();
         self.token_store = deduplicated.into_values().collect();
     }
@@ -34,7 +34,7 @@ impl EdgeProvider for MemoryProvider {}
 impl FeaturesProvider for MemoryProvider {
     fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<ClientFeatures> {
         self.data_store
-            .get(&token.secret)
+            .get(&token.token)
             .map(|v| v.value().clone())
             .ok_or_else(|| EdgeError::DataSourceError("Token not found".to_string()))
     }
@@ -46,12 +46,12 @@ impl TokenProvider for MemoryProvider {
     }
 
     fn secret_is_valid(&self, secret: &str) -> EdgeResult<bool> {
-        Ok(self.get_known_tokens()?.iter().any(|t| t.secret == secret))
+        Ok(self.get_known_tokens()?.iter().any(|t| t.token == secret))
     }
 
     fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>> {
         let tokens = self.get_known_tokens()?;
-        Ok(tokens.into_iter().find(|t| t.secret == secret))
+        Ok(tokens.into_iter().find(|t| t.token == secret))
     }
 }
 
@@ -82,12 +82,12 @@ mod test {
     fn memory_provider_correctly_deduplicates_tokens() {
         let mut provider = MemoryProvider::default();
         provider.sink_tokens(vec![EdgeToken {
-            secret: "some_secret".into(),
+            token: "some_secret".into(),
             ..EdgeToken::default()
         }]);
 
         provider.sink_tokens(vec![EdgeToken {
-            secret: "some_secret".into(),
+            token: "some_secret".into(),
             ..EdgeToken::default()
         }]);
 
@@ -98,7 +98,7 @@ mod test {
     fn memory_provider_correctly_determines_token_to_be_valid() {
         let mut provider = MemoryProvider::default();
         provider.sink_tokens(vec![EdgeToken {
-            secret: "some_secret".into(),
+            token: "some_secret".into(),
             ..EdgeToken::default()
         }]);
 
@@ -109,7 +109,7 @@ mod test {
     fn memory_provider_yields_correct_response_for_token() {
         let mut provider = MemoryProvider::default();
         let token = EdgeToken {
-            secret: "some-secret".into(),
+            token: "some-secret".into(),
             ..EdgeToken::default()
         };
 

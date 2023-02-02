@@ -56,11 +56,11 @@ impl TokenProvider for RedisProvider {
     }
 
     fn secret_is_valid(&self, secret: &str) -> EdgeResult<bool> {
-        Ok(self.get_known_tokens()?.iter().any(|t| t.secret == secret))
+        Ok(self.get_known_tokens()?.iter().any(|t| t.token == secret))
     }
 
     fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>> {
         let tokens = self.get_known_tokens()?;
-        Ok(tokens.into_iter().find(|t| t.secret == secret))
+        Ok(tokens.into_iter().find(|t| t.token == secret))
     }
 }

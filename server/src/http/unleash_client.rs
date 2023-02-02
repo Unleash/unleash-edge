@@ -1,13 +1,16 @@
 use actix_web::http::header::{ContentType, EntityTag, IfNoneMatch};
 use actix_web::http::StatusCode;
 use awc::{Client, ClientRequest};
+use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use std::time::Duration;
 use ulid::Ulid;
 use unleash_types::client_features::ClientFeatures;
 use url::Url;
 
-use crate::types::{ClientFeaturesResponse, EdgeResult};
+use crate::types::{
+    ClientFeaturesResponse, EdgeResult, EdgeToken, TokenStatus, ValidateTokenRequest,
+};
 use crate::urls::UnleashUrls;
 use crate::{error::EdgeError, types::ClientFeaturesRequest};
 
@@ -34,6 +37,10 @@ pub fn new_awc_client(instance_id: String) -> Client {
         .add_default_header(ContentType::json())
         .timeout(Duration::from_secs(5))
         .finish()
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct EdgeTokens {
+    pub tokens: Vec<EdgeToken>,
 }
 
 impl UnleashClient {
@@ -62,6 +69,10 @@ impl UnleashClient {
             client_req
         }
     }
+    fn awc_validate_token_req(&self) -> ClientRequest {
+        self.backing_client
+            .post(self.urls.edge_validate_url.to_string())
+    }
 
     pub async fn get_client_features(
         &self,
@@ -88,13 +99,40 @@ impl UnleashClient {
             Ok(ClientFeaturesResponse::Updated(features, etag))
         }
     }
+    pub async fn validate_token(&self, request: ValidateTokenRequest) -> EdgeResult<TokenStatus> {
+        let mut result = self
+            .awc_validate_token_req()
+            .send_body(serde_json::to_string(&request).unwrap())
+            .await
+            .map_err(|_| EdgeError::EdgeTokenError)?;
+        match result.status() {
+            StatusCode::FORBIDDEN => Ok(TokenStatus::Invalid),
+            StatusCode::OK => {
+                let token_response = result
+                    .json::<EdgeTokens>()
+                    .await
+                    .map_err(|_| EdgeError::EdgeTokenParseError)?;
+                match token_response.tokens.len() {
+                    0 => Ok(TokenStatus::Invalid),
+                    _ => {
+                        let validated_token = token_response.tokens.get(0).unwrap();
+                        Ok(TokenStatus::Valid(validated_token.clone()))
+                    }
+                }
+            }
+            _ => Err(EdgeError::EdgeTokenError),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::{
-        fetch::unleash_client::UnleashClient,
-        types::{ClientFeaturesRequest, ClientFeaturesResponse},
+        types::{
+            ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenStatus,
+            ValidateTokenRequest,
+        },
+        unleash_client::UnleashClient,
     };
     use actix_http::HttpService;
     use actix_http_test::{test_server, TestServer};
@@ -103,6 +141,11 @@ mod tests {
     use actix_web::{dev::AppConfig, http::header::EntityTag, web, App, HttpResponse};
     use std::str::FromStr;
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
+
+    use super::EdgeTokens;
+
+    const TEST_TOKEN: &str = "[]:development.08bce4267a3b1aa";
+
     fn two_client_features() -> ClientFeatures {
         ClientFeatures {
             version: 2,
@@ -125,14 +168,28 @@ mod tests {
     async fn return_client_features() -> HttpResponse {
         HttpResponse::Ok().json(two_client_features())
     }
+    async fn return_validate_tokens() -> HttpResponse {
+        HttpResponse::Ok().json(EdgeTokens {
+            tokens: vec![EdgeToken {
+                token: TEST_TOKEN.into(),
+                ..Default::default()
+            }],
+        })
+    }
 
     async fn test_features_server() -> TestServer {
         test_server(move || {
             HttpService::new(map_config(
-                App::new().wrap(Etag::default()).service(
-                    web::resource("/api/client/features")
-                        .route(web::get().to(return_client_features)),
-                ),
+                App::new()
+                    .wrap(Etag::default())
+                    .service(
+                        web::resource("/api/client/features")
+                            .route(web::get().to(return_client_features)),
+                    )
+                    .service(
+                        web::resource("/edge/validate")
+                            .route(web::post().to(return_validate_tokens)),
+                    ),
                 |_| AppConfig::default(),
             ))
             .tcp()
@@ -170,13 +227,12 @@ mod tests {
 
     #[actix_web::test]
     async fn client_handles_304() {
-        let api_key = "*:development.a113e11e04133c367f5fa7c731f9293c492322cf9d6060812cfe3fea";
         let srv = test_features_server().await;
         let tag = expected_etag(two_client_features());
         let client = UnleashClient::new(srv.url("/").as_str(), None).unwrap();
         let client_features_result = client
             .get_client_features(ClientFeaturesRequest::new(
-                api_key.to_string(),
+                TEST_TOKEN.to_string(),
                 Some(tag.clone()),
             ))
             .await;
@@ -187,6 +243,30 @@ mod tests {
                 assert_eq!(t, EntityTag::new_weak(tag));
             }
             _ => panic!("Got an update when no update was expected"),
+        }
+    }
+
+    #[actix_web::test]
+    async fn can_validate_token() {
+        let srv = test_features_server().await;
+        let client = UnleashClient::new(srv.url("/").as_str(), None).unwrap();
+        let validate_result = client
+            .validate_token(ValidateTokenRequest {
+                tokens: vec![TEST_TOKEN.to_string()],
+            })
+            .await;
+        match validate_result {
+            Ok(token_status) => match token_status {
+                TokenStatus::Valid(data) => {
+                    assert_eq!(data.token, TEST_TOKEN.to_string());
+                }
+                TokenStatus::Invalid => {
+                    panic!("Expected my token to be valid, but got an invalid status instead");
+                }
+            },
+            Err(e) => {
+                panic!("Error validating token: {e}");
+            }
         }
     }
 
