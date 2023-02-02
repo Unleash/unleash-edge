@@ -102,13 +102,12 @@ impl UnleashClient {
     pub async fn validate_secret(&self, request: ValidateTokenRequest) -> EdgeResult<TokenStatus> {
         let mut result = self
             .awc_validate_token_req()
-            .send_body(serde_json::to_string(&request.validation_request).unwrap())
+            .send_body(serde_json::to_string(&request).unwrap())
             .await
             .map_err(|_| EdgeError::EdgeTokenError)?;
         match result.status() {
             StatusCode::FORBIDDEN => Ok(TokenStatus::Invalid),
             StatusCode::OK => {
-                println!("Had an ok response");
                 let token_response = result
                     .json::<EdgeTokens>()
                     .await
@@ -121,10 +120,7 @@ impl UnleashClient {
                     }
                 }
             }
-            _ => {
-                println!("{}", result.status());
-                Err(EdgeError::EdgeTokenError)
-            }
+            _ => Err(EdgeError::EdgeTokenError),
         }
     }
 }
@@ -133,8 +129,8 @@ impl UnleashClient {
 mod tests {
     use crate::{
         types::{
-            ClientFeaturesRequest, ClientFeaturesResponse, TokenStatus, ValidateTokenRequest,
-            ValidationRequest,
+            ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenStatus,
+            ValidateTokenRequest,
         },
         unleash_client::UnleashClient,
     };
@@ -145,6 +141,11 @@ mod tests {
     use actix_web::{dev::AppConfig, http::header::EntityTag, web, App, HttpResponse};
     use std::str::FromStr;
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
+
+    use super::EdgeTokens;
+
+    const TEST_TOKEN: &str = "[]:development.08bce4267a3b1aa";
+
     fn two_client_features() -> ClientFeatures {
         ClientFeatures {
             version: 2,
@@ -167,14 +168,28 @@ mod tests {
     async fn return_client_features() -> HttpResponse {
         HttpResponse::Ok().json(two_client_features())
     }
+    async fn return_validate_tokens() -> HttpResponse {
+        HttpResponse::Ok().json(EdgeTokens {
+            tokens: vec![EdgeToken {
+                token: TEST_TOKEN.into(),
+                ..Default::default()
+            }],
+        })
+    }
 
     async fn test_features_server() -> TestServer {
         test_server(move || {
             HttpService::new(map_config(
-                App::new().wrap(Etag::default()).service(
-                    web::resource("/api/client/features")
-                        .route(web::get().to(return_client_features)),
-                ),
+                App::new()
+                    .wrap(Etag::default())
+                    .service(
+                        web::resource("/api/client/features")
+                            .route(web::get().to(return_client_features)),
+                    )
+                    .service(
+                        web::resource("/edge/validate")
+                            .route(web::post().to(return_validate_tokens)),
+                    ),
                 |_| AppConfig::default(),
             ))
             .tcp()
@@ -212,13 +227,12 @@ mod tests {
 
     #[actix_web::test]
     async fn client_handles_304() {
-        let api_key = "*:development.a113e11e04133c367f5fa7c731f9293c492322cf9d6060812cfe3fea";
         let srv = test_features_server().await;
         let tag = expected_etag(two_client_features());
         let client = UnleashClient::new(srv.url("/").as_str(), None).unwrap();
         let client_features_result = client
             .get_client_features(ClientFeaturesRequest::new(
-                api_key.to_string(),
+                TEST_TOKEN.to_string(),
                 Some(tag.clone()),
             ))
             .await;
@@ -234,30 +248,24 @@ mod tests {
 
     #[actix_web::test]
     async fn can_validate_secret() {
-        let api_key = "[]:development.08bce4267a3b1aa";
-        let client = UnleashClient::new("https://app.unleash-hosted.com/hosted", None)
-            .expect("Couldn't create client");
+        let srv = test_features_server().await;
+        let client = UnleashClient::new(srv.url("/").as_str(), None).unwrap();
         let validate_result = client
             .validate_secret(ValidateTokenRequest {
-                api_key: api_key.to_string(),
-                validation_request: ValidationRequest {
-                    tokens: vec![api_key.to_string()],
-                },
+                tokens: vec![TEST_TOKEN.to_string()],
             })
             .await;
         match validate_result {
             Ok(token_status) => match token_status {
                 TokenStatus::Valid(data) => {
-                    println!("Had a valid token {data:#?}");
-                    assert_eq!(data.token, api_key.to_string());
+                    assert_eq!(data.token, TEST_TOKEN.to_string());
                 }
                 TokenStatus::Invalid => {
                     panic!("Expected my token to be valid, but got an invalid status instead");
                 }
             },
             Err(e) => {
-                println!("{e:#?}");
-                panic!("Invalid");
+                panic!("Error validating token: {e}");
             }
         }
     }

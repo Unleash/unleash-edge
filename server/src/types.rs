@@ -45,14 +45,8 @@ pub struct ClientFeaturesRequest {
     pub etag: Option<EntityTag>,
 }
 
-#[derive(Clone, Debug)]
-pub struct ValidateTokenRequest {
-    pub api_key: String,
-    pub validation_request: ValidationRequest,
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ValidationRequest {
+pub struct ValidateTokenRequest {
     pub tokens: Vec<String>,
 }
 
