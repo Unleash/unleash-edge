@@ -122,20 +122,20 @@ mod tests {
     };
 
     #[derive(Clone, Default)]
-    struct MockDataSource {
+    struct MockEdgeProvider {
         features: Option<ClientFeatures>,
     }
 
-    impl MockDataSource {
+    impl MockEdgeProvider {
         fn with(self, features: ClientFeatures) -> Self {
-            MockDataSource {
+            MockEdgeProvider {
                 features: Some(features),
             }
         }
     }
 
     #[async_trait]
-    impl FeaturesSource for MockDataSource {
+    impl FeaturesSource for MockEdgeProvider {
         async fn get_client_features(&self, _token: &EdgeToken) -> EdgeResult<ClientFeatures> {
             Ok(self
                 .features
@@ -146,7 +146,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl TokenSource for MockDataSource {
+    impl TokenSource for MockEdgeProvider {
         async fn get_known_tokens(&self) -> EdgeResult<Vec<crate::types::EdgeToken>> {
             todo!()
         }
@@ -168,34 +168,27 @@ mod tests {
         }
     }
 
-    impl EdgeSource for MockDataSource {}
+    impl EdgeSource for MockEdgeProvider {}
 
     #[async_trait]
-    impl TokenSink for MockDataSource {
+    impl TokenSink for MockEdgeProvider {
         async fn sink_tokens(&mut self, _token: Vec<EdgeToken>) -> EdgeResult<()> {
             todo!()
         }
     }
 
-    impl EdgeSink for MockDataSource {}
+    impl EdgeSink for MockEdgeProvider {}
 
-    impl EdgeProvider for MockDataSource {}
+    impl EdgeProvider for MockEdgeProvider {}
 
     #[async_trait]
-    impl FeatureSink for MockDataSource {
+    impl FeatureSink for MockEdgeProvider {
         async fn sink_features(
             &mut self,
             _token: &EdgeToken,
             _features: ClientFeatures,
         ) -> EdgeResult<()> {
             todo!()
-        }
-    }
-
-    impl From<MockDataSource> for Data<dyn EdgeProvider> {
-        fn from(val: MockDataSource) -> Self {
-            let client_provider_arc: Arc<dyn EdgeProvider> = Arc::new(val);
-            Data::from(client_provider_arc)
         }
     }
 
@@ -251,13 +244,16 @@ mod tests {
 
     #[actix_web::test]
     async fn calling_post_requests_resolves_context_values_correctly() {
-        let client_sink: Data<dyn EdgeSink> = MockDataSource::default()
-            .with(client_features_with_constraint_requiring_user_id_of_seven())
-            .into();
+        let provider = MockEdgeProvider::default()
+            .with(client_features_with_constraint_requiring_user_id_of_seven());
+
+        let edge_source: Arc<dyn EdgeSource> = Arc::new(provider.clone());
+        let edge_sink: Arc<dyn EdgeSink> = Arc::new(provider.clone());
 
         let app = test::init_service(
             App::new()
-                .app_data(client_provider)
+                .app_data(Data::from(edge_sink))
+                .app_data(Data::from(edge_source))
                 .service(web::scope("/api").service(super::post_frontend_features)),
         )
         .await;
@@ -294,13 +290,16 @@ mod tests {
 
     #[actix_web::test]
     async fn calling_get_requests_resolves_context_values_correctly() {
-        let client_provider: Data<dyn EdgeProvider> = MockDataSource::default()
-            .with(client_features_with_constraint_requiring_user_id_of_seven())
-            .into();
+        let provider = MockEdgeProvider::default()
+            .with(client_features_with_constraint_requiring_user_id_of_seven());
+
+        let edge_source: Arc<dyn EdgeSource> = Arc::new(provider.clone());
+        let edge_sink: Arc<dyn EdgeSink> = Arc::new(provider.clone());
 
         let app = test::init_service(
             App::new()
-                .app_data(client_provider)
+                .app_data(Data::from(edge_sink))
+                .app_data(Data::from(edge_source))
                 .service(web::scope("/api").service(super::get_frontend_features)),
         )
         .await;
@@ -334,13 +333,16 @@ mod tests {
 
     #[actix_web::test]
     async fn calling_get_requests_resolves_context_values_correctly_with_enabled_filter() {
-        let client_provider: Data<dyn EdgeProvider> = MockDataSource::default()
-            .with(client_features_with_constraint_one_enabled_toggle_and_one_disabled_toggle())
-            .into();
+        let provider = MockEdgeProvider::default()
+            .with(client_features_with_constraint_one_enabled_toggle_and_one_disabled_toggle());
+
+        let edge_source: Arc<dyn EdgeSource> = Arc::new(provider.clone());
+        let edge_sink: Arc<dyn EdgeSink> = Arc::new(provider.clone());
 
         let app = test::init_service(
             App::new()
-                .app_data(client_provider)
+                .app_data(Data::from(edge_sink))
+                .app_data(Data::from(edge_source))
                 .service(web::scope("/api").service(super::get_enabled_frontend_features)),
         )
         .await;
