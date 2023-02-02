@@ -93,8 +93,8 @@ impl UnleashClient {
 #[cfg(test)]
 mod tests {
     use crate::{
+        fetch::unleash_client::UnleashClient,
         types::{ClientFeaturesRequest, ClientFeaturesResponse},
-        unleash_client::UnleashClient,
     };
     use actix_http::HttpService;
     use actix_http_test::{test_server, TestServer};

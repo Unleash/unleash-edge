@@ -102,9 +102,12 @@ async fn main() -> Result<(), anyhow::Error> {
     } else {
         server.bind(http_args.http_server_tuple())
     };
-    server?
-        .shutdown_timeout(5)
-        .run()
-        .await
-        .map_err(anyhow::Error::new)
+    let server = server?.shutdown_timeout(5);
+
+    tokio::select! {
+        _ = server.run() => {
+        }
+    }
+
+    Ok(())
 }

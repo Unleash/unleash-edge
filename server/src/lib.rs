@@ -7,7 +7,6 @@ pub mod error;
 pub mod frontend_api;
 pub mod metrics;
 pub mod types;
-pub mod unleash_client;
 pub mod urls;
 
 pub mod tokens;
