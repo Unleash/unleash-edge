@@ -11,7 +11,10 @@ pub async fn poll_for_token_status(
         let token = channel.recv().await;
         if let Some(token) = token {
             if let Ok(validated_tokens) = sink.write().await.validate(vec![token]).await {
-                let _ = sink.write().await.sink_tokens(validated_tokens).await;
+                let sink_result = sink.write().await.sink_tokens(validated_tokens).await;
+                if let Err(_err) = sink_result {
+                    //log this
+                }
             }
         } else {
             // The channel is closed, so we're not ever going to get new messages, so shutdown this task now

@@ -68,7 +68,7 @@ impl ClientFeaturesRequest {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[cfg_attr(test, derive(Default))]
 #[serde(rename_all = "camelCase")]
 pub struct EdgeToken {
@@ -78,12 +78,6 @@ pub struct EdgeToken {
     pub environment: Option<String>,
     pub projects: Vec<String>,
     pub status: TokenValidationStatus,
-}
-
-impl PartialEq for EdgeToken {
-    fn eq(&self, other: &Self) -> bool {
-        self.token == other.token
-    }
 }
 
 impl EdgeToken {
