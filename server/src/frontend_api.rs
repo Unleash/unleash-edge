@@ -114,7 +114,7 @@ fn resolve_frontend_features(
 
 pub fn configure_frontend_api(cfg: &mut web::ServiceConfig) {
     cfg.service(get_frontend_features)
-        .service(post_enabled_frontend_features)
+        .service(get_enabled_frontend_features)
         .service(post_frontend_features)
         .service(post_enabled_frontend_features);
 }
