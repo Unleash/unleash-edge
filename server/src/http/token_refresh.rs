@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use crate::types::{EdgeSink, EdgeToken};
 use tokio::sync::{mpsc::Receiver, RwLock};
+use tracing::warn;
 
 pub async fn poll_for_token_status(
     mut channel: Receiver<EdgeToken>,
@@ -10,10 +11,16 @@ pub async fn poll_for_token_status(
     loop {
         let token = channel.recv().await;
         if let Some(token) = token {
-            if let Ok(validated_tokens) = sink.write().await.validate(vec![token]).await {
-                let sink_result = sink.write().await.sink_tokens(validated_tokens).await;
-                if let Err(_err) = sink_result {
-                    //log this
+            let mut write_lock = sink.write().await;
+            match write_lock.validate(vec![token]).await {
+                Ok(validated_tokens) => {
+                    let sink_result = write_lock.sink_tokens(validated_tokens).await;
+                    if let Err(err) = sink_result {
+                        warn!("Couldn't sink token result {err:?}")
+                    }
+                }
+                Err(e) => {
+                    warn!("Couldn't validate tokens: {e:?}");
                 }
             }
         } else {

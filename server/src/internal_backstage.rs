@@ -4,8 +4,9 @@ use actix_web::{
 };
 use actix_web_opentelemetry::PrometheusMetricsHandler;
 use serde::Serialize;
+use tokio::sync::RwLock;
 
-use crate::types::{BuildInfo, EdgeJsonResult};
+use crate::types::{BuildInfo, EdgeJsonResult, EdgeSource, EdgeToken};
 
 #[derive(Debug, Serialize)]
 pub struct EdgeStatus {
@@ -30,12 +31,21 @@ pub async fn info() -> EdgeJsonResult<BuildInfo> {
     Ok(Json(data))
 }
 
+#[get("/tokens")]
+pub async fn tokens(
+    edge_source: web::Data<RwLock<dyn EdgeSource>>,
+) -> EdgeJsonResult<Vec<EdgeToken>> {
+    let all_tokens = edge_source.read().await.get_known_tokens().await?;
+    Ok(Json(all_tokens))
+}
+
 pub fn configure_internal_backstage(
     cfg: &mut web::ServiceConfig,
     metrics_handler: PrometheusMetricsHandler,
 ) {
     cfg.service(health)
         .service(info)
+        .service(tokens)
         .service(web::resource("/metrics").route(web::get().to(metrics_handler)));
 }
 

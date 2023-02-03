@@ -77,7 +77,12 @@ pub struct EdgeToken {
     pub token_type: Option<TokenType>,
     pub environment: Option<String>,
     pub projects: Vec<String>,
+    #[serde(default = "valid_status")]
     pub status: TokenValidationStatus,
+}
+
+fn valid_status() -> TokenValidationStatus {
+    TokenValidationStatus::Validated
 }
 
 impl EdgeToken {
