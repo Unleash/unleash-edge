@@ -1,4 +1,6 @@
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
+
+use tokio::sync::RwLock;
 
 use crate::{
     cli::{CliArgs, EdgeArg, EdgeMode, OfflineArgs},

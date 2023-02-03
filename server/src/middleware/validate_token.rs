@@ -4,10 +4,9 @@ use actix_web::{
     web::Data,
     HttpResponse,
 };
-use std::sync::RwLock;
 
 use crate::types::{EdgeSource, EdgeToken};
-use tokio::sync::mpsc::Sender;
+use tokio::sync::{mpsc::Sender, RwLock};
 
 pub async fn validate_token(
     token: EdgeToken,
@@ -18,7 +17,7 @@ pub async fn validate_token(
 ) -> Result<ServiceResponse<impl MessageBody>, actix_web::Error> {
     let res = if provider
         .read()
-        .unwrap()
+        .await
         .secret_is_valid(token.token.as_str(), sender.into_inner())
         .await?
     {

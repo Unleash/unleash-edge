@@ -1,9 +1,8 @@
-use std::sync::RwLock;
-
 use actix_web::{
     get,
     web::{self, Json},
 };
+use tokio::sync::RwLock;
 
 use crate::types::{EdgeJsonResult, EdgeSource, EdgeToken, TokenStrings, ValidatedTokens};
 
@@ -15,7 +14,7 @@ async fn validate(
 ) -> EdgeJsonResult<ValidatedTokens> {
     let valid_tokens = token_provider
         .read()
-        .unwrap()
+        .await
         .get_valid_tokens(tokens.into_inner().tokens)
         .await?;
     Ok(Json(ValidatedTokens {

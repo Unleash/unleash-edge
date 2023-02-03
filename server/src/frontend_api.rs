@@ -1,9 +1,8 @@
-use std::sync::RwLock;
-
 use actix_web::{
     get, post,
     web::{self, Json},
 };
+use tokio::sync::RwLock;
 use unleash_types::{
     client_features::{ClientFeatures, Payload},
     frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult},
@@ -20,7 +19,7 @@ async fn get_frontend_features(
 ) -> EdgeJsonResult<FrontendResult> {
     let client_features = features_source
         .read()
-        .unwrap()
+        .await
         .get_client_features(&edge_token)
         .await;
     let context = context.into_inner();
@@ -38,7 +37,7 @@ async fn post_frontend_features(
 ) -> EdgeJsonResult<FrontendResult> {
     let client_features = features_source
         .read()
-        .unwrap()
+        .await
         .get_client_features(&edge_token)
         .await;
     let context = context.into_inner();
@@ -56,7 +55,7 @@ async fn get_enabled_frontend_features(
 ) -> EdgeJsonResult<FrontendResult> {
     let client_features = features_source
         .read()
-        .unwrap()
+        .await
         .get_client_features(&edge_token)
         .await;
     let context = context.into_inner();
@@ -76,7 +75,7 @@ async fn post_enabled_frontend_features(
 ) -> EdgeJsonResult<FrontendResult> {
     let client_features = features_source
         .read()
-        .unwrap()
+        .await
         .get_client_features(&edge_token)
         .await;
     let context = context.into_inner();
@@ -120,7 +119,6 @@ pub fn configure_frontend_api(cfg: &mut web::ServiceConfig) {
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
-    use std::sync::RwLock;
 
     use crate::data_sources::builder::DataProviderPair;
     use crate::types::{
@@ -136,6 +134,7 @@ mod tests {
     use async_trait::async_trait;
     use serde_json::json;
     use tokio::sync::mpsc::Sender;
+    use tokio::sync::RwLock;
     use unleash_types::{
         client_features::{ClientFeature, ClientFeatures, Constraint, Operator, Strategy},
         frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult},

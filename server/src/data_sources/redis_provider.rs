@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use redis::{Client, Commands, RedisError};
-use std::sync::{Arc, RwLock};
-use tokio::sync::mpsc::Sender;
+use std::sync::Arc;
+use tokio::sync::{mpsc::Sender, RwLock};
 use unleash_types::client_features::ClientFeatures;
 
 pub const FEATURE_KEY: &str = "features";
@@ -59,7 +59,7 @@ impl TokenSink for RedisProvider {
 #[async_trait]
 impl FeaturesSource for RedisProvider {
     async fn get_client_features(&self, _token: &EdgeToken) -> EdgeResult<ClientFeatures> {
-        let mut client = self.client.write().unwrap();
+        let mut client = self.client.write().await;
         let client_features: String = client.get(FEATURE_KEY)?;
 
         serde_json::from_str::<ClientFeatures>(&client_features).map_err(EdgeError::from)
@@ -69,7 +69,8 @@ impl FeaturesSource for RedisProvider {
 #[async_trait]
 impl TokenSource for RedisProvider {
     async fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
-        let mut client = self.client.write().unwrap();
+        let mut client = self.client.write().await;
+
         let tokens: String = client.get(TOKENS_KEY)?;
 
         let raw_tokens = serde_json::from_str::<Vec<String>>(&tokens)?;

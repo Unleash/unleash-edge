@@ -1,7 +1,7 @@
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use crate::types::{EdgeSink, EdgeToken, ValidateTokenRequest};
-use tokio::sync::mpsc::Receiver;
+use tokio::sync::{mpsc::Receiver, RwLock};
 
 use super::unleash_client::UnleashClient;
 
@@ -12,7 +12,7 @@ pub async fn poll_for_token_status(
     loop {
         let token = channel.recv().await;
         if let Some(token) = token {
-            let sink_result = sink.write().unwrap().sink_tokens(vec![token]).await;
+            let sink_result = sink.write().await.sink_tokens(vec![token]).await;
             if let Err(sink_err) = sink_result {
                 // probably log some stuff
                 println!("Error sinking token: {sink_err:?}");
