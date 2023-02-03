@@ -38,9 +38,8 @@ async fn main() -> Result<(), anyhow::Error> {
         let cors_middleware = Cors::default()
             .allow_any_origin()
             .send_wildcard()
-            .allowed_methods(vec!["GET", "POST"])
-            .allowed_headers(vec![http::header::AUTHORIZATION, http::header::ACCEPT])
-            .allowed_header(http::header::CONTENT_TYPE);
+            .allow_any_header()
+            .allow_any_method();
         App::new()
             .app_data(edge_source)
             .app_data(edge_sink)
