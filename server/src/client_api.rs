@@ -9,12 +9,12 @@ async fn features(
     edge_token: EdgeToken,
     features_source: web::Data<RwLock<dyn EdgeSource>>,
 ) -> EdgeJsonResult<ClientFeatures> {
-    let client_features = features_source
+    features_source
         .read()
         .await
         .get_client_features(&edge_token)
-        .await?;
-    Ok(Json(client_features))
+        .await
+        .map(Json)
 }
 
 pub fn configure_client_api(cfg: &mut web::ServiceConfig) {
