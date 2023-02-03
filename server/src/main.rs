@@ -2,7 +2,7 @@ use actix_cors::Cors;
 
 use actix_middleware_etag::Etag;
 use actix_web::middleware::Logger;
-use actix_web::{http, web, App, HttpServer};
+use actix_web::{web, App, HttpServer};
 use actix_web_opentelemetry::RequestTracing;
 use clap::Parser;
 use cli::CliArgs;
