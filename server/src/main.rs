@@ -11,7 +11,7 @@ use unleash_edge::client_api;
 use unleash_edge::data_sources::builder::build_source_and_sink;
 use unleash_edge::edge_api;
 use unleash_edge::frontend_api;
-use unleash_edge::http::token_refresh::poll_for_token_status;
+use unleash_edge::http::background_refresh::{poll_for_token_status, refresh_features};
 use unleash_edge::internal_backstage;
 use unleash_edge::metrics;
 use unleash_edge::types::EdgeToken;
@@ -26,9 +26,12 @@ async fn main() -> Result<(), anyhow::Error> {
     let http_args = args.clone().http;
     let (metrics_handler, request_metrics) = metrics::instantiate(None);
     let (source, sink) = build_source_and_sink(args).map_err(anyhow::Error::new)?;
-    let refresh_sink = sink.clone();
+    let unvalidated_sink = sink.clone();
+    let validated_sink = sink.clone();
 
-    let (sender, receiver) = mpsc::channel::<EdgeToken>(32);
+    let (unvalidated_sender, unvalidated_receiver) = mpsc::channel::<EdgeToken>(32);
+    let (validated_sender, validated_receiver) = mpsc::channel::<EdgeToken>(32);
+
     let server = HttpServer::new(move || {
         let edge_source = web::Data::from(source.clone());
         let edge_sink = web::Data::from(sink.clone());
@@ -41,7 +44,7 @@ async fn main() -> Result<(), anyhow::Error> {
         App::new()
             .app_data(edge_source)
             .app_data(edge_sink)
-            .app_data(web::Data::new(sender.clone()))
+            .app_data(web::Data::new(unvalidated_sender.clone()))
             .wrap(Etag::default())
             .wrap(cors_middleware)
             .wrap(RequestTracing::new())
@@ -78,9 +81,13 @@ async fn main() -> Result<(), anyhow::Error> {
         _ = server.run() => {
             tracing::info!("Actix was shutdown properly");
         },
-        _ = poll_for_token_status(receiver, refresh_sink) => {
+        _ = poll_for_token_status(unvalidated_receiver, validated_sender, unvalidated_sink) => {
             tracing::info!("Token validator task is shutting down")
+        },
+        _ = refresh_features(validated_receiver, validated_sink) => {
+            tracing::info!("Refresh task is shutting down");
         }
+
     }
 
     Ok(())

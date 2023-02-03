@@ -1,6 +1,9 @@
 use std::{collections::HashMap, sync::Arc};
 
-use crate::http::unleash_client::UnleashClient;
+use crate::{
+    http::unleash_client::UnleashClient,
+    types::{ClientFeaturesRequest, ClientFeaturesResponse},
+};
 use async_trait::async_trait;
 use dashmap::DashMap;
 use std::str::FromStr;
@@ -63,13 +66,7 @@ impl FeaturesSource for MemoryProvider {
 #[async_trait]
 impl TokenSource for MemoryProvider {
     async fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
-        Ok(self
-            .token_store
-            .values()
-            .into_iter()
-            .map(|pair| pair)
-            .cloned()
-            .collect())
+        Ok(self.token_store.values().into_iter().cloned().collect())
     }
 
     async fn secret_is_valid(
@@ -114,6 +111,15 @@ impl FeatureSink for MemoryProvider {
     ) -> EdgeResult<()> {
         self.sink_features(token, features);
         Ok(())
+    }
+
+    async fn fetch_features(&mut self, token: &EdgeToken) -> EdgeResult<ClientFeaturesResponse> {
+        self.unleash_client
+            .get_client_features(ClientFeaturesRequest {
+                api_key: token.token.clone(),
+                etag: None,
+            })
+            .await
     }
 }
 

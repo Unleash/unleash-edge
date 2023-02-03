@@ -1,2 +1,2 @@
-pub mod token_refresh;
+pub mod background_refresh;
 pub mod unleash_client;

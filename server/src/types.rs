@@ -1,5 +1,6 @@
 use std::{
     future::{ready, Ready},
+    hash::{Hash, Hasher},
     str::FromStr,
     sync::Arc,
 };
@@ -68,7 +69,7 @@ impl ClientFeaturesRequest {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq)]
 #[cfg_attr(test, derive(Default))]
 #[serde(rename_all = "camelCase")]
 pub struct EdgeToken {
@@ -83,6 +84,18 @@ pub struct EdgeToken {
 
 fn valid_status() -> TokenValidationStatus {
     TokenValidationStatus::Validated
+}
+
+impl PartialEq for EdgeToken {
+    fn eq(&self, other: &EdgeToken) -> bool {
+        self.token == other.token
+    }
+}
+
+impl Hash for EdgeToken {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.token.hash(state);
+    }
 }
 
 impl EdgeToken {
@@ -212,6 +225,7 @@ pub trait FeatureSink {
         token: &EdgeToken,
         features: ClientFeatures,
     ) -> EdgeResult<()>;
+    async fn fetch_features(&mut self, token: &EdgeToken) -> EdgeResult<ClientFeaturesResponse>;
 }
 
 #[async_trait]
@@ -313,7 +327,7 @@ mod tests {
         "demo-app:production",
         "demo-app:production"
         => true
-    ; "idepmotency")]
+    ; "idempotency")]
     #[test_case(
         "aproject:production",
         "another:production"
@@ -336,7 +350,7 @@ mod tests {
     }
 
     #[test]
-    fn edge_token_unrleated_by_subsume() {
+    fn edge_token_unrelated_by_subsume() {
         let t1 = test_str("demo-app:production");
         let t2 = test_str("another:production");
         assert!(!t1.subsumes(&t2));

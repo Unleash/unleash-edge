@@ -10,8 +10,8 @@ pub const TOKENS_KEY: &str = "tokens";
 use crate::{
     error::EdgeError,
     types::{
-        EdgeProvider, EdgeResult, EdgeSink, EdgeSource, EdgeToken, FeatureSink, FeaturesSource,
-        TokenSink, TokenSource,
+        ClientFeaturesResponse, EdgeProvider, EdgeResult, EdgeSink, EdgeSource, EdgeToken,
+        FeatureSink, FeaturesSource, TokenSink, TokenSource,
     },
 };
 
@@ -46,6 +46,9 @@ impl FeatureSink for RedisProvider {
         _token: &EdgeToken,
         _features: ClientFeatures,
     ) -> EdgeResult<()> {
+        todo!()
+    }
+    async fn fetch_features(&mut self, _token: &EdgeToken) -> EdgeResult<ClientFeaturesResponse> {
         todo!()
     }
 }
