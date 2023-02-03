@@ -1,42 +1,52 @@
-use actix_web::http::header::{ContentType, EntityTag, IfNoneMatch};
-use actix_web::http::StatusCode;
-use awc::{Client, ClientRequest};
+use actix_web::http::header::EntityTag;
+use reqwest::{RequestBuilder, StatusCode, Url};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use std::time::Duration;
 use ulid::Ulid;
 use unleash_types::client_features::ClientFeatures;
-use url::Url;
 
 use crate::types::{
-    ClientFeaturesResponse, EdgeResult, EdgeToken, TokenStatus, ValidateTokenRequest,
+    ClientFeaturesResponse, EdgeResult, EdgeToken, TokenValidationStatus, ValidateTokensRequest,
 };
+use reqwest::{header, Client};
+
 use crate::urls::UnleashUrls;
 use crate::{error::EdgeError, types::ClientFeaturesRequest};
 
 const UNLEASH_APPNAME_HEADER: &str = "UNLEASH-APPNAME";
 const UNLEASH_INSTANCE_ID_HEADER: &str = "UNLEASH-INSTANCEID";
 const UNLEASH_CLIENT_SPEC_HEADER: &str = "Unleash-Client-Spec";
-const USER_AGENT_HEADER: &str = "User-Agent";
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Default)]
 pub struct UnleashClient {
     pub urls: UnleashUrls,
     backing_client: Client,
 }
 
-pub fn new_awc_client(instance_id: String) -> Client {
+pub fn new_reqwest_client(instance_id: String) -> Client {
+    let mut header_map = header::HeaderMap::new();
+    header_map.insert(
+        UNLEASH_APPNAME_HEADER,
+        header::HeaderValue::from_static("unleash-edge"),
+    );
+    header_map.insert(
+        UNLEASH_INSTANCE_ID_HEADER,
+        header::HeaderValue::from_bytes(instance_id.as_bytes()).unwrap(),
+    );
+    header_map.insert(
+        UNLEASH_CLIENT_SPEC_HEADER,
+        header::HeaderValue::from_static(unleash_yggdrasil::SUPPORTED_SPEC_VERSION),
+    );
     Client::builder()
-        .add_default_header((UNLEASH_APPNAME_HEADER, "unleash-edge"))
-        .add_default_header((UNLEASH_INSTANCE_ID_HEADER, instance_id))
-        .add_default_header((
-            UNLEASH_CLIENT_SPEC_HEADER,
-            unleash_yggdrasil::SUPPORTED_SPEC_VERSION,
+        .user_agent(format!(
+            "unleash-edge-{}",
+            crate::types::build::PROJECT_NAME
         ))
-        .add_default_header((USER_AGENT_HEADER, "unleash_edge"))
-        .add_default_header(ContentType::json())
+        .default_headers(header_map)
         .timeout(Duration::from_secs(5))
-        .finish()
+        .build()
+        .unwrap()
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EdgeTokens {
@@ -47,7 +57,7 @@ impl UnleashClient {
     pub fn from_url(server_url: Url) -> Self {
         Self {
             urls: UnleashUrls::from_base_url(server_url),
-            backing_client: new_awc_client(Ulid::new().to_string()),
+            backing_client: new_reqwest_client("unleash_edge".into()),
         }
     }
 
@@ -55,70 +65,83 @@ impl UnleashClient {
         let instance_id = instance_id_opt.unwrap_or_else(|| Ulid::new().to_string());
         Ok(Self {
             urls: UnleashUrls::from_str(server_url)?,
-            backing_client: new_awc_client(instance_id),
+            backing_client: new_reqwest_client(instance_id),
         })
     }
 
-    fn awc_client_features_req(&self, req: ClientFeaturesRequest) -> ClientRequest {
+    fn client_features_req(&self, req: ClientFeaturesRequest) -> RequestBuilder {
         let client_req = self
             .backing_client
             .get(self.urls.client_features_url.to_string())
-            .insert_header(("Authorization", req.api_key));
+            .header(reqwest::header::AUTHORIZATION, req.api_key);
         if let Some(tag) = req.etag {
-            client_req.insert_header(IfNoneMatch::Items(vec![tag]))
+            client_req.header(reqwest::header::IF_NONE_MATCH, tag.to_string())
         } else {
             client_req
         }
-    }
-
-    fn awc_validate_token_req(&self) -> ClientRequest {
-        self.backing_client
-            .post(self.urls.edge_validate_url.to_string())
     }
 
     pub async fn get_client_features(
         &self,
         request: ClientFeaturesRequest,
     ) -> EdgeResult<ClientFeaturesResponse> {
-        let mut result = self
-            .awc_client_features_req(request.clone())
+        let response = self
+            .client_features_req(request.clone())
             .send()
             .await
             .map_err(|_| EdgeError::ClientFeaturesFetchError)?;
-        if result.status() == StatusCode::NOT_MODIFIED {
+        if response.status() == StatusCode::NOT_MODIFIED {
             Ok(ClientFeaturesResponse::NoUpdate(
                 request.etag.expect("Got NOT_MODIFIED without an ETag"),
             ))
-        } else {
-            let features = result
-                .json::<ClientFeatures>()
-                .await
-                .map_err(EdgeError::ClientFeaturesParseError)?;
-            let etag = result
+        } else if response.status().is_success() {
+            let etag = response
                 .headers()
                 .get("ETag")
                 .and_then(|etag| EntityTag::from_str(etag.to_str().unwrap()).ok());
+            let features = response
+                .json::<ClientFeatures>()
+                .await
+                .map_err(|_e| EdgeError::ClientFeaturesParseError)?;
             Ok(ClientFeaturesResponse::Updated(features, etag))
+        } else {
+            Err(EdgeError::ClientFeaturesFetchError)
         }
     }
 
-    pub async fn validate_token(&self, request: ValidateTokenRequest) -> EdgeResult<TokenStatus> {
-        let mut result = self
-            .awc_validate_token_req()
-            .send_body(serde_json::to_string(&request).unwrap())
+    pub async fn validate_tokens(
+        &self,
+        request: ValidateTokensRequest,
+    ) -> EdgeResult<Vec<EdgeToken>> {
+        let result = self
+            .backing_client
+            .post(self.urls.edge_validate_url.to_string())
+            .json(&request)
+            .send()
             .await
             .map_err(|_| EdgeError::EdgeTokenError)?;
         match result.status() {
-            StatusCode::FORBIDDEN => Ok(TokenStatus::Invalid),
             StatusCode::OK => {
                 let token_response = result
                     .json::<EdgeTokens>()
                     .await
                     .map_err(|_| EdgeError::EdgeTokenParseError)?;
-                match token_response.tokens.len() {
-                    0 => Ok(TokenStatus::Invalid),
-                    _ => Ok(TokenStatus::Validated(token_response.tokens)),
-                }
+
+                Ok(token_response
+                    .tokens
+                    .into_iter()
+                    .map(|t| {
+                        let remaining_info =
+                            EdgeToken::try_from(t.token.clone()).unwrap_or(t.clone());
+                        EdgeToken {
+                            token: t.token.clone(),
+                            token_type: t.token_type,
+                            environment: t.environment.or(remaining_info.environment),
+                            projects: t.projects,
+                            status: TokenValidationStatus::Validated,
+                        }
+                    })
+                    .collect())
             }
             _ => Err(EdgeError::EdgeTokenError),
         }
@@ -128,7 +151,8 @@ impl UnleashClient {
 #[cfg(test)]
 mod tests {
     use crate::types::{
-        ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenStatus, ValidateTokenRequest,
+        ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenValidationStatus,
+        ValidateTokensRequest,
     };
     use actix_http::HttpService;
     use actix_http_test::{test_server, TestServer};
@@ -207,7 +231,6 @@ mod tests {
     async fn client_can_get_features() {
         let srv = test_features_server().await;
         let tag = EntityTag::new_weak(expected_etag(two_client_features()));
-
         let client = UnleashClient::new(srv.url("/").as_str(), None).unwrap();
         let client_features_result = client
             .get_client_features(ClientFeaturesRequest::new("somekey".to_string(), None))
@@ -250,19 +273,17 @@ mod tests {
         let srv = test_features_server().await;
         let client = UnleashClient::new(srv.url("/").as_str(), None).unwrap();
         let validate_result = client
-            .validate_token(ValidateTokenRequest {
+            .validate_tokens(ValidateTokensRequest {
                 tokens: vec![TEST_TOKEN.to_string()],
             })
             .await;
         match validate_result {
-            Ok(token_status) => match token_status {
-                TokenStatus::Validated(data) => {
-                    assert_eq!(data.get(0).unwrap().token, TEST_TOKEN.to_string());
-                }
-                TokenStatus::Invalid => {
-                    panic!("Expected my token to be valid, but got an invalid status instead");
-                }
-            },
+            Ok(token_status) => {
+                assert_eq!(token_status.len(), 1);
+                let validated_token = token_status.get(0).unwrap();
+                assert_eq!(validated_token.status, TokenValidationStatus::Validated);
+                assert_eq!(validated_token.environment, Some("development".into()))
+            }
             Err(e) => {
                 panic!("Error validating token: {e}");
             }

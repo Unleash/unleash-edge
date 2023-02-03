@@ -22,7 +22,6 @@ actix-web-opentelemetry = {version = "0.13.0", features = ["metrics", "metrics-p
 
 anyhow = "1.0.68"
 async-trait = "0.1.64"
-awc = {version = "3.1.0", features = ["rustls"]}
 chrono = {version = "0.4.23", features = ["serde"]}
 clap = {version = "4.1.4", features = ["derive", "env"]}
 dashmap = "5.4.0"
@@ -33,6 +32,7 @@ opentelemetry = {version = "0.18.0", features = ["trace", "rt-tokio", "metrics"]
 opentelemetry-prometheus = "0.11.0"
 prometheus = {version = "0.13.3", features = ["process"]}
 redis = "0.22.3"
+reqwest = {version = "0.11.14", features = ["rustls", "json"]}
 rustls = "0.20.8"
 rustls-pemfile = "1.0.2"
 serde = {version = "1.0.152", features = ["derive"]}
@@ -44,7 +44,6 @@ tracing-subscriber = {version = "0.3.16", features = ["json", "env-filter"]}
 ulid = "1.0.0"
 unleash-types = {version = "0.7.1", features = ["openapi", "hashes"]}
 unleash-yggdrasil = "0.4.2"
-url = "2.3.1"
 [dev-dependencies]
 actix-http = "3.3.0"
 actix-http-test = "3.1.0"

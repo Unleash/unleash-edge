@@ -1,5 +1,5 @@
+use reqwest::Url;
 use std::str::FromStr;
-use url::Url;
 
 use crate::error::EdgeError;
 use crate::types::EdgeResult;
@@ -27,6 +27,13 @@ impl FromStr for UnleashUrls {
         Ok(UnleashUrls::from_base_url(base))
     }
 }
+impl Default for UnleashUrls {
+    fn default() -> Self {
+        UnleashUrls::from_str("http://localhost:4242")
+            .expect("Our valid base url was suddenly not accepted")
+    }
+}
+
 impl UnleashUrls {
     pub fn from_base_url(base_url: Url) -> Self {
         let mut api_url = base_url.clone();

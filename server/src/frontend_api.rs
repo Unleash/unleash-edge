@@ -195,7 +195,11 @@ mod tests {
 
     #[async_trait]
     impl TokenSink for MockEdgeProvider {
-        async fn sink_tokens(&mut self, _token: Vec<EdgeToken>) -> EdgeResult<()> {
+        async fn sink_tokens(&mut self, _tokens: Vec<EdgeToken>) -> EdgeResult<()> {
+            todo!()
+        }
+
+        async fn validate(&mut self, _tokens: Vec<EdgeToken>) -> EdgeResult<Vec<EdgeToken>> {
             todo!()
         }
     }

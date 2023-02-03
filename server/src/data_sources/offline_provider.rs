@@ -65,6 +65,10 @@ impl TokenSink for OfflineProvider {
     async fn sink_tokens(&mut self, _token: Vec<EdgeToken>) -> EdgeResult<()> {
         todo!()
     }
+
+    async fn validate(&mut self, _token: Vec<EdgeToken>) -> EdgeResult<Vec<EdgeToken>> {
+        todo!()
+    }
 }
 
 impl OfflineProvider {

@@ -35,10 +35,17 @@ pub enum ClientFeaturesResponse {
     Updated(ClientFeatures, Option<EntityTag>),
 }
 
-#[derive(Clone, Debug)]
-pub enum TokenStatus {
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TokenValidationStatus {
     Invalid,
-    Validated(Vec<EdgeToken>),
+    Unknown,
+    Validated,
+}
+
+impl Default for TokenValidationStatus {
+    fn default() -> Self {
+        TokenValidationStatus::Unknown
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -48,7 +55,7 @@ pub struct ClientFeaturesRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ValidateTokenRequest {
+pub struct ValidateTokensRequest {
     pub tokens: Vec<String>,
 }
 
@@ -61,7 +68,7 @@ impl ClientFeaturesRequest {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq)]
 #[cfg_attr(test, derive(Default))]
 #[serde(rename_all = "camelCase")]
 pub struct EdgeToken {
@@ -70,9 +77,13 @@ pub struct EdgeToken {
     pub token_type: Option<TokenType>,
     pub environment: Option<String>,
     pub projects: Vec<String>,
-    pub expires_at: Option<DateTime<Utc>>,
-    pub seen_at: Option<DateTime<Utc>>,
-    pub alias: Option<String>,
+    pub status: TokenValidationStatus,
+}
+
+impl PartialEq for EdgeToken {
+    fn eq(&self, other: &Self) -> bool {
+        self.token == other.token
+    }
 }
 
 impl EdgeToken {
@@ -82,9 +93,7 @@ impl EdgeToken {
             token_type: None,
             environment: None,
             projects: vec![],
-            expires_at: None,
-            seen_at: Some(Utc::now()),
-            alias: None,
+            status: TokenValidationStatus::default(),
         }
     }
 
@@ -159,9 +168,7 @@ impl FromStr for EdgeToken {
                     projects: token_projects,
                     token_type: None,
                     token: s.into(),
-                    expires_at: None,
-                    seen_at: Some(Utc::now()),
-                    alias: None,
+                    status: TokenValidationStatus::Unknown,
                 })
             } else {
                 Err(EdgeError::TokenParseError)
@@ -210,7 +217,8 @@ pub trait FeatureSink {
 
 #[async_trait]
 pub trait TokenSink {
-    async fn sink_tokens(&mut self, token: Vec<EdgeToken>) -> EdgeResult<()>;
+    async fn sink_tokens(&mut self, tokens: Vec<EdgeToken>) -> EdgeResult<()>;
+    async fn validate(&mut self, tokens: Vec<EdgeToken>) -> EdgeResult<Vec<EdgeToken>>;
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

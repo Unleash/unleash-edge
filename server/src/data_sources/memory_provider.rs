@@ -1,5 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
+use crate::http::unleash_client::UnleashClient;
 use async_trait::async_trait;
 use dashmap::DashMap;
 use std::str::FromStr;
@@ -10,14 +11,15 @@ use crate::{
     error::EdgeError,
     types::{
         EdgeProvider, EdgeResult, EdgeSink, EdgeSource, EdgeToken, FeatureSink, FeaturesSource,
-        TokenSink, TokenSource,
+        TokenSink, TokenSource, ValidateTokensRequest,
     },
 };
 
 #[derive(Debug, Clone, Default)]
 pub struct MemoryProvider {
     data_store: DashMap<String, ClientFeatures>,
-    token_store: Vec<EdgeToken>,
+    token_store: HashMap<String, EdgeToken>,
+    unleash_client: UnleashClient,
 }
 
 impl MemoryProvider {
@@ -32,12 +34,19 @@ impl EdgeSink for MemoryProvider {}
 #[async_trait]
 impl TokenSink for MemoryProvider {
     async fn sink_tokens(&mut self, tokens: Vec<EdgeToken>) -> EdgeResult<()> {
-        let joined_tokens = tokens.iter().chain(self.token_store.iter());
-        let deduplicated: HashMap<String, EdgeToken> = joined_tokens
-            .map(|x| (x.token.clone(), x.clone()))
-            .collect();
-        self.token_store = deduplicated.into_values().collect();
+        for token in &tokens {
+            self.token_store.insert(token.token.clone(), token.clone());
+        }
         Ok(())
+    }
+
+    async fn validate(&mut self, tokens: Vec<EdgeToken>) -> EdgeResult<Vec<EdgeToken>> {
+        let validation_request = ValidateTokensRequest {
+            tokens: tokens.into_iter().map(|t| t.token).collect(),
+        };
+        self.unleash_client
+            .validate_tokens(validation_request)
+            .await
     }
 }
 
@@ -54,7 +63,13 @@ impl FeaturesSource for MemoryProvider {
 #[async_trait]
 impl TokenSource for MemoryProvider {
     async fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
-        Ok(self.token_store.clone())
+        Ok(self
+            .token_store
+            .values()
+            .into_iter()
+            .map(|pair| pair)
+            .cloned()
+            .collect())
     }
 
     async fn secret_is_valid(
