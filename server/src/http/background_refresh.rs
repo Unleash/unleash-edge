@@ -36,36 +36,35 @@ pub async fn poll_for_token_status(
 pub async fn refresh_features(mut channel: Receiver<EdgeToken>, sink: Arc<RwLock<dyn EdgeSink>>) {
     let mut tokens = HashSet::new();
     loop {
-        let token = channel.recv().await;
-        if let Some(token) = token {
-            tokens.insert(token);
-
-            let mut write_lock = sink.write().await;
-            for token in tokens.iter() {
-                let features_result = write_lock.fetch_features(token).await;
-                match features_result {
-                    Ok(feature_response) => match feature_response {
-                        ClientFeaturesResponse::NoUpdate(_) => info!("No update needed"),
-                        ClientFeaturesResponse::Updated(features, _) => {
-                            let sink_result = write_lock.sink_features(token, features).await;
-                            if let Err(err) = sink_result {
-                                warn!("Failed to sink features in updater {err:?}");
+        tokio::select! {
+            token = channel.recv() => { // Got a new token
+                if let Some(token) = token {
+                    tokens.insert(token);
+                } else {
+                    break;
+                }
+            },
+            _ = tokio::time::sleep(Duration::from_secs(10)) => { // Iterating over known tokens
+                let mut write_lock = sink.write().await;
+                info!("Updating features for known tokens");
+                for token in tokens.iter() {
+                    let features_result = write_lock.fetch_features(token).await;
+                    match features_result {
+                        Ok(feature_response) => match feature_response {
+                            ClientFeaturesResponse::NoUpdate(_) => info!("No update needed"),
+                            ClientFeaturesResponse::Updated(features, _) => {
+                                let sink_result = write_lock.sink_features(token, features).await;
+                                if let Err(err) = sink_result {
+                                    warn!("Failed to sink features in updater {err:?}");
+                                }
                             }
+                        },
+                        Err(e) => {
+                            warn!("Couldn't refresh features: {e:?}");
                         }
-                    },
-                    Err(e) => {
-                        warn!("Couldn't refresh features: {e:?}");
                     }
                 }
-            }
-        } else {
-            break;
+            },
         }
-
-        tokio::select! {
-            _ = tokio::time::sleep(Duration::from_secs(15)) => {
-                continue;
-            }
-        };
     }
 }
