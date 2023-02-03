@@ -208,7 +208,11 @@ pub trait FeaturesSource {
 #[async_trait]
 pub trait TokenSource {
     async fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>>;
-    async fn secret_is_valid(&self, secret: &str, job: Arc<Sender<EdgeToken>>) -> EdgeResult<bool>;
+    async fn get_token_validation_status(
+        &self,
+        secret: &str,
+        job: Arc<Sender<EdgeToken>>,
+    ) -> EdgeResult<TokenValidationStatus>;
     async fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>>;
     async fn get_valid_tokens(&self, tokens: Vec<String>) -> EdgeResult<Vec<EdgeToken>>;
 }

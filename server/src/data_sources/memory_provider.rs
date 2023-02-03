@@ -1,15 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use crate::{
-    http::unleash_client::UnleashClient,
-    types::{ClientFeaturesRequest, ClientFeaturesResponse},
-};
-use async_trait::async_trait;
-use dashmap::DashMap;
-use std::str::FromStr;
-use tokio::sync::mpsc::Sender;
-use unleash_types::client_features::ClientFeatures;
-
+use crate::types::TokenValidationStatus;
 use crate::{
     error::EdgeError,
     types::{
@@ -17,6 +8,14 @@ use crate::{
         TokenSink, TokenSource, ValidateTokensRequest,
     },
 };
+use crate::{
+    http::unleash_client::UnleashClient,
+    types::{ClientFeaturesRequest, ClientFeaturesResponse},
+};
+use async_trait::async_trait;
+use dashmap::DashMap;
+use tokio::sync::mpsc::Sender;
+use unleash_types::client_features::ClientFeatures;
 
 #[derive(Debug, Clone, Default)]
 pub struct MemoryProvider {
@@ -69,35 +68,30 @@ impl TokenSource for MemoryProvider {
         Ok(self.token_store.values().into_iter().cloned().collect())
     }
 
-    async fn secret_is_valid(
+    async fn get_token_validation_status(
         &self,
         secret: &str,
         sender: Arc<Sender<EdgeToken>>,
-    ) -> EdgeResult<bool> {
-        if self
-            .get_known_tokens()
-            .await?
-            .iter()
-            .any(|t| t.token == secret)
-        {
-            Ok(true)
+    ) -> EdgeResult<TokenValidationStatus> {
+        if let Some(token) = self.token_store.get(secret) {
+            Ok(token.clone().status)
         } else {
             let _ = sender.send(EdgeToken::try_from(secret.to_string())?).await;
-            Ok(false)
+            Ok(TokenValidationStatus::Unknown)
         }
     }
 
     async fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>> {
-        let tokens = self.get_known_tokens().await?;
-        Ok(tokens.into_iter().find(|t| t.token == secret))
+        Ok(self.token_store.get(&secret).cloned())
     }
 
     async fn get_valid_tokens(&self, secrets: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
-        let tokens = self.get_known_tokens().await?;
-        Ok(secrets
+        Ok(self
+            .token_store
+            .clone()
             .into_iter()
-            .map(|s| EdgeToken::from_str(s.as_str()).unwrap())
-            .filter(|t| tokens.iter().any(|valid| valid.token == t.token))
+            .filter(|(k, t)| t.status == TokenValidationStatus::Validated && secrets.contains(k))
+            .map(|(_k, t)| t)
             .collect())
     }
 }
@@ -125,8 +119,8 @@ impl FeatureSink for MemoryProvider {
 
 #[cfg(test)]
 mod test {
+    use std::str::FromStr;
     use std::sync::Arc;
-
     use tokio::sync::mpsc;
     use unleash_types::client_features::ClientFeature;
 
@@ -158,16 +152,20 @@ mod test {
         let _ = provider
             .sink_tokens(vec![EdgeToken {
                 token: "some_secret".into(),
+                status: TokenValidationStatus::Validated,
                 ..EdgeToken::default()
             }])
             .await;
 
         let (send, _) = mpsc::channel::<EdgeToken>(32);
 
-        assert!(provider
-            .secret_is_valid("some_secret", Arc::new(send))
-            .await
-            .unwrap())
+        assert_eq!(
+            provider
+                .get_token_validation_status("some_secret", Arc::new(send))
+                .await
+                .unwrap(),
+            TokenValidationStatus::Validated
+        )
     }
 
     #[tokio::test]
@@ -196,8 +194,14 @@ mod test {
 
     #[tokio::test]
     async fn memory_provider_can_yield_list_of_validated_tokens() {
-        let james_bond = EdgeToken::from_str("jamesbond").unwrap();
-        let frank_drebin = EdgeToken::from_str("frankdrebin").unwrap();
+        let james_bond = EdgeToken {
+            status: TokenValidationStatus::Validated,
+            ..EdgeToken::from_str("jamesbond").unwrap()
+        };
+        let frank_drebin = EdgeToken {
+            status: TokenValidationStatus::Validated,
+            ..EdgeToken::from_str("frankdrebin").unwrap()
+        };
 
         let mut provider = MemoryProvider::default();
         let _ = provider
