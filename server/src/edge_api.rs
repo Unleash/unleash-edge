@@ -2,21 +2,21 @@ use actix_web::{
     get,
     web::{self, Json},
 };
+use tokio::sync::RwLock;
 
-use crate::types::{EdgeJsonResult, EdgeToken, TokenProvider, TokenStrings, ValidatedTokens};
+use crate::types::{EdgeJsonResult, EdgeSource, EdgeToken, TokenStrings, ValidatedTokens};
 
 #[get("/validate")]
 async fn validate(
     _client_token: EdgeToken,
-    token_provider: web::Data<dyn TokenProvider>,
+    token_provider: web::Data<RwLock<dyn EdgeSource>>,
     tokens: Json<TokenStrings>,
 ) -> EdgeJsonResult<ValidatedTokens> {
-    let valid_tokens: Vec<EdgeToken> = tokens
-        .into_inner()
-        .tokens
-        .into_iter()
-        .filter_map(|t| token_provider.token_details(t).unwrap_or_default())
-        .collect();
+    let valid_tokens = token_provider
+        .read()
+        .await
+        .get_valid_tokens(tokens.into_inner().tokens)
+        .await?;
     Ok(Json(ValidatedTokens {
         tokens: valid_tokens,
     }))

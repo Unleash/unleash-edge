@@ -1,43 +1,49 @@
 [package]
-name = "unleash-edge"
-version = "0.0.0"
-edition = "2021"
-authors = ["Christopher Kolstad <chriswk@getunleash.io>", "Simon Hornby <simon@getunleash.io>", "Nuno Gois <nuno@getunleash.io>", "Gaston Fournier <gaston@getunleash.io>"]
-license = "MIT"
+authors = [
+  "Christopher Kolstad <chriswk@getunleash.io>",
+  "Simon Hornby <simon@getunleash.io>",
+  "Nuno Gois <nuno@getunleash.io>",
+  "Gaston Fournier <gaston@getunleash.io>",
+]
 description = "Unleash edge is a proxy for Unleash. It can return both evaluated feature toggles as well as the raw data from Unleash's client API"
-repository = "https://github.com/Unleash/unleash-edge"
+edition = "2021"
 homepage = "https://github.com/Unleash/unleash-edge"
+license = "MIT"
+name = "unleash-edge"
+repository = "https://github.com/Unleash/unleash-edge"
+version = "0.0.0"
 
 [dependencies]
 actix-cors = "0.6.4"
 actix-middleware-etag = "0.2.0"
-actix-web = { version = "4.3.0", features = ["rustls"] }
-actix-web-opentelemetry = { version = "0.13.0", features = ["metrics", "metrics-prometheus"] }
+actix-service = "2.0.2"
+actix-web = {version = "4.3.0", features = ["rustls"]}
+actix-web-opentelemetry = {version = "0.13.0", features = ["metrics", "metrics-prometheus"]}
 
 anyhow = "1.0.68"
 async-trait = "0.1.64"
-awc = { version = "3.1.0", features = ["rustls"] }
-chrono = { version = "0.4.23", features = ["serde"] }
-clap = { version = "4.1.4", features = ["derive", "env"] }
+chrono = {version = "0.4.23", features = ["serde"]}
+clap = {version = "4.1.4", features = ["derive", "env"]}
 dashmap = "5.4.0"
-dotenv = { version = "0.15.0", features = ["clap"] }
+dotenv = {version = "0.15.0", features = ["clap"]}
 futures = "0.3.26"
-opentelemetry = { version = "0.18.0", features = ["trace", "rt-tokio", "metrics"] }
+futures-core = "0.3.26"
+opentelemetry = {version = "0.18.0", features = ["trace", "rt-tokio", "metrics"]}
 opentelemetry-prometheus = "0.11.0"
-prometheus = { version = "0.13.3", features = ["process"] }
+prometheus = {version = "0.13.3", features = ["process"]}
 redis = "0.22.3"
+reqwest = {version = "0.11.14", features = ["rustls", "json"]}
 rustls = "0.20.8"
 rustls-pemfile = "1.0.2"
-serde = { version = "1.0.152", features = ["derive"] }
+serde = {version = "1.0.152", features = ["derive"]}
 serde_json = "1.0.91"
 shadow-rs = "0.20.0"
-tokio = { version = "1.25.0", features = ["macros", "rt-multi-thread", "tracing"] }
-tracing = { version = "0.1.37", features = ["log"] }
-tracing-subscriber = { version = "0.3.16", features = ["json", "env-filter"] }
+tokio = {version = "1.25.0", features = ["macros", "rt-multi-thread", "tracing"]}
+tracing = {version = "0.1.37", features = ["log"]}
+tracing-subscriber = {version = "0.3.16", features = ["json", "env-filter"]}
 ulid = "1.0.0"
-unleash-types = { version = "0.7.1", features = ["openapi", "hashes"] }
+unleash-types = {version = "0.7.1", features = ["openapi", "hashes"]}
 unleash-yggdrasil = "0.4.2"
-url = "2.3.1"
 [dev-dependencies]
 actix-http = "3.3.0"
 actix-http-test = "3.1.0"

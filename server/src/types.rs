@@ -1,20 +1,22 @@
 use std::{
     future::{ready, Ready},
+    hash::{Hash, Hasher},
     str::FromStr,
+    sync::Arc,
 };
 
 use crate::error::EdgeError;
 use actix_web::{
     dev::Payload,
     http::header::{EntityTag, HeaderValue},
-    web::{Data, Json},
+    web::Json,
     FromRequest, HttpRequest,
 };
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use shadow_rs::shadow;
-use tracing::warn;
+use tokio::sync::mpsc::Sender;
 use unleash_types::client_features::ClientFeatures;
 
 pub type EdgeJsonResult<T> = Result<Json<T>, EdgeError>;
@@ -34,10 +36,17 @@ pub enum ClientFeaturesResponse {
     Updated(ClientFeatures, Option<EntityTag>),
 }
 
-#[derive(Clone, Debug)]
-pub enum TokenStatus {
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TokenValidationStatus {
     Invalid,
-    Valid(EdgeToken),
+    Unknown,
+    Validated,
+}
+
+impl Default for TokenValidationStatus {
+    fn default() -> Self {
+        TokenValidationStatus::Unknown
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -47,7 +56,7 @@ pub struct ClientFeaturesRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ValidateTokenRequest {
+pub struct ValidateTokensRequest {
     pub tokens: Vec<String>,
 }
 
@@ -60,7 +69,7 @@ impl ClientFeaturesRequest {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq)]
 #[cfg_attr(test, derive(Default))]
 #[serde(rename_all = "camelCase")]
 pub struct EdgeToken {
@@ -69,9 +78,24 @@ pub struct EdgeToken {
     pub token_type: Option<TokenType>,
     pub environment: Option<String>,
     pub projects: Vec<String>,
-    pub expires_at: Option<DateTime<Utc>>,
-    pub seen_at: Option<DateTime<Utc>>,
-    pub alias: Option<String>,
+    #[serde(default = "valid_status")]
+    pub status: TokenValidationStatus,
+}
+
+fn valid_status() -> TokenValidationStatus {
+    TokenValidationStatus::Validated
+}
+
+impl PartialEq for EdgeToken {
+    fn eq(&self, other: &EdgeToken) -> bool {
+        self.token == other.token
+    }
+}
+
+impl Hash for EdgeToken {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.token.hash(state);
+    }
 }
 
 impl EdgeToken {
@@ -81,9 +105,7 @@ impl EdgeToken {
             token_type: None,
             environment: None,
             projects: vec![],
-            expires_at: None,
-            seen_at: Some(Utc::now()),
-            alias: None,
+            status: TokenValidationStatus::default(),
         }
     }
 
@@ -101,24 +123,12 @@ impl FromRequest for EdgeToken {
     type Future = Ready<EdgeResult<Self>>;
 
     fn from_request(req: &HttpRequest, _payload: &mut Payload) -> Self::Future {
-        if let Some(token_provider) = req.app_data::<Data<dyn EdgeProvider>>() {
-            let value = req.headers().get("Authorization");
-            let key = match value {
-                Some(v) => EdgeToken::try_from(v.clone()),
-                None => Err(EdgeError::AuthorizationDenied),
-            }
-            .and_then(|client_token| {
-                if token_provider.secret_is_valid(&client_token.token)? {
-                    Ok(client_token)
-                } else {
-                    Err(EdgeError::AuthorizationDenied)
-                }
-            });
-            ready(key)
-        } else {
-            warn!("Could not find a token provider");
-            ready(Err(EdgeError::NoTokenProvider))
-        }
+        let value = req.headers().get("Authorization");
+        let key = match value {
+            Some(v) => EdgeToken::try_from(v.clone()),
+            None => Err(EdgeError::AuthorizationDenied),
+        };
+        ready(key)
     }
 }
 
@@ -170,9 +180,7 @@ impl FromStr for EdgeToken {
                     projects: token_projects,
                     token_type: None,
                     token: s.into(),
-                    expires_at: None,
-                    seen_at: Some(Utc::now()),
-                    alias: None,
+                    status: TokenValidationStatus::Unknown,
                 })
             } else {
                 Err(EdgeError::TokenParseError)
@@ -192,26 +200,38 @@ pub struct ValidatedTokens {
     pub tokens: Vec<EdgeToken>,
 }
 
-pub trait FeaturesProvider {
-    fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<ClientFeatures>;
+#[async_trait]
+pub trait FeaturesSource {
+    async fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<ClientFeatures>;
 }
-
-pub trait TokenProvider {
-    fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>>;
-    fn secret_is_valid(&self, secret: &str) -> EdgeResult<bool>;
-    fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>>;
-}
-
-pub trait EdgeProvider: FeaturesProvider + TokenProvider + Send + Sync {}
 
 #[async_trait]
-pub trait EdgeSink {
+pub trait TokenSource {
+    async fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>>;
+    async fn secret_is_valid(&self, secret: &str, job: Arc<Sender<EdgeToken>>) -> EdgeResult<bool>;
+    async fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>>;
+    async fn get_valid_tokens(&self, tokens: Vec<String>) -> EdgeResult<Vec<EdgeToken>>;
+}
+
+pub trait EdgeProvider: EdgeSource + EdgeSink + Send + Sync {}
+
+pub trait EdgeSource: FeaturesSource + TokenSource + Send + Sync {}
+pub trait EdgeSink: FeatureSink + TokenSink + Send + Sync {}
+
+#[async_trait]
+pub trait FeatureSink {
     async fn sink_features(
         &mut self,
         token: &EdgeToken,
         features: ClientFeatures,
     ) -> EdgeResult<()>;
-    async fn sink_tokens(&mut self, token: Vec<EdgeToken>) -> EdgeResult<()>;
+    async fn fetch_features(&mut self, token: &EdgeToken) -> EdgeResult<ClientFeaturesResponse>;
+}
+
+#[async_trait]
+pub trait TokenSink {
+    async fn sink_tokens(&mut self, tokens: Vec<EdgeToken>) -> EdgeResult<()>;
+    async fn validate(&mut self, tokens: Vec<EdgeToken>) -> EdgeResult<Vec<EdgeToken>>;
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -307,7 +327,7 @@ mod tests {
         "demo-app:production",
         "demo-app:production"
         => true
-    ; "idepmotency")]
+    ; "idempotency")]
     #[test_case(
         "aproject:production",
         "another:production"
@@ -330,7 +350,7 @@ mod tests {
     }
 
     #[test]
-    fn edge_token_unrleated_by_subsume() {
+    fn edge_token_unrelated_by_subsume() {
         let t1 = test_str("demo-app:production");
         let t2 = test_str("another:production");
         assert!(!t1.subsumes(&t2));

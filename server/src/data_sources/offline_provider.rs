@@ -1,8 +1,14 @@
 use crate::error::EdgeError;
-use crate::types::{EdgeProvider, EdgeResult, EdgeToken, FeaturesProvider, TokenProvider};
+use crate::types::{
+    ClientFeaturesResponse, EdgeProvider, EdgeResult, EdgeSink, EdgeSource, EdgeToken, FeatureSink,
+    FeaturesSource, TokenSink, TokenSource,
+};
+use async_trait::async_trait;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
+use std::sync::Arc;
+use tokio::sync::mpsc::Sender;
 use unleash_types::client_features::ClientFeatures;
 
 #[derive(Debug, Clone)]
@@ -11,31 +17,62 @@ pub struct OfflineProvider {
     pub valid_tokens: Vec<EdgeToken>,
 }
 
-impl FeaturesProvider for OfflineProvider {
-    fn get_client_features(&self, _: &EdgeToken) -> Result<ClientFeatures, EdgeError> {
+#[async_trait]
+impl FeaturesSource for OfflineProvider {
+    async fn get_client_features(&self, _: &EdgeToken) -> Result<ClientFeatures, EdgeError> {
         Ok(self.features.clone())
     }
 }
 
-impl TokenProvider for OfflineProvider {
-    fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
+#[async_trait]
+impl TokenSource for OfflineProvider {
+    async fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
         Ok(self.valid_tokens.clone())
     }
 
-    fn secret_is_valid(&self, secret: &str) -> EdgeResult<bool> {
+    async fn secret_is_valid(&self, secret: &str, _: Arc<Sender<EdgeToken>>) -> EdgeResult<bool> {
         Ok(self.valid_tokens.iter().any(|t| t.token == secret))
     }
 
-    fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>> {
+    async fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>> {
         Ok(self
             .valid_tokens
             .clone()
             .into_iter()
             .find(|t| t.token == secret))
     }
+    async fn get_valid_tokens(&self, _secrets: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
+        todo!()
+    }
 }
 
 impl EdgeProvider for OfflineProvider {}
+impl EdgeSource for OfflineProvider {}
+impl EdgeSink for OfflineProvider {}
+
+#[async_trait]
+impl FeatureSink for OfflineProvider {
+    async fn sink_features(
+        &mut self,
+        _token: &EdgeToken,
+        _features: ClientFeatures,
+    ) -> EdgeResult<()> {
+        todo!()
+    }
+    async fn fetch_features(&mut self, _token: &EdgeToken) -> EdgeResult<ClientFeaturesResponse> {
+        todo!()
+    }
+}
+#[async_trait]
+impl TokenSink for OfflineProvider {
+    async fn sink_tokens(&mut self, _token: Vec<EdgeToken>) -> EdgeResult<()> {
+        todo!()
+    }
+
+    async fn validate(&mut self, _token: Vec<EdgeToken>) -> EdgeResult<Vec<EdgeToken>> {
+        todo!()
+    }
+}
 
 impl OfflineProvider {
     pub fn instantiate_provider(
