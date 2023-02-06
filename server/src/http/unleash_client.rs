@@ -132,7 +132,7 @@ impl UnleashClient {
                     .into_iter()
                     .map(|t| {
                         let remaining_info =
-                            EdgeToken::try_from(t.token.clone()).unwrap_or(t.clone());
+                            EdgeToken::try_from(t.token.clone()).unwrap_or_else(|_| t.clone());
                         EdgeToken {
                             token: t.token.clone(),
                             token_type: t.token_type,
