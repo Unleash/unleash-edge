@@ -1,6 +1,6 @@
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
-use crate::types::{ClientFeaturesResponse, EdgeSink, EdgeToken};
+use crate::types::{ClientFeaturesResponse, EdgeSink, EdgeToken, TokenType};
 use tokio::sync::{mpsc::Receiver, mpsc::Sender, RwLock};
 use tracing::{info, warn};
 
@@ -15,11 +15,13 @@ pub async fn poll_for_token_status(
             let mut write_lock = sink.write().await;
             match write_lock.validate(vec![token.clone()]).await {
                 Ok(validated_tokens) => {
-                    let sink_result = write_lock.sink_tokens(validated_tokens).await;
+                    let sink_result = write_lock.sink_tokens(validated_tokens.clone()).await;
                     if let Err(err) = sink_result {
                         warn!("Couldn't sink token result: {err:?}")
                     } else {
-                        let _ = feature_channel.send(token).await;
+                        for valid in validated_tokens {
+                            let _ = feature_channel.send(valid).await;
+                        }
                     }
                 }
                 Err(e) => {
@@ -39,7 +41,9 @@ pub async fn refresh_features(mut channel: Receiver<EdgeToken>, sink: Arc<RwLock
         tokio::select! {
             token = channel.recv() => { // Got a new token
                 if let Some(token) = token {
-                    tokens.insert(token);
+                    if token.token_type == Some(TokenType::Client) {
+                        tokens.insert(token);
+                    }
                 } else {
                     break;
                 }
