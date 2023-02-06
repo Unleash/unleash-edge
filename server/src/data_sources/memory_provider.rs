@@ -86,12 +86,12 @@ impl TokenSource for MemoryProvider {
     }
 
     async fn get_valid_tokens(&self, secrets: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
-        Ok(self
-            .token_store
-            .clone()
-            .into_iter()
-            .filter(|(k, t)| t.status == TokenValidationStatus::Validated && secrets.contains(k))
-            .map(|(_k, t)| t)
+        Ok(secrets
+            .iter()
+            .map(|s| self.token_store.get(s))
+            .flatten()
+            .filter(|s| s.status == TokenValidationStatus::Validated)
+            .cloned()
             .collect())
     }
 }
