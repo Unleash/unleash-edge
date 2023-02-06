@@ -1,9 +1,11 @@
 use crate::error::EdgeError;
 use crate::types::{
     ClientFeaturesResponse, EdgeProvider, EdgeResult, EdgeSink, EdgeSource, EdgeToken, FeatureSink,
-    FeaturesSource, TokenSink, TokenSource,
+    FeaturesSource, TokenSink, TokenSource, TokenValidationStatus,
 };
+use actix_web::http::header::EntityTag;
 use async_trait::async_trait;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
@@ -14,7 +16,7 @@ use unleash_types::client_features::ClientFeatures;
 #[derive(Debug, Clone)]
 pub struct OfflineProvider {
     pub features: ClientFeatures,
-    pub valid_tokens: Vec<EdgeToken>,
+    pub valid_tokens: HashMap<String, EdgeToken>,
 }
 
 #[async_trait]
@@ -27,22 +29,32 @@ impl FeaturesSource for OfflineProvider {
 #[async_trait]
 impl TokenSource for OfflineProvider {
     async fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
-        Ok(self.valid_tokens.clone())
+        Ok(self.valid_tokens.values().cloned().collect())
     }
 
-    async fn secret_is_valid(&self, secret: &str, _: Arc<Sender<EdgeToken>>) -> EdgeResult<bool> {
-        Ok(self.valid_tokens.iter().any(|t| t.token == secret))
+    async fn get_token_validation_status(
+        &self,
+        secret: &str,
+        _: Arc<Sender<EdgeToken>>,
+    ) -> EdgeResult<TokenValidationStatus> {
+        Ok(if self.valid_tokens.contains_key(secret) {
+            TokenValidationStatus::Validated
+        } else {
+            TokenValidationStatus::Invalid
+        })
     }
 
     async fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>> {
+        Ok(self.valid_tokens.get(&secret).cloned())
+    }
+    async fn get_valid_tokens(&self, secrets: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
         Ok(self
             .valid_tokens
             .clone()
             .into_iter()
-            .find(|t| t.token == secret))
-    }
-    async fn get_valid_tokens(&self, _secrets: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
-        todo!()
+            .filter(|(k, t)| t.status == TokenValidationStatus::Validated && secrets.contains(k))
+            .map(|(_k, t)| t)
+            .collect())
     }
 }
 
@@ -60,7 +72,9 @@ impl FeatureSink for OfflineProvider {
         todo!()
     }
     async fn fetch_features(&mut self, _token: &EdgeToken) -> EdgeResult<ClientFeaturesResponse> {
-        todo!()
+        Ok(ClientFeaturesResponse::NoUpdate(EntityTag::new_weak(
+            "this_provider_does_not_support_refreshing_features".into(),
+        )))
     }
 }
 #[async_trait]
@@ -98,6 +112,7 @@ impl OfflineProvider {
                 .into_iter()
                 .map(EdgeToken::try_from)
                 .filter_map(|t| t.ok())
+                .map(|t| (t.token.clone(), t))
                 .collect(),
         }
     }

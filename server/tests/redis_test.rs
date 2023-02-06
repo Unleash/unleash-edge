@@ -3,6 +3,7 @@ use std::{fs, sync::Arc};
 use redis::{Client, Commands};
 use testcontainers::{clients::Cli, images::redis::Redis, Container};
 use tokio::sync::mpsc;
+use unleash_edge::types::TokenValidationStatus;
 use unleash_edge::{
     data_sources::redis_provider::{RedisProvider, FEATURE_KEY, TOKENS_KEY},
     types::{EdgeProvider, EdgeToken},
@@ -66,8 +67,8 @@ async fn redis_provider_correctly_determines_secret_to_be_valid() {
     let provider: Box<dyn EdgeProvider> = Box::new(RedisProvider::new(&url).unwrap());
 
     let is_valid_token = provider
-        .secret_is_valid(TOKEN, Arc::new(send))
+        .get_token_validation_status(TOKEN, Arc::new(send))
         .await
         .unwrap();
-    assert!(is_valid_token)
+    assert_eq!(is_valid_token, TokenValidationStatus::Validated)
 }

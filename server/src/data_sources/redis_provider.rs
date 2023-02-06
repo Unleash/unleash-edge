@@ -7,6 +7,7 @@ use unleash_types::client_features::ClientFeatures;
 pub const FEATURE_KEY: &str = "features";
 pub const TOKENS_KEY: &str = "tokens";
 
+use crate::types::TokenValidationStatus;
 use crate::{
     error::EdgeError,
     types::{
@@ -89,21 +90,21 @@ impl TokenSource for RedisProvider {
             .collect())
     }
 
-    async fn secret_is_valid(
+    async fn get_token_validation_status(
         &self,
         secret: &str,
         sender: Arc<Sender<EdgeToken>>,
-    ) -> EdgeResult<bool> {
-        if self
+    ) -> EdgeResult<TokenValidationStatus> {
+        if let Some(t) = self
             .get_known_tokens()
             .await?
             .iter()
-            .any(|t| t.token == secret)
+            .find(|t| t.token == secret)
         {
-            Ok(true)
+            Ok(t.clone().status)
         } else {
             let _ = sender.send(EdgeToken::try_from(secret.to_string())?).await;
-            Ok(false)
+            Ok(TokenValidationStatus::Unknown)
         }
     }
 
