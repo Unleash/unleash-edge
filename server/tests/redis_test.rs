@@ -1,9 +1,7 @@
-use std::{fs, sync::Arc};
+use std::fs;
 
 use redis::{Client, Commands};
 use testcontainers::{clients::Cli, images::redis::Redis, Container};
-use tokio::sync::mpsc;
-use unleash_edge::types::TokenValidationStatus;
 use unleash_edge::{
     data_sources::redis_provider::{RedisProvider, FEATURE_KEY, TOKENS_KEY},
     types::{EdgeProvider, EdgeToken},
