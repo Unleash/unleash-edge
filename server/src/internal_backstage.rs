@@ -3,6 +3,7 @@ use actix_web::{
     web::{self, Json},
 };
 use actix_web_opentelemetry::PrometheusMetricsHandler;
+use autometrics::autometrics;
 use serde::Serialize;
 use tokio::sync::RwLock;
 
@@ -20,6 +21,7 @@ impl EdgeStatus {
         }
     }
 }
+#[autometrics]
 #[get("/health")]
 pub async fn health() -> EdgeJsonResult<EdgeStatus> {
     Ok(Json(EdgeStatus::ok()))

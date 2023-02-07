@@ -5,7 +5,9 @@ use actix_web::{
 use tokio::sync::RwLock;
 
 use crate::types::{EdgeJsonResult, EdgeSource, EdgeToken, TokenStrings, ValidatedTokens};
+use autometrics::autometrics;
 
+#[autometrics]
 #[get("/validate")]
 async fn validate(
     _client_token: EdgeToken,

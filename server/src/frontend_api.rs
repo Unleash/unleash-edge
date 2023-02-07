@@ -8,9 +8,10 @@ use unleash_types::{
     frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult},
 };
 use unleash_yggdrasil::{Context, EngineState};
-
+use autometrics::autometrics;
 use crate::types::{EdgeJsonResult, EdgeSource, EdgeToken};
 
+#[autometrics]
 #[get("/proxy/all")]
 async fn get_frontend_features(
     edge_token: EdgeToken,
@@ -28,7 +29,7 @@ async fn get_frontend_features(
 
     Ok(Json(FrontendResult { toggles }))
 }
-
+#[autometrics]
 #[post("/proxy/all")]
 async fn post_frontend_features(
     edge_token: EdgeToken,
@@ -46,7 +47,7 @@ async fn post_frontend_features(
 
     Ok(Json(FrontendResult { toggles }))
 }
-
+#[autometrics]
 #[get("/proxy")]
 async fn get_enabled_frontend_features(
     edge_token: EdgeToken,
@@ -67,6 +68,7 @@ async fn get_enabled_frontend_features(
     Ok(Json(FrontendResult { toggles }))
 }
 
+#[autometrics]
 #[post("/proxy")]
 async fn post_enabled_frontend_features(
     edge_token: EdgeToken,
@@ -87,6 +89,7 @@ async fn post_enabled_frontend_features(
     Ok(Json(FrontendResult { toggles }))
 }
 
+#[autometrics]
 fn resolve_frontend_features(
     client_features: ClientFeatures,
     context: Context,

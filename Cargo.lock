@@ -369,6 +369,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
+name = "autometrics"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9da2704b27562ca666c0261e1141fb6486b6aa51e45e9c1e1199f6b0e165971"
+dependencies = [
+ "autometrics-macros",
+ "const_format",
+ "opentelemetry_api",
+]
+
+[[package]]
+name = "autometrics-macros"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13bb5395bc7b3f24f56e6064d8ad76a75ef179a2ff463d87b154782472433074"
+dependencies = [
+ "percent-encoding",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "awc"
 version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2568,6 +2591,7 @@ dependencies = [
  "actix-web-opentelemetry",
  "anyhow",
  "async-trait",
+ "autometrics",
  "chrono",
  "clap 4.1.4",
  "dashmap",

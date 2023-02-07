@@ -10,7 +10,7 @@ use crate::types::{
     ClientFeaturesResponse, EdgeResult, EdgeToken, TokenValidationStatus, ValidateTokensRequest,
 };
 use reqwest::{header, Client};
-
+use autometrics::autometrics;
 use crate::urls::UnleashUrls;
 use crate::{error::EdgeError, types::ClientFeaturesRequest};
 
@@ -81,6 +81,7 @@ impl UnleashClient {
         }
     }
 
+    #[autometrics]
     pub async fn get_client_features(
         &self,
         request: ClientFeaturesRequest,
@@ -109,6 +110,7 @@ impl UnleashClient {
         }
     }
 
+    #[autometrics]
     pub async fn validate_tokens(
         &self,
         request: ValidateTokensRequest,

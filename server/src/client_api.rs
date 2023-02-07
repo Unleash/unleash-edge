@@ -1,10 +1,12 @@
 use crate::types::{EdgeJsonResult, EdgeSource, EdgeToken};
 use actix_web::get;
 use actix_web::web::{self, Json};
+use autometrics::autometrics;
 use tokio::sync::RwLock;
 use tracing::info;
 use unleash_types::client_features::ClientFeatures;
 
+#[autometrics]
 #[get("/client/features")]
 async fn features(
     edge_token: EdgeToken,
