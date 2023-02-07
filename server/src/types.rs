@@ -16,6 +16,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use shadow_rs::shadow;
 use unleash_types::client_features::ClientFeatures;
+use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ClientMetricsEnv};
 
 pub type EdgeJsonResult<T> = Result<Json<T>, EdgeError>;
 pub type EdgeResult<T> = Result<T, EdgeError>;
@@ -222,6 +223,12 @@ pub trait FeatureSink {
         features: ClientFeatures,
     ) -> EdgeResult<()>;
     async fn fetch_features(&mut self, token: &EdgeToken) -> EdgeResult<ClientFeaturesResponse>;
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct BatchMetricsRequest {
+    pub applications: Vec<ClientApplication>,
+    pub metrics: Vec<ClientMetricsEnv>,
 }
 
 #[async_trait]

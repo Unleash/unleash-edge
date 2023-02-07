@@ -14,6 +14,7 @@ pub struct UnleashUrls {
     pub client_metrics_url: Url,
     pub edge_api_url: Url,
     pub edge_validate_url: Url,
+    pub edge_metrics_url: Url,
 }
 
 impl FromStr for UnleashUrls {
@@ -66,6 +67,12 @@ impl UnleashUrls {
             .path_segments_mut()
             .expect("Could not create /edge/validate url")
             .push("validate");
+        let mut edge_metrics_url = edge_api_url.clone();
+        edge_metrics_url
+            .path_segments_mut()
+            .expect("Could not create /edge/metrics")
+            .push("metrics");
+
         UnleashUrls {
             base_url,
             api_url,
@@ -75,6 +82,7 @@ impl UnleashUrls {
             client_metrics_url,
             edge_api_url,
             edge_validate_url,
+            edge_metrics_url,
         }
     }
 }

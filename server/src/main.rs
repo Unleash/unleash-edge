@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use actix_cors::Cors;
 
 use actix_middleware_etag::Etag;
@@ -7,13 +9,15 @@ use actix_web_opentelemetry::RequestTracing;
 use clap::Parser;
 use cli::CliArgs;
 
+use tokio::sync::RwLock;
 use unleash_edge::client_api;
 use unleash_edge::data_sources::builder::build_source_and_sink;
 use unleash_edge::edge_api;
 use unleash_edge::frontend_api;
 use unleash_edge::http::background_refresh::{poll_for_token_status, refresh_features};
 use unleash_edge::internal_backstage;
-use unleash_edge::metrics;
+use unleash_edge::metrics::client_metrics::MetricsCache;
+use unleash_edge::prom_metrics;
 use unleash_edge::{cli, middleware};
 
 mod tls;
@@ -23,10 +27,12 @@ async fn main() -> Result<(), anyhow::Error> {
     dotenv::dotenv().ok();
     let args = CliArgs::parse();
     let http_args = args.clone().http;
-    let (metrics_handler, request_metrics) = metrics::instantiate(None);
+    let (metrics_handler, request_metrics) = prom_metrics::instantiate(None);
     let repo_info = build_source_and_sink(args).unwrap();
     let source = repo_info.source;
     let sink_info = repo_info.sink_info;
+
+    let metrics_cache = Arc::new(RwLock::new(MetricsCache::default()));
 
     let server = HttpServer::new(move || {
         let edge_source = web::Data::from(source.clone());
@@ -37,6 +43,7 @@ async fn main() -> Result<(), anyhow::Error> {
             .allow_any_method();
         App::new()
             .app_data(edge_source)
+            .app_data(web::Data::from(metrics_cache.clone()))
             .wrap(Etag::default())
             .wrap(cors_middleware)
             .wrap(RequestTracing::new())
