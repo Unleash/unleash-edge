@@ -1,35 +1,37 @@
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
+use crate::types::ClientFeaturesResponse;
 use crate::types::TokenValidationStatus;
-use crate::{
-    error::EdgeError,
-    types::{
-        EdgeProvider, EdgeResult, EdgeSink, EdgeSource, EdgeToken, FeatureSink, FeaturesSource,
-        TokenSink, TokenSource, ValidateTokensRequest,
-    },
-};
-use crate::{
-    http::unleash_client::UnleashClient,
-    types::{ClientFeaturesRequest, ClientFeaturesResponse},
+use crate::types::{
+    EdgeResult, EdgeSink, EdgeSource, EdgeToken, FeatureSink, FeaturesSource, TokenSink,
+    TokenSource,
 };
 use async_trait::async_trait;
 use dashmap::DashMap;
 use tokio::sync::mpsc::Sender;
 use unleash_types::client_features::ClientFeatures;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct MemoryProvider {
     data_store: DashMap<String, ClientFeatures>,
     token_store: HashMap<String, EdgeToken>,
-    unleash_client: UnleashClient,
+    sender: Sender<EdgeToken>,
 }
 
 impl MemoryProvider {
+    pub fn new(sender: Sender<EdgeToken>) -> Self {
+        Self {
+            data_store: DashMap::new(),
+            token_store: HashMap::new(),
+            sender,
+        }
+    }
+
     fn sink_features(&mut self, token: &EdgeToken, features: ClientFeatures) {
         self.data_store.insert(token.token.clone(), features);
     }
 }
-impl EdgeProvider for MemoryProvider {}
+
 impl EdgeSource for MemoryProvider {}
 impl EdgeSink for MemoryProvider {}
 
@@ -41,24 +43,21 @@ impl TokenSink for MemoryProvider {
         }
         Ok(())
     }
-
-    async fn validate(&mut self, tokens: Vec<EdgeToken>) -> EdgeResult<Vec<EdgeToken>> {
-        let validation_request = ValidateTokensRequest {
-            tokens: tokens.into_iter().map(|t| t.token).collect(),
-        };
-        self.unleash_client
-            .validate_tokens(validation_request)
-            .await
-    }
 }
 
 #[async_trait]
 impl FeaturesSource for MemoryProvider {
     async fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<ClientFeatures> {
-        self.data_store
+        Ok(self
+            .data_store
             .get(&token.token)
             .map(|v| v.value().clone())
-            .ok_or_else(|| EdgeError::DataSourceError("Token not found".to_string()))
+            .unwrap_or_else(|| ClientFeatures {
+                version: 2,
+                features: vec![],
+                segments: None,
+                query: None,
+            }))
     }
 }
 
@@ -68,15 +67,14 @@ impl TokenSource for MemoryProvider {
         Ok(self.token_store.values().into_iter().cloned().collect())
     }
 
-    async fn get_token_validation_status(
-        &self,
-        secret: &str,
-        sender: Arc<Sender<EdgeToken>>,
-    ) -> EdgeResult<TokenValidationStatus> {
+    async fn get_token_validation_status(&self, secret: &str) -> EdgeResult<TokenValidationStatus> {
         if let Some(token) = self.token_store.get(secret) {
             Ok(token.clone().status)
         } else {
-            let _ = sender.send(EdgeToken::try_from(secret.to_string())?).await;
+            let _ = self
+                .sender
+                .send(EdgeToken::try_from(secret.to_string())?)
+                .await;
             Ok(TokenValidationStatus::Unknown)
         }
     }
@@ -106,20 +104,14 @@ impl FeatureSink for MemoryProvider {
         Ok(())
     }
 
-    async fn fetch_features(&mut self, token: &EdgeToken) -> EdgeResult<ClientFeaturesResponse> {
-        self.unleash_client
-            .get_client_features(ClientFeaturesRequest {
-                api_key: token.token.clone(),
-                etag: None,
-            })
-            .await
+    async fn fetch_features(&mut self, _token: &EdgeToken) -> EdgeResult<ClientFeaturesResponse> {
+        todo!()
     }
 }
 
 #[cfg(test)]
 mod test {
     use std::str::FromStr;
-    use std::sync::Arc;
     use tokio::sync::mpsc;
     use unleash_types::client_features::ClientFeature;
 
@@ -127,7 +119,8 @@ mod test {
 
     #[tokio::test]
     async fn memory_provider_correctly_deduplicates_tokens() {
-        let mut provider = MemoryProvider::default();
+        let (send, _) = mpsc::channel::<EdgeToken>(32);
+        let mut provider = MemoryProvider::new(send);
         let _ = provider
             .sink_tokens(vec![EdgeToken {
                 token: "some_secret".into(),
@@ -147,7 +140,8 @@ mod test {
 
     #[tokio::test]
     async fn memory_provider_correctly_determines_token_to_be_valid() {
-        let mut provider = MemoryProvider::default();
+        let (send, _) = mpsc::channel::<EdgeToken>(32);
+        let mut provider = MemoryProvider::new(send);
         let _ = provider
             .sink_tokens(vec![EdgeToken {
                 token: "some_secret".into(),
@@ -156,11 +150,9 @@ mod test {
             }])
             .await;
 
-        let (send, _) = mpsc::channel::<EdgeToken>(32);
-
         assert_eq!(
             provider
-                .get_token_validation_status("some_secret", Arc::new(send))
+                .get_token_validation_status("some_secret")
                 .await
                 .unwrap(),
             TokenValidationStatus::Validated
@@ -169,7 +161,9 @@ mod test {
 
     #[tokio::test]
     async fn memory_provider_yields_correct_response_for_token() {
-        let mut provider = MemoryProvider::default();
+        let (send, _) = mpsc::channel::<EdgeToken>(32);
+
+        let mut provider = MemoryProvider::new(send);
         let token = EdgeToken {
             token: "some-secret".into(),
             ..EdgeToken::default()
@@ -202,7 +196,8 @@ mod test {
             ..EdgeToken::from_str("frankdrebin").unwrap()
         };
 
-        let mut provider = MemoryProvider::default();
+        let (send, _) = mpsc::channel::<EdgeToken>(32);
+        let mut provider = MemoryProvider::new(send);
         let _ = provider
             .sink_tokens(vec![james_bond.clone(), frank_drebin.clone()])
             .await;

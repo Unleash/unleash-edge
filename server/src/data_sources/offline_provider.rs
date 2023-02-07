@@ -1,6 +1,6 @@
 use crate::error::EdgeError;
 use crate::types::{
-    ClientFeaturesResponse, EdgeProvider, EdgeResult, EdgeSink, EdgeSource, EdgeToken, FeatureSink,
+    ClientFeaturesResponse, EdgeResult, EdgeSink, EdgeSource, EdgeToken, FeatureSink,
     FeaturesSource, TokenSink, TokenSource, TokenValidationStatus,
 };
 use actix_web::http::header::EntityTag;
@@ -9,8 +9,6 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
-use std::sync::Arc;
-use tokio::sync::mpsc::Sender;
 use unleash_types::client_features::ClientFeatures;
 
 #[derive(Debug, Clone)]
@@ -32,11 +30,7 @@ impl TokenSource for OfflineProvider {
         Ok(self.valid_tokens.values().cloned().collect())
     }
 
-    async fn get_token_validation_status(
-        &self,
-        secret: &str,
-        _: Arc<Sender<EdgeToken>>,
-    ) -> EdgeResult<TokenValidationStatus> {
+    async fn get_token_validation_status(&self, secret: &str) -> EdgeResult<TokenValidationStatus> {
         Ok(if self.valid_tokens.contains_key(secret) {
             TokenValidationStatus::Validated
         } else {
@@ -58,7 +52,6 @@ impl TokenSource for OfflineProvider {
     }
 }
 
-impl EdgeProvider for OfflineProvider {}
 impl EdgeSource for OfflineProvider {}
 impl EdgeSink for OfflineProvider {}
 
@@ -77,13 +70,10 @@ impl FeatureSink for OfflineProvider {
         )))
     }
 }
+
 #[async_trait]
 impl TokenSink for OfflineProvider {
     async fn sink_tokens(&mut self, _token: Vec<EdgeToken>) -> EdgeResult<()> {
-        todo!()
-    }
-
-    async fn validate(&mut self, _token: Vec<EdgeToken>) -> EdgeResult<Vec<EdgeToken>> {
         todo!()
     }
 }
