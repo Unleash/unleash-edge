@@ -1,15 +1,15 @@
+use crate::types::{EdgeJsonResult, EdgeSource, EdgeToken};
 use actix_web::{
     get, post,
     web::{self, Json},
 };
+use autometrics::autometrics;
 use tokio::sync::RwLock;
 use unleash_types::{
     client_features::{ClientFeatures, Payload},
     frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult},
 };
 use unleash_yggdrasil::{Context, EngineState};
-use autometrics::autometrics;
-use crate::types::{EdgeJsonResult, EdgeSource, EdgeToken};
 
 #[autometrics]
 #[get("/proxy/all")]

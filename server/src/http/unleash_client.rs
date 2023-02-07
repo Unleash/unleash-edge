@@ -9,10 +9,10 @@ use unleash_types::client_features::ClientFeatures;
 use crate::types::{
     ClientFeaturesResponse, EdgeResult, EdgeToken, TokenValidationStatus, ValidateTokensRequest,
 };
-use reqwest::{header, Client};
-use autometrics::autometrics;
 use crate::urls::UnleashUrls;
 use crate::{error::EdgeError, types::ClientFeaturesRequest};
+use autometrics::autometrics;
+use reqwest::{header, Client};
 
 const UNLEASH_APPNAME_HEADER: &str = "UNLEASH-APPNAME";
 const UNLEASH_INSTANCE_ID_HEADER: &str = "UNLEASH-INSTANCEID";
