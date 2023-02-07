@@ -58,9 +58,7 @@ pub async fn refresh_features(
         tokio::select! {
             token = channel.recv() => { // Got a new token
                 if let Some(token) = token {
-                    println!("Got me a token");
                     if token.token_type == Some(TokenType::Client)  && token.status == TokenValidationStatus::Validated {
-                        println!("Got me a validated client token");
                         tokens.insert(token);
                     }
                 } else {
