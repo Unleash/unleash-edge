@@ -6,7 +6,7 @@ use actix_web::{web, App, HttpServer};
 use actix_web_opentelemetry::RequestTracing;
 use clap::Parser;
 use cli::CliArgs;
-use tokio::sync::mpsc;
+
 use unleash_edge::client_api;
 use unleash_edge::data_sources::builder::build_source_and_sink;
 use unleash_edge::edge_api;
@@ -14,7 +14,6 @@ use unleash_edge::frontend_api;
 use unleash_edge::http::background_refresh::{poll_for_token_status, refresh_features};
 use unleash_edge::internal_backstage;
 use unleash_edge::metrics;
-use unleash_edge::types::EdgeToken;
 use unleash_edge::{cli, middleware};
 
 mod tls;
@@ -25,16 +24,12 @@ async fn main() -> Result<(), anyhow::Error> {
     let args = CliArgs::parse();
     let http_args = args.clone().http;
     let (metrics_handler, request_metrics) = metrics::instantiate(None);
-    let (source, sink) = build_source_and_sink(args).map_err(anyhow::Error::new)?;
-    let unvalidated_sink = sink.clone();
-    let validated_sink = sink.clone();
-
-    let (unvalidated_sender, unvalidated_receiver) = mpsc::channel::<EdgeToken>(32);
-    let (validated_sender, validated_receiver) = mpsc::channel::<EdgeToken>(32);
+    let repo_info = build_source_and_sink(args).unwrap();
+    let source = repo_info.source;
+    let sink_info = repo_info.sink_info;
 
     let server = HttpServer::new(move || {
         let edge_source = web::Data::from(source.clone());
-        let edge_sink = web::Data::from(sink.clone());
         let cors_middleware = Cors::default()
             .allow_any_origin()
             .send_wildcard()
@@ -42,8 +37,6 @@ async fn main() -> Result<(), anyhow::Error> {
             .allow_any_method();
         App::new()
             .app_data(edge_source)
-            .app_data(edge_sink)
-            .app_data(web::Data::new(unvalidated_sender.clone()))
             .wrap(Etag::default())
             .wrap(cors_middleware)
             .wrap(RequestTracing::new())
@@ -76,17 +69,20 @@ async fn main() -> Result<(), anyhow::Error> {
     };
     let server = server?.shutdown_timeout(5);
 
-    tokio::select! {
-        _ = server.run() => {
-            tracing::info!("Actix was shutdown properly");
-        },
-        _ = poll_for_token_status(unvalidated_receiver, validated_sender, unvalidated_sink) => {
-            tracing::info!("Token validator task is shutting down")
-        },
-        _ = refresh_features(validated_receiver, validated_sink) => {
-            tracing::info!("Refresh task is shutting down");
+    if let Some(sink_info) = sink_info {
+        tokio::select! {
+            _ = server.run() => {
+                tracing::info!("Actix was shutdown properly");
+            },
+            _ = poll_for_token_status(sink_info.unvalidated_receive, sink_info.validated_send.clone(), sink_info.sink.clone(), sink_info.unleash_client.clone()) => {
+                tracing::info!("Token validator task is shutting down")
+            },
+            _ = refresh_features(sink_info.validated_receive, sink_info.sink, sink_info.unleash_client) => {
+                tracing::info!("Refresh task is shutting down");
+            }
         }
-
+    } else {
+        server.run().await?;
     }
 
     Ok(())

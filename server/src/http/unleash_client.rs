@@ -24,7 +24,7 @@ pub struct UnleashClient {
     backing_client: Client,
 }
 
-pub fn new_reqwest_client(instance_id: String) -> Client {
+fn new_reqwest_client(instance_id: String) -> Client {
     let mut header_map = header::HeaderMap::new();
     header_map.insert(
         UNLEASH_APPNAME_HEADER,

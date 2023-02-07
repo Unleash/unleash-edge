@@ -2,7 +2,6 @@ use std::{
     future::{ready, Ready},
     hash::{Hash, Hasher},
     str::FromStr,
-    sync::Arc,
 };
 
 use crate::error::EdgeError;
@@ -16,7 +15,6 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use shadow_rs::shadow;
-use tokio::sync::mpsc::Sender;
 use unleash_types::client_features::ClientFeatures;
 
 pub type EdgeJsonResult<T> = Result<Json<T>, EdgeError>;
@@ -208,16 +206,10 @@ pub trait FeaturesSource {
 #[async_trait]
 pub trait TokenSource {
     async fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>>;
-    async fn get_token_validation_status(
-        &self,
-        secret: &str,
-        job: Arc<Sender<EdgeToken>>,
-    ) -> EdgeResult<TokenValidationStatus>;
+    async fn get_token_validation_status(&self, secret: &str) -> EdgeResult<TokenValidationStatus>;
     async fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>>;
     async fn get_valid_tokens(&self, tokens: Vec<String>) -> EdgeResult<Vec<EdgeToken>>;
 }
-
-pub trait EdgeProvider: EdgeSource + EdgeSink + Send + Sync {}
 
 pub trait EdgeSource: FeaturesSource + TokenSource + Send + Sync {}
 pub trait EdgeSink: FeatureSink + TokenSink + Send + Sync {}
@@ -235,7 +227,6 @@ pub trait FeatureSink {
 #[async_trait]
 pub trait TokenSink {
     async fn sink_tokens(&mut self, tokens: Vec<EdgeToken>) -> EdgeResult<()>;
-    async fn validate(&mut self, tokens: Vec<EdgeToken>) -> EdgeResult<Vec<EdgeToken>>;
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

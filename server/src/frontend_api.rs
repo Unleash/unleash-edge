@@ -125,8 +125,8 @@ mod tests {
 
     use crate::data_sources::builder::DataProviderPair;
     use crate::types::{
-        ClientFeaturesResponse, EdgeProvider, EdgeResult, EdgeSink, EdgeSource, EdgeToken,
-        FeatureSink, FeaturesSource, TokenSink, TokenSource, TokenValidationStatus,
+        ClientFeaturesResponse, EdgeResult, EdgeSink, EdgeSource, EdgeToken, FeatureSink,
+        FeaturesSource, TokenSink, TokenSource, TokenValidationStatus,
     };
     use actix_web::{
         http::header::ContentType,
@@ -136,7 +136,6 @@ mod tests {
     };
     use async_trait::async_trait;
     use serde_json::json;
-    use tokio::sync::mpsc::Sender;
     use tokio::sync::RwLock;
     use unleash_types::{
         client_features::{ClientFeature, ClientFeatures, Constraint, Operator, Strategy},
@@ -180,7 +179,6 @@ mod tests {
         async fn get_token_validation_status(
             &self,
             _secret: &str,
-            _: Arc<Sender<EdgeToken>>,
         ) -> EdgeResult<TokenValidationStatus> {
             Ok(TokenValidationStatus::Validated)
         }
@@ -201,15 +199,9 @@ mod tests {
         async fn sink_tokens(&mut self, _tokens: Vec<EdgeToken>) -> EdgeResult<()> {
             todo!()
         }
-
-        async fn validate(&mut self, _tokens: Vec<EdgeToken>) -> EdgeResult<Vec<EdgeToken>> {
-            todo!()
-        }
     }
 
     impl EdgeSink for MockEdgeProvider {}
-
-    impl EdgeProvider for MockEdgeProvider {}
 
     #[async_trait]
     impl FeatureSink for MockEdgeProvider {
