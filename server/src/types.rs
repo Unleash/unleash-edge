@@ -16,7 +16,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use shadow_rs::shadow;
 use unleash_types::client_features::ClientFeatures;
-use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ClientMetricsEnv};
+use unleash_types::client_metrics::{ClientApplication, ClientMetricsEnv};
 
 pub type EdgeJsonResult<T> = Result<Json<T>, EdgeError>;
 pub type EdgeResult<T> = Result<T, EdgeError>;

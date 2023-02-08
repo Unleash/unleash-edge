@@ -18,12 +18,12 @@ pub async fn send_metrics_task(
             let metrics = metrics_lock.get_unsent_metrics();
 
             let request = BatchMetricsRequest {
-                applications: todo!(),
-                metrics: todo!(),
+                applications: metrics.applications,
+                metrics: metrics.metrics,
             };
 
             if let Err(error) = unleash_client.send_batch_metrics(request).await {
-                warn!("Failed to send metrics match");
+                warn!("Failed to send metrics: {error:?}");
             } else {
                 metrics_lock.reset_metrics();
             }

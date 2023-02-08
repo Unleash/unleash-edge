@@ -4,13 +4,13 @@ use actix_web::{
     HttpResponse,
 };
 use tokio::sync::RwLock;
-use unleash_types::client_metrics::MetricBucket;
 
-use crate::types::{
-    BatchMetricsRequest, EdgeJsonResult, EdgeSource, EdgeToken, TokenStrings, ValidatedTokens,
-};
+use crate::{metrics::client_metrics::MetricsCache, types::EdgeResult};
 use crate::{
-    metrics::client_metrics::MetricsCache, metrics::client_metrics::MetricsKey, types::EdgeResult,
+    metrics::client_metrics::MetricsKey,
+    types::{
+        BatchMetricsRequest, EdgeJsonResult, EdgeSource, EdgeToken, TokenStrings, ValidatedTokens,
+    },
 };
 
 #[get("/validate")]
@@ -39,38 +39,26 @@ async fn metrics(
         let mut metrics_lock = metrics_cache.write().await;
 
         for metric in batch_metrics_request.metrics.iter() {
-            let key = if let Some(instance_id) = &metric.instance_id {
-                MetricsKey {
-                    app_name: metric.app_name.clone(),
-                    instance_id: instance_id.clone(),
-                }
-            } else {
-                MetricsKey::from_app_name(metric.app_name.clone())
-            };
             metrics_lock
                 .metrics
-                .entry(key)
-                .and_modify(|to_modify| {
-                    to_modify
-                        .toggles
-                        .entry(metric.feature_name)
-                        .and_modify(|feature_stats| {
-                            feature_stats.yes += metric.yes;
-                            feature_stats.no += metric.no;
-                            metric.variants.into_iter().for_each(|(k, added_count)| {
-                                feature_stats
-                                    .variants
-                                    .entry(k)
-                                    .and_modify(|count| {
-                                        *count += added_count;
-                                    })
-                                    .or_insert(added_count);
-                            });
-                        });
+                .entry(MetricsKey {
+                    app_name: metric.app_name.clone(),
+                    feature_name: metric.feature_name.clone(),
                 })
-                .or_insert(MetricBucket {
-                    start: metric.timestamp,
-                });
+                .and_modify(|feature_stats| {
+                    feature_stats.yes += metric.yes;
+                    feature_stats.no += metric.no;
+                    metric.variants.iter().for_each(|(k, added_count)| {
+                        feature_stats
+                            .variants
+                            .entry(k.clone())
+                            .and_modify(|count| {
+                                *count += added_count;
+                            })
+                            .or_insert(*added_count);
+                    });
+                })
+                .or_insert(metric.clone());
         }
     }
     Ok(HttpResponse::Accepted().finish())

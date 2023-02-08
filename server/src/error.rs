@@ -10,6 +10,7 @@ pub enum EdgeError {
     ClientFeaturesFetchError,
     ClientFeaturesParseError,
     DataSourceError(String),
+    EdgeMetricsError,
     EdgeTokenError,
     EdgeTokenParseError,
     InvalidBackupFile(String, String),
@@ -48,6 +49,7 @@ impl Display for EdgeError {
             EdgeError::AuthorizationPending => {
                 write!(f, "No validation for token has happened yet")
             }
+            EdgeError::EdgeMetricsError => write!(f, "Edge metrics error"),
         }
     }
 }
@@ -69,6 +71,7 @@ impl ResponseError for EdgeError {
             EdgeError::EdgeTokenError => StatusCode::BAD_REQUEST,
             EdgeError::EdgeTokenParseError => StatusCode::BAD_REQUEST,
             EdgeError::AuthorizationPending => StatusCode::UNAUTHORIZED,
+            EdgeError::EdgeMetricsError => StatusCode::BAD_REQUEST,
         }
     }
 
