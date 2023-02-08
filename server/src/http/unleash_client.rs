@@ -114,7 +114,8 @@ impl UnleashClient {
         let result = self
             .backing_client
             .post(self.urls.edge_metrics_url.to_string())
-            .json(&request)
+            .header(reqwest::header::AUTHORIZATION, request.api_key)
+            .json(&request.body)
             .send()
             .await
             .map_err(|_| EdgeError::EdgeMetricsError)?;

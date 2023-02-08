@@ -30,6 +30,7 @@ pub struct SinkInfo {
     pub validated_receive: mpsc::Receiver<EdgeToken>,
     pub unvalidated_receive: mpsc::Receiver<EdgeToken>,
     pub unleash_client: UnleashClient,
+    pub metrics_interval_seconds: u64,
 }
 
 fn build_offline(offline_args: OfflineArgs) -> EdgeResult<DataProviderPair> {
@@ -80,6 +81,7 @@ pub fn build_source_and_sink(args: CliArgs) -> EdgeResult<RepositoryInfo> {
                     validated_receive: validated_receiver,
                     unvalidated_receive: unvalidated_receiver,
                     unleash_client,
+                    metrics_interval_seconds: edge_args.metrics_interval_seconds,
                 }),
             })
         }

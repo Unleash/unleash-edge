@@ -35,6 +35,8 @@ pub struct EdgeArgs {
     pub unleash_url: String,
     #[clap(short, long, env)]
     pub redis_url: Option<String>,
+    #[clap(short, long, env, default_value_t = 10)]
+    pub metrics_interval_seconds: u64,
 }
 
 #[derive(Args, Debug, Clone)]

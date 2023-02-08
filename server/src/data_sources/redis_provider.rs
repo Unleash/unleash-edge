@@ -95,6 +95,14 @@ impl TokenSource for RedisProvider {
             .collect())
     }
 
+    async fn get_valid_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
+        let tokens = self.get_known_tokens().await?;
+        Ok(tokens
+            .into_iter()
+            .filter(|t| t.status == TokenValidationStatus::Validated)
+            .collect())
+    }
+
     async fn get_token_validation_status(&self, secret: &str) -> EdgeResult<TokenValidationStatus> {
         if let Some(t) = self
             .get_known_tokens()
@@ -112,7 +120,7 @@ impl TokenSource for RedisProvider {
         }
     }
 
-    async fn get_valid_tokens(&self, _secrets: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
+    async fn filter_valid_tokens(&self, _secrets: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
         todo!()
     }
 
