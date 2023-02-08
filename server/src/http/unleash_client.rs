@@ -111,7 +111,18 @@ impl UnleashClient {
     }
 
     pub async fn send_batch_metrics(&self, request: BatchMetricsRequest) -> EdgeResult<()> {
-        Ok(())
+        let result = self
+            .backing_client
+            .post(self.urls.edge_metrics_url.to_string())
+            .json(&request)
+            .send()
+            .await
+            .map_err(|_| EdgeError::EdgeMetricsError)?;
+        if result.status().is_success() {
+            Ok(())
+        } else {
+            Err(EdgeError::EdgeMetricsError)
+        }
     }
 
     pub async fn validate_tokens(
