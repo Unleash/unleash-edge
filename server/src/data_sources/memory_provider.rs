@@ -67,6 +67,15 @@ impl TokenSource for MemoryProvider {
         Ok(self.token_store.values().into_iter().cloned().collect())
     }
 
+    async fn get_valid_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
+        Ok(self
+            .token_store
+            .values()
+            .filter(|t| t.status == TokenValidationStatus::Validated)
+            .cloned()
+            .collect())
+    }
+
     async fn get_token_validation_status(&self, secret: &str) -> EdgeResult<TokenValidationStatus> {
         if let Some(token) = self.token_store.get(secret) {
             Ok(token.clone().status)
@@ -83,7 +92,7 @@ impl TokenSource for MemoryProvider {
         Ok(self.token_store.get(&secret).cloned())
     }
 
-    async fn get_valid_tokens(&self, secrets: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
+    async fn filter_valid_tokens(&self, secrets: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
         Ok(secrets
             .iter()
             .filter_map(|s| self.token_store.get(s))
@@ -202,7 +211,7 @@ mod test {
             .sink_tokens(vec![james_bond.clone(), frank_drebin.clone()])
             .await;
         let valid_tokens = provider
-            .get_valid_tokens(vec![
+            .filter_valid_tokens(vec![
                 "jamesbond".into(),
                 "anotherinvalidone".into(),
                 "frankdrebin".into(),

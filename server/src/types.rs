@@ -207,9 +207,10 @@ pub trait FeaturesSource {
 #[async_trait]
 pub trait TokenSource {
     async fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>>;
+    async fn get_valid_tokens(&self) -> EdgeResult<Vec<EdgeToken>>;
     async fn get_token_validation_status(&self, secret: &str) -> EdgeResult<TokenValidationStatus>;
     async fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>>;
-    async fn get_valid_tokens(&self, tokens: Vec<String>) -> EdgeResult<Vec<EdgeToken>>;
+    async fn filter_valid_tokens(&self, tokens: Vec<String>) -> EdgeResult<Vec<EdgeToken>>;
 }
 
 pub trait EdgeSource: FeaturesSource + TokenSource + Send + Sync {}
@@ -227,6 +228,12 @@ pub trait FeatureSink {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BatchMetricsRequest {
+    pub api_key: String,
+    pub body: BatchMetricsRequestBody,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct BatchMetricsRequestBody {
     pub applications: Vec<ClientApplication>,
     pub metrics: Vec<ClientMetricsEnv>,
 }

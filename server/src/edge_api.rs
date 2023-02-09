@@ -1,28 +1,28 @@
 use actix_web::{
-    get, post,
+    post,
     web::{self, Json},
     HttpResponse,
 };
 use tokio::sync::RwLock;
 
-use crate::{metrics::client_metrics::MetricsCache, types::EdgeResult};
+use crate::{
+    metrics::client_metrics::MetricsCache,
+    types::{BatchMetricsRequestBody, EdgeResult},
+};
 use crate::{
     metrics::client_metrics::MetricsKey,
-    types::{
-        BatchMetricsRequest, EdgeJsonResult, EdgeSource, EdgeToken, TokenStrings, ValidatedTokens,
-    },
+    types::{EdgeJsonResult, EdgeSource, TokenStrings, ValidatedTokens},
 };
 
-#[get("/validate")]
+#[post("/validate")]
 async fn validate(
-    _client_token: EdgeToken,
     token_provider: web::Data<RwLock<dyn EdgeSource>>,
     tokens: Json<TokenStrings>,
 ) -> EdgeJsonResult<ValidatedTokens> {
     let valid_tokens = token_provider
         .read()
         .await
-        .get_valid_tokens(tokens.into_inner().tokens)
+        .filter_valid_tokens(tokens.into_inner().tokens)
         .await?;
     Ok(Json(ValidatedTokens {
         tokens: valid_tokens,
@@ -31,8 +31,7 @@ async fn validate(
 
 #[post("/metrics")]
 async fn metrics(
-    _client_token: EdgeToken,
-    batch_metrics_request: web::Json<BatchMetricsRequest>,
+    batch_metrics_request: web::Json<BatchMetricsRequestBody>,
     metrics_cache: web::Data<RwLock<MetricsCache>>,
 ) -> EdgeResult<HttpResponse> {
     {
@@ -65,5 +64,5 @@ async fn metrics(
 }
 
 pub fn configure_edge_api(cfg: &mut web::ServiceConfig) {
-    cfg.service(validate);
+    cfg.service(validate).service(metrics);
 }
