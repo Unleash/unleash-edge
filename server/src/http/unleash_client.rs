@@ -7,7 +7,8 @@ use ulid::Ulid;
 use unleash_types::client_features::ClientFeatures;
 
 use crate::types::{
-    ClientFeaturesResponse, EdgeResult, EdgeToken, TokenValidationStatus, ValidateTokensRequest,
+    BatchMetricsRequest, ClientFeaturesResponse, EdgeResult, EdgeToken, TokenValidationStatus,
+    ValidateTokensRequest,
 };
 use reqwest::{header, Client};
 
@@ -106,6 +107,22 @@ impl UnleashClient {
             Ok(ClientFeaturesResponse::Updated(features, etag))
         } else {
             Err(EdgeError::ClientFeaturesFetchError)
+        }
+    }
+
+    pub async fn send_batch_metrics(&self, request: BatchMetricsRequest) -> EdgeResult<()> {
+        let result = self
+            .backing_client
+            .post(self.urls.edge_metrics_url.to_string())
+            .header(reqwest::header::AUTHORIZATION, request.api_key)
+            .json(&request.body)
+            .send()
+            .await
+            .map_err(|_| EdgeError::EdgeMetricsError)?;
+        if result.status().is_success() {
+            Ok(())
+        } else {
+            Err(EdgeError::EdgeMetricsError)
         }
     }
 

@@ -176,6 +176,10 @@ mod tests {
             todo!()
         }
 
+        async fn get_valid_tokens(&self) -> EdgeResult<Vec<crate::types::EdgeToken>> {
+            todo!()
+        }
+
         async fn get_token_validation_status(
             &self,
             _secret: &str,
@@ -187,7 +191,7 @@ mod tests {
             todo!()
         }
 
-        async fn get_valid_tokens(&self, _tokens: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
+        async fn filter_valid_tokens(&self, _tokens: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
             todo!()
         }
     }
