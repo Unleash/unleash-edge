@@ -1,9 +1,0 @@
-{
-	"appName":"myapp",
-	"instanceId":"isbetterthanyourapp",
-	"sdkVersion":"imaginarySdk:3.1.0",
-	"environment":"development",
-	"interval":15,
-	"started": "2023-02-07T12:16:39.888Z",
-	"strategies": ["default", "gradualRollout"]
-}
