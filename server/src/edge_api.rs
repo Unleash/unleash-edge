@@ -5,13 +5,10 @@ use actix_web::{
 };
 use tokio::sync::RwLock;
 
+use crate::types::{EdgeJsonResult, EdgeSource, TokenStrings, ValidatedTokens};
 use crate::{
     metrics::client_metrics::MetricsCache,
     types::{BatchMetricsRequestBody, EdgeResult},
-};
-use crate::{
-    metrics::client_metrics::MetricsKey,
-    types::{EdgeJsonResult, EdgeSource, TokenStrings, ValidatedTokens},
 };
 
 #[post("/validate")]
@@ -37,28 +34,7 @@ async fn metrics(
     {
         let mut metrics_lock = metrics_cache.write().await;
 
-        for metric in batch_metrics_request.metrics.iter() {
-            metrics_lock
-                .metrics
-                .entry(MetricsKey {
-                    app_name: metric.app_name.clone(),
-                    feature_name: metric.feature_name.clone(),
-                })
-                .and_modify(|feature_stats| {
-                    feature_stats.yes += metric.yes;
-                    feature_stats.no += metric.no;
-                    metric.variants.iter().for_each(|(k, added_count)| {
-                        feature_stats
-                            .variants
-                            .entry(k.clone())
-                            .and_modify(|count| {
-                                *count += added_count;
-                            })
-                            .or_insert(*added_count);
-                    });
-                })
-                .or_insert(metric.clone());
-        }
+        metrics_lock.sink_metrics(&batch_metrics_request.metrics);
     }
     Ok(HttpResponse::Accepted().finish())
 }

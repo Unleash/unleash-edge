@@ -50,11 +50,7 @@ pub async fn send_metrics_task(
 
 async fn get_first_token(source: Arc<RwLock<dyn EdgeSource>>) -> EdgeResult<EdgeToken> {
     let source_lock = source.read().await;
-    let api_key = source_lock
-        .get_valid_tokens()
-        .await?
-        .get(0)
-        .map(|x| x.clone());
+    let api_key = source_lock.get_valid_tokens().await?.get(0).cloned();
     match api_key {
         Some(api_key) => Ok(api_key),
         None => Err(EdgeError::DataSourceError("No tokens found".into())),
