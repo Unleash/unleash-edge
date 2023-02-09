@@ -126,7 +126,7 @@ mod tests {
     use crate::data_sources::builder::DataProviderPair;
     use crate::types::{
         EdgeResult, EdgeSink, EdgeSource, EdgeToken, FeatureSink, FeaturesSource, TokenSink,
-        TokenSource, TokenValidationStatus,
+        TokenSource,
     };
     use actix_web::{
         http::header::ContentType,
@@ -178,13 +178,6 @@ mod tests {
 
         async fn get_valid_tokens(&self) -> EdgeResult<Vec<crate::types::EdgeToken>> {
             todo!()
-        }
-
-        async fn get_token_validation_status(
-            &self,
-            _secret: &str,
-        ) -> EdgeResult<TokenValidationStatus> {
-            Ok(TokenValidationStatus::Validated)
         }
 
         async fn token_details(&self, _secret: String) -> EdgeResult<Option<EdgeToken>> {

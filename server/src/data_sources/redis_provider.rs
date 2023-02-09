@@ -134,23 +134,6 @@ impl TokenSource for RedisProvider {
             .collect())
     }
 
-    async fn get_token_validation_status(&self, secret: &str) -> EdgeResult<TokenValidationStatus> {
-        if let Some(t) = self
-            .get_known_tokens()
-            .await?
-            .iter()
-            .find(|t| t.token == secret)
-        {
-            Ok(t.clone().status)
-        } else {
-            let _ = self
-                .sender
-                .send(EdgeToken::try_from(secret.to_string())?)
-                .await;
-            Ok(TokenValidationStatus::Unknown)
-        }
-    }
-
     async fn filter_valid_tokens(&self, _secrets: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
         todo!()
     }

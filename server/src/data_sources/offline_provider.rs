@@ -37,14 +37,6 @@ impl TokenSource for OfflineProvider {
             .collect())
     }
 
-    async fn get_token_validation_status(&self, secret: &str) -> EdgeResult<TokenValidationStatus> {
-        Ok(if self.valid_tokens.contains_key(secret) {
-            TokenValidationStatus::Validated
-        } else {
-            TokenValidationStatus::Invalid
-        })
-    }
-
     async fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>> {
         Ok(self.valid_tokens.get(&secret).cloned())
     }
@@ -83,8 +75,7 @@ impl OfflineProvider {
             features,
             valid_tokens: valid_tokens
                 .into_iter()
-                .map(EdgeToken::try_from)
-                .filter_map(|t| t.ok())
+                .filter_map(|t| EdgeToken::try_from(t).ok())
                 .map(|t| (t.token.clone(), t))
                 .collect(),
         }

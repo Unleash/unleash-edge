@@ -3,6 +3,7 @@ pub mod http;
 pub mod metrics;
 pub mod prom_metrics;
 
+pub mod auth;
 pub mod cli;
 pub mod client_api;
 pub mod edge_api;

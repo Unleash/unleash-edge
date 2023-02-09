@@ -208,7 +208,6 @@ pub trait FeaturesSource {
 pub trait TokenSource {
     async fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>>;
     async fn get_valid_tokens(&self) -> EdgeResult<Vec<EdgeToken>>;
-    async fn get_token_validation_status(&self, secret: &str) -> EdgeResult<TokenValidationStatus>;
     async fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>>;
     async fn filter_valid_tokens(&self, tokens: Vec<String>) -> EdgeResult<Vec<EdgeToken>>;
 }
@@ -240,6 +239,13 @@ pub struct BatchMetricsRequestBody {
 #[async_trait]
 pub trait TokenSink {
     async fn sink_tokens(&mut self, tokens: Vec<EdgeToken>) -> EdgeResult<()>;
+}
+
+#[async_trait]
+pub trait TokenValidator {
+    /// Will validate upstream, and add tokens with status from upstream to token cache.
+    /// Will block until verified with upstream
+    async fn register_tokens(&mut self, tokens: Vec<String>) -> EdgeResult<Vec<EdgeToken>>;
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

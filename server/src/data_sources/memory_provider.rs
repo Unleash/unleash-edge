@@ -91,18 +91,6 @@ impl TokenSource for MemoryProvider {
             .collect())
     }
 
-    async fn get_token_validation_status(&self, secret: &str) -> EdgeResult<TokenValidationStatus> {
-        if let Some(token) = self.token_store.get(secret) {
-            Ok(token.clone().status)
-        } else {
-            let _ = self
-                .sender
-                .send(EdgeToken::try_from(secret.to_string())?)
-                .await;
-            Ok(TokenValidationStatus::Unknown)
-        }
-    }
-
     async fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>> {
         Ok(self.token_store.get(&secret).cloned())
     }
@@ -172,9 +160,11 @@ mod test {
 
         assert_eq!(
             provider
-                .get_token_validation_status("some_secret")
+                .token_details("some_secret".into())
                 .await
-                .unwrap(),
+                .expect("Could not retrieve token details")
+                .unwrap()
+                .status,
             TokenValidationStatus::Validated
         )
     }
