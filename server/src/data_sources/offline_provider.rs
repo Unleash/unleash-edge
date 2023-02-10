@@ -1,6 +1,7 @@
 use crate::error::EdgeError;
 use crate::types::{
-    EdgeResult, EdgeSource, EdgeToken, FeaturesSource, TokenSource, TokenValidationStatus,
+    EdgeResult, EdgeSource, EdgeToken, FeatureRefresh, FeaturesSource, TokenSource,
+    TokenValidationStatus,
 };
 use async_trait::async_trait;
 use std::collections::HashMap;
@@ -48,6 +49,9 @@ impl TokenSource for OfflineProvider {
             .filter(|(k, t)| t.status == TokenValidationStatus::Validated && secrets.contains(k))
             .map(|(_k, t)| t)
             .collect())
+    }
+    async fn get_tokens_due_for_refresh(&self) -> EdgeResult<Vec<FeatureRefresh>> {
+        Ok(vec![])
     }
 }
 

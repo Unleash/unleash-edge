@@ -1,3 +1,4 @@
+use std::fmt;
 use std::{
     future::{ready, Ready},
     hash::{Hash, Hasher},
@@ -218,6 +219,37 @@ pub trait TokenSource {
     async fn get_valid_tokens(&self) -> EdgeResult<Vec<EdgeToken>>;
     async fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>>;
     async fn filter_valid_tokens(&self, tokens: Vec<String>) -> EdgeResult<Vec<EdgeToken>>;
+    async fn get_tokens_due_for_refresh(&self) -> EdgeResult<Vec<FeatureRefresh>>;
+}
+
+#[derive(Clone)]
+pub struct FeatureRefresh {
+    pub token: EdgeToken,
+    pub etag: Option<EntityTag>,
+    pub last_refreshed: Option<DateTime<Utc>>,
+    pub last_check: Option<DateTime<Utc>>,
+}
+
+impl FeatureRefresh {
+    pub fn new(token: EdgeToken) -> Self {
+        Self {
+            token,
+            etag: None,
+            last_refreshed: None,
+            last_check: None,
+        }
+    }
+}
+
+impl fmt::Debug for FeatureRefresh {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("FeatureRefresh")
+            .field("token", &"***")
+            .field("etag", &self.etag)
+            .field("last_refreshed", &self.last_refreshed)
+            .field("last_check", &self.last_check)
+            .finish()
+    }
 }
 
 pub trait EdgeSource: FeaturesSource + TokenSource + Send + Sync {}
@@ -229,7 +261,13 @@ pub trait FeatureSink {
         &mut self,
         token: &EdgeToken,
         features: ClientFeatures,
+        etag: Option<EntityTag>,
     ) -> EdgeResult<()>;
+    async fn update_last_check(&mut self, token: &EdgeToken) -> EdgeResult<()>;
+}
+
+pub fn into_entity_tag(client_features: ClientFeatures) -> Option<EntityTag> {
+    client_features.xx3_hash().ok().map(EntityTag::new_weak)
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

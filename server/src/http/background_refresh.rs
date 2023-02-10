@@ -1,8 +1,8 @@
-use std::{collections::HashSet, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use crate::types::{
-    ClientFeaturesRequest, ClientFeaturesResponse, EdgeSink, EdgeToken, TokenType,
-    TokenValidationStatus, ValidateTokensRequest,
+    ClientFeaturesRequest, ClientFeaturesResponse, EdgeSink, EdgeSource, EdgeToken,
+    ValidateTokensRequest,
 };
 use tokio::sync::{mpsc::Receiver, mpsc::Sender, RwLock};
 use tracing::{info, warn};
@@ -49,48 +49,49 @@ pub async fn poll_for_token_status(
 }
 
 pub async fn refresh_features(
-    mut channel: Receiver<EdgeToken>,
+    source: Arc<RwLock<dyn EdgeSource>>,
     sink: Arc<RwLock<dyn EdgeSink>>,
     unleash_client: UnleashClient,
 ) {
-    let mut tokens = HashSet::new();
     loop {
         tokio::select! {
-            token = channel.recv() => { // Got a new token
-                if let Some(token) = token {
-                    if token.token_type == Some(TokenType::Client)  && token.status == TokenValidationStatus::Validated {
-                        tokens.insert(token);
-                    }
-                } else {
-                    break;
-                }
-            }
-            ,
-            _ = tokio::time::sleep(Duration::from_secs(10)) => { // Iterating over known tokens
-                let mut write_lock = sink.write().await;
-                info!("Updating features for known tokens. Know of {} tokens", tokens.len());
-                for token in tokens.iter() {
-                    let features_result = unleash_client.get_client_features(ClientFeaturesRequest {
-                        api_key: token.token.clone(),
-                        etag: None,
-                    }).await;
-                    match features_result {
-                        Ok(feature_response) => match feature_response {
-                            ClientFeaturesResponse::NoUpdate(_) => info!("No update needed"),
-                            ClientFeaturesResponse::Updated(features, _) => {
-                                info!("Got updated client features. Writing to sink {features:?}");
-                                let sink_result = write_lock.sink_features(token, features).await;
-                                if let Err(err) = sink_result {
-                                    warn!("Failed to sink features in updater {err:?}");
+            _ = tokio::time::sleep(Duration::from_secs(5)) => {
+                let read_lock = source.read().await;
+                let to_refresh = read_lock.get_tokens_due_for_refresh().await;
+                drop(read_lock);
+                if let Ok(refreshes) = to_refresh {
+                        info!("Had {} tokens to refresh", refreshes.len());
+                    for refresh in refreshes {
+                        info!("{refresh:?}");
+                        let features_result = unleash_client.get_client_features(ClientFeaturesRequest {
+                            api_key: refresh.token.token.clone(),
+                            etag: refresh.etag,
+                        }).await;
+
+                        match features_result {
+                            Ok(feature_response) => match feature_response {
+                                ClientFeaturesResponse::NoUpdate(_) => {
+                                    info!("No update needed, will update last check time");
+                                    let mut write_lock = sink.write().await;
+                                    let _ = write_lock.update_last_check(&refresh.token).await;
                                 }
+                                ClientFeaturesResponse::Updated(features, etag) => {
+                                    info!("Got updated client features. Writing to sink {features:?}");
+                                    let mut write_lock = sink.write().await;
+                                    let sink_result = write_lock.sink_features(&refresh.token, features, etag).await;
+                                    drop(write_lock);
+                                    if let Err(err) = sink_result {
+                                        warn!("Failed to sink features in updater {err:?}");
+                                    }
+                                }
+                            },
+                            Err(e) => {
+                                warn!("Couldn't refresh features: {e:?}");
                             }
-                        },
-                        Err(e) => {
-                            warn!("Couldn't refresh features: {e:?}");
                         }
                     }
                 }
-            },
+            }
         }
     }
 }

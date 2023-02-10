@@ -14,7 +14,7 @@ use unleash_edge::client_api;
 use unleash_edge::data_sources::builder::build_source_and_sink;
 use unleash_edge::edge_api;
 use unleash_edge::frontend_api;
-use unleash_edge::http::background_refresh::{poll_for_token_status, refresh_features};
+use unleash_edge::http::background_refresh::refresh_features;
 use unleash_edge::http::background_send_metrics::send_metrics_task;
 use unleash_edge::internal_backstage;
 use unleash_edge::metrics::client_metrics::MetricsCache;
@@ -88,10 +88,7 @@ async fn main() -> Result<(), anyhow::Error> {
             _ = server.run() => {
                 tracing::info!("Actix was shutdown properly");
             },
-            _ = poll_for_token_status(sink_info.unvalidated_receive, sink_info.validated_send.clone(), sink_info.sink.clone(), sink_info.unleash_client.clone()) => {
-                tracing::info!("Token validator task is shutting down")
-            },
-            _ = refresh_features(sink_info.validated_receive, sink_info.sink, sink_info.unleash_client.clone()) => {
+            _ = refresh_features(source_clone.clone(), sink_info.sink, sink_info.unleash_client.clone()) => {
                 tracing::info!("Refresh task is shutting down");
             },
             _ = send_metrics_task(metrics_cache_clone, source_clone, sink_info.unleash_client, sink_info.metrics_interval_seconds) => {

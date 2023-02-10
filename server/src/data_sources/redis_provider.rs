@@ -1,3 +1,4 @@
+use actix_web::http::header::EntityTag;
 use async_trait::async_trait;
 use redis::AsyncCommands;
 use redis::{Client, Commands, RedisError};
@@ -8,7 +9,7 @@ use unleash_types::Merge;
 pub const FEATURE_PREFIX: &str = "unleash-feature-namespace:";
 pub const TOKENS_KEY: &str = "unleash-token-namespace:";
 
-use crate::types::TokenValidationStatus;
+use crate::types::{FeatureRefresh, TokenValidationStatus};
 use crate::{
     error::EdgeError,
     types::{
@@ -52,6 +53,7 @@ impl FeatureSink for RedisProvider {
         &mut self,
         token: &EdgeToken,
         features: ClientFeatures,
+        _etag: Option<EntityTag>,
     ) -> EdgeResult<()> {
         let mut lock = self.redis_client.write().await;
         let mut con = lock.get_async_connection().await?;
@@ -68,6 +70,10 @@ impl FeatureSink for RedisProvider {
         let serialized_features = serde_json::to_string(&features_to_store)?;
         let _: () = lock.set(key, serialized_features)?;
         Ok(())
+    }
+
+    async fn update_last_check(&mut self, _token: &EdgeToken) -> EdgeResult<()> {
+        todo!()
     }
 }
 #[async_trait]
@@ -139,5 +145,8 @@ impl TokenSource for RedisProvider {
     async fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>> {
         let tokens = self.get_known_tokens().await?;
         Ok(tokens.into_iter().find(|t| t.token == secret))
+    }
+    async fn get_tokens_due_for_refresh(&self) -> EdgeResult<Vec<FeatureRefresh>> {
+        todo!()
     }
 }

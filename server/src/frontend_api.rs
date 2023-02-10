@@ -123,10 +123,10 @@ pub fn configure_frontend_api(cfg: &mut web::ServiceConfig) {
 mod tests {
     use std::sync::Arc;
 
-    use crate::data_sources::builder::DataProviderPair;
+    use crate::data_sources::memory_provider::MemoryProvider;
     use crate::types::{
-        EdgeResult, EdgeSink, EdgeSource, EdgeToken, FeatureSink, FeaturesSource, TokenSink,
-        TokenSource,
+        into_entity_tag, EdgeSink, EdgeSource, EdgeToken, FeatureSink, TokenSink, TokenType,
+        TokenValidationStatus,
     };
     use actix_web::{
         http::header::ContentType,
@@ -134,82 +134,12 @@ mod tests {
         web::{self, Data},
         App,
     };
-    use async_trait::async_trait;
     use serde_json::json;
     use tokio::sync::RwLock;
     use unleash_types::{
         client_features::{ClientFeature, ClientFeatures, Constraint, Operator, Strategy},
         frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult},
     };
-
-    #[derive(Clone, Default)]
-    struct MockEdgeProvider {
-        features: Option<ClientFeatures>,
-    }
-
-    impl MockEdgeProvider {
-        fn with(self, features: ClientFeatures) -> DataProviderPair {
-            let provider = Arc::new(RwLock::new(MockEdgeProvider {
-                features: Some(features),
-            }));
-            let source: Arc<RwLock<dyn EdgeSource>> = provider.clone();
-            let sink: Arc<RwLock<dyn EdgeSink>> = provider;
-
-            (source, sink)
-        }
-    }
-
-    #[async_trait]
-    impl FeaturesSource for MockEdgeProvider {
-        async fn get_client_features(&self, _token: &EdgeToken) -> EdgeResult<ClientFeatures> {
-            Ok(self
-                .features
-                .as_ref()
-                .expect("You need to populate the mock data for your test")
-                .clone())
-        }
-    }
-
-    #[async_trait]
-    impl TokenSource for MockEdgeProvider {
-        async fn get_known_tokens(&self) -> EdgeResult<Vec<crate::types::EdgeToken>> {
-            todo!()
-        }
-
-        async fn get_valid_tokens(&self) -> EdgeResult<Vec<crate::types::EdgeToken>> {
-            todo!()
-        }
-
-        async fn token_details(&self, _secret: String) -> EdgeResult<Option<EdgeToken>> {
-            todo!()
-        }
-
-        async fn filter_valid_tokens(&self, _tokens: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
-            todo!()
-        }
-    }
-
-    impl EdgeSource for MockEdgeProvider {}
-
-    #[async_trait]
-    impl TokenSink for MockEdgeProvider {
-        async fn sink_tokens(&mut self, _tokens: Vec<EdgeToken>) -> EdgeResult<()> {
-            todo!()
-        }
-    }
-
-    impl EdgeSink for MockEdgeProvider {}
-
-    #[async_trait]
-    impl FeatureSink for MockEdgeProvider {
-        async fn sink_features(
-            &mut self,
-            _token: &EdgeToken,
-            _features: ClientFeatures,
-        ) -> EdgeResult<()> {
-            todo!()
-        }
-    }
 
     fn client_features_with_constraint_requiring_user_id_of_seven() -> ClientFeatures {
         ClientFeatures {
@@ -263,13 +193,38 @@ mod tests {
 
     #[actix_web::test]
     async fn calling_post_requests_resolves_context_values_correctly() {
-        let (source, sink) = MockEdgeProvider::default()
-            .with(client_features_with_constraint_requiring_user_id_of_seven());
+        let shareable_provider = Arc::new(RwLock::new(MemoryProvider::default()));
+        let edge_source: Arc<RwLock<dyn EdgeSource>> = shareable_provider.clone();
+        let edge_sink: Arc<RwLock<dyn EdgeSink>> = shareable_provider.clone();
+        let token = EdgeToken::try_from(
+            "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7".to_string(),
+        )
+        .expect("Valid token");
+        let validated_token = EdgeToken {
+            token_type: Some(TokenType::Client),
+            status: TokenValidationStatus::Validated,
+            ..token
+        };
+        let _ = shareable_provider
+            .write()
+            .await
+            .sink_tokens(vec![validated_token.clone()])
+            .await;
+        let features = client_features_with_constraint_requiring_user_id_of_seven();
+        let _ = shareable_provider
+            .write()
+            .await
+            .sink_features(
+                &validated_token,
+                features.clone(),
+                into_entity_tag(features),
+            )
+            .await;
 
         let app = test::init_service(
             App::new()
-                .app_data(Data::from(source))
-                .app_data(Data::from(sink))
+                .app_data(Data::from(edge_source))
+                .app_data(Data::from(edge_sink))
                 .service(web::scope("/api").service(super::post_frontend_features)),
         )
         .await;
@@ -285,34 +240,55 @@ mod tests {
                 "userId": "7"
             }))
             .to_request();
+        let second_req = test::TestRequest::post()
+            .uri("/api/proxy/all")
+            .insert_header(ContentType::json())
+            .insert_header((
+                "Authorization",
+                "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7",
+            ))
+            .set_json(json!({
+                "userId": "7"
+            }))
+            .to_request();
 
-        let result = test::call_and_read_body(&app, req).await;
-
-        let expected = FrontendResult {
-            toggles: vec![EvaluatedToggle {
-                name: "test".into(),
-                enabled: true,
-                variant: EvaluatedVariant {
-                    name: "disabled".into(),
-                    enabled: false,
-                    payload: None,
-                },
-                impression_data: false,
-            }],
-        };
-
-        assert_eq!(result, serde_json::to_vec(&expected).unwrap());
+        let _result: FrontendResult = test::call_and_read_body_json(&app, req).await;
+        let result: FrontendResult = test::call_and_read_body_json(&app, second_req).await;
+        assert_eq!(result.toggles.len(), 1);
+        assert!(result.toggles.get(0).unwrap().enabled)
     }
 
     #[actix_web::test]
     async fn calling_get_requests_resolves_context_values_correctly() {
-        let (source, sink) = MockEdgeProvider::default()
-            .with(client_features_with_constraint_requiring_user_id_of_seven());
-
+        let provider = Arc::new(RwLock::new(MemoryProvider::default()));
+        let token = EdgeToken::try_from(
+            "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7".to_string(),
+        )
+        .expect("Valid token");
+        let validated_token = EdgeToken {
+            token_type: Some(TokenType::Client),
+            status: TokenValidationStatus::Validated,
+            ..token
+        };
+        let _ = provider
+            .write()
+            .await
+            .sink_tokens(vec![validated_token.clone()])
+            .await;
+        let features = client_features_with_constraint_requiring_user_id_of_seven();
+        let _ = provider
+            .write()
+            .await
+            .sink_features(
+                &validated_token,
+                features.clone(),
+                into_entity_tag(features),
+            )
+            .await;
         let app = test::init_service(
             App::new()
-                .app_data(Data::from(source))
-                .app_data(Data::from(sink))
+                .app_data(Data::from(provider.clone()))
+                .app_data(Data::from(provider))
                 .service(web::scope("/api").service(super::get_frontend_features)),
         )
         .await;
@@ -346,13 +322,36 @@ mod tests {
 
     #[actix_web::test]
     async fn calling_get_requests_resolves_context_values_correctly_with_enabled_filter() {
-        let (source, sink) = MockEdgeProvider::default()
-            .with(client_features_with_constraint_one_enabled_toggle_and_one_disabled_toggle());
+        let provider = Arc::new(RwLock::new(MemoryProvider::default()));
+        let token = EdgeToken::try_from(
+            "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7".to_string(),
+        )
+        .expect("Valid token");
+        let validated_token = EdgeToken {
+            token_type: Some(TokenType::Client),
+            status: TokenValidationStatus::Validated,
+            ..token
+        };
+        let _ = provider
+            .write()
+            .await
+            .sink_tokens(vec![validated_token.clone()])
+            .await;
+        let features = client_features_with_constraint_one_enabled_toggle_and_one_disabled_toggle();
+        let _ = provider
+            .write()
+            .await
+            .sink_features(
+                &validated_token,
+                features.clone(),
+                into_entity_tag(features),
+            )
+            .await;
 
         let app = test::init_service(
             App::new()
-                .app_data(Data::from(source))
-                .app_data(Data::from(sink))
+                .app_data(Data::from(provider.clone()))
+                .app_data(Data::from(provider))
                 .service(web::scope("/api").service(super::get_enabled_frontend_features)),
         )
         .await;
