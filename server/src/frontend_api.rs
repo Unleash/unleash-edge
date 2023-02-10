@@ -125,8 +125,8 @@ mod tests {
 
     use crate::data_sources::builder::DataProviderPair;
     use crate::types::{
-        ClientFeaturesResponse, EdgeResult, EdgeSink, EdgeSource, EdgeToken, FeatureSink,
-        FeaturesSource, TokenSink, TokenSource, TokenValidationStatus,
+        EdgeResult, EdgeSink, EdgeSource, EdgeToken, FeatureSink, FeaturesSource, TokenSink,
+        TokenSource, TokenValidationStatus,
     };
     use actix_web::{
         http::header::ContentType,
@@ -214,12 +214,6 @@ mod tests {
             _token: &EdgeToken,
             _features: ClientFeatures,
         ) -> EdgeResult<()> {
-            todo!()
-        }
-        async fn fetch_features(
-            &mut self,
-            _token: &EdgeToken,
-        ) -> EdgeResult<ClientFeaturesResponse> {
             todo!()
         }
     }

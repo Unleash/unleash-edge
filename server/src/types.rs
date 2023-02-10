@@ -223,7 +223,6 @@ pub trait FeatureSink {
         token: &EdgeToken,
         features: ClientFeatures,
     ) -> EdgeResult<()>;
-    async fn fetch_features(&mut self, token: &EdgeToken) -> EdgeResult<ClientFeaturesResponse>;
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

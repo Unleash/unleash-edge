@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use crate::types::ClientFeaturesResponse;
 use crate::types::TokenValidationStatus;
 use crate::types::{
     EdgeResult, EdgeSink, EdgeSource, EdgeToken, FeatureSink, FeaturesSource, TokenSink,
@@ -10,12 +9,19 @@ use async_trait::async_trait;
 use dashmap::DashMap;
 use tokio::sync::mpsc::Sender;
 use unleash_types::client_features::ClientFeatures;
+use unleash_types::Merge;
+
+use super::ProjectFilter;
 
 #[derive(Debug, Clone)]
 pub struct MemoryProvider {
     data_store: DashMap<String, ClientFeatures>,
     token_store: HashMap<String, EdgeToken>,
     sender: Sender<EdgeToken>,
+}
+
+fn key(key: &EdgeToken) -> String {
+    key.environment.clone().unwrap()
 }
 
 impl MemoryProvider {
@@ -28,7 +34,13 @@ impl MemoryProvider {
     }
 
     fn sink_features(&mut self, token: &EdgeToken, features: ClientFeatures) {
-        self.data_store.insert(token.token.clone(), features);
+        self.data_store
+            .entry(key(token))
+            .and_modify(|client_features| {
+                let new_features = client_features.clone().merge(features.clone());
+                *client_features = new_features;
+            })
+            .or_insert(features);
     }
 }
 
@@ -48,10 +60,13 @@ impl TokenSink for MemoryProvider {
 #[async_trait]
 impl FeaturesSource for MemoryProvider {
     async fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<ClientFeatures> {
-        Ok(self
-            .data_store
-            .get(&token.token)
-            .map(|v| v.value().clone())
+        let environment_features = self.data_store.get(&key(token)).map(|v| v.value().clone());
+
+        Ok(environment_features
+            .map(|client_features| ClientFeatures {
+                features: client_features.features.filter_by_projects(token),
+                ..client_features
+            })
             .unwrap_or_else(|| ClientFeatures {
                 version: 2,
                 features: vec![],
@@ -112,10 +127,6 @@ impl FeatureSink for MemoryProvider {
         self.sink_features(token, features);
         Ok(())
     }
-
-    async fn fetch_features(&mut self, _token: &EdgeToken) -> EdgeResult<ClientFeaturesResponse> {
-        todo!()
-    }
 }
 
 #[cfg(test)]
@@ -174,6 +185,8 @@ mod test {
 
         let mut provider = MemoryProvider::new(send);
         let token = EdgeToken {
+            environment: Some("development".into()),
+            projects: vec!["default".into()],
             token: "some-secret".into(),
             ..EdgeToken::default()
         };
@@ -182,6 +195,7 @@ mod test {
             version: 1,
             features: vec![ClientFeature {
                 name: "James Bond".into(),
+                project: Some("default".into()),
                 ..ClientFeature::default()
             }],
             segments: None,
@@ -221,5 +235,92 @@ mod test {
         assert_eq!(valid_tokens.len(), 2);
         assert!(valid_tokens.iter().any(|t| t.token == james_bond.token));
         assert!(valid_tokens.iter().any(|t| t.token == frank_drebin.token));
+    }
+
+    #[tokio::test]
+    async fn memory_provider_filters_out_features_by_token() {
+        let (send, _) = mpsc::channel::<EdgeToken>(32);
+
+        let mut provider = MemoryProvider::new(send);
+        let token = EdgeToken {
+            environment: Some("development".into()),
+            projects: vec!["default".into()],
+            token: "some-secret".into(),
+            ..EdgeToken::default()
+        };
+
+        let features = ClientFeatures {
+            version: 1,
+            features: vec![
+                ClientFeature {
+                    name: "James Bond".into(),
+                    project: Some("default".into()),
+                    ..ClientFeature::default()
+                },
+                ClientFeature {
+                    name: "Jason Bourne".into(),
+                    project: Some("some-test-project".into()),
+                    ..ClientFeature::default()
+                },
+            ],
+            segments: None,
+            query: None,
+        };
+
+        provider.sink_features(&token, features);
+
+        let all_features = provider.get_client_features(&token).await.unwrap().features;
+        let found_feature = all_features[0].clone();
+
+        assert!(all_features.len() == 1);
+        assert!(found_feature.name == *"James Bond");
+    }
+
+    #[tokio::test]
+    async fn memory_provider_respects_all_projects_in_token() {
+        let (send, _) = mpsc::channel::<EdgeToken>(32);
+
+        let mut provider = MemoryProvider::new(send);
+        let token = EdgeToken {
+            environment: Some("development".into()),
+            projects: vec!["*".into()],
+            token: "some-secret".into(),
+            ..EdgeToken::default()
+        };
+
+        let features = ClientFeatures {
+            version: 1,
+            features: vec![
+                ClientFeature {
+                    name: "James Bond".into(),
+                    project: Some("default".into()),
+                    ..ClientFeature::default()
+                },
+                ClientFeature {
+                    name: "Jason Bourne".into(),
+                    project: Some("some-test-project".into()),
+                    ..ClientFeature::default()
+                },
+            ],
+            segments: None,
+            query: None,
+        };
+
+        provider.sink_features(&token, features);
+
+        let all_features = provider.get_client_features(&token).await.unwrap().features;
+        let first_feature = all_features
+            .iter()
+            .find(|x| x.name == "James Bond")
+            .unwrap();
+
+        let second_feature = all_features
+            .iter()
+            .find(|x| x.name == "Jason Bourne")
+            .unwrap();
+
+        assert!(all_features.len() == 2);
+        assert!(first_feature.name == *"James Bond");
+        assert!(second_feature.name == *"Jason Bourne");
     }
 }
