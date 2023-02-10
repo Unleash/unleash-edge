@@ -123,11 +123,8 @@ pub fn configure_frontend_api(cfg: &mut web::ServiceConfig) {
 mod tests {
     use std::sync::Arc;
 
-    use crate::data_sources::memory_provider::MemoryProvider;
-    use crate::types::{
-        into_entity_tag, EdgeSink, EdgeSource, EdgeToken, FeatureSink, TokenSink, TokenType,
-        TokenValidationStatus,
-    };
+    use crate::data_sources::offline_provider::OfflineProvider;
+    use crate::types::EdgeSource;
     use actix_web::{
         http::header::ContentType,
         test,
@@ -193,38 +190,18 @@ mod tests {
 
     #[actix_web::test]
     async fn calling_post_requests_resolves_context_values_correctly() {
-        let shareable_provider = Arc::new(RwLock::new(MemoryProvider::default()));
+        let shareable_provider = Arc::new(RwLock::new(OfflineProvider::new(
+            client_features_with_constraint_requiring_user_id_of_seven(),
+            vec![
+                "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7"
+                    .to_string(),
+            ],
+        )));
         let edge_source: Arc<RwLock<dyn EdgeSource>> = shareable_provider.clone();
-        let edge_sink: Arc<RwLock<dyn EdgeSink>> = shareable_provider.clone();
-        let token = EdgeToken::try_from(
-            "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7".to_string(),
-        )
-        .expect("Valid token");
-        let validated_token = EdgeToken {
-            token_type: Some(TokenType::Client),
-            status: TokenValidationStatus::Validated,
-            ..token
-        };
-        let _ = shareable_provider
-            .write()
-            .await
-            .sink_tokens(vec![validated_token.clone()])
-            .await;
-        let features = client_features_with_constraint_requiring_user_id_of_seven();
-        let _ = shareable_provider
-            .write()
-            .await
-            .sink_features(
-                &validated_token,
-                features.clone(),
-                into_entity_tag(features),
-            )
-            .await;
 
         let app = test::init_service(
             App::new()
                 .app_data(Data::from(edge_source))
-                .app_data(Data::from(edge_sink))
                 .service(web::scope("/api").service(super::post_frontend_features)),
         )
         .await;
@@ -260,35 +237,17 @@ mod tests {
 
     #[actix_web::test]
     async fn calling_get_requests_resolves_context_values_correctly() {
-        let provider = Arc::new(RwLock::new(MemoryProvider::default()));
-        let token = EdgeToken::try_from(
-            "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7".to_string(),
-        )
-        .expect("Valid token");
-        let validated_token = EdgeToken {
-            token_type: Some(TokenType::Client),
-            status: TokenValidationStatus::Validated,
-            ..token
-        };
-        let _ = provider
-            .write()
-            .await
-            .sink_tokens(vec![validated_token.clone()])
-            .await;
-        let features = client_features_with_constraint_requiring_user_id_of_seven();
-        let _ = provider
-            .write()
-            .await
-            .sink_features(
-                &validated_token,
-                features.clone(),
-                into_entity_tag(features),
-            )
-            .await;
+        let shareable_provider = Arc::new(RwLock::new(OfflineProvider::new(
+            client_features_with_constraint_requiring_user_id_of_seven(),
+            vec![
+                "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7"
+                    .to_string(),
+            ],
+        )));
+        let edge_source: Arc<RwLock<dyn EdgeSource>> = shareable_provider.clone();
         let app = test::init_service(
             App::new()
-                .app_data(Data::from(provider.clone()))
-                .app_data(Data::from(provider))
+                .app_data(Data::from(edge_source.clone()))
                 .service(web::scope("/api").service(super::get_frontend_features)),
         )
         .await;
@@ -322,36 +281,18 @@ mod tests {
 
     #[actix_web::test]
     async fn calling_get_requests_resolves_context_values_correctly_with_enabled_filter() {
-        let provider = Arc::new(RwLock::new(MemoryProvider::default()));
-        let token = EdgeToken::try_from(
-            "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7".to_string(),
-        )
-        .expect("Valid token");
-        let validated_token = EdgeToken {
-            token_type: Some(TokenType::Client),
-            status: TokenValidationStatus::Validated,
-            ..token
-        };
-        let _ = provider
-            .write()
-            .await
-            .sink_tokens(vec![validated_token.clone()])
-            .await;
-        let features = client_features_with_constraint_one_enabled_toggle_and_one_disabled_toggle();
-        let _ = provider
-            .write()
-            .await
-            .sink_features(
-                &validated_token,
-                features.clone(),
-                into_entity_tag(features),
-            )
-            .await;
+        let shareable_provider = Arc::new(RwLock::new(OfflineProvider::new(
+            client_features_with_constraint_one_enabled_toggle_and_one_disabled_toggle(),
+            vec![
+                "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7"
+                    .to_string(),
+            ],
+        )));
+        let edge_source: Arc<RwLock<dyn EdgeSource>> = shareable_provider.clone();
 
         let app = test::init_service(
             App::new()
-                .app_data(Data::from(provider.clone()))
-                .app_data(Data::from(provider))
+                .app_data(Data::from(edge_source.clone()))
                 .service(web::scope("/api").service(super::get_enabled_frontend_features)),
         )
         .await;
