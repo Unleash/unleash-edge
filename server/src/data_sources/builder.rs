@@ -33,13 +33,13 @@ pub struct SinkInfo {
     pub metrics_interval_seconds: u64,
 }
 
-fn build_offline(offline_args: OfflineArgs) -> EdgeResult<DataProviderPair> {
+fn build_offline(offline_args: OfflineArgs) -> EdgeResult<Arc<RwLock<dyn EdgeSource>>> {
     let provider = OfflineProvider::instantiate_provider(
         offline_args.bootstrap_file,
         offline_args.client_keys,
     )?;
     let provider = Arc::new(RwLock::new(provider));
-    Ok((provider.clone(), provider))
+    Ok(provider)
 }
 
 fn build_memory(sender: Sender<EdgeToken>) -> EdgeResult<DataProviderPair> {
@@ -55,7 +55,7 @@ fn build_redis(redis_url: String, sender: Sender<EdgeToken>) -> EdgeResult<DataP
 pub fn build_source_and_sink(args: CliArgs) -> EdgeResult<RepositoryInfo> {
     match args.mode {
         EdgeMode::Offline(offline_args) => {
-            let (source, _) = build_offline(offline_args)?;
+            let source = build_offline(offline_args)?;
             Ok(RepositoryInfo {
                 source,
                 sink_info: None,

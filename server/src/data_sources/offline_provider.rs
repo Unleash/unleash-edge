@@ -1,7 +1,6 @@
 use crate::error::EdgeError;
 use crate::types::{
-    EdgeResult, EdgeSink, EdgeSource, EdgeToken, FeatureSink, FeaturesSource, TokenSink,
-    TokenSource, TokenValidationStatus,
+    EdgeResult, EdgeSource, EdgeToken, FeaturesSource, TokenSource, TokenValidationStatus,
 };
 use async_trait::async_trait;
 use std::collections::HashMap;
@@ -61,25 +60,6 @@ impl TokenSource for OfflineProvider {
 }
 
 impl EdgeSource for OfflineProvider {}
-impl EdgeSink for OfflineProvider {}
-
-#[async_trait]
-impl FeatureSink for OfflineProvider {
-    async fn sink_features(
-        &mut self,
-        _token: &EdgeToken,
-        _features: ClientFeatures,
-    ) -> EdgeResult<()> {
-        todo!()
-    }
-}
-
-#[async_trait]
-impl TokenSink for OfflineProvider {
-    async fn sink_tokens(&mut self, _token: Vec<EdgeToken>) -> EdgeResult<()> {
-        todo!()
-    }
-}
 
 impl OfflineProvider {
     pub fn instantiate_provider(
