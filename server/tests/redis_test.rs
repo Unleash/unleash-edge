@@ -2,7 +2,6 @@ use std::str::FromStr;
 
 use redis::{Client, Commands};
 use testcontainers::{clients::Cli, images::redis::Redis, Container};
-use tokio::sync::mpsc;
 
 use unleash_edge::{
     data_sources::redis_provider::{RedisProvider, FEATURE_PREFIX},
@@ -33,9 +32,7 @@ async fn redis_sink_returns_stores_data_correctly() {
     let docker = Cli::default();
     let (mut client, url, _node) = setup_redis(&docker);
 
-    let (send, _) = mpsc::channel::<EdgeToken>(32);
-
-    let mut sink: Box<dyn EdgeSink> = Box::new(RedisProvider::new(&url, send).unwrap());
+    let mut sink: Box<dyn EdgeSink> = Box::new(RedisProvider::new(&url).unwrap());
 
     let token = EdgeToken {
         status: TokenValidationStatus::Validated,
@@ -67,9 +64,7 @@ async fn redis_sink_returns_merges_features_by_environment() {
     let docker = Cli::default();
     let (mut client, url, _node) = setup_redis(&docker);
 
-    let (send, _) = mpsc::channel::<EdgeToken>(32);
-
-    let mut sink: Box<dyn EdgeSink> = Box::new(RedisProvider::new(&url, send).unwrap());
+    let mut sink: Box<dyn EdgeSink> = Box::new(RedisProvider::new(&url).unwrap());
 
     let token = EdgeToken {
         environment: Some("some-env-2".to_string()),
@@ -125,9 +120,7 @@ async fn redis_sink_returns_splits_out_data_with_different_environments() {
     let docker = Cli::default();
     let (mut client, url, _node) = setup_redis(&docker);
 
-    let (send, _) = mpsc::channel::<EdgeToken>(32);
-
-    let mut sink: Box<dyn EdgeSink> = Box::new(RedisProvider::new(&url, send).unwrap());
+    let mut sink: Box<dyn EdgeSink> = Box::new(RedisProvider::new(&url).unwrap());
 
     let dev_token = EdgeToken {
         status: TokenValidationStatus::Validated,
@@ -193,11 +186,8 @@ async fn redis_source_filters_by_projects() {
     let docker = Cli::default();
     let (_client, url, _node) = setup_redis(&docker);
 
-    let (send, _) = mpsc::channel::<EdgeToken>(32);
-    let (other_send, _) = mpsc::channel::<EdgeToken>(32);
-
-    let source: Box<dyn EdgeSource> = Box::new(RedisProvider::new(&url, send).unwrap());
-    let mut sink: Box<dyn EdgeSink> = Box::new(RedisProvider::new(&url, other_send).unwrap());
+    let source: Box<dyn EdgeSource> = Box::new(RedisProvider::new(&url).unwrap());
+    let mut sink: Box<dyn EdgeSink> = Box::new(RedisProvider::new(&url).unwrap());
 
     let features = ClientFeatures {
         features: vec![

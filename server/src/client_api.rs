@@ -3,7 +3,6 @@ use crate::types::{EdgeJsonResult, EdgeResult, EdgeSource, EdgeToken};
 use actix_web::web::{self, Json};
 use actix_web::{get, post, HttpRequest, HttpResponse};
 use tokio::sync::RwLock;
-use tracing::info;
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::{
     from_bucket_app_name_and_env, ClientApplication, ClientMetrics,

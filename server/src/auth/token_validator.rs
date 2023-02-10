@@ -21,14 +21,20 @@ impl TokenValidator {
             .filter_map(|t| EdgeToken::try_from(t).ok())
             .collect();
 
-        let source_known_tokens = self.edge_source.read().await.get_known_tokens().await?;
-
         if tokens_with_valid_format.is_empty() {
             Err(EdgeError::TokenParseError)
         } else {
-            Ok(tokens_with_valid_format
-                .into_iter()
-                .partition(|t| !source_known_tokens.iter().any(|e| e.token == t.token)))
+            let mut tokens = vec![];
+            for token in tokens_with_valid_format {
+                let known_data = self
+                    .edge_source
+                    .read()
+                    .await
+                    .token_details(token.token.clone())
+                    .await?;
+                tokens.push(known_data.unwrap_or(token));
+            }
+            Ok(tokens.into_iter().partition(|t| t.token_type.is_none()))
         }
     }
 
@@ -75,7 +81,6 @@ impl TokenValidator {
                     }
                 })
                 .collect();
-            println!("Going to sink {} tokens", tokens_to_sink.len());
             let mut sink_to_write = self.edge_sink.write().await;
             let _ = sink_to_write.sink_tokens(tokens_to_sink.clone()).await;
             Ok(tokens_to_sink.merge(known_tokens))
@@ -93,7 +98,7 @@ mod tests {
     use actix_web::{dev::AppConfig, web, App, HttpResponse};
     use serde::{Deserialize, Serialize};
     use std::sync::Arc;
-    use tokio::sync::{mpsc, RwLock};
+    use tokio::sync::RwLock;
 
     #[derive(Clone, Debug, Serialize, Deserialize)]
     pub struct EdgeTokens {
@@ -132,8 +137,7 @@ mod tests {
     #[tokio::test]
     pub async fn can_validate_tokens() {
         use crate::types::TokenSource;
-        let (sender, _) = mpsc::channel::<EdgeToken>(32);
-        let test_provider = Arc::new(RwLock::new(MemoryProvider::new(sender)));
+        let test_provider = Arc::new(RwLock::new(MemoryProvider::default()));
         let srv = test_validation_server().await;
         let unleash_client =
             crate::http::unleash_client::UnleashClient::new(srv.url("/").as_str(), None)
@@ -170,8 +174,7 @@ mod tests {
 
     #[tokio::test]
     pub async fn tokens_with_wrong_format_is_not_included() {
-        let (sender, _) = mpsc::channel::<EdgeToken>(32);
-        let test_provider = Arc::new(RwLock::new(MemoryProvider::new(sender)));
+        let test_provider = Arc::new(RwLock::new(MemoryProvider::default()));
         let srv = test_validation_server().await;
         let unleash_client =
             crate::http::unleash_client::UnleashClient::new(srv.url("/").as_str(), None)

@@ -19,7 +19,6 @@ pub async fn validate_token(
         .unwrap()
         .clone()
         .into_inner();
-
     match maybe_validator {
         Some(validator) => {
             let known_token = validator

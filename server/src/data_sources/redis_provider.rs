@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use redis::AsyncCommands;
 use redis::{Client, Commands, RedisError};
-use tokio::sync::{mpsc::Sender, RwLock};
+use tokio::sync::RwLock;
 use unleash_types::client_features::{ClientFeature, ClientFeatures};
 use unleash_types::Merge;
 
@@ -19,7 +19,6 @@ use crate::{
 
 pub struct RedisProvider {
     redis_client: RwLock<Client>,
-    sender: Sender<EdgeToken>,
 }
 
 impl From<RedisError> for EdgeError {
@@ -29,10 +28,9 @@ impl From<RedisError> for EdgeError {
 }
 
 impl RedisProvider {
-    pub fn new(url: &str, sender: Sender<EdgeToken>) -> Result<RedisProvider, EdgeError> {
+    pub fn new(url: &str) -> Result<RedisProvider, EdgeError> {
         let client = redis::Client::open(url)?;
         Ok(Self {
-            sender,
             redis_client: RwLock::new(client),
         })
     }

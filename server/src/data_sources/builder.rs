@@ -31,7 +31,7 @@ pub struct SinkInfo {
     pub validated_receive: mpsc::Receiver<EdgeToken>,
     pub unvalidated_receive: mpsc::Receiver<EdgeToken>,
     pub unleash_client: UnleashClient,
-    pub token_validator: Arc<TokenValidator>,
+    pub token_validator: Arc<RwLock<TokenValidator>>,
     pub metrics_interval_seconds: u64,
 }
 
@@ -44,13 +44,13 @@ fn build_offline(offline_args: OfflineArgs) -> EdgeResult<Arc<RwLock<dyn EdgeSou
     Ok(provider)
 }
 
-fn build_memory(sender: Sender<EdgeToken>) -> EdgeResult<DataProviderPair> {
-    let data_source = Arc::new(RwLock::new(MemoryProvider::new(sender)));
+fn build_memory(_sender: Sender<EdgeToken>) -> EdgeResult<DataProviderPair> {
+    let data_source = Arc::new(RwLock::new(MemoryProvider::new()));
     Ok((data_source.clone(), data_source))
 }
 
-fn build_redis(redis_url: String, sender: Sender<EdgeToken>) -> EdgeResult<DataProviderPair> {
-    let data_source = Arc::new(RwLock::new(RedisProvider::new(&redis_url, sender)?));
+fn build_redis(redis_url: String, _sender: Sender<EdgeToken>) -> EdgeResult<DataProviderPair> {
+    let data_source = Arc::new(RwLock::new(RedisProvider::new(&redis_url)?));
     Ok((data_source.clone(), data_source))
 }
 
@@ -87,8 +87,8 @@ pub fn build_source_and_sink(args: CliArgs) -> EdgeResult<RepositoryInfo> {
                     validated_send: validated_sender,
                     validated_receive: validated_receiver,
                     unvalidated_receive: unvalidated_receiver,
-                    unleash_client: unleash_client,
-                    token_validator: Arc::new(token_validator),
+                    unleash_client,
+                    token_validator: Arc::new(RwLock::new(token_validator)),
                     metrics_interval_seconds: edge_args.metrics_interval_seconds,
                 }),
             })

@@ -7,7 +7,6 @@ use crate::types::{
 };
 use async_trait::async_trait;
 use dashmap::DashMap;
-use tokio::sync::mpsc::Sender;
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::Merge;
 
@@ -17,19 +16,21 @@ use super::ProjectFilter;
 pub struct MemoryProvider {
     data_store: DashMap<String, ClientFeatures>,
     token_store: HashMap<String, EdgeToken>,
-    sender: Sender<EdgeToken>,
 }
 
 fn key(key: &EdgeToken) -> String {
     key.environment.clone().unwrap()
 }
-
+impl Default for MemoryProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl MemoryProvider {
-    pub fn new(sender: Sender<EdgeToken>) -> Self {
+    pub fn new() -> Self {
         Self {
             data_store: DashMap::new(),
             token_store: HashMap::new(),
-            sender,
         }
     }
 
@@ -118,17 +119,15 @@ impl FeatureSink for MemoryProvider {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use std::str::FromStr;
-    use tokio::sync::mpsc;
     use unleash_types::client_features::ClientFeature;
 
     use super::*;
 
     #[tokio::test]
     async fn memory_provider_correctly_deduplicates_tokens() {
-        let (send, _) = mpsc::channel::<EdgeToken>(32);
-        let mut provider = MemoryProvider::new(send);
+        let mut provider = MemoryProvider::default();
         let _ = provider
             .sink_tokens(vec![EdgeToken {
                 token: "*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1f"
@@ -150,8 +149,7 @@ mod test {
 
     #[tokio::test]
     async fn memory_provider_correctly_determines_token_to_be_valid() {
-        let (send, _) = mpsc::channel::<EdgeToken>(32);
-        let mut provider = MemoryProvider::new(send);
+        let mut provider = MemoryProvider::new();
         let _ = provider
             .sink_tokens(vec![EdgeToken {
                 token: "*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1f"
@@ -176,9 +174,7 @@ mod test {
 
     #[tokio::test]
     async fn memory_provider_yields_correct_response_for_token() {
-        let (send, _) = mpsc::channel::<EdgeToken>(32);
-
-        let mut provider = MemoryProvider::new(send);
+        let mut provider = MemoryProvider::new();
         let token = EdgeToken {
             environment: Some("development".into()),
             projects: vec!["default".into()],
@@ -214,8 +210,7 @@ mod test {
             ..EdgeToken::from_str("*:development.frankdrebin").unwrap()
         };
 
-        let (send, _) = mpsc::channel::<EdgeToken>(32);
-        let mut provider = MemoryProvider::new(send);
+        let mut provider = MemoryProvider::new();
         let _ = provider
             .sink_tokens(vec![james_bond.clone(), frank_drebin.clone()])
             .await;
@@ -234,9 +229,7 @@ mod test {
 
     #[tokio::test]
     async fn memory_provider_filters_out_features_by_token() {
-        let (send, _) = mpsc::channel::<EdgeToken>(32);
-
-        let mut provider = MemoryProvider::new(send);
+        let mut provider = MemoryProvider::new();
         let token = EdgeToken {
             environment: Some("development".into()),
             projects: vec!["default".into()],
@@ -273,9 +266,7 @@ mod test {
 
     #[tokio::test]
     async fn memory_provider_respects_all_projects_in_token() {
-        let (send, _) = mpsc::channel::<EdgeToken>(32);
-
-        let mut provider = MemoryProvider::new(send);
+        let mut provider = MemoryProvider::new();
         let token = EdgeToken {
             environment: Some("development".into()),
             projects: vec!["*".into()],
