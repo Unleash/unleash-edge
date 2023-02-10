@@ -31,14 +31,22 @@ impl From<EdgeArgs> for EdgeArg {
         .args(["redis_url"]),
 ))]
 pub struct EdgeArgs {
+    /// Where is your upstream URL. Remember, this is the URL to your instance, without any trailing /api suffix
     #[clap(short, long, env)]
     pub unleash_url: String,
+
     #[clap(short, long, env)]
     pub redis_url: Option<String>,
+    /// How often should we post metrics upstream?
     #[clap(short, long, env, default_value_t = 60)]
     pub metrics_interval_seconds: u64,
+    /// How long between each refresh for a token
     #[clap(short, long, env, default_value_t = 10)]
     pub features_refresh_interval_seconds: i64,
+
+    /// Get data for these client keys at startup. Hot starts your feature cache
+    #[clap(short, long, env)]
+    pub client_keys: Vec<String>,
 }
 
 #[derive(Args, Debug, Clone)]

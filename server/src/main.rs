@@ -29,7 +29,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let args = CliArgs::parse();
     let http_args = args.clone().http;
     let (metrics_handler, request_metrics) = prom_metrics::instantiate(None);
-    let repo_info = build_source_and_sink(args).unwrap();
+    let repo_info = build_source_and_sink(args).await.unwrap();
     let source = repo_info.source;
     let source_clone = source.clone();
     let sink_info = repo_info.sink_info;

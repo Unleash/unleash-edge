@@ -56,7 +56,7 @@ fn build_redis(redis_url: String, _sender: Sender<EdgeToken>) -> EdgeResult<Data
     Ok((data_source.clone(), data_source))
 }
 
-pub fn build_source_and_sink(args: CliArgs) -> EdgeResult<RepositoryInfo> {
+pub async fn build_source_and_sink(args: CliArgs) -> EdgeResult<RepositoryInfo> {
     match args.mode {
         EdgeMode::Offline(offline_args) => {
             let source = build_offline(offline_args)?;
@@ -76,12 +76,14 @@ pub fn build_source_and_sink(args: CliArgs) -> EdgeResult<RepositoryInfo> {
                 EdgeArg::Redis(redis_url) => build_redis(redis_url, unvalidated_sender),
                 EdgeArg::InMemory => build_memory(edge_args.features_refresh_interval_seconds),
             }?;
-            let token_validator = TokenValidator {
+            let mut token_validator = TokenValidator {
                 unleash_client: Arc::new(unleash_client.clone()),
                 edge_source: source.clone(),
                 edge_sink: sink.clone(),
             };
-
+            if !edge_args.client_keys.is_empty() {
+                let _ = token_validator.register_tokens(edge_args.client_keys).await;
+            }
             Ok(RepositoryInfo {
                 source,
                 sink_info: Some(SinkInfo {
