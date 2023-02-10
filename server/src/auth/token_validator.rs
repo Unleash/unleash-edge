@@ -4,10 +4,11 @@ use crate::types::{EdgeResult, EdgeSink, EdgeSource, EdgeToken, ValidateTokensRe
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use unleash_types::Merge;
+#[derive(Clone)]
 pub struct TokenValidator {
-    unleash_client: UnleashClient,
-    edge_source: Arc<RwLock<dyn EdgeSource>>,
-    edge_sink: Option<Arc<RwLock<dyn EdgeSink>>>,
+    pub unleash_client: Arc<UnleashClient>,
+    pub edge_source: Arc<RwLock<dyn EdgeSource>>,
+    pub edge_sink: Arc<RwLock<dyn EdgeSink>>,
 }
 
 impl TokenValidator {
@@ -25,36 +26,20 @@ impl TokenValidator {
         if tokens_with_valid_format.is_empty() {
             Err(EdgeError::TokenParseError)
         } else {
-            Ok((
-                tokens_with_valid_format
-                    .clone()
-                    .iter()
-                    .filter(|t| !source_known_tokens.iter().any(|e| e.token == t.token))
-                    .cloned()
-                    .collect(),
-                tokens_with_valid_format
-                    .iter()
-                    .filter(|t| source_known_tokens.iter().any(|e| e.token == t.token))
-                    .cloned()
-                    .collect(),
-            ))
+            Ok(tokens_with_valid_format
+                .clone()
+                .into_iter()
+                .partition(|t| !source_known_tokens.iter().any(|e| e.token == t.token)))
         }
     }
 
     pub async fn register_token(&mut self, token: String) -> EdgeResult<EdgeToken> {
-        let (unknown_tokens, known_tokens) = self
-            .get_unknown_and_known_tokens(vec![token.clone()])
-            .await?;
-        if unknown_tokens.is_empty() {
-            Ok(known_tokens.get(0).unwrap().clone())
-        } else {
-            Ok(self
-                .register_tokens(vec![token])
-                .await?
-                .first()
-                .expect("Couldn't validate token")
-                .clone())
-        }
+        Ok(self
+            .register_tokens(vec![token])
+            .await?
+            .first()
+            .expect("Couldn't validate token")
+            .clone())
     }
 
     pub async fn register_tokens(&mut self, tokens: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
@@ -156,7 +141,7 @@ mod tests {
                 .expect("Couldn't build client");
 
         let mut validation_holder = super::TokenValidator {
-            unleash_client,
+            unleash_client: Arc::new(unleash_client),
             edge_source: test_provider.clone(),
             edge_sink: test_provider.clone(),
         };
@@ -193,7 +178,7 @@ mod tests {
             crate::http::unleash_client::UnleashClient::new(srv.url("/").as_str(), None)
                 .expect("Couldn't build client");
         let mut validation_holder = super::TokenValidator {
-            unleash_client,
+            unleash_client: Arc::new(unleash_client),
             edge_source: test_provider.clone(),
             edge_sink: test_provider.clone(),
         };

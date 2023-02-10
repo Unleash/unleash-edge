@@ -33,6 +33,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let source = repo_info.source;
     let source_clone = source.clone();
     let sink_info = repo_info.sink_info;
+    let validator = sink_info.as_ref().map(|sink| sink.token_validator.clone());
 
     let metrics_cache = Arc::new(RwLock::new(MetricsCache::default()));
     let metrics_cache_clone = metrics_cache.clone();
@@ -44,10 +45,13 @@ async fn main() -> Result<(), anyhow::Error> {
             .send_wildcard()
             .allow_any_header()
             .allow_any_method();
-        App::new()
+        let mut app = App::new()
             .app_data(edge_source)
-            .app_data(web::Data::from(metrics_cache.clone()))
-            .wrap(Etag::default())
+            .app_data(web::Data::from(metrics_cache.clone()));
+        if validator.is_some() {
+            app = app.app_data(web::Data::from(validator.clone().unwrap()))
+        }
+        app.wrap(Etag::default())
             .wrap(cors_middleware)
             .wrap(RequestTracing::new())
             .wrap(request_metrics.clone())

@@ -7,6 +7,7 @@ use tokio::sync::mpsc::Sender;
 use tokio::sync::RwLock;
 
 use crate::{
+    auth::token_validator::TokenValidator,
     cli::{CliArgs, EdgeArg, EdgeMode, OfflineArgs},
     http::unleash_client::UnleashClient,
     types::{EdgeResult, EdgeSink, EdgeSource, EdgeToken},
@@ -30,6 +31,7 @@ pub struct SinkInfo {
     pub validated_receive: mpsc::Receiver<EdgeToken>,
     pub unvalidated_receive: mpsc::Receiver<EdgeToken>,
     pub unleash_client: UnleashClient,
+    pub token_validator: Arc<TokenValidator>,
     pub metrics_interval_seconds: u64,
 }
 
@@ -72,6 +74,11 @@ pub fn build_source_and_sink(args: CliArgs) -> EdgeResult<RepositoryInfo> {
                 EdgeArg::Redis(redis_url) => build_redis(redis_url, unvalidated_sender),
                 EdgeArg::InMemory => build_memory(unvalidated_sender),
             }?;
+            let token_validator = TokenValidator {
+                unleash_client: Arc::new(unleash_client.clone()),
+                edge_source: source.clone(),
+                edge_sink: sink.clone(),
+            };
 
             Ok(RepositoryInfo {
                 source,
@@ -80,7 +87,8 @@ pub fn build_source_and_sink(args: CliArgs) -> EdgeResult<RepositoryInfo> {
                     validated_send: validated_sender,
                     validated_receive: validated_receiver,
                     unvalidated_receive: unvalidated_receiver,
-                    unleash_client,
+                    unleash_client: unleash_client,
+                    token_validator: Arc::new(token_validator),
                     metrics_interval_seconds: edge_args.metrics_interval_seconds,
                 }),
             })
