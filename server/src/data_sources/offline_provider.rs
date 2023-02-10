@@ -75,7 +75,7 @@ impl OfflineProvider {
             features,
             valid_tokens: valid_tokens
                 .into_iter()
-                .filter_map(|t| EdgeToken::try_from(t).ok())
+                .map(|t| EdgeToken::offline_token(t.as_str()))
                 .map(|t| (t.token.clone(), t))
                 .collect(),
         }

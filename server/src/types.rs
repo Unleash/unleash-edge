@@ -185,8 +185,16 @@ impl FromStr for EdgeToken {
                 Err(EdgeError::TokenParseError)
             }
         } else {
-            Ok(EdgeToken::no_project_or_environment(s))
+            Err(EdgeError::TokenParseError)
         }
+    }
+}
+
+impl EdgeToken {
+    pub fn offline_token(s: &str) -> Self {
+        EdgeToken::try_from(s.to_string())
+            .ok()
+            .unwrap_or_else(|| EdgeToken::no_project_or_environment(s))
     }
 }
 

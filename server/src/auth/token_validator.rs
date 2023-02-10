@@ -27,7 +27,6 @@ impl TokenValidator {
             Err(EdgeError::TokenParseError)
         } else {
             Ok(tokens_with_valid_format
-                .clone()
                 .into_iter()
                 .partition(|t| !source_known_tokens.iter().any(|e| e.token == t.token)))
         }
@@ -183,10 +182,7 @@ mod tests {
             edge_sink: test_provider.clone(),
         };
         let invalid_tokens = vec!["jamesbond".into(), "invalidtoken".into()];
-        let validated_tokens = validation_holder
-            .register_tokens(invalid_tokens)
-            .await
-            .expect("Couldn't register tokens");
-        assert!(validated_tokens.is_empty());
+        let validated_tokens = validation_holder.register_tokens(invalid_tokens).await;
+        assert!(validated_tokens.is_err());
     }
 }
