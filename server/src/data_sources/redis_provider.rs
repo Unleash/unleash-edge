@@ -1,17 +1,19 @@
 use async_trait::async_trait;
+use redis::AsyncCommands;
 use redis::{Client, Commands, RedisError};
 use tokio::sync::{mpsc::Sender, RwLock};
-use unleash_types::client_features::ClientFeatures;
+use unleash_types::client_features::{ClientFeature, ClientFeatures};
+use unleash_types::Merge;
 
-pub const FEATURE_PREFIX: &str = "unleash-edge-feature-";
-pub const TOKENS_KEY: &str = "unleash-edge-tokens";
+pub const FEATURE_PREFIX: &str = "unleash-feature-namespace:";
+pub const TOKENS_KEY: &str = "unleash-token-namespace:";
 
 use crate::types::TokenValidationStatus;
 use crate::{
     error::EdgeError,
     types::{
-        ClientFeaturesResponse, EdgeResult, EdgeSink, EdgeSource, EdgeToken, FeatureSink,
-        FeaturesSource, TokenSink, TokenSource,
+        EdgeResult, EdgeSink, EdgeSource, EdgeToken, FeatureSink, FeaturesSource, TokenSink,
+        TokenSource,
     },
 };
 
@@ -38,8 +40,12 @@ impl RedisProvider {
 impl EdgeSource for RedisProvider {}
 impl EdgeSink for RedisProvider {}
 
-fn build_features_key(token: &String) -> String {
-    format!("{FEATURE_PREFIX}{token}")
+fn build_features_key(token: &EdgeToken) -> String {
+    token
+        .environment
+        .as_ref()
+        .map(|environment| format!("{FEATURE_PREFIX}{environment}"))
+        .expect("Tying to resolve features for a token that hasn't been validated")
 }
 
 #[async_trait]
@@ -50,13 +56,20 @@ impl FeatureSink for RedisProvider {
         features: ClientFeatures,
     ) -> EdgeResult<()> {
         let mut lock = self.redis_client.write().await;
-        let serialized_features = serde_json::to_string(&features)?;
-        let _: () = lock.set(build_features_key(&token.token), serialized_features)?;
-        Ok(())
-    }
+        let mut con = lock.get_async_connection().await?;
 
-    async fn fetch_features(&mut self, _token: &EdgeToken) -> EdgeResult<ClientFeaturesResponse> {
-        todo!()
+        let key = build_features_key(token);
+
+        let features_to_store =
+            if let Some(stored_features) = con.get::<&str, Option<String>>(key.as_str()).await? {
+                let stored_features = serde_json::from_str::<ClientFeatures>(&stored_features)?;
+                stored_features.merge(features.clone())
+            } else {
+                features
+            };
+        let serialized_features = serde_json::to_string(&features_to_store)?;
+        let _: () = lock.set(key, serialized_features)?;
+        Ok(())
     }
 }
 #[async_trait]
@@ -73,9 +86,27 @@ impl TokenSink for RedisProvider {
 impl FeaturesSource for RedisProvider {
     async fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<ClientFeatures> {
         let mut client = self.redis_client.write().await;
-        let client_features: String = client.get(build_features_key(&token.token))?;
+        let client_features: String = client.get(build_features_key(token))?;
 
-        serde_json::from_str::<ClientFeatures>(&client_features).map_err(EdgeError::from)
+        let features =
+            serde_json::from_str::<ClientFeatures>(&client_features).map_err(EdgeError::from);
+
+        features.map(|features| ClientFeatures {
+            features: features
+                .features
+                .iter()
+                .filter(|feature| {
+                    if let Some(feature_project) = &feature.project {
+                        token.projects.contains(&"*".to_string())
+                            || token.projects.contains(feature_project)
+                    } else {
+                        false
+                    }
+                })
+                .cloned()
+                .collect::<Vec<ClientFeature>>(),
+            ..features.clone()
+        })
     }
 }
 

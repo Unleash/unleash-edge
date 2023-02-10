@@ -1,9 +1,8 @@
 use crate::error::EdgeError;
 use crate::types::{
-    ClientFeaturesResponse, EdgeResult, EdgeSink, EdgeSource, EdgeToken, FeatureSink,
-    FeaturesSource, TokenSink, TokenSource, TokenValidationStatus,
+    EdgeResult, EdgeSink, EdgeSource, EdgeToken, FeatureSink, FeaturesSource, TokenSink,
+    TokenSource, TokenValidationStatus,
 };
-use actix_web::http::header::EntityTag;
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::fs::File;
@@ -72,11 +71,6 @@ impl FeatureSink for OfflineProvider {
         _features: ClientFeatures,
     ) -> EdgeResult<()> {
         todo!()
-    }
-    async fn fetch_features(&mut self, _token: &EdgeToken) -> EdgeResult<ClientFeaturesResponse> {
-        Ok(ClientFeaturesResponse::NoUpdate(EntityTag::new_weak(
-            "this_provider_does_not_support_refreshing_features".into(),
-        )))
     }
 }
 
