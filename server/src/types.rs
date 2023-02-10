@@ -328,9 +328,7 @@ mod tests {
         }
     }
 
-    #[test_case("943ca9171e2c884c545c5d82417a655fb77cec970cc3b78a8ff87f4406b495d0"; "old java client token")]
     #[test_case("demo-app:production.614a75cf68bef8703aa1bd8304938a81ec871f86ea40c975468eabd6"; "demo token with project and environment")]
-    #[test_case("secret-123"; "old example proxy token")]
     #[test_case("*:default.5fa5ac2580c7094abf0d87c68b1eeb54bdc485014aef40f9fcb0673b"; "demo token with access to all projects and default environment")]
     fn edge_token_from_string(token: &str) {
         let parsed_token = EdgeToken::from_str(token);
@@ -343,6 +341,14 @@ mod tests {
                 panic!("Could not parse token");
             }
         }
+    }
+
+    #[test_case("943ca9171e2c884c545c5d82417a655fb77cec970cc3b78a8ff87f4406b495d0"; "old java client token")]
+    #[test_case("secret-123"; "old example proxy token")]
+    fn offline_token_from_string(token: &str) {
+        let offline_token = EdgeToken::offline_token(token);
+        assert_eq!(offline_token.environment, None);
+        assert!(offline_token.projects.is_empty());
     }
 
     #[test_case(

@@ -131,14 +131,16 @@ mod test {
         let mut provider = MemoryProvider::new(send);
         let _ = provider
             .sink_tokens(vec![EdgeToken {
-                token: "some_secret".into(),
+                token: "*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1f"
+                    .into(),
                 ..EdgeToken::default()
             }])
             .await;
 
         let _ = provider
             .sink_tokens(vec![EdgeToken {
-                token: "some_secret".into(),
+                token: "*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1f"
+                    .into(),
                 ..EdgeToken::default()
             }])
             .await;
@@ -152,7 +154,8 @@ mod test {
         let mut provider = MemoryProvider::new(send);
         let _ = provider
             .sink_tokens(vec![EdgeToken {
-                token: "some_secret".into(),
+                token: "*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1f"
+                    .into(),
                 status: TokenValidationStatus::Validated,
                 ..EdgeToken::default()
             }])
@@ -160,7 +163,9 @@ mod test {
 
         assert_eq!(
             provider
-                .token_details("some_secret".into())
+                .token_details(
+                    "*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1f".into()
+                )
                 .await
                 .expect("Could not retrieve token details")
                 .unwrap()
@@ -177,7 +182,7 @@ mod test {
         let token = EdgeToken {
             environment: Some("development".into()),
             projects: vec!["default".into()],
-            token: "some-secret".into(),
+            token: "*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1ft".into(),
             ..EdgeToken::default()
         };
 
@@ -202,11 +207,11 @@ mod test {
     async fn memory_provider_can_yield_list_of_validated_tokens() {
         let james_bond = EdgeToken {
             status: TokenValidationStatus::Validated,
-            ..EdgeToken::from_str("jamesbond").unwrap()
+            ..EdgeToken::from_str("*:development.jamesbond").unwrap()
         };
         let frank_drebin = EdgeToken {
             status: TokenValidationStatus::Validated,
-            ..EdgeToken::from_str("frankdrebin").unwrap()
+            ..EdgeToken::from_str("*:development.frankdrebin").unwrap()
         };
 
         let (send, _) = mpsc::channel::<EdgeToken>(32);
@@ -216,9 +221,9 @@ mod test {
             .await;
         let valid_tokens = provider
             .filter_valid_tokens(vec![
-                "jamesbond".into(),
-                "anotherinvalidone".into(),
-                "frankdrebin".into(),
+                "*:development.jamesbond".into(),
+                "*:development.anotherinvalidone".into(),
+                "*:development.frankdrebin".into(),
             ])
             .await
             .unwrap();
