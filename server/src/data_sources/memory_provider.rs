@@ -51,11 +51,22 @@ impl MemoryProvider {
             self.token_store.insert(token.token.clone(), token.clone());
             if token.token_type == Some(crate::types::TokenType::Client) {
                 self.tokens_to_refresh
-                    .insert(token.token.clone(), FeatureRefresh::new(token));
+                    .entry(token.clone().token)
+                    .or_insert(FeatureRefresh::new(token.clone()));
+                self.reduce_tokens_to_refresh();
             }
         }
     }
-
+    fn reduce_tokens_to_refresh(&mut self) {
+        let tokens: Vec<EdgeToken> = self
+            .tokens_to_refresh
+            .values()
+            .map(|r| r.token.clone())
+            .collect();
+        let minimized = crate::tokens::simplify(&tokens);
+        self.tokens_to_refresh
+            .retain(|k, _| minimized.iter().any(|m| &m.token == k));
+    }
     fn sink_features(
         &mut self,
         token: &EdgeToken,
@@ -190,10 +201,10 @@ impl FeatureSink for MemoryProvider {
 
 #[cfg(test)]
 mod tests {
+    use crate::types::into_entity_tag;
+    use crate::types::TokenType;
     use std::str::FromStr;
     use unleash_types::client_features::ClientFeature;
-
-    use crate::types::into_entity_tag;
 
     use super::*;
 
@@ -369,5 +380,26 @@ mod tests {
         assert!(all_features.len() == 2);
         assert!(first_feature.name == *"James Bond");
         assert!(second_feature.name == *"Jason Bourne");
+    }
+
+    #[tokio::test]
+    pub async fn can_minimize_tokens_to_check() {
+        let mut memory_provider = MemoryProvider::default();
+        let mut token_for_default_project =
+            EdgeToken::try_from("default:development.1234567890123456".to_string()).unwrap();
+        token_for_default_project.token_type = Some(TokenType::Client);
+        let mut token_for_test_project =
+            EdgeToken::try_from("test:development.abcdefghijklmnopqerst".to_string()).unwrap();
+        token_for_test_project.token_type = Some(TokenType::Client);
+        memory_provider.sink_tokens(vec![token_for_test_project, token_for_default_project]);
+        assert_eq!(memory_provider.tokens_to_refresh.len(), 2);
+        let mut wildcard_development_token =
+            EdgeToken::try_from("*:development.12321jwewhrkvkjewlrkjwqlkrjw".to_string()).unwrap();
+        wildcard_development_token.token_type = Some(TokenType::Client);
+        memory_provider.sink_tokens(vec![wildcard_development_token.clone()]);
+        assert_eq!(memory_provider.tokens_to_refresh.len(), 1);
+        assert!(memory_provider
+            .tokens_to_refresh
+            .contains_key(&wildcard_development_token.token));
     }
 }
