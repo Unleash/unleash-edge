@@ -1,13 +1,15 @@
 use std::collections::HashMap;
 
-use crate::types::TokenValidationStatus;
 use crate::types::{
     EdgeResult, EdgeSink, EdgeSource, EdgeToken, FeatureSink, FeaturesSource, TokenSink,
     TokenSource,
 };
+use crate::types::{FeatureRefresh, TokenValidationStatus};
+use actix_web::http::header::EntityTag;
 use async_trait::async_trait;
+use chrono::{Duration, Utc};
 use dashmap::DashMap;
-use tokio::sync::mpsc::Sender;
+use tracing::info;
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::Merge;
 
@@ -15,30 +17,69 @@ use super::ProjectFilter;
 
 #[derive(Debug, Clone)]
 pub struct MemoryProvider {
+    features_refresh_interval: Duration,
     data_store: DashMap<String, ClientFeatures>,
     token_store: HashMap<String, EdgeToken>,
-    sender: Sender<EdgeToken>,
+    tokens_to_refresh: HashMap<String, FeatureRefresh>,
 }
 
 fn key(key: &EdgeToken) -> String {
     key.environment.clone().unwrap()
 }
-
+impl Default for MemoryProvider {
+    fn default() -> Self {
+        Self::new(10)
+    }
+}
 impl MemoryProvider {
-    pub fn new(sender: Sender<EdgeToken>) -> Self {
+    pub fn new(features_refresh_interval_seconds: i64) -> Self {
         Self {
+            features_refresh_interval: Duration::seconds(features_refresh_interval_seconds),
             data_store: DashMap::new(),
             token_store: HashMap::new(),
-            sender,
+            tokens_to_refresh: HashMap::new(),
         }
     }
 
-    fn sink_features(&mut self, token: &EdgeToken, features: ClientFeatures) {
+    fn update_last_check(&mut self, token: &EdgeToken) {
+        self.tokens_to_refresh
+            .entry(token.token.clone())
+            .and_modify(|f| f.last_check = Some(Utc::now()));
+    }
+    fn sink_tokens(&mut self, tokens: Vec<EdgeToken>) {
+        for token in tokens {
+            self.token_store.insert(token.token.clone(), token.clone());
+            if token.token_type == Some(crate::types::TokenType::Client) {
+                self.tokens_to_refresh
+                    .insert(token.token.clone(), FeatureRefresh::new(token));
+            }
+        }
+    }
+
+    fn sink_features(
+        &mut self,
+        token: &EdgeToken,
+        features: ClientFeatures,
+        etag: Option<EntityTag>,
+    ) {
+        info!("Sinking features");
+        self.tokens_to_refresh
+            .entry(token.token.clone())
+            .and_modify(|feature_refresh| {
+                feature_refresh.etag = etag.clone();
+                feature_refresh.last_refreshed = Some(Utc::now());
+                feature_refresh.last_check = Some(Utc::now());
+            })
+            .or_insert(FeatureRefresh {
+                token: token.clone(),
+                etag,
+                last_refreshed: Some(Utc::now()),
+                last_check: Some(Utc::now()),
+            });
         self.data_store
             .entry(key(token))
-            .and_modify(|client_features| {
-                let new_features = client_features.clone().merge(features.clone());
-                *client_features = new_features;
+            .and_modify(|data| {
+                data.clone().merge(features.clone());
             })
             .or_insert(features);
     }
@@ -47,12 +88,19 @@ impl MemoryProvider {
 impl EdgeSource for MemoryProvider {}
 impl EdgeSink for MemoryProvider {}
 
+pub fn empty_client_features() -> ClientFeatures {
+    ClientFeatures {
+        version: 2,
+        features: vec![],
+        segments: None,
+        query: None,
+    }
+}
+
 #[async_trait]
 impl TokenSink for MemoryProvider {
     async fn sink_tokens(&mut self, tokens: Vec<EdgeToken>) -> EdgeResult<()> {
-        for token in &tokens {
-            self.token_store.insert(token.token.clone(), token.clone());
-        }
+        self.sink_tokens(tokens);
         Ok(())
     }
 }
@@ -67,12 +115,7 @@ impl FeaturesSource for MemoryProvider {
                 features: client_features.features.filter_by_projects(token),
                 ..client_features
             })
-            .unwrap_or_else(|| ClientFeatures {
-                version: 2,
-                features: vec![],
-                segments: None,
-                query: None,
-            }))
+            .unwrap_or_else(empty_client_features))
     }
 }
 
@@ -91,18 +134,6 @@ impl TokenSource for MemoryProvider {
             .collect())
     }
 
-    async fn get_token_validation_status(&self, secret: &str) -> EdgeResult<TokenValidationStatus> {
-        if let Some(token) = self.token_store.get(secret) {
-            Ok(token.clone().status)
-        } else {
-            let _ = self
-                .sender
-                .send(EdgeToken::try_from(secret.to_string())?)
-                .await;
-            Ok(TokenValidationStatus::Unknown)
-        }
-    }
-
     async fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>> {
         Ok(self.token_store.get(&secret).cloned())
     }
@@ -115,6 +146,29 @@ impl TokenSource for MemoryProvider {
             .cloned()
             .collect())
     }
+
+    async fn get_tokens_due_for_refresh(&self) -> EdgeResult<Vec<FeatureRefresh>> {
+        info!("Calling tokens due for refresh");
+        let refreshes = self
+            .tokens_to_refresh
+            .iter()
+            .filter(|(_k, value)| match value.last_check {
+                Some(last) => {
+                    info!(
+                        "Last checked {last:?}. Last update: {:?}",
+                        value.last_refreshed
+                    );
+                    Utc::now() - last > self.features_refresh_interval
+                }
+                None => {
+                    info!("No last check date, definitely need to update this");
+                    true
+                }
+            })
+            .map(|(_k, refresh)| refresh.clone())
+            .collect();
+        Ok(refreshes)
+    }
 }
 
 #[async_trait]
@@ -123,71 +177,71 @@ impl FeatureSink for MemoryProvider {
         &mut self,
         token: &EdgeToken,
         features: ClientFeatures,
+        etag: Option<EntityTag>,
     ) -> EdgeResult<()> {
-        self.sink_features(token, features);
+        self.sink_features(token, features, etag);
+        Ok(())
+    }
+    async fn update_last_check(&mut self, token: &EdgeToken) -> EdgeResult<()> {
+        self.update_last_check(token);
         Ok(())
     }
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use std::str::FromStr;
-    use tokio::sync::mpsc;
     use unleash_types::client_features::ClientFeature;
+
+    use crate::types::into_entity_tag;
 
     use super::*;
 
     #[tokio::test]
     async fn memory_provider_correctly_deduplicates_tokens() {
-        let (send, _) = mpsc::channel::<EdgeToken>(32);
-        let mut provider = MemoryProvider::new(send);
-        let _ = provider
-            .sink_tokens(vec![EdgeToken {
-                token: "some_secret".into(),
-                ..EdgeToken::default()
-            }])
-            .await;
+        let mut provider = MemoryProvider::default();
+        provider.sink_tokens(vec![EdgeToken {
+            token: "*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1f".into(),
+            ..EdgeToken::default()
+        }]);
 
-        let _ = provider
-            .sink_tokens(vec![EdgeToken {
-                token: "some_secret".into(),
-                ..EdgeToken::default()
-            }])
-            .await;
+        provider.sink_tokens(vec![EdgeToken {
+            token: "*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1f".into(),
+            ..EdgeToken::default()
+        }]);
 
         assert!(provider.get_known_tokens().await.unwrap().len() == 1);
     }
 
     #[tokio::test]
     async fn memory_provider_correctly_determines_token_to_be_valid() {
-        let (send, _) = mpsc::channel::<EdgeToken>(32);
-        let mut provider = MemoryProvider::new(send);
-        let _ = provider
-            .sink_tokens(vec![EdgeToken {
-                token: "some_secret".into(),
-                status: TokenValidationStatus::Validated,
-                ..EdgeToken::default()
-            }])
-            .await;
+        let mut provider = MemoryProvider::default();
+        provider.sink_tokens(vec![EdgeToken {
+            token: "*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1f".into(),
+            status: TokenValidationStatus::Validated,
+            ..EdgeToken::default()
+        }]);
 
         assert_eq!(
             provider
-                .get_token_validation_status("some_secret")
+                .token_details(
+                    "*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1f".into()
+                )
                 .await
-                .unwrap(),
+                .expect("Could not retrieve token details")
+                .unwrap()
+                .status,
             TokenValidationStatus::Validated
         )
     }
 
     #[tokio::test]
     async fn memory_provider_yields_correct_response_for_token() {
-        let (send, _) = mpsc::channel::<EdgeToken>(32);
-
-        let mut provider = MemoryProvider::new(send);
+        let mut provider = MemoryProvider::default();
         let token = EdgeToken {
             environment: Some("development".into()),
             projects: vec!["default".into()],
-            token: "some-secret".into(),
+            token: "*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1ft".into(),
             ..EdgeToken::default()
         };
 
@@ -202,7 +256,7 @@ mod test {
             query: None,
         };
 
-        provider.sink_features(&token, features);
+        provider.sink_features(&token, features.clone(), into_entity_tag(features));
 
         let found_feature = provider.get_client_features(&token).await.unwrap().features[0].clone();
         assert!(found_feature.name == *"James Bond");
@@ -212,23 +266,20 @@ mod test {
     async fn memory_provider_can_yield_list_of_validated_tokens() {
         let james_bond = EdgeToken {
             status: TokenValidationStatus::Validated,
-            ..EdgeToken::from_str("jamesbond").unwrap()
+            ..EdgeToken::from_str("*:development.jamesbond").unwrap()
         };
         let frank_drebin = EdgeToken {
             status: TokenValidationStatus::Validated,
-            ..EdgeToken::from_str("frankdrebin").unwrap()
+            ..EdgeToken::from_str("*:development.frankdrebin").unwrap()
         };
 
-        let (send, _) = mpsc::channel::<EdgeToken>(32);
-        let mut provider = MemoryProvider::new(send);
-        let _ = provider
-            .sink_tokens(vec![james_bond.clone(), frank_drebin.clone()])
-            .await;
+        let mut provider = MemoryProvider::default();
+        provider.sink_tokens(vec![james_bond.clone(), frank_drebin.clone()]);
         let valid_tokens = provider
             .filter_valid_tokens(vec![
-                "jamesbond".into(),
-                "anotherinvalidone".into(),
-                "frankdrebin".into(),
+                "*:development.jamesbond".into(),
+                "*:development.anotherinvalidone".into(),
+                "*:development.frankdrebin".into(),
             ])
             .await
             .unwrap();
@@ -239,9 +290,7 @@ mod test {
 
     #[tokio::test]
     async fn memory_provider_filters_out_features_by_token() {
-        let (send, _) = mpsc::channel::<EdgeToken>(32);
-
-        let mut provider = MemoryProvider::new(send);
+        let mut provider = MemoryProvider::default();
         let token = EdgeToken {
             environment: Some("development".into()),
             projects: vec!["default".into()],
@@ -267,7 +316,7 @@ mod test {
             query: None,
         };
 
-        provider.sink_features(&token, features);
+        provider.sink_features(&token, features.clone(), into_entity_tag(features));
 
         let all_features = provider.get_client_features(&token).await.unwrap().features;
         let found_feature = all_features[0].clone();
@@ -278,9 +327,7 @@ mod test {
 
     #[tokio::test]
     async fn memory_provider_respects_all_projects_in_token() {
-        let (send, _) = mpsc::channel::<EdgeToken>(32);
-
-        let mut provider = MemoryProvider::new(send);
+        let mut provider = MemoryProvider::default();
         let token = EdgeToken {
             environment: Some("development".into()),
             projects: vec!["*".into()],
@@ -306,7 +353,7 @@ mod test {
             query: None,
         };
 
-        provider.sink_features(&token, features);
+        provider.sink_features(&token, features.clone(), into_entity_tag(features));
 
         let all_features = provider.get_client_features(&token).await.unwrap().features;
         let first_feature = all_features

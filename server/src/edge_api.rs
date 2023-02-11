@@ -1,11 +1,14 @@
 use actix_web::{
     post,
-    web::{self, Json},
-    HttpResponse,
+    web::{self, Data, Json},
+    HttpRequest, HttpResponse,
 };
 use tokio::sync::RwLock;
 
-use crate::types::{EdgeJsonResult, EdgeSource, TokenStrings, ValidatedTokens};
+use crate::{
+    auth::token_validator::TokenValidator,
+    types::{EdgeJsonResult, EdgeSource, TokenStrings, TokenValidationStatus, ValidatedTokens},
+};
 use crate::{
     metrics::client_metrics::MetricsCache,
     types::{BatchMetricsRequestBody, EdgeResult},
@@ -14,16 +17,32 @@ use crate::{
 #[post("/validate")]
 async fn validate(
     token_provider: web::Data<RwLock<dyn EdgeSource>>,
+    req: HttpRequest,
     tokens: Json<TokenStrings>,
 ) -> EdgeJsonResult<ValidatedTokens> {
-    let valid_tokens = token_provider
-        .read()
-        .await
-        .filter_valid_tokens(tokens.into_inner().tokens)
-        .await?;
-    Ok(Json(ValidatedTokens {
-        tokens: valid_tokens,
-    }))
+    let maybe_validator = req.app_data::<Data<RwLock<TokenValidator>>>();
+    match maybe_validator {
+        Some(validator) => {
+            let known_tokens = validator
+                .write()
+                .await
+                .register_tokens(tokens.into_inner().tokens)
+                .await?;
+            Ok(Json(ValidatedTokens {
+                tokens: known_tokens
+                    .into_iter()
+                    .filter(|t| t.status == TokenValidationStatus::Validated)
+                    .collect(),
+            }))
+        }
+        None => Ok(Json(ValidatedTokens {
+            tokens: token_provider
+                .read()
+                .await
+                .filter_valid_tokens(tokens.into_inner().tokens)
+                .await?,
+        })),
+    }
 }
 
 #[post("/metrics")]

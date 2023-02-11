@@ -14,7 +14,7 @@ use unleash_edge::client_api;
 use unleash_edge::data_sources::builder::build_source_and_sink;
 use unleash_edge::edge_api;
 use unleash_edge::frontend_api;
-use unleash_edge::http::background_refresh::{poll_for_token_status, refresh_features};
+use unleash_edge::http::background_refresh::refresh_features;
 use unleash_edge::http::background_send_metrics::send_metrics_task;
 use unleash_edge::internal_backstage;
 use unleash_edge::metrics::client_metrics::MetricsCache;
@@ -29,10 +29,11 @@ async fn main() -> Result<(), anyhow::Error> {
     let args = CliArgs::parse();
     let http_args = args.clone().http;
     let (metrics_handler, request_metrics) = prom_metrics::instantiate(None);
-    let repo_info = build_source_and_sink(args).unwrap();
+    let repo_info = build_source_and_sink(args).await.unwrap();
     let source = repo_info.source;
     let source_clone = source.clone();
     let sink_info = repo_info.sink_info;
+    let validator = sink_info.as_ref().map(|sink| sink.token_validator.clone());
 
     let metrics_cache = Arc::new(RwLock::new(MetricsCache::default()));
     let metrics_cache_clone = metrics_cache.clone();
@@ -44,10 +45,13 @@ async fn main() -> Result<(), anyhow::Error> {
             .send_wildcard()
             .allow_any_header()
             .allow_any_method();
-        App::new()
+        let mut app = App::new()
             .app_data(edge_source)
-            .app_data(web::Data::from(metrics_cache.clone()))
-            .wrap(Etag::default())
+            .app_data(web::Data::from(metrics_cache.clone()));
+        if validator.is_some() {
+            app = app.app_data(web::Data::from(validator.clone().unwrap()))
+        }
+        app.wrap(Etag::default())
             .wrap(cors_middleware)
             .wrap(RequestTracing::new())
             .wrap(request_metrics.clone())
@@ -84,10 +88,7 @@ async fn main() -> Result<(), anyhow::Error> {
             _ = server.run() => {
                 tracing::info!("Actix was shutdown properly");
             },
-            _ = poll_for_token_status(sink_info.unvalidated_receive, sink_info.validated_send.clone(), sink_info.sink.clone(), sink_info.unleash_client.clone()) => {
-                tracing::info!("Token validator task is shutting down")
-            },
-            _ = refresh_features(sink_info.validated_receive, sink_info.sink, sink_info.unleash_client.clone()) => {
+            _ = refresh_features(source_clone.clone(), sink_info.sink, sink_info.unleash_client.clone()) => {
                 tracing::info!("Refresh task is shutting down");
             },
             _ = send_metrics_task(metrics_cache_clone, source_clone, sink_info.unleash_client, sink_info.metrics_interval_seconds) => {

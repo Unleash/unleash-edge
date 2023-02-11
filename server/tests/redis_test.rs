@@ -1,12 +1,12 @@
 use std::str::FromStr;
 
+use actix_web::http::header::EntityTag;
 use redis::{Client, Commands};
 use testcontainers::{clients::Cli, images::redis::Redis, Container};
-use tokio::sync::mpsc;
 
 use unleash_edge::{
     data_sources::redis_provider::{RedisProvider, FEATURE_PREFIX},
-    types::{EdgeSink, EdgeSource, EdgeToken, TokenValidationStatus},
+    types::{into_entity_tag, EdgeSink, EdgeSource, EdgeToken, TokenValidationStatus},
 };
 use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
@@ -33,9 +33,7 @@ async fn redis_sink_returns_stores_data_correctly() {
     let docker = Cli::default();
     let (mut client, url, _node) = setup_redis(&docker);
 
-    let (send, _) = mpsc::channel::<EdgeToken>(32);
-
-    let mut sink: Box<dyn EdgeSink> = Box::new(RedisProvider::new(&url, send).unwrap());
+    let mut sink: Box<dyn EdgeSink> = Box::new(RedisProvider::new(&url).unwrap());
 
     let token = EdgeToken {
         status: TokenValidationStatus::Validated,
@@ -56,7 +54,9 @@ async fn redis_sink_returns_stores_data_correctly() {
 
     let key = build_features_key(&token);
 
-    sink.sink_features(&token, features.clone()).await.unwrap();
+    sink.sink_features(&token, features.clone(), into_entity_tag(features.clone()))
+        .await
+        .unwrap();
     let stored_features: String = client.get::<&str, String>(key.as_str()).unwrap();
     let stored_features: ClientFeatures = serde_json::from_str(&stored_features).unwrap();
     assert_eq!(stored_features, features.clone());
@@ -67,9 +67,7 @@ async fn redis_sink_returns_merges_features_by_environment() {
     let docker = Cli::default();
     let (mut client, url, _node) = setup_redis(&docker);
 
-    let (send, _) = mpsc::channel::<EdgeToken>(32);
-
-    let mut sink: Box<dyn EdgeSink> = Box::new(RedisProvider::new(&url, send).unwrap());
+    let mut sink: Box<dyn EdgeSink> = Box::new(RedisProvider::new(&url).unwrap());
 
     let token = EdgeToken {
         environment: Some("some-env-2".to_string()),
@@ -90,7 +88,9 @@ async fn redis_sink_returns_merges_features_by_environment() {
         version: 2,
     };
 
-    sink.sink_features(&token, features1.clone()).await.unwrap();
+    sink.sink_features(&token, features1.clone(), into_entity_tag(features1))
+        .await
+        .unwrap();
 
     let features2 = ClientFeatures {
         features: vec![ClientFeature {
@@ -102,7 +102,9 @@ async fn redis_sink_returns_merges_features_by_environment() {
         version: 2,
     };
 
-    sink.sink_features(&token, features2.clone()).await.unwrap();
+    sink.sink_features(&token, features2.clone(), into_entity_tag(features2))
+        .await
+        .unwrap();
 
     let first_expected_toggle = ClientFeature {
         name: "some-other-test".to_string(),
@@ -125,9 +127,7 @@ async fn redis_sink_returns_splits_out_data_with_different_environments() {
     let docker = Cli::default();
     let (mut client, url, _node) = setup_redis(&docker);
 
-    let (send, _) = mpsc::channel::<EdgeToken>(32);
-
-    let mut sink: Box<dyn EdgeSink> = Box::new(RedisProvider::new(&url, send).unwrap());
+    let mut sink: Box<dyn EdgeSink> = Box::new(RedisProvider::new(&url).unwrap());
 
     let dev_token = EdgeToken {
         status: TokenValidationStatus::Validated,
@@ -155,7 +155,7 @@ async fn redis_sink_returns_splits_out_data_with_different_environments() {
         version: 2,
     };
 
-    sink.sink_features(&dev_token, features1.clone())
+    sink.sink_features(&dev_token, features1.clone(), into_entity_tag(features1))
         .await
         .unwrap();
 
@@ -169,7 +169,7 @@ async fn redis_sink_returns_splits_out_data_with_different_environments() {
         version: 2,
     };
 
-    sink.sink_features(&prod_token, features2.clone())
+    sink.sink_features(&prod_token, features2.clone(), into_entity_tag(features2))
         .await
         .unwrap();
 
@@ -193,11 +193,8 @@ async fn redis_source_filters_by_projects() {
     let docker = Cli::default();
     let (_client, url, _node) = setup_redis(&docker);
 
-    let (send, _) = mpsc::channel::<EdgeToken>(32);
-    let (other_send, _) = mpsc::channel::<EdgeToken>(32);
-
-    let source: Box<dyn EdgeSource> = Box::new(RedisProvider::new(&url, send).unwrap());
-    let mut sink: Box<dyn EdgeSink> = Box::new(RedisProvider::new(&url, other_send).unwrap());
+    let source: Box<dyn EdgeSource> = Box::new(RedisProvider::new(&url).unwrap());
+    let mut sink: Box<dyn EdgeSink> = Box::new(RedisProvider::new(&url).unwrap());
 
     let features = ClientFeatures {
         features: vec![
@@ -235,7 +232,13 @@ async fn redis_source_filters_by_projects() {
         version: 2,
     };
 
-    sink.sink_features(&token, features.clone()).await.unwrap();
+    sink.sink_features(
+        &token,
+        features.clone(),
+        Some(EntityTag::new_weak(features.xx3_hash().unwrap())),
+    )
+    .await
+    .unwrap();
 
     let stored_features = source.get_client_features(&token).await.unwrap();
     assert_eq!(stored_features, expected);

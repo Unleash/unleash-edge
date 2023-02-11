@@ -1,14 +1,15 @@
+use actix_web::http::header::EntityTag;
 use async_trait::async_trait;
 use redis::AsyncCommands;
 use redis::{Client, Commands, RedisError};
-use tokio::sync::{mpsc::Sender, RwLock};
+use tokio::sync::RwLock;
 use unleash_types::client_features::{ClientFeature, ClientFeatures};
 use unleash_types::Merge;
 
 pub const FEATURE_PREFIX: &str = "unleash-feature-namespace:";
 pub const TOKENS_KEY: &str = "unleash-token-namespace:";
 
-use crate::types::TokenValidationStatus;
+use crate::types::{FeatureRefresh, TokenValidationStatus};
 use crate::{
     error::EdgeError,
     types::{
@@ -19,7 +20,6 @@ use crate::{
 
 pub struct RedisProvider {
     redis_client: RwLock<Client>,
-    sender: Sender<EdgeToken>,
 }
 
 impl From<RedisError> for EdgeError {
@@ -29,10 +29,9 @@ impl From<RedisError> for EdgeError {
 }
 
 impl RedisProvider {
-    pub fn new(url: &str, sender: Sender<EdgeToken>) -> Result<RedisProvider, EdgeError> {
+    pub fn new(url: &str) -> Result<RedisProvider, EdgeError> {
         let client = redis::Client::open(url)?;
         Ok(Self {
-            sender,
             redis_client: RwLock::new(client),
         })
     }
@@ -54,6 +53,7 @@ impl FeatureSink for RedisProvider {
         &mut self,
         token: &EdgeToken,
         features: ClientFeatures,
+        _etag: Option<EntityTag>,
     ) -> EdgeResult<()> {
         let mut lock = self.redis_client.write().await;
         let mut con = lock.get_async_connection().await?;
@@ -70,6 +70,10 @@ impl FeatureSink for RedisProvider {
         let serialized_features = serde_json::to_string(&features_to_store)?;
         let _: () = lock.set(key, serialized_features)?;
         Ok(())
+    }
+
+    async fn update_last_check(&mut self, _token: &EdgeToken) -> EdgeResult<()> {
+        todo!()
     }
 }
 #[async_trait]
@@ -134,23 +138,6 @@ impl TokenSource for RedisProvider {
             .collect())
     }
 
-    async fn get_token_validation_status(&self, secret: &str) -> EdgeResult<TokenValidationStatus> {
-        if let Some(t) = self
-            .get_known_tokens()
-            .await?
-            .iter()
-            .find(|t| t.token == secret)
-        {
-            Ok(t.clone().status)
-        } else {
-            let _ = self
-                .sender
-                .send(EdgeToken::try_from(secret.to_string())?)
-                .await;
-            Ok(TokenValidationStatus::Unknown)
-        }
-    }
-
     async fn filter_valid_tokens(&self, _secrets: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
         todo!()
     }
@@ -158,5 +145,8 @@ impl TokenSource for RedisProvider {
     async fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>> {
         let tokens = self.get_known_tokens().await?;
         Ok(tokens.into_iter().find(|t| t.token == secret))
+    }
+    async fn get_tokens_due_for_refresh(&self) -> EdgeResult<Vec<FeatureRefresh>> {
+        todo!()
     }
 }

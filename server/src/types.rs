@@ -1,3 +1,4 @@
+use std::fmt;
 use std::{
     future::{ready, Ready},
     hash::{Hash, Hasher},
@@ -185,8 +186,16 @@ impl FromStr for EdgeToken {
                 Err(EdgeError::TokenParseError)
             }
         } else {
-            Ok(EdgeToken::no_project_or_environment(s))
+            Err(EdgeError::TokenParseError)
         }
+    }
+}
+
+impl EdgeToken {
+    pub fn offline_token(s: &str) -> Self {
+        EdgeToken::try_from(s.to_string())
+            .ok()
+            .unwrap_or_else(|| EdgeToken::no_project_or_environment(s))
     }
 }
 
@@ -208,9 +217,39 @@ pub trait FeaturesSource {
 pub trait TokenSource {
     async fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>>;
     async fn get_valid_tokens(&self) -> EdgeResult<Vec<EdgeToken>>;
-    async fn get_token_validation_status(&self, secret: &str) -> EdgeResult<TokenValidationStatus>;
     async fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>>;
     async fn filter_valid_tokens(&self, tokens: Vec<String>) -> EdgeResult<Vec<EdgeToken>>;
+    async fn get_tokens_due_for_refresh(&self) -> EdgeResult<Vec<FeatureRefresh>>;
+}
+
+#[derive(Clone)]
+pub struct FeatureRefresh {
+    pub token: EdgeToken,
+    pub etag: Option<EntityTag>,
+    pub last_refreshed: Option<DateTime<Utc>>,
+    pub last_check: Option<DateTime<Utc>>,
+}
+
+impl FeatureRefresh {
+    pub fn new(token: EdgeToken) -> Self {
+        Self {
+            token,
+            etag: None,
+            last_refreshed: None,
+            last_check: None,
+        }
+    }
+}
+
+impl fmt::Debug for FeatureRefresh {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("FeatureRefresh")
+            .field("token", &"***")
+            .field("etag", &self.etag)
+            .field("last_refreshed", &self.last_refreshed)
+            .field("last_check", &self.last_check)
+            .finish()
+    }
 }
 
 pub trait EdgeSource: FeaturesSource + TokenSource + Send + Sync {}
@@ -222,7 +261,13 @@ pub trait FeatureSink {
         &mut self,
         token: &EdgeToken,
         features: ClientFeatures,
+        etag: Option<EntityTag>,
     ) -> EdgeResult<()>;
+    async fn update_last_check(&mut self, token: &EdgeToken) -> EdgeResult<()>;
+}
+
+pub fn into_entity_tag(client_features: ClientFeatures) -> Option<EntityTag> {
+    client_features.xx3_hash().ok().map(EntityTag::new_weak)
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -240,6 +285,13 @@ pub struct BatchMetricsRequestBody {
 #[async_trait]
 pub trait TokenSink {
     async fn sink_tokens(&mut self, tokens: Vec<EdgeToken>) -> EdgeResult<()>;
+}
+
+#[async_trait]
+pub trait TokenValidator {
+    /// Will validate upstream, and add tokens with status from upstream to token cache.
+    /// Will block until verified with upstream
+    async fn register_tokens(&mut self, tokens: Vec<String>) -> EdgeResult<Vec<EdgeToken>>;
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -314,9 +366,7 @@ mod tests {
         }
     }
 
-    #[test_case("943ca9171e2c884c545c5d82417a655fb77cec970cc3b78a8ff87f4406b495d0"; "old java client token")]
     #[test_case("demo-app:production.614a75cf68bef8703aa1bd8304938a81ec871f86ea40c975468eabd6"; "demo token with project and environment")]
-    #[test_case("secret-123"; "old example proxy token")]
     #[test_case("*:default.5fa5ac2580c7094abf0d87c68b1eeb54bdc485014aef40f9fcb0673b"; "demo token with access to all projects and default environment")]
     fn edge_token_from_string(token: &str) {
         let parsed_token = EdgeToken::from_str(token);
@@ -329,6 +379,14 @@ mod tests {
                 panic!("Could not parse token");
             }
         }
+    }
+
+    #[test_case("943ca9171e2c884c545c5d82417a655fb77cec970cc3b78a8ff87f4406b495d0"; "old java client token")]
+    #[test_case("secret-123"; "old example proxy token")]
+    fn offline_token_from_string(token: &str) {
+        let offline_token = EdgeToken::offline_token(token);
+        assert_eq!(offline_token.environment, None);
+        assert!(offline_token.projects.is_empty());
     }
 
     #[test_case(
