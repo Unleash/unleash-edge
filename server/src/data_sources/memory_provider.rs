@@ -53,9 +53,9 @@ impl MemoryProvider {
                 self.tokens_to_refresh
                     .entry(token.clone().token)
                     .or_insert(FeatureRefresh::new(token.clone()));
-                self.reduce_tokens_to_refresh();
             }
         }
+        self.reduce_tokens_to_refresh();
     }
     fn reduce_tokens_to_refresh(&mut self) {
         let tokens: Vec<EdgeToken> = self
