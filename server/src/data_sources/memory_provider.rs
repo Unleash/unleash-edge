@@ -119,11 +119,18 @@ impl TokenSink for MemoryProvider {
 #[async_trait]
 impl FeaturesSource for MemoryProvider {
     async fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<ClientFeatures> {
-        let environment_features = self.data_store.get(&key(token)).map(|v| v.value().clone());
-
+        let token_to_use = self
+            .token_details(token.token.clone())
+            .await?
+            .unwrap_or(token.clone());
+        info!("Token to use: {token_to_use:?}");
+        let environment_features = self
+            .data_store
+            .get(&key(&token_to_use))
+            .map(|v| v.value().clone());
         Ok(environment_features
             .map(|client_features| ClientFeatures {
-                features: client_features.features.filter_by_projects(token),
+                features: client_features.features.filter_by_projects(&token_to_use),
                 ..client_features
             })
             .unwrap_or_else(empty_client_features))
@@ -159,18 +166,11 @@ impl TokenSource for MemoryProvider {
     }
 
     async fn get_tokens_due_for_refresh(&self) -> EdgeResult<Vec<FeatureRefresh>> {
-        info!("Calling tokens due for refresh");
         let refreshes = self
             .tokens_to_refresh
             .iter()
             .filter(|(_k, value)| match value.last_check {
-                Some(last) => {
-                    info!(
-                        "Last checked {last:?}. Last update: {:?}",
-                        value.last_refreshed
-                    );
-                    Utc::now() - last > self.features_refresh_interval
-                }
+                Some(last) => Utc::now() - last > self.features_refresh_interval,
                 None => {
                     info!("No last check date, definitely need to update this");
                     true
