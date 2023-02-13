@@ -40,7 +40,7 @@ Edge currently supports 2 different modes:
 ```mermaid
 graph LR
   A(Client) -->|Fetch toggles| B((Edge))
-  B-->|Fetch features| C((Unleash))
+  B-->|Fetch toggles| C((Unleash))
 ```
 
 Edge mode is the "standard" mode for Unleash Edge and the one you should default to in most cases. It connects to an upstream node, such as your Unleash instance, and uses that as the source of truth for feature toggles.
@@ -93,7 +93,7 @@ Options:
 ```mermaid
 graph LR
   A(Client) -->|Fetch toggles| B((Edge))
-  B-->|Fetch features| C[Features dump]
+  B-->|Fetch toggles| C[Features dump]
 ```
 
 Offline mode should be used when you don't have a connection to an upstream node, such as your Unleash instance itself or another Edge instance. It can also be used when you need to have full control of both the data your clients will get and which tokens can be used to access it.
