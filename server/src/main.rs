@@ -41,35 +41,35 @@ async fn main() -> Result<(), anyhow::Error> {
 
     #[derive(OpenApi)]
     #[openapi(
-        paths(frontend_api::get_frontend_features, 
-              frontend_api::post_frontend_features, 
-              frontend_api::get_enabled_frontend_features, 
-              frontend_api::post_enabled_frontend_features, 
-              client_api::features, 
-              client_api::register, 
-              client_api::metrics,
+        paths(
+            frontend_api::get_frontend_features,
+            frontend_api::post_frontend_features,
+            frontend_api::get_enabled_frontend_features,
+            frontend_api::post_enabled_frontend_features,
+            client_api::features,
+            client_api::register,
+            client_api::metrics,
             edge_api::validate,
-        edge_api::metrics),
-        components(
-            schemas(
-                unleash_types::frontend::FrontendResult, 
-                           unleash_types::frontend::EvaluatedToggle, 
-                           unleash_types::frontend::EvaluatedVariant, 
-                           unleash_types::client_features::Payload, 
-                           unleash_types::client_features::ClientFeatures, 
-                           unleash_types::client_features::Context, 
-                           unleash_types::client_metrics::ClientApplication, 
-                           unleash_types::client_metrics::ClientMetrics,
-                           unleash_types::client_metrics::ClientMetricsEnv,
-                           unleash_types::client_metrics::ConnectVia,
-                           unleash_edge::types::TokenStrings,
-                           unleash_edge::types::ValidatedTokens,
-                           unleash_edge::types::BatchMetricsRequestBody,
-                           unleash_edge::types::EdgeToken,
-                           unleash_edge::types::TokenValidationStatus,
-                           unleash_edge::types::TokenType
-            )
-        )
+            edge_api::metrics
+        ),
+        components(schemas(
+            unleash_types::frontend::FrontendResult,
+            unleash_types::frontend::EvaluatedToggle,
+            unleash_types::frontend::EvaluatedVariant,
+            unleash_types::client_features::Payload,
+            unleash_types::client_features::ClientFeatures,
+            unleash_types::client_features::Context,
+            unleash_types::client_metrics::ClientApplication,
+            unleash_types::client_metrics::ClientMetrics,
+            unleash_types::client_metrics::ClientMetricsEnv,
+            unleash_types::client_metrics::ConnectVia,
+            unleash_edge::types::TokenStrings,
+            unleash_edge::types::ValidatedTokens,
+            unleash_edge::types::BatchMetricsRequestBody,
+            unleash_edge::types::EdgeToken,
+            unleash_edge::types::TokenValidationStatus,
+            unleash_edge::types::TokenType
+        ))
     )]
     struct ApiDoc;
 
