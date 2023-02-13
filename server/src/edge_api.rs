@@ -58,7 +58,10 @@ pub async fn validate(
     responses(
         (status = 202, description = "Accepted the posted metrics")
     ),
-    request_body = BatchMetricsRequestBody
+    request_body = BatchMetricsRequestBody,
+    security(
+        ("Authorization" = [])
+    )
 )]
 #[post("/metrics")]
 pub async fn metrics(

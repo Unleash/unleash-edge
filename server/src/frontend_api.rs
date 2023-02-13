@@ -20,6 +20,9 @@ use crate::types::{EdgeJsonResult, EdgeSource, EdgeToken};
         (status = 403, description = "Was not allowed to access features")
     ),
     params(Context),
+    security(
+        ("Authorization" = [])
+    )
 )]
 #[get("/proxy/all")]
 pub async fn get_frontend_features(
@@ -46,7 +49,10 @@ pub async fn get_frontend_features(
         (status = 403, description = "Was not allowed to access features"),
         (status = 400, description = "Invalid parameters used")
     ),
-    request_body = Context
+    request_body = Context,
+    security(
+        ("Authorization" = [])
+    )
 )]
 #[post("/proxy/all")]
 async fn post_frontend_features(
@@ -73,7 +79,10 @@ async fn post_frontend_features(
         (status = 403, description = "Was not allowed to access features"),
         (status = 400, description = "Invalid parameters used")
     ),
-    params(Context)
+    params(Context),
+    security(
+        ("Authorization" = [])
+    )
 )]
 #[get("/proxy")]
 async fn get_enabled_frontend_features(
@@ -102,7 +111,10 @@ async fn get_enabled_frontend_features(
         (status = 403, description = "Was not allowed to access features"),
         (status = 400, description = "Invalid parameters used")
     ),
-    request_body = Context
+    request_body = Context,
+    security(
+        ("Authorization" = [])
+    )
 )]
 #[post("/proxy")]
 async fn post_enabled_frontend_features(

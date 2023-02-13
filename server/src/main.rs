@@ -18,11 +18,12 @@ use unleash_edge::http::background_refresh::refresh_features;
 use unleash_edge::http::background_send_metrics::send_metrics_task;
 use unleash_edge::internal_backstage;
 use unleash_edge::metrics::client_metrics::MetricsCache;
+use unleash_edge::openapi;
 use unleash_edge::prom_metrics;
 use unleash_edge::{cli, middleware};
-use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 mod tls;
+use utoipa::OpenApi;
 
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -39,41 +40,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let metrics_cache = Arc::new(RwLock::new(MetricsCache::default()));
     let metrics_cache_clone = metrics_cache.clone();
 
-    #[derive(OpenApi)]
-    #[openapi(
-        paths(
-            frontend_api::get_frontend_features,
-            frontend_api::post_frontend_features,
-            frontend_api::get_enabled_frontend_features,
-            frontend_api::post_enabled_frontend_features,
-            client_api::features,
-            client_api::register,
-            client_api::metrics,
-            edge_api::validate,
-            edge_api::metrics
-        ),
-        components(schemas(
-            unleash_types::frontend::FrontendResult,
-            unleash_types::frontend::EvaluatedToggle,
-            unleash_types::frontend::EvaluatedVariant,
-            unleash_types::client_features::Payload,
-            unleash_types::client_features::ClientFeatures,
-            unleash_types::client_features::Context,
-            unleash_types::client_metrics::ClientApplication,
-            unleash_types::client_metrics::ClientMetrics,
-            unleash_types::client_metrics::ClientMetricsEnv,
-            unleash_types::client_metrics::ConnectVia,
-            unleash_edge::types::TokenStrings,
-            unleash_edge::types::ValidatedTokens,
-            unleash_edge::types::BatchMetricsRequestBody,
-            unleash_edge::types::EdgeToken,
-            unleash_edge::types::TokenValidationStatus,
-            unleash_edge::types::TokenType
-        ))
-    )]
-    struct ApiDoc;
-
-    let openapi = ApiDoc::openapi();
+    let openapi = openapi::ApiDoc::openapi();
 
     let server = HttpServer::new(move || {
         let edge_source = web::Data::from(source.clone());

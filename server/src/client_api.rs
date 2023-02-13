@@ -15,6 +15,9 @@ use unleash_types::client_metrics::{
         (status = 403, description = "Was not allowed to access features"),
         (status = 400, description = "Invalid parameters used")
     ),
+    security(
+        ("Authorization" = [])
+    )
 )]
 #[get("/client/features")]
 pub async fn features(
@@ -35,7 +38,10 @@ pub async fn features(
         (status = 202, description = "Accepted client application registration"),
         (status = 403, description = "Was not allowed to access features"),
     ),
-    request_body = ClientApplication
+    request_body = ClientApplication,
+    security(
+        ("Authorization" = [])
+    )
 )]
 #[post("/client/register")]
 pub async fn register(
@@ -86,7 +92,10 @@ async fn show_applications(
         (status = 202, description = "Accepted client metrics"),
         (status = 403, description = "Was not allowed to access features"),
     ),
-    request_body = ClientMetrics
+    request_body = ClientMetrics,
+    security(
+        ("Authorization" = [])
+    )
 )]
 #[get("/client/metrics")]
 pub async fn metrics(
