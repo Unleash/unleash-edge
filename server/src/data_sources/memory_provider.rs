@@ -123,7 +123,6 @@ impl FeaturesSource for MemoryProvider {
             .token_details(token.token.clone())
             .await?
             .unwrap_or(token.clone());
-        info!("Token to use: {token_to_use:?}");
         let environment_features = self
             .data_store
             .get(&key(&token_to_use))
