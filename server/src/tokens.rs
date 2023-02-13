@@ -1,6 +1,5 @@
 use crate::types::EdgeToken;
 
-#[allow(dead_code)] // until used
 pub(crate) fn simplify(tokens: &[EdgeToken]) -> Vec<EdgeToken> {
     tokens
         .iter()
