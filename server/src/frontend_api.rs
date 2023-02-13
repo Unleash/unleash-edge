@@ -11,8 +11,18 @@ use unleash_yggdrasil::{Context, EngineState};
 
 use crate::types::{EdgeJsonResult, EdgeSource, EdgeToken};
 
+///
+/// Returns all evaluated toggles for the key used
+#[utoipa::path(
+    path = "/api/proxy/all",
+    responses(
+        (status = 200, description = "Return all known feature toggles for api key used in evaluated (true|false) state", body = FrontendResult),
+        (status = 403, description = "Was not allowed to access features")
+    ),
+    params(Context),
+)]
 #[get("/proxy/all")]
-async fn get_frontend_features(
+pub async fn get_frontend_features(
     edge_token: EdgeToken,
     features_source: web::Data<RwLock<dyn EdgeSource>>,
     context: web::Query<Context>,
@@ -29,6 +39,15 @@ async fn get_frontend_features(
     Ok(Json(FrontendResult { toggles }))
 }
 
+#[utoipa::path(
+    path = "/api/proxy/all",
+    responses(
+        (status = 200, description = "Return all known feature toggles for api key used in evaluated (true|false) state", body = FrontendResult),
+        (status = 403, description = "Was not allowed to access features"),
+        (status = 400, description = "Invalid parameters used")
+    ),
+    request_body = Context
+)]
 #[post("/proxy/all")]
 async fn post_frontend_features(
     edge_token: EdgeToken,
@@ -47,6 +66,15 @@ async fn post_frontend_features(
     Ok(Json(FrontendResult { toggles }))
 }
 
+#[utoipa::path(
+    path = "/api/proxy",
+    responses(
+        (status = 200, description = "Return feature toggles for api key used that evaluated to true", body = FrontendResult),
+        (status = 403, description = "Was not allowed to access features"),
+        (status = 400, description = "Invalid parameters used")
+    ),
+    params(Context)
+)]
 #[get("/proxy")]
 async fn get_enabled_frontend_features(
     edge_token: EdgeToken,
@@ -67,6 +95,15 @@ async fn get_enabled_frontend_features(
     Ok(Json(FrontendResult { toggles }))
 }
 
+#[utoipa::path(
+    path = "/api/proxy",
+    responses(
+        (status = 200, description = "Return feature toggles for api key used that evaluated to true", body = FrontendResult),
+        (status = 403, description = "Was not allowed to access features"),
+        (status = 400, description = "Invalid parameters used")
+    ),
+    request_body = Context
+)]
 #[post("/proxy")]
 async fn post_enabled_frontend_features(
     edge_token: EdgeToken,
