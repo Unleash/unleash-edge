@@ -51,9 +51,9 @@ Another than connecting Edge directly to your Unleash instance, it's also possib
 graph LR
   A(Client 1) -->|Fetch toggles| C((Edge 1))
   B(Client 2) -->|Fetch toggles| D((Edge 2))
-  C-->|Fetch features| E((Edge 3))
-  D-->|Fetch features| E
-  E-->|Fetch features| F((Unleash))
+  C-->|Fetch toggles| E((Edge 3))
+  D-->|Fetch toggles| E
+  E-->|Fetch toggles| F((Unleash))
 ```
 
 This means that, in order to start up, Edge mode needs to know where the upstream node is. This is done by passing the `--unleash-url` command line argument or setting the `UNLEASH_URL` environment variable.
