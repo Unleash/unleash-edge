@@ -4,10 +4,10 @@ use clap::{ArgGroup, Args, Parser, Subcommand};
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum EdgeMode {
-    /// Run in offline mode
-    Offline(OfflineArgs),
     /// Run in edge mode
     Edge(EdgeArgs),
+    /// Run in offline mode
+    Offline(OfflineArgs),
 }
 
 pub enum EdgeArg {
@@ -44,9 +44,9 @@ pub struct EdgeArgs {
     #[clap(short, long, env, default_value_t = 10)]
     pub features_refresh_interval_seconds: i64,
 
-    /// Get data for these client keys at startup. Hot starts your feature cache
+    /// Get data for these client tokens at startup. Hot starts your feature cache
     #[clap(short, long, env)]
-    pub client_keys: Vec<String>,
+    pub tokens: Vec<String>,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -54,7 +54,7 @@ pub struct OfflineArgs {
     #[clap(short, long, env)]
     pub bootstrap_file: Option<PathBuf>,
     #[clap(short, long, env, value_delimiter = ',')]
-    pub client_keys: Vec<String>,
+    pub tokens: Vec<String>,
 }
 
 #[derive(Parser, Debug, Clone)]
