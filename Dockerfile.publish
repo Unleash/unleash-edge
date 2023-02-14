@@ -1,0 +1,37 @@
+### Base builder
+FROM --platform=$BUILDPLATFORM rust:1.67.1-alpine3.17 AS rust-builder
+
+RUN apk add musl-dev
+RUN rustup --version
+RUN rustup target add aarch64-unknown-linux-musl x86_64-unknown-linux-musl
+RUN rustup toolchain install \
+    stable-x86_64-unknown-linux-musl stable-aarch64-unknown-linux-musl
+
+# AMD64 build
+
+FROM --platform=$BUILDPLATFORM rust-builder AS build-amd64
+WORKDIR /app
+COPY . .
+RUN cargo install --target x86_64-unknown-linux-musl --path ./server
+RUN mv ./target/x86_64-unknown-linux-musl/release/unleash-edge /app/unleash-edge
+
+# ARM64 build
+FROM --platform=$BUILDPLATFORM rust-builder as build-arm64
+WORKDIR /app
+COPY . .
+RUN cargo install --target aarch64-unknown-linux-musl --path ./server
+RUN mv ./target/aarch64-unknown-linux-musl/release/unleash-edge /app/unleash-edge
+
+
+# FINAL arch images
+FROM --platform=amd64 scratch as final-amd64
+COPY --from=build-amd64 /app/unleash-edge /app/unleash-edge
+
+FROM --platform=arm64 scratch as final-arm64
+COPY --from=build-arm64 /app/unleash-edge /app/unleash-edge
+
+# Final image
+
+FROM final-${TARGETARCH}
+
+ENTRYPOINT [ "/app/unleash-edge" ]
