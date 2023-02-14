@@ -107,7 +107,7 @@ async fn get_enabled_frontend_features(
 #[utoipa::path(
     path = "/api/proxy",
     responses(
-        (status = 200, description = "Return feature toggles for api key used that evaluated to true", body = FrontendResult),
+        (status = 200, description = "Return feature toggles for this token that evaluated to true", body = FrontendResult),
         (status = 403, description = "Was not allowed to access features"),
         (status = 400, description = "Invalid parameters used")
     ),
