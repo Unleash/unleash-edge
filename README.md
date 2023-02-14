@@ -56,7 +56,7 @@ graph LR
   E-->|Fetch toggles| F((Unleash))
 ```
 
-This means that, in order to start up, Edge mode needs to know where the upstream node is. This is done by passing the `--unleash-url` command line argument or setting the `UNLEASH_URL` environment variable.
+This means that, in order to start up, Edge mode needs to know where the upstream node is. This is done by passing the `--upstream-url` command line argument or setting the `UPSTREAM_URL` environment variable.
 
 By default, Edge mode uses in-memory to store the features it fetches from the upstream node. However, you may want to use a more persistent storage solution. Edge supports Redis as well, and you can configure it by passing in the `--redis-url` command line argument or setting the `REDIS_URL` environment variable.
 
@@ -72,11 +72,11 @@ To launch in this mode, run:
 
 ```bash
 $ ./unleash-edge edge --help
-Usage: unleash-edge edge [OPTIONS] --unleash-url <UNLEASH_URL>
+Usage: unleash-edge edge [OPTIONS] --upstream-url <UPSTREAM_URL>
 
 Options:
-  -u, --unleash-url <UNLEASH_URL>
-          Where is your upstream URL. Remember, this is the URL to your instance, without any trailing /api suffix [env: UNLEASH_URL=]
+  -u, --upstream-url <UPSTREAM_URL>
+          Where is your upstream URL. Remember, this is the URL to your instance, without any trailing /api suffix [env: UPSTREAM_URL=]
   -r, --redis-url <REDIS_URL>
           [env: REDIS_URL=]
   -m, --metrics-interval-seconds <METRICS_INTERVAL_SECONDS>

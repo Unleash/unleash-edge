@@ -33,7 +33,7 @@ impl From<EdgeArgs> for EdgeArg {
 pub struct EdgeArgs {
     /// Where is your upstream URL. Remember, this is the URL to your instance, without any trailing /api suffix
     #[clap(short, long, env)]
-    pub unleash_url: String,
+    pub upstream_url: String,
 
     #[clap(short, long, env)]
     pub redis_url: Option<String>,
