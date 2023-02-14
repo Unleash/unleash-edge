@@ -11,7 +11,7 @@ use unleash_types::client_metrics::{
 #[utoipa::path(
     path = "/api/client/features",
     responses(
-        (status = 200, description = "Return feature toggles for api key used that evaluated to true", body = ClientFeatures),
+        (status = 200, description = "Return feature toggles for this token", body = ClientFeatures),
         (status = 403, description = "Was not allowed to access features"),
         (status = 400, description = "Invalid parameters used")
     ),
