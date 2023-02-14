@@ -3,6 +3,12 @@ name: Build docker image for Github and DockerHub
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
+    files:
+      - "**.rs"
+      - "**.toml"
+      - ".github/workflows/build-docker-release.yaml"
     tags:
       - unleash-edge-v[0-9]+.*
 
@@ -33,6 +39,7 @@ jobs:
             unleashorg/unleash-edge
             ghcr.io/Unleash/unleash-edge
           tags: |
+            type=edge
             type=semver,pattern={{ version }}
             type=semver,pattern={{ major }}.{{ minor }}
       - name: Build tag and push images
@@ -40,9 +47,7 @@ jobs:
         with:
           file: Dockerfile.publish
           context: .
-          platforms:
-            - linux/arm64
-            - linux/amd64
+          platforms: linux/arm64,linux/amd64
           push: true
           labels: ${{ steps.meta.outputs.labels }}
           tags: ${{ steps.meta.outputs.tags }}
