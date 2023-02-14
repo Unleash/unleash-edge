@@ -9,7 +9,7 @@ use actix_web::http::header::EntityTag;
 use async_trait::async_trait;
 use chrono::{Duration, Utc};
 use dashmap::DashMap;
-use tracing::info;
+use tracing::debug;
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::Merge;
 
@@ -73,7 +73,7 @@ impl MemoryProvider {
         features: ClientFeatures,
         etag: Option<EntityTag>,
     ) {
-        info!("Sinking features");
+        debug!("Sinking features");
         self.tokens_to_refresh
             .entry(token.token.clone())
             .and_modify(|feature_refresh| {
@@ -171,7 +171,7 @@ impl TokenSource for MemoryProvider {
             .filter(|(_k, value)| match value.last_check {
                 Some(last) => Utc::now() - last > self.features_refresh_interval,
                 None => {
-                    info!("No last check date, definitely need to update this");
+                    debug!("No last check date, definitely need to update this");
                     true
                 }
             })

@@ -5,7 +5,7 @@ use crate::types::{
     ValidateTokensRequest,
 };
 use tokio::sync::{mpsc::Receiver, mpsc::Sender, RwLock};
-use tracing::{info, warn};
+use tracing::{debug, warn};
 
 use super::unleash_client::UnleashClient;
 
@@ -33,7 +33,7 @@ pub async fn poll_for_token_status(
                             }
                         }
                         Err(err) => {
-                            warn!("Couldn't sink token result: {err:?}")
+                            warn!("Couldn't sink token. Result: {err:?}")
                         }
                     }
                 }
@@ -60,9 +60,8 @@ pub async fn refresh_features(
                 let to_refresh = read_lock.get_tokens_due_for_refresh().await;
                 drop(read_lock);
                 if let Ok(refreshes) = to_refresh {
-                        info!("Had {} tokens to refresh", refreshes.len());
+                        debug!("Had {} tokens to refresh", refreshes.len());
                     for refresh in refreshes {
-                        info!("{refresh:?}");
                         let features_result = unleash_client.get_client_features(ClientFeaturesRequest {
                             api_key: refresh.token.token.clone(),
                             etag: refresh.etag,
@@ -71,12 +70,12 @@ pub async fn refresh_features(
                         match features_result {
                             Ok(feature_response) => match feature_response {
                                 ClientFeaturesResponse::NoUpdate(_) => {
-                                    info!("No update needed, will update last check time");
+                                    debug!("No update needed, will update last check time");
                                     let mut write_lock = sink.write().await;
                                     let _ = write_lock.update_last_check(&refresh.token).await;
                                 }
                                 ClientFeaturesResponse::Updated(features, etag) => {
-                                    info!("Got updated client features. Writing to sink {features:?}");
+                                    debug!("Got updated client features. Writing to sink {features:?}");
                                     let mut write_lock = sink.write().await;
                                     let sink_result = write_lock.sink_features(&refresh.token, features, etag).await;
                                     drop(write_lock);
