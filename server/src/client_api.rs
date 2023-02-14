@@ -8,8 +8,19 @@ use unleash_types::client_metrics::{
     from_bucket_app_name_and_env, ClientApplication, ClientMetrics,
 };
 
+#[utoipa::path(
+    path = "/api/client/features",
+    responses(
+        (status = 200, description = "Return feature toggles for this token", body = ClientFeatures),
+        (status = 403, description = "Was not allowed to access features"),
+        (status = 400, description = "Invalid parameters used")
+    ),
+    security(
+        ("Authorization" = [])
+    )
+)]
 #[get("/client/features")]
-async fn features(
+pub async fn features(
     edge_token: EdgeToken,
     features_source: web::Data<RwLock<dyn EdgeSource>>,
 ) -> EdgeJsonResult<ClientFeatures> {
@@ -21,8 +32,19 @@ async fn features(
         .map(Json)
 }
 
+#[utoipa::path(
+    path = "/api/client/register",
+    responses(
+        (status = 202, description = "Accepted client application registration"),
+        (status = 403, description = "Was not allowed to access features"),
+    ),
+    request_body = ClientApplication,
+    security(
+        ("Authorization" = [])
+    )
+)]
 #[post("/client/register")]
-async fn register(
+pub async fn register(
     edge_token: EdgeToken,
     _req: HttpRequest,
     client_application: web::Json<ClientApplication>,
@@ -64,8 +86,19 @@ async fn show_applications(
     ))
 }
 
+#[utoipa::path(
+    path = "/api/client/metrics",
+    responses(
+        (status = 202, description = "Accepted client metrics"),
+        (status = 403, description = "Was not allowed to access features"),
+    ),
+    request_body = ClientMetrics,
+    security(
+        ("Authorization" = [])
+    )
+)]
 #[get("/client/metrics")]
-async fn metrics(
+pub async fn metrics(
     edge_token: EdgeToken,
     metrics: web::Json<ClientMetrics>,
     metrics_cache: web::Data<RwLock<MetricsCache>>,

@@ -18,10 +18,12 @@ use unleash_edge::http::background_refresh::refresh_features;
 use unleash_edge::http::background_send_metrics::send_metrics_task;
 use unleash_edge::internal_backstage;
 use unleash_edge::metrics::client_metrics::MetricsCache;
+use unleash_edge::openapi;
 use unleash_edge::prom_metrics;
 use unleash_edge::{cli, middleware};
-
+use utoipa_swagger_ui::SwaggerUi;
 mod tls;
+use utoipa::OpenApi;
 
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -37,6 +39,8 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let metrics_cache = Arc::new(RwLock::new(MetricsCache::default()));
     let metrics_cache_clone = metrics_cache.clone();
+
+    let openapi = openapi::ApiDoc::openapi();
 
     let server = HttpServer::new(move || {
         let edge_source = web::Data::from(source.clone());
@@ -71,6 +75,9 @@ async fn main() -> Result<(), anyhow::Error> {
                     .configure(frontend_api::configure_frontend_api),
             )
             .service(web::scope("/edge").configure(edge_api::configure_edge_api))
+            .service(
+                SwaggerUi::new("/swagger-ui/{_:.*}").url("/api-doc/openapi.json", openapi.clone()),
+            )
     });
     let server = if http_args.tls.tls_enable {
         let config = tls::config(http_args.clone().tls)
