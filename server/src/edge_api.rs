@@ -13,9 +13,17 @@ use crate::{
     metrics::client_metrics::MetricsCache,
     types::{BatchMetricsRequestBody, EdgeResult},
 };
+use utoipa;
 
+#[utoipa::path(
+    path = "/edge/validate",
+    responses(
+        (status = 200, description = "Return valid tokens from list of tokens passed in to validate", body = ValidatedTokens)
+    ),
+    request_body = TokenStrings
+)]
 #[post("/validate")]
-async fn validate(
+pub async fn validate(
     token_provider: web::Data<RwLock<dyn EdgeSource>>,
     req: HttpRequest,
     tokens: Json<TokenStrings>,
@@ -45,8 +53,18 @@ async fn validate(
     }
 }
 
+#[utoipa::path(
+    path = "/edge/metrics",
+    responses(
+        (status = 202, description = "Accepted the posted metrics")
+    ),
+    request_body = BatchMetricsRequestBody,
+    security(
+        ("Authorization" = [])
+    )
+)]
 #[post("/metrics")]
-async fn metrics(
+pub async fn metrics(
     batch_metrics_request: web::Json<BatchMetricsRequestBody>,
     metrics_cache: web::Data<RwLock<MetricsCache>>,
 ) -> EdgeResult<HttpResponse> {

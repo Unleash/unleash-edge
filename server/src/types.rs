@@ -18,11 +18,12 @@ use serde::{Deserialize, Serialize};
 use shadow_rs::shadow;
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::{ClientApplication, ClientMetricsEnv};
+use utoipa::ToSchema;
 
 pub type EdgeJsonResult<T> = Result<Json<T>, EdgeError>;
 pub type EdgeResult<T> = Result<T, EdgeError>;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum TokenType {
     Frontend,
@@ -36,7 +37,7 @@ pub enum ClientFeaturesResponse {
     Updated(ClientFeatures, Option<EntityTag>),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 pub enum TokenValidationStatus {
     Invalid,
     Unknown,
@@ -69,7 +70,7 @@ impl ClientFeaturesRequest {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, ToSchema)]
 #[cfg_attr(test, derive(Default))]
 #[serde(rename_all = "camelCase")]
 pub struct EdgeToken {
@@ -199,11 +200,11 @@ impl EdgeToken {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
 pub struct TokenStrings {
     pub tokens: Vec<String>,
 }
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
 pub struct ValidatedTokens {
     pub tokens: Vec<EdgeToken>,
 }
@@ -276,7 +277,7 @@ pub struct BatchMetricsRequest {
     pub body: BatchMetricsRequestBody,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct BatchMetricsRequestBody {
     pub applications: Vec<ClientApplication>,
     pub metrics: Vec<ClientMetricsEnv>,

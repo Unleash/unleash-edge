@@ -36,10 +36,8 @@ pub struct SinkInfo {
 }
 
 fn build_offline(offline_args: OfflineArgs) -> EdgeResult<Arc<RwLock<dyn EdgeSource>>> {
-    let provider = OfflineProvider::instantiate_provider(
-        offline_args.bootstrap_file,
-        offline_args.client_keys,
-    )?;
+    let provider =
+        OfflineProvider::instantiate_provider(offline_args.bootstrap_file, offline_args.tokens)?;
     let provider = Arc::new(RwLock::new(provider));
     Ok(provider)
 }
@@ -81,8 +79,8 @@ pub async fn build_source_and_sink(args: CliArgs) -> EdgeResult<RepositoryInfo> 
                 edge_source: source.clone(),
                 edge_sink: sink.clone(),
             };
-            if !edge_args.client_keys.is_empty() {
-                let _ = token_validator.register_tokens(edge_args.client_keys).await;
+            if !edge_args.tokens.is_empty() {
+                let _ = token_validator.register_tokens(edge_args.tokens).await;
             }
             Ok(RepositoryInfo {
                 source,
