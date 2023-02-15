@@ -29,6 +29,7 @@ use utoipa::OpenApi;
 async fn main() -> Result<(), anyhow::Error> {
     dotenv::dotenv().ok();
     let args = CliArgs::parse();
+    let mode_arg = args.clone().mode;
     let http_args = args.clone().http;
     let (metrics_handler, request_metrics) = prom_metrics::instantiate(None);
     let repo_info = build_source_and_sink(args).await.unwrap();
@@ -51,6 +52,7 @@ async fn main() -> Result<(), anyhow::Error> {
             .allow_any_method();
         let mut app = App::new()
             .app_data(edge_source)
+            .app_data(web::Data::new(mode_arg.clone()))
             .app_data(web::Data::from(metrics_cache.clone()));
         if validator.is_some() {
             app = app.app_data(web::Data::from(validator.clone().unwrap()))
