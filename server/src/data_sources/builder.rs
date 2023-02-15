@@ -66,7 +66,7 @@ pub async fn build_source_and_sink(args: CliArgs) -> EdgeResult<RepositoryInfo> 
         EdgeMode::Edge(edge_args) => {
             let arg: EdgeArg = edge_args.clone().into();
             let unleash_client = UnleashClient::from_url(
-                Url::parse(edge_args.unleash_url.as_str()).expect("Cannot parse Unleash URL"),
+                Url::parse(edge_args.upstream_url.as_str()).expect("Cannot parse Upstream URL"),
             );
             let (unvalidated_sender, unvalidated_receiver) = mpsc::channel::<EdgeToken>(32);
             let (validated_sender, validated_receiver) = mpsc::channel::<EdgeToken>(32);

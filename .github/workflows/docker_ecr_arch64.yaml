@@ -10,7 +10,7 @@ on:
       - "**.toml"
       - ".github/workflows/docker_ecr_arch64.yaml"
     tags:
-      - "v*"
+      - unleash-edge-v[0-9]+.*
 
 jobs:
   docker:

@@ -1,0 +1,12 @@
+# FINAL arch images
+FROM --platform=amd64 scratch as final-amd64
+COPY target/x86_64-unknown-linux-musl/release/unleash-edge /unleash-edge
+
+FROM --platform=arm64 scratch as final-arm64
+COPY target/aarch64-unknown-linux-musl/release/unleash-edge /unleash-edge
+
+# Final image
+
+FROM final-${TARGETARCH}
+
+ENTRYPOINT [ "/unleash-edge" ]
