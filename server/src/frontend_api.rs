@@ -149,7 +149,6 @@ async fn post_frontend_metrics(
 ) -> EdgeResult<HttpResponse> {
     let metrics = metrics.into_inner();
 
-    println!("Well I was called at leasst");
     let metrics = from_bucket_app_name_and_env(
         metrics.bucket,
         metrics.app_name,
