@@ -5,7 +5,9 @@ use std::{
     str::FromStr,
 };
 
+use crate::cli::EdgeMode;
 use crate::error::EdgeError;
+use actix_web::web::Data;
 use actix_web::{
     dev::Payload,
     http::header::{EntityTag, HeaderValue},
@@ -125,11 +127,29 @@ impl FromRequest for EdgeToken {
 
     fn from_request(req: &HttpRequest, _payload: &mut Payload) -> Self::Future {
         let value = req.headers().get("Authorization");
-        let key = match value {
-            Some(v) => EdgeToken::try_from(v.clone()),
-            None => Err(EdgeError::AuthorizationDenied),
-        };
-        ready(key)
+        if let Some(data_mode) = req.app_data::<Data<EdgeMode>>() {
+            let mode = data_mode.clone().into_inner();
+            let key = match *mode {
+                EdgeMode::Offline(_) => match value {
+                    Some(v) => match v.to_str() {
+                        Ok(value) => Ok(EdgeToken::offline_token(value)),
+                        Err(_) => Err(EdgeError::AuthorizationDenied),
+                    },
+                    None => Err(EdgeError::AuthorizationDenied),
+                },
+                EdgeMode::Edge(_) => match value {
+                    Some(v) => EdgeToken::try_from(v.clone()),
+                    None => Err(EdgeError::AuthorizationDenied),
+                },
+            };
+            ready(key)
+        } else {
+            let key = match value {
+                Some(v) => EdgeToken::try_from(v.clone()),
+                None => Err(EdgeError::AuthorizationDenied),
+            };
+            ready(key)
+        }
     }
 }
 
@@ -194,9 +214,11 @@ impl FromStr for EdgeToken {
 
 impl EdgeToken {
     pub fn offline_token(s: &str) -> Self {
-        EdgeToken::try_from(s.to_string())
+        let mut token = EdgeToken::try_from(s.to_string())
             .ok()
-            .unwrap_or_else(|| EdgeToken::no_project_or_environment(s))
+            .unwrap_or_else(|| EdgeToken::no_project_or_environment(s));
+        token.status = TokenValidationStatus::Validated;
+        token
     }
 }
 
