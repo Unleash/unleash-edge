@@ -90,7 +90,7 @@ impl MemoryProvider {
         self.data_store
             .entry(key(token))
             .and_modify(|data| {
-                data.clone().merge(features.clone());
+                *data = data.clone().merge(features.clone());
             })
             .or_insert(features);
     }
@@ -333,6 +333,53 @@ mod tests {
 
         assert!(all_features.len() == 1);
         assert!(found_feature.name == *"James Bond");
+    }
+
+    #[tokio::test]
+    async fn memory_provider_can_update_data() {
+        let mut provider = MemoryProvider::default();
+        let token = EdgeToken {
+            environment: Some("development".into()),
+            projects: vec!["default".into()],
+            token: "some-secret".into(),
+            ..EdgeToken::default()
+        };
+
+        let first_features = ClientFeatures {
+            version: 1,
+            features: vec![ClientFeature {
+                name: "James Bond".into(),
+                project: Some("default".into()),
+                ..ClientFeature::default()
+            }],
+            segments: None,
+            query: None,
+        };
+        let second_features = ClientFeatures {
+            version: 1,
+            features: vec![ClientFeature {
+                name: "Jason Bourne".into(),
+                project: Some("default".into()),
+                ..ClientFeature::default()
+            }],
+            segments: None,
+            query: None,
+        };
+
+        provider.sink_features(
+            &token,
+            second_features.clone(),
+            into_entity_tag(second_features),
+        );
+        provider.sink_features(
+            &token,
+            first_features.clone(),
+            into_entity_tag(first_features),
+        );
+
+        let all_features = provider.get_client_features(&token).await.unwrap().features;
+
+        assert!(all_features.len() == 2);
     }
 
     #[tokio::test]
