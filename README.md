@@ -7,15 +7,20 @@ Unleash Edge is the successor to the [Unleash Proxy](https://docs.getunleash.io/
 Unleash Edge is compiled to a single binary. You can configure it by passing in arguments or setting environment variables.
 
 ```shell
-$ ./unleash-edge --help
+Usage: unleash-edge [OPTIONS] <COMMAND>
+
 Commands:
   edge     Run in edge mode
   offline  Run in offline mode
+  help     Print this message or the help of the given subcommand(s)
+
 Options:
   -p, --port <PORT>
           Which port should this server listen for HTTP traffic on [env: PORT=] [default: 3063]
   -i, --interface <INTERFACE>
           Which interfaces should this server listen for HTTP traffic on [env: INTERFACE=] [default: 0.0.0.0]
+  -w, --workers <WORKERS>
+          How many workers should be started to handle requests. Defaults to number of physical cpus [env: WORKERS=] [default: number of physical cpus]
       --tls-enable
           Should we bind TLS [env: TLS_ENABLE=]
       --tls-server-key <TLS_SERVER_KEY>
@@ -24,6 +29,8 @@ Options:
           Server Cert to use for TLS [env: TLS_SERVER_CERT=]
       --tls-server-port <TLS_SERVER_PORT>
           Port to listen for https connection on (will use the interfaces already defined) [env: TLS_SERVER_PORT=] [default: 3043]
+  -h, --help
+          Print help
 ```
 
 ## Concepts

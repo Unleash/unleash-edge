@@ -90,7 +90,7 @@ async fn main() -> Result<(), anyhow::Error> {
     } else {
         server.bind(http_args.http_server_tuple())
     };
-    let server = server?.shutdown_timeout(5);
+    let server = server?.workers(http_args.workers).shutdown_timeout(5);
 
     if let Some(sink_info) = sink_info {
         tokio::select! {
