@@ -20,7 +20,7 @@ Options:
   -i, --interface <INTERFACE>
           Which interfaces should this server listen for HTTP traffic on [env: INTERFACE=] [default: 0.0.0.0]
   -w, --workers <WORKERS>
-          How many workers should be started to handle requests. Defaults to number of physical cpus [env: WORKERS=] [default: 8]
+          How many workers should be started to handle requests. Defaults to number of physical cpus [env: WORKERS=] [default: number of physical cpus]
       --tls-enable
           Should we bind TLS [env: TLS_ENABLE=]
       --tls-server-key <TLS_SERVER_KEY>
