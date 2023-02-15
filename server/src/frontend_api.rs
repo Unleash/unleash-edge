@@ -1,15 +1,20 @@
 use actix_web::{
     get, post,
     web::{self, Json},
+    HttpResponse,
 };
 use tokio::sync::RwLock;
 use unleash_types::{
     client_features::{ClientFeatures, Payload},
+    client_metrics::{from_bucket_app_name_and_env, ClientMetrics},
     frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult},
 };
 use unleash_yggdrasil::{Context, EngineState};
 
-use crate::types::{EdgeJsonResult, EdgeSource, EdgeToken};
+use crate::{
+    metrics::client_metrics::MetricsCache,
+    types::{EdgeJsonResult, EdgeResult, EdgeSource, EdgeToken},
+};
 
 ///
 /// Returns all evaluated toggles for the key used
@@ -136,6 +141,28 @@ async fn post_enabled_frontend_features(
     Ok(Json(FrontendResult { toggles }))
 }
 
+#[post("proxy/client/metrics")]
+async fn post_frontend_metrics(
+    edge_token: EdgeToken,
+    metrics: web::Json<ClientMetrics>,
+    metrics_cache: web::Data<RwLock<MetricsCache>>,
+) -> EdgeResult<HttpResponse> {
+    let metrics = metrics.into_inner();
+
+    let metrics = from_bucket_app_name_and_env(
+        metrics.bucket,
+        metrics.app_name,
+        edge_token.environment.unwrap(),
+    );
+
+    {
+        let mut writeable_cache = metrics_cache.write().await;
+        writeable_cache.sink_metrics(&metrics);
+    }
+
+    Ok(HttpResponse::Accepted().finish())
+}
+
 fn resolve_frontend_features(
     client_features: ClientFeatures,
     context: Context,
@@ -164,28 +191,61 @@ fn resolve_frontend_features(
 pub fn configure_frontend_api(cfg: &mut web::ServiceConfig) {
     cfg.service(get_frontend_features)
         .service(get_enabled_frontend_features)
+        .service(post_frontend_metrics)
         .service(post_frontend_features)
         .service(post_enabled_frontend_features);
 }
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
     use std::sync::Arc;
 
-    use crate::data_sources::offline_provider::OfflineProvider;
+    use crate::metrics::client_metrics::MetricsKey;
     use crate::types::EdgeSource;
+    use crate::{
+        data_sources::offline_provider::OfflineProvider, metrics::client_metrics::MetricsCache,
+    };
+    use actix_http::Request;
     use actix_web::{
         http::header::ContentType,
         test,
         web::{self, Data},
         App,
     };
+    use chrono::{DateTime, Utc};
     use serde_json::json;
     use tokio::sync::RwLock;
+    use unleash_types::client_metrics::ClientMetricsEnv;
     use unleash_types::{
         client_features::{ClientFeature, ClientFeatures, Constraint, Operator, Strategy},
         frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult},
     };
+
+    async fn make_test_request() -> Request {
+        test::TestRequest::post()
+            .uri("/api/proxy/client/metrics")
+            .insert_header(ContentType::json())
+            .insert_header((
+                "Authorization",
+                "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7",
+            ))
+            .set_json(json!({
+                "appName": "some-app",
+                "instanceId": "some-instance",
+                "bucket": {
+                  "start": "1867-11-07T12:00:00Z",
+                  "stop": "1934-11-07T12:00:00Z",
+                  "toggles": {
+                    "some-feature": {
+                      "yes": 1,
+                      "no": 0
+                    }
+                  }
+                }
+            }))
+            .to_request()
+    }
 
     fn client_features_with_constraint_requiring_user_id_of_seven() -> ClientFeatures {
         ClientFeatures {
@@ -358,5 +418,50 @@ mod tests {
         let result: FrontendResult = test::call_and_read_body_json(&app, req).await;
 
         assert_eq!(result.toggles.len(), 1);
+    }
+
+    #[actix_web::test]
+    async fn frontend_metrics_endpoint_correctly_aggregates_data() {
+        let metrics_cache = Arc::new(RwLock::new(MetricsCache::default()));
+
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::from(metrics_cache.clone()))
+                .service(web::scope("/api").service(super::post_frontend_metrics)),
+        )
+        .await;
+
+        let req = make_test_request().await;
+        test::call_and_read_body(&app, req).await;
+
+        let cache = metrics_cache.read().await;
+
+        let found_metric = cache
+            .metrics
+            .get(&MetricsKey {
+                app_name: "some-app".into(),
+                feature_name: "some-feature".into(),
+                timestamp: DateTime::parse_from_rfc3339("1867-11-07T12:00:00Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
+            })
+            .unwrap();
+
+        let expected = ClientMetricsEnv {
+            app_name: "some-app".into(),
+            feature_name: "some-feature".into(),
+            environment: "development".into(),
+            timestamp: DateTime::parse_from_rfc3339("1867-11-07T12:00:00Z")
+                .unwrap()
+                .with_timezone(&Utc),
+            yes: 1,
+            no: 0,
+            variants: HashMap::new(),
+        };
+
+        assert_eq!(found_metric.yes, expected.yes);
+        assert_eq!(found_metric.yes, 1);
+        assert_eq!(found_metric.no, 0);
+        assert_eq!(found_metric.no, expected.no);
     }
 }
