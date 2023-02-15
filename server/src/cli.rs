@@ -92,7 +92,7 @@ pub struct HttpServerArgs {
     pub interface: String,
 
     /// How many workers should be started to handle requests.
-    /// Defaults to number of physical cpus (or logical, if we can't get physical)
+    /// Defaults to number of physical cpus
     #[clap(short, long, env, default_value_t = num_cpus::get_physical())]
     pub workers: usize,
 
