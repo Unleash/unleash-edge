@@ -6,8 +6,7 @@ use tokio::sync::RwLock;
 use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
 use crate::types::{
-    EdgeResult, EdgeSource, EdgeToken, FeatureRefresh, FeatureSink, FeatureSource, TokenSink,
-    TokenSource, TokenValidationStatus,
+    EdgeResult, EdgeToken, FeatureRefresh, FeatureSource, TokenSource, TokenValidationStatus,
 };
 
 trait ProjectFilter<T> {
@@ -32,14 +31,14 @@ impl ProjectFilter<ClientFeature> for Vec<ClientFeature> {
 
 #[derive(Clone)]
 pub struct SourceFacade {
-    toggle_source: Arc<RwLock<dyn TokenSource>>,
-    feature_source: Arc<RwLock<dyn FeatureSource>>,
+    pub(crate) token_source: Arc<RwLock<dyn DataSource>>,
+    pub(crate) feature_source: Arc<RwLock<dyn DataSource>>,
 }
 
 #[derive(Clone)]
 pub struct SinkFacade {
-    toggle_sink: Arc<RwLock<dyn TokenSink>>,
-    feature_sink: Arc<RwLock<dyn FeatureSink>>,
+    token_sink: Arc<RwLock<dyn DataSink>>,
+    feature_sink: Arc<RwLock<dyn DataSink>>,
 }
 
 #[async_trait]
@@ -52,26 +51,24 @@ pub trait DataSource: Send + Sync {
 
 #[async_trait]
 pub trait DataSink: Send + Sync {
-    async fn sink_tokens(&mut self, tokens: Vec<EdgeToken>) -> EdgeResult<()>;
+    async fn sink_tokens(&self, tokens: Vec<EdgeToken>) -> EdgeResult<()>;
     async fn sink_features(
-        &mut self,
+        &self,
         token: &EdgeToken,
         features: ClientFeatures,
         etag: Option<EntityTag>,
     ) -> EdgeResult<()>;
 }
 
-impl EdgeSource for SourceFacade {}
-
 #[async_trait]
 impl TokenSource for SourceFacade {
     async fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
-        let lock = self.source.read().await;
+        let lock = self.token_source.read().await;
         lock.get_tokens().await
     }
 
     async fn get_valid_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
-        let lock = self.source.read().await;
+        let lock = self.token_source.read().await;
         lock.get_tokens().await.map(|result| {
             result
                 .iter()
@@ -82,12 +79,12 @@ impl TokenSource for SourceFacade {
     }
 
     async fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>> {
-        let lock = self.source.read().await;
+        let lock = self.token_source.read().await;
         lock.get_token(secret.as_str()).await
     }
 
     async fn filter_valid_tokens(&self, tokens: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
-        let lock = self.source.read().await;
+        let lock = self.token_source.read().await;
         let mut known_tokens = lock.get_tokens().await?;
         drop(lock);
         known_tokens.retain(|t| tokens.contains(&t.token));
@@ -95,7 +92,7 @@ impl TokenSource for SourceFacade {
     }
 
     async fn get_tokens_due_for_refresh(&self) -> EdgeResult<Vec<FeatureRefresh>> {
-        let lock = self.source.read().await;
+        let lock = self.token_source.read().await;
         lock.get_tokens_due_for_refresh().await
     }
 }
@@ -112,10 +109,13 @@ impl FeatureSource for SourceFacade {
             .read()
             .await
             .get_client_features(&token)
-            .await;
-        Ok(environment_features.map(|client_features| ClientFeatures {
-            features: client_features.features.filter_by_projects(&token),
-            ..client_features
-        }))
+            .await
+            .unwrap();
+        Ok(environment_features
+            .map(|client_features| ClientFeatures {
+                features: client_features.features.filter_by_projects(&token),
+                ..client_features
+            })
+            .unwrap())
     }
 }

@@ -1,14 +1,14 @@
+use crate::data_sources::repository::{DataSink, DataSource};
 use crate::error::EdgeError;
 use crate::http::unleash_client::UnleashClient;
-use crate::types::{EdgeResult, EdgeSink, EdgeSource, EdgeToken, ValidateTokensRequest};
+use crate::types::{EdgeResult, EdgeToken, ValidateTokensRequest};
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use unleash_types::Merge;
 #[derive(Clone)]
 pub struct TokenValidator {
     pub unleash_client: Arc<UnleashClient>,
-    pub edge_source: Arc<RwLock<dyn EdgeSource>>,
-    pub edge_sink: Arc<RwLock<dyn EdgeSink>>,
+    pub edge_source: Arc<dyn DataSource>,
+    pub edge_sink: Arc<dyn DataSink>,
 }
 
 impl TokenValidator {
@@ -26,12 +26,7 @@ impl TokenValidator {
         } else {
             let mut tokens = vec![];
             for token in tokens_with_valid_format {
-                let known_data = self
-                    .edge_source
-                    .read()
-                    .await
-                    .token_details(token.token.clone())
-                    .await?;
+                let known_data = self.edge_source.get_token(&token.token).await?;
                 tokens.push(known_data.unwrap_or(token));
             }
             Ok(tokens.into_iter().partition(|t| t.token_type.is_none()))
@@ -81,8 +76,7 @@ impl TokenValidator {
                     }
                 })
                 .collect();
-            let mut sink_to_write = self.edge_sink.write().await;
-            let _ = sink_to_write.sink_tokens(tokens_to_sink.clone()).await;
+            self.edge_sink.sink_tokens(tokens_to_sink.clone()).await?;
             Ok(tokens_to_sink.merge(known_tokens))
         }
     }

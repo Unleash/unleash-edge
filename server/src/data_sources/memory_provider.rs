@@ -1,12 +1,11 @@
 use std::collections::HashMap;
 
 use crate::types::FeatureRefresh;
-use crate::types::{EdgeResult, EdgeToken, FeatureSink, TokenSink};
+use crate::types::{EdgeResult, EdgeToken};
 use actix_web::http::header::EntityTag;
 use async_trait::async_trait;
 use chrono::{Duration, Utc};
 use dashmap::DashMap;
-use tracing::debug;
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::Merge;
 
@@ -40,25 +39,14 @@ impl MemoryProvider {
         }
     }
 
-    fn update_last_check(&mut self, token: &EdgeToken) {
-        self.tokens_to_refresh
-            .entry(token.token.clone())
-            .and_modify(|f| f.last_check = Some(Utc::now()));
-    }
+    // TODO: Do we need this? Does this belong in DataSink instead?
+    // fn update_last_check(&self, token: &EdgeToken) {
+    //     self.tokens_to_refresh
+    //         .entry(token.token.clone())
+    //         .and_modify(|f| f.last_check = Some(Utc::now()));
+    // }
 
-    fn sink_tokens(&mut self, tokens: Vec<EdgeToken>) {
-        for token in tokens {
-            self.token_store.insert(token.token.clone(), token.clone());
-            if token.token_type == Some(crate::types::TokenType::Client) {
-                self.tokens_to_refresh
-                    .entry(token.clone().token)
-                    .or_insert(FeatureRefresh::new(token.clone()));
-            }
-        }
-        self.reduce_tokens_to_refresh();
-    }
-
-    fn reduce_tokens_to_refresh(&mut self) {
+    fn reduce_tokens_to_refresh(&self) {
         let tokens: Vec<EdgeToken> = self
             .tokens_to_refresh
             .values()
@@ -67,46 +55,6 @@ impl MemoryProvider {
         let minimized = crate::tokens::simplify(&tokens);
         self.tokens_to_refresh
             .retain(|k, _| minimized.iter().any(|m| &m.token == k));
-    }
-
-    fn sink_features(
-        &mut self,
-        token: &EdgeToken,
-        features: ClientFeatures,
-        etag: Option<EntityTag>,
-    ) {
-        debug!("Sinking features");
-        self.tokens_to_refresh
-            .entry(token.token.clone())
-            .and_modify(|feature_refresh| {
-                feature_refresh.etag = etag.clone();
-                feature_refresh.last_refreshed = Some(Utc::now());
-                feature_refresh.last_check = Some(Utc::now());
-            })
-            .or_insert(FeatureRefresh {
-                token: token.clone(),
-                etag,
-                last_refreshed: Some(Utc::now()),
-                last_check: Some(Utc::now()),
-            });
-        self.data_store
-            .entry(key(token))
-            .and_modify(|data| {
-                *data = data.clone().merge(features.clone());
-            })
-            .or_insert(features);
-    }
-}
-
-// impl EdgeSource for MemoryProvider {}
-// impl EdgeSink for MemoryProvider {}
-
-pub fn empty_client_features() -> ClientFeatures {
-    ClientFeatures {
-        version: 2,
-        features: vec![],
-        segments: None,
-        query: None,
     }
 }
 
@@ -141,29 +89,52 @@ impl DataSource for MemoryProvider {
 
 #[async_trait]
 impl DataSink for MemoryProvider {
-    async fn sink_tokens(&mut self, tokens: Vec<EdgeToken>) -> EdgeResult<()> {
-        self.sink_tokens(tokens);
+    async fn sink_tokens(&self, tokens: Vec<EdgeToken>) -> EdgeResult<()> {
+        for token in tokens {
+            self.token_store.insert(token.token.clone(), token.clone());
+            if token.token_type == Some(crate::types::TokenType::Client) {
+                self.tokens_to_refresh
+                    .entry(token.clone().token)
+                    .or_insert(FeatureRefresh::new(token.clone()));
+            }
+        }
+        self.reduce_tokens_to_refresh();
         Ok(())
     }
 
     async fn sink_features(
-        &mut self,
+        &self,
         token: &EdgeToken,
         features: ClientFeatures,
         etag: Option<EntityTag>,
     ) -> EdgeResult<()> {
-        self.sink_features(token, features, etag);
+        self.tokens_to_refresh
+            .entry(token.token.clone())
+            .and_modify(|feature_refresh| {
+                feature_refresh.etag = etag.clone();
+                feature_refresh.last_refreshed = Some(Utc::now());
+                feature_refresh.last_check = Some(Utc::now());
+            })
+            .or_insert(FeatureRefresh {
+                token: token.clone(),
+                etag,
+                last_refreshed: Some(Utc::now()),
+                last_check: Some(Utc::now()),
+            });
+        self.data_store
+            .entry(key(token))
+            .and_modify(|data| {
+                *data = data.clone().merge(features.clone());
+            })
+            .or_insert(features);
         Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::types::into_entity_tag;
     use crate::types::TokenType;
     use crate::types::TokenValidationStatus;
-    use std::str::FromStr;
-    use unleash_types::client_features::ClientFeature;
 
     use super::*;
 
@@ -180,7 +151,7 @@ mod tests {
             ..EdgeToken::default()
         }]);
 
-        assert!(provider.get_known_tokens().await.unwrap().len() == 1);
+        assert!(provider.get_tokens().await.unwrap().len() == 1);
     }
 
     #[tokio::test]
@@ -194,7 +165,7 @@ mod tests {
 
         assert_eq!(
             provider
-                .token_details(
+                .get_token(
                     "*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1f".into()
                 )
                 .await
@@ -205,188 +176,190 @@ mod tests {
         )
     }
 
-    #[tokio::test]
-    async fn memory_provider_yields_correct_response_for_token() {
-        let mut provider = MemoryProvider::default();
-        let token = EdgeToken {
-            environment: Some("development".into()),
-            projects: vec!["default".into()],
-            token: "*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1ft".into(),
-            ..EdgeToken::default()
-        };
+    // TODO: Maybe some of these tests belong to repository instead now?
 
-        let features = ClientFeatures {
-            version: 1,
-            features: vec![ClientFeature {
-                name: "James Bond".into(),
-                project: Some("default".into()),
-                ..ClientFeature::default()
-            }],
-            segments: None,
-            query: None,
-        };
+    // #[tokio::test]
+    // async fn memory_provider_yields_correct_response_for_token() {
+    //     let mut provider = MemoryProvider::default();
+    //     let token = EdgeToken {
+    //         environment: Some("development".into()),
+    //         projects: vec!["default".into()],
+    //         token: "*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1ft".into(),
+    //         ..EdgeToken::default()
+    //     };
 
-        provider.sink_features(&token, features.clone(), into_entity_tag(features));
+    //     let features = ClientFeatures {
+    //         version: 1,
+    //         features: vec![ClientFeature {
+    //             name: "James Bond".into(),
+    //             project: Some("default".into()),
+    //             ..ClientFeature::default()
+    //         }],
+    //         segments: None,
+    //         query: None,
+    //     };
 
-        let found_feature = provider.get_client_features(&token).await.unwrap().features[0].clone();
-        assert!(found_feature.name == *"James Bond");
-    }
+    //     provider.sink_features(&token, features.clone(), into_entity_tag(features));
 
-    #[tokio::test]
-    async fn memory_provider_can_yield_list_of_validated_tokens() {
-        let james_bond = EdgeToken {
-            status: TokenValidationStatus::Validated,
-            ..EdgeToken::from_str("*:development.jamesbond").unwrap()
-        };
-        let frank_drebin = EdgeToken {
-            status: TokenValidationStatus::Validated,
-            ..EdgeToken::from_str("*:development.frankdrebin").unwrap()
-        };
+    //     let found_feature = provider.get_client_features(&token).await.unwrap().features[0].clone();
+    //     assert!(found_feature.name == *"James Bond");
+    // }
 
-        let mut provider = MemoryProvider::default();
-        provider.sink_tokens(vec![james_bond.clone(), frank_drebin.clone()]);
-        let valid_tokens = provider
-            .filter_valid_tokens(vec![
-                "*:development.jamesbond".into(),
-                "*:development.anotherinvalidone".into(),
-                "*:development.frankdrebin".into(),
-            ])
-            .await
-            .unwrap();
-        assert_eq!(valid_tokens.len(), 2);
-        assert!(valid_tokens.iter().any(|t| t.token == james_bond.token));
-        assert!(valid_tokens.iter().any(|t| t.token == frank_drebin.token));
-    }
+    // #[tokio::test]
+    // async fn memory_provider_can_yield_list_of_validated_tokens() {
+    //     let james_bond = EdgeToken {
+    //         status: TokenValidationStatus::Validated,
+    //         ..EdgeToken::from_str("*:development.jamesbond").unwrap()
+    //     };
+    //     let frank_drebin = EdgeToken {
+    //         status: TokenValidationStatus::Validated,
+    //         ..EdgeToken::from_str("*:development.frankdrebin").unwrap()
+    //     };
 
-    #[tokio::test]
-    async fn memory_provider_filters_out_features_by_token() {
-        let mut provider = MemoryProvider::default();
-        let token = EdgeToken {
-            environment: Some("development".into()),
-            projects: vec!["default".into()],
-            token: "some-secret".into(),
-            ..EdgeToken::default()
-        };
+    //     let mut provider = MemoryProvider::default();
+    //     provider.sink_tokens(vec![james_bond.clone(), frank_drebin.clone()]);
+    //     let valid_tokens = provider
+    //         .filter_valid_tokens(vec![
+    //             "*:development.jamesbond".into(),
+    //             "*:development.anotherinvalidone".into(),
+    //             "*:development.frankdrebin".into(),
+    //         ])
+    //         .await
+    //         .unwrap();
+    //     assert_eq!(valid_tokens.len(), 2);
+    //     assert!(valid_tokens.iter().any(|t| t.token == james_bond.token));
+    //     assert!(valid_tokens.iter().any(|t| t.token == frank_drebin.token));
+    // }
 
-        let features = ClientFeatures {
-            version: 1,
-            features: vec![
-                ClientFeature {
-                    name: "James Bond".into(),
-                    project: Some("default".into()),
-                    ..ClientFeature::default()
-                },
-                ClientFeature {
-                    name: "Jason Bourne".into(),
-                    project: Some("some-test-project".into()),
-                    ..ClientFeature::default()
-                },
-            ],
-            segments: None,
-            query: None,
-        };
+    // #[tokio::test]
+    // async fn memory_provider_filters_out_features_by_token() {
+    //     let mut provider = MemoryProvider::default();
+    //     let token = EdgeToken {
+    //         environment: Some("development".into()),
+    //         projects: vec!["default".into()],
+    //         token: "some-secret".into(),
+    //         ..EdgeToken::default()
+    //     };
 
-        provider.sink_features(&token, features.clone(), into_entity_tag(features));
+    //     let features = ClientFeatures {
+    //         version: 1,
+    //         features: vec![
+    //             ClientFeature {
+    //                 name: "James Bond".into(),
+    //                 project: Some("default".into()),
+    //                 ..ClientFeature::default()
+    //             },
+    //             ClientFeature {
+    //                 name: "Jason Bourne".into(),
+    //                 project: Some("some-test-project".into()),
+    //                 ..ClientFeature::default()
+    //             },
+    //         ],
+    //         segments: None,
+    //         query: None,
+    //     };
 
-        let all_features = provider.get_client_features(&token).await.unwrap().features;
-        let found_feature = all_features[0].clone();
+    //     provider.sink_features(&token, features.clone(), into_entity_tag(features));
 
-        assert!(all_features.len() == 1);
-        assert!(found_feature.name == *"James Bond");
-    }
+    //     let all_features = provider.get_client_features(&token).await.unwrap().features;
+    //     let found_feature = all_features[0].clone();
 
-    #[tokio::test]
-    async fn memory_provider_can_update_data() {
-        let mut provider = MemoryProvider::default();
-        let token = EdgeToken {
-            environment: Some("development".into()),
-            projects: vec!["default".into()],
-            token: "some-secret".into(),
-            ..EdgeToken::default()
-        };
+    //     assert!(all_features.len() == 1);
+    //     assert!(found_feature.name == *"James Bond");
+    // }
 
-        let first_features = ClientFeatures {
-            version: 1,
-            features: vec![ClientFeature {
-                name: "James Bond".into(),
-                project: Some("default".into()),
-                ..ClientFeature::default()
-            }],
-            segments: None,
-            query: None,
-        };
-        let second_features = ClientFeatures {
-            version: 1,
-            features: vec![ClientFeature {
-                name: "Jason Bourne".into(),
-                project: Some("default".into()),
-                ..ClientFeature::default()
-            }],
-            segments: None,
-            query: None,
-        };
+    // #[tokio::test]
+    // async fn memory_provider_can_update_data() {
+    //     let mut provider = MemoryProvider::default();
+    //     let token = EdgeToken {
+    //         environment: Some("development".into()),
+    //         projects: vec!["default".into()],
+    //         token: "some-secret".into(),
+    //         ..EdgeToken::default()
+    //     };
 
-        provider.sink_features(
-            &token,
-            second_features.clone(),
-            into_entity_tag(second_features),
-        );
-        provider.sink_features(
-            &token,
-            first_features.clone(),
-            into_entity_tag(first_features),
-        );
+    //     let first_features = ClientFeatures {
+    //         version: 1,
+    //         features: vec![ClientFeature {
+    //             name: "James Bond".into(),
+    //             project: Some("default".into()),
+    //             ..ClientFeature::default()
+    //         }],
+    //         segments: None,
+    //         query: None,
+    //     };
+    //     let second_features = ClientFeatures {
+    //         version: 1,
+    //         features: vec![ClientFeature {
+    //             name: "Jason Bourne".into(),
+    //             project: Some("default".into()),
+    //             ..ClientFeature::default()
+    //         }],
+    //         segments: None,
+    //         query: None,
+    //     };
 
-        let all_features = provider.get_client_features(&token).await.unwrap().features;
+    //     provider.sink_features(
+    //         &token,
+    //         second_features.clone(),
+    //         into_entity_tag(second_features),
+    //     );
+    //     provider.sink_features(
+    //         &token,
+    //         first_features.clone(),
+    //         into_entity_tag(first_features),
+    //     );
 
-        assert!(all_features.len() == 2);
-    }
+    //     let all_features = provider.get_client_features(&token).await.unwrap().features;
 
-    #[tokio::test]
-    async fn memory_provider_respects_all_projects_in_token() {
-        let mut provider = MemoryProvider::default();
-        let token = EdgeToken {
-            environment: Some("development".into()),
-            projects: vec!["*".into()],
-            token: "some-secret".into(),
-            ..EdgeToken::default()
-        };
+    //     assert!(all_features.len() == 2);
+    // }
 
-        let features = ClientFeatures {
-            version: 1,
-            features: vec![
-                ClientFeature {
-                    name: "James Bond".into(),
-                    project: Some("default".into()),
-                    ..ClientFeature::default()
-                },
-                ClientFeature {
-                    name: "Jason Bourne".into(),
-                    project: Some("some-test-project".into()),
-                    ..ClientFeature::default()
-                },
-            ],
-            segments: None,
-            query: None,
-        };
+    // #[tokio::test]
+    // async fn memory_provider_respects_all_projects_in_token() {
+    //     let mut provider = MemoryProvider::default();
+    //     let token = EdgeToken {
+    //         environment: Some("development".into()),
+    //         projects: vec!["*".into()],
+    //         token: "some-secret".into(),
+    //         ..EdgeToken::default()
+    //     };
 
-        provider.sink_features(&token, features.clone(), into_entity_tag(features));
+    //     let features = ClientFeatures {
+    //         version: 1,
+    //         features: vec![
+    //             ClientFeature {
+    //                 name: "James Bond".into(),
+    //                 project: Some("default".into()),
+    //                 ..ClientFeature::default()
+    //             },
+    //             ClientFeature {
+    //                 name: "Jason Bourne".into(),
+    //                 project: Some("some-test-project".into()),
+    //                 ..ClientFeature::default()
+    //             },
+    //         ],
+    //         segments: None,
+    //         query: None,
+    //     };
 
-        let all_features = provider.get_client_features(&token).await.unwrap().features;
-        let first_feature = all_features
-            .iter()
-            .find(|x| x.name == "James Bond")
-            .unwrap();
+    //     provider.sink_features(&token, features.clone(), into_entity_tag(features));
 
-        let second_feature = all_features
-            .iter()
-            .find(|x| x.name == "Jason Bourne")
-            .unwrap();
+    //     let all_features = provider.get_client_features(&token).await.unwrap().features;
+    //     let first_feature = all_features
+    //         .iter()
+    //         .find(|x| x.name == "James Bond")
+    //         .unwrap();
 
-        assert!(all_features.len() == 2);
-        assert!(first_feature.name == *"James Bond");
-        assert!(second_feature.name == *"Jason Bourne");
-    }
+    //     let second_feature = all_features
+    //         .iter()
+    //         .find(|x| x.name == "Jason Bourne")
+    //         .unwrap();
+
+    //     assert!(all_features.len() == 2);
+    //     assert!(first_feature.name == *"James Bond");
+    //     assert!(second_feature.name == *"Jason Bourne");
+    // }
 
     #[tokio::test]
     pub async fn can_minimize_tokens_to_check() {

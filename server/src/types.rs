@@ -16,7 +16,7 @@ use actix_web::{
 };
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use shadow_rs::shadow;
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::{ClientApplication, ClientMetricsEnv};
@@ -245,9 +245,13 @@ pub trait TokenSource {
     async fn get_tokens_due_for_refresh(&self) -> EdgeResult<Vec<FeatureRefresh>>;
 }
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct FeatureRefresh {
     pub token: EdgeToken,
+    #[serde(
+        deserialize_with = "deserialize_entity_tag",
+        serialize_with = "serialize_entity_tag"
+    )]
     pub etag: Option<EntityTag>,
     pub last_refreshed: Option<DateTime<Utc>>,
     pub last_check: Option<DateTime<Utc>>,
@@ -273,6 +277,25 @@ impl fmt::Debug for FeatureRefresh {
             .field("last_check", &self.last_check)
             .finish()
     }
+}
+
+fn deserialize_entity_tag<'de, D>(deserializer: D) -> Result<Option<EntityTag>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s: Option<String> = Option::deserialize(deserializer)?;
+    Ok(
+        s.map(|s| EntityTag::from_str(&s).map_err(serde::de::Error::custom))
+            .transpose()?,
+    )
+}
+
+fn serialize_entity_tag<S>(etag: &Option<EntityTag>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let s = etag.as_ref().map(|e| e.to_string());
+    serializer.serialize_some(&s)
 }
 
 pub trait EdgeSource: FeatureSource + TokenSource + Send + Sync {}

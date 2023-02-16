@@ -1,32 +1,32 @@
 use std::sync::Arc;
 
 use reqwest::Url;
-use tokio::sync::mpsc;
-
-use tokio::sync::mpsc::Sender;
-use tokio::sync::RwLock;
+use tokio::sync::{mpsc, RwLock};
 
 use crate::{
     auth::token_validator::TokenValidator,
     cli::{CliArgs, EdgeArg, EdgeMode, OfflineArgs},
     http::unleash_client::UnleashClient,
-    types::{EdgeResult, EdgeSink, EdgeSource, EdgeToken},
+    types::{EdgeResult, EdgeSource, EdgeToken},
 };
 
 use super::{
-    memory_provider::MemoryProvider, offline_provider::OfflineProvider,
-    redis_provider::RedisProvider, repository::SourceFacade,
+    memory_provider::MemoryProvider,
+    offline_provider::OfflineProvider,
+    redis_provider::RedisProvider,
+    repository::SinkFacade,
+    repository::{DataSink, DataSource, SourceFacade},
 };
 
-pub type DataProviderPair = (Arc<RwLock<dyn EdgeSource>>, Arc<RwLock<dyn EdgeSink>>);
+pub type DataProviderPair = (Arc<SourceFacade>, Arc<SinkFacade>);
 
 pub struct RepositoryInfo {
-    pub source: Arc<RwLock<dyn EdgeSource>>,
+    pub source: Arc<dyn DataSource>,
     pub sink_info: Option<SinkInfo>,
 }
 
 pub struct SinkInfo {
-    pub sink: Arc<RwLock<dyn EdgeSink>>,
+    pub sink: Arc<dyn DataSink>,
     pub validated_send: mpsc::Sender<EdgeToken>,
     pub validated_receive: mpsc::Receiver<EdgeToken>,
     pub unvalidated_receive: mpsc::Receiver<EdgeToken>,
@@ -46,14 +46,34 @@ fn build_memory(features_refresh_interval_seconds: i64) -> EdgeResult<DataProvid
     let data_source = Arc::new(RwLock::new(MemoryProvider::new(
         features_refresh_interval_seconds,
     )));
-    let facade: Arc<dyn EdgeSource> = Arc::new(SourceFacade { source: data_source.clone() });
-
-    Ok((facade, data_source))
+    let source_facade = Arc::new(SourceFacade {
+        token_source: data_source.clone(),
+        feature_source: data_source.clone(),
+    });
+    let sink_facade = Arc::new(SinkFacade {
+        token_sink: data_source.clone(),
+        feature_sink: data_source.clone(),
+    });
+    Ok((source_facade, sink_facade))
 }
 
-fn build_redis(redis_url: String, _sender: Sender<EdgeToken>) -> EdgeResult<DataProviderPair> {
-    let data_source = Arc::new(RwLock::new(RedisProvider::new(&redis_url)?));
-    Ok((data_source.clone(), data_source))
+fn build_redis(
+    redis_url: String,
+    features_refresh_interval_seconds: i64,
+) -> EdgeResult<DataProviderPair> {
+    let data_source = Arc::new(RwLock::new(RedisProvider::new(
+        &redis_url,
+        features_refresh_interval_seconds,
+    )?));
+    let source_facade = Arc::new(SourceFacade {
+        token_source: data_source.clone(),
+        feature_source: data_source.clone(),
+    });
+    let sink_facade = Arc::new(SinkFacade {
+        token_sink: data_source.clone(),
+        feature_sink: data_source.clone(),
+    });
+    Ok((source_facade, sink_facade))
 }
 
 pub async fn build_source_and_sink(args: CliArgs) -> EdgeResult<RepositoryInfo> {
@@ -73,7 +93,9 @@ pub async fn build_source_and_sink(args: CliArgs) -> EdgeResult<RepositoryInfo> 
             let (unvalidated_sender, unvalidated_receiver) = mpsc::channel::<EdgeToken>(32);
             let (validated_sender, validated_receiver) = mpsc::channel::<EdgeToken>(32);
             let (source, sink) = match arg {
-                EdgeArg::Redis(redis_url) => build_redis(redis_url, unvalidated_sender),
+                EdgeArg::Redis(redis_url) => {
+                    build_redis(redis_url, edge_args.features_refresh_interval_seconds)
+                }
                 EdgeArg::InMemory => build_memory(edge_args.features_refresh_interval_seconds),
             }?;
             let mut token_validator = TokenValidator {
