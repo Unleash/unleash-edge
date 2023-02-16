@@ -12,6 +12,6 @@ export const options = {
 };
 
 export default function () {
-  http.get('http://edge:3063/api/client/features', { 'headers': { 'Authorization': `${__ENV.TOKEN}` } });
+  http.get('http://localhost:3063/api/client/features', { 'headers': { 'Authorization': `${__ENV.TOKEN}` } });
   sleep(0.2);
 }
