@@ -1,6 +1,6 @@
 use crate::error::EdgeError;
 use crate::types::{
-    EdgeResult, EdgeSource, EdgeToken, FeatureRefresh, FeaturesSource, TokenSource,
+    EdgeResult, EdgeSource, EdgeToken, FeatureRefresh, FeatureSource, TokenSource,
     TokenValidationStatus,
 };
 use async_trait::async_trait;
@@ -17,7 +17,7 @@ pub struct OfflineProvider {
 }
 
 #[async_trait]
-impl FeaturesSource for OfflineProvider {
+impl FeatureSource for OfflineProvider {
     async fn get_client_features(&self, _: &EdgeToken) -> Result<ClientFeatures, EdgeError> {
         Ok(self.features.clone())
     }

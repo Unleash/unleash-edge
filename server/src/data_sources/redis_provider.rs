@@ -13,7 +13,7 @@ use crate::types::{FeatureRefresh, TokenValidationStatus};
 use crate::{
     error::EdgeError,
     types::{
-        EdgeResult, EdgeSink, EdgeSource, EdgeToken, FeatureSink, FeaturesSource, TokenSink,
+        EdgeResult, EdgeSink, EdgeSource, EdgeToken, FeatureSink, FeatureSource, TokenSink,
         TokenSource,
     },
 };
@@ -87,7 +87,7 @@ impl TokenSink for RedisProvider {
 }
 
 #[async_trait]
-impl FeaturesSource for RedisProvider {
+impl FeatureSource for RedisProvider {
     async fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<ClientFeatures> {
         let mut client = self.redis_client.write().await;
         let client_features: String = client.get(build_features_key(token))?;

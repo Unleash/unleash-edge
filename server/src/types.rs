@@ -232,7 +232,7 @@ pub struct ValidatedTokens {
 }
 
 #[async_trait]
-pub trait FeaturesSource {
+pub trait FeatureSource {
     async fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<ClientFeatures>;
 }
 
@@ -275,7 +275,7 @@ impl fmt::Debug for FeatureRefresh {
     }
 }
 
-pub trait EdgeSource: FeaturesSource + TokenSource + Send + Sync {}
+pub trait EdgeSource: FeatureSource + TokenSource + Send + Sync {}
 pub trait EdgeSink: FeatureSink + TokenSink + Send + Sync {}
 
 #[async_trait]
