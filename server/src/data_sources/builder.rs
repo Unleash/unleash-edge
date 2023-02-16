@@ -15,7 +15,7 @@ use crate::{
 
 use super::{
     memory_provider::MemoryProvider, offline_provider::OfflineProvider,
-    redis_provider::RedisProvider,
+    redis_provider::RedisProvider, repository::SourceFacade,
 };
 
 pub type DataProviderPair = (Arc<RwLock<dyn EdgeSource>>, Arc<RwLock<dyn EdgeSink>>);
@@ -46,7 +46,9 @@ fn build_memory(features_refresh_interval_seconds: i64) -> EdgeResult<DataProvid
     let data_source = Arc::new(RwLock::new(MemoryProvider::new(
         features_refresh_interval_seconds,
     )));
-    Ok((data_source.clone(), data_source))
+    let facade: Arc<dyn EdgeSource> = Arc::new(SourceFacade { source: data_source.clone() });
+
+    Ok((facade, data_source))
 }
 
 fn build_redis(redis_url: String, _sender: Sender<EdgeToken>) -> EdgeResult<DataProviderPair> {

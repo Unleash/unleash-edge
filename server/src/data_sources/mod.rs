@@ -6,6 +6,7 @@ pub mod builder;
 pub mod memory_provider;
 pub mod offline_provider;
 pub mod redis_provider;
+pub mod repository;
 
 trait ProjectFilter<T> {
     fn filter_by_projects(&self, token: &EdgeToken) -> Vec<T>;

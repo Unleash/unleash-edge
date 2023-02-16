@@ -14,6 +14,7 @@ use unleash_types::client_features::ClientFeatures;
 use unleash_types::Merge;
 
 use super::ProjectFilter;
+use super::repository::DataSource;
 
 #[derive(Debug, Clone)]
 pub struct MemoryProvider {
@@ -96,7 +97,7 @@ impl MemoryProvider {
     }
 }
 
-impl EdgeSource for MemoryProvider {}
+// impl EdgeSource for MemoryProvider {}
 impl EdgeSink for MemoryProvider {}
 
 pub fn empty_client_features() -> ClientFeatures {
@@ -109,6 +110,46 @@ pub fn empty_client_features() -> ClientFeatures {
 }
 
 #[async_trait]
+impl DataSource for MemoryProvider {
+    async fn get_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
+        Ok(self.token_store.values().into_iter().cloned().collect())
+    }
+    async fn get_token(&self, secret: &str) -> EdgeResult<Option<EdgeToken>> {
+        Ok(self.token_store.get(secret).cloned())
+    }
+    async fn get_tokens_due_for_refresh(&self) -> EdgeResult<Vec<FeatureRefresh>> {
+        Ok(self
+            .tokens_to_refresh
+            .values()
+            .filter(|token| {
+                token.last_check
+                    .map(|last| Utc::now() - last > self.features_refresh_interval)
+                    .unwrap_or(true)
+            })
+            .cloned()
+            .collect())
+    }
+    async fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<ClientFeatures> {
+        // let token = self
+        //     .token_details(token.token.clone())
+        //     .await?
+        //     .unwrap_or(token.clone());
+        // let environment_features = self
+        //     .data_store
+        //     .get(&key(&token))
+        //     .map(|v| v.value().clone());
+        // Ok(environment_features
+        //     .map(|client_features| ClientFeatures {
+        //         features: client_features.features.filter_by_projects(&token),
+        //         ..client_features
+        //     })
+        //     .unwrap_or_else(empty_client_features))
+
+        Ok(self.data_store.get(&key(&token)).map(|v| v.value().clone()))
+    }
+}
+
+#[async_trait]
 impl TokenSink for MemoryProvider {
     async fn sink_tokens(&mut self, tokens: Vec<EdgeToken>) -> EdgeResult<()> {
         self.sink_tokens(tokens);
@@ -116,70 +157,70 @@ impl TokenSink for MemoryProvider {
     }
 }
 
-#[async_trait]
-impl FeaturesSource for MemoryProvider {
-    async fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<ClientFeatures> {
-        let token_to_use = self
-            .token_details(token.token.clone())
-            .await?
-            .unwrap_or(token.clone());
-        let environment_features = self
-            .data_store
-            .get(&key(&token_to_use))
-            .map(|v| v.value().clone());
-        Ok(environment_features
-            .map(|client_features| ClientFeatures {
-                features: client_features.features.filter_by_projects(&token_to_use),
-                ..client_features
-            })
-            .unwrap_or_else(empty_client_features))
-    }
-}
+// #[async_trait]
+// impl FeaturesSource for MemoryProvider {
+//     async fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<ClientFeatures> {
+//         let token_to_use = self
+//             .token_details(token.token.clone())
+//             .await?
+//             .unwrap_or(token.clone());
+//         let environment_features = self
+//             .data_store
+//             .get(&key(&token_to_use))
+//             .map(|v| v.value().clone());
+//         Ok(environment_features
+//             .map(|client_features| ClientFeatures {
+//                 features: client_features.features.filter_by_projects(&token_to_use),
+//                 ..client_features
+//             })
+//             .unwrap_or_else(empty_client_features))
+//     }
+// }
 
-#[async_trait]
-impl TokenSource for MemoryProvider {
-    async fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
-        Ok(self.token_store.values().into_iter().cloned().collect())
-    }
+// #[async_trait]
+// impl TokenSource for MemoryProvider {
+//     async fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
+//         Ok(self.token_store.values().into_iter().cloned().collect())
+//     }
 
-    async fn get_valid_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
-        Ok(self
-            .token_store
-            .values()
-            .filter(|t| t.status == TokenValidationStatus::Validated)
-            .cloned()
-            .collect())
-    }
+//     async fn get_valid_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
+//         Ok(self
+//             .token_store
+//             .values()
+//             .filter(|t| t.status == TokenValidationStatus::Validated)
+//             .cloned()
+//             .collect())
+//     }
 
-    async fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>> {
-        Ok(self.token_store.get(&secret).cloned())
-    }
+//     async fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>> {
+//         Ok(self.token_store.get(&secret).cloned())
+//     }
 
-    async fn filter_valid_tokens(&self, secrets: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
-        Ok(secrets
-            .iter()
-            .filter_map(|s| self.token_store.get(s))
-            .filter(|s| s.status == TokenValidationStatus::Validated)
-            .cloned()
-            .collect())
-    }
+//     async fn filter_valid_tokens(&self, secrets: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
+//         Ok(secrets
+//             .iter()
+//             .filter_map(|s| self.token_store.get(s))
+//             .filter(|s| s.status == TokenValidationStatus::Validated)
+//             .cloned()
+//             .collect())
+//     }
 
-    async fn get_tokens_due_for_refresh(&self) -> EdgeResult<Vec<FeatureRefresh>> {
-        let refreshes = self
-            .tokens_to_refresh
-            .iter()
-            .filter(|(_k, value)| match value.last_check {
-                Some(last) => Utc::now() - last > self.features_refresh_interval,
-                None => {
-                    debug!("No last check date, definitely need to update this");
-                    true
-                }
-            })
-            .map(|(_k, refresh)| refresh.clone())
-            .collect();
-        Ok(refreshes)
-    }
-}
+//     async fn get_tokens_due_for_refresh(&self) -> EdgeResult<Vec<FeatureRefresh>> {
+//         let refreshes = self
+//             .tokens_to_refresh
+//             .iter()
+//             .filter(|(_k, value)| match value.last_check {
+//                 Some(last) => Utc::now() - last > self.features_refresh_interval,
+//                 None => {
+//                     debug!("No last check date, definitely need to update this");
+//                     true
+//                 }
+//             })
+//             .map(|(_k, refresh)| refresh.clone())
+//             .collect();
+//         Ok(refreshes)
+//     }
+// }
 
 #[async_trait]
 impl FeatureSink for MemoryProvider {
