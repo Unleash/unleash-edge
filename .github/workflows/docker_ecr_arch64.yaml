@@ -30,7 +30,7 @@ jobs:
           cargo install cross
       - name: Build release
         run: |
-          cross build --release --target=aarch64-unknown-linux-musl
+          cross build --release --target=aarch64-unknown-linux-gnu
       - name: Setup QEMU (to support multiplatform)
         uses: docker/setup-qemu-action@v2
       - name: Configure aws credentials
