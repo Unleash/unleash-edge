@@ -6,8 +6,8 @@ on:
     branches:
       - main
     files:
-      - "**.rs"
-      - "**.toml"
+      - "**/*.rs"
+      - "**/*.toml"
       - ".github/workflows/build-docker-release.yaml"
     tags:
       - unleash-edge-v[0-9]+.*
