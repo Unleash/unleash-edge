@@ -23,6 +23,10 @@ jobs:
           rustup set auto-self-update disable
           rustup toolchain install stable --profile default
           rustup show
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: "rust-v0-gnu"
       - name: Install cross (cross compile)
         run: |
           cargo install cross
