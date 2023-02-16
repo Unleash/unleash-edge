@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       edge:
-        image: unleashorg/unleash-edge
+        image: unleashorg/unleash-edge:edge
         env:
           UPSTREAM_URL: https://sandbox.getunleash.io/eg
           TOKENS: ${{ secrets.UNLEASH_CLIENT_SECRET }}
