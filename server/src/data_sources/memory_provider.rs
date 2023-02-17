@@ -53,7 +53,7 @@ impl MemoryProvider {
             .map(|r| r.token.clone())
             .collect();
         let minimized = crate::tokens::simplify(&tokens);
-        self.tokens_to_refresh
+        self.tokens_to_refresh.clone()
             .retain(|k, _| minimized.iter().any(|m| &m.token == k));
     }
 }
@@ -89,7 +89,7 @@ impl DataSource for MemoryProvider {
 
 #[async_trait]
 impl DataSink for MemoryProvider {
-    async fn sink_tokens(&self, tokens: Vec<EdgeToken>) -> EdgeResult<()> {
+    async fn sink_tokens(&mut self, tokens: Vec<EdgeToken>) -> EdgeResult<()> {
         for token in tokens {
             self.token_store.insert(token.token.clone(), token.clone());
             if token.token_type == Some(crate::types::TokenType::Client) {
@@ -103,12 +103,12 @@ impl DataSink for MemoryProvider {
     }
 
     async fn sink_features(
-        &self,
+        &mut self,
         token: &EdgeToken,
         features: ClientFeatures,
         etag: Option<EntityTag>,
     ) -> EdgeResult<()> {
-        self.tokens_to_refresh
+        self.tokens_to_refresh.clone()
             .entry(token.token.clone())
             .and_modify(|feature_refresh| {
                 feature_refresh.etag = etag.clone();

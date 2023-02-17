@@ -6,7 +6,8 @@ use tokio::sync::RwLock;
 use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
 use crate::types::{
-    EdgeResult, EdgeToken, FeatureRefresh, FeatureSource, TokenSource, TokenValidationStatus,
+    EdgeResult, EdgeToken, FeatureRefresh, FeatureSink, FeatureSource, TokenSink, TokenSource,
+    TokenValidationStatus, EdgeSource, EdgeSink,
 };
 
 trait ProjectFilter<T> {
@@ -37,9 +38,12 @@ pub struct SourceFacade {
 
 #[derive(Clone)]
 pub struct SinkFacade {
-    token_sink: Arc<RwLock<dyn DataSink>>,
-    feature_sink: Arc<RwLock<dyn DataSink>>,
+    pub token_sink: Arc<RwLock<dyn DataSink>>,
+    pub feature_sink: Arc<RwLock<dyn DataSink>>,
 }
+
+impl EdgeSource for SourceFacade {}
+impl EdgeSink for SinkFacade {}
 
 #[async_trait]
 pub trait DataSource: Send + Sync {
@@ -51,9 +55,9 @@ pub trait DataSource: Send + Sync {
 
 #[async_trait]
 pub trait DataSink: Send + Sync {
-    async fn sink_tokens(&self, tokens: Vec<EdgeToken>) -> EdgeResult<()>;
+    async fn sink_tokens(&mut self, tokens: Vec<EdgeToken>) -> EdgeResult<()>;
     async fn sink_features(
-        &self,
+        &mut self,
         token: &EdgeToken,
         features: ClientFeatures,
         etag: Option<EntityTag>,
@@ -117,5 +121,27 @@ impl FeatureSource for SourceFacade {
                 ..client_features
             })
             .unwrap())
+    }
+}
+
+#[async_trait]
+impl TokenSink for SinkFacade {
+    async fn sink_tokens(&self, tokens: Vec<EdgeToken>) -> EdgeResult<()> {
+        todo!()
+    }
+}
+
+#[async_trait]
+impl FeatureSink for SinkFacade {
+    async fn sink_features(
+        & self,
+        token: &EdgeToken,
+        features: ClientFeatures,
+        etag: Option<EntityTag>,
+    ) -> EdgeResult<()> {
+        todo!()
+    }
+    async fn update_last_check(& self, token: &EdgeToken) -> EdgeResult<()> {
+        todo!()
     }
 }

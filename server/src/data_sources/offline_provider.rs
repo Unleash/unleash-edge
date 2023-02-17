@@ -10,6 +10,8 @@ use std::io::BufReader;
 use std::path::PathBuf;
 use unleash_types::client_features::ClientFeatures;
 
+use super::repository::DataSource;
+
 #[derive(Debug, Clone)]
 pub struct OfflineProvider {
     pub features: ClientFeatures,
@@ -84,5 +86,22 @@ impl OfflineProvider {
                 .map(|t| (t.token.clone(), t))
                 .collect(),
         }
+    }
+}
+
+
+#[async_trait]
+impl DataSource for OfflineProvider {
+    async fn get_tokens(&self) -> EdgeResult<Vec<EdgeToken>>{
+        todo!()
+    }
+    async fn get_token(&self, secret: &str) -> EdgeResult<Option<EdgeToken>>{
+        todo!()
+    }
+    async fn get_tokens_due_for_refresh(&self) -> EdgeResult<Vec<FeatureRefresh>>{
+        todo!()
+    }
+    async fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<Option<ClientFeatures>>{
+        todo!()
     }
 }

@@ -49,16 +49,14 @@ pub async fn poll_for_token_status(
 }
 
 pub async fn refresh_features(
-    source: Arc<RwLock<dyn EdgeSource>>,
-    sink: Arc<RwLock<dyn EdgeSink>>,
+    source: Arc<dyn EdgeSource>,
+    sink: Arc<dyn EdgeSink>,
     unleash_client: UnleashClient,
 ) {
     loop {
         tokio::select! {
             _ = tokio::time::sleep(Duration::from_secs(5)) => {
-                let read_lock = source.read().await;
-                let to_refresh = read_lock.get_tokens_due_for_refresh().await;
-                drop(read_lock);
+                let to_refresh = source.get_tokens_due_for_refresh().await;
                 if let Ok(refreshes) = to_refresh {
                         debug!("Had {} tokens to refresh", refreshes.len());
                     for refresh in refreshes {
@@ -71,14 +69,11 @@ pub async fn refresh_features(
                             Ok(feature_response) => match feature_response {
                                 ClientFeaturesResponse::NoUpdate(_) => {
                                     debug!("No update needed, will update last check time");
-                                    let mut write_lock = sink.write().await;
-                                    let _ = write_lock.update_last_check(&refresh.token).await;
+                                    let _ = sink.update_last_check(&refresh.token).await;
                                 }
                                 ClientFeaturesResponse::Updated(features, etag) => {
                                     debug!("Got updated client features. Writing to sink {features:?}");
-                                    let mut write_lock = sink.write().await;
-                                    let sink_result = write_lock.sink_features(&refresh.token, features, etag).await;
-                                    drop(write_lock);
+                                    let sink_result = sink.sink_features(&refresh.token, features, etag).await;
                                     if let Err(err) = sink_result {
                                         warn!("Failed to sink features in updater {err:?}");
                                     }

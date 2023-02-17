@@ -304,12 +304,12 @@ pub trait EdgeSink: FeatureSink + TokenSink + Send + Sync {}
 #[async_trait]
 pub trait FeatureSink {
     async fn sink_features(
-        &mut self,
+        &self,
         token: &EdgeToken,
         features: ClientFeatures,
         etag: Option<EntityTag>,
     ) -> EdgeResult<()>;
-    async fn update_last_check(&mut self, token: &EdgeToken) -> EdgeResult<()>;
+    async fn update_last_check(&self, token: &EdgeToken) -> EdgeResult<()>;
 }
 
 pub fn into_entity_tag(client_features: ClientFeatures) -> Option<EntityTag> {
@@ -330,7 +330,7 @@ pub struct BatchMetricsRequestBody {
 
 #[async_trait]
 pub trait TokenSink {
-    async fn sink_tokens(&mut self, tokens: Vec<EdgeToken>) -> EdgeResult<()>;
+    async fn sink_tokens(&self, tokens: Vec<EdgeToken>) -> EdgeResult<()>;
 }
 
 #[async_trait]

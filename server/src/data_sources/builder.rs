@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, cell::RefCell};
 
 use reqwest::Url;
 use tokio::sync::{mpsc, RwLock};
@@ -7,26 +7,23 @@ use crate::{
     auth::token_validator::TokenValidator,
     cli::{CliArgs, EdgeArg, EdgeMode, OfflineArgs},
     http::unleash_client::UnleashClient,
-    types::{EdgeResult, EdgeSource, EdgeToken},
+    types::{EdgeResult, EdgeSink, EdgeSource, EdgeToken},
 };
 
 use super::{
-    memory_provider::MemoryProvider,
-    offline_provider::OfflineProvider,
-    redis_provider::RedisProvider,
-    repository::SinkFacade,
-    repository::{DataSink, DataSource, SourceFacade},
+    memory_provider::MemoryProvider, offline_provider::OfflineProvider,
+    redis_provider::RedisProvider, repository::SinkFacade, repository::SourceFacade,
 };
 
-pub type DataProviderPair = (Arc<SourceFacade>, Arc<SinkFacade>);
+pub type DataProviderPair = (Arc<dyn EdgeSource>, Arc<dyn EdgeSink>);
 
 pub struct RepositoryInfo {
-    pub source: Arc<dyn DataSource>,
+    pub source: Arc<dyn EdgeSource>,
     pub sink_info: Option<SinkInfo>,
 }
 
 pub struct SinkInfo {
-    pub sink: Arc<dyn DataSink>,
+    pub sink: Arc<dyn EdgeSink>,
     pub validated_send: mpsc::Sender<EdgeToken>,
     pub validated_receive: mpsc::Receiver<EdgeToken>,
     pub unvalidated_receive: mpsc::Receiver<EdgeToken>,
@@ -35,11 +32,19 @@ pub struct SinkInfo {
     pub metrics_interval_seconds: u64,
 }
 
-fn build_offline(offline_args: OfflineArgs) -> EdgeResult<Arc<RwLock<dyn EdgeSource>>> {
+fn build_offline(offline_args: OfflineArgs) -> EdgeResult<Arc<dyn EdgeSource>> {
     let provider =
         OfflineProvider::instantiate_provider(offline_args.bootstrap_file, offline_args.tokens)?;
-    let provider = Arc::new(RwLock::new(provider));
-    Ok(provider)
+
+    let token_source = Arc::new(RwLock::new(provider.clone()));
+    let feature_source = Arc::new(RwLock::new(provider.clone()));
+
+    let facade = Arc::new(SourceFacade {
+        token_source,
+        feature_source,
+    });
+
+    Ok(facade)
 }
 
 fn build_memory(features_refresh_interval_seconds: i64) -> EdgeResult<DataProviderPair> {
@@ -79,7 +84,7 @@ fn build_redis(
 pub async fn build_source_and_sink(args: CliArgs) -> EdgeResult<RepositoryInfo> {
     match args.mode {
         EdgeMode::Offline(offline_args) => {
-            let source = build_offline(offline_args)?;
+            let source: Arc<dyn EdgeSource> = build_offline(offline_args)?;
             Ok(RepositoryInfo {
                 source,
                 sink_info: None,
@@ -98,6 +103,7 @@ pub async fn build_source_and_sink(args: CliArgs) -> EdgeResult<RepositoryInfo> 
                 }
                 EdgeArg::InMemory => build_memory(edge_args.features_refresh_interval_seconds),
             }?;
+
             let mut token_validator = TokenValidator {
                 unleash_client: Arc::new(unleash_client.clone()),
                 edge_source: source.clone(),
