@@ -25,8 +25,7 @@ pub async fn poll_for_token_status(
                 .await
             {
                 Ok(validated_tokens) => {
-                    let mut write_lock = sink.write().await;
-                    match write_lock.sink_tokens(validated_tokens.clone()).await {
+                    match sink.write().await.sink_tokens(validated_tokens.clone()).await {
                         Ok(_) => {
                             for valid in validated_tokens {
                                 let _ = feature_channel.send(valid).await;
@@ -73,7 +72,8 @@ pub async fn refresh_features(
                                 }
                                 ClientFeaturesResponse::Updated(features, etag) => {
                                     debug!("Got updated client features. Writing to sink {features:?}");
-                                    let sink_result = sink.sink_features(&refresh.token, features, etag).await;
+                                    let sink_result = sink.sink_features(&refresh.token, features).await;
+                                    let _ = sink.update_last_refresh(&refresh.token, etag).await;
                                     if let Err(err) = sink_result {
                                         warn!("Failed to sink features in updater {err:?}");
                                     }

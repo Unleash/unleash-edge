@@ -1,7 +1,6 @@
 use crate::error::EdgeError;
 use crate::http::unleash_client::UnleashClient;
 use crate::types::{EdgeResult, EdgeSink, EdgeSource, EdgeToken, ValidateTokensRequest};
-use std::cell::RefCell;
 use std::sync::Arc;
 use unleash_types::Merge;
 #[derive(Clone)]
@@ -26,10 +25,7 @@ impl TokenValidator {
         } else {
             let mut tokens = vec![];
             for token in tokens_with_valid_format {
-                let known_data = self
-                    .edge_source
-                    .token_details(token.token.clone())
-                    .await?;
+                let known_data = self.edge_source.get_token(token.token.clone()).await?;
                 tokens.push(known_data.unwrap_or(token));
             }
             Ok(tokens.into_iter().partition(|t| t.token_type.is_none()))
@@ -79,9 +75,7 @@ impl TokenValidator {
                     }
                 })
                 .collect();
-            self.edge_sink
-                .sink_tokens(tokens_to_sink.clone())
-                .await;
+            self.edge_sink.sink_tokens(tokens_to_sink.clone()).await?;
             Ok(tokens_to_sink.merge(known_tokens))
         }
     }
@@ -90,11 +84,14 @@ impl TokenValidator {
 #[cfg(test)]
 mod tests {
     use crate::data_sources::memory_provider::MemoryProvider;
+    use crate::data_sources::repository::{DataSource, SinkFacade, SourceFacade};
     use crate::types::{EdgeToken, TokenType, TokenValidationStatus};
     use actix_http::HttpService;
     use actix_http_test::{test_server, TestServer};
     use actix_service::map_config;
+
     use actix_web::{dev::AppConfig, web, App, HttpResponse};
+    use chrono::Duration;
     use serde::{Deserialize, Serialize};
     use std::sync::Arc;
     use tokio::sync::RwLock;
@@ -135,56 +132,77 @@ mod tests {
 
     #[tokio::test]
     pub async fn can_validate_tokens() {
-    //     use crate::types::TokenSource;
-    //     let test_provider = Arc::new(RwLock::new(MemoryProvider::default()));
-    //     let srv = test_validation_server().await;
-    //     let unleash_client =
-    //         crate::http::unleash_client::UnleashClient::new(srv.url("/").as_str(), None)
-    //             .expect("Couldn't build client");
+        let test_provider = Arc::new(RwLock::new(MemoryProvider::default()));
+        let source = Arc::new(SourceFacade {
+            features_refresh_interval: Some(Duration::seconds(1)),
+            token_source: test_provider.clone(),
+            feature_source: test_provider.clone(),
+        });
 
-    //     let mut validation_holder = super::TokenValidator {
-    //         unleash_client: Arc::new(unleash_client),
-    //         edge_source: test_provider.clone(),
-    //         edge_sink: test_provider.clone(),
-    //     };
-    //     let tokens_to_validate = vec![
-    //         "*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1f".into(),
-    //         "*:production.abcdef1234567890".into(),
-    //     ];
-    //     validation_holder
-    //         .register_tokens(tokens_to_validate)
-    //         .await
-    //         .expect("Couldn't register tokens");
-    //     let known_tokens = test_provider
-    //         .read()
-    //         .await
-    //         .get_known_tokens()
-    //         .await
-    //         .expect("Couldn't get tokens");
-    //     assert_eq!(known_tokens.len(), 2);
-    //     assert!(known_tokens.iter().any(|t| t.token
-    //         == "*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1f"
-    //         && t.status == TokenValidationStatus::Validated));
-    //     assert!(known_tokens
-    //         .iter()
-    //         .any(|t| t.token == "*:production.abcdef1234567890"
-    //             && t.status == TokenValidationStatus::Invalid));
-    // }
+        let sink = Arc::new(SinkFacade {
+            feature_sink: test_provider.clone(),
+            token_sink: test_provider.clone(),
+        });
 
-    // #[tokio::test]
-    // pub async fn tokens_with_wrong_format_is_not_included() {
-    //     let test_provider = Arc::new(RwLock::new(MemoryProvider::default()));
-    //     let srv = test_validation_server().await;
-    //     let unleash_client =
-    //         crate::http::unleash_client::UnleashClient::new(srv.url("/").as_str(), None)
-    //             .expect("Couldn't build client");
-    //     let mut validation_holder = super::TokenValidator {
-    //         unleash_client: Arc::new(unleash_client),
-    //         edge_source: test_provider.clone(),
-    //         edge_sink: test_provider.clone(),
-    //     };
-    //     let invalid_tokens = vec!["jamesbond".into(), "invalidtoken".into()];
-    //     let validated_tokens = validation_holder.register_tokens(invalid_tokens).await;
-    //     assert!(validated_tokens.is_err());
+        let srv = test_validation_server().await;
+        let unleash_client =
+            crate::http::unleash_client::UnleashClient::new(srv.url("/").as_str(), None)
+                .expect("Couldn't build client");
+
+        let mut validation_holder = super::TokenValidator {
+            unleash_client: Arc::new(unleash_client),
+            edge_source: source,
+            edge_sink: sink,
+        };
+        let tokens_to_validate = vec![
+            "*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1f".into(),
+            "*:production.abcdef1234567890".into(),
+        ];
+        validation_holder
+            .register_tokens(tokens_to_validate)
+            .await
+            .expect("Couldn't register tokens");
+        let known_tokens = test_provider
+            .read()
+            .await
+            .get_tokens()
+            .await
+            .expect("Couldn't get tokens");
+        assert_eq!(known_tokens.len(), 2);
+        assert!(known_tokens.iter().any(|t| t.token
+            == "*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1f"
+            && t.status == TokenValidationStatus::Validated));
+        assert!(known_tokens
+            .iter()
+            .any(|t| t.token == "*:production.abcdef1234567890"
+                && t.status == TokenValidationStatus::Invalid));
+    }
+
+    #[tokio::test]
+    pub async fn tokens_with_wrong_format_is_not_included() {
+        let test_provider = Arc::new(RwLock::new(MemoryProvider::default()));
+        let source = Arc::new(SourceFacade {
+            features_refresh_interval: Some(Duration::seconds(1)),
+            feature_source: test_provider.clone(),
+            token_source: test_provider.clone(),
+        });
+
+        let sink = Arc::new(SinkFacade {
+            feature_sink: test_provider.clone(),
+            token_sink: test_provider.clone(),
+        });
+
+        let srv = test_validation_server().await;
+        let unleash_client =
+            crate::http::unleash_client::UnleashClient::new(srv.url("/").as_str(), None)
+                .expect("Couldn't build client");
+        let mut validation_holder = super::TokenValidator {
+            unleash_client: Arc::new(unleash_client),
+            edge_source: source,
+            edge_sink: sink,
+        };
+        let invalid_tokens = vec!["jamesbond".into(), "invalidtoken".into()];
+        let validated_tokens = validation_holder.register_tokens(invalid_tokens).await;
+        assert!(validated_tokens.is_err());
     }
 }

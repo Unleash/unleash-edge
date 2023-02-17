@@ -238,15 +238,15 @@ pub trait FeatureSource {
 
 #[async_trait]
 pub trait TokenSource {
-    async fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>>;
+    async fn get_tokens(&self) -> EdgeResult<Vec<EdgeToken>>;
     async fn get_valid_tokens(&self) -> EdgeResult<Vec<EdgeToken>>;
-    async fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>>;
+    async fn get_token(&self, secret: String) -> EdgeResult<Option<EdgeToken>>;
     async fn filter_valid_tokens(&self, tokens: Vec<String>) -> EdgeResult<Vec<EdgeToken>>;
-    async fn get_tokens_due_for_refresh(&self) -> EdgeResult<Vec<FeatureRefresh>>;
+    async fn get_tokens_due_for_refresh(&self) -> EdgeResult<Vec<TokenRefresh>>;
 }
 
 #[derive(Clone, Deserialize, Serialize)]
-pub struct FeatureRefresh {
+pub struct TokenRefresh {
     pub token: EdgeToken,
     #[serde(
         deserialize_with = "deserialize_entity_tag",
@@ -257,7 +257,7 @@ pub struct FeatureRefresh {
     pub last_check: Option<DateTime<Utc>>,
 }
 
-impl FeatureRefresh {
+impl TokenRefresh {
     pub fn new(token: EdgeToken) -> Self {
         Self {
             token,
@@ -268,7 +268,7 @@ impl FeatureRefresh {
     }
 }
 
-impl fmt::Debug for FeatureRefresh {
+impl fmt::Debug for TokenRefresh {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("FeatureRefresh")
             .field("token", &"***")
@@ -307,9 +307,9 @@ pub trait FeatureSink {
         &self,
         token: &EdgeToken,
         features: ClientFeatures,
-        etag: Option<EntityTag>,
     ) -> EdgeResult<()>;
     async fn update_last_check(&self, token: &EdgeToken) -> EdgeResult<()>;
+    async fn update_last_refresh(&self, token: &EdgeToken, etag: Option<EntityTag>) -> EdgeResult<()>;
 }
 
 pub fn into_entity_tag(client_features: ClientFeatures) -> Option<EntityTag> {

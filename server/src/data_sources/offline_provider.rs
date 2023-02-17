@@ -1,6 +1,6 @@
 use crate::error::EdgeError;
 use crate::types::{
-    EdgeResult, EdgeSource, EdgeToken, FeatureRefresh, FeatureSource, TokenSource,
+    EdgeResult, EdgeSource, EdgeToken, TokenRefresh, FeatureSource, TokenSource,
     TokenValidationStatus,
 };
 use async_trait::async_trait;
@@ -27,7 +27,7 @@ impl FeatureSource for OfflineProvider {
 
 #[async_trait]
 impl TokenSource for OfflineProvider {
-    async fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
+    async fn get_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
         Ok(self.valid_tokens.values().cloned().collect())
     }
 
@@ -40,7 +40,7 @@ impl TokenSource for OfflineProvider {
             .collect())
     }
 
-    async fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>> {
+    async fn get_token(&self, secret: String) -> EdgeResult<Option<EdgeToken>> {
         Ok(self.valid_tokens.get(&secret).cloned())
     }
 
@@ -53,7 +53,7 @@ impl TokenSource for OfflineProvider {
             .map(|(_k, t)| t)
             .collect())
     }
-    async fn get_tokens_due_for_refresh(&self) -> EdgeResult<Vec<FeatureRefresh>> {
+    async fn get_tokens_due_for_refresh(&self) -> EdgeResult<Vec<TokenRefresh>> {
         Ok(vec![])
     }
 }
@@ -89,19 +89,18 @@ impl OfflineProvider {
     }
 }
 
-
 #[async_trait]
 impl DataSource for OfflineProvider {
-    async fn get_tokens(&self) -> EdgeResult<Vec<EdgeToken>>{
+    async fn get_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
         todo!()
     }
-    async fn get_token(&self, secret: &str) -> EdgeResult<Option<EdgeToken>>{
+    async fn get_token(&self, secret: &str) -> EdgeResult<Option<EdgeToken>> {
         todo!()
     }
-    async fn get_tokens_due_for_refresh(&self) -> EdgeResult<Vec<FeatureRefresh>>{
+    async fn get_refresh_tokens(&self) -> EdgeResult<Vec<TokenRefresh>> {
         todo!()
     }
-    async fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<Option<ClientFeatures>>{
+    async fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<Option<ClientFeatures>> {
         todo!()
     }
 }

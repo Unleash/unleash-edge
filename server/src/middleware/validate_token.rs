@@ -15,7 +15,7 @@ pub async fn validate_token(
 ) -> Result<ServiceResponse<impl MessageBody>, actix_web::Error> {
     let maybe_validator = req.app_data::<Data<RwLock<TokenValidator>>>();
     let source = req
-        .app_data::<Data<RwLock<dyn EdgeSource>>>()
+        .app_data::<Data<dyn EdgeSource>>()
         .unwrap()
         .clone()
         .into_inner();
@@ -59,7 +59,7 @@ pub async fn validate_token(
             Ok(res)
         }
         None => {
-            let res = match source.read().await.token_details(token.token).await? {
+            let res = match source.get_token(token.token).await? {
                 Some(_) => srv.call(req).await?.map_into_left_body(),
                 None => req
                     .into_response(HttpResponse::Forbidden().finish())

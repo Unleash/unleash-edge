@@ -1,10 +1,9 @@
 use std::collections::HashMap;
 
-use crate::types::FeatureRefresh;
+use crate::types::TokenRefresh;
 use crate::types::{EdgeResult, EdgeToken};
 use actix_web::http::header::EntityTag;
 use async_trait::async_trait;
-use chrono::{Duration, Utc};
 use dashmap::DashMap;
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::Merge;
@@ -13,48 +12,28 @@ use super::repository::{DataSink, DataSource};
 
 #[derive(Debug, Clone)]
 pub struct MemoryProvider {
-    features_refresh_interval: Duration,
     data_store: DashMap<String, ClientFeatures>,
     token_store: HashMap<String, EdgeToken>,
-    tokens_to_refresh: HashMap<String, FeatureRefresh>,
+    tokens_to_refresh: HashMap<String, TokenRefresh>,
 }
 
-fn key(key: &EdgeToken) -> String {
-    key.environment.clone().unwrap()
+fn key(token: &EdgeToken) -> String {
+    token.environment.clone().unwrap()
 }
 
 impl Default for MemoryProvider {
     fn default() -> Self {
-        Self::new(10)
+        Self::new()
     }
 }
 
 impl MemoryProvider {
-    pub fn new(features_refresh_interval_seconds: i64) -> Self {
+    pub fn new() -> Self {
         Self {
-            features_refresh_interval: Duration::seconds(features_refresh_interval_seconds),
             data_store: DashMap::new(),
             token_store: HashMap::new(),
             tokens_to_refresh: HashMap::new(),
         }
-    }
-
-    // TODO: Do we need this? Does this belong in DataSink instead?
-    // fn update_last_check(&self, token: &EdgeToken) {
-    //     self.tokens_to_refresh
-    //         .entry(token.token.clone())
-    //         .and_modify(|f| f.last_check = Some(Utc::now()));
-    // }
-
-    fn reduce_tokens_to_refresh(&self) {
-        let tokens: Vec<EdgeToken> = self
-            .tokens_to_refresh
-            .values()
-            .map(|r| r.token.clone())
-            .collect();
-        let minimized = crate::tokens::simplify(&tokens);
-        self.tokens_to_refresh.clone()
-            .retain(|k, _| minimized.iter().any(|m| &m.token == k));
     }
 }
 
@@ -68,18 +47,8 @@ impl DataSource for MemoryProvider {
         Ok(self.token_store.get(secret).cloned())
     }
 
-    async fn get_tokens_due_for_refresh(&self) -> EdgeResult<Vec<FeatureRefresh>> {
-        Ok(self
-            .tokens_to_refresh
-            .values()
-            .filter(|token| {
-                token
-                    .last_check
-                    .map(|last| Utc::now() - last > self.features_refresh_interval)
-                    .unwrap_or(true)
-            })
-            .cloned()
-            .collect())
+    async fn get_refresh_tokens(&self) -> EdgeResult<Vec<TokenRefresh>> {
+        Ok(self.tokens_to_refresh.values().cloned().collect())
     }
 
     async fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<Option<ClientFeatures>> {
@@ -92,13 +61,16 @@ impl DataSink for MemoryProvider {
     async fn sink_tokens(&mut self, tokens: Vec<EdgeToken>) -> EdgeResult<()> {
         for token in tokens {
             self.token_store.insert(token.token.clone(), token.clone());
-            if token.token_type == Some(crate::types::TokenType::Client) {
-                self.tokens_to_refresh
-                    .entry(token.clone().token)
-                    .or_insert(FeatureRefresh::new(token.clone()));
-            }
         }
-        self.reduce_tokens_to_refresh();
+        Ok(())
+    }
+
+    async fn sink_refresh_tokens(&mut self, tokens: Vec<&TokenRefresh>) -> EdgeResult<()> {
+        for token in tokens {
+            self.tokens_to_refresh
+                .entry(token.token.token.clone())
+                .or_insert(token.clone());
+        }
         Ok(())
     }
 
@@ -106,21 +78,7 @@ impl DataSink for MemoryProvider {
         &mut self,
         token: &EdgeToken,
         features: ClientFeatures,
-        etag: Option<EntityTag>,
     ) -> EdgeResult<()> {
-        self.tokens_to_refresh.clone()
-            .entry(token.token.clone())
-            .and_modify(|feature_refresh| {
-                feature_refresh.etag = etag.clone();
-                feature_refresh.last_refreshed = Some(Utc::now());
-                feature_refresh.last_check = Some(Utc::now());
-            })
-            .or_insert(FeatureRefresh {
-                token: token.clone(),
-                etag,
-                last_refreshed: Some(Utc::now()),
-                last_check: Some(Utc::now()),
-            });
         self.data_store
             .entry(key(token))
             .and_modify(|data| {
@@ -129,11 +87,26 @@ impl DataSink for MemoryProvider {
             .or_insert(features);
         Ok(())
     }
+
+    async fn update_last_check(&mut self, token: &EdgeToken) -> EdgeResult<()> {
+        if let Some(token) = self.tokens_to_refresh.get_mut(&token.token) {
+            token.last_check = Some(chrono::Utc::now());
+        }
+        Ok(())
+    }
+
+    async fn update_last_refresh(&mut self, token: &EdgeToken, etag: Option<EntityTag>) -> EdgeResult<()> {
+        if let Some(token) = self.tokens_to_refresh.get_mut(&token.token) {
+            token.last_check = Some(chrono::Utc::now());
+            token.last_refreshed = Some(chrono::Utc::now());
+            token.etag = etag;
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::types::TokenType;
     use crate::types::TokenValidationStatus;
 
     use super::*;
@@ -141,15 +114,23 @@ mod tests {
     #[tokio::test]
     async fn memory_provider_correctly_deduplicates_tokens() {
         let mut provider = MemoryProvider::default();
-        provider.sink_tokens(vec![EdgeToken {
-            token: "*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1f".into(),
-            ..EdgeToken::default()
-        }]);
+        provider
+            .sink_tokens(vec![EdgeToken {
+                token: "*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1f"
+                    .into(),
+                ..EdgeToken::default()
+            }])
+            .await
+            .unwrap();
 
-        provider.sink_tokens(vec![EdgeToken {
-            token: "*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1f".into(),
-            ..EdgeToken::default()
-        }]);
+        provider
+            .sink_tokens(vec![EdgeToken {
+                token: "*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1f"
+                    .into(),
+                ..EdgeToken::default()
+            }])
+            .await
+            .unwrap();
 
         assert!(provider.get_tokens().await.unwrap().len() == 1);
     }
@@ -157,11 +138,15 @@ mod tests {
     #[tokio::test]
     async fn memory_provider_correctly_determines_token_to_be_valid() {
         let mut provider = MemoryProvider::default();
-        provider.sink_tokens(vec![EdgeToken {
-            token: "*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1f".into(),
-            status: TokenValidationStatus::Validated,
-            ..EdgeToken::default()
-        }]);
+        provider
+            .sink_tokens(vec![EdgeToken {
+                token: "*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1f"
+                    .into(),
+                status: TokenValidationStatus::Validated,
+                ..EdgeToken::default()
+            }])
+            .await
+            .unwrap();
 
         assert_eq!(
             provider
@@ -360,25 +345,4 @@ mod tests {
     //     assert!(first_feature.name == *"James Bond");
     //     assert!(second_feature.name == *"Jason Bourne");
     // }
-
-    #[tokio::test]
-    pub async fn can_minimize_tokens_to_check() {
-        let mut memory_provider = MemoryProvider::default();
-        let mut token_for_default_project =
-            EdgeToken::try_from("default:development.1234567890123456".to_string()).unwrap();
-        token_for_default_project.token_type = Some(TokenType::Client);
-        let mut token_for_test_project =
-            EdgeToken::try_from("test:development.abcdefghijklmnopqerst".to_string()).unwrap();
-        token_for_test_project.token_type = Some(TokenType::Client);
-        memory_provider.sink_tokens(vec![token_for_test_project, token_for_default_project]);
-        assert_eq!(memory_provider.tokens_to_refresh.len(), 2);
-        let mut wildcard_development_token =
-            EdgeToken::try_from("*:development.12321jwewhrkvkjewlrkjwqlkrjw".to_string()).unwrap();
-        wildcard_development_token.token_type = Some(TokenType::Client);
-        memory_provider.sink_tokens(vec![wildcard_development_token.clone()]);
-        assert_eq!(memory_provider.tokens_to_refresh.len(), 1);
-        assert!(memory_provider
-            .tokens_to_refresh
-            .contains_key(&wildcard_development_token.token));
-    }
 }
