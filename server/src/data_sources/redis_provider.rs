@@ -82,8 +82,14 @@ impl DataSource for RedisProvider {
 impl DataSink for RedisProvider {
     async fn sink_tokens(&mut self, tokens: Vec<EdgeToken>) -> EdgeResult<()> {
         let mut client = self.redis_client.write().await;
-        let raw_stored_tokens: String = client.get(TOKENS_KEY)?;
-        let mut stored_tokens = serde_json::from_str::<Vec<EdgeToken>>(&raw_stored_tokens).unwrap_or(vec![]);
+        let raw_stored_tokens: Option<String> = client.get(TOKENS_KEY)?;
+
+        let mut stored_tokens = match raw_stored_tokens {
+            Some(raw_stored_tokens) => {
+                serde_json::from_str::<Vec<EdgeToken>>(&raw_stored_tokens)?
+            }
+            None => vec![],
+        };
 
         for token in tokens {
             stored_tokens.push(token);
@@ -97,29 +103,43 @@ impl DataSink for RedisProvider {
 
     async fn sink_refresh_tokens(&mut self, tokens: Vec<&TokenRefresh>) -> EdgeResult<()> {
         let mut client = self.redis_client.write().await;
-        let raw_refresh_tokens: String = client.get(REFRESH_TOKENS_KEY)?;
-        let mut refresh_tokens =
-            serde_json::from_str::<Vec<TokenRefresh>>(&raw_refresh_tokens).unwrap_or(vec![]);
+        let raw_refresh_tokens: Option<String> = client.get(REFRESH_TOKENS_KEY)?;
+
+        let mut refresh_tokens = match raw_refresh_tokens {
+            Some(raw_refresh_tokens) => {
+                serde_json::from_str::<Vec<TokenRefresh>>(&raw_refresh_tokens)?
+            }
+            None => vec![],
+        };
 
         for token in tokens {
-            if !refresh_tokens.iter().any(|t| t.token.token == token.token.token) {
+            if !refresh_tokens
+                .iter()
+                .any(|t| t.token.token == token.token.token)
+            {
                 refresh_tokens.push(token.clone());
             }
         }
 
+        let serialized_refresh_tokens = serde_json::to_string(&refresh_tokens)?;
+        client.set(REFRESH_TOKENS_KEY, serialized_refresh_tokens)?;
+
         Ok(())
     }
+
     async fn sink_features(
         &mut self,
         token: &EdgeToken,
         features: ClientFeatures,
     ) -> EdgeResult<()> {
         let mut client = self.redis_client.write().await;
-        let raw_stored_features: String = client.get(key(token))?;
-        let stored_features = serde_json::from_str::<ClientFeatures>(&raw_stored_features).ok();
+        let raw_stored_features: Option<String> = client.get(key(token))?;
 
-        let features_to_store = match stored_features {
-            Some(f) => f.merge(features),
+        let features_to_store = match raw_stored_features {
+            Some(raw_stored_features) => {
+                let stored_features = serde_json::from_str::<ClientFeatures>(&raw_stored_features)?;
+                stored_features.merge(features)
+            }
             None => features,
         };
 
@@ -129,110 +149,57 @@ impl DataSink for RedisProvider {
         Ok(())
     }
 
-    async fn update_last_check(&mut self, token: &EdgeToken) -> EdgeResult<()>{
+    async fn update_last_check(&mut self, token: &EdgeToken) -> EdgeResult<()> {
         let mut client = self.redis_client.write().await;
-        let raw_refresh_tokens: String = client.get(REFRESH_TOKENS_KEY)?;
-        let mut refresh_tokens =
-            serde_json::from_str::<Vec<TokenRefresh>>(&raw_refresh_tokens).unwrap_or(vec![]);
+        let raw_refresh_tokens: Option<String> = client.get(REFRESH_TOKENS_KEY)?;
 
-        if let Some(token) = refresh_tokens.iter_mut().find(|t| t.token.token == token.token) {
+        let mut refresh_tokens = match raw_refresh_tokens {
+            Some(raw_refresh_tokens) => {
+                serde_json::from_str::<Vec<TokenRefresh>>(&raw_refresh_tokens)?
+            }
+            None => vec![],
+        };
+
+        if let Some(token) = refresh_tokens
+            .iter_mut()
+            .find(|t| t.token.token == token.token)
+        {
             token.last_check = Some(chrono::Utc::now());
         }
+
+        let serialized_refresh_tokens = serde_json::to_string(&refresh_tokens)?;
+        client.set(REFRESH_TOKENS_KEY, serialized_refresh_tokens)?;
 
         Ok(())
     }
 
-    async fn update_last_refresh(&mut self, token: &EdgeToken, etag: Option<EntityTag>) -> EdgeResult<()> {
+    async fn update_last_refresh(
+        &mut self,
+        token: &EdgeToken,
+        etag: Option<EntityTag>,
+    ) -> EdgeResult<()> {
         let mut client = self.redis_client.write().await;
-        let raw_refresh_tokens: String = client.get(REFRESH_TOKENS_KEY)?;
-        let mut refresh_tokens =
-            serde_json::from_str::<Vec<TokenRefresh>>(&raw_refresh_tokens).unwrap_or(vec![]);
+        let raw_refresh_tokens: Option<String> = client.get(REFRESH_TOKENS_KEY)?;
 
-        if let Some(token) = refresh_tokens.iter_mut().find(|t| t.token.token == token.token) {
+        let mut refresh_tokens = match raw_refresh_tokens {
+            Some(raw_refresh_tokens) => {
+                serde_json::from_str::<Vec<TokenRefresh>>(&raw_refresh_tokens)?
+            }
+            None => vec![],
+        };
+
+        if let Some(token) = refresh_tokens
+            .iter_mut()
+            .find(|t| t.token.token == token.token)
+        {
             token.last_check = Some(chrono::Utc::now());
             token.last_refreshed = Some(chrono::Utc::now());
             token.etag = etag;
         }
 
+        let serialized_refresh_tokens = serde_json::to_string(&refresh_tokens)?;
+        client.set(REFRESH_TOKENS_KEY, serialized_refresh_tokens)?;
+
         Ok(())
     }
-
-    // async fn sink_tokens(&self, tokens: Vec<EdgeToken>) -> EdgeResult<()> {
-    //     let mut client = self.redis_client.write().await;
-    //     let raw_tokens: String = client.get(TOKENS_KEY)?;
-    //     let raw_refresh_tokens: String = client.get(REFRESH_TOKENS_KEY)?;
-    //     let tokens = serde_json::from_str::<Vec<EdgeToken>>(&raw_tokens).unwrap_or(vec![]);
-    //     let refresh_tokens =
-    //         serde_json::from_str::<Vec<FeatureRefresh>>(&raw_refresh_tokens).unwrap_or(vec![]);
-
-    //     for token in tokens {
-    //         tokens.push(token);
-    //         if token.token_type == Some(crate::types::TokenType::Client)
-    //             && !refresh_tokens.iter().any(|t| t.token.token == token.token)
-    //         {
-    //             refresh_tokens.push(FeatureRefresh::new(token.clone()));
-    //         }
-    //     }
-
-    //     let refresh_tokens_tokens: Vec<EdgeToken> = refresh_tokens
-    //         .into_iter()
-    //         .map(|r| r.token.clone())
-    //         .collect();
-    //     let minimized_tokens = crate::tokens::simplify(&refresh_tokens_tokens);
-    //     refresh_tokens.retain(|refresh_token| {
-    //         minimized_tokens
-    //             .iter()
-    //             .any(|minimized_token| minimized_token.token == refresh_token.token.token)
-    //     });
-
-    //     let serialized_tokens = serde_json::to_string(&tokens)?;
-    //     let serialized_refresh_tokens = serde_json::to_string(&refresh_tokens)?;
-
-    //     client.set(TOKENS_KEY, serialized_tokens)?;
-    //     client.set(REFRESH_TOKENS_KEY, serialized_refresh_tokens)?;
-
-    //     Ok(())
-    // }
-
-    // async fn sink_features(
-    //     &self,
-    //     token: &EdgeToken,
-    //     features: ClientFeatures,
-    //     etag: Option<EntityTag>,
-    // ) -> EdgeResult<()> {
-    //     let mut client = self.redis_client.write().await;
-    //     let raw_refresh_tokens: String = client.get(REFRESH_TOKENS_KEY)?;
-    //     let refresh_tokens =
-    //         serde_json::from_str::<Vec<FeatureRefresh>>(&raw_refresh_tokens).unwrap_or(vec![]);
-    //     let raw_stored_features: String = client.get(key(token))?;
-    //     let stored_features = serde_json::from_str::<ClientFeatures>(&raw_stored_features).ok();
-
-    //     if let mut feature_refresh = refresh_tokens
-    //         .into_iter()
-    //         .find(|t| t.token.token == token.token)
-    //     {
-    //         feature_refresh.unwrap().etag = etag.clone();
-    //         feature_refresh.unwrap().last_refreshed = Some(Utc::now());
-    //         feature_refresh.unwrap().last_check = Some(Utc::now());
-    //     } else {
-    //         refresh_tokens.push(FeatureRefresh {
-    //             token: token.clone(),
-    //             etag,
-    //             last_refreshed: Some(Utc::now()),
-    //             last_check: Some(Utc::now()),
-    //         });
-    //     }
-
-    //     let features_to_store = match stored_features {
-    //         Some(f) => f.merge(features),
-    //         None => features,
-    //     };
-
-    //     let serialized_refresh_tokens = serde_json::to_string(&refresh_tokens)?;
-    //     let serialized_features_to_store = serde_json::to_string(&features_to_store)?;
-
-    //     client.set(REFRESH_TOKENS_KEY, serialized_refresh_tokens)?;
-    //     client.set(key(token), serialized_features_to_store)?;
-
-    //     Ok(())
 }
