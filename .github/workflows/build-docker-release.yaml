@@ -14,7 +14,7 @@ on:
 
 jobs:
   dockerpublish:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -25,6 +25,8 @@ jobs:
           rustup show
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: "rust-v0-gnu"
       - name: Install cross (cross compile)
         run: |
           cargo install cross
