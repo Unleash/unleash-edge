@@ -35,20 +35,16 @@ impl ProjectFilter<ClientFeature> for Vec<ClientFeature> {
 }
 
 #[derive(Clone)]
-pub struct SourceFacade {
+pub struct DataSourceFacade {
     pub(crate) features_refresh_interval: Option<Duration>,
     pub(crate) token_source: Arc<RwLock<dyn DataSource>>,
     pub(crate) feature_source: Arc<RwLock<dyn DataSource>>,
-}
-
-#[derive(Clone)]
-pub struct SinkFacade {
     pub token_sink: Arc<RwLock<dyn DataSink>>,
     pub feature_sink: Arc<RwLock<dyn DataSink>>,
 }
 
-impl EdgeSource for SourceFacade {}
-impl EdgeSink for SinkFacade {}
+impl EdgeSource for DataSourceFacade {}
+impl EdgeSink for DataSourceFacade {}
 
 #[async_trait]
 pub trait DataSource: Send + Sync {
@@ -76,7 +72,7 @@ pub trait DataSink: Send + Sync {
 }
 
 #[async_trait]
-impl TokenSource for SourceFacade {
+impl TokenSource for DataSourceFacade {
     async fn get_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
         let lock = self.token_source.read().await;
         lock.get_tokens().await
@@ -126,7 +122,7 @@ impl TokenSource for SourceFacade {
 }
 
 #[async_trait]
-impl FeatureSource for SourceFacade {
+impl FeatureSource for DataSourceFacade {
     async fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<ClientFeatures> {
         let token = self
             .get_token(token.token.clone())
@@ -151,7 +147,7 @@ impl FeatureSource for SourceFacade {
 }
 
 #[async_trait]
-impl TokenSink for SinkFacade {
+impl TokenSink for DataSourceFacade {
     async fn sink_tokens(&self, tokens: Vec<EdgeToken>) -> EdgeResult<()> {
         let mut lock = self.token_sink.write().await;
         lock.sink_tokens(tokens.clone()).await?;
@@ -169,7 +165,7 @@ impl TokenSink for SinkFacade {
 }
 
 #[async_trait]
-impl FeatureSink for SinkFacade {
+impl FeatureSink for DataSourceFacade {
     async fn sink_features(&self, token: &EdgeToken, features: ClientFeatures) -> EdgeResult<()> {
         let mut lock = self.feature_sink.write().await;
 
@@ -204,25 +200,24 @@ mod tests {
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
     use crate::{
-        client_api::features,
         data_sources::memory_provider::MemoryProvider,
         types::{EdgeResult, EdgeSink, EdgeSource, EdgeToken, TokenType, TokenValidationStatus},
     };
 
-    use super::{SinkFacade, SourceFacade};
+    use super::DataSourceFacade;
 
     fn build_data_source() -> EdgeResult<(Arc<dyn EdgeSource>, Arc<dyn EdgeSink>)> {
-        // It would be really nice if we could run all these tests against all the data sources automagically
         let data_store = Arc::new(RwLock::new(MemoryProvider::new()));
-        let source: Arc<dyn EdgeSource> = Arc::new(SourceFacade {
+        let facade = Arc::new(DataSourceFacade {
             token_source: data_store.clone(),
             feature_source: data_store.clone(),
-            features_refresh_interval: Some(Duration::minutes(1)),
-        });
-        let sink: Arc<dyn EdgeSink> = Arc::new(SinkFacade {
             token_sink: data_store.clone(),
             feature_sink: data_store.clone(),
+            features_refresh_interval: Some(Duration::minutes(1)),
         });
+        let source: Arc<dyn EdgeSource> = facade.clone();
+        let sink: Arc<dyn EdgeSink> = facade.clone();
+
         Ok((source, sink))
     }
 

@@ -13,7 +13,7 @@ use crate::{
 
 use super::{
     memory_provider::MemoryProvider, offline_provider::OfflineProvider,
-    redis_provider::RedisProvider, repository::SinkFacade, repository::SourceFacade,
+    redis_provider::RedisProvider, repository::DataSourceFacade,
 };
 
 pub type DataProviderPair = (Arc<dyn EdgeSource>, Arc<dyn EdgeSink>);
@@ -34,30 +34,24 @@ fn build_offline(offline_args: OfflineArgs) -> EdgeResult<Arc<dyn EdgeSource>> {
     let provider =
         OfflineProvider::instantiate_provider(offline_args.bootstrap_file, offline_args.tokens)?;
 
-    let token_source = Arc::new(RwLock::new(provider.clone()));
-    let feature_source = Arc::new(RwLock::new(provider.clone()));
-
-    let facade = Arc::new(SourceFacade {
-        features_refresh_interval: None,
-        token_source,
-        feature_source,
-    });
-
-    Ok(facade)
+    let source: Arc<dyn EdgeSource> = Arc::new(provider.clone());
+    Ok(source)
 }
 
 fn build_memory(features_refresh_interval_seconds: Duration) -> EdgeResult<DataProviderPair> {
     let data_source = Arc::new(RwLock::new(MemoryProvider::new()));
-    let source_facade = Arc::new(SourceFacade {
+    let facade = Arc::new(DataSourceFacade {
         features_refresh_interval: Some(features_refresh_interval_seconds),
         token_source: data_source.clone(),
         feature_source: data_source.clone(),
-    });
-    let sink_facade = Arc::new(SinkFacade {
         token_sink: data_source.clone(),
         feature_sink: data_source.clone(),
     });
-    Ok((source_facade, sink_facade))
+
+    let edge_source: Arc<dyn EdgeSource> = facade.clone();
+    let edge_sink: Arc<dyn EdgeSink> = facade.clone();
+
+    Ok((edge_source, edge_sink))
 }
 
 fn build_redis(
@@ -65,16 +59,18 @@ fn build_redis(
     features_refresh_interval_seconds: Duration,
 ) -> EdgeResult<DataProviderPair> {
     let data_source = Arc::new(RwLock::new(RedisProvider::new(&redis_url)?));
-    let source_facade = Arc::new(SourceFacade {
+    let facade = Arc::new(DataSourceFacade {
         token_source: data_source.clone(),
         feature_source: data_source.clone(),
-        features_refresh_interval: Some(features_refresh_interval_seconds),
-    });
-    let sink_facade = Arc::new(SinkFacade {
         token_sink: data_source.clone(),
         feature_sink: data_source.clone(),
+        features_refresh_interval: Some(features_refresh_interval_seconds),
     });
-    Ok((source_facade, sink_facade))
+
+    let edge_source: Arc<dyn EdgeSource> = facade.clone();
+    let edge_sink: Arc<dyn EdgeSink> = facade.clone();
+
+    Ok((edge_source, edge_sink))
 }
 
 pub async fn build_source_and_sink(args: CliArgs) -> EdgeResult<RepositoryInfo> {

@@ -84,8 +84,8 @@ impl TokenValidator {
 #[cfg(test)]
 mod tests {
     use crate::data_sources::memory_provider::MemoryProvider;
-    use crate::data_sources::repository::{DataSource, SinkFacade, SourceFacade};
-    use crate::types::{EdgeToken, TokenType, TokenValidationStatus};
+    use crate::data_sources::repository::{DataSource, DataSourceFacade};
+    use crate::types::{EdgeSink, EdgeSource, EdgeToken, TokenType, TokenValidationStatus};
     use actix_http::HttpService;
     use actix_http_test::{test_server, TestServer};
     use actix_service::map_config;
@@ -133,16 +133,16 @@ mod tests {
     #[tokio::test]
     pub async fn can_validate_tokens() {
         let test_provider = Arc::new(RwLock::new(MemoryProvider::default()));
-        let source = Arc::new(SourceFacade {
+        let facade = Arc::new(DataSourceFacade {
             features_refresh_interval: Some(Duration::seconds(1)),
             token_source: test_provider.clone(),
             feature_source: test_provider.clone(),
-        });
-
-        let sink = Arc::new(SinkFacade {
             feature_sink: test_provider.clone(),
             token_sink: test_provider.clone(),
         });
+
+        let sink: Arc<dyn EdgeSink> = facade.clone();
+        let source: Arc<dyn EdgeSource> = facade.clone();
 
         let srv = test_validation_server().await;
         let unleash_client =
@@ -181,16 +181,15 @@ mod tests {
     #[tokio::test]
     pub async fn tokens_with_wrong_format_is_not_included() {
         let test_provider = Arc::new(RwLock::new(MemoryProvider::default()));
-        let source = Arc::new(SourceFacade {
+        let facade = Arc::new(DataSourceFacade {
             features_refresh_interval: Some(Duration::seconds(1)),
             feature_source: test_provider.clone(),
             token_source: test_provider.clone(),
-        });
-
-        let sink = Arc::new(SinkFacade {
             feature_sink: test_provider.clone(),
             token_sink: test_provider.clone(),
         });
+        let sink: Arc<dyn EdgeSink> = facade.clone();
+        let source: Arc<dyn EdgeSource> = facade.clone();
 
         let srv = test_validation_server().await;
         let unleash_client =
