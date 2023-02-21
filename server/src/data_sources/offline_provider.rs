@@ -1,6 +1,6 @@
 use crate::error::EdgeError;
 use crate::types::{
-    EdgeResult, EdgeSource, EdgeToken, FeatureRefresh, FeaturesSource, TokenSource,
+    EdgeResult, EdgeSource, EdgeToken, FeatureSource, TokenRefresh, TokenSource,
     TokenValidationStatus,
 };
 use async_trait::async_trait;
@@ -17,7 +17,7 @@ pub struct OfflineProvider {
 }
 
 #[async_trait]
-impl FeaturesSource for OfflineProvider {
+impl FeatureSource for OfflineProvider {
     async fn get_client_features(&self, _: &EdgeToken) -> Result<ClientFeatures, EdgeError> {
         Ok(self.features.clone())
     }
@@ -25,7 +25,7 @@ impl FeaturesSource for OfflineProvider {
 
 #[async_trait]
 impl TokenSource for OfflineProvider {
-    async fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
+    async fn get_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
         Ok(self.valid_tokens.values().cloned().collect())
     }
 
@@ -38,9 +38,10 @@ impl TokenSource for OfflineProvider {
             .collect())
     }
 
-    async fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>> {
+    async fn get_token(&self, secret: String) -> EdgeResult<Option<EdgeToken>> {
         Ok(self.valid_tokens.get(&secret).cloned())
     }
+
     async fn filter_valid_tokens(&self, secrets: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
         Ok(self
             .valid_tokens
@@ -50,7 +51,7 @@ impl TokenSource for OfflineProvider {
             .map(|(_k, t)| t)
             .collect())
     }
-    async fn get_tokens_due_for_refresh(&self) -> EdgeResult<Vec<FeatureRefresh>> {
+    async fn get_tokens_due_for_refresh(&self) -> EdgeResult<Vec<TokenRefresh>> {
         Ok(vec![])
     }
 }

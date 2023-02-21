@@ -1,26 +1,23 @@
+use std::sync::Arc;
+
 use actix_web::http::header::EntityTag;
 use async_trait::async_trait;
-use redis::AsyncCommands;
 use redis::{Client, Commands, RedisError};
 use tokio::sync::RwLock;
-use unleash_types::client_features::{ClientFeature, ClientFeatures};
+use unleash_types::client_features::ClientFeatures;
 use unleash_types::Merge;
 
-pub const FEATURE_PREFIX: &str = "unleash-feature-namespace:";
-pub const TOKENS_KEY: &str = "unleash-token-namespace:";
+pub const FEATURE_PREFIX: &str = "unleash-features";
+pub const TOKENS_KEY: &str = "unleash-tokens";
+pub const REFRESH_TOKENS_KEY: &str = "unleash-refresh-tokens";
 
-use crate::types::{FeatureRefresh, TokenValidationStatus};
+use crate::types::TokenRefresh;
 use crate::{
     error::EdgeError,
-    types::{
-        EdgeResult, EdgeSink, EdgeSource, EdgeToken, FeatureSink, FeaturesSource, TokenSink,
-        TokenSource,
-    },
+    types::{EdgeResult, EdgeToken},
 };
 
-pub struct RedisProvider {
-    redis_client: RwLock<Client>,
-}
+use super::repository::{DataSink, DataSource};
 
 impl From<RedisError> for EdgeError {
     fn from(err: RedisError) -> Self {
@@ -28,125 +25,162 @@ impl From<RedisError> for EdgeError {
     }
 }
 
+pub struct RedisProvider {
+    redis_client: Arc<RwLock<Client>>,
+}
+
+fn key(token: &EdgeToken) -> String {
+    let environment = token.environment.clone().unwrap();
+    format!("{FEATURE_PREFIX}:{environment}")
+}
+
 impl RedisProvider {
     pub fn new(url: &str) -> Result<RedisProvider, EdgeError> {
-        let client = redis::Client::open(url)?;
+        let client = Arc::new(RwLock::new(redis::Client::open(url)?));
+
         Ok(Self {
-            redis_client: RwLock::new(client),
+            redis_client: client,
         })
     }
 }
-impl EdgeSource for RedisProvider {}
-impl EdgeSink for RedisProvider {}
 
-fn build_features_key(token: &EdgeToken) -> String {
-    token
-        .environment
-        .as_ref()
-        .map(|environment| format!("{FEATURE_PREFIX}{environment}"))
-        .expect("Tying to resolve features for a token that hasn't been validated")
+#[async_trait]
+impl DataSource for RedisProvider {
+    async fn get_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
+        let mut client = self.redis_client.write().await;
+        let raw_tokens: String = client.get(TOKENS_KEY)?;
+        let tokens = serde_json::from_str::<Vec<EdgeToken>>(&raw_tokens)?;
+
+        Ok(tokens)
+    }
+
+    async fn get_token(&self, secret: &str) -> EdgeResult<Option<EdgeToken>> {
+        let tokens = self.get_tokens().await?;
+
+        Ok(tokens.into_iter().find(|t| t.token == secret))
+    }
+
+    async fn get_refresh_tokens(&self) -> EdgeResult<Vec<TokenRefresh>> {
+        let mut client = self.redis_client.write().await;
+        let raw_refresh_tokens: String = client.get(REFRESH_TOKENS_KEY)?;
+        let refresh_tokens = serde_json::from_str::<Vec<TokenRefresh>>(&raw_refresh_tokens)?;
+
+        Ok(refresh_tokens)
+    }
+
+    async fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<Option<ClientFeatures>> {
+        let mut client = self.redis_client.write().await;
+        let raw_features: String = client.get(key(token))?;
+        let features =
+            serde_json::from_str::<ClientFeatures>(&raw_features).map_err(EdgeError::from);
+
+        Ok(features.ok())
+    }
 }
 
 #[async_trait]
-impl FeatureSink for RedisProvider {
+impl DataSink for RedisProvider {
+    async fn sink_tokens(&mut self, tokens: Vec<EdgeToken>) -> EdgeResult<()> {
+        let mut client = self.redis_client.write().await;
+        let raw_stored_tokens: Option<String> = client.get(TOKENS_KEY)?;
+
+        let mut stored_tokens = match raw_stored_tokens {
+            Some(raw_stored_tokens) => serde_json::from_str::<Vec<EdgeToken>>(&raw_stored_tokens)?,
+            None => vec![],
+        };
+
+        for token in tokens {
+            stored_tokens.push(token);
+        }
+
+        let serialized_tokens = serde_json::to_string(&stored_tokens)?;
+        client.set(TOKENS_KEY, serialized_tokens)?;
+
+        Ok(())
+    }
+
+    async fn set_refresh_tokens(&mut self, tokens: Vec<&TokenRefresh>) -> EdgeResult<()> {
+        let mut client = self.redis_client.write().await;
+
+        let serialized_refresh_tokens = serde_json::to_string(&tokens)?;
+        client.set(REFRESH_TOKENS_KEY, serialized_refresh_tokens)?;
+
+        Ok(())
+    }
+
     async fn sink_features(
         &mut self,
         token: &EdgeToken,
         features: ClientFeatures,
-        _etag: Option<EntityTag>,
     ) -> EdgeResult<()> {
-        let mut lock = self.redis_client.write().await;
-        let mut con = lock.get_async_connection().await?;
+        let mut client = self.redis_client.write().await;
+        let raw_stored_features: Option<String> = client.get(key(token))?;
 
-        let key = build_features_key(token);
+        let features_to_store = match raw_stored_features {
+            Some(raw_stored_features) => {
+                let stored_features = serde_json::from_str::<ClientFeatures>(&raw_stored_features)?;
+                stored_features.merge(features)
+            }
+            None => features,
+        };
 
-        let features_to_store =
-            if let Some(stored_features) = con.get::<&str, Option<String>>(key.as_str()).await? {
-                let stored_features = serde_json::from_str::<ClientFeatures>(&stored_features)?;
-                stored_features.merge(features.clone())
-            } else {
-                features
-            };
-        let serialized_features = serde_json::to_string(&features_to_store)?;
-        let _: () = lock.set(key, serialized_features)?;
+        let serialized_features_to_store = serde_json::to_string(&features_to_store)?;
+        client.set(key(token), serialized_features_to_store)?;
+
         Ok(())
     }
 
-    async fn update_last_check(&mut self, _token: &EdgeToken) -> EdgeResult<()> {
-        todo!()
-    }
-}
-#[async_trait]
-impl TokenSink for RedisProvider {
-    async fn sink_tokens(&mut self, _tokens: Vec<EdgeToken>) -> EdgeResult<()> {
-        // let mut lock = self.redis_client.write().await;
-        // let tokens: String = lock.get(TOKENS_KEY)?;
-        // let tokens = serde_json::from_str::<Vec<EdgeToken>>(&tokens)?;
+    async fn update_last_check(&mut self, token: &EdgeToken) -> EdgeResult<()> {
+        let mut client = self.redis_client.write().await;
+        let raw_refresh_tokens: Option<String> = client.get(REFRESH_TOKENS_KEY)?;
+
+        let mut refresh_tokens = match raw_refresh_tokens {
+            Some(raw_refresh_tokens) => {
+                serde_json::from_str::<Vec<TokenRefresh>>(&raw_refresh_tokens)?
+            }
+            None => vec![],
+        };
+
+        if let Some(token) = refresh_tokens
+            .iter_mut()
+            .find(|t| t.token.token == token.token)
+        {
+            token.last_check = Some(chrono::Utc::now());
+        }
+
+        let serialized_refresh_tokens = serde_json::to_string(&refresh_tokens)?;
+        client.set(REFRESH_TOKENS_KEY, serialized_refresh_tokens)?;
+
         Ok(())
     }
-}
 
-#[async_trait]
-impl FeaturesSource for RedisProvider {
-    async fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<ClientFeatures> {
+    async fn update_last_refresh(
+        &mut self,
+        token: &EdgeToken,
+        etag: Option<EntityTag>,
+    ) -> EdgeResult<()> {
         let mut client = self.redis_client.write().await;
-        let client_features: String = client.get(build_features_key(token))?;
+        let raw_refresh_tokens: Option<String> = client.get(REFRESH_TOKENS_KEY)?;
 
-        let features =
-            serde_json::from_str::<ClientFeatures>(&client_features).map_err(EdgeError::from);
+        let mut refresh_tokens = match raw_refresh_tokens {
+            Some(raw_refresh_tokens) => {
+                serde_json::from_str::<Vec<TokenRefresh>>(&raw_refresh_tokens)?
+            }
+            None => vec![],
+        };
 
-        features.map(|features| ClientFeatures {
-            features: features
-                .features
-                .iter()
-                .filter(|feature| {
-                    if let Some(feature_project) = &feature.project {
-                        token.projects.contains(&"*".to_string())
-                            || token.projects.contains(feature_project)
-                    } else {
-                        false
-                    }
-                })
-                .cloned()
-                .collect::<Vec<ClientFeature>>(),
-            ..features.clone()
-        })
-    }
-}
+        if let Some(token) = refresh_tokens
+            .iter_mut()
+            .find(|t| t.token.token == token.token)
+        {
+            token.last_check = Some(chrono::Utc::now());
+            token.last_refreshed = Some(chrono::Utc::now());
+            token.etag = etag;
+        }
 
-#[async_trait]
-impl TokenSource for RedisProvider {
-    async fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
-        let mut client = self.redis_client.write().await;
+        let serialized_refresh_tokens = serde_json::to_string(&refresh_tokens)?;
+        client.set(REFRESH_TOKENS_KEY, serialized_refresh_tokens)?;
 
-        let tokens: String = client.get(TOKENS_KEY)?;
-
-        let raw_tokens = serde_json::from_str::<Vec<String>>(&tokens)?;
-
-        Ok(raw_tokens
-            .into_iter()
-            .map(EdgeToken::try_from)
-            .filter_map(|t| t.ok())
-            .collect())
-    }
-
-    async fn get_valid_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
-        let tokens = self.get_known_tokens().await?;
-        Ok(tokens
-            .into_iter()
-            .filter(|t| t.status == TokenValidationStatus::Validated)
-            .collect())
-    }
-
-    async fn filter_valid_tokens(&self, _secrets: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
-        todo!()
-    }
-
-    async fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>> {
-        let tokens = self.get_known_tokens().await?;
-        Ok(tokens.into_iter().find(|t| t.token == secret))
-    }
-    async fn get_tokens_due_for_refresh(&self) -> EdgeResult<Vec<FeatureRefresh>> {
-        todo!()
+        Ok(())
     }
 }

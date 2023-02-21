@@ -32,14 +32,10 @@ use crate::{
 #[get("/proxy/all")]
 pub async fn get_frontend_features(
     edge_token: EdgeToken,
-    features_source: web::Data<RwLock<dyn EdgeSource>>,
+    features_source: web::Data<dyn EdgeSource>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let client_features = features_source
-        .read()
-        .await
-        .get_client_features(&edge_token)
-        .await;
+    let client_features = features_source.get_client_features(&edge_token).await;
     let context = context.into_inner();
 
     let toggles = resolve_frontend_features(client_features?, context).collect();
@@ -62,14 +58,10 @@ pub async fn get_frontend_features(
 #[post("/proxy/all")]
 async fn post_frontend_features(
     edge_token: EdgeToken,
-    features_source: web::Data<RwLock<dyn EdgeSource>>,
+    features_source: web::Data<dyn EdgeSource>,
     context: web::Json<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let client_features = features_source
-        .read()
-        .await
-        .get_client_features(&edge_token)
-        .await;
+    let client_features = features_source.get_client_features(&edge_token).await;
     let context = context.into_inner();
 
     let toggles = resolve_frontend_features(client_features?, context).collect();
@@ -92,14 +84,10 @@ async fn post_frontend_features(
 #[get("/proxy")]
 async fn get_enabled_frontend_features(
     edge_token: EdgeToken,
-    features_source: web::Data<RwLock<dyn EdgeSource>>,
+    features_source: web::Data<dyn EdgeSource>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let client_features = features_source
-        .read()
-        .await
-        .get_client_features(&edge_token)
-        .await;
+    let client_features = features_source.get_client_features(&edge_token).await;
     let context = context.into_inner();
 
     let toggles: Vec<EvaluatedToggle> = resolve_frontend_features(client_features?, context)
@@ -124,14 +112,10 @@ async fn get_enabled_frontend_features(
 #[post("/proxy")]
 async fn post_enabled_frontend_features(
     edge_token: EdgeToken,
-    features_source: web::Data<RwLock<dyn EdgeSource>>,
+    features_source: web::Data<dyn EdgeSource>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let client_features = features_source
-        .read()
-        .await
-        .get_client_features(&edge_token)
-        .await;
+    let client_features = features_source.get_client_features(&edge_token).await;
     let context = context.into_inner();
 
     let toggles: Vec<EvaluatedToggle> = resolve_frontend_features(client_features?, context)
@@ -299,14 +283,14 @@ mod tests {
 
     #[actix_web::test]
     async fn calling_post_requests_resolves_context_values_correctly() {
-        let shareable_provider = Arc::new(RwLock::new(OfflineProvider::new(
+        let shareable_provider = Arc::new(OfflineProvider::new(
             client_features_with_constraint_requiring_user_id_of_seven(),
             vec![
                 "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7"
                     .to_string(),
             ],
-        )));
-        let edge_source: Arc<RwLock<dyn EdgeSource>> = shareable_provider.clone();
+        ));
+        let edge_source: Arc<dyn EdgeSource> = shareable_provider.clone();
 
         let app = test::init_service(
             App::new()
@@ -346,14 +330,14 @@ mod tests {
 
     #[actix_web::test]
     async fn calling_get_requests_resolves_context_values_correctly() {
-        let shareable_provider = Arc::new(RwLock::new(OfflineProvider::new(
+        let shareable_provider = Arc::new(OfflineProvider::new(
             client_features_with_constraint_requiring_user_id_of_seven(),
             vec![
                 "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7"
                     .to_string(),
             ],
-        )));
-        let edge_source: Arc<RwLock<dyn EdgeSource>> = shareable_provider.clone();
+        ));
+        let edge_source: Arc<dyn EdgeSource> = shareable_provider.clone();
         let app = test::init_service(
             App::new()
                 .app_data(Data::from(edge_source.clone()))
@@ -390,14 +374,14 @@ mod tests {
 
     #[actix_web::test]
     async fn calling_get_requests_resolves_context_values_correctly_with_enabled_filter() {
-        let shareable_provider = Arc::new(RwLock::new(OfflineProvider::new(
+        let shareable_provider = Arc::new(OfflineProvider::new(
             client_features_with_constraint_one_enabled_toggle_and_one_disabled_toggle(),
             vec![
                 "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7"
                     .to_string(),
             ],
-        )));
-        let edge_source: Arc<RwLock<dyn EdgeSource>> = shareable_provider.clone();
+        ));
+        let edge_source: Arc<dyn EdgeSource> = shareable_provider.clone();
 
         let app = test::init_service(
             App::new()

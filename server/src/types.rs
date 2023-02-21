@@ -16,7 +16,7 @@ use actix_web::{
 };
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use shadow_rs::shadow;
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::{ClientApplication, ClientMetricsEnv};
@@ -232,28 +232,32 @@ pub struct ValidatedTokens {
 }
 
 #[async_trait]
-pub trait FeaturesSource {
+pub trait FeatureSource {
     async fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<ClientFeatures>;
 }
 
 #[async_trait]
 pub trait TokenSource {
-    async fn get_known_tokens(&self) -> EdgeResult<Vec<EdgeToken>>;
+    async fn get_tokens(&self) -> EdgeResult<Vec<EdgeToken>>;
     async fn get_valid_tokens(&self) -> EdgeResult<Vec<EdgeToken>>;
-    async fn token_details(&self, secret: String) -> EdgeResult<Option<EdgeToken>>;
+    async fn get_token(&self, secret: String) -> EdgeResult<Option<EdgeToken>>;
     async fn filter_valid_tokens(&self, tokens: Vec<String>) -> EdgeResult<Vec<EdgeToken>>;
-    async fn get_tokens_due_for_refresh(&self) -> EdgeResult<Vec<FeatureRefresh>>;
+    async fn get_tokens_due_for_refresh(&self) -> EdgeResult<Vec<TokenRefresh>>;
 }
 
-#[derive(Clone)]
-pub struct FeatureRefresh {
+#[derive(Clone, Deserialize, Serialize)]
+pub struct TokenRefresh {
     pub token: EdgeToken,
+    #[serde(
+        deserialize_with = "deserialize_entity_tag",
+        serialize_with = "serialize_entity_tag"
+    )]
     pub etag: Option<EntityTag>,
     pub last_refreshed: Option<DateTime<Utc>>,
     pub last_check: Option<DateTime<Utc>>,
 }
 
-impl FeatureRefresh {
+impl TokenRefresh {
     pub fn new(token: EdgeToken) -> Self {
         Self {
             token,
@@ -264,7 +268,7 @@ impl FeatureRefresh {
     }
 }
 
-impl fmt::Debug for FeatureRefresh {
+impl fmt::Debug for TokenRefresh {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("FeatureRefresh")
             .field("token", &"***")
@@ -275,18 +279,36 @@ impl fmt::Debug for FeatureRefresh {
     }
 }
 
-pub trait EdgeSource: FeaturesSource + TokenSource + Send + Sync {}
+fn deserialize_entity_tag<'de, D>(deserializer: D) -> Result<Option<EntityTag>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s: Option<String> = Option::deserialize(deserializer)?;
+
+    s.map(|s| EntityTag::from_str(&s).map_err(serde::de::Error::custom))
+        .transpose()
+}
+
+fn serialize_entity_tag<S>(etag: &Option<EntityTag>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let s = etag.as_ref().map(|e| e.to_string());
+    serializer.serialize_some(&s)
+}
+
+pub trait EdgeSource: FeatureSource + TokenSource + Send + Sync {}
 pub trait EdgeSink: FeatureSink + TokenSink + Send + Sync {}
 
 #[async_trait]
 pub trait FeatureSink {
-    async fn sink_features(
-        &mut self,
+    async fn sink_features(&self, token: &EdgeToken, features: ClientFeatures) -> EdgeResult<()>;
+    async fn update_last_check(&self, token: &EdgeToken) -> EdgeResult<()>;
+    async fn update_last_refresh(
+        &self,
         token: &EdgeToken,
-        features: ClientFeatures,
         etag: Option<EntityTag>,
     ) -> EdgeResult<()>;
-    async fn update_last_check(&mut self, token: &EdgeToken) -> EdgeResult<()>;
 }
 
 pub fn into_entity_tag(client_features: ClientFeatures) -> Option<EntityTag> {
@@ -307,7 +329,7 @@ pub struct BatchMetricsRequestBody {
 
 #[async_trait]
 pub trait TokenSink {
-    async fn sink_tokens(&mut self, tokens: Vec<EdgeToken>) -> EdgeResult<()>;
+    async fn sink_tokens(&self, tokens: Vec<EdgeToken>) -> EdgeResult<()>;
 }
 
 #[async_trait]

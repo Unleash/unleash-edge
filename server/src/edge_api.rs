@@ -24,7 +24,7 @@ use utoipa;
 )]
 #[post("/validate")]
 pub async fn validate(
-    token_provider: web::Data<RwLock<dyn EdgeSource>>,
+    token_provider: web::Data<dyn EdgeSource>,
     req: HttpRequest,
     tokens: Json<TokenStrings>,
 ) -> EdgeJsonResult<ValidatedTokens> {
@@ -45,8 +45,6 @@ pub async fn validate(
         }
         None => Ok(Json(ValidatedTokens {
             tokens: token_provider
-                .read()
-                .await
                 .filter_valid_tokens(tokens.into_inner().tokens)
                 .await?,
         })),

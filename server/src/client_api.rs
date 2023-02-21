@@ -22,11 +22,9 @@ use unleash_types::client_metrics::{
 #[get("/client/features")]
 pub async fn features(
     edge_token: EdgeToken,
-    features_source: web::Data<RwLock<dyn EdgeSource>>,
+    features_source: web::Data<dyn EdgeSource>,
 ) -> EdgeJsonResult<ClientFeatures> {
     features_source
-        .read()
-        .await
         .get_client_features(&edge_token)
         .await
         .map(Json)
