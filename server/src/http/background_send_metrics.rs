@@ -49,7 +49,6 @@ pub async fn send_metrics_task(
 }
 
 async fn get_first_token(source: Arc<dyn EdgeSource>) -> EdgeResult<EdgeToken> {
-
     let api_key = source.get_valid_tokens().await?.get(0).cloned();
     match api_key {
         Some(api_key) => Ok(api_key),

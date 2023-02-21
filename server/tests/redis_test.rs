@@ -95,7 +95,7 @@ async fn redis_stores_and_returns_refresh_tokens_correctly() {
     }];
 
     redis
-        .sink_refresh_tokens(tokens.iter().collect::<Vec<&TokenRefresh>>())
+        .set_refresh_tokens(tokens.iter().collect::<Vec<&TokenRefresh>>())
         .await
         .unwrap();
     let returned_tokens = redis.get_refresh_tokens().await.unwrap();
@@ -127,7 +127,7 @@ async fn redis_store_marks_update_correctly() {
     let tokens = vec![token_refresh.clone()];
 
     redis
-        .sink_refresh_tokens(tokens.iter().collect::<Vec<&TokenRefresh>>())
+        .set_refresh_tokens(tokens.iter().collect::<Vec<&TokenRefresh>>())
         .await
         .unwrap();
 

@@ -115,9 +115,7 @@ async fn post_enabled_frontend_features(
     features_source: web::Data<dyn EdgeSource>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let client_features = features_source
-        .get_client_features(&edge_token)
-        .await;
+    let client_features = features_source.get_client_features(&edge_token).await;
     let context = context.into_inner();
 
     let toggles: Vec<EvaluatedToggle> = resolve_frontend_features(client_features?, context)

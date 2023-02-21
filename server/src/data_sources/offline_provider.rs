@@ -1,6 +1,6 @@
 use crate::error::EdgeError;
 use crate::types::{
-    EdgeResult, EdgeSource, EdgeToken, TokenRefresh, FeatureSource, TokenSource,
+    EdgeResult, EdgeSource, EdgeToken, FeatureSource, TokenRefresh, TokenSource,
     TokenValidationStatus,
 };
 use async_trait::async_trait;
@@ -9,8 +9,6 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
 use unleash_types::client_features::ClientFeatures;
-
-use super::repository::DataSource;
 
 #[derive(Debug, Clone)]
 pub struct OfflineProvider {
@@ -86,21 +84,5 @@ impl OfflineProvider {
                 .map(|t| (t.token.clone(), t))
                 .collect(),
         }
-    }
-}
-
-#[async_trait]
-impl DataSource for OfflineProvider {
-    async fn get_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
-        todo!()
-    }
-    async fn get_token(&self, secret: &str) -> EdgeResult<Option<EdgeToken>> {
-        todo!()
-    }
-    async fn get_refresh_tokens(&self) -> EdgeResult<Vec<TokenRefresh>> {
-        todo!()
-    }
-    async fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<Option<ClientFeatures>> {
-        todo!()
     }
 }

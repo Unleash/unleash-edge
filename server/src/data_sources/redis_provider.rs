@@ -85,9 +85,7 @@ impl DataSink for RedisProvider {
         let raw_stored_tokens: Option<String> = client.get(TOKENS_KEY)?;
 
         let mut stored_tokens = match raw_stored_tokens {
-            Some(raw_stored_tokens) => {
-                serde_json::from_str::<Vec<EdgeToken>>(&raw_stored_tokens)?
-            }
+            Some(raw_stored_tokens) => serde_json::from_str::<Vec<EdgeToken>>(&raw_stored_tokens)?,
             None => vec![],
         };
 
@@ -101,27 +99,10 @@ impl DataSink for RedisProvider {
         Ok(())
     }
 
-    async fn sink_refresh_tokens(&mut self, tokens: Vec<&TokenRefresh>) -> EdgeResult<()> {
+    async fn set_refresh_tokens(&mut self, tokens: Vec<&TokenRefresh>) -> EdgeResult<()> {
         let mut client = self.redis_client.write().await;
-        let raw_refresh_tokens: Option<String> = client.get(REFRESH_TOKENS_KEY)?;
 
-        let mut refresh_tokens = match raw_refresh_tokens {
-            Some(raw_refresh_tokens) => {
-                serde_json::from_str::<Vec<TokenRefresh>>(&raw_refresh_tokens)?
-            }
-            None => vec![],
-        };
-
-        for token in tokens {
-            if !refresh_tokens
-                .iter()
-                .any(|t| t.token.token == token.token.token)
-            {
-                refresh_tokens.push(token.clone());
-            }
-        }
-
-        let serialized_refresh_tokens = serde_json::to_string(&refresh_tokens)?;
+        let serialized_refresh_tokens = serde_json::to_string(&tokens)?;
         client.set(REFRESH_TOKENS_KEY, serialized_refresh_tokens)?;
 
         Ok(())

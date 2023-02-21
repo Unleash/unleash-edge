@@ -34,7 +34,7 @@ fn build_offline(offline_args: OfflineArgs) -> EdgeResult<Arc<dyn EdgeSource>> {
     let provider =
         OfflineProvider::instantiate_provider(offline_args.bootstrap_file, offline_args.tokens)?;
 
-    let source: Arc<dyn EdgeSource> = Arc::new(provider.clone());
+    let source: Arc<dyn EdgeSource> = Arc::new(provider);
     Ok(source)
 }
 
@@ -45,11 +45,11 @@ fn build_memory(features_refresh_interval_seconds: Duration) -> EdgeResult<DataP
         token_source: data_source.clone(),
         feature_source: data_source.clone(),
         token_sink: data_source.clone(),
-        feature_sink: data_source.clone(),
+        feature_sink: data_source,
     });
 
     let edge_source: Arc<dyn EdgeSource> = facade.clone();
-    let edge_sink: Arc<dyn EdgeSink> = facade.clone();
+    let edge_sink: Arc<dyn EdgeSink> = facade;
 
     Ok((edge_source, edge_sink))
 }
@@ -63,12 +63,12 @@ fn build_redis(
         token_source: data_source.clone(),
         feature_source: data_source.clone(),
         token_sink: data_source.clone(),
-        feature_sink: data_source.clone(),
+        feature_sink: data_source,
         features_refresh_interval: Some(features_refresh_interval_seconds),
     });
 
     let edge_source: Arc<dyn EdgeSource> = facade.clone();
-    let edge_sink: Arc<dyn EdgeSink> = facade.clone();
+    let edge_sink: Arc<dyn EdgeSink> = facade;
 
     Ok((edge_source, edge_sink))
 }

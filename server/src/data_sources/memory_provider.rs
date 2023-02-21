@@ -52,7 +52,7 @@ impl DataSource for MemoryProvider {
     }
 
     async fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<Option<ClientFeatures>> {
-        Ok(self.data_store.get(&key(&token)).map(|v| v.value().clone()))
+        Ok(self.data_store.get(&key(token)).map(|v| v.value().clone()))
     }
 }
 
@@ -65,12 +65,12 @@ impl DataSink for MemoryProvider {
         Ok(())
     }
 
-    async fn sink_refresh_tokens(&mut self, tokens: Vec<&TokenRefresh>) -> EdgeResult<()> {
-        for token in tokens {
-            self.tokens_to_refresh
-                .entry(token.token.token.clone())
-                .or_insert(token.clone());
-        }
+    async fn set_refresh_tokens(&mut self, tokens: Vec<&TokenRefresh>) -> EdgeResult<()> {
+        let new_tokens = tokens
+            .into_iter()
+            .map(|token| (token.token.token.clone(), token.clone()))
+            .collect();
+        self.tokens_to_refresh = new_tokens;
         Ok(())
     }
 
@@ -95,7 +95,11 @@ impl DataSink for MemoryProvider {
         Ok(())
     }
 
-    async fn update_last_refresh(&mut self, token: &EdgeToken, etag: Option<EntityTag>) -> EdgeResult<()> {
+    async fn update_last_refresh(
+        &mut self,
+        token: &EdgeToken,
+        etag: Option<EntityTag>,
+    ) -> EdgeResult<()> {
         if let Some(token) = self.tokens_to_refresh.get_mut(&token.token) {
             token.last_check = Some(chrono::Utc::now());
             token.last_refreshed = Some(chrono::Utc::now());
@@ -150,9 +154,7 @@ mod tests {
 
         assert_eq!(
             provider
-                .get_token(
-                    "*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1f".into()
-                )
+                .get_token("*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1f")
                 .await
                 .expect("Could not retrieve token details")
                 .unwrap()

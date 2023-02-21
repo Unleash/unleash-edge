@@ -25,7 +25,12 @@ pub async fn poll_for_token_status(
                 .await
             {
                 Ok(validated_tokens) => {
-                    match sink.write().await.sink_tokens(validated_tokens.clone()).await {
+                    match sink
+                        .write()
+                        .await
+                        .sink_tokens(validated_tokens.clone())
+                        .await
+                    {
                         Ok(_) => {
                             for valid in validated_tokens {
                                 let _ = feature_channel.send(valid).await;

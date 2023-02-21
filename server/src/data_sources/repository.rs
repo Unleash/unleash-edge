@@ -57,7 +57,7 @@ pub trait DataSource: Send + Sync {
 #[async_trait]
 pub trait DataSink: Send + Sync {
     async fn sink_tokens(&mut self, tokens: Vec<EdgeToken>) -> EdgeResult<()>;
-    async fn sink_refresh_tokens(&mut self, tokens: Vec<&TokenRefresh>) -> EdgeResult<()>;
+    async fn set_refresh_tokens(&mut self, tokens: Vec<&TokenRefresh>) -> EdgeResult<()>;
     async fn sink_features(
         &mut self,
         token: &EdgeToken,
@@ -134,15 +134,14 @@ impl FeatureSource for DataSourceFacade {
             .read()
             .await
             .get_client_features(&token)
-            .await
-            .unwrap();
+            .await?;
 
         Ok(environment_features
             .map(|client_features| ClientFeatures {
                 features: client_features.features.filter_by_projects(&token),
                 ..client_features
             })
-            .unwrap())
+            .ok_or(EdgeError::DataSourceError("No features found".into()))?)
     }
 }
 
@@ -151,6 +150,7 @@ impl TokenSink for DataSourceFacade {
     async fn sink_tokens(&self, tokens: Vec<EdgeToken>) -> EdgeResult<()> {
         let mut lock = self.token_sink.write().await;
         lock.sink_tokens(tokens.clone()).await?;
+        drop(lock);
 
         let refresh_tokens: Vec<TokenRefresh> = tokens
             .into_iter()
@@ -158,9 +158,18 @@ impl TokenSink for DataSourceFacade {
             .map(TokenRefresh::new)
             .collect();
 
-        let reduced_refresh_tokens = crate::tokens::simplify(&refresh_tokens);
+        let lock = self.token_source.write().await;
+        let current_refresh_tokens: Vec<TokenRefresh> = lock
+            .get_refresh_tokens()
+            .await?
+            .into_iter()
+            .chain(refresh_tokens.into_iter())
+            .collect();
+        drop(lock);
+        let mut lock = self.token_sink.write().await;
+        let reduced_refresh_tokens = crate::tokens::simplify(&current_refresh_tokens);
 
-        lock.sink_refresh_tokens(reduced_refresh_tokens).await
+        lock.set_refresh_tokens(reduced_refresh_tokens).await
     }
 }
 
@@ -212,11 +221,11 @@ mod tests {
             token_source: data_store.clone(),
             feature_source: data_store.clone(),
             token_sink: data_store.clone(),
-            feature_sink: data_store.clone(),
+            feature_sink: data_store,
             features_refresh_interval: Some(Duration::minutes(1)),
         });
         let source: Arc<dyn EdgeSource> = facade.clone();
-        let sink: Arc<dyn EdgeSink> = facade.clone();
+        let sink: Arc<dyn EdgeSink> = facade;
 
         Ok((source, sink))
     }

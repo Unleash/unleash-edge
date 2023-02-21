@@ -284,10 +284,9 @@ where
     D: Deserializer<'de>,
 {
     let s: Option<String> = Option::deserialize(deserializer)?;
-    Ok(
-        s.map(|s| EntityTag::from_str(&s).map_err(serde::de::Error::custom))
-            .transpose()?,
-    )
+
+    s.map(|s| EntityTag::from_str(&s).map_err(serde::de::Error::custom))
+        .transpose()
 }
 
 fn serialize_entity_tag<S>(etag: &Option<EntityTag>, serializer: S) -> Result<S::Ok, S::Error>
@@ -303,13 +302,13 @@ pub trait EdgeSink: FeatureSink + TokenSink + Send + Sync {}
 
 #[async_trait]
 pub trait FeatureSink {
-    async fn sink_features(
+    async fn sink_features(&self, token: &EdgeToken, features: ClientFeatures) -> EdgeResult<()>;
+    async fn update_last_check(&self, token: &EdgeToken) -> EdgeResult<()>;
+    async fn update_last_refresh(
         &self,
         token: &EdgeToken,
-        features: ClientFeatures,
+        etag: Option<EntityTag>,
     ) -> EdgeResult<()>;
-    async fn update_last_check(&self, token: &EdgeToken) -> EdgeResult<()>;
-    async fn update_last_refresh(&self, token: &EdgeToken, etag: Option<EntityTag>) -> EdgeResult<()>;
 }
 
 pub fn into_entity_tag(client_features: ClientFeatures) -> Option<EntityTag> {
