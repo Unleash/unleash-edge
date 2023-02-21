@@ -111,7 +111,7 @@ If your token follows the Unleash API token format `[project]:[environment].<som
 
 If you'd rather use a simple token like `secret-123`, any query against `/api/client/features` will receive the dump passed in on the command line.
 
-When using offline mode, you can think of these tokens as [proxy client keys](https://docs.getunleash.io/reference/api-tokens-and-client-keys#client-tokens).
+When using offline mode, you can think of these tokens as [proxy client keys](https://docs.getunleash.io/reference/api-tokens-and-client-keys#proxy-client-keys).
 
 Since offline mode does not connect to an upstream node, it does not support metrics or dynamic tokens.
 
