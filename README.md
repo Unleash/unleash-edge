@@ -130,7 +130,7 @@ Options:
 Unleash edge will scale linearly with CPU. There are k6 benchmarks in the benchmark folder and we've already got some inital numbers from [hey](https://github.com/rakyll/hey).
 
 Edge was started using
-`docker run --cpus="<cpu>" --memory=128M -p 3063:3063 -e UPSTREAM_URL=<upstream> -e TOKENS="<client token>" -w <number of cpus> edge`
+`docker run --cpus="<cpu>" --memory=128M -p 3063:3063 -e UPSTREAM_URL=<upstream> -e TOKENS="<client token>" unleashorg/unleash-edge:edge -w <number of cpus> edge`
 
 Then we run hey against both the proxy endpoint, evaluating toggles
 
