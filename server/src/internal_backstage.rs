@@ -35,7 +35,7 @@ pub async fn info() -> EdgeJsonResult<BuildInfo> {
 pub async fn tokens(
     edge_source: web::Data<RwLock<dyn EdgeSource>>,
 ) -> EdgeJsonResult<Vec<EdgeToken>> {
-    let all_tokens = edge_source.read().await.get_known_tokens().await?;
+    let all_tokens = edge_source.read().await.get_tokens().await?;
     Ok(Json(all_tokens))
 }
 

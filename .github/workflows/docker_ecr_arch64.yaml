@@ -25,14 +25,14 @@ jobs:
           rustup show
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: "rust-v0-gnu"
       - name: Install cross (cross compile)
         run: |
           cargo install cross
       - name: Build release
         run: |
-          cross build --release --target=aarch64-unknown-linux-musl
-      - name: Setup QEMU (to support multiplatform)
-        uses: docker/setup-qemu-action@v2
+          cross build --release --target=aarch64-unknown-linux-gnu
       - name: Configure aws credentials
         uses: aws-actions/configure-aws-credentials@v1-node16
         id: aws-eu-north

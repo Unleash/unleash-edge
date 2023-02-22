@@ -111,7 +111,7 @@ If your token follows the Unleash API token format `[project]:[environment].<som
 
 If you'd rather use a simple token like `secret-123`, any query against `/api/client/features` will receive the dump passed in on the command line.
 
-When using offline mode, you can think of these tokens as [proxy client keys](https://docs.getunleash.io/reference/api-tokens-and-client-keys#client-tokens).
+When using offline mode, you can think of these tokens as [proxy client keys](https://docs.getunleash.io/reference/api-tokens-and-client-keys#proxy-client-keys).
 
 Since offline mode does not connect to an upstream node, it does not support metrics or dynamic tokens.
 
@@ -125,6 +125,36 @@ Options:
   -b, --bootstrap-file <BOOTSTRAP_FILE>  [env: BOOTSTRAP_FILE=]
   -t, --tokens <TOKENS>                  [env: TOKENS=]
 ```
+
+### Performance (more to come)
+Unleash edge will scale linearly with CPU. There are k6 benchmarks in the benchmark folder and we've already got some initial numbers from [hey](https://github.com/rakyll/hey).
+
+Edge was started using
+`docker run --cpus="<cpu>" --memory=128M -p 3063:3063 -e UPSTREAM_URL=<upstream> -e TOKENS="<client token>" unleashorg/unleash-edge:edge -w <number of cpus> edge`
+
+Then we run hey against the proxy endpoint, evaluating toggles
+
+```shell
+$ hey -z 10s -H "Authorization: <frontend token>" http://localhost:3063/api/proxy`
+```
+
+| CPU | Memory | RPS | Endpoint | p95 | 
+| --- | ------ | --- | -------- | --- |  
+| 0.1 | 6.7 Mi | 600 | /api/proxy | 19ms | 
+| 1 | 6.7 Mi | 8000 | /api/proxy | 7.4ms |
+
+and against our client features endpoint.
+
+```shell
+$ hey -z 10s -H "Authorization: <client token>" http://localhost:3063/api/client/features
+```
+
+| CPU | Memory observed | RPS | Endpoint | p95 | 
+| --- | ------ | --- | -------- | --- |  
+| 0.1 | 6 Mi | 1370 | /api/client/features | 97ms | 
+| 1 | 7 Mi | 15000 | /api/client/features | 4ms |
+
+
 
 ## Development
 

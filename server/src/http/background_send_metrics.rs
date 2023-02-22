@@ -12,7 +12,7 @@ use tracing::warn;
 
 pub async fn send_metrics_task(
     metrics_cache: Arc<RwLock<MetricsCache>>,
-    source: Arc<RwLock<dyn EdgeSource>>,
+    source: Arc<dyn EdgeSource>,
     unleash_client: UnleashClient,
     send_interval: u64,
 ) {
@@ -48,9 +48,8 @@ pub async fn send_metrics_task(
     }
 }
 
-async fn get_first_token(source: Arc<RwLock<dyn EdgeSource>>) -> EdgeResult<EdgeToken> {
-    let source_lock = source.read().await;
-    let api_key = source_lock.get_valid_tokens().await?.get(0).cloned();
+async fn get_first_token(source: Arc<dyn EdgeSource>) -> EdgeResult<EdgeToken> {
+    let api_key = source.get_valid_tokens().await?.get(0).cloned();
     match api_key {
         Some(api_key) => Ok(api_key),
         None => Err(EdgeError::DataSourceError("No tokens found".into())),
