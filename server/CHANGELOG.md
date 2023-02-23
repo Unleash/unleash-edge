@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.1.0 (2023-02-23)
+
+### Chore
+
+ - <csr-id-cc123f6792494555c046a7eb6d164d066213c59d/> update rust crate test-case to v3
+
+### New Features
+
+ - <csr-id-ab8e5ea52b8550ae97096f91d461f492dc9bd0d3/> allow controlling http server workers spun up
+ - <csr-id-ac973797915b7d965721e77e3dba7a818033d87d/> implement metrics for front end clients
+
+### Bug Fixes
+
+ - <csr-id-aa2432e4efa9186bb5afa30df5dbc183d293672f/> update rust crate clap to 4.1.6
+ - <csr-id-8ef7a33f61765cb7334d3791b64ffd0836bb0155/> Make offline mode handle non-Unleash tokens as valid secrets
+ - <csr-id-b8b25d3075bafb83f3a14493a1dec0155835a2e9/> an issue where client features wouldn't correctly update in memory provider
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 7 commits contributed to the release over the course of 6 calendar days.
+ - 6 days passed between releases.
+ - 6 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 7 unique issues were worked on: [#63](https://github.com/Unleash/unleash-edge/issues/63), [#64](https://github.com/Unleash/unleash-edge/issues/64), [#65](https://github.com/Unleash/unleash-edge/issues/65), [#66](https://github.com/Unleash/unleash-edge/issues/66), [#67](https://github.com/Unleash/unleash-edge/issues/67), [#68](https://github.com/Unleash/unleash-edge/issues/68), [#72](https://github.com/Unleash/unleash-edge/issues/72)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#63](https://github.com/Unleash/unleash-edge/issues/63)**
+    - update rust crate test-case to v3 ([`cc123f6`](https://github.com/Unleash/unleash-edge/commit/cc123f6792494555c046a7eb6d164d066213c59d))
+ * **[#64](https://github.com/Unleash/unleash-edge/issues/64)**
+    - an issue where client features wouldn't correctly update in memory provider ([`b8b25d3`](https://github.com/Unleash/unleash-edge/commit/b8b25d3075bafb83f3a14493a1dec0155835a2e9))
+ * **[#65](https://github.com/Unleash/unleash-edge/issues/65)**
+    - implement metrics for front end clients ([`ac97379`](https://github.com/Unleash/unleash-edge/commit/ac973797915b7d965721e77e3dba7a818033d87d))
+ * **[#66](https://github.com/Unleash/unleash-edge/issues/66)**
+    - allow controlling http server workers spun up ([`ab8e5ea`](https://github.com/Unleash/unleash-edge/commit/ab8e5ea52b8550ae97096f91d461f492dc9bd0d3))
+ * **[#67](https://github.com/Unleash/unleash-edge/issues/67)**
+    - Make offline mode handle non-Unleash tokens as valid secrets ([`8ef7a33`](https://github.com/Unleash/unleash-edge/commit/8ef7a33f61765cb7334d3791b64ffd0836bb0155))
+ * **[#68](https://github.com/Unleash/unleash-edge/issues/68)**
+    - update rust crate clap to 4.1.6 ([`aa2432e`](https://github.com/Unleash/unleash-edge/commit/aa2432e4efa9186bb5afa30df5dbc183d293672f))
+ * **[#72](https://github.com/Unleash/unleash-edge/issues/72)**
+    - Chore/data store refactor ([`026de50`](https://github.com/Unleash/unleash-edge/commit/026de501dabf9be3e9e8e001f0122452dc67dc22))
+</details>
+
 ## v0.0.2 (2023-02-14)
 
 ### Bug Fixes
@@ -15,7 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 1 commit contributed to the release.
+ - 2 commits contributed to the release.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -26,6 +74,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release unleash-edge v0.0.2 ([`11fd0bc`](https://github.com/Unleash/unleash-edge/commit/11fd0bcead4836d288dc4153acf842980f19ba5b))
     - Use upstream_url rather than unleash_url ([`764e92e`](https://github.com/Unleash/unleash-edge/commit/764e92e134a3074c0cb8ffe6376c638f165e3da8))
 </details>
 
