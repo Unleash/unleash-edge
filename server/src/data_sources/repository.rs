@@ -3,7 +3,6 @@ use std::sync::Arc;
 use actix_web::http::header::EntityTag;
 use async_trait::async_trait;
 use chrono::{Duration, Utc};
-use tokio::sync::RwLock;
 use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
 use crate::{
@@ -37,10 +36,10 @@ impl ProjectFilter<ClientFeature> for Vec<ClientFeature> {
 #[derive(Clone)]
 pub struct DataSourceFacade {
     pub(crate) features_refresh_interval: Option<Duration>,
-    pub(crate) token_source: Arc<RwLock<dyn DataSource>>,
-    pub(crate) feature_source: Arc<RwLock<dyn DataSource>>,
-    pub token_sink: Arc<RwLock<dyn DataSink>>,
-    pub feature_sink: Arc<RwLock<dyn DataSink>>,
+    pub(crate) token_source: Arc<dyn DataSource>,
+    pub(crate) feature_source: Arc<dyn DataSource>,
+    pub token_sink: Arc<dyn DataSink>,
+    pub feature_sink: Arc<dyn DataSink>,
 }
 
 impl EdgeSource for DataSourceFacade {}
@@ -56,16 +55,12 @@ pub trait DataSource: Send + Sync {
 
 #[async_trait]
 pub trait DataSink: Send + Sync {
-    async fn sink_tokens(&mut self, tokens: Vec<EdgeToken>) -> EdgeResult<()>;
-    async fn set_refresh_tokens(&mut self, tokens: Vec<&TokenRefresh>) -> EdgeResult<()>;
-    async fn sink_features(
-        &mut self,
-        token: &EdgeToken,
-        features: ClientFeatures,
-    ) -> EdgeResult<()>;
-    async fn update_last_check(&mut self, token: &EdgeToken) -> EdgeResult<()>;
+    async fn sink_tokens(&self, tokens: Vec<EdgeToken>) -> EdgeResult<()>;
+    async fn set_refresh_tokens(&self, tokens: Vec<&TokenRefresh>) -> EdgeResult<()>;
+    async fn sink_features(&self, token: &EdgeToken, features: ClientFeatures) -> EdgeResult<()>;
+    async fn update_last_check(&self, token: &EdgeToken) -> EdgeResult<()>;
     async fn update_last_refresh(
-        &mut self,
+        &self,
         token: &EdgeToken,
         etag: Option<EntityTag>,
     ) -> EdgeResult<()>;
@@ -74,13 +69,11 @@ pub trait DataSink: Send + Sync {
 #[async_trait]
 impl TokenSource for DataSourceFacade {
     async fn get_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
-        let lock = self.token_source.read().await;
-        lock.get_tokens().await
+        self.token_source.get_tokens().await
     }
 
     async fn get_valid_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
-        let lock = self.token_source.read().await;
-        lock.get_tokens().await.map(|result| {
+        self.token_source.get_tokens().await.map(|result| {
             result
                 .iter()
                 .filter(|t| t.status == TokenValidationStatus::Validated)
@@ -90,23 +83,21 @@ impl TokenSource for DataSourceFacade {
     }
 
     async fn get_token(&self, secret: String) -> EdgeResult<Option<EdgeToken>> {
-        let lock = self.token_source.read().await;
-        lock.get_token(secret.as_str()).await
+        self.token_source.get_token(secret.as_str()).await
     }
 
     async fn filter_valid_tokens(&self, tokens: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
-        let mut known_tokens = self.token_source.read().await.get_tokens().await?;
+        let mut known_tokens = self.token_source.get_tokens().await?;
         known_tokens.retain(|t| tokens.contains(&t.token));
         Ok(known_tokens)
     }
 
     async fn get_tokens_due_for_refresh(&self) -> EdgeResult<Vec<TokenRefresh>> {
-        let lock = self.token_source.read().await;
-        let refresh_tokens = lock.get_refresh_tokens().await?;
+        let refresh_tokens = self.token_source.get_refresh_tokens().await?;
 
         let refresh_interval = self
             .features_refresh_interval
-            .ok_or(EdgeError::DataSourceError("No refresh interval set".into()))?;
+            .ok_or_else(|| EdgeError::DataSourceError("No refresh interval set".into()))?;
 
         Ok(refresh_tokens
             .iter()
@@ -127,65 +118,54 @@ impl FeatureSource for DataSourceFacade {
         let token = self
             .get_token(token.token.clone())
             .await?
-            .unwrap_or(token.clone());
+            .unwrap_or_else(|| token.clone());
 
-        let environment_features = self
-            .feature_source
-            .read()
-            .await
-            .get_client_features(&token)
-            .await?;
+        let environment_features = self.feature_source.get_client_features(&token).await?;
 
         Ok(environment_features
             .map(|client_features| ClientFeatures {
                 features: client_features.features.filter_by_projects(&token),
                 ..client_features
             })
-            .ok_or(EdgeError::DataSourceError("No features found".into()))?)
+            .ok_or_else(|| EdgeError::DataSourceError("No features found".into()))?)
     }
 }
 
 #[async_trait]
 impl TokenSink for DataSourceFacade {
     async fn sink_tokens(&self, tokens: Vec<EdgeToken>) -> EdgeResult<()> {
-        let mut lock = self.token_sink.write().await;
-        lock.sink_tokens(tokens.clone()).await?;
-        drop(lock);
+        self.token_sink.sink_tokens(tokens.clone()).await?;
 
-        let refresh_tokens: Vec<TokenRefresh> = tokens
+        let refresh_tokens = tokens
             .into_iter()
             .filter(|t| t.token_type == Some(TokenType::Client))
-            .map(TokenRefresh::new)
-            .collect();
+            .map(TokenRefresh::new);
 
-        let lock = self.token_source.write().await;
-        let current_refresh_tokens: Vec<TokenRefresh> = lock
+        let current_refresh_tokens: Vec<TokenRefresh> = self
+            .token_source
             .get_refresh_tokens()
             .await?
             .into_iter()
-            .chain(refresh_tokens.into_iter())
+            .chain(refresh_tokens)
             .collect();
-        drop(lock);
-        let mut lock = self.token_sink.write().await;
+
         let reduced_refresh_tokens = crate::tokens::simplify(&current_refresh_tokens);
 
-        lock.set_refresh_tokens(reduced_refresh_tokens).await
+        self.token_sink
+            .set_refresh_tokens(reduced_refresh_tokens)
+            .await
     }
 }
 
 #[async_trait]
 impl FeatureSink for DataSourceFacade {
     async fn sink_features(&self, token: &EdgeToken, features: ClientFeatures) -> EdgeResult<()> {
-        let mut lock = self.feature_sink.write().await;
-
-        lock.sink_features(token, features).await?;
-
+        self.feature_sink.sink_features(token, features).await?;
         Ok(())
     }
 
     async fn update_last_check(&self, token: &EdgeToken) -> EdgeResult<()> {
-        let mut lock = self.feature_sink.write().await;
-        lock.update_last_check(token).await?;
+        self.feature_sink.update_last_check(token).await?;
         Ok(())
     }
 
@@ -194,8 +174,7 @@ impl FeatureSink for DataSourceFacade {
         token: &EdgeToken,
         etag: Option<EntityTag>,
     ) -> EdgeResult<()> {
-        let mut lock = self.feature_sink.write().await;
-        lock.update_last_refresh(token, etag).await?;
+        self.feature_sink.update_last_refresh(token, etag).await?;
         Ok(())
     }
 }
@@ -205,7 +184,6 @@ mod tests {
     use std::{str::FromStr, sync::Arc};
 
     use chrono::Duration;
-    use tokio::sync::RwLock;
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
     use crate::{
@@ -216,7 +194,7 @@ mod tests {
     use super::DataSourceFacade;
 
     fn build_data_source() -> EdgeResult<(Arc<dyn EdgeSource>, Arc<dyn EdgeSink>)> {
-        let data_store = Arc::new(RwLock::new(MemoryProvider::new()));
+        let data_store = Arc::new(MemoryProvider::new());
         let facade = Arc::new(DataSourceFacade {
             token_source: data_store.clone(),
             feature_source: data_store.clone(),

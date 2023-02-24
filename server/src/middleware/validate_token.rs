@@ -6,14 +6,13 @@ use actix_web::{
     web::Data,
     HttpResponse,
 };
-use tokio::sync::RwLock;
 
 pub async fn validate_token(
     token: EdgeToken,
     req: ServiceRequest,
     srv: crate::middleware::as_async_middleware::Next<impl MessageBody + 'static>,
 ) -> Result<ServiceResponse<impl MessageBody>, actix_web::Error> {
-    let maybe_validator = req.app_data::<Data<RwLock<TokenValidator>>>();
+    let maybe_validator = req.app_data::<Data<TokenValidator>>();
     let source = req
         .app_data::<Data<dyn EdgeSource>>()
         .unwrap()
@@ -21,11 +20,7 @@ pub async fn validate_token(
         .into_inner();
     match maybe_validator {
         Some(validator) => {
-            let known_token = validator
-                .write()
-                .await
-                .register_token(token.token.clone())
-                .await?;
+            let known_token = validator.register_token(token.token.clone()).await?;
             let res = match known_token.status {
                 TokenValidationStatus::Validated => match known_token.token_type {
                     Some(TokenType::Frontend) => {

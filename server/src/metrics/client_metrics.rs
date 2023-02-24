@@ -92,7 +92,7 @@ impl MetricsCache {
                             .or_insert(*added_count);
                     });
                 })
-                .or_insert(metric.clone());
+                .or_insert_with(|| metric.clone());
         }
     }
 }
