@@ -62,9 +62,7 @@ pub async fn metrics(
     batch_metrics_request: web::Json<BatchMetricsRequestBody>,
     metrics_cache: web::Data<MetricsCache>,
 ) -> EdgeResult<HttpResponse> {
-    {
-        metrics_cache.sink_metrics(&batch_metrics_request.metrics);
-    }
+    metrics_cache.sink_metrics(&batch_metrics_request.metrics);
     Ok(HttpResponse::Accepted().finish())
 }
 
