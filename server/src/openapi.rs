@@ -6,10 +6,14 @@ use utoipa::{
 #[derive(OpenApi)]
 #[openapi(
     paths(
-        crate::frontend_api::get_frontend_features,
-        crate::frontend_api::post_frontend_features,
-        crate::frontend_api::get_enabled_frontend_features,
-        crate::frontend_api::post_enabled_frontend_features,
+        crate::frontend_api::get_enabled_proxy,
+        crate::frontend_api::get_enabled_frontend,
+        crate::frontend_api::post_proxy_enabled_features,
+        crate::frontend_api::post_frontend_enabled_features,
+        crate::frontend_api::get_proxy_all_features,
+        crate::frontend_api::get_frontend_all_features,
+        crate::frontend_api::post_proxy_all_features,
+        crate::frontend_api::post_frontend_all_features,
         crate::client_api::features,
         crate::client_api::register,
         crate::client_api::metrics,

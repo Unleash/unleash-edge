@@ -29,7 +29,35 @@ use crate::{
     )
 )]
 #[get("/proxy/all")]
-pub async fn get_frontend_features(
+pub async fn get_proxy_all_features(
+    edge_token: EdgeToken,
+    features_source: web::Data<dyn EdgeSource>,
+    context: web::Query<Context>,
+) -> EdgeJsonResult<FrontendResult> {
+    get_all_features(edge_token, features_source, context).await
+}
+
+#[utoipa::path(
+    path = "/api/frontend/all",
+    responses(
+        (status = 200, description = "Return all known feature toggles for this token in evaluated (true|false) state", body = FrontendResult),
+        (status = 403, description = "Was not allowed to access features")
+    ),
+    params(Context),
+    security(
+        ("Authorization" = [])
+    )
+)]
+#[get("/frontend/all")]
+pub async fn get_frontend_all_features(
+    edge_token: EdgeToken,
+    features_source: web::Data<dyn EdgeSource>,
+    context: web::Query<Context>,
+) -> EdgeJsonResult<FrontendResult> {
+    get_all_features(edge_token, features_source, context).await
+}
+
+pub async fn get_all_features(
     edge_token: EdgeToken,
     features_source: web::Data<dyn EdgeSource>,
     context: web::Query<Context>,
@@ -55,7 +83,36 @@ pub async fn get_frontend_features(
     )
 )]
 #[post("/proxy/all")]
-async fn post_frontend_features(
+async fn post_proxy_all_features(
+    edge_token: EdgeToken,
+    features_source: web::Data<dyn EdgeSource>,
+    context: web::Json<Context>,
+) -> EdgeJsonResult<FrontendResult> {
+    post_all_features(edge_token, features_source, context).await
+}
+
+#[utoipa::path(
+    path = "/api/frontend/all",
+    responses(
+        (status = 200, description = "Return all known feature toggles for this token in evaluated (true|false) state", body = FrontendResult),
+        (status = 403, description = "Was not allowed to access features"),
+        (status = 400, description = "Invalid parameters used")
+    ),
+    request_body = Context,
+    security(
+        ("Authorization" = [])
+    )
+)]
+#[post("/frontend/all")]
+async fn post_frontend_all_features(
+    edge_token: EdgeToken,
+    features_source: web::Data<dyn EdgeSource>,
+    context: web::Json<Context>,
+) -> EdgeJsonResult<FrontendResult> {
+    post_all_features(edge_token, features_source, context).await
+}
+
+async fn post_all_features(
     edge_token: EdgeToken,
     features_source: web::Data<dyn EdgeSource>,
     context: web::Json<Context>,
@@ -81,7 +138,35 @@ async fn post_frontend_features(
     )
 )]
 #[get("/proxy")]
-async fn get_enabled_frontend_features(
+async fn get_enabled_proxy(
+    edge_token: EdgeToken,
+    features_source: web::Data<dyn EdgeSource>,
+    context: web::Query<Context>,
+) -> EdgeJsonResult<FrontendResult> {
+    get_enabled_features(edge_token, features_source, context).await
+}
+
+#[utoipa::path(
+    path = "/api/frontend",
+    responses(
+        (status = 200, description = "Return feature toggles for this token that evaluated to true", body = FrontendResult),
+        (status = 403, description = "Was not allowed to access features"),
+        (status = 400, description = "Invalid parameters used")
+    ),
+    params(Context),
+    security(
+        ("Authorization" = [])
+    )
+)]
+#[get("/frontend")]
+async fn get_enabled_frontend(
+    edge_token: EdgeToken,
+    features_source: web::Data<dyn EdgeSource>,
+    context: web::Query<Context>,
+) -> EdgeJsonResult<FrontendResult> {
+    get_enabled_features(edge_token, features_source, context).await
+}
+async fn get_enabled_features(
     edge_token: EdgeToken,
     features_source: web::Data<dyn EdgeSource>,
     context: web::Query<Context>,
@@ -109,7 +194,36 @@ async fn get_enabled_frontend_features(
     )
 )]
 #[post("/proxy")]
-async fn post_enabled_frontend_features(
+async fn post_proxy_enabled_features(
+    edge_token: EdgeToken,
+    features_source: web::Data<dyn EdgeSource>,
+    context: web::Query<Context>,
+) -> EdgeJsonResult<FrontendResult> {
+    post_enabled_features(edge_token, features_source, context).await
+}
+
+#[utoipa::path(
+    path = "/api/frontend",
+    responses(
+        (status = 200, description = "Return feature toggles for this token that evaluated to true", body = FrontendResult),
+        (status = 403, description = "Was not allowed to access features"),
+        (status = 400, description = "Invalid parameters used")
+    ),
+    request_body = Context,
+    security(
+        ("Authorization" = [])
+    )
+)]
+#[post("/frontend")]
+async fn post_frontend_enabled_features(
+    edge_token: EdgeToken,
+    features_source: web::Data<dyn EdgeSource>,
+    context: web::Query<Context>,
+) -> EdgeJsonResult<FrontendResult> {
+    post_enabled_features(edge_token, features_source, context).await
+}
+
+async fn post_enabled_features(
     edge_token: EdgeToken,
     features_source: web::Data<dyn EdgeSource>,
     context: web::Query<Context>,
@@ -124,7 +238,7 @@ async fn post_enabled_frontend_features(
     Ok(Json(FrontendResult { toggles }))
 }
 
-#[post("proxy/client/metrics")]
+#[post("/proxy/client/metrics")]
 async fn post_frontend_metrics(
     edge_token: EdgeToken,
     metrics: web::Json<ClientMetrics>,
@@ -169,11 +283,15 @@ fn resolve_frontend_features(
 }
 
 pub fn configure_frontend_api(cfg: &mut web::ServiceConfig) {
-    cfg.service(get_frontend_features)
-        .service(get_enabled_frontend_features)
+    cfg.service(get_enabled_proxy)
+        .service(get_enabled_frontend)
+        .service(get_proxy_all_features)
+        .service(get_frontend_all_features)
         .service(post_frontend_metrics)
-        .service(post_frontend_features)
-        .service(post_enabled_frontend_features);
+        .service(post_frontend_all_features)
+        .service(post_proxy_all_features)
+        .service(post_proxy_enabled_features)
+        .service(post_frontend_enabled_features);
 }
 
 #[cfg(test)]
@@ -290,12 +408,12 @@ mod tests {
         let app = test::init_service(
             App::new()
                 .app_data(Data::from(edge_source))
-                .service(web::scope("/api").service(super::post_frontend_features)),
+                .service(web::scope("/api").service(super::post_frontend_all_features)),
         )
         .await;
 
         let req = test::TestRequest::post()
-            .uri("/api/proxy/all")
+            .uri("/api/frontend/all")
             .insert_header(ContentType::json())
             .insert_header((
                 "Authorization",
@@ -306,7 +424,7 @@ mod tests {
             }))
             .to_request();
         let second_req = test::TestRequest::post()
-            .uri("/api/proxy/all")
+            .uri("/api/frontend/all")
             .insert_header(ContentType::json())
             .insert_header((
                 "Authorization",
@@ -336,7 +454,7 @@ mod tests {
         let app = test::init_service(
             App::new()
                 .app_data(Data::from(edge_source.clone()))
-                .service(web::scope("/api").service(super::get_frontend_features)),
+                .service(web::scope("/api").service(super::get_proxy_all_features)),
         )
         .await;
 
@@ -381,7 +499,7 @@ mod tests {
         let app = test::init_service(
             App::new()
                 .app_data(Data::from(edge_source.clone()))
-                .service(web::scope("/api").service(super::get_enabled_frontend_features)),
+                .service(web::scope("/api").service(super::get_enabled_proxy)),
         )
         .await;
 
