@@ -39,7 +39,7 @@ fn build_offline(offline_args: OfflineArgs) -> EdgeResult<Arc<dyn EdgeSource>> {
 }
 
 fn build_memory(features_refresh_interval_seconds: Duration) -> EdgeResult<DataProviderPair> {
-    let data_source = Arc::new(RwLock::new(MemoryProvider::new()));
+    let data_source = Arc::new(MemoryProvider::new());
     let facade = Arc::new(DataSourceFacade {
         features_refresh_interval: Some(features_refresh_interval_seconds),
         token_source: data_source.clone(),
@@ -58,7 +58,7 @@ fn build_redis(
     redis_url: String,
     features_refresh_interval_seconds: Duration,
 ) -> EdgeResult<DataProviderPair> {
-    let data_source = Arc::new(RwLock::new(RedisProvider::new(&redis_url)?));
+    let data_source = Arc::new(RedisProvider::new(&redis_url)?);
     let facade = Arc::new(DataSourceFacade {
         token_source: data_source.clone(),
         feature_source: data_source.clone(),
@@ -93,7 +93,7 @@ pub async fn build_source_and_sink(args: CliArgs) -> EdgeResult<RepositoryInfo> 
                 EdgeArg::InMemory => build_memory(refresh_interval),
             }?;
 
-            let mut token_validator = TokenValidator {
+            let token_validator = TokenValidator {
                 unleash_client: Arc::new(unleash_client.clone()),
                 edge_source: source.clone(),
                 edge_sink: sink.clone(),

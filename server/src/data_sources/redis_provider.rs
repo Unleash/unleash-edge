@@ -80,7 +80,7 @@ impl DataSource for RedisProvider {
 
 #[async_trait]
 impl DataSink for RedisProvider {
-    async fn sink_tokens(&mut self, tokens: Vec<EdgeToken>) -> EdgeResult<()> {
+    async fn sink_tokens(&self, tokens: Vec<EdgeToken>) -> EdgeResult<()> {
         let mut client = self.redis_client.write().await;
         let raw_stored_tokens: Option<String> = client.get(TOKENS_KEY)?;
 
@@ -99,7 +99,7 @@ impl DataSink for RedisProvider {
         Ok(())
     }
 
-    async fn set_refresh_tokens(&mut self, tokens: Vec<&TokenRefresh>) -> EdgeResult<()> {
+    async fn set_refresh_tokens(&self, tokens: Vec<&TokenRefresh>) -> EdgeResult<()> {
         let mut client = self.redis_client.write().await;
 
         let serialized_refresh_tokens = serde_json::to_string(&tokens)?;
@@ -108,11 +108,7 @@ impl DataSink for RedisProvider {
         Ok(())
     }
 
-    async fn sink_features(
-        &mut self,
-        token: &EdgeToken,
-        features: ClientFeatures,
-    ) -> EdgeResult<()> {
+    async fn sink_features(&self, token: &EdgeToken, features: ClientFeatures) -> EdgeResult<()> {
         let mut client = self.redis_client.write().await;
         let raw_stored_features: Option<String> = client.get(key(token))?;
 
@@ -130,7 +126,7 @@ impl DataSink for RedisProvider {
         Ok(())
     }
 
-    async fn update_last_check(&mut self, token: &EdgeToken) -> EdgeResult<()> {
+    async fn update_last_check(&self, token: &EdgeToken) -> EdgeResult<()> {
         let mut client = self.redis_client.write().await;
         let raw_refresh_tokens: Option<String> = client.get(REFRESH_TOKENS_KEY)?;
 
@@ -155,7 +151,7 @@ impl DataSink for RedisProvider {
     }
 
     async fn update_last_refresh(
-        &mut self,
+        &self,
         token: &EdgeToken,
         etag: Option<EntityTag>,
     ) -> EdgeResult<()> {
