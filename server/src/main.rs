@@ -31,7 +31,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let args = CliArgs::parse();
     let mode_arg = args.clone().mode;
     let http_args = args.clone().http;
-    let (metrics_handler, request_metrics) = prom_metrics::instantiate(None);
+    let (metrics_handler, request_metrics) = prom_metrics::instantiate(None).await;
     let repo_info = build_source_and_sink(args).await.unwrap();
     let source = repo_info.source;
     let source_clone = source.clone();

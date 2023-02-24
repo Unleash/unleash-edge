@@ -4,6 +4,7 @@ use actix_web::{
     HttpResponse,
 };
 use tokio::sync::RwLock;
+use tracing::instrument;
 use unleash_types::{
     client_features::{ClientFeatures, Payload},
     client_metrics::{from_bucket_app_name_and_env, ClientMetrics},
@@ -29,6 +30,7 @@ use crate::{
         ("Authorization" = [])
     )
 )]
+#[instrument(skip(edge_token, features_source, context))]
 #[get("/proxy/all")]
 pub async fn get_frontend_features(
     edge_token: EdgeToken,
@@ -55,6 +57,7 @@ pub async fn get_frontend_features(
         ("Authorization" = [])
     )
 )]
+#[instrument(skip(edge_token, features_source, context))]
 #[post("/proxy/all")]
 async fn post_frontend_features(
     edge_token: EdgeToken,
@@ -81,6 +84,7 @@ async fn post_frontend_features(
         ("Authorization" = [])
     )
 )]
+#[instrument(skip(edge_token, features_source, context))]
 #[get("/proxy")]
 async fn get_enabled_frontend_features(
     edge_token: EdgeToken,
@@ -109,6 +113,7 @@ async fn get_enabled_frontend_features(
         ("Authorization" = [])
     )
 )]
+#[instrument(skip(edge_token, features_source, context))]
 #[post("/proxy")]
 async fn post_enabled_frontend_features(
     edge_token: EdgeToken,
@@ -125,6 +130,7 @@ async fn post_enabled_frontend_features(
     Ok(Json(FrontendResult { toggles }))
 }
 
+#[instrument(skip(metrics, metrics_cache, edge_token))]
 #[post("proxy/client/metrics")]
 async fn post_frontend_metrics(
     edge_token: EdgeToken,
@@ -147,6 +153,7 @@ async fn post_frontend_metrics(
     Ok(HttpResponse::Accepted().finish())
 }
 
+#[instrument(skip(client_features, context))]
 fn resolve_frontend_features(
     client_features: ClientFeatures,
     context: Context,

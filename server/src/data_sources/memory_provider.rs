@@ -5,6 +5,7 @@ use crate::types::{EdgeResult, EdgeToken};
 use actix_web::http::header::EntityTag;
 use async_trait::async_trait;
 use dashmap::DashMap;
+use tracing::instrument;
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::Merge;
 
@@ -39,18 +40,22 @@ impl MemoryProvider {
 
 #[async_trait]
 impl DataSource for MemoryProvider {
+    #[instrument(skip(self))]
     async fn get_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
         Ok(self.token_store.values().into_iter().cloned().collect())
     }
 
+    #[instrument(skip(self, secret))]
     async fn get_token(&self, secret: &str) -> EdgeResult<Option<EdgeToken>> {
         Ok(self.token_store.get(secret).cloned())
     }
 
+    #[instrument(skip(self))]
     async fn get_refresh_tokens(&self) -> EdgeResult<Vec<TokenRefresh>> {
         Ok(self.tokens_to_refresh.values().cloned().collect())
     }
 
+    #[instrument(skip(self, token))]
     async fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<Option<ClientFeatures>> {
         Ok(self.data_store.get(&key(token)).map(|v| v.value().clone()))
     }
@@ -58,6 +63,7 @@ impl DataSource for MemoryProvider {
 
 #[async_trait]
 impl DataSink for MemoryProvider {
+    #[instrument(skip(self, tokens))]
     async fn sink_tokens(&mut self, tokens: Vec<EdgeToken>) -> EdgeResult<()> {
         for token in tokens {
             self.token_store.insert(token.token.clone(), token.clone());
@@ -65,6 +71,7 @@ impl DataSink for MemoryProvider {
         Ok(())
     }
 
+    #[instrument(skip(self, tokens))]
     async fn set_refresh_tokens(&mut self, tokens: Vec<&TokenRefresh>) -> EdgeResult<()> {
         let new_tokens = tokens
             .into_iter()
@@ -74,6 +81,7 @@ impl DataSink for MemoryProvider {
         Ok(())
     }
 
+    #[instrument(skip(self, token, features))]
     async fn sink_features(
         &mut self,
         token: &EdgeToken,
@@ -88,6 +96,7 @@ impl DataSink for MemoryProvider {
         Ok(())
     }
 
+    #[instrument(skip(self, token))]
     async fn update_last_check(&mut self, token: &EdgeToken) -> EdgeResult<()> {
         if let Some(token) = self.tokens_to_refresh.get_mut(&token.token) {
             token.last_check = Some(chrono::Utc::now());
@@ -95,6 +104,7 @@ impl DataSink for MemoryProvider {
         Ok(())
     }
 
+    #[instrument(skip(self, token))]
     async fn update_last_refresh(
         &mut self,
         token: &EdgeToken,

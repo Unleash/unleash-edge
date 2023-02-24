@@ -3,6 +3,7 @@ use reqwest::{RequestBuilder, StatusCode, Url};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use std::time::Duration;
+use tracing::instrument;
 use ulid::Ulid;
 use unleash_types::client_features::ClientFeatures;
 
@@ -82,6 +83,7 @@ impl UnleashClient {
         }
     }
 
+    #[instrument(skip(self, request))]
     pub async fn get_client_features(
         &self,
         request: ClientFeaturesRequest,
@@ -110,6 +112,7 @@ impl UnleashClient {
         }
     }
 
+    #[instrument(skip(self, request))]
     pub async fn send_batch_metrics(&self, request: BatchMetricsRequest) -> EdgeResult<()> {
         let result = self
             .backing_client
@@ -126,6 +129,7 @@ impl UnleashClient {
         }
     }
 
+    #[instrument(skip(self, request))]
     pub async fn validate_tokens(
         &self,
         request: ValidateTokensRequest,
