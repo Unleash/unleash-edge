@@ -4,7 +4,7 @@ use crate::types::{
     ClientFeaturesRequest, ClientFeaturesResponse, EdgeSink, EdgeSource, EdgeToken,
     ValidateTokensRequest,
 };
-use tokio::sync::{mpsc::Receiver, mpsc::Sender, RwLock};
+use tokio::sync::{mpsc::Receiver, mpsc::Sender};
 use tracing::{debug, warn};
 
 use super::unleash_client::UnleashClient;
@@ -12,7 +12,7 @@ use super::unleash_client::UnleashClient;
 pub async fn poll_for_token_status(
     mut token_channel: Receiver<EdgeToken>,
     feature_channel: Sender<EdgeToken>,
-    sink: Arc<RwLock<dyn EdgeSink>>,
+    sink: Arc<dyn EdgeSink>,
     unleash_client: UnleashClient,
 ) {
     loop {
@@ -24,23 +24,16 @@ pub async fn poll_for_token_status(
                 })
                 .await
             {
-                Ok(validated_tokens) => {
-                    match sink
-                        .write()
-                        .await
-                        .sink_tokens(validated_tokens.clone())
-                        .await
-                    {
-                        Ok(_) => {
-                            for valid in validated_tokens {
-                                let _ = feature_channel.send(valid).await;
-                            }
-                        }
-                        Err(err) => {
-                            warn!("Couldn't sink token. Result: {err:?}")
+                Ok(validated_tokens) => match sink.sink_tokens(validated_tokens.clone()).await {
+                    Ok(_) => {
+                        for valid in validated_tokens {
+                            let _ = feature_channel.send(valid).await;
                         }
                     }
-                }
+                    Err(err) => {
+                        warn!("Couldn't sink token. Result: {err:?}")
+                    }
+                },
                 Err(e) => {
                     warn!("Couldn't validate tokens: {e:?}");
                 }

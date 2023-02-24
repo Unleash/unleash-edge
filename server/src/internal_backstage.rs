@@ -4,7 +4,6 @@ use actix_web::{
 };
 use actix_web_opentelemetry::PrometheusMetricsHandler;
 use serde::Serialize;
-use tokio::sync::RwLock;
 
 use crate::types::{BuildInfo, EdgeJsonResult, EdgeSource, EdgeToken};
 
@@ -32,10 +31,8 @@ pub async fn info() -> EdgeJsonResult<BuildInfo> {
 }
 
 #[get("/tokens")]
-pub async fn tokens(
-    edge_source: web::Data<RwLock<dyn EdgeSource>>,
-) -> EdgeJsonResult<Vec<EdgeToken>> {
-    let all_tokens = edge_source.read().await.get_tokens().await?;
+pub async fn tokens(edge_source: web::Data<dyn EdgeSource>) -> EdgeJsonResult<Vec<EdgeToken>> {
+    let all_tokens = edge_source.get_tokens().await?;
     Ok(Json(all_tokens))
 }
 

@@ -2,7 +2,6 @@ use crate::metrics::client_metrics::{ApplicationKey, MetricsCache};
 use crate::types::{EdgeJsonResult, EdgeResult, EdgeSource, EdgeToken};
 use actix_web::web::{self, Json};
 use actix_web::{get, post, HttpRequest, HttpResponse};
-use tokio::sync::RwLock;
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::{
     from_bucket_app_name_and_env, ClientApplication, ClientMetrics,
@@ -46,42 +45,24 @@ pub async fn register(
     edge_token: EdgeToken,
     _req: HttpRequest,
     client_application: web::Json<ClientApplication>,
-    metrics_cache: web::Data<RwLock<MetricsCache>>,
+    metrics_cache: web::Data<MetricsCache>,
 ) -> EdgeResult<HttpResponse> {
     let client_application = client_application.into_inner();
     let to_write = ClientApplication {
         environment: edge_token.environment,
         ..client_application
     };
-    {
-        let mut writeable_cache = metrics_cache.write().await;
-        writeable_cache.applications.insert(
-            ApplicationKey {
-                app_name: to_write.app_name.clone(),
-                instance_id: to_write
-                    .instance_id
-                    .clone()
-                    .unwrap_or_else(|| ulid::Ulid::new().to_string()),
-            },
-            to_write,
-        );
-    }
+    metrics_cache.applications.insert(
+        ApplicationKey {
+            app_name: to_write.app_name.clone(),
+            instance_id: to_write
+                .instance_id
+                .clone()
+                .unwrap_or_else(|| ulid::Ulid::new().to_string()),
+        },
+        to_write,
+    );
     Ok(HttpResponse::Accepted().finish())
-}
-
-#[get("/client/applications")]
-async fn show_applications(
-    metrics_cache: web::Data<RwLock<MetricsCache>>,
-) -> EdgeJsonResult<Vec<ClientApplication>> {
-    Ok(Json(
-        metrics_cache
-            .read()
-            .await
-            .applications
-            .values()
-            .cloned()
-            .collect(),
-    ))
 }
 
 #[utoipa::path(
@@ -99,7 +80,7 @@ async fn show_applications(
 pub async fn metrics(
     edge_token: EdgeToken,
     metrics: web::Json<ClientMetrics>,
-    metrics_cache: web::Data<RwLock<MetricsCache>>,
+    metrics_cache: web::Data<MetricsCache>,
 ) -> EdgeResult<HttpResponse> {
     let metrics = metrics.into_inner();
     let metrics = from_bucket_app_name_and_env(
@@ -108,18 +89,12 @@ pub async fn metrics(
         edge_token.environment.unwrap(),
     );
 
-    {
-        let mut writeable_cache = metrics_cache.write().await;
-
-        writeable_cache.sink_metrics(&metrics);
-    }
+    metrics_cache.sink_metrics(&metrics);
     Ok(HttpResponse::Accepted().finish())
 }
 
 pub fn configure_client_api(cfg: &mut web::ServiceConfig) {
-    cfg.service(features)
-        .service(register)
-        .service(show_applications);
+    cfg.service(features).service(register);
 }
 
 #[cfg(test)]
@@ -169,7 +144,7 @@ mod tests {
 
     #[actix_web::test]
     async fn metrics_endpoint_correctly_aggregates_data() {
-        let metrics_cache = Arc::new(RwLock::new(MetricsCache::default()));
+        let metrics_cache = Arc::new(MetricsCache::default());
 
         let app = test::init_service(
             App::new()
@@ -181,7 +156,7 @@ mod tests {
         let req = make_test_request().await;
         let _result = test::call_and_read_body(&app, req).await;
 
-        let cache = metrics_cache.read().await;
+        let cache = metrics_cache;
 
         let found_metric = cache
             .metrics

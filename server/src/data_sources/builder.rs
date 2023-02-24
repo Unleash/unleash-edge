@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use chrono::Duration;
 use reqwest::Url;
-use tokio::sync::RwLock;
 
 use crate::{
     auth::token_validator::TokenValidator,
@@ -26,7 +25,7 @@ pub struct RepositoryInfo {
 pub struct SinkInfo {
     pub sink: Arc<dyn EdgeSink>,
     pub unleash_client: UnleashClient,
-    pub token_validator: Arc<RwLock<TokenValidator>>,
+    pub token_validator: Arc<TokenValidator>,
     pub metrics_interval_seconds: u64,
 }
 
@@ -106,7 +105,7 @@ pub async fn build_source_and_sink(args: CliArgs) -> EdgeResult<RepositoryInfo> 
                 sink_info: Some(SinkInfo {
                     sink,
                     unleash_client,
-                    token_validator: Arc::new(RwLock::new(token_validator)),
+                    token_validator: Arc::new(token_validator),
                     metrics_interval_seconds: edge_args.metrics_interval_seconds,
                 }),
             })
