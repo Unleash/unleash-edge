@@ -3,7 +3,6 @@ use actix_web::{
     web::{self, Json},
     HttpResponse,
 };
-use tokio::sync::RwLock;
 use unleash_types::{
     client_features::{ClientFeatures, Payload},
     client_metrics::{from_bucket_app_name_and_env, ClientMetrics},
@@ -129,7 +128,7 @@ async fn post_enabled_frontend_features(
 async fn post_frontend_metrics(
     edge_token: EdgeToken,
     metrics: web::Json<ClientMetrics>,
-    metrics_cache: web::Data<RwLock<MetricsCache>>,
+    metrics_cache: web::Data<MetricsCache>,
 ) -> EdgeResult<HttpResponse> {
     let metrics = metrics.into_inner();
 
@@ -139,10 +138,7 @@ async fn post_frontend_metrics(
         edge_token.environment.unwrap(),
     );
 
-    {
-        let mut writeable_cache = metrics_cache.write().await;
-        writeable_cache.sink_metrics(&metrics);
-    }
+    metrics_cache.sink_metrics(&metrics);
 
     Ok(HttpResponse::Accepted().finish())
 }
@@ -199,7 +195,6 @@ mod tests {
     };
     use chrono::{DateTime, Utc};
     use serde_json::json;
-    use tokio::sync::RwLock;
     use unleash_types::client_metrics::ClientMetricsEnv;
     use unleash_types::{
         client_features::{ClientFeature, ClientFeatures, Constraint, Operator, Strategy},
@@ -406,7 +401,7 @@ mod tests {
 
     #[actix_web::test]
     async fn frontend_metrics_endpoint_correctly_aggregates_data() {
-        let metrics_cache = Arc::new(RwLock::new(MetricsCache::default()));
+        let metrics_cache = Arc::new(MetricsCache::default());
 
         let app = test::init_service(
             App::new()
@@ -418,9 +413,7 @@ mod tests {
         let req = make_test_request().await;
         test::call_and_read_body(&app, req).await;
 
-        let cache = metrics_cache.read().await;
-
-        let found_metric = cache
+        let found_metric = metrics_cache
             .metrics
             .get(&MetricsKey {
                 app_name: "some-app".into(),

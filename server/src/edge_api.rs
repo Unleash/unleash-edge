@@ -1,10 +1,3 @@
-use actix_web::{
-    post,
-    web::{self, Data, Json},
-    HttpRequest, HttpResponse,
-};
-use tokio::sync::RwLock;
-
 use crate::{
     auth::token_validator::TokenValidator,
     types::{EdgeJsonResult, EdgeSource, TokenStrings, TokenValidationStatus, ValidatedTokens},
@@ -12,6 +5,11 @@ use crate::{
 use crate::{
     metrics::client_metrics::MetricsCache,
     types::{BatchMetricsRequestBody, EdgeResult},
+};
+use actix_web::{
+    post,
+    web::{self, Data, Json},
+    HttpRequest, HttpResponse,
 };
 use utoipa;
 
@@ -28,12 +26,10 @@ pub async fn validate(
     req: HttpRequest,
     tokens: Json<TokenStrings>,
 ) -> EdgeJsonResult<ValidatedTokens> {
-    let maybe_validator = req.app_data::<Data<RwLock<TokenValidator>>>();
+    let maybe_validator = req.app_data::<Data<TokenValidator>>();
     match maybe_validator {
         Some(validator) => {
             let known_tokens = validator
-                .write()
-                .await
                 .register_tokens(tokens.into_inner().tokens)
                 .await?;
             Ok(Json(ValidatedTokens {
@@ -64,12 +60,10 @@ pub async fn validate(
 #[post("/metrics")]
 pub async fn metrics(
     batch_metrics_request: web::Json<BatchMetricsRequestBody>,
-    metrics_cache: web::Data<RwLock<MetricsCache>>,
+    metrics_cache: web::Data<MetricsCache>,
 ) -> EdgeResult<HttpResponse> {
     {
-        let mut metrics_lock = metrics_cache.write().await;
-
-        metrics_lock.sink_metrics(&batch_metrics_request.metrics);
+        metrics_cache.sink_metrics(&batch_metrics_request.metrics);
     }
     Ok(HttpResponse::Accepted().finish())
 }
