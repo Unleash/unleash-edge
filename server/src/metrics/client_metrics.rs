@@ -1,8 +1,7 @@
 use chrono::{DateTime, Utc};
-use std::collections::HashMap;
+use dashmap::DashMap;
 use std::hash::{Hash, Hasher};
 use unleash_types::client_metrics::{ClientApplication, ClientMetricsEnv};
-
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct ApplicationKey {
     pub app_name: String,
@@ -55,23 +54,27 @@ pub struct MetricsBatch {
 
 #[derive(Default, Debug)]
 pub struct MetricsCache {
-    pub applications: HashMap<ApplicationKey, ClientApplication>,
-    pub metrics: HashMap<MetricsKey, ClientMetricsEnv>,
+    pub applications: DashMap<ApplicationKey, ClientApplication>,
+    pub metrics: DashMap<MetricsKey, ClientMetricsEnv>,
 }
 
 impl MetricsCache {
     pub fn get_unsent_metrics(&self) -> MetricsBatch {
         MetricsBatch {
-            applications: self.applications.values().cloned().collect(),
-            metrics: self.metrics.values().cloned().collect(),
+            applications: self
+                .applications
+                .iter()
+                .map(|e| e.value().clone())
+                .collect(),
+            metrics: self.metrics.iter().map(|e| e.value().clone()).collect(),
         }
     }
-    pub fn reset_metrics(&mut self) {
+    pub fn reset_metrics(&self) {
         self.applications.clear();
         self.metrics.clear();
     }
 
-    pub fn sink_metrics(&mut self, metrics: &[ClientMetricsEnv]) {
+    pub fn sink_metrics(&self, metrics: &[ClientMetricsEnv]) {
         for metric in metrics.iter() {
             self.metrics
                 .entry(MetricsKey {
@@ -92,7 +95,7 @@ impl MetricsCache {
                             .or_insert(*added_count);
                     });
                 })
-                .or_insert(metric.clone());
+                .or_insert_with(|| metric.clone());
         }
     }
 }
@@ -107,7 +110,7 @@ mod test {
 
     #[test]
     fn cache_aggregates_data_correctly() {
-        let mut cache = MetricsCache::default();
+        let cache = MetricsCache::default();
 
         let base_metric = ClientMetricsEnv {
             app_name: "some-app".into(),
@@ -161,7 +164,7 @@ mod test {
 
     #[test]
     fn cache_aggregates_data_correctly_across_date_boundaries() {
-        let mut cache = MetricsCache::default();
+        let cache = MetricsCache::default();
         let a_long_time_ago = DateTime::parse_from_rfc3339("1867-11-07T12:00:00Z")
             .unwrap()
             .with_timezone(&Utc);
@@ -245,7 +248,7 @@ mod test {
 
     #[test]
     fn cache_clears_metrics_correctly() {
-        let mut cache = MetricsCache::default();
+        let cache = MetricsCache::default();
         let time_stamp = DateTime::parse_from_rfc3339("1867-11-07T12:00:00Z")
             .unwrap()
             .with_timezone(&Utc);

@@ -9,7 +9,6 @@ use actix_web_opentelemetry::RequestTracing;
 use clap::Parser;
 use cli::CliArgs;
 
-use tokio::sync::RwLock;
 use unleash_edge::client_api;
 use unleash_edge::data_sources::builder::build_source_and_sink;
 use unleash_edge::edge_api;
@@ -38,7 +37,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let sink_info = repo_info.sink_info;
     let validator = sink_info.as_ref().map(|sink| sink.token_validator.clone());
 
-    let metrics_cache = Arc::new(RwLock::new(MetricsCache::default()));
+    let metrics_cache = Arc::new(MetricsCache::default());
     let metrics_cache_clone = metrics_cache.clone();
 
     let openapi = openapi::ApiDoc::openapi();

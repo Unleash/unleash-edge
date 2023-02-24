@@ -12,7 +12,7 @@ pub struct TokenValidator {
 
 impl TokenValidator {
     async fn get_unknown_and_known_tokens(
-        &mut self,
+        &self,
         tokens: Vec<String>,
     ) -> EdgeResult<(Vec<EdgeToken>, Vec<EdgeToken>)> {
         let tokens_with_valid_format: Vec<EdgeToken> = tokens
@@ -32,7 +32,7 @@ impl TokenValidator {
         }
     }
 
-    pub async fn register_token(&mut self, token: String) -> EdgeResult<EdgeToken> {
+    pub async fn register_token(&self, token: String) -> EdgeResult<EdgeToken> {
         Ok(self
             .register_tokens(vec![token])
             .await?
@@ -41,7 +41,7 @@ impl TokenValidator {
             .clone())
     }
 
-    pub async fn register_tokens(&mut self, tokens: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
+    pub async fn register_tokens(&self, tokens: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
         let (unknown_tokens, known_tokens) = self.get_unknown_and_known_tokens(tokens).await?;
         if unknown_tokens.is_empty() {
             Ok(known_tokens)
@@ -94,7 +94,6 @@ mod tests {
     use chrono::Duration;
     use serde::{Deserialize, Serialize};
     use std::sync::Arc;
-    use tokio::sync::RwLock;
 
     #[derive(Clone, Debug, Serialize, Deserialize)]
     pub struct EdgeTokens {
@@ -132,7 +131,7 @@ mod tests {
 
     #[tokio::test]
     pub async fn can_validate_tokens() {
-        let test_provider = Arc::new(RwLock::new(MemoryProvider::default()));
+        let test_provider = Arc::new(MemoryProvider::default());
         let facade = Arc::new(DataSourceFacade {
             features_refresh_interval: Some(Duration::seconds(1)),
             token_source: test_provider.clone(),
@@ -149,7 +148,7 @@ mod tests {
             crate::http::unleash_client::UnleashClient::new(srv.url("/").as_str(), None)
                 .expect("Couldn't build client");
 
-        let mut validation_holder = super::TokenValidator {
+        let validation_holder = super::TokenValidator {
             unleash_client: Arc::new(unleash_client),
             edge_source: source,
             edge_sink: sink,
@@ -163,8 +162,6 @@ mod tests {
             .await
             .expect("Couldn't register tokens");
         let known_tokens = test_provider
-            .read()
-            .await
             .get_tokens()
             .await
             .expect("Couldn't get tokens");
@@ -180,7 +177,7 @@ mod tests {
 
     #[tokio::test]
     pub async fn tokens_with_wrong_format_is_not_included() {
-        let test_provider = Arc::new(RwLock::new(MemoryProvider::default()));
+        let test_provider = Arc::new(MemoryProvider::default());
         let facade = Arc::new(DataSourceFacade {
             features_refresh_interval: Some(Duration::seconds(1)),
             feature_source: test_provider.clone(),
@@ -195,7 +192,7 @@ mod tests {
         let unleash_client =
             crate::http::unleash_client::UnleashClient::new(srv.url("/").as_str(), None)
                 .expect("Couldn't build client");
-        let mut validation_holder = super::TokenValidator {
+        let validation_holder = super::TokenValidator {
             unleash_client: Arc::new(unleash_client),
             edge_source: source,
             edge_sink: sink,

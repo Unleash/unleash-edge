@@ -28,7 +28,7 @@ async fn redis_stores_and_returns_data_correctly() {
     let docker = Cli::default();
     let (_client, url, _node) = setup_redis(&docker);
 
-    let mut redis: RedisProvider = RedisProvider::new(&url).unwrap();
+    let redis: RedisProvider = RedisProvider::new(&url).unwrap();
 
     let token = EdgeToken {
         status: TokenValidationStatus::Validated,
@@ -59,7 +59,7 @@ async fn redis_stores_and_returns_tokens_correctly() {
     let docker = Cli::default();
     let (_client, url, _node) = setup_redis(&docker);
 
-    let mut redis: RedisProvider = RedisProvider::new(&url).unwrap();
+    let redis: RedisProvider = RedisProvider::new(&url).unwrap();
 
     let token = EdgeToken {
         status: TokenValidationStatus::Validated,
@@ -80,7 +80,7 @@ async fn redis_stores_and_returns_refresh_tokens_correctly() {
     let docker = Cli::default();
     let (_client, url, _node) = setup_redis(&docker);
 
-    let mut redis: RedisProvider = RedisProvider::new(&url).unwrap();
+    let redis: RedisProvider = RedisProvider::new(&url).unwrap();
 
     let tokens = vec![TokenRefresh {
         etag: None,
@@ -107,7 +107,7 @@ async fn redis_store_marks_update_correctly() {
     let docker = Cli::default();
     let (_client, url, _node) = setup_redis(&docker);
 
-    let mut redis: RedisProvider = RedisProvider::new(&url).unwrap();
+    let redis: RedisProvider = RedisProvider::new(&url).unwrap();
 
     let token = EdgeToken {
         status: TokenValidationStatus::Validated,

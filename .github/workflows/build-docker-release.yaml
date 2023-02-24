@@ -58,8 +58,8 @@ jobs:
             ghcr.io/Unleash/unleash-edge
           tags: |
             type=edge
-            type=semver,pattern={{ version }}
-            type=semver,pattern={{ major }}.{{ minor }}
+            type=match,pattern=unleash-edge-v(\d+\.\d+.\d+),group=1,prefix=v
+            type=match,pattern=unleash-edge-v(\d+\.\d+).*,group=1,prefix=v
       - name: Build tag and push images
         uses: docker/build-push-action@v4
         with:

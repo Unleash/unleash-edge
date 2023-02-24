@@ -7,19 +7,17 @@ use crate::types::{
     BatchMetricsRequest, BatchMetricsRequestBody, EdgeResult, EdgeSource, EdgeToken,
 };
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use tracing::warn;
 
 pub async fn send_metrics_task(
-    metrics_cache: Arc<RwLock<MetricsCache>>,
+    metrics_cache: Arc<MetricsCache>,
     source: Arc<dyn EdgeSource>,
     unleash_client: UnleashClient,
     send_interval: u64,
 ) {
     loop {
         {
-            let mut metrics_lock = metrics_cache.write().await;
-            let metrics = metrics_lock.get_unsent_metrics();
+            let metrics = metrics_cache.get_unsent_metrics();
             let api_key = get_first_token(source.clone()).await;
 
             match api_key {
@@ -35,7 +33,7 @@ pub async fn send_metrics_task(
                     if let Err(error) = unleash_client.send_batch_metrics(request).await {
                         warn!("Failed to send metrics: {error:?}");
                     } else {
-                        metrics_lock.reset_metrics();
+                        metrics_cache.reset_metrics();
                     }
                 }
                 Err(e) => {
