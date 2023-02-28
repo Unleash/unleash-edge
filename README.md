@@ -1,5 +1,13 @@
 # Unleash Edge
 
+[![crates.io](https://img.shields.io/crates/v/unleash-edge?label=latest)](https://crates.io/crates/unleash-edge) 
+[![Documentation](https://docs.rs/unleash-edge/badge.svg?version=latest)](https://docs.rs/unleash-edge/latest) 
+![MIT licensed](https://img.shields.io/crates/l/unleash-edge.svg)
+[![Dependency Status](https://deps.rs/crate/unleash-edge/0.1.1/status.svg)](https://deps.rs/crate/unleash-edge/0.1.1)
+[![CI](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml/badge.svg)](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml) 
+[![Coverage Status](https://coveralls.io/repos/github/Unleash/unleash-edge/badge.svg?branch=main)](https://coveralls.io/github/Unleash/unleash-edge?branch=main) 
+![downloads](https://img.shields.io/crates/d/unleash-edge.svg)
+
 Unleash Edge is the successor to the [Unleash Proxy](https://docs.getunleash.io/how-to/how-to-run-the-unleash-proxy).
 
 ## Running Unleash Edge
@@ -29,6 +37,10 @@ Options:
           Server Cert to use for TLS [env: TLS_SERVER_CERT=]
       --tls-server-port <TLS_SERVER_PORT>
           Port to listen for https connection on (will use the interfaces already defined) [env: TLS_SERVER_PORT=] [default: 3043]
+      --instance-id <INSTANCE_ID>
+          Instance id. Used for metrics reporting [env: INSTANCE_ID=] [default: Ulid::new()]
+  -a, --app-name <APP_NAME>
+          App name. Used for metrics reporting [env: APP_NAME=] [default: unleash-edge]
   -h, --help
           Print help
 ```
