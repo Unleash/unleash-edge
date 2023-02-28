@@ -47,6 +47,7 @@ impl PartialEq for MetricsKey {
     }
 }
 
+#[derive(Default, Debug)]
 pub struct MetricsBatch {
     pub applications: Vec<ClientApplication>,
     pub metrics: Vec<ClientMetricsEnv>,
@@ -106,7 +107,7 @@ mod test {
     use std::collections::HashMap;
 
     use chrono::{DateTime, Utc};
-    use unleash_types::client_metrics::ClientMetricsEnv;
+    use unleash_types::client_metrics::{ClientMetricsEnv, ConnectVia};
 
     #[test]
     fn cache_aggregates_data_correctly() {
@@ -274,5 +275,41 @@ mod test {
         assert!(!cache.metrics.is_empty());
         cache.reset_metrics();
         assert!(cache.metrics.is_empty());
+    }
+
+    #[test]
+    fn adding_another_connection_link_works() {
+        let client_application = ClientApplication {
+            app_name: "tests_help".into(),
+            connect_via: None,
+            environment: Some("development".into()),
+            instance_id: Some("test".into()),
+            interval: 60,
+            sdk_version: None,
+            started: Default::default(),
+            strategies: vec![],
+        };
+        let connected_via_test_instance = client_application.connect_via("test", "instance");
+        let connected_via_edge_as_well = connected_via_test_instance.connect_via("edge", "edgeid");
+        assert_eq!(
+            connected_via_test_instance.connect_via.unwrap(),
+            vec![ConnectVia {
+                app_name: "test".into(),
+                instance_id: "instance".into()
+            }]
+        );
+        assert_eq!(
+            connected_via_edge_as_well.connect_via.unwrap(),
+            vec![
+                ConnectVia {
+                    app_name: "test".into(),
+                    instance_id: "instance".into()
+                },
+                ConnectVia {
+                    app_name: "edge".into(),
+                    instance_id: "edgeid".into()
+                }
+            ]
+        )
     }
 }

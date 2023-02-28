@@ -64,6 +64,14 @@ pub struct CliArgs {
 
     #[command(subcommand)]
     pub mode: EdgeMode,
+
+    /// Instance id. Used for metrics reporting.
+    #[clap(long, env, default_value_t = ulid::Ulid::new().to_string())]
+    pub instance_id: String,
+
+    /// App name. Used for metrics reporting.
+    #[clap(short, long, env, default_value = "unleash-edge")]
+    pub app_name: String,
 }
 
 #[derive(Args, Debug, Clone)]

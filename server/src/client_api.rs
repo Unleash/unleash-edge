@@ -2,9 +2,10 @@ use crate::metrics::client_metrics::{ApplicationKey, MetricsCache};
 use crate::types::{EdgeJsonResult, EdgeResult, EdgeSource, EdgeToken};
 use actix_web::web::{self, Json};
 use actix_web::{get, post, HttpRequest, HttpResponse};
+use tracing::debug;
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::{
-    from_bucket_app_name_and_env, ClientApplication, ClientMetrics,
+    from_bucket_app_name_and_env, ClientApplication, ClientMetrics, ConnectVia,
 };
 
 #[utoipa::path(
@@ -43,14 +44,19 @@ pub async fn features(
 #[post("/client/register")]
 pub async fn register(
     edge_token: EdgeToken,
+    connect_via: web::Data<ConnectVia>,
     _req: HttpRequest,
     client_application: web::Json<ClientApplication>,
     metrics_cache: web::Data<MetricsCache>,
 ) -> EdgeResult<HttpResponse> {
     let client_application = client_application.into_inner();
+    let updated_with_connection_info = client_application.connect_via(
+        connect_via.app_name.as_str(),
+        connect_via.instance_id.as_str(),
+    );
     let to_write = ClientApplication {
         environment: edge_token.environment,
-        ..client_application
+        ..updated_with_connection_info
     };
     metrics_cache.applications.insert(
         ApplicationKey {
@@ -76,10 +82,10 @@ pub async fn register(
         ("Authorization" = [])
     )
 )]
-#[get("/client/metrics")]
+#[post("/client/metrics")]
 pub async fn metrics(
     edge_token: EdgeToken,
-    metrics: web::Json<ClientMetrics>,
+    metrics: Json<ClientMetrics>,
     metrics_cache: web::Data<MetricsCache>,
 ) -> EdgeResult<HttpResponse> {
     let metrics = metrics.into_inner();
@@ -88,13 +94,13 @@ pub async fn metrics(
         metrics.app_name,
         edge_token.environment.unwrap(),
     );
-
+    debug!("Received metrics: {metrics:?}");
     metrics_cache.sink_metrics(&metrics);
     Ok(HttpResponse::Accepted().finish())
 }
 
 pub fn configure_client_api(cfg: &mut web::ServiceConfig) {
-    cfg.service(features).service(register);
+    cfg.service(features).service(register).service(metrics);
 }
 
 #[cfg(test)]
@@ -115,10 +121,11 @@ mod tests {
     };
     use chrono::{DateTime, Utc};
     use serde_json::json;
+    use ulid::Ulid;
     use unleash_types::client_metrics::ClientMetricsEnv;
 
     async fn make_test_request() -> Request {
-        test::TestRequest::get()
+        test::TestRequest::post()
             .uri("/api/client/metrics")
             .insert_header(ContentType::json())
             .insert_header((
@@ -148,6 +155,10 @@ mod tests {
 
         let app = test::init_service(
             App::new()
+                .app_data(Data::new(ConnectVia {
+                    app_name: "test".into(),
+                    instance_id: Ulid::new().to_string(),
+                }))
                 .app_data(Data::from(metrics_cache.clone()))
                 .service(web::scope("/api").service(super::metrics)),
         )
@@ -156,7 +167,7 @@ mod tests {
         let req = make_test_request().await;
         let _result = test::call_and_read_body(&app, req).await;
 
-        let cache = metrics_cache;
+        let cache = metrics_cache.clone();
 
         let found_metric = cache
             .metrics
