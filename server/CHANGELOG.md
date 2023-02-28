@@ -5,7 +5,70 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.2.0 (2023-02-28)
+
+### Chore
+
+ - <csr-id-176ef576d6ad6ddfb0993f7738465f2f68d3b4af/> bump shadow-rs to 0.21
+ - <csr-id-5875ebda52a75560800e4506e3a124016258a228/> added symlink to top level README file
+
+### New Features
+
+ - <csr-id-60bcf7617b5673dbf66a345b4bed81857d65b70e/> Added /api/frontend endpoint to match Unleash
+
+### Bug Fixes
+
+ - <csr-id-ae3c9f75bcccddefd571d7fca4c87a7b4e585ea7/> add README to server subfolder
+ - <csr-id-eaf0e797b57ec49ce5050826705d458798619a5b/> update rust crate clap to 4.1.8
+ - <csr-id-2020281566c695f9e3e0a371f0bf9644613b2c38/> update rust crate actix-web to 4.3.1
+ - <csr-id-3b6be69d527e73b7b23bcf2311df1099e0499e73/> update rust crate clap to 4.1.7
+ - <csr-id-98666cf738ede56dd6ef5d7162194e2dafd1dcbb/> Move /api/client/register to a post request.
+   Earlier we didn't accept metrics from downstream clients because we made
+   a wrong assumption about Request Method type. This PR fixes this and
+   starts accepting client metrics and posting them upstream.
+ - <csr-id-77b9b0c3eb5a98b35224e16fd4594226be79cbb5/> Client features were not refreshing.
+   We incorrectly assumed that our merge method would be enough here, but
+   since the merge method retained the original and deduped, it seems like
+   we tricked ourselves. The fix reduces the action to simply replacing
+   whatever was cached with the newly fetched features from the server
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 9 commits contributed to the release over the course of 4 calendar days.
+ - 4 days passed between releases.
+ - 9 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 6 unique issues were worked on: [#76](https://github.com/Unleash/unleash-edge/issues/76), [#77](https://github.com/Unleash/unleash-edge/issues/77), [#78](https://github.com/Unleash/unleash-edge/issues/78), [#79](https://github.com/Unleash/unleash-edge/issues/79), [#81](https://github.com/Unleash/unleash-edge/issues/81), [#83](https://github.com/Unleash/unleash-edge/issues/83)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#76](https://github.com/Unleash/unleash-edge/issues/76)**
+    - Added /api/frontend endpoint to match Unleash ([`60bcf76`](https://github.com/Unleash/unleash-edge/commit/60bcf7617b5673dbf66a345b4bed81857d65b70e))
+ * **[#77](https://github.com/Unleash/unleash-edge/issues/77)**
+    - Update rust crate actix-web to 4.3.1 ([`2020281`](https://github.com/Unleash/unleash-edge/commit/2020281566c695f9e3e0a371f0bf9644613b2c38))
+ * **[#78](https://github.com/Unleash/unleash-edge/issues/78)**
+    - Update rust crate clap to 4.1.7 ([`3b6be69`](https://github.com/Unleash/unleash-edge/commit/3b6be69d527e73b7b23bcf2311df1099e0499e73))
+ * **[#79](https://github.com/Unleash/unleash-edge/issues/79)**
+    - Client features were not refreshing. ([`77b9b0c`](https://github.com/Unleash/unleash-edge/commit/77b9b0c3eb5a98b35224e16fd4594226be79cbb5))
+ * **[#81](https://github.com/Unleash/unleash-edge/issues/81)**
+    - Move /api/client/register to a post request. ([`98666cf`](https://github.com/Unleash/unleash-edge/commit/98666cf738ede56dd6ef5d7162194e2dafd1dcbb))
+ * **[#83](https://github.com/Unleash/unleash-edge/issues/83)**
+    - Update rust crate clap to 4.1.8 ([`eaf0e79`](https://github.com/Unleash/unleash-edge/commit/eaf0e797b57ec49ce5050826705d458798619a5b))
+ * **Uncategorized**
+    - Add README to server subfolder ([`ae3c9f7`](https://github.com/Unleash/unleash-edge/commit/ae3c9f75bcccddefd571d7fca4c87a7b4e585ea7))
+    - Bump shadow-rs to 0.21 ([`176ef57`](https://github.com/Unleash/unleash-edge/commit/176ef576d6ad6ddfb0993f7738465f2f68d3b4af))
+    - Added symlink to top level README file ([`5875ebd`](https://github.com/Unleash/unleash-edge/commit/5875ebda52a75560800e4506e3a124016258a228))
+</details>
+
 ## v0.1.1 (2023-02-24)
+
+<csr-id-3f6920a5e56f3783594624eb370bff3af68ea91c/>
+<csr-id-ffe24dcc7ec00097e43e5898b10373d6918aa234/>
 
 ### Chore
 
@@ -16,7 +79,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 2 commits contributed to the release.
+ - 3 commits contributed to the release.
  - 1 day passed between releases.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#74](https://github.com/Unleash/unleash-edge/issues/74), [#75](https://github.com/Unleash/unleash-edge/issues/75)
@@ -31,6 +94,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Removal of RW locks for dashmaps ([`ffe24dc`](https://github.com/Unleash/unleash-edge/commit/ffe24dcc7ec00097e43e5898b10373d6918aa234))
  * **[#75](https://github.com/Unleash/unleash-edge/issues/75)**
     - Remove rwlock from validator, client and builder ([`3f6920a`](https://github.com/Unleash/unleash-edge/commit/3f6920a5e56f3783594624eb370bff3af68ea91c))
+ * **Uncategorized**
+    - Release unleash-edge v0.1.1 ([`ced1712`](https://github.com/Unleash/unleash-edge/commit/ced1712b186fc3cbad7dae1b061143234cd61c8f))
 </details>
 
 ## v0.1.0 (2023-02-23)
