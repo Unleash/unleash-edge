@@ -8,6 +8,7 @@ use actix_web::{web, App, HttpServer};
 use actix_web_opentelemetry::RequestTracing;
 use clap::Parser;
 use cli::CliArgs;
+use unleash_types::client_metrics::ConnectVia;
 
 use unleash_edge::client_api;
 use unleash_edge::data_sources::builder::build_source_and_sink;
@@ -31,6 +32,10 @@ async fn main() -> Result<(), anyhow::Error> {
     let mode_arg = args.clone().mode;
     let http_args = args.clone().http;
     let (metrics_handler, request_metrics) = prom_metrics::instantiate(None);
+    let connect_via = ConnectVia {
+        app_name: args.clone().app_name,
+        instance_id: args.clone().instance_id,
+    };
     let repo_info = build_source_and_sink(args).await.unwrap();
     let source = repo_info.source;
     let source_clone = source.clone();
@@ -52,6 +57,7 @@ async fn main() -> Result<(), anyhow::Error> {
         let mut app = App::new()
             .app_data(edge_source)
             .app_data(web::Data::new(mode_arg.clone()))
+            .app_data(web::Data::new(connect_via.clone()))
             .app_data(web::Data::from(metrics_cache.clone()));
         if validator.is_some() {
             app = app.app_data(web::Data::from(validator.clone().unwrap()))

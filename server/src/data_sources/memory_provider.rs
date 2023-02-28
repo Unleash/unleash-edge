@@ -4,7 +4,6 @@ use actix_web::http::header::EntityTag;
 use async_trait::async_trait;
 use dashmap::DashMap;
 use unleash_types::client_features::ClientFeatures;
-use unleash_types::Merge;
 
 use super::repository::{DataSink, DataSource};
 
@@ -77,12 +76,7 @@ impl DataSink for MemoryProvider {
     }
 
     async fn sink_features(&self, token: &EdgeToken, features: ClientFeatures) -> EdgeResult<()> {
-        self.data_store
-            .entry(key(token))
-            .and_modify(|data| {
-                *data = data.clone().merge(features.clone());
-            })
-            .or_insert(features);
+        self.data_store.insert(key(token), features);
         Ok(())
     }
 
