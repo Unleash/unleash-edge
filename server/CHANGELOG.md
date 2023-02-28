@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## v0.2.0 (2023-02-28)
 
+<csr-id-176ef576d6ad6ddfb0993f7738465f2f68d3b4af/>
+<csr-id-5875ebda52a75560800e4506e3a124016258a228/>
+
 ### Chore
 
  - <csr-id-176ef576d6ad6ddfb0993f7738465f2f68d3b4af/> bump shadow-rs to 0.21
@@ -36,7 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 9 commits contributed to the release over the course of 4 calendar days.
+ - 10 commits contributed to the release over the course of 4 calendar days.
  - 4 days passed between releases.
  - 9 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 6 unique issues were worked on: [#76](https://github.com/Unleash/unleash-edge/issues/76), [#77](https://github.com/Unleash/unleash-edge/issues/77), [#78](https://github.com/Unleash/unleash-edge/issues/78), [#79](https://github.com/Unleash/unleash-edge/issues/79), [#81](https://github.com/Unleash/unleash-edge/issues/81), [#83](https://github.com/Unleash/unleash-edge/issues/83)
@@ -60,6 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#83](https://github.com/Unleash/unleash-edge/issues/83)**
     - Update rust crate clap to 4.1.8 ([`eaf0e79`](https://github.com/Unleash/unleash-edge/commit/eaf0e797b57ec49ce5050826705d458798619a5b))
  * **Uncategorized**
+    - Release unleash-edge v0.2.0 ([`a71fd76`](https://github.com/Unleash/unleash-edge/commit/a71fd7676c606eb9004fbfa15334f1de42a3d6f3))
     - Add README to server subfolder ([`ae3c9f7`](https://github.com/Unleash/unleash-edge/commit/ae3c9f75bcccddefd571d7fca4c87a7b4e585ea7))
     - Bump shadow-rs to 0.21 ([`176ef57`](https://github.com/Unleash/unleash-edge/commit/176ef576d6ad6ddfb0993f7738465f2f68d3b4af))
     - Added symlink to top level README file ([`5875ebd`](https://github.com/Unleash/unleash-edge/commit/5875ebda52a75560800e4506e3a124016258a228))
