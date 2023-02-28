@@ -7,7 +7,7 @@ use crate::types::{
     BatchMetricsRequest, BatchMetricsRequestBody, EdgeResult, EdgeSource, EdgeToken,
 };
 use std::sync::Arc;
-use tracing::warn;
+use tracing::{debug, warn};
 
 pub async fn send_metrics_task(
     metrics_cache: Arc<MetricsCache>,
@@ -22,6 +22,7 @@ pub async fn send_metrics_task(
 
             match api_key {
                 Ok(api_key) => {
+                    debug!("Going to post {metrics:?} for {api_key:?}");
                     let request = BatchMetricsRequest {
                         api_key: api_key.token.clone(),
                         body: BatchMetricsRequestBody {
