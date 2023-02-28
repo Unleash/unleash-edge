@@ -65,7 +65,7 @@ pub struct CliArgs {
     #[command(subcommand)]
     pub mode: EdgeMode,
 
-    /// Instance id. Used for metrics reporting
+    /// Instance id. Used for metrics reporting.
     #[clap(long, env, default_value_t = ulid::Ulid::new().to_string())]
     pub instance_id: String,
 
