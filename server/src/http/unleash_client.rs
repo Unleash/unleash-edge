@@ -11,6 +11,7 @@ use crate::types::{
     ValidateTokensRequest,
 };
 use reqwest::{header, Client};
+use tracing::debug;
 
 use crate::urls::UnleashUrls;
 use crate::{error::EdgeError, types::ClientFeaturesRequest};
@@ -111,10 +112,13 @@ impl UnleashClient {
     }
 
     pub async fn send_batch_metrics(&self, request: BatchMetricsRequest) -> EdgeResult<()> {
+        debug!(
+            "Posting metrics to {}",
+            self.urls.edge_metrics_url.to_string()
+        );
         let result = self
             .backing_client
             .post(self.urls.edge_metrics_url.to_string())
-            .header(reqwest::header::AUTHORIZATION, request.api_key)
             .json(&request.body)
             .send()
             .await
@@ -122,6 +126,7 @@ impl UnleashClient {
         if result.status().is_success() {
             Ok(())
         } else {
+            debug!("{}", result.status());
             Err(EdgeError::EdgeMetricsError)
         }
     }
