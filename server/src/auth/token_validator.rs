@@ -158,7 +158,9 @@ mod tests {
         assert!(validation_holder.token_cache.iter().any(|t| t.value().token
             == "*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1f"
             && t.status == TokenValidationStatus::Validated));
-        assert!(validation_holder.token_cache.iter()
+        assert!(validation_holder
+            .token_cache
+            .iter()
             .any(|t| t.value().token == "*:production.abcdef1234567890"
                 && t.value().status == TokenValidationStatus::Invalid));
     }

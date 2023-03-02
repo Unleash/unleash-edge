@@ -166,7 +166,8 @@ fn get_enabled_features(
 ) -> EdgeJsonResult<FrontendResult> {
     let context = context.into_inner();
     let key = crate::tokens::cache_key(edge_token);
-    let engine = engine_cache.get(&key)
+    let engine = engine_cache
+        .get(&key)
         .ok_or_else(|| EdgeError::DataSourceError("Could not find data for token".into()))?;
     let feature_results = engine.resolve_all(&context).unwrap();
     Ok(Json(frontend_from_yggdrasil(feature_results)))
@@ -445,7 +446,8 @@ mod tests {
                 "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7"
                     .to_string(),
             ],
-        ).unwrap();
+        )
+        .unwrap();
         let app = test::init_service(
             App::new()
                 .app_data(Data::new(token_cache))
@@ -491,7 +493,8 @@ mod tests {
                 "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7"
                     .to_string(),
             ],
-        ).unwrap();
+        )
+        .unwrap();
 
         let app = test::init_service(
             App::new()

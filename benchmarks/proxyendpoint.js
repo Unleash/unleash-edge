@@ -12,6 +12,5 @@ export const options = {
 };
 
 export default function () {
-  http.get('http://edge:3063/api/proxy', { 'headers': { 'Authorization': `${__ENV.TOKEN}` } });
-  sleep(0.2);
+  http.get('http://127.0.0.1:3063/api/proxy', { 'headers': { 'Authorization': `${__ENV.TOKEN}` } });
 }

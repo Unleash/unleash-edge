@@ -1,5 +1,5 @@
-use crate::types::TokenRefresh;
 use crate::types::EdgeToken;
+use crate::types::TokenRefresh;
 
 pub(crate) fn simplify(tokens: &[TokenRefresh]) -> Vec<&TokenRefresh> {
     tokens

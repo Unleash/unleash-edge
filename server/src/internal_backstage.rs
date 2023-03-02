@@ -32,7 +32,9 @@ pub async fn info() -> EdgeJsonResult<BuildInfo> {
 }
 
 #[get("/tokens")]
-pub async fn tokens(edge_source: web::Data<DashMap<String, EdgeToken>>) -> EdgeJsonResult<Vec<EdgeToken>> {
+pub async fn tokens(
+    edge_source: web::Data<DashMap<String, EdgeToken>>,
+) -> EdgeJsonResult<Vec<EdgeToken>> {
     let all_tokens = edge_source.iter().map(|e| e.value().clone()).collect();
     Ok(Json(all_tokens))
 }

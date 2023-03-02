@@ -8,6 +8,7 @@ use actix_web::{web, App, HttpServer};
 use actix_web_opentelemetry::RequestTracing;
 use clap::Parser;
 use cli::CliArgs;
+use unleash_edge::auth::token_validator::{self, TokenValidator};
 use unleash_edge::data_sources::builder::build_caches_and_refreshers;
 use unleash_types::client_metrics::ConnectVia;
 
@@ -37,13 +38,9 @@ async fn main() -> Result<(), anyhow::Error> {
         app_name: args.clone().app_name,
         instance_id: args.clone().instance_id,
     };
-    let ((token_cache, features_cache, engine_cache), maybe_validator) =
+    let ((token_cache, features_cache, engine_cache), token_validator, feature_refresher) =
         build_caches_and_refreshers(args).await.unwrap();
-    let rc_tc = Arc::new(token_cache);
-    let rc_fc = Arc::new(features_cache);
-    let rc_ec = Arc::new(engine_cache);
     let metrics_cache = Arc::new(MetricsCache::default());
-    let metrics_cache_clone = metrics_cache.clone();
 
     let openapi = openapi::ApiDoc::openapi();
 
@@ -57,12 +54,12 @@ async fn main() -> Result<(), anyhow::Error> {
             .app_data(web::Data::new(mode_arg.clone()))
             .app_data(web::Data::new(connect_via.clone()))
             .app_data(web::Data::new(metrics_cache.clone()))
-            .app_data(web::Data::from(rc_tc.clone()))
-            .app_data(web::Data::from(rc_fc.clone()))
-            .app_data(web::Data::from(rc_ec.clone()));
-        // if maybe_validator.is_some() {
-        //     app = app.app_data(web::Data::from(maybe_validator.unwrap().clone()))
-        // }
+            .app_data(web::Data::from(token_cache.clone()))
+            .app_data(web::Data::from(features_cache.clone()))
+            .app_data(web::Data::from(engine_cache.clone()));
+        if token_validator.is_some() {
+            app = app.app_data(web::Data::from(token_validator.unwrap().clone()))
+        }
         app.wrap(Etag::default())
             .wrap(cors_middleware)
             .wrap(RequestTracing::new())
@@ -98,13 +95,32 @@ async fn main() -> Result<(), anyhow::Error> {
     };
     let server = server?.workers(http_args.workers).shutdown_timeout(5);
 
-    tokio::select! {
-        _ = server.run() => {
-            tracing::info!("Actix is shutting down. Persisting data");
-            // persist_state()
-            tracing::info!("Actix was shutdown properly");
+    match args.mode {
+        crate::cli::EdgeMode::Edge(args) => {
+            let refresher = feature_refresher.unwrap();
+            tokio::select! {
+                _ = server.run() => {
+                    tracing::info!("Actix is shutting down. Persisting data");
+                    // persist_state()
+                    tracing::info!("Actix was shutdown properly");
+                },
+                _ = refresher.refresh_features() => {
+                    tracing::info!("Feature refresher unexpectedly shut down");
+                }
+                _ = crate::http::background_send_metrics::send_metrics_task(metrics_cache.clone(), args.metrics_interval_seconds) => {
+                    tracing::info!("Metrics poster unexpectedly shut down");
+                }
+            }
         }
+        _ => tokio::select! {
+            _ = server.run() => {
+                tracing::info!("Actix is shutting down. Persisting data");
+                // persist_state()
+                tracing::info!("Actix was shutdown properly");
 
+            }
+        },
     };
+
     Ok(())
 }

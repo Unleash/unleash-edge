@@ -8,7 +8,6 @@ use actix_web::{
 };
 use dashmap::DashMap;
 
-
 pub async fn validate_token(
     token: EdgeToken,
     req: ServiceRequest,

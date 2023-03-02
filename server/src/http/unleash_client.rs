@@ -7,8 +7,8 @@ use ulid::Ulid;
 use unleash_types::client_features::ClientFeatures;
 
 use crate::types::{
-    BatchMetricsRequest, ClientFeaturesResponse, EdgeResult, EdgeToken, TokenValidationStatus,
-    ValidateTokensRequest,
+    BatchMetricsRequest, BatchMetricsRequestBody, ClientFeaturesResponse, EdgeResult, EdgeToken,
+    TokenValidationStatus, ValidateTokensRequest,
 };
 use reqwest::{header, Client};
 use tracing::debug;
@@ -111,7 +111,7 @@ impl UnleashClient {
         }
     }
 
-    pub async fn send_batch_metrics(&self, request: BatchMetricsRequest) -> EdgeResult<()> {
+    pub async fn send_batch_metrics(&self, request: BatchMetricsRequestBody) -> EdgeResult<()> {
         debug!(
             "Posting metrics to {}",
             self.urls.edge_metrics_url.to_string()
@@ -119,11 +119,12 @@ impl UnleashClient {
         let result = self
             .backing_client
             .post(self.urls.edge_metrics_url.to_string())
-            .json(&request.body)
+            .json(&request)
             .send()
             .await
             .map_err(|_| EdgeError::EdgeMetricsError)?;
         if result.status().is_success() {
+            debug!("Succesfully posted metrics");
             Ok(())
         } else {
             debug!("{}", result.status());
