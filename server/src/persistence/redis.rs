@@ -17,7 +17,6 @@ use crate::{
     types::{EdgeResult, EdgeToken},
 };
 
-use super::repository::{DataSink, DataSource};
 
 impl From<RedisError> for EdgeError {
     fn from(err: RedisError) -> Self {

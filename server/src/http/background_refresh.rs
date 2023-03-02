@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use crate::types::{
-    ClientFeaturesRequest, ClientFeaturesResponse, EdgeSink, EdgeSource, EdgeToken,
+    ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken,
     ValidateTokensRequest,
 };
 use tokio::sync::{mpsc::Receiver, mpsc::Sender};
@@ -45,10 +45,16 @@ pub async fn poll_for_token_status(
     }
 }
 
+use dashmap::DashMap;
+use crate::types::TokenRefresh;
+use unleash_types::client_features::ClientFeatures;
+use unleash_yggdrasil::EngineState;
+
 pub async fn refresh_features(
-    source: Arc<dyn EdgeSource>,
-    sink: Arc<dyn EdgeSink>,
-    unleash_client: UnleashClient,
+    tokens_to_refresh: Arc<DashMap<String, TokenRefresh>>,
+    feature_cache: Arc<DashMap<String, ClientFeatures>>,
+    engine_cache: Arc<DashMap<String, EngineState>>,
+    unleash_client: Arc<UnleashClient>,
 ) {
     loop {
         tokio::select! {

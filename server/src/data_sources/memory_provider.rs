@@ -1,11 +1,8 @@
 use crate::types::TokenRefresh;
 use crate::types::{EdgeResult, EdgeToken};
 use actix_web::http::header::EntityTag;
-use async_trait::async_trait;
 use dashmap::DashMap;
 use unleash_types::client_features::ClientFeatures;
-
-use super::repository::{DataSink, DataSource};
 
 #[derive(Debug, Clone)]
 pub struct MemoryProvider {
@@ -32,10 +29,7 @@ impl MemoryProvider {
             tokens_to_refresh: DashMap::new(),
         }
     }
-}
 
-#[async_trait]
-impl DataSource for MemoryProvider {
     async fn get_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
         Ok(self.token_store.iter().map(|x| x.value().clone()).collect())
     }
@@ -55,10 +49,7 @@ impl DataSource for MemoryProvider {
     async fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<Option<ClientFeatures>> {
         Ok(self.data_store.get(&key(token)).map(|v| v.value().clone()))
     }
-}
 
-#[async_trait]
-impl DataSink for MemoryProvider {
     async fn sink_tokens(&self, tokens: Vec<EdgeToken>) -> EdgeResult<()> {
         for token in tokens {
             self.token_store.insert(token.token.clone(), token.clone());
@@ -75,6 +66,8 @@ impl DataSink for MemoryProvider {
         Ok(())
     }
 
+    /// Accepts an updated list of client features.
+    /// Assumes a different layer has done the necessary merge of client features for the environment the token resolves to
     async fn sink_features(&self, token: &EdgeToken, features: ClientFeatures) -> EdgeResult<()> {
         self.data_store.insert(key(token), features);
         Ok(())

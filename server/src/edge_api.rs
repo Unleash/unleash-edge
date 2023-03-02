@@ -1,8 +1,8 @@
-use crate::{
-    auth::token_validator::TokenValidator,
-    types::{EdgeJsonResult, EdgeSource, TokenStrings, TokenValidationStatus, ValidatedTokens},
+use crate::types::{
+    EdgeJsonResult, EdgeToken, TokenStrings, TokenValidationStatus, ValidatedTokens,
 };
 use crate::{
+    auth::token_validator::TokenValidator,
     metrics::client_metrics::MetricsCache,
     types::{BatchMetricsRequestBody, EdgeResult},
 };
@@ -11,6 +11,7 @@ use actix_web::{
     web::{self, Data, Json},
     HttpRequest, HttpResponse,
 };
+use dashmap::DashMap;
 use utoipa;
 
 #[utoipa::path(
@@ -22,7 +23,7 @@ use utoipa;
 )]
 #[post("/validate")]
 pub async fn validate(
-    token_provider: web::Data<dyn EdgeSource>,
+    token_cache: web::Data<DashMap<String, EdgeToken>>,
     req: HttpRequest,
     tokens: Json<TokenStrings>,
 ) -> EdgeJsonResult<ValidatedTokens> {
@@ -40,9 +41,11 @@ pub async fn validate(
             }))
         }
         None => Ok(Json(ValidatedTokens {
-            tokens: token_provider
-                .filter_valid_tokens(tokens.into_inner().tokens)
-                .await?,
+            tokens: token_cache
+                .iter()
+                .filter(|t| t.token_type.is_some())
+                .map(|e| e.value().clone())
+                .collect(),
         })),
     }
 }

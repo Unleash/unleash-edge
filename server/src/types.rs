@@ -1,4 +1,5 @@
 use std::fmt;
+use std::sync::Arc;
 use std::{
     future::{ready, Ready},
     hash::{Hash, Hasher},
@@ -20,6 +21,8 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use shadow_rs::shadow;
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::{ClientApplication, ClientMetricsEnv};
+use unleash_types::frontend::EvaluatedToggle;
+use unleash_yggdrasil::{Context, EngineState};
 use utoipa::ToSchema;
 
 pub type EdgeJsonResult<T> = Result<Json<T>, EdgeError>;
@@ -70,6 +73,10 @@ impl ClientFeaturesRequest {
             etag: etag.map(EntityTag::new_weak),
         }
     }
+}
+
+pub struct FeatureRefresher {
+
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, ToSchema)]
@@ -234,6 +241,13 @@ pub struct ValidatedTokens {
 #[async_trait]
 pub trait FeatureSource {
     async fn get_client_features(&self, token: &EdgeToken) -> EdgeResult<ClientFeatures>;
+
+    async fn resolve_computed_toggles(
+        &self,
+        edge_token: &EdgeToken,
+        context: &Context,
+        include_disabled: bool,
+    ) -> EdgeResult<Vec<EvaluatedToggle>>;
 }
 
 #[async_trait]
@@ -278,6 +292,13 @@ impl fmt::Debug for TokenRefresh {
             .finish()
     }
 }
+use dashmap::DashMap;
+#[derive(Clone, Default)]
+pub struct CacheHolder {
+    pub token_cache: Arc<DashMap<String, EdgeToken>>,
+    pub features_cache: Arc<DashMap<String, ClientFeatures>>,
+    pub engine_cache: Arc<DashMap<String, EngineState>>,
+}
 
 fn deserialize_entity_tag<'de, D>(deserializer: D) -> Result<Option<EntityTag>, D::Error>
 where
@@ -297,20 +318,6 @@ where
     serializer.serialize_some(&s)
 }
 
-pub trait EdgeSource: FeatureSource + TokenSource + Send + Sync {}
-pub trait EdgeSink: FeatureSink + TokenSink + Send + Sync {}
-
-#[async_trait]
-pub trait FeatureSink {
-    async fn sink_features(&self, token: &EdgeToken, features: ClientFeatures) -> EdgeResult<()>;
-    async fn update_last_check(&self, token: &EdgeToken) -> EdgeResult<()>;
-    async fn update_last_refresh(
-        &self,
-        token: &EdgeToken,
-        etag: Option<EntityTag>,
-    ) -> EdgeResult<()>;
-}
-
 pub fn into_entity_tag(client_features: ClientFeatures) -> Option<EntityTag> {
     client_features.xx3_hash().ok().map(EntityTag::new_weak)
 }
@@ -325,11 +332,6 @@ pub struct BatchMetricsRequest {
 pub struct BatchMetricsRequestBody {
     pub applications: Vec<ClientApplication>,
     pub metrics: Vec<ClientMetricsEnv>,
-}
-
-#[async_trait]
-pub trait TokenSink {
-    async fn sink_tokens(&self, tokens: Vec<EdgeToken>) -> EdgeResult<()>;
 }
 
 #[async_trait]

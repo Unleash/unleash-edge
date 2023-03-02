@@ -1,114 +1,75 @@
-use std::sync::Arc;
+use std::{io::BufReader, str::FromStr};
 
 use chrono::Duration;
-use reqwest::Url;
+use dashmap::DashMap;
+use std::fs::File;
 
 use crate::{
-    auth::token_validator::TokenValidator,
-    cli::{CliArgs, EdgeArg, EdgeMode, OfflineArgs},
-    http::unleash_client::UnleashClient,
-    types::{EdgeResult, EdgeSink, EdgeSource},
+    cli::{CliArgs, EdgeMode, OfflineArgs},
+    error::EdgeError,
+    types::{EdgeResult, EdgeToken, FeatureRefresher},
 };
+use unleash_types::client_features::ClientFeatures;
+use unleash_yggdrasil::EngineState;
 
-use super::{
-    memory_provider::MemoryProvider, offline_provider::OfflineProvider,
-    redis_provider::RedisProvider, repository::DataSourceFacade,
-};
+type CacheContainer = (
+    DashMap<String, EdgeToken>,
+    DashMap<String, ClientFeatures>,
+    DashMap<String, EngineState>,
+);
+type EdgeInfo = (CacheContainer, Option<FeatureRefresher>);
 
-pub type DataProviderPair = (Arc<dyn EdgeSource>, Arc<dyn EdgeSink>);
+pub(crate) fn build_offline_mode(
+    client_features: ClientFeatures,
+    tokens: Vec<String>,
+) -> EdgeResult<CacheContainer> {
+    let token_cache: DashMap<String, EdgeToken> = DashMap::default();
+    let features_cache: DashMap<String, ClientFeatures> = DashMap::default();
+    let engine_cache: DashMap<String, EngineState> = DashMap::default();
 
-pub struct RepositoryInfo {
-    pub source: Arc<dyn EdgeSource>,
-    pub sink_info: Option<SinkInfo>,
+    let edge_tokens: Vec<EdgeToken> = tokens
+        .iter()
+        .map(|token| {
+            EdgeToken::from_str(&token).unwrap_or_else(|_| EdgeToken::offline_token(token))
+        })
+        .collect();
+
+    for edge_token in edge_tokens {
+        token_cache.insert(edge_token.token.clone(), edge_token.clone());
+        features_cache.insert(
+            crate::tokens::cache_key(edge_token.clone()),
+            client_features.clone(),
+        );
+        let mut engine_state = EngineState::default();
+        engine_state.take_state(client_features.clone());
+        engine_cache.insert(crate::tokens::cache_key(edge_token.clone()), engine_state);
+    }
+    Ok((token_cache, features_cache, engine_cache))
 }
 
-pub struct SinkInfo {
-    pub sink: Arc<dyn EdgeSink>,
-    pub unleash_client: UnleashClient,
-    pub token_validator: Arc<TokenValidator>,
-    pub metrics_interval_seconds: u64,
+fn build_offline(offline_args: OfflineArgs) -> EdgeResult<CacheContainer> {
+    if let Some(bootstrap) = offline_args.bootstrap_file {
+        let file = File::open(bootstrap.clone()).map_err(|_| EdgeError::NoFeaturesFile)?;
+        let reader = BufReader::new(file);
+        let client_features: ClientFeatures = serde_json::from_reader(reader).map_err(|e| {
+            let path = format!("{}", bootstrap.clone().display());
+            EdgeError::InvalidBackupFile(path, e.to_string())
+        })?;
+        build_offline_mode(client_features, offline_args.tokens)
+    } else {
+        Err(EdgeError::NoFeaturesFile)
+    }
 }
 
-fn build_offline(offline_args: OfflineArgs) -> EdgeResult<Arc<dyn EdgeSource>> {
-    let provider =
-        OfflineProvider::instantiate_provider(offline_args.bootstrap_file, offline_args.tokens)?;
-
-    let source: Arc<dyn EdgeSource> = Arc::new(provider);
-    Ok(source)
+fn build_memory(features_refresh_interval_seconds: Duration) -> EdgeResult<EdgeInfo> {
+    todo!()
 }
 
-fn build_memory(features_refresh_interval_seconds: Duration) -> EdgeResult<DataProviderPair> {
-    let data_source = Arc::new(MemoryProvider::new());
-    let facade = Arc::new(DataSourceFacade {
-        features_refresh_interval: Some(features_refresh_interval_seconds),
-        token_source: data_source.clone(),
-        feature_source: data_source.clone(),
-        token_sink: data_source.clone(),
-        feature_sink: data_source,
-    });
-
-    let edge_source: Arc<dyn EdgeSource> = facade.clone();
-    let edge_sink: Arc<dyn EdgeSink> = facade;
-
-    Ok((edge_source, edge_sink))
-}
-
-fn build_redis(
-    redis_url: String,
-    features_refresh_interval_seconds: Duration,
-) -> EdgeResult<DataProviderPair> {
-    let data_source = Arc::new(RedisProvider::new(&redis_url)?);
-    let facade = Arc::new(DataSourceFacade {
-        token_source: data_source.clone(),
-        feature_source: data_source.clone(),
-        token_sink: data_source.clone(),
-        feature_sink: data_source,
-        features_refresh_interval: Some(features_refresh_interval_seconds),
-    });
-
-    let edge_source: Arc<dyn EdgeSource> = facade.clone();
-    let edge_sink: Arc<dyn EdgeSink> = facade;
-
-    Ok((edge_source, edge_sink))
-}
-
-pub async fn build_source_and_sink(args: CliArgs) -> EdgeResult<RepositoryInfo> {
+pub async fn build_caches_and_refreshers(args: CliArgs) -> EdgeResult<EdgeInfo> {
     match args.mode {
-        EdgeMode::Offline(offline_args) => {
-            let source: Arc<dyn EdgeSource> = build_offline(offline_args)?;
-            Ok(RepositoryInfo {
-                source,
-                sink_info: None,
-            })
-        }
+        EdgeMode::Offline(offline_args) => build_offline(offline_args).map(|cache| (cache, None)),
         EdgeMode::Edge(edge_args) => {
-            let refresh_interval = Duration::seconds(edge_args.features_refresh_interval_seconds);
-            let arg: EdgeArg = edge_args.clone().into();
-            let unleash_client = UnleashClient::from_url(
-                Url::parse(edge_args.upstream_url.as_str()).expect("Cannot parse Upstream URL"),
-            );
-            let (source, sink) = match arg {
-                EdgeArg::Redis(redis_url) => build_redis(redis_url, refresh_interval),
-                EdgeArg::InMemory => build_memory(refresh_interval),
-            }?;
-
-            let token_validator = TokenValidator {
-                unleash_client: Arc::new(unleash_client.clone()),
-                edge_source: source.clone(),
-                edge_sink: sink.clone(),
-            };
-            if !edge_args.tokens.is_empty() {
-                let _ = token_validator.register_tokens(edge_args.tokens).await;
-            }
-            Ok(RepositoryInfo {
-                source,
-                sink_info: Some(SinkInfo {
-                    sink,
-                    unleash_client,
-                    token_validator: Arc::new(token_validator),
-                    metrics_interval_seconds: edge_args.metrics_interval_seconds,
-                }),
-            })
+            todo!()
         }
     }
 }

@@ -8,17 +8,18 @@ use actix_web::{web, App, HttpServer};
 use actix_web_opentelemetry::RequestTracing;
 use clap::Parser;
 use cli::CliArgs;
+use unleash_edge::data_sources::builder::build_caches_and_refreshers;
 use unleash_types::client_metrics::ConnectVia;
 
 use unleash_edge::client_api;
-use unleash_edge::data_sources::builder::build_source_and_sink;
 use unleash_edge::edge_api;
 use unleash_edge::frontend_api;
-use unleash_edge::http::background_refresh::refresh_features;
-use unleash_edge::http::background_send_metrics::send_metrics_task;
+// use unleash_edge::http::background_refresh::refresh_features;
+// use unleash_edge::http::background_send_metrics::send_metrics_task;
 use unleash_edge::internal_backstage;
 use unleash_edge::metrics::client_metrics::MetricsCache;
 use unleash_edge::openapi;
+// use unleash_edge::persistence;
 use unleash_edge::prom_metrics;
 use unleash_edge::{cli, middleware};
 use utoipa_swagger_ui::SwaggerUi;
@@ -36,32 +37,32 @@ async fn main() -> Result<(), anyhow::Error> {
         app_name: args.clone().app_name,
         instance_id: args.clone().instance_id,
     };
-    let repo_info = build_source_and_sink(args).await.unwrap();
-    let source = repo_info.source;
-    let source_clone = source.clone();
-    let sink_info = repo_info.sink_info;
-    let validator = sink_info.as_ref().map(|sink| sink.token_validator.clone());
-
+    let ((token_cache, features_cache, engine_cache), maybe_validator) =
+        build_caches_and_refreshers(args).await.unwrap();
+    let rc_tc = Arc::new(token_cache);
+    let rc_fc = Arc::new(features_cache);
+    let rc_ec = Arc::new(engine_cache);
     let metrics_cache = Arc::new(MetricsCache::default());
     let metrics_cache_clone = metrics_cache.clone();
 
     let openapi = openapi::ApiDoc::openapi();
 
     let server = HttpServer::new(move || {
-        let edge_source = web::Data::from(source.clone());
         let cors_middleware = Cors::default()
             .allow_any_origin()
             .send_wildcard()
             .allow_any_header()
             .allow_any_method();
         let mut app = App::new()
-            .app_data(edge_source)
             .app_data(web::Data::new(mode_arg.clone()))
             .app_data(web::Data::new(connect_via.clone()))
-            .app_data(web::Data::from(metrics_cache.clone()));
-        if validator.is_some() {
-            app = app.app_data(web::Data::from(validator.clone().unwrap()))
-        }
+            .app_data(web::Data::new(metrics_cache.clone()))
+            .app_data(web::Data::from(rc_tc.clone()))
+            .app_data(web::Data::from(rc_fc.clone()))
+            .app_data(web::Data::from(rc_ec.clone()));
+        // if maybe_validator.is_some() {
+        //     app = app.app_data(web::Data::from(maybe_validator.unwrap().clone()))
+        // }
         app.wrap(Etag::default())
             .wrap(cors_middleware)
             .wrap(RequestTracing::new())
@@ -97,21 +98,13 @@ async fn main() -> Result<(), anyhow::Error> {
     };
     let server = server?.workers(http_args.workers).shutdown_timeout(5);
 
-    if let Some(sink_info) = sink_info {
-        tokio::select! {
-            _ = server.run() => {
-                tracing::info!("Actix was shutdown properly");
-            },
-            _ = refresh_features(source_clone.clone(), sink_info.sink, sink_info.unleash_client.clone()) => {
-                tracing::info!("Refresh task is shutting down");
-            },
-            _ = send_metrics_task(metrics_cache_clone, source_clone, sink_info.unleash_client, sink_info.metrics_interval_seconds) => {
-                tracing::info!("Metrics task is shutting down");
-            }
+    tokio::select! {
+        _ = server.run() => {
+            tracing::info!("Actix is shutting down. Persisting data");
+            // persist_state()
+            tracing::info!("Actix was shutdown properly");
         }
-    } else {
-        server.run().await?;
-    }
 
+    };
     Ok(())
 }

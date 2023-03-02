@@ -1,4 +1,5 @@
 use crate::types::TokenRefresh;
+use crate::types::EdgeToken;
 
 pub(crate) fn simplify(tokens: &[TokenRefresh]) -> Vec<&TokenRefresh> {
     tokens
@@ -17,6 +18,10 @@ pub(crate) fn simplify(tokens: &[TokenRefresh]) -> Vec<&TokenRefresh> {
             })
         })
         .collect()
+}
+
+pub(crate) fn cache_key(token: EdgeToken) -> String {
+    token.environment.unwrap_or(token.token)
 }
 
 #[cfg(test)]

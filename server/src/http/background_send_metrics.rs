@@ -4,7 +4,7 @@ use std::time::Duration;
 use crate::error::EdgeError;
 use crate::metrics::client_metrics::MetricsCache;
 use crate::types::{
-    BatchMetricsRequest, BatchMetricsRequestBody, EdgeResult, EdgeSource, EdgeToken,
+    BatchMetricsRequest, BatchMetricsRequestBody, EdgeResult, EdgeToken,
 };
 use std::sync::Arc;
 use tracing::{debug, warn};

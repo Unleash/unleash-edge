@@ -1,18 +1,22 @@
+use std::collections::HashMap;
+
 use actix_web::{
     get, post,
     web::{self, Json},
     HttpResponse,
 };
+use dashmap::DashMap;
 use unleash_types::{
-    client_features::{ClientFeatures, Payload},
     client_metrics::{from_bucket_app_name_and_env, ClientMetrics},
     frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult},
 };
-use unleash_yggdrasil::{Context, EngineState};
+use unleash_yggdrasil::{Context, EngineState, ResolvedToggle};
 
 use crate::{
+    error::EdgeError,
     metrics::client_metrics::MetricsCache,
-    types::{EdgeJsonResult, EdgeResult, EdgeSource, EdgeToken},
+    tokens,
+    types::{EdgeJsonResult, EdgeResult, EdgeToken},
 };
 
 ///
@@ -31,10 +35,10 @@ use crate::{
 #[get("/proxy/all")]
 pub async fn get_proxy_all_features(
     edge_token: EdgeToken,
-    features_source: web::Data<dyn EdgeSource>,
+    engine_cache: web::Data<DashMap<String, EngineState>>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    get_all_features(edge_token, features_source, context).await
+    get_all_features(edge_token, engine_cache, context)
 }
 
 #[utoipa::path(
@@ -51,23 +55,10 @@ pub async fn get_proxy_all_features(
 #[get("/frontend/all")]
 pub async fn get_frontend_all_features(
     edge_token: EdgeToken,
-    features_source: web::Data<dyn EdgeSource>,
+    engine_cache: web::Data<DashMap<String, EngineState>>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    get_all_features(edge_token, features_source, context).await
-}
-
-pub async fn get_all_features(
-    edge_token: EdgeToken,
-    features_source: web::Data<dyn EdgeSource>,
-    context: web::Query<Context>,
-) -> EdgeJsonResult<FrontendResult> {
-    let client_features = features_source.get_client_features(&edge_token).await;
-    let context = context.into_inner();
-
-    let toggles = resolve_frontend_features(client_features?, context).collect();
-
-    Ok(Json(FrontendResult { toggles }))
+    get_all_features(edge_token, engine_cache, context)
 }
 
 #[utoipa::path(
@@ -85,10 +76,10 @@ pub async fn get_all_features(
 #[post("/proxy/all")]
 async fn post_proxy_all_features(
     edge_token: EdgeToken,
-    features_source: web::Data<dyn EdgeSource>,
-    context: web::Json<Context>,
+    engine_cache: web::Data<DashMap<String, EngineState>>,
+    context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    post_all_features(edge_token, features_source, context).await
+    get_all_features(edge_token, engine_cache, context)
 }
 
 #[utoipa::path(
@@ -106,23 +97,24 @@ async fn post_proxy_all_features(
 #[post("/frontend/all")]
 async fn post_frontend_all_features(
     edge_token: EdgeToken,
-    features_source: web::Data<dyn EdgeSource>,
+    engine_cache: web::Data<DashMap<String, EngineState>>,
     context: web::Json<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    post_all_features(edge_token, features_source, context).await
+    post_all_features(edge_token, engine_cache, context)
 }
 
-async fn post_all_features(
+fn post_all_features(
     edge_token: EdgeToken,
-    features_source: web::Data<dyn EdgeSource>,
+    engine_cache: web::Data<DashMap<String, EngineState>>,
     context: web::Json<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let client_features = features_source.get_client_features(&edge_token).await;
     let context = context.into_inner();
-
-    let toggles = resolve_frontend_features(client_features?, context).collect();
-
-    Ok(Json(FrontendResult { toggles }))
+    let engine = edge_token
+        .environment
+        .and_then(|k| engine_cache.get(&k))
+        .ok_or_else(|| EdgeError::DataSourceError("Could not find data for token".into()))?;
+    let feature_results = engine.resolve_all(&context).unwrap();
+    Ok(Json(frontend_from_yggdrasil(feature_results)))
 }
 
 #[utoipa::path(
@@ -140,10 +132,10 @@ async fn post_all_features(
 #[get("/proxy")]
 async fn get_enabled_proxy(
     edge_token: EdgeToken,
-    features_source: web::Data<dyn EdgeSource>,
+    engine_cache: web::Data<DashMap<String, EngineState>>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    get_enabled_features(edge_token, features_source, context).await
+    get_enabled_features(edge_token, engine_cache, context)
 }
 
 #[utoipa::path(
@@ -161,24 +153,23 @@ async fn get_enabled_proxy(
 #[get("/frontend")]
 async fn get_enabled_frontend(
     edge_token: EdgeToken,
-    features_source: web::Data<dyn EdgeSource>,
+    engine_cache: web::Data<DashMap<String, EngineState>>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    get_enabled_features(edge_token, features_source, context).await
+    get_enabled_features(edge_token, engine_cache, context)
 }
-async fn get_enabled_features(
+
+fn get_enabled_features(
     edge_token: EdgeToken,
-    features_source: web::Data<dyn EdgeSource>,
+    engine_cache: web::Data<DashMap<String, EngineState>>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let client_features = features_source.get_client_features(&edge_token).await;
     let context = context.into_inner();
-
-    let toggles: Vec<EvaluatedToggle> = resolve_frontend_features(client_features?, context)
-        .filter(|toggle| toggle.enabled)
-        .collect();
-
-    Ok(Json(FrontendResult { toggles }))
+    let key = crate::tokens::cache_key(edge_token);
+    let engine = engine_cache.get(&key)
+        .ok_or_else(|| EdgeError::DataSourceError("Could not find data for token".into()))?;
+    let feature_results = engine.resolve_all(&context).unwrap();
+    Ok(Json(frontend_from_yggdrasil(feature_results)))
 }
 
 #[utoipa::path(
@@ -196,10 +187,10 @@ async fn get_enabled_features(
 #[post("/proxy")]
 async fn post_proxy_enabled_features(
     edge_token: EdgeToken,
-    features_source: web::Data<dyn EdgeSource>,
+    engine_cache: web::Data<DashMap<String, EngineState>>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    post_enabled_features(edge_token, features_source, context).await
+    post_enabled_features(edge_token, engine_cache, context).await
 }
 
 #[utoipa::path(
@@ -217,25 +208,23 @@ async fn post_proxy_enabled_features(
 #[post("/frontend")]
 async fn post_frontend_enabled_features(
     edge_token: EdgeToken,
-    features_source: web::Data<dyn EdgeSource>,
+    engine_cache: web::Data<DashMap<String, EngineState>>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    post_enabled_features(edge_token, features_source, context).await
+    post_enabled_features(edge_token, engine_cache, context).await
 }
 
 async fn post_enabled_features(
     edge_token: EdgeToken,
-    features_source: web::Data<dyn EdgeSource>,
+    engine_cache: web::Data<DashMap<String, EngineState>>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let client_features = features_source.get_client_features(&edge_token).await;
     let context = context.into_inner();
-
-    let toggles: Vec<EvaluatedToggle> = resolve_frontend_features(client_features?, context)
-        .filter(|toggle| toggle.enabled)
-        .collect();
-
-    Ok(Json(FrontendResult { toggles }))
+    let engine = engine_cache
+        .get(&tokens::cache_key(edge_token))
+        .ok_or_else(|| EdgeError::TokenParseError)?;
+    let feature_results = engine.resolve_all(&context).unwrap();
+    Ok(Json(frontend_from_yggdrasil(feature_results)))
 }
 
 #[post("/proxy/client/metrics")]
@@ -257,31 +246,6 @@ async fn post_frontend_metrics(
     Ok(HttpResponse::Accepted().finish())
 }
 
-fn resolve_frontend_features(
-    client_features: ClientFeatures,
-    context: Context,
-) -> impl Iterator<Item = EvaluatedToggle> {
-    let mut engine = EngineState::default();
-    engine.take_state(client_features.clone());
-
-    client_features.features.into_iter().map(move |toggle| {
-        let variant = engine.get_variant(toggle.name.clone(), &context);
-        EvaluatedToggle {
-            name: toggle.name.clone(),
-            enabled: engine.is_enabled(toggle.name, &context),
-            variant: EvaluatedVariant {
-                name: variant.name,
-                enabled: variant.enabled,
-                payload: variant.payload.map(|succ| Payload {
-                    payload_type: succ.payload_type,
-                    value: succ.value,
-                }),
-            },
-            impression_data: false,
-        }
-    })
-}
-
 pub fn configure_frontend_api(cfg: &mut web::ServiceConfig) {
     cfg.service(get_enabled_proxy)
         .service(get_enabled_frontend)
@@ -294,16 +258,46 @@ pub fn configure_frontend_api(cfg: &mut web::ServiceConfig) {
         .service(post_frontend_enabled_features);
 }
 
+pub fn frontend_from_yggdrasil(res: HashMap<String, ResolvedToggle>) -> FrontendResult {
+    let toggles: Vec<EvaluatedToggle> = res
+        .iter()
+        .map(|(name, resolved)| EvaluatedToggle {
+            name: name.into(),
+            enabled: resolved.enabled,
+            project: resolved.project.clone(),
+            variant: EvaluatedVariant {
+                name: resolved.variant.name.clone(),
+                enabled: resolved.variant.enabled,
+                payload: resolved.variant.payload.clone(),
+            },
+            impression_data: resolved.impression_data,
+        })
+        .collect();
+    FrontendResult { toggles }
+}
+
+pub fn get_all_features(
+    edge_token: EdgeToken,
+    engine_cache: web::Data<DashMap<String, EngineState>>,
+    context: web::Query<Context>,
+) -> EdgeJsonResult<FrontendResult> {
+    let context = context.into_inner();
+    let engine = edge_token
+        .environment
+        .and_then(|k| engine_cache.get(&k))
+        .ok_or_else(|| EdgeError::DataSourceError("Could not find data for token".into()))?;
+    let feature_results = engine.resolve_all(&context).unwrap();
+    Ok(Json(frontend_from_yggdrasil(feature_results)))
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
     use std::sync::Arc;
 
+    use crate::data_sources::builder::build_offline_mode;
+    use crate::metrics::client_metrics::MetricsCache;
     use crate::metrics::client_metrics::MetricsKey;
-    use crate::types::EdgeSource;
-    use crate::{
-        data_sources::offline_provider::OfflineProvider, metrics::client_metrics::MetricsCache,
-    };
     use actix_http::Request;
     use actix_web::{
         http::header::ContentType,
@@ -396,18 +390,20 @@ mod tests {
 
     #[actix_web::test]
     async fn calling_post_requests_resolves_context_values_correctly() {
-        let shareable_provider = Arc::new(OfflineProvider::new(
+        let (token_cache, features_cache, engine_cache) = build_offline_mode(
             client_features_with_constraint_requiring_user_id_of_seven(),
             vec![
                 "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7"
                     .to_string(),
             ],
-        ));
-        let edge_source: Arc<dyn EdgeSource> = shareable_provider.clone();
+        )
+        .unwrap();
 
         let app = test::init_service(
             App::new()
-                .app_data(Data::from(edge_source))
+                .app_data(Data::new(token_cache))
+                .app_data(Data::new(features_cache))
+                .app_data(Data::new(engine_cache))
                 .service(web::scope("/api").service(super::post_frontend_all_features)),
         )
         .await;
@@ -443,17 +439,18 @@ mod tests {
 
     #[actix_web::test]
     async fn calling_get_requests_resolves_context_values_correctly() {
-        let shareable_provider = Arc::new(OfflineProvider::new(
+        let (feature_cache, token_cache, engine_cache) = build_offline_mode(
             client_features_with_constraint_requiring_user_id_of_seven(),
             vec![
                 "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7"
                     .to_string(),
             ],
-        ));
-        let edge_source: Arc<dyn EdgeSource> = shareable_provider.clone();
+        ).unwrap();
         let app = test::init_service(
             App::new()
-                .app_data(Data::from(edge_source.clone()))
+                .app_data(Data::new(token_cache))
+                .app_data(Data::new(feature_cache))
+                .app_data(Data::new(engine_cache))
                 .service(web::scope("/api").service(super::get_proxy_all_features)),
         )
         .await;
@@ -479,6 +476,7 @@ mod tests {
                     payload: None,
                 },
                 impression_data: false,
+                project: "default".into(),
             }],
         };
 
@@ -487,18 +485,19 @@ mod tests {
 
     #[actix_web::test]
     async fn calling_get_requests_resolves_context_values_correctly_with_enabled_filter() {
-        let shareable_provider = Arc::new(OfflineProvider::new(
+        let (token_cache, features_cache, engine_cache) = build_offline_mode(
             client_features_with_constraint_one_enabled_toggle_and_one_disabled_toggle(),
             vec![
                 "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7"
                     .to_string(),
             ],
-        ));
-        let edge_source: Arc<dyn EdgeSource> = shareable_provider.clone();
+        ).unwrap();
 
         let app = test::init_service(
             App::new()
-                .app_data(Data::from(edge_source.clone()))
+                .app_data(Data::new(token_cache))
+                .app_data(Data::new(features_cache))
+                .app_data(Data::new(engine_cache))
                 .service(web::scope("/api").service(super::get_enabled_proxy)),
         )
         .await;

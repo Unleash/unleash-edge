@@ -2726,9 +2726,9 @@ dependencies = [
 
 [[package]]
 name = "unleash-types"
-version = "0.8.3"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6720cdf5711572d461d46e95c945f3504fb35f6b04ae77d953b5637950dbd3d1"
+checksum = "37077eaa34746d302b170815c10a2b94261afed5428a6126fddd9fc6f5c8cfd3"
 dependencies = [
  "base64",
  "chrono",
@@ -2741,9 +2741,9 @@ dependencies = [
 
 [[package]]
 name = "unleash-yggdrasil"
-version = "0.4.5"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d305fb6bd0a899fdca19f4e1b278d5af7978323a118a8eb5ca3b76739ce2bbc4"
+checksum = "698b744a951a54d2419f7baef12b2cc496d36a191e058a58c35abb3620f9135f"
 dependencies = [
  "chrono",
  "convert_case 0.6.0",
