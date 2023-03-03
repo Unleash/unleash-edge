@@ -7,8 +7,8 @@ use ulid::Ulid;
 use unleash_types::client_features::ClientFeatures;
 
 use crate::types::{
-    BatchMetricsRequest, BatchMetricsRequestBody, ClientFeaturesResponse, EdgeResult, EdgeToken,
-    TokenValidationStatus, ValidateTokensRequest,
+    BatchMetricsRequestBody, ClientFeaturesResponse, EdgeResult, EdgeToken, TokenValidationStatus,
+    ValidateTokensRequest,
 };
 use reqwest::{header, Client};
 use tracing::debug;

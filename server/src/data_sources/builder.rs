@@ -10,7 +10,8 @@ use std::{io::BufReader, str::FromStr};
 use crate::{
     cli::{CliArgs, EdgeArgs, EdgeMode, OfflineArgs},
     error::EdgeError,
-    types::{EdgeResult, EdgeToken, FeatureRefresher},
+    http::feature_refresher::FeatureRefresher,
+    types::{EdgeResult, EdgeToken},
 };
 use unleash_types::client_features::ClientFeatures;
 use unleash_yggdrasil::EngineState;
@@ -45,9 +46,7 @@ pub(crate) fn build_offline_mode(
 
     let edge_tokens: Vec<EdgeToken> = tokens
         .iter()
-        .map(|token| {
-            EdgeToken::from_str(&token).unwrap_or_else(|_| EdgeToken::offline_token(token))
-        })
+        .map(|token| EdgeToken::from_str(token).unwrap_or_else(|_| EdgeToken::offline_token(token)))
         .collect();
 
     for edge_token in edge_tokens {
@@ -81,7 +80,7 @@ fn build_edge(args: EdgeArgs) -> EdgeResult<EdgeInfo> {
     let (token_cache, feature_cache, engine_cache) = build_caches();
 
     let unleash_client = Url::parse(&args.upstream_url)
-        .map(|upstream| UnleashClient::from_url(upstream))
+        .map(UnleashClient::from_url)
         .map(Arc::new)
         .map_err(|_| EdgeError::InvalidServerUrl(args.upstream_url))?;
     let token_validator = Arc::new(TokenValidator {
@@ -89,8 +88,9 @@ fn build_edge(args: EdgeArgs) -> EdgeResult<EdgeInfo> {
         unleash_client: unleash_client.clone(),
     });
     let feature_refresher = Arc::new(FeatureRefresher::new(
-        unleash_client.clone(),
+        unleash_client,
         feature_cache.clone(),
+        engine_cache.clone(),
         Duration::seconds(args.features_refresh_interval_seconds),
     ));
     Ok((

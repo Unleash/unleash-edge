@@ -15,7 +15,7 @@ use unleash_yggdrasil::{Context, EngineState, ResolvedToggle};
 use crate::{
     error::EdgeError,
     metrics::client_metrics::MetricsCache,
-    tokens,
+    tokens::{self, cache_key},
     types::{EdgeJsonResult, EdgeResult, EdgeToken},
 };
 
@@ -114,7 +114,7 @@ fn post_all_features(
         .and_then(|k| engine_cache.get(&k))
         .ok_or_else(|| EdgeError::DataSourceError("Could not find data for token".into()))?;
     let feature_results = engine.resolve_all(&context).unwrap();
-    Ok(Json(frontend_from_yggdrasil(feature_results)))
+    Ok(Json(frontend_from_yggdrasil(feature_results, true)))
 }
 
 #[utoipa::path(
@@ -170,7 +170,7 @@ fn get_enabled_features(
         .get(&key)
         .ok_or_else(|| EdgeError::DataSourceError("Could not find data for token".into()))?;
     let feature_results = engine.resolve_all(&context).unwrap();
-    Ok(Json(frontend_from_yggdrasil(feature_results)))
+    Ok(Json(frontend_from_yggdrasil(feature_results, false)))
 }
 
 #[utoipa::path(
@@ -223,9 +223,9 @@ async fn post_enabled_features(
     let context = context.into_inner();
     let engine = engine_cache
         .get(&tokens::cache_key(edge_token))
-        .ok_or_else(|| EdgeError::TokenParseError)?;
+        .ok_or(EdgeError::TokenParseError)?;
     let feature_results = engine.resolve_all(&context).unwrap();
-    Ok(Json(frontend_from_yggdrasil(feature_results)))
+    Ok(Json(frontend_from_yggdrasil(feature_results, false)))
 }
 
 #[post("/proxy/client/metrics")]
@@ -259,9 +259,13 @@ pub fn configure_frontend_api(cfg: &mut web::ServiceConfig) {
         .service(post_frontend_enabled_features);
 }
 
-pub fn frontend_from_yggdrasil(res: HashMap<String, ResolvedToggle>) -> FrontendResult {
+pub fn frontend_from_yggdrasil(
+    res: HashMap<String, ResolvedToggle>,
+    include_all: bool,
+) -> FrontendResult {
     let toggles: Vec<EvaluatedToggle> = res
         .iter()
+        .filter(|(_, resolved)| include_all || resolved.enabled)
         .map(|(name, resolved)| EvaluatedToggle {
             name: name.into(),
             enabled: resolved.enabled,
@@ -283,12 +287,12 @@ pub fn get_all_features(
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
     let context = context.into_inner();
-    let engine = edge_token
-        .environment
-        .and_then(|k| engine_cache.get(&k))
+    let key = cache_key(edge_token);
+    let engine = engine_cache
+        .get(&key)
         .ok_or_else(|| EdgeError::DataSourceError("Could not find data for token".into()))?;
     let feature_results = engine.resolve_all(&context).unwrap();
-    Ok(Json(frontend_from_yggdrasil(feature_results)))
+    Ok(Json(frontend_from_yggdrasil(feature_results, true)))
 }
 
 #[cfg(test)]
@@ -402,9 +406,9 @@ mod tests {
 
         let app = test::init_service(
             App::new()
-                .app_data(Data::new(token_cache))
-                .app_data(Data::new(features_cache))
-                .app_data(Data::new(engine_cache))
+                .app_data(Data::from(token_cache))
+                .app_data(Data::from(features_cache))
+                .app_data(Data::from(engine_cache))
                 .service(web::scope("/api").service(super::post_frontend_all_features)),
         )
         .await;
@@ -450,9 +454,9 @@ mod tests {
         .unwrap();
         let app = test::init_service(
             App::new()
-                .app_data(Data::new(token_cache))
-                .app_data(Data::new(feature_cache))
-                .app_data(Data::new(engine_cache))
+                .app_data(Data::from(token_cache))
+                .app_data(Data::from(feature_cache))
+                .app_data(Data::from(engine_cache))
                 .service(web::scope("/api").service(super::get_proxy_all_features)),
         )
         .await;
@@ -498,9 +502,9 @@ mod tests {
 
         let app = test::init_service(
             App::new()
-                .app_data(Data::new(token_cache))
-                .app_data(Data::new(features_cache))
-                .app_data(Data::new(engine_cache))
+                .app_data(Data::from(token_cache))
+                .app_data(Data::from(features_cache))
+                .app_data(Data::from(engine_cache))
                 .service(web::scope("/api").service(super::get_enabled_proxy)),
         )
         .await;

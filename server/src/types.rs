@@ -8,7 +8,6 @@ use std::{
 
 use crate::cli::EdgeMode;
 use crate::error::EdgeError;
-use crate::http::unleash_client::UnleashClient;
 use actix_web::web::Data;
 use actix_web::{
     dev::Payload,
@@ -17,7 +16,7 @@ use actix_web::{
     FromRequest, HttpRequest,
 };
 use async_trait::async_trait;
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use shadow_rs::shadow;
 use unleash_types::client_features::ClientFeatures;
@@ -72,28 +71,6 @@ impl ClientFeaturesRequest {
         Self {
             api_key,
             etag: etag.map(EntityTag::new_weak),
-        }
-    }
-}
-
-pub struct FeatureRefresher {
-    pub unleash_client: Arc<UnleashClient>,
-    pub tokens_to_refresh: DashMap<String, TokenRefresh>,
-    pub features_cache: Arc<DashMap<String, ClientFeatures>>,
-    pub refresh_interval: Duration,
-}
-
-impl FeatureRefresher {
-    pub fn new(
-        unleash_client: Arc<UnleashClient>,
-        features: Arc<DashMap<String, ClientFeatures>>,
-        features_refresh_interval: Duration,
-    ) -> Self {
-        FeatureRefresher {
-            unleash_client,
-            tokens_to_refresh: DashMap::default(),
-            features_cache: features,
-            refresh_interval: features_refresh_interval,
         }
     }
 }

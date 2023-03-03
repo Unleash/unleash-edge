@@ -91,7 +91,6 @@ impl TokenValidator {
 #[cfg(test)]
 mod tests {
     use super::TokenValidator;
-    use crate::data_sources::memory_provider::MemoryProvider;
     use crate::types::{EdgeToken, TokenType, TokenValidationStatus};
     use actix_http::HttpService;
     use actix_http_test::{test_server, TestServer};
@@ -167,8 +166,6 @@ mod tests {
 
     #[tokio::test]
     pub async fn tokens_with_wrong_format_is_not_included() {
-        let test_provider = Arc::new(MemoryProvider::default());
-
         let srv = test_validation_server().await;
         let unleash_client =
             crate::http::unleash_client::UnleashClient::new(srv.url("/").as_str(), None)

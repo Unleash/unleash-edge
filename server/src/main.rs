@@ -14,12 +14,9 @@ use unleash_types::client_metrics::ConnectVia;
 use unleash_edge::client_api;
 use unleash_edge::edge_api;
 use unleash_edge::frontend_api;
-// use unleash_edge::http::background_refresh::refresh_features;
-// use unleash_edge::http::background_send_metrics::send_metrics_task;
 use unleash_edge::internal_backstage;
 use unleash_edge::metrics::client_metrics::MetricsCache;
 use unleash_edge::openapi;
-// use unleash_edge::persistence;
 use unleash_edge::prom_metrics;
 use unleash_edge::{cli, middleware};
 use utoipa_swagger_ui::SwaggerUi;
@@ -44,7 +41,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let metrics_cache_clone = metrics_cache.clone();
 
     let openapi = openapi::ApiDoc::openapi();
-
+    let refresher_for_app_data = feature_refresher.clone();
     let server = HttpServer::new(move || {
         let cors_middleware = Cors::default()
             .allow_any_origin()
@@ -60,6 +57,10 @@ async fn main() -> Result<(), anyhow::Error> {
             .app_data(web::Data::from(engine_cache.clone()));
         app = match token_validator.clone() {
             Some(v) => app.app_data(web::Data::from(v)),
+            None => app,
+        };
+        app = match refresher_for_app_data.clone() {
+            Some(refresher) => app.app_data(web::Data::from(refresher)),
             None => app,
         };
         app.wrap(Etag::default())
@@ -99,7 +100,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
     match schedule_args.mode {
         crate::cli::EdgeMode::Edge(edge) => {
-            let refresher = feature_refresher.unwrap();
+            let refresher = feature_refresher.clone().unwrap();
             tokio::select! {
                 _ = server.run() => {
                     tracing::info!("Actix is shutting down. Persisting data");
