@@ -2718,7 +2718,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "ulid",
- "unleash-types",
+ "unleash-types 0.8.3",
  "unleash-yggdrasil",
  "utoipa",
  "utoipa-swagger-ui",
@@ -2740,10 +2740,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "unleash-yggdrasil"
-version = "0.4.5"
+name = "unleash-types"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d305fb6bd0a899fdca19f4e1b278d5af7978323a118a8eb5ca3b76739ce2bbc4"
+checksum = "37077eaa34746d302b170815c10a2b94261afed5428a6126fddd9fc6f5c8cfd3"
+dependencies = [
+ "chrono",
+ "derive_builder",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "unleash-yggdrasil"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ebd697f12aea246f16aeab33428db8ed2c9989807a6b9f90ce55b4bd3e8d1e7e"
 dependencies = [
  "chrono",
  "convert_case 0.6.0",
@@ -2756,7 +2768,7 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
- "unleash-types",
+ "unleash-types 0.9.0",
 ]
 
 [[package]]
