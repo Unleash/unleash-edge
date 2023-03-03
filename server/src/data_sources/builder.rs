@@ -1,5 +1,3 @@
-use crate::auth::token_validator::TokenValidator;
-use crate::http::unleash_client::UnleashClient;
 use chrono::Duration;
 use dashmap::DashMap;
 use reqwest::Url;
@@ -8,10 +6,11 @@ use std::sync::Arc;
 use std::{io::BufReader, str::FromStr};
 
 use crate::{
+    auth::token_validator::TokenValidator,
     cli::{CliArgs, EdgeArgs, EdgeMode, OfflineArgs},
     error::EdgeError,
-    http::feature_refresher::FeatureRefresher,
-    types::{EdgeResult, EdgeToken},
+    http::{feature_refresher::FeatureRefresher, unleash_client::UnleashClient},
+    types::{EdgeResult, EdgeToken, TokenType},
 };
 use unleash_types::client_features::ClientFeatures;
 use unleash_yggdrasil::EngineState;
@@ -76,7 +75,7 @@ fn build_offline(offline_args: OfflineArgs) -> EdgeResult<CacheContainer> {
     }
 }
 
-fn build_edge(args: EdgeArgs) -> EdgeResult<EdgeInfo> {
+async fn build_edge(args: EdgeArgs) -> EdgeResult<EdgeInfo> {
     let (token_cache, feature_cache, engine_cache) = build_caches();
 
     let unleash_client = Url::parse(&args.upstream_url)
@@ -93,6 +92,13 @@ fn build_edge(args: EdgeArgs) -> EdgeResult<EdgeInfo> {
         engine_cache.clone(),
         Duration::seconds(args.features_refresh_interval_seconds),
     ));
+    let _ = token_validator.register_tokens(args.tokens).await;
+    token_cache
+        .iter()
+        .filter(|candidate| candidate.value().token_type == Some(TokenType::Client))
+        .for_each(|validated_token| {
+            feature_refresher.register_token_for_refresh(validated_token.clone())
+        });
     Ok((
         (token_cache, feature_cache, engine_cache),
         Some(token_validator),
@@ -105,6 +111,6 @@ pub async fn build_caches_and_refreshers(args: CliArgs) -> EdgeResult<EdgeInfo> 
         EdgeMode::Offline(offline_args) => {
             build_offline(offline_args).map(|cache| (cache, None, None))
         }
-        EdgeMode::Edge(edge_args) => build_edge(edge_args),
+        EdgeMode::Edge(edge_args) => build_edge(edge_args).await,
     }
 }
