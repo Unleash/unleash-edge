@@ -5,6 +5,9 @@ use std::fs::File;
 use std::sync::Arc;
 use std::{io::BufReader, str::FromStr};
 
+use crate::persistence::file::FilePersister;
+use crate::persistence::redis::RedisPersister;
+use crate::persistence::EdgePersistence;
 use crate::{
     auth::token_validator::TokenValidator,
     cli::{CliArgs, EdgeArgs, EdgeMode, OfflineArgs},
@@ -24,6 +27,7 @@ type EdgeInfo = (
     CacheContainer,
     Option<Arc<TokenValidator>>,
     Option<Arc<FeatureRefresher>>,
+    Option<Arc<dyn EdgePersistence>>,
 );
 
 fn build_caches() -> CacheContainer {
@@ -35,6 +39,36 @@ fn build_caches() -> CacheContainer {
         Arc::new(features_cache),
         Arc::new(engine_cache),
     )
+}
+
+async fn hydrate_from_persistent_storage(
+    cache: CacheContainer,
+    feature_refresher: Arc<FeatureRefresher>,
+    storage: Arc<dyn EdgePersistence>,
+) {
+    let (token_cache, features_cache, engine_cache) = cache;
+    let tokens = storage.load_tokens().await.unwrap_or_default();
+    let features = storage.load_features().await.unwrap_or_default();
+    let refresh_targets = storage.load_refresh_targets().await.unwrap_or_default();
+    for token in tokens {
+        tracing::debug!("Hydrating tokens {token:?}");
+        token_cache.insert(token.token.clone(), token);
+    }
+
+    for (key, features) in features {
+        tracing::debug!("Hydrating features for {key:?}");
+        features_cache.insert(key.clone(), features.clone());
+        let mut engine_state = EngineState::default();
+        engine_state.take_state(features);
+        engine_cache.insert(key, engine_state);
+    }
+
+    for target in refresh_targets {
+        tracing::debug!("Hydrating refresh target for {target:?}");
+        feature_refresher
+            .tokens_to_refresh
+            .insert(target.token.token.clone(), target);
+    }
 }
 
 pub(crate) fn build_offline_mode(
@@ -75,42 +109,79 @@ fn build_offline(offline_args: OfflineArgs) -> EdgeResult<CacheContainer> {
     }
 }
 
-async fn build_edge(args: EdgeArgs) -> EdgeResult<EdgeInfo> {
+async fn get_data_source(args: &EdgeArgs) -> Option<Arc<dyn EdgePersistence>> {
+    if let Some(redis_url) = args.redis_url.clone() {
+        let redis_client = RedisPersister::new(&redis_url).expect("Failed to connect to Redis");
+        return Some(Arc::new(redis_client));
+    }
+
+    if let Some(backup_folder) = args.backup_folder.clone() {
+        let backup_client = FilePersister::new(&backup_folder);
+        return Some(Arc::new(backup_client));
+    }
+
+    None
+}
+
+async fn build_edge(args: &EdgeArgs) -> EdgeResult<EdgeInfo> {
     let (token_cache, feature_cache, engine_cache) = build_caches();
 
-    let unleash_client = Url::parse(&args.upstream_url)
+    let persistence = get_data_source(args).await;
+
+    let unleash_client = Url::parse(&args.upstream_url.clone())
         .map(UnleashClient::from_url)
         .map(Arc::new)
-        .map_err(|_| EdgeError::InvalidServerUrl(args.upstream_url))?;
+        .map_err(|_| EdgeError::InvalidServerUrl(args.upstream_url.clone()))?;
+
     let token_validator = Arc::new(TokenValidator {
         token_cache: token_cache.clone(),
         unleash_client: unleash_client.clone(),
+        persistence: persistence.clone(),
     });
+
     let feature_refresher = Arc::new(FeatureRefresher::new(
         unleash_client,
         feature_cache.clone(),
         engine_cache.clone(),
         Duration::seconds(args.features_refresh_interval_seconds),
+        persistence.clone(),
     ));
-    let _ = token_validator.register_tokens(args.tokens).await;
-    token_cache
+    let _ = token_validator.register_tokens(args.tokens.clone()).await;
+
+    if let Some(persistence) = persistence.clone() {
+        hydrate_from_persistent_storage(
+            (
+                token_cache.clone(),
+                feature_cache.clone(),
+                engine_cache.clone(),
+            ),
+            feature_refresher.clone(),
+            persistence,
+        )
+        .await;
+    }
+
+    for validated_token in token_cache
         .iter()
         .filter(|candidate| candidate.value().token_type == Some(TokenType::Client))
-        .for_each(|validated_token| {
-            feature_refresher.register_token_for_refresh(validated_token.clone())
-        });
+    {
+        let _ = feature_refresher
+            .register_token_for_refresh(validated_token.clone())
+            .await;
+    }
     Ok((
         (token_cache, feature_cache, engine_cache),
         Some(token_validator),
         Some(feature_refresher),
+        persistence,
     ))
 }
 
 pub async fn build_caches_and_refreshers(args: CliArgs) -> EdgeResult<EdgeInfo> {
     match args.mode {
         EdgeMode::Offline(offline_args) => {
-            build_offline(offline_args).map(|cache| (cache, None, None))
+            build_offline(offline_args).map(|cache| (cache, None, None, None))
         }
-        EdgeMode::Edge(edge_args) => build_edge(edge_args).await,
+        EdgeMode::Edge(edge_args) => build_edge(&edge_args).await,
     }
 }

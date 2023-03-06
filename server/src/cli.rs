@@ -10,25 +10,30 @@ pub enum EdgeMode {
     Offline(OfflineArgs),
 }
 
-pub enum EdgeArg {
+pub enum Persister {
     Redis(String),
-    InMemory,
+    File(PathBuf),
+    None,
 }
 
-impl From<EdgeArgs> for EdgeArg {
+impl From<EdgeArgs> for Persister {
     fn from(value: EdgeArgs) -> Self {
         if let Some(redis_url) = value.redis_url {
-            return EdgeArg::Redis(redis_url);
+            return Persister::Redis(redis_url);
         };
 
-        EdgeArg::InMemory
+        if let Some(backup_folder) = value.backup_folder {
+            return Persister::File(backup_folder);
+        };
+
+        Persister::None
     }
 }
 
 #[derive(Args, Debug, Clone)]
 #[command(group(
     ArgGroup::new("data-provider")
-        .args(["redis_url"]),
+        .args(["redis_url", "backup_folder"]),
 ))]
 pub struct EdgeArgs {
     /// Where is your upstream URL. Remember, this is the URL to your instance, without any trailing /api suffix
@@ -37,6 +42,10 @@ pub struct EdgeArgs {
 
     #[clap(short, long, env)]
     pub redis_url: Option<String>,
+
+    /// Edge can periodically persist its state to disk. Tell us where?
+    #[clap(long, env)]
+    pub backup_folder: Option<PathBuf>,
     /// How often should we post metrics upstream?
     #[clap(short, long, env, default_value_t = 60)]
     pub metrics_interval_seconds: u64,

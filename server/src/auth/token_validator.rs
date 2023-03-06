@@ -1,5 +1,6 @@
 use crate::error::EdgeError;
 use crate::http::unleash_client::UnleashClient;
+use crate::persistence::EdgePersistence;
 use crate::types::{EdgeResult, EdgeToken, ValidateTokensRequest};
 use std::sync::Arc;
 
@@ -9,6 +10,7 @@ use unleash_types::Upsert;
 pub struct TokenValidator {
     pub unleash_client: Arc<UnleashClient>,
     pub token_cache: Arc<DashMap<String, EdgeToken>>,
+    pub persistence: Option<Arc<dyn EdgePersistence>>,
 }
 
 impl TokenValidator {
@@ -83,7 +85,11 @@ impl TokenValidator {
             tokens_to_sink.iter().for_each(|t| {
                 self.token_cache.insert(t.token.clone(), t.clone());
             });
-            Ok(tokens_to_sink.upsert(known_tokens))
+            let updated_tokens = tokens_to_sink.upsert(known_tokens);
+            if let Some(persist) = self.persistence.clone() {
+                let _ = persist.save_tokens(updated_tokens.clone()).await;
+            }
+            Ok(updated_tokens)
         }
     }
 }
@@ -143,6 +149,7 @@ mod tests {
         let validation_holder = TokenValidator {
             unleash_client: Arc::new(unleash_client),
             token_cache: Arc::new(DashMap::default()),
+            persistence: None,
         };
 
         let tokens_to_validate = vec![
@@ -173,6 +180,7 @@ mod tests {
         let validation_holder = TokenValidator {
             unleash_client: Arc::new(unleash_client),
             token_cache: Arc::new(DashMap::default()),
+            persistence: None,
         };
         let invalid_tokens = vec!["jamesbond".into(), "invalidtoken".into()];
         let validated_tokens = validation_holder.register_tokens(invalid_tokens).await;

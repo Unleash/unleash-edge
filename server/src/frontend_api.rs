@@ -112,7 +112,7 @@ fn post_all_features(
     let engine = edge_token
         .environment
         .and_then(|k| engine_cache.get(&k))
-        .ok_or_else(|| EdgeError::DataSourceError("Could not find data for token".into()))?;
+        .ok_or_else(|| EdgeError::PersistenceError("Could not find data for token".into()))?;
     let feature_results = engine.resolve_all(&context).unwrap();
     Ok(Json(frontend_from_yggdrasil(feature_results, true)))
 }
@@ -168,7 +168,7 @@ fn get_enabled_features(
     let key = crate::tokens::cache_key(edge_token);
     let engine = engine_cache
         .get(&key)
-        .ok_or_else(|| EdgeError::DataSourceError("Could not find data for token".into()))?;
+        .ok_or_else(|| EdgeError::PersistenceError("Could not find data for token".into()))?;
     let feature_results = engine.resolve_all(&context).unwrap();
     Ok(Json(frontend_from_yggdrasil(feature_results, false)))
 }
@@ -290,7 +290,7 @@ pub fn get_all_features(
     let key = cache_key(edge_token);
     let engine = engine_cache
         .get(&key)
-        .ok_or_else(|| EdgeError::DataSourceError("Could not find data for token".into()))?;
+        .ok_or_else(|| EdgeError::PersistenceError("Could not find data for token".into()))?;
     let feature_results = engine.resolve_all(&context).unwrap();
     Ok(Json(frontend_from_yggdrasil(feature_results, true)))
 }
@@ -300,7 +300,7 @@ mod tests {
     use std::collections::HashMap;
     use std::sync::Arc;
 
-    use crate::data_sources::builder::build_offline_mode;
+    use crate::builder::build_offline_mode;
     use crate::metrics::client_metrics::MetricsCache;
     use crate::metrics::client_metrics::MetricsKey;
     use actix_http::Request;

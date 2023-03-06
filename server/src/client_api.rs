@@ -31,7 +31,9 @@ pub async fn features(
         .get(&cache_key(edge_token))
         .map(|features| features.clone())
         .map(Json)
-        .ok_or_else(|| EdgeError::DataSourceError("TODO: Don't use this error here!!!!!!!!".into()))
+        .ok_or_else(|| {
+            EdgeError::PersistenceError("TODO: Don't use this error here!!!!!!!!".into())
+        })
 }
 
 #[utoipa::path(

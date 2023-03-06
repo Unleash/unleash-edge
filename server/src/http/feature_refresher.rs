@@ -9,8 +9,9 @@ use unleash_types::{client_features::ClientFeatures, Upsert};
 use unleash_yggdrasil::EngineState;
 
 use crate::{
+    persistence::EdgePersistence,
     tokens::{cache_key, simplify},
-    types::{ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenRefresh},
+    types::{ClientFeaturesRequest, ClientFeaturesResponse, EdgeResult, EdgeToken, TokenRefresh},
 };
 
 use super::unleash_client::UnleashClient;
@@ -18,10 +19,11 @@ use super::unleash_client::UnleashClient;
 #[derive(Clone)]
 pub struct FeatureRefresher {
     pub unleash_client: Arc<UnleashClient>,
-    pub tokens_to_refresh: DashMap<String, TokenRefresh>,
+    pub tokens_to_refresh: Arc<DashMap<String, TokenRefresh>>,
     pub features_cache: Arc<DashMap<String, ClientFeatures>>,
     pub engine_cache: Arc<DashMap<String, EngineState>>,
     pub refresh_interval: chrono::Duration,
+    pub persistence: Option<Arc<dyn EdgePersistence>>,
 }
 
 impl FeatureRefresher {
@@ -30,15 +32,18 @@ impl FeatureRefresher {
         features: Arc<DashMap<String, ClientFeatures>>,
         engines: Arc<DashMap<String, EngineState>>,
         features_refresh_interval: chrono::Duration,
+        persistence: Option<Arc<dyn EdgePersistence>>,
     ) -> Self {
         FeatureRefresher {
             unleash_client,
-            tokens_to_refresh: DashMap::default(),
+            tokens_to_refresh: Arc::new(DashMap::default()),
             features_cache: features,
             engine_cache: engines,
             refresh_interval: features_refresh_interval,
+            persistence,
         }
     }
+
     pub fn get_tokens_due_for_refresh(&self) -> Vec<TokenRefresh> {
         self.tokens_to_refresh
             .iter()
@@ -52,7 +57,7 @@ impl FeatureRefresher {
             .collect()
     }
 
-    pub fn register_token_for_refresh(&self, token: EdgeToken) {
+    pub async fn register_token_for_refresh(&self, token: EdgeToken) -> EdgeResult<()> {
         if !self.tokens_to_refresh.contains_key(&token.token) {
             let mut registered_tokens: Vec<TokenRefresh> =
                 self.tokens_to_refresh.iter().map(|t| t.clone()).collect();
@@ -65,7 +70,18 @@ impl FeatureRefresher {
                     .insert(token.token.token.clone(), token.clone());
             }
             self.tokens_to_refresh.retain(|key, _| keys.contains(key));
+            if let Some(persist) = self.persistence.clone() {
+                persist
+                    .save_refresh_targets(
+                        self.tokens_to_refresh
+                            .iter()
+                            .map(|e| e.value().clone())
+                            .collect(),
+                    )
+                    .await?;
+            }
         }
+        Ok(())
     }
 
     pub async fn refresh_features(&self) {
@@ -105,6 +121,16 @@ impl FeatureRefresher {
                                             new_state.take_state(features.clone());
                                             self.engine_cache.insert(key, new_state);
                                         }
+                                        if let Some(persist) = self.persistence.clone() {
+                                            let feature_save = persist.save_features(
+                                                self.features_cache
+                                                    .iter()
+                                                    .map(|e| (e.key().clone(), e.value().clone()))
+                                                    .collect());
+
+                                            let refresh_targets_save = persist.save_refresh_targets(self.tokens_to_refresh.iter().map(|e| e.value().clone()).collect());
+                                            let _ = futures::future::join_all(vec![feature_save, refresh_targets_save]).await;
+                                        }
                                     }
                                 },
                                 Err(e) => {
@@ -112,7 +138,6 @@ impl FeatureRefresher {
                                 }
                             }
                         }
-
                 }
             }
         }
@@ -160,8 +185,8 @@ mod tests {
         }
     }
 
-    #[test]
-    pub fn registering_token_for_refresh_works() {
+    #[tokio::test]
+    pub async fn registering_token_for_refresh_works() {
         let unleash_client = UnleashClient::from_url(Url::parse("http://localhost:4242").unwrap());
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
@@ -172,16 +197,17 @@ mod tests {
             features_cache,
             engines_cache,
             duration,
+            None,
         );
         let token =
             EdgeToken::try_from("*:development.abcdefghijklmnopqrstuvwxyz".to_string()).unwrap();
-        feature_refresher.register_token_for_refresh(token);
+        let _ = feature_refresher.register_token_for_refresh(token).await;
 
         assert_eq!(feature_refresher.tokens_to_refresh.len(), 1);
     }
 
-    #[test]
-    pub fn registering_multiple_non_overlapping_tokens_will_keep_all() {
+    #[tokio::test]
+    pub async fn registering_multiple_non_overlapping_tokens_will_keep_all() {
         let unleash_client = UnleashClient::from_url(Url::parse("http://localhost:4242").unwrap());
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
@@ -191,6 +217,7 @@ mod tests {
             features_cache,
             engines_cache,
             duration,
+            None,
         );
         let project_a_token =
             EdgeToken::try_from("projecta:development.abcdefghijklmnopqrstuvwxyz".to_string())
@@ -201,15 +228,21 @@ mod tests {
         let project_c_token =
             EdgeToken::try_from("projectc:development.abcdefghijklmnopqrstuvwxyz".to_string())
                 .unwrap();
-        feature_refresher.register_token_for_refresh(project_a_token);
-        feature_refresher.register_token_for_refresh(project_b_token);
-        feature_refresher.register_token_for_refresh(project_c_token);
+        let _ = feature_refresher
+            .register_token_for_refresh(project_a_token)
+            .await;
+        let _ = feature_refresher
+            .register_token_for_refresh(project_b_token)
+            .await;
+        let _ = feature_refresher
+            .register_token_for_refresh(project_c_token)
+            .await;
 
         assert_eq!(feature_refresher.tokens_to_refresh.len(), 3);
     }
 
-    #[test]
-    pub fn registering_wildcard_project_token_only_keeps_the_wildcard() {
+    #[tokio::test]
+    pub async fn registering_wildcard_project_token_only_keeps_the_wildcard() {
         let unleash_client = UnleashClient::from_url(Url::parse("http://localhost:4242").unwrap());
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
@@ -219,6 +252,7 @@ mod tests {
             features_cache,
             engines_cache,
             duration,
+            None,
         );
         let project_a_token =
             EdgeToken::try_from("projecta:development.abcdefghijklmnopqrstuvwxyz".to_string())
@@ -232,10 +266,18 @@ mod tests {
         let wildcard_token =
             EdgeToken::try_from("*:development.abcdefghijklmnopqrstuvwxyz".to_string()).unwrap();
 
-        feature_refresher.register_token_for_refresh(project_a_token);
-        feature_refresher.register_token_for_refresh(project_b_token);
-        feature_refresher.register_token_for_refresh(project_c_token);
-        feature_refresher.register_token_for_refresh(wildcard_token);
+        let _ = feature_refresher
+            .register_token_for_refresh(project_a_token)
+            .await;
+        let _ = feature_refresher
+            .register_token_for_refresh(project_b_token)
+            .await;
+        let _ = feature_refresher
+            .register_token_for_refresh(project_c_token)
+            .await;
+        let _ = feature_refresher
+            .register_token_for_refresh(wildcard_token)
+            .await;
 
         assert_eq!(feature_refresher.tokens_to_refresh.len(), 1);
         assert!(feature_refresher
@@ -243,8 +285,8 @@ mod tests {
             .contains_key("*:development.abcdefghijklmnopqrstuvwxyz"))
     }
 
-    #[test]
-    pub fn registering_tokens_with_multiple_projects_overwrites_single_tokens() {
+    #[tokio::test]
+    pub async fn registering_tokens_with_multiple_projects_overwrites_single_tokens() {
         let unleash_client = UnleashClient::from_url(Url::parse("http://localhost:4242").unwrap());
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
@@ -254,6 +296,7 @@ mod tests {
             features_cache,
             engines_cache,
             duration,
+            None,
         );
         let project_a_token =
             EdgeToken::try_from("projecta:development.abcdefghijklmnopqrstuvwxyz".to_string())
@@ -268,10 +311,22 @@ mod tests {
             EdgeToken::try_from("[]:development.abcdefghijklmnopqrstuvwxyz".to_string()).unwrap();
         project_a_and_c_token.projects = vec!["projecta".into(), "projectc".into()];
 
-        feature_refresher.register_token_for_refresh(project_a_token);
-        feature_refresher.register_token_for_refresh(project_b_token);
-        feature_refresher.register_token_for_refresh(project_c_token);
-        feature_refresher.register_token_for_refresh(project_a_and_c_token);
+        feature_refresher
+            .register_token_for_refresh(project_a_token)
+            .await
+            .unwrap();
+        feature_refresher
+            .register_token_for_refresh(project_b_token)
+            .await
+            .unwrap();
+        feature_refresher
+            .register_token_for_refresh(project_c_token)
+            .await
+            .unwrap();
+        feature_refresher
+            .register_token_for_refresh(project_a_and_c_token)
+            .await
+            .unwrap();
 
         assert_eq!(feature_refresher.tokens_to_refresh.len(), 2);
         assert!(feature_refresher
@@ -282,8 +337,8 @@ mod tests {
             .contains_key("projectb:development.abcdefghijklmnopqrstuvwxyz"));
     }
 
-    #[test]
-    pub fn registering_a_token_that_is_already_subsumed_does_nothing() {
+    #[tokio::test]
+    pub async fn registering_a_token_that_is_already_subsumed_does_nothing() {
         let unleash_client = UnleashClient::from_url(Url::parse("http://localhost:4242").unwrap());
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
@@ -294,6 +349,7 @@ mod tests {
             features_cache,
             engines_cache,
             duration,
+            None,
         );
         let star_token =
             EdgeToken::try_from("*:development.abcdefghijklmnopqrstuvwxyz".to_string()).unwrap();
@@ -301,8 +357,14 @@ mod tests {
             EdgeToken::try_from("projecta:development.abcdefghijklmnopqrstuvwxyz".to_string())
                 .unwrap();
 
-        feature_refresher.register_token_for_refresh(star_token);
-        feature_refresher.register_token_for_refresh(project_a_token);
+        feature_refresher
+            .register_token_for_refresh(star_token)
+            .await
+            .unwrap();
+        feature_refresher
+            .register_token_for_refresh(project_a_token)
+            .await
+            .unwrap();
 
         assert_eq!(feature_refresher.tokens_to_refresh.len(), 1);
         assert!(feature_refresher
@@ -310,8 +372,8 @@ mod tests {
             .contains_key("*:development.abcdefghijklmnopqrstuvwxyz"));
     }
 
-    #[test]
-    pub fn simplification_only_happens_in_same_environment() {
+    #[tokio::test]
+    pub async fn simplification_only_happens_in_same_environment() {
         let unleash_client = UnleashClient::from_url(Url::parse("http://localhost:4242").unwrap());
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
@@ -322,19 +384,26 @@ mod tests {
             features_cache,
             engines_cache,
             duration,
+            None,
         );
         let project_a_token =
             EdgeToken::try_from("projecta:development.abcdefghijklmnopqrstuvwxyz".to_string())
                 .unwrap();
         let production_wildcard_token =
             EdgeToken::try_from("*:production.abcdefghijklmnopqrstuvwxyz".to_string()).unwrap();
-        feature_refresher.register_token_for_refresh(project_a_token);
-        feature_refresher.register_token_for_refresh(production_wildcard_token);
+        feature_refresher
+            .register_token_for_refresh(project_a_token)
+            .await
+            .unwrap();
+        feature_refresher
+            .register_token_for_refresh(production_wildcard_token)
+            .await
+            .unwrap();
         assert_eq!(feature_refresher.tokens_to_refresh.len(), 2);
     }
 
-    #[test]
-    pub fn is_able_to_only_fetch_for_tokens_due_to_refresh() {
+    #[tokio::test]
+    pub async fn is_able_to_only_fetch_for_tokens_due_to_refresh() {
         let unleash_client = UnleashClient::from_url(Url::parse("http://localhost:4242").unwrap());
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
@@ -345,6 +414,7 @@ mod tests {
             features_cache,
             engines_cache,
             duration,
+            None,
         );
         let no_etag_due_for_refresh_token =
             EdgeToken::try_from("projecta:development.no_etag_due_for_refresh_token".to_string())

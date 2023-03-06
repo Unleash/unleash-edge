@@ -37,9 +37,10 @@ pub async fn validate_token(
                     }
                     Some(TokenType::Client) => {
                         if maybe_refresher.is_some() {
-                            maybe_refresher
+                            let _ = maybe_refresher
                                 .unwrap()
-                                .register_token_for_refresh(known_token.clone());
+                                .register_token_for_refresh(known_token.clone())
+                                .await;
                         }
                         if req.path().contains("/api/client") {
                             srv.call(req).await?.map_into_left_body()

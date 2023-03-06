@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use shadow_rs::shadow;
-use unleash_types::client_features::ClientFeatures;
+use unleash_types::client_features::{ClientFeature, ClientFeatures};
 use unleash_types::client_metrics::{ClientApplication, ClientMetricsEnv};
 use unleash_yggdrasil::EngineState;
 use utoipa::ToSchema;
@@ -177,6 +177,26 @@ pub struct BatchMetricsRequest {
 pub struct BatchMetricsRequestBody {
     pub applications: Vec<ClientApplication>,
     pub metrics: Vec<ClientMetricsEnv>,
+}
+
+trait ProjectFilter<T> {
+    fn filter_by_projects(&self, token: &EdgeToken) -> Vec<T>;
+}
+
+impl ProjectFilter<ClientFeature> for Vec<ClientFeature> {
+    fn filter_by_projects(&self, token: &EdgeToken) -> Vec<ClientFeature> {
+        self.iter()
+            .filter(|feature| {
+                if let Some(feature_project) = &feature.project {
+                    token.projects.contains(&"*".to_string())
+                        || token.projects.contains(feature_project)
+                } else {
+                    false
+                }
+            })
+            .cloned()
+            .collect::<Vec<ClientFeature>>()
+    }
 }
 
 #[async_trait]

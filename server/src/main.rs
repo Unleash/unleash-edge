@@ -8,7 +8,12 @@ use actix_web::{web, App, HttpServer};
 use actix_web_opentelemetry::RequestTracing;
 use clap::Parser;
 use cli::CliArgs;
-use unleash_edge::data_sources::builder::build_caches_and_refreshers;
+use dashmap::DashMap;
+use futures::future::join_all;
+use unleash_edge::builder::build_caches_and_refreshers;
+use unleash_edge::persistence::EdgePersistence;
+use unleash_edge::types::{EdgeToken, TokenRefresh};
+use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ConnectVia;
 
 use unleash_edge::client_api;
@@ -35,8 +40,16 @@ async fn main() -> Result<(), anyhow::Error> {
         app_name: args.clone().app_name,
         instance_id: args.clone().instance_id,
     };
-    let ((token_cache, features_cache, engine_cache), token_validator, feature_refresher) =
-        build_caches_and_refreshers(args).await.unwrap();
+    let (
+        (token_cache, features_cache, engine_cache),
+        token_validator,
+        feature_refresher,
+        persistence,
+    ) = build_caches_and_refreshers(args).await.unwrap();
+
+    let lazy_feature_cache = features_cache.clone();
+    let lazy_token_cache = token_cache.clone();
+
     let metrics_cache = Arc::new(MetricsCache::default());
     let metrics_cache_clone = metrics_cache.clone();
 
@@ -104,7 +117,7 @@ async fn main() -> Result<(), anyhow::Error> {
             tokio::select! {
                 _ = server.run() => {
                     tracing::info!("Actix is shutting down. Persisting data");
-                    // persist_state()
+                    clean_shutdown(persistence, lazy_feature_cache.clone(), lazy_token_cache.clone(), refresher.tokens_to_refresh.clone()).await;
                     tracing::info!("Actix was shutdown properly");
                 },
                 _ = refresher.refresh_features() => {
@@ -118,7 +131,8 @@ async fn main() -> Result<(), anyhow::Error> {
         _ => tokio::select! {
             _ = server.run() => {
                 tracing::info!("Actix is shutting down. Persisting data");
-                // persist_state()
+                let refresher = feature_refresher.clone().unwrap();
+                clean_shutdown(persistence, lazy_feature_cache.clone(), lazy_token_cache.clone(), refresher.tokens_to_refresh.clone()).await;
                 tracing::info!("Actix was shutdown properly");
 
             }
@@ -126,4 +140,42 @@ async fn main() -> Result<(), anyhow::Error> {
     };
 
     Ok(())
+}
+
+async fn clean_shutdown(
+    persistence: Option<Arc<dyn EdgePersistence>>,
+    feature_cache: Arc<DashMap<String, ClientFeatures>>,
+    token_cache: Arc<DashMap<String, EdgeToken>>,
+    refresh_target_cache: Arc<DashMap<String, TokenRefresh>>,
+) {
+    let tokens: Vec<EdgeToken> = token_cache
+        .iter()
+        .map(|entry| entry.value().clone())
+        .collect();
+
+    let refresh_targets: Vec<TokenRefresh> = refresh_target_cache
+        .iter()
+        .map(|entry| entry.value().clone())
+        .collect();
+
+    let features: Vec<(String, ClientFeatures)> = feature_cache
+        .iter()
+        .map(|entry| (entry.key().clone(), entry.value().clone()))
+        .collect();
+
+    if let Some(persistence) = persistence {
+        let res = join_all(vec![
+            persistence.save_tokens(tokens),
+            persistence.save_features(features),
+            persistence.save_refresh_targets(refresh_targets),
+        ])
+        .await;
+        if res.iter().all(|save| save.is_ok()) {
+            tracing::info!("Successfully persisted data");
+        } else {
+            res.iter()
+                .filter(|save| save.is_err())
+                .for_each(|failed_save| tracing::error!("Failed backing up: {failed_save:?}"));
+        }
+    }
 }
