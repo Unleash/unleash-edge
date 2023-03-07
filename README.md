@@ -77,7 +77,7 @@ graph LR
 
 This means that, in order to start up, Edge mode needs to know where the upstream node is. This is done by passing the `--upstream-url` command line argument or setting the `UPSTREAM_URL` environment variable.
 
-By default, Edge mode uses in-memory to store the features it fetches from the upstream node. However, you may want to use a more persistent storage solution. Edge supports either Redis or a backup file, you can configure one of these by passing in the `--redis-url` command line argument or or `--backup_folder` respectively. On start-up, Edge check the persistent backup if one is specified, and use this to populate its internal caches. This can be useful when your Unleash server is unreachable.
+By default, Edge mode uses an in-memory cache to store the features it fetches from the upstream node. However, you may want to use a more persistent storage solution. For this purpose, Edge supports either Redis or a backup file, which you can configure by passing in either the `--redis-url` or `--backup_folder` command line argument, respectively. On start-up, Edge checks whether the persistent backup option is specified, in which case it uses it to populate its internal caches. This can be useful when your Unleash server is unreachable.
 
 Edge mode also supports dynamic tokens, meaning that Edge doesn't need a token to be provided when starting up. Once we make a request to the `/api/client/features` endpoint using a [client token](https://docs.getunleash.io/reference/api-tokens-and-client-keys#client-tokens) Edge will validate upstream and fetch its respective features. After that, it gets added to the list of known tokens that gets periodically synced, making sure it is a valid token and its features are up-to-date.
 
