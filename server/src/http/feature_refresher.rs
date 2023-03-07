@@ -70,16 +70,6 @@ impl FeatureRefresher {
                     .insert(token.token.token.clone(), token.clone());
             }
             self.tokens_to_refresh.retain(|key, _| keys.contains(key));
-            if let Some(persist) = self.persistence.clone() {
-                persist
-                    .save_refresh_targets(
-                        self.tokens_to_refresh
-                            .iter()
-                            .map(|e| e.value().clone())
-                            .collect(),
-                    )
-                    .await?;
-            }
         }
         Ok(())
     }
@@ -120,16 +110,6 @@ impl FeatureRefresher {
                                             let mut new_state = EngineState::default();
                                             new_state.take_state(features.clone());
                                             self.engine_cache.insert(key, new_state);
-                                        }
-                                        if let Some(persist) = self.persistence.clone() {
-                                            let feature_save = persist.save_features(
-                                                self.features_cache
-                                                    .iter()
-                                                    .map(|e| (e.key().clone(), e.value().clone()))
-                                                    .collect());
-
-                                            let refresh_targets_save = persist.save_refresh_targets(self.tokens_to_refresh.iter().map(|e| e.value().clone()).collect());
-                                            let _ = futures::future::join_all(vec![feature_save, refresh_targets_save]).await;
                                         }
                                     }
                                 },

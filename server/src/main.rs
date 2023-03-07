@@ -11,7 +11,7 @@ use cli::CliArgs;
 use dashmap::DashMap;
 use futures::future::join_all;
 use unleash_edge::builder::build_caches_and_refreshers;
-use unleash_edge::persistence::EdgePersistence;
+use unleash_edge::persistence::{persist_data, EdgePersistence};
 use unleash_edge::types::{EdgeToken, TokenRefresh};
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ConnectVia;
@@ -117,7 +117,7 @@ async fn main() -> Result<(), anyhow::Error> {
             tokio::select! {
                 _ = server.run() => {
                     tracing::info!("Actix is shutting down. Persisting data");
-                    clean_shutdown(persistence, lazy_feature_cache.clone(), lazy_token_cache.clone(), refresher.tokens_to_refresh.clone()).await;
+                    clean_shutdown(persistence.clone(), lazy_feature_cache.clone(), lazy_token_cache.clone(), refresher.tokens_to_refresh.clone()).await;
                     tracing::info!("Actix was shutdown properly");
                 },
                 _ = refresher.refresh_features() => {
@@ -125,6 +125,9 @@ async fn main() -> Result<(), anyhow::Error> {
                 }
                 _ = unleash_edge::http::background_send_metrics::send_metrics_task(metrics_cache_clone.clone(), refresher.unleash_client.clone(), edge.metrics_interval_seconds) => {
                     tracing::info!("Metrics poster unexpectedly shut down");
+                }
+                _ = persist_data(persistence.clone(), lazy_token_cache.clone(), lazy_feature_cache.clone(), refresher.tokens_to_refresh.clone()) => {
+                    tracing::info!("Persister was unexpectedly shut down");
                 }
             }
         }
