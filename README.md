@@ -1,11 +1,11 @@
 # Unleash Edge
 
-[![crates.io](https://img.shields.io/crates/v/unleash-edge?label=latest)](https://crates.io/crates/unleash-edge) 
-[![Documentation](https://docs.rs/unleash-edge/badge.svg?version=latest)](https://docs.rs/unleash-edge/latest) 
+[![crates.io](https://img.shields.io/crates/v/unleash-edge?label=latest)](https://crates.io/crates/unleash-edge)
+[![Documentation](https://docs.rs/unleash-edge/badge.svg?version=latest)](https://docs.rs/unleash-edge/latest)
 ![MIT licensed](https://img.shields.io/crates/l/unleash-edge.svg)
 [![Dependency Status](https://deps.rs/crate/unleash-edge/0.2.0/status.svg)](https://deps.rs/crate/unleash-edge/0.2.0)
-[![CI](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml/badge.svg)](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml) 
-[![Coverage Status](https://coveralls.io/repos/github/Unleash/unleash-edge/badge.svg?branch=main)](https://coveralls.io/github/Unleash/unleash-edge?branch=main) 
+[![CI](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml/badge.svg)](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml)
+[![Coverage Status](https://coveralls.io/repos/github/Unleash/unleash-edge/badge.svg?branch=main)](https://coveralls.io/github/Unleash/unleash-edge?branch=main)
 ![downloads](https://img.shields.io/crates/d/unleash-edge.svg)
 
 Unleash Edge is the successor to the [Unleash Proxy](https://docs.getunleash.io/how-to/how-to-run-the-unleash-proxy).
@@ -77,7 +77,7 @@ graph LR
 
 This means that, in order to start up, Edge mode needs to know where the upstream node is. This is done by passing the `--upstream-url` command line argument or setting the `UPSTREAM_URL` environment variable.
 
-By default, Edge mode uses in-memory to store the features it fetches from the upstream node. However, you may want to use a more persistent storage solution. Edge supports Redis as well, and you can configure it by passing in the `--redis-url` command line argument or setting the `REDIS_URL` environment variable.
+By default, Edge mode uses in-memory to store the features it fetches from the upstream node. However, you may want to use a more persistent storage solution. Edge supports either Redis or a backup file, you can configure one of these by passing in the `--redis-url` command line argument or or `--backup_folder` respectively. On start-up, Edge check the persistent backup if one is specified, and use this to populate its internal caches. This can be useful when your Unleash server is unreachable.
 
 Edge mode also supports dynamic tokens, meaning that Edge doesn't need a token to be provided when starting up. Once we make a request to the `/api/client/features` endpoint using a [client token](https://docs.getunleash.io/reference/api-tokens-and-client-keys#client-tokens) Edge will validate upstream and fetch its respective features. After that, it gets added to the list of known tokens that gets periodically synced, making sure it is a valid token and its features are up-to-date.
 
@@ -97,7 +97,9 @@ Options:
   -u, --upstream-url <UPSTREAM_URL>
           Where is your upstream URL. Remember, this is the URL to your instance, without any trailing /api suffix [env: UPSTREAM_URL=]
   -r, --redis-url <REDIS_URL>
-          [env: REDIS_URL=]
+          A url to a running Redis instance. Edge will use this instance to persist feature and token data and read this back after restart. Mutually exclusive with the --backup-folder option [env: REDIS_URL=]
+  -b, --backup-folder <BACKUP_FOLDER>
+          A path to a local folder. Edge will write feature and token data to disk in this folder and read this back after restart. Mutually exclusive with the --redis-url option  [env: BACKUP_FOLDER=]
   -m, --metrics-interval-seconds <METRICS_INTERVAL_SECONDS>
           How often should we post metrics upstream? [env: METRICS_INTERVAL_SECONDS=] [default: 60]
   -f, --features-refresh-interval-seconds <FEATURES_REFRESH_INTERVAL_SECONDS>
@@ -150,9 +152,9 @@ Then we run hey against the proxy endpoint, evaluating toggles
 $ hey -z 10s -H "Authorization: <frontend token>" http://localhost:3063/api/proxy`
 ```
 
-| CPU | Memory | RPS | Endpoint | p95 | 
-| --- | ------ | --- | -------- | --- |  
-| 0.1 | 6.7 Mi | 600 | /api/proxy | 19ms | 
+| CPU | Memory | RPS | Endpoint | p95 |
+| --- | ------ | --- | -------- | --- |
+| 0.1 | 6.7 Mi | 600 | /api/proxy | 19ms |
 | 1 | 6.7 Mi | 8000 | /api/proxy | 7.4ms |
 
 and against our client features endpoint.
@@ -161,9 +163,9 @@ and against our client features endpoint.
 $ hey -z 10s -H "Authorization: <client token>" http://localhost:3063/api/client/features
 ```
 
-| CPU | Memory observed | RPS | Endpoint | p95 | 
-| --- | ------ | --- | -------- | --- |  
-| 0.1 | 6 Mi | 1370 | /api/client/features | 97ms | 
+| CPU | Memory observed | RPS | Endpoint | p95 |
+| --- | ------ | --- | -------- | --- |
+| 0.1 | 6 Mi | 1370 | /api/client/features | 97ms |
 | 1 | 7 Mi | 15000 | /api/client/features | 4ms |
 
 
