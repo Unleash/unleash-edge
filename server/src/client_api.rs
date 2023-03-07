@@ -1,7 +1,10 @@
+use crate::error::EdgeError;
 use crate::metrics::client_metrics::{ApplicationKey, MetricsCache};
-use crate::types::{EdgeJsonResult, EdgeResult, EdgeSource, EdgeToken};
+use crate::tokens::cache_key;
+use crate::types::{EdgeJsonResult, EdgeResult, EdgeToken};
 use actix_web::web::{self, Json};
 use actix_web::{get, post, HttpRequest, HttpResponse};
+use dashmap::DashMap;
 use tracing::debug;
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::{
@@ -22,12 +25,13 @@ use unleash_types::client_metrics::{
 #[get("/client/features")]
 pub async fn features(
     edge_token: EdgeToken,
-    features_source: web::Data<dyn EdgeSource>,
+    features_cache: web::Data<DashMap<String, ClientFeatures>>,
 ) -> EdgeJsonResult<ClientFeatures> {
-    features_source
-        .get_client_features(&edge_token)
-        .await
+    features_cache
+        .get(&cache_key(edge_token))
+        .map(|features| features.clone())
         .map(Json)
+        .ok_or_else(|| EdgeError::PersistenceError("Feature set not present in cache yet".into()))
 }
 
 #[utoipa::path(

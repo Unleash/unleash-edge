@@ -3,9 +3,10 @@ use actix_web::{
     web::{self, Json},
 };
 use actix_web_opentelemetry::PrometheusMetricsHandler;
+use dashmap::DashMap;
 use serde::Serialize;
 
-use crate::types::{BuildInfo, EdgeJsonResult, EdgeSource, EdgeToken};
+use crate::types::{BuildInfo, EdgeJsonResult, EdgeToken};
 
 #[derive(Debug, Serialize)]
 pub struct EdgeStatus {
@@ -31,8 +32,10 @@ pub async fn info() -> EdgeJsonResult<BuildInfo> {
 }
 
 #[get("/tokens")]
-pub async fn tokens(edge_source: web::Data<dyn EdgeSource>) -> EdgeJsonResult<Vec<EdgeToken>> {
-    let all_tokens = edge_source.get_tokens().await?;
+pub async fn tokens(
+    edge_source: web::Data<DashMap<String, EdgeToken>>,
+) -> EdgeJsonResult<Vec<EdgeToken>> {
+    let all_tokens = edge_source.iter().map(|e| e.value().clone()).collect();
     Ok(Json(all_tokens))
 }
 

@@ -1,4 +1,17 @@
+use actix_web::dev::Payload;
+use actix_web::http::header::HeaderValue;
+use actix_web::web::Data;
+use actix_web::FromRequest;
+use actix_web::HttpRequest;
+use std::future::{ready, Ready};
+use std::str::FromStr;
+
+use crate::cli::EdgeMode;
+use crate::error::EdgeError;
+use crate::types::EdgeResult;
+use crate::types::EdgeToken;
 use crate::types::TokenRefresh;
+use crate::types::TokenValidationStatus;
 
 pub(crate) fn simplify(tokens: &[TokenRefresh]) -> Vec<&TokenRefresh> {
     tokens
@@ -19,6 +32,130 @@ pub(crate) fn simplify(tokens: &[TokenRefresh]) -> Vec<&TokenRefresh> {
         .collect()
 }
 
+pub(crate) fn cache_key(token: EdgeToken) -> String {
+    token.environment.unwrap_or(token.token)
+}
+
+impl EdgeToken {
+    pub fn no_project_or_environment(s: &str) -> Self {
+        EdgeToken {
+            token: s.into(),
+            token_type: None,
+            environment: None,
+            projects: vec![],
+            status: TokenValidationStatus::default(),
+        }
+    }
+
+    pub fn subsumes(&self, other: &EdgeToken) -> bool {
+        return self.token_type == other.token_type
+            && self.environment == other.environment
+            && (self.projects.contains(&"*".into())
+                || (self.projects.len() >= other.projects.len()
+                    && other.projects.iter().all(|p| self.projects.contains(p))));
+    }
+}
+
+impl FromRequest for EdgeToken {
+    type Error = EdgeError;
+    type Future = Ready<EdgeResult<Self>>;
+
+    fn from_request(req: &HttpRequest, _payload: &mut Payload) -> Self::Future {
+        let value = req.headers().get("Authorization");
+        if let Some(data_mode) = req.app_data::<Data<EdgeMode>>() {
+            let mode = data_mode.clone().into_inner();
+            let key = match *mode {
+                EdgeMode::Offline(_) => match value {
+                    Some(v) => match v.to_str() {
+                        Ok(value) => Ok(EdgeToken::offline_token(value)),
+                        Err(_) => Err(EdgeError::AuthorizationDenied),
+                    },
+                    None => Err(EdgeError::AuthorizationDenied),
+                },
+                EdgeMode::Edge(_) => match value {
+                    Some(v) => EdgeToken::try_from(v.clone()),
+                    None => Err(EdgeError::AuthorizationDenied),
+                },
+            };
+            ready(key)
+        } else {
+            let key = match value {
+                Some(v) => EdgeToken::try_from(v.clone()),
+                None => Err(EdgeError::AuthorizationDenied),
+            };
+            ready(key)
+        }
+    }
+}
+
+impl TryFrom<HeaderValue> for EdgeToken {
+    type Error = EdgeError;
+
+    fn try_from(value: HeaderValue) -> Result<Self, Self::Error> {
+        value
+            .to_str()
+            .map_err(|_| EdgeError::AuthorizationDenied)
+            .and_then(EdgeToken::from_str)
+    }
+}
+
+impl TryFrom<String> for EdgeToken {
+    type Error = EdgeError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        EdgeToken::from_str(value.as_str())
+    }
+}
+
+impl FromStr for EdgeToken {
+    type Err = EdgeError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.contains(':') && s.contains('.') {
+            let token_parts: Vec<String> = s.split(':').take(2).map(|s| s.to_string()).collect();
+            let token_projects = if let Some(projects) = token_parts.get(0) {
+                if projects == "[]" {
+                    vec![]
+                } else {
+                    vec![projects.clone()]
+                }
+            } else {
+                return Err(EdgeError::TokenParseError);
+            };
+            if let Some(env_and_key) = token_parts.get(1) {
+                let e_a_k: Vec<String> = env_and_key
+                    .split('.')
+                    .take(2)
+                    .map(|s| s.to_string())
+                    .collect();
+                if e_a_k.len() != 2 {
+                    return Err(EdgeError::TokenParseError);
+                }
+                Ok(EdgeToken {
+                    environment: e_a_k.get(0).cloned(),
+                    projects: token_projects,
+                    token_type: None,
+                    token: s.into(),
+                    status: TokenValidationStatus::Unknown,
+                })
+            } else {
+                Err(EdgeError::TokenParseError)
+            }
+        } else {
+            Err(EdgeError::TokenParseError)
+        }
+    }
+}
+
+impl EdgeToken {
+    pub fn offline_token(s: &str) -> Self {
+        let mut token = EdgeToken::try_from(s.to_string())
+            .ok()
+            .unwrap_or_else(|| EdgeToken::no_project_or_environment(s));
+        token.status = TokenValidationStatus::Validated;
+        token
+    }
+}
 #[cfg(test)]
 mod tests {
     use crate::{

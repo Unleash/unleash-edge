@@ -9,7 +9,7 @@ pub enum EdgeError {
     AuthorizationPending,
     ClientFeaturesFetchError,
     ClientFeaturesParseError,
-    DataSourceError(String),
+    PersistenceError(String),
     EdgeMetricsError,
     EdgeTokenError,
     EdgeTokenParseError,
@@ -35,7 +35,7 @@ impl Display for EdgeError {
             EdgeError::AuthorizationDenied => write!(f, "Not allowed to access"),
             EdgeError::NoTokenProvider => write!(f, "Could not get a TokenProvider"),
             EdgeError::TokenParseError => write!(f, "Could not parse edge token"),
-            EdgeError::DataSourceError(msg) => write!(f, "{msg}"),
+            EdgeError::PersistenceError(msg) => write!(f, "{msg}"),
             EdgeError::JsonParseError(msg) => write!(f, "{msg}"),
             EdgeError::ClientFeaturesFetchError => {
                 write!(f, "Could not fetch client features")
@@ -66,7 +66,7 @@ impl ResponseError for EdgeError {
             EdgeError::ClientFeaturesParseError => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::ClientFeaturesFetchError => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::InvalidServerUrl(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            EdgeError::DataSourceError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            EdgeError::PersistenceError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::JsonParseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::EdgeTokenError => StatusCode::BAD_REQUEST,
             EdgeError::EdgeTokenParseError => StatusCode::BAD_REQUEST,

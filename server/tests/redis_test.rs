@@ -1,19 +1,15 @@
 use std::str::FromStr;
 
 use actix_web::http::header::EntityTag;
+use chrono::Utc;
 use redis::Client;
 use testcontainers::{clients::Cli, images::redis::Redis, Container};
 
 use unleash_edge::{
-    data_sources::{
-        redis_provider::RedisProvider,
-        repository::{DataSink, DataSource},
-    },
-    types::{EdgeToken, TokenRefresh, TokenValidationStatus},
+    persistence::{redis::RedisPersister, EdgePersistence},
+    types::{EdgeToken, TokenRefresh, TokenType},
 };
 use unleash_types::client_features::{ClientFeature, ClientFeatures};
-
-const TOKEN: &str = "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7";
 
 fn setup_redis(docker: &Cli) -> (Client, String, Container<Redis>) {
     let node: Container<Redis> = docker.run(Redis::default());
@@ -24,18 +20,10 @@ fn setup_redis(docker: &Cli) -> (Client, String, Container<Redis>) {
 }
 
 #[tokio::test]
-async fn redis_stores_and_returns_data_correctly() {
+async fn redis_saves_and_restores_features_correctly() {
     let docker = Cli::default();
     let (_client, url, _node) = setup_redis(&docker);
-
-    let redis: RedisProvider = RedisProvider::new(&url).unwrap();
-
-    let token = EdgeToken {
-        status: TokenValidationStatus::Validated,
-        environment: Some("some-env-1".to_string()),
-        projects: vec!["default".to_string()],
-        ..EdgeToken::from_str(TOKEN).unwrap()
-    };
+    let redis_persister = RedisPersister::new(&url).unwrap();
 
     let features = ClientFeatures {
         features: vec![ClientFeature {
@@ -46,105 +34,50 @@ async fn redis_stores_and_returns_data_correctly() {
         segments: None,
         version: 2,
     };
-
-    redis.sink_features(&token, features.clone()).await.unwrap();
-
-    let expected_features = redis.get_client_features(&token).await.unwrap().unwrap();
-
-    assert_eq!(expected_features, features.clone());
+    let environment = "development";
+    redis_persister
+        .save_features(vec![(environment.into(), features.clone())])
+        .await
+        .unwrap();
+    let results = redis_persister.load_features().await.unwrap();
+    assert_eq!(results.get(environment).unwrap(), &features);
 }
 
 #[tokio::test]
-async fn redis_stores_and_returns_tokens_correctly() {
+async fn redis_saves_and_restores_edge_tokens_correctly() {
     let docker = Cli::default();
     let (_client, url, _node) = setup_redis(&docker);
-
-    let redis: RedisProvider = RedisProvider::new(&url).unwrap();
-
-    let token = EdgeToken {
-        status: TokenValidationStatus::Validated,
-        environment: Some("some-env-1".to_string()),
-        projects: vec!["default".to_string()],
-        ..EdgeToken::from_str(TOKEN).unwrap()
-    };
-
-    let tokens = vec![token];
-
-    redis.sink_tokens(tokens.clone()).await.unwrap();
-    let returned_token = redis.get_token(TOKEN).await.unwrap().unwrap();
-    assert_eq!(returned_token, tokens[0]);
+    let redis_persister = RedisPersister::new(&url).unwrap();
+    let mut project_specific_token =
+        EdgeToken::from_str("someproject:development.abcdefghijklmnopqr").unwrap();
+    project_specific_token.token_type = Some(TokenType::Client);
+    let mut wildcard_token = EdgeToken::from_str("*:development.mysecretispersonal").unwrap();
+    wildcard_token.token_type = Some(TokenType::Client);
+    redis_persister
+        .save_tokens(vec![project_specific_token, wildcard_token])
+        .await
+        .unwrap();
+    let saved_tokens = redis_persister.load_tokens().await.unwrap();
+    assert_eq!(saved_tokens.len(), 2);
 }
 
 #[tokio::test]
-async fn redis_stores_and_returns_refresh_tokens_correctly() {
+async fn redis_saves_and_restores_token_refreshes_correctly() {
     let docker = Cli::default();
     let (_client, url, _node) = setup_redis(&docker);
+    let redis_persister = RedisPersister::new(&url).unwrap();
+    let edge_token = EdgeToken::from_str("someproject:development.abcdefghijklmnopqr").unwrap();
 
-    let redis: RedisProvider = RedisProvider::new(&url).unwrap();
-
-    let tokens = vec![TokenRefresh {
-        etag: None,
-        last_refreshed: None,
-        last_check: None,
-        token: EdgeToken {
-            status: TokenValidationStatus::Validated,
-            environment: Some("some-env-1".to_string()),
-            projects: vec!["default".to_string()],
-            ..EdgeToken::from_str(TOKEN).unwrap()
-        },
-    }];
-
-    redis
-        .set_refresh_tokens(tokens.iter().collect::<Vec<&TokenRefresh>>())
+    let mut token_refresh = TokenRefresh::new(edge_token.clone());
+    let now = Utc::now();
+    token_refresh.last_check = Some(now);
+    token_refresh.last_refreshed = Some(now);
+    token_refresh.etag = Some(EntityTag::new_weak("abcdefghijl".into()));
+    redis_persister
+        .save_refresh_targets(vec![token_refresh])
         .await
         .unwrap();
-    let returned_tokens = redis.get_refresh_tokens().await.unwrap();
-    assert_eq!(returned_tokens[0].token, tokens[0].token);
-}
-
-#[tokio::test]
-async fn redis_store_marks_update_correctly() {
-    let docker = Cli::default();
-    let (_client, url, _node) = setup_redis(&docker);
-
-    let redis: RedisProvider = RedisProvider::new(&url).unwrap();
-
-    let token = EdgeToken {
-        status: TokenValidationStatus::Validated,
-        environment: Some("some-env-1".to_string()),
-        projects: vec!["default".to_string()],
-        ..EdgeToken::from_str(TOKEN).unwrap()
-    };
-
-    let entity_tag = EntityTag::new_weak("some-etag".to_string());
-    let token_refresh = TokenRefresh {
-        etag: None,
-        last_refreshed: None,
-        last_check: None,
-        token: token.clone(),
-    };
-
-    let tokens = vec![token_refresh.clone()];
-
-    redis
-        .set_refresh_tokens(tokens.iter().collect::<Vec<&TokenRefresh>>())
-        .await
-        .unwrap();
-
-    redis
-        .update_last_refresh(&token, Some(entity_tag.clone()))
-        .await
-        .unwrap();
-
-    let found_token = redis
-        .get_refresh_tokens()
-        .await
-        .unwrap()
-        .get(0)
-        .unwrap()
-        .clone();
-
-    assert_eq!(found_token.etag, Some(entity_tag));
-    assert!(found_token.last_check.is_some());
-    assert!(found_token.last_refreshed.is_some());
+    let saved_refreshes = redis_persister.load_refresh_targets().await.unwrap();
+    assert_eq!(saved_refreshes.len(), 1);
+    assert_eq!(saved_refreshes.get(0).unwrap().token, edge_token);
 }
