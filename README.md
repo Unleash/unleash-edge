@@ -54,6 +54,22 @@ Options:
           Print help
 ```
 
+## Getting Unleash Edge
+
+Unleash Edge is distributed as a binary and as a docker image. 
+### Binary
+ * The binary is downloadable from our [Releases page](https://github.com/Unleash/unleash-edge/releases/latest). 
+ * We're currently building for linux x86_64, windows x86_64 and darwin (OS X) x86_64
+ * NOTE: we're not currenly building ARM binaries, but we are building ARM docker files, so if you are running on an ARM platform, feel free to use our Docker images instead.
+
+### Docker
+ * The docker image gets uploaded to dockerhub and Github Package registry.
+ * For dockerhub use the coordinates `unleashorg/unleash-edge:<version>`.
+ * For Github package registry use the coordinates `ghpr.io/unleash/unleash-edge:<version>`
+ * If you'd like to live on the edge (sic) you can use the tag `edge`. This is built from `HEAD` on each commit
+
+### Cargo/Rust
+If you have the [Rust toolchain](https://rustup.rs) installed you can build a binary for the platform you're running by cloning this repo and running `cargo build --release`. This will give you an `unleash-edge` binary in `./target/release`
 ## Concepts
 
 ### Modes
