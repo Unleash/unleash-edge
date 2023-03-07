@@ -221,9 +221,12 @@ async fn post_enabled_features(
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
     let context = context.into_inner();
-    let engine = engine_cache
-        .get(&tokens::cache_key(edge_token))
-        .ok_or(EdgeError::TokenParseError)?;
+    let engine =
+        engine_cache
+            .get(&tokens::cache_key(edge_token))
+            .ok_or(EdgeError::PersistenceError(
+                "Could not find data for token".into(),
+            ))?;
     let feature_results = engine.resolve_all(&context).unwrap();
     Ok(Json(frontend_from_yggdrasil(feature_results, false)))
 }
