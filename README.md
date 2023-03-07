@@ -14,10 +14,10 @@ Unleash Edge sits between the Unleash API and your SDKs and provides a cached re
 
 Unleash Edge offers two important features:
 
-Performance: Unleash Edge caches in memory and can run close to your end-users. A single instance can handle tens to hundreds of thousands of requests per second.
-Resilience: Unleash Edge is designed to survive restarts and operate properly even if you lose connection to your Unleash server.
+- **Performance**: Unleash Edge caches in memory and can run close to your end-users. A single instance can handle tens to hundreds of thousands of requests per second.
+- **Resilience**: Unleash Edge is designed to survive restarts and operate properly even if you lose connection to your Unleash server.
 
-Unleash Edge is built to help you scale Unleash, if you're looking for the fastest way to connect your client SDKs you can check out our [Frontend API](https://docs.getunleash.io/reference/front-end-api).
+Unleash Edge is built to help you scale Unleash, if you're looking for the easiest way to connect your client SDKs you can check out our [Frontend API](https://docs.getunleash.io/reference/front-end-api).
 
 ## Why choose Unleash Edge over the Unleash Proxy?
 
