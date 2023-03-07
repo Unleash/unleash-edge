@@ -50,6 +50,7 @@ impl FilePersister {
     }
 
     pub fn new(storage_path: &Path) -> Self {
+        let _ = std::fs::create_dir_all(storage_path);
         FilePersister {
             storage_path: storage_path.to_path_buf(),
         }

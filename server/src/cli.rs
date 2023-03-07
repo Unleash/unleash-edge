@@ -23,7 +23,7 @@ pub struct EdgeArgs {
     pub redis_url: Option<String>,
 
     /// Edge can periodically persist its state to disk. Tell us where?
-    #[clap(long, env)]
+    #[clap(short, long, env)]
     pub backup_folder: Option<PathBuf>,
     /// How often should we post metrics upstream?
     #[clap(short, long, env, default_value_t = 60)]
