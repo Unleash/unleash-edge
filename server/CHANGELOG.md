@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.3.0 (2023-03-07)
+
+### Chore
+
+ - <csr-id-2fc9f70173970415e6995d1a2230699d7a2507a8/> update pointers in README
+
+### Documentation
+
+ - <csr-id-c348c4f95ee8645a3ea1cdac03fb9bb338eae73d/> update release workflow
+
+### New Features
+
+ - <csr-id-a263dcaf0271ca38e83f7d55f5e62b4c699c148b/> lock free feature resolution
+   Redesign the way data flows through Edge. Previously, we had thread locks on our data sources, which was impacting the response time of the application. This moves everything to be in memory cached with lazy persistence in the background and reloading the state on application startup. This means the hot path is now lock free.
+   
+   ---------
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 3 commits contributed to the release over the course of 6 calendar days.
+ - 6 days passed between releases.
+ - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 1 unique issue was worked on: [#95](https://github.com/Unleash/unleash-edge/issues/95)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#95](https://github.com/Unleash/unleash-edge/issues/95)**
+    - Update release workflow ([`c348c4f`](https://github.com/Unleash/unleash-edge/commit/c348c4f95ee8645a3ea1cdac03fb9bb338eae73d))
+ * **Uncategorized**
+    - Lock free feature resolution ([`a263dca`](https://github.com/Unleash/unleash-edge/commit/a263dcaf0271ca38e83f7d55f5e62b4c699c148b))
+    - Update pointers in README ([`2fc9f70`](https://github.com/Unleash/unleash-edge/commit/2fc9f70173970415e6995d1a2230699d7a2507a8))
+</details>
+
 ## v0.2.0 (2023-02-28)
 
 <csr-id-176ef576d6ad6ddfb0993f7738465f2f68d3b4af/>
@@ -39,7 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 10 commits contributed to the release over the course of 4 calendar days.
+ - 11 commits contributed to the release over the course of 4 calendar days.
  - 4 days passed between releases.
  - 9 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 6 unique issues were worked on: [#76](https://github.com/Unleash/unleash-edge/issues/76), [#77](https://github.com/Unleash/unleash-edge/issues/77), [#78](https://github.com/Unleash/unleash-edge/issues/78), [#79](https://github.com/Unleash/unleash-edge/issues/79), [#81](https://github.com/Unleash/unleash-edge/issues/81), [#83](https://github.com/Unleash/unleash-edge/issues/83)
@@ -63,6 +102,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#83](https://github.com/Unleash/unleash-edge/issues/83)**
     - Update rust crate clap to 4.1.8 ([`eaf0e79`](https://github.com/Unleash/unleash-edge/commit/eaf0e797b57ec49ce5050826705d458798619a5b))
  * **Uncategorized**
+    - Release unleash-edge v0.2.0 ([`f9735fd`](https://github.com/Unleash/unleash-edge/commit/f9735fd79a7ce9ba9bbc3848980dd561ea13c2ed))
     - Release unleash-edge v0.2.0 ([`a71fd76`](https://github.com/Unleash/unleash-edge/commit/a71fd7676c606eb9004fbfa15334f1de42a3d6f3))
     - Add README to server subfolder ([`ae3c9f7`](https://github.com/Unleash/unleash-edge/commit/ae3c9f75bcccddefd571d7fca4c87a7b4e585ea7))
     - Bump shadow-rs to 0.21 ([`176ef57`](https://github.com/Unleash/unleash-edge/commit/176ef576d6ad6ddfb0993f7738465f2f68d3b4af))
