@@ -91,8 +91,9 @@ impl EdgePersistence for FilePersister {
                 )
             })?;
         file.write_all(
-            &serde_json::to_vec(&tokens)
-                .map_err(|_| EdgeError::PersistenceError("".to_string()))?,
+            &serde_json::to_vec(&tokens).map_err(|_| {
+                EdgeError::PersistenceError("Failed to serialize tokens".to_string())
+            })?,
         )
         .await
         .map_err(|_| EdgeError::PersistenceError("Could not serialize tokens to disc".to_string()))
@@ -134,8 +135,9 @@ impl EdgePersistence for FilePersister {
                 )
             })?;
         file.write_all(
-            &serde_json::to_vec(&features)
-                .map_err(|_| EdgeError::PersistenceError("".to_string()))?,
+            &serde_json::to_vec(&features).map_err(|_| {
+                EdgeError::PersistenceError("Failed to serialize features".to_string())
+            })?,
         )
         .await
         .map_err(|_| EdgeError::PersistenceError("Could not serialize tokens to disc".to_string()))
@@ -174,10 +176,9 @@ impl EdgePersistence for FilePersister {
                 )
             })?;
 
-        file.write_all(
-            &serde_json::to_vec(&refresh_targets)
-                .map_err(|_| EdgeError::PersistenceError("".to_string()))?,
-        )
+        file.write_all(&serde_json::to_vec(&refresh_targets).map_err(|_| {
+            EdgeError::PersistenceError("Failed to serialize refresh tokens".to_string())
+        })?)
         .await
         .map_err(|_| EdgeError::PersistenceError("Could not serialize tokens to disc".to_string()))
         .map(|_| ())
