@@ -59,9 +59,8 @@ Options:
 Unleash Edge is distributed as a binary and as a docker image. 
 ### Binary
  * The binary is downloadable from our [Releases page](https://github.com/Unleash/unleash-edge/releases/latest). 
- * We're currently building for linux x86_64, windows x86_64 and darwin (OS X) x86_64
- * NOTE: we're not currenly building ARM binaries, but we are building ARM docker files, so if you are running on an ARM platform, feel free to use our Docker images instead.
-
+ * We're currently building for linux x86_64, windows x86_64, darwin (OS X) x86_64 and darwin (OS X) aarch64 (M1/M2 macs)
+ 
 ### Docker
  * The docker image gets uploaded to dockerhub and Github Package registry.
  * For dockerhub use the coordinates `unleashorg/unleash-edge:<version>`.

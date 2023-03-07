@@ -1,11 +1,11 @@
 # Unleash Edge
 
-[![crates.io](https://img.shields.io/crates/v/unleash-edge?label=latest)](https://crates.io/crates/unleash-edge) 
-[![Documentation](https://docs.rs/unleash-edge/badge.svg?version=latest)](https://docs.rs/unleash-edge/latest) 
+[![crates.io](https://img.shields.io/crates/v/unleash-edge?label=latest)](https://crates.io/crates/unleash-edge)
+[![Documentation](https://docs.rs/unleash-edge/badge.svg?version=latest)](https://docs.rs/unleash-edge/latest)
 ![MIT licensed](https://img.shields.io/crates/l/unleash-edge.svg)
 [![Dependency Status](https://deps.rs/crate/unleash-edge/0.2.0/status.svg)](https://deps.rs/crate/unleash-edge/0.2.0)
-[![CI](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml/badge.svg)](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml) 
-[![Coverage Status](https://coveralls.io/repos/github/Unleash/unleash-edge/badge.svg?branch=main)](https://coveralls.io/github/Unleash/unleash-edge?branch=main) 
+[![CI](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml/badge.svg)](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml)
+[![Coverage Status](https://coveralls.io/repos/github/Unleash/unleash-edge/badge.svg?branch=main)](https://coveralls.io/github/Unleash/unleash-edge?branch=main)
 ![downloads](https://img.shields.io/crates/d/unleash-edge.svg)
 
 Unleash Edge is the successor to the [Unleash Proxy](https://docs.getunleash.io/how-to/how-to-run-the-unleash-proxy).
@@ -45,6 +45,22 @@ Options:
           Print help
 ```
 
+## Getting Unleash Edge
+
+Unleash Edge is distributed as a binary and as a docker image. 
+### Binary
+ * The binary is downloadable from our [Releases page](https://github.com/Unleash/unleash-edge/releases/latest). 
+ * We're currently building for linux x86_64, windows x86_64, darwin (OS X) x86_64 and darwin (OS X) aarch64 (M1/M2 macs)
+ * NOTE: we're not currenly building ARM binaries, but we are building ARM docker files, so if you are running on an ARM platform, feel free to use our Docker images instead.
+
+### Docker
+ * The docker image gets uploaded to dockerhub and Github Package registry.
+ * For dockerhub use the coordinates `unleashorg/unleash-edge:<version>`.
+ * For Github package registry use the coordinates `ghpr.io/unleash/unleash-edge:<version>`
+ * If you'd like to live on the edge (sic) you can use the tag `edge`. This is built from `HEAD` on each commit
+
+### Cargo/Rust
+If you have the [Rust toolchain](https://rustup.rs) installed you can build a binary for the platform you're running by cloning this repo and running `cargo build --release`. This will give you an `unleash-edge` binary in `./target/release`
 ## Concepts
 
 ### Modes
@@ -77,7 +93,7 @@ graph LR
 
 This means that, in order to start up, Edge mode needs to know where the upstream node is. This is done by passing the `--upstream-url` command line argument or setting the `UPSTREAM_URL` environment variable.
 
-By default, Edge mode uses in-memory to store the features it fetches from the upstream node. However, you may want to use a more persistent storage solution. Edge supports Redis as well, and you can configure it by passing in the `--redis-url` command line argument or setting the `REDIS_URL` environment variable.
+By default, Edge mode uses an in-memory cache to store the features it fetches from the upstream node. However, you may want to use a more persistent storage solution. For this purpose, Edge supports either Redis or a backup file, which you can configure by passing in either the `--redis-url` or `--backup_folder` command line argument, respectively. On start-up, Edge checks whether the persistent backup option is specified, in which case it uses it to populate its internal caches. This can be useful when your Unleash server is unreachable.
 
 Edge mode also supports dynamic tokens, meaning that Edge doesn't need a token to be provided when starting up. Once we make a request to the `/api/client/features` endpoint using a [client token](https://docs.getunleash.io/reference/api-tokens-and-client-keys#client-tokens) Edge will validate upstream and fetch its respective features. After that, it gets added to the list of known tokens that gets periodically synced, making sure it is a valid token and its features are up-to-date.
 
@@ -90,20 +106,26 @@ Besides dynamic tokens, Edge mode also supports metrics and other advanced featu
 To launch in this mode, run:
 
 ```bash
-$ ./unleash-edge edge --help
+$ unleash-edge edge -h
+Run in edge mode
+
 Usage: unleash-edge edge [OPTIONS] --upstream-url <UPSTREAM_URL>
 
 Options:
   -u, --upstream-url <UPSTREAM_URL>
           Where is your upstream URL. Remember, this is the URL to your instance, without any trailing /api suffix [env: UPSTREAM_URL=]
   -r, --redis-url <REDIS_URL>
-          [env: REDIS_URL=]
+         A URL pointing to a running Redis instance. Edge will use this instance to persist feature and token data and read this back after restart. Mutually exclusive with the --backup-folder option [env: REDIS_URL=]
+  -b, --backup-folder <BACKUP_FOLDER>
+          A path to a local folder. Edge will write feature and token data to disk in this folder and read this back after restart. Mutually exclusive with the --redis-url option  [env: BACKUP_FOLDER=]
   -m, --metrics-interval-seconds <METRICS_INTERVAL_SECONDS>
           How often should we post metrics upstream? [env: METRICS_INTERVAL_SECONDS=] [default: 60]
   -f, --features-refresh-interval-seconds <FEATURES_REFRESH_INTERVAL_SECONDS>
           How long between each refresh for a token [env: FEATURES_REFRESH_INTERVAL_SECONDS=] [default: 10]
   -t, --tokens <TOKENS>
           Get data for these client tokens at startup. Hot starts your feature cache [env: TOKENS=]
+  -h, --help
+          Print help
 
 ```
 
@@ -138,22 +160,28 @@ Options:
   -t, --tokens <TOKENS>                  [env: TOKENS=]
 ```
 
-### Performance (more to come)
+## Performance
 Unleash edge will scale linearly with CPU. There are k6 benchmarks in the benchmark folder and we've already got some initial numbers from [hey](https://github.com/rakyll/hey).
 
+Do note that the number of requests Edge can handle does depend on the total size of your toggle response. That is, Edge is faster if you only have 10 toggles with 1 strategy each, than it will be with 1000 toggles with multiple strategies on each. Benchmarks here were run with data fetched from the Unleash demo instance (roughly 100kB (350 features / 200 strategies)) as well as against a small dataset of 5 features with one strategy on each. 
+
 Edge was started using
-`docker run --cpus="<cpu>" --memory=128M -p 3063:3063 -e UPSTREAM_URL=<upstream> -e TOKENS="<client token>" unleashorg/unleash-edge:edge -w <number of cpus> edge`
+`docker run --cpus="<cpu>" --memory=128M -p 3063:3063 -e UPSTREAM_URL=<upstream> -e TOKENS="<client token>" unleashorg/unleash-edge:edge -w <number of cpus rounded up to closest integer> edge`
 
 Then we run hey against the proxy endpoint, evaluating toggles
 
+
+### Large Dataset (350 features (100kB))
 ```shell
-$ hey -z 10s -H "Authorization: <frontend token>" http://localhost:3063/api/proxy`
+$ hey -z 10s -H "Authorization: <frontend token>" http://localhost:3063/api/frontend`
 ```
 
-| CPU | Memory | RPS | Endpoint | p95 | 
-| --- | ------ | --- | -------- | --- |  
-| 0.1 | 6.7 Mi | 600 | /api/proxy | 19ms | 
-| 1 | 6.7 Mi | 8000 | /api/proxy | 7.4ms |
+| CPU | Memory | RPS | Endpoint | p95 | Data transferred | 
+| --- | ------ | --- | -------- | --- | ---------------- |
+| 0.1 | 6.7 Mi | 600 | /api/frontend | 103ms | 76Mi | 
+| 1 | 6.7 Mi | 6900 | /api/frontend | 7.4ms | 866Mi |
+| 4 | 9.5 | 25300 | /api/frontend | 2.4ms | 3.2Gi |
+| 8 | 15 | 40921 | /api/frontend | 1.6ms | 5.26Gi |
 
 and against our client features endpoint.
 
@@ -161,12 +189,38 @@ and against our client features endpoint.
 $ hey -z 10s -H "Authorization: <client token>" http://localhost:3063/api/client/features
 ```
 
-| CPU | Memory observed | RPS | Endpoint | p95 | 
-| --- | ------ | --- | -------- | --- |  
-| 0.1 | 6 Mi | 1370 | /api/client/features | 97ms | 
-| 1 | 7 Mi | 15000 | /api/client/features | 4ms |
+| CPU | Memory observed | RPS | Endpoint | p95 | Data transferred |
+| --- | ------ | --- | -------- | --- | ---------------- |
+| 0.1 | 11 Mi | 309 | /api/client/features | 199ms | 300 Mi |
+| 1 | 11 Mi | 3236 | /api/client/features | 16ms | 3 Gi |
+| 4 | 11 Mi | 12815 | /api/client/features | 4.5ms | 14 Gi | 
+| 8 | 17 Mi | 23207 | /api/client/features | 2.7ms | 26 Gi | 
 
+### Small Dataset (5 features (2kB))
 
+```shell
+$ hey -z 10s -H "Authorization: <frontend token>" http://localhost:3063/api/frontend`
+```
+
+| CPU | Memory | RPS | Endpoint | p95 | Data transferred | 
+| --- | ------ | --- | -------- | --- | ---------------- |
+| 0.1 | 4.3 Mi | 3673 | /api/frontend | 93ms | 9Mi | 
+| 1 | 6.7 Mi | 39000 | /api/frontend | 1.6ms | 80Mi |
+| 4 | 6.9 Mi | 110000 | /api/frontend | 600μs | 252Mi |
+| 8 | 12.5 Mi | 141090 | /api/frontend | 600μs | 324Mi |
+
+and against our client features endpoint.
+
+```shell
+$ hey -z 10s -H "Authorization: <client token>" http://localhost:3063/api/client/features
+```
+
+| CPU | Memory observed | RPS | Endpoint | p95 | Data transferred |
+| --- | ------ | --- | -------- | --- | ---------------- |
+| 0.1 | 4 Mi | 3298 | /api/client/features | 92ms | 64 Mi |
+| 1 | 4 Mi | 32360 | /api/client/features | 2ms | 527Mi |
+| 4 | 11 Mi | 95838 | /api/client/features | 600μs | 2.13 Gi | 
+| 8 | 17 Mi | 129381 | /api/client/features | 490μs | 2.87 Gi | 
 
 ## Development
 
