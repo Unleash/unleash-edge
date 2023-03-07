@@ -19,17 +19,6 @@ Unleash Edge offers two important features:
 
 Unleash Edge is built to help you scale Unleash, if you're looking for the easiest way to connect your client SDKs you can check out our [Frontend API](https://docs.getunleash.io/reference/front-end-api).
 
-## Why choose Unleash Edge over the Unleash Proxy?
-
-Edge offers a superset of the same feature set as the Unleash Proxy and we've made sure it offers the same security and privacy features.
-
-However, there are a few notable differences between the Unleash Proxy and Unleash Edge:
-
-- Unleash Edge is built to be light and fast, it handles an order of magnitude more requests per second than the Unleash Proxy can, while using two orders of magnitude less memory.
-- All your Unleash environments can be handled by a single instance, no more running multiple instances of the Unleash Proxy to handle both your development and production environments.
-- Backend SDKs can connect to Unleash Edge without turning on experimental feature flags.
-- Unleash Edge is smart enough to dynamically resolve the tokens you use to connect to it against the upstream Unleash instance. This means you don't have to worry about knowing in advance what tokens your SDKs use - if you want to swap out the Unleash token your SDK uses, this can be done without ever restarting or worrying about Unleash Edge. Unleash Edge will only collect and cache data for the environments and projects you use.
-
 ## Running Unleash Edge
 
 Unleash Edge is compiled to a single binary. You can configure it by passing in arguments or setting environment variables.
@@ -225,6 +214,17 @@ $ hey -z 10s -H "Authorization: <client token>" http://localhost:3063/api/client
 | 1 | 4 Mi | 32360 | /api/client/features | 2ms | 527Mi |
 | 4 | 11 Mi | 95838 | /api/client/features | 600μs | 2.13 Gi |
 | 8 | 17 Mi | 129381 | /api/client/features | 490μs | 2.87 Gi |
+
+## Why choose Unleash Edge over the Unleash Proxy?
+
+Edge offers a superset of the same feature set as the Unleash Proxy and we've made sure it offers the same security and privacy features.
+
+However, there are a few notable differences between the Unleash Proxy and Unleash Edge:
+
+- Unleash Edge is built to be light and fast, it handles an order of magnitude more requests per second than the Unleash Proxy can, while using two orders of magnitude less memory.
+- All your Unleash environments can be handled by a single instance, no more running multiple instances of the Unleash Proxy to handle both your development and production environments.
+- Backend SDKs can connect to Unleash Edge without turning on experimental feature flags.
+- Unleash Edge is smart enough to dynamically resolve the tokens you use to connect to it against the upstream Unleash instance. This means you don't have to worry about knowing in advance what tokens your SDKs use - if you want to swap out the Unleash token your SDK uses, this can be done without ever restarting or worrying about Unleash Edge. Unleash Edge will only collect and cache data for the environments and projects you use.
 
 ## Development
 
