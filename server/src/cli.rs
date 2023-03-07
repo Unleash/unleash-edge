@@ -9,27 +9,6 @@ pub enum EdgeMode {
     /// Run in offline mode
     Offline(OfflineArgs),
 }
-
-pub enum Persister {
-    Redis(String),
-    File(PathBuf),
-    None,
-}
-
-impl From<EdgeArgs> for Persister {
-    fn from(value: EdgeArgs) -> Self {
-        if let Some(redis_url) = value.redis_url {
-            return Persister::Redis(redis_url);
-        };
-
-        if let Some(backup_folder) = value.backup_folder {
-            return Persister::File(backup_folder);
-        };
-
-        Persister::None
-    }
-}
-
 #[derive(Args, Debug, Clone)]
 #[command(group(
     ArgGroup::new("data-provider")
