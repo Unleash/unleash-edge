@@ -10,6 +10,15 @@
 
 Unleash Edge is the successor to the [Unleash Proxy](https://docs.getunleash.io/how-to/how-to-run-the-unleash-proxy).
 
+Unleash Edge sits between the Unleash API and your SDKs and provides a cached read-replica of your Unleash instance. This means you can scale up your Unleash instance to thousands of connected SDKs without increasing the number of requests you make to your Unleash instance.
+
+Unleash Edge offers two important features:
+
+- **Performance**: Unleash Edge caches in memory and can run close to your end-users. A single instance can handle tens to hundreds of thousands of requests per second.
+- **Resilience**: Unleash Edge is designed to survive restarts and operate properly even if you lose connection to your Unleash server.
+
+Unleash Edge is built to help you scale Unleash, if you're looking for the easiest way to connect your client SDKs you can check out our [Frontend API](https://docs.getunleash.io/reference/front-end-api).
+
 ## Running Unleash Edge
 
 Unleash Edge is compiled to a single binary. You can configure it by passing in arguments or setting environment variables.
@@ -51,8 +60,7 @@ Unleash Edge is distributed as a binary and as a docker image.
 ### Binary
  * The binary is downloadable from our [Releases page](https://github.com/Unleash/unleash-edge/releases/latest). 
  * We're currently building for linux x86_64, windows x86_64, darwin (OS X) x86_64 and darwin (OS X) aarch64 (M1/M2 macs)
- * NOTE: we're not currenly building ARM binaries, but we are building ARM docker files, so if you are running on an ARM platform, feel free to use our Docker images instead.
-
+ 
 ### Docker
  * The docker image gets uploaded to dockerhub and Github Package registry.
  * For dockerhub use the coordinates `unleashorg/unleash-edge:<version>`.
@@ -163,7 +171,7 @@ Options:
 ## Performance
 Unleash edge will scale linearly with CPU. There are k6 benchmarks in the benchmark folder and we've already got some initial numbers from [hey](https://github.com/rakyll/hey).
 
-Do note that the number of requests Edge can handle does depend on the total size of your toggle response. That is, Edge is faster if you only have 10 toggles with 1 strategy each, than it will be with 1000 toggles with multiple strategies on each. Benchmarks here were run with data fetched from the Unleash demo instance (roughly 100kB (350 features / 200 strategies)) as well as against a small dataset of 5 features with one strategy on each. 
+Do note that the number of requests Edge can handle does depend on the total size of your toggle response. That is, Edge is faster if you only have 10 toggles with 1 strategy each, than it will be with 1000 toggles with multiple strategies on each. Benchmarks here were run with data fetched from the Unleash demo instance (roughly 100kB (350 features / 200 strategies)) as well as against a small dataset of 5 features with one strategy on each.
 
 Edge was started using
 `docker run --cpus="<cpu>" --memory=128M -p 3063:3063 -e UPSTREAM_URL=<upstream> -e TOKENS="<client token>" unleashorg/unleash-edge:edge -w <number of cpus rounded up to closest integer> edge`
@@ -176,9 +184,9 @@ Then we run hey against the proxy endpoint, evaluating toggles
 $ hey -z 10s -H "Authorization: <frontend token>" http://localhost:3063/api/frontend`
 ```
 
-| CPU | Memory | RPS | Endpoint | p95 | Data transferred | 
+| CPU | Memory | RPS | Endpoint | p95 | Data transferred |
 | --- | ------ | --- | -------- | --- | ---------------- |
-| 0.1 | 6.7 Mi | 600 | /api/frontend | 103ms | 76Mi | 
+| 0.1 | 6.7 Mi | 600 | /api/frontend | 103ms | 76Mi |
 | 1 | 6.7 Mi | 6900 | /api/frontend | 7.4ms | 866Mi |
 | 4 | 9.5 | 25300 | /api/frontend | 2.4ms | 3.2Gi |
 | 8 | 15 | 40921 | /api/frontend | 1.6ms | 5.26Gi |
@@ -193,8 +201,8 @@ $ hey -z 10s -H "Authorization: <client token>" http://localhost:3063/api/client
 | --- | ------ | --- | -------- | --- | ---------------- |
 | 0.1 | 11 Mi | 309 | /api/client/features | 199ms | 300 Mi |
 | 1 | 11 Mi | 3236 | /api/client/features | 16ms | 3 Gi |
-| 4 | 11 Mi | 12815 | /api/client/features | 4.5ms | 14 Gi | 
-| 8 | 17 Mi | 23207 | /api/client/features | 2.7ms | 26 Gi | 
+| 4 | 11 Mi | 12815 | /api/client/features | 4.5ms | 14 Gi |
+| 8 | 17 Mi | 23207 | /api/client/features | 2.7ms | 26 Gi |
 
 ### Small Dataset (5 features (2kB))
 
@@ -202,9 +210,9 @@ $ hey -z 10s -H "Authorization: <client token>" http://localhost:3063/api/client
 $ hey -z 10s -H "Authorization: <frontend token>" http://localhost:3063/api/frontend`
 ```
 
-| CPU | Memory | RPS | Endpoint | p95 | Data transferred | 
+| CPU | Memory | RPS | Endpoint | p95 | Data transferred |
 | --- | ------ | --- | -------- | --- | ---------------- |
-| 0.1 | 4.3 Mi | 3673 | /api/frontend | 93ms | 9Mi | 
+| 0.1 | 4.3 Mi | 3673 | /api/frontend | 93ms | 9Mi |
 | 1 | 6.7 Mi | 39000 | /api/frontend | 1.6ms | 80Mi |
 | 4 | 6.9 Mi | 110000 | /api/frontend | 600μs | 252Mi |
 | 8 | 12.5 Mi | 141090 | /api/frontend | 600μs | 324Mi |
@@ -219,8 +227,19 @@ $ hey -z 10s -H "Authorization: <client token>" http://localhost:3063/api/client
 | --- | ------ | --- | -------- | --- | ---------------- |
 | 0.1 | 4 Mi | 3298 | /api/client/features | 92ms | 64 Mi |
 | 1 | 4 Mi | 32360 | /api/client/features | 2ms | 527Mi |
-| 4 | 11 Mi | 95838 | /api/client/features | 600μs | 2.13 Gi | 
-| 8 | 17 Mi | 129381 | /api/client/features | 490μs | 2.87 Gi | 
+| 4 | 11 Mi | 95838 | /api/client/features | 600μs | 2.13 Gi |
+| 8 | 17 Mi | 129381 | /api/client/features | 490μs | 2.87 Gi |
+
+## Why choose Unleash Edge over the Unleash Proxy?
+
+Edge offers a superset of the same feature set as the Unleash Proxy and we've made sure it offers the same security and privacy features.
+
+However, there are a few notable differences between the Unleash Proxy and Unleash Edge:
+
+- Unleash Edge is built to be light and fast, it handles an order of magnitude more requests per second than the Unleash Proxy can, while using two orders of magnitude less memory.
+- All your Unleash environments can be handled by a single instance, no more running multiple instances of the Unleash Proxy to handle both your development and production environments.
+- Backend SDKs can connect to Unleash Edge without turning on experimental feature flags.
+- Unleash Edge is smart enough to dynamically resolve the tokens you use to connect to it against the upstream Unleash instance. This means you don't have to worry about knowing in advance what tokens your SDKs use - if you want to swap out the Unleash token your SDK uses, this can be done without ever restarting or worrying about Unleash Edge. Unleash Edge will only collect and cache data for the environments and projects you use.
 
 ## Development
 
