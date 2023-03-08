@@ -3,6 +3,7 @@ use actix_web::http::header::HeaderValue;
 use actix_web::web::Data;
 use actix_web::FromRequest;
 use actix_web::HttpRequest;
+use dashmap::DashMap;
 use std::future::{ready, Ready};
 use std::str::FromStr;
 
@@ -77,10 +78,35 @@ impl FromRequest for EdgeToken {
                     None => Err(EdgeError::AuthorizationDenied),
                 },
             };
+            let key = match key {
+                Ok(k) => {
+                    let token_cache = req.app_data::<Data<DashMap<String, EdgeToken>>>();
+                    if let Some(cache) = token_cache {
+                        cache
+                            .get(&k.token)
+                            .map(|e| e.value().clone())
+                            .ok_or(EdgeError::AuthorizationDenied)
+                    } else {
+                        Ok(k)
+                    }
+                }
+                Err(e) => Err(e),
+            };
+
             ready(key)
         } else {
             let key = match value {
-                Some(v) => EdgeToken::try_from(v.clone()),
+                Some(v) => EdgeToken::try_from(v.clone()).and_then(|k| {
+                    let token_cache = req.app_data::<Data<DashMap<String, EdgeToken>>>();
+                    if let Some(cache) = token_cache {
+                        cache
+                            .get(&k.token)
+                            .map(|e| e.value().clone())
+                            .ok_or(EdgeError::AuthorizationDenied)
+                    } else {
+                        Ok(k)
+                    }
+                }),
                 None => Err(EdgeError::AuthorizationDenied),
             };
             ready(key)
