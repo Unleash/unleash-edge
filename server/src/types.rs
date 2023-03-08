@@ -138,6 +138,8 @@ impl fmt::Debug for TokenRefresh {
     }
 }
 use dashmap::DashMap;
+use unleash_types::frontend::EvaluatedToggle;
+
 #[derive(Clone, Default)]
 pub struct CacheHolder {
     pub token_cache: Arc<DashMap<String, EdgeToken>>,
@@ -196,6 +198,18 @@ impl ProjectFilter<ClientFeature> for Vec<ClientFeature> {
             })
             .cloned()
             .collect::<Vec<ClientFeature>>()
+    }
+}
+
+impl ProjectFilter<EvaluatedToggle> for Vec<EvaluatedToggle> {
+    fn filter_by_projects(&self, token: &EdgeToken) -> Vec<EvaluatedToggle> {
+        self.iter()
+            .filter(|toggle| {
+                token.projects.contains(&"*".to_string())
+                    || token.projects.contains(&toggle.project)
+            })
+            .cloned()
+            .collect()
     }
 }
 

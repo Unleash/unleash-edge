@@ -3,7 +3,6 @@ use actix_web::http::header::HeaderValue;
 use actix_web::web::Data;
 use actix_web::FromRequest;
 use actix_web::HttpRequest;
-use dashmap::DashMap;
 use std::future::{ready, Ready};
 use std::str::FromStr;
 
@@ -33,8 +32,11 @@ pub(crate) fn simplify(tokens: &[TokenRefresh]) -> Vec<&TokenRefresh> {
         .collect()
 }
 
-pub(crate) fn cache_key(token: EdgeToken) -> String {
-    token.environment.unwrap_or(token.token)
+pub(crate) fn cache_key(token: &EdgeToken) -> String {
+    token
+        .environment
+        .clone()
+        .unwrap_or_else(|| token.token.clone())
 }
 
 impl EdgeToken {
@@ -78,35 +80,10 @@ impl FromRequest for EdgeToken {
                     None => Err(EdgeError::AuthorizationDenied),
                 },
             };
-            let key = match key {
-                Ok(k) => {
-                    let token_cache = req.app_data::<Data<DashMap<String, EdgeToken>>>();
-                    if let Some(cache) = token_cache {
-                        cache
-                            .get(&k.token)
-                            .map(|e| e.value().clone())
-                            .ok_or(EdgeError::AuthorizationDenied)
-                    } else {
-                        Ok(k)
-                    }
-                }
-                Err(e) => Err(e),
-            };
-
             ready(key)
         } else {
             let key = match value {
-                Some(v) => EdgeToken::try_from(v.clone()).and_then(|k| {
-                    let token_cache = req.app_data::<Data<DashMap<String, EdgeToken>>>();
-                    if let Some(cache) = token_cache {
-                        cache
-                            .get(&k.token)
-                            .map(|e| e.value().clone())
-                            .ok_or(EdgeError::AuthorizationDenied)
-                    } else {
-                        Ok(k)
-                    }
-                }),
+                Some(v) => EdgeToken::try_from(v.clone()),
                 None => Err(EdgeError::AuthorizationDenied),
             };
             ready(key)

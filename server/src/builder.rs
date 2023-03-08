@@ -85,12 +85,12 @@ pub(crate) fn build_offline_mode(
     for edge_token in edge_tokens {
         token_cache.insert(edge_token.token.clone(), edge_token.clone());
         features_cache.insert(
-            crate::tokens::cache_key(edge_token.clone()),
+            crate::tokens::cache_key(&edge_token),
             client_features.clone(),
         );
         let mut engine_state = EngineState::default();
         engine_state.take_state(client_features.clone());
-        engine_cache.insert(crate::tokens::cache_key(edge_token.clone()), engine_state);
+        engine_cache.insert(crate::tokens::cache_key(&edge_token), engine_state);
     }
     Ok((token_cache, features_cache, engine_cache))
 }
