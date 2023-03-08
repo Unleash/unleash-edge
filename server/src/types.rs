@@ -179,7 +179,7 @@ pub struct BatchMetricsRequestBody {
     pub metrics: Vec<ClientMetricsEnv>,
 }
 
-trait ProjectFilter<T> {
+pub trait ProjectFilter<T> {
     fn filter_by_projects(&self, token: &EdgeToken) -> Vec<T>;
 }
 

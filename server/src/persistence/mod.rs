@@ -20,6 +20,7 @@ pub trait EdgePersistence: Send + Sync {
     async fn save_features(&self, features: Vec<(String, ClientFeatures)>) -> EdgeResult<()>;
 }
 
+#[cfg(not(tarpaulin_include))]
 pub async fn persist_data(
     persistence: Option<Arc<dyn EdgePersistence>>,
     token_cache: Arc<DashMap<String, EdgeToken>>,

@@ -1,9 +1,9 @@
 use crate::error::EdgeError;
 use crate::metrics::client_metrics::{ApplicationKey, MetricsCache};
 use crate::tokens::cache_key;
-use crate::types::{EdgeJsonResult, EdgeResult, EdgeToken};
+use crate::types::{EdgeJsonResult, EdgeResult, EdgeToken, ProjectFilter};
 use actix_web::web::{self, Json};
-use actix_web::{get, post, HttpRequest, HttpResponse};
+use actix_web::{get, post, HttpResponse};
 use dashmap::DashMap;
 use tracing::debug;
 use unleash_types::client_features::ClientFeatures;
@@ -28,8 +28,12 @@ pub async fn features(
     features_cache: web::Data<DashMap<String, ClientFeatures>>,
 ) -> EdgeJsonResult<ClientFeatures> {
     features_cache
-        .get(&cache_key(edge_token))
+        .get(&cache_key(edge_token.clone()))
         .map(|features| features.clone())
+        .map(|client_features| ClientFeatures {
+            features: client_features.features.filter_by_projects(&edge_token),
+            ..client_features
+        })
         .map(Json)
         .ok_or_else(|| EdgeError::PersistenceError("Feature set not present in cache yet".into()))
 }
@@ -49,8 +53,7 @@ pub async fn features(
 pub async fn register(
     edge_token: EdgeToken,
     connect_via: web::Data<ConnectVia>,
-    _req: HttpRequest,
-    client_application: web::Json<ClientApplication>,
+    client_application: Json<ClientApplication>,
     metrics_cache: web::Data<MetricsCache>,
 ) -> EdgeResult<HttpResponse> {
     let client_application = client_application.into_inner();
@@ -110,7 +113,9 @@ pub fn configure_client_api(cfg: &mut web::ServiceConfig) {
 #[cfg(test)]
 mod tests {
 
-    use std::{collections::HashMap, sync::Arc};
+    use std::io::BufReader;
+    use std::path::PathBuf;
+    use std::{collections::HashMap, fs, sync::Arc};
 
     use crate::metrics::client_metrics::MetricsKey;
 
@@ -123,12 +128,14 @@ mod tests {
         web::{self, Data},
         App,
     };
-    use chrono::{DateTime, Utc};
-    use serde_json::json;
+    use chrono::{DateTime, TimeZone, Utc};
+    use maplit::hashmap;
+    use reqwest::StatusCode;
     use ulid::Ulid;
-    use unleash_types::client_metrics::ClientMetricsEnv;
+    use unleash_types::client_features::{ClientFeature, Constraint, Operator, Strategy};
+    use unleash_types::client_metrics::{ClientMetricsEnv, MetricBucket, ToggleStats};
 
-    async fn make_test_request() -> Request {
+    async fn make_metrics_post_request() -> Request {
         test::TestRequest::post()
             .uri("/api/client/metrics")
             .insert_header(ContentType::json())
@@ -136,20 +143,64 @@ mod tests {
                 "Authorization",
                 "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7",
             ))
-            .set_json(json!({
-                "appName": "some-app",
-                "instanceId": "some-instance",
-                "bucket": {
-                  "start": "1867-11-07T12:00:00Z",
-                  "stop": "1934-11-07T12:00:00Z",
-                  "toggles": {
-                    "some-feature": {
-                      "yes": 1,
-                      "no": 0
-                    }
-                  }
-                }
+            .set_json(Json(ClientMetrics {
+                app_name: "some-app".into(),
+                instance_id: Some("some-instance".into()),
+                bucket: MetricBucket {
+                    start: Utc.with_ymd_and_hms(1867, 11, 7, 12, 0, 0).unwrap(),
+                    stop: Utc.with_ymd_and_hms(1934, 11, 7, 12, 0, 0).unwrap(),
+                    toggles: hashmap! {
+                        "some-feature".to_string() => ToggleStats {
+                            yes: 1,
+                            no: 0,
+                            variants: hashmap! {}
+                        }
+                    },
+                },
+                environment: Some("development".into()),
             }))
+            .to_request()
+    }
+
+    async fn make_register_post_request(application: ClientApplication) -> Request {
+        test::TestRequest::post()
+            .uri("/api/client/register")
+            .insert_header(ContentType::json())
+            .insert_header((
+                "Authorization",
+                "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7",
+            ))
+            .set_json(Json(application))
+            .to_request()
+    }
+
+    async fn make_features_request_with_development_token() -> Request {
+        test::TestRequest::get()
+            .uri("/api/client/features")
+            .insert_header((
+                "Authorization",
+                "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7",
+            ))
+            .to_request()
+    }
+
+    async fn make_features_request_with_production_token() -> Request {
+        test::TestRequest::get()
+            .uri("/api/client/features")
+            .insert_header((
+                "Authorization",
+                "*:production.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7",
+            ))
+            .to_request()
+    }
+
+    async fn make_features_request_with_demo_app_production_token() -> Request {
+        test::TestRequest::get()
+            .uri("/api/client/features")
+            .insert_header((
+                "Authorization",
+                "demo-app:production.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7",
+            ))
             .to_request()
     }
 
@@ -164,11 +215,11 @@ mod tests {
                     instance_id: Ulid::new().to_string(),
                 }))
                 .app_data(Data::from(metrics_cache.clone()))
-                .service(web::scope("/api").service(super::metrics)),
+                .service(web::scope("/api").service(metrics)),
         )
         .await;
 
-        let req = make_test_request().await;
+        let req = make_metrics_post_request().await;
         let _result = test::call_and_read_body(&app, req).await;
 
         let cache = metrics_cache.clone();
@@ -200,5 +251,171 @@ mod tests {
         assert_eq!(found_metric.yes, 1);
         assert_eq!(found_metric.no, 0);
         assert_eq!(found_metric.no, expected.no);
+    }
+
+    fn cached_client_features() -> ClientFeatures {
+        ClientFeatures {
+            version: 2,
+            features: vec![
+                ClientFeature {
+                    name: "feature_one".into(),
+                    feature_type: Some("release".into()),
+                    description: Some("test feature".into()),
+                    created_at: Some(Utc::now()),
+                    last_seen_at: None,
+                    enabled: true,
+                    stale: Some(false),
+                    impression_data: Some(false),
+                    project: Some("default".into()),
+                    strategies: Some(vec![
+                        Strategy {
+                            name: "standard".into(),
+                            sort_order: Some(500),
+                            segments: None,
+                            constraints: None,
+                            parameters: None,
+                        },
+                        Strategy {
+                            name: "gradualRollout".into(),
+                            sort_order: Some(100),
+                            segments: None,
+                            constraints: None,
+                            parameters: None,
+                        },
+                    ]),
+                    variants: None,
+                },
+                ClientFeature {
+                    name: "feature_two_no_strats".into(),
+                    feature_type: None,
+                    description: None,
+                    created_at: Some(Utc.with_ymd_and_hms(2022, 12, 5, 12, 31, 0).unwrap()),
+                    last_seen_at: None,
+                    enabled: true,
+                    stale: None,
+                    impression_data: None,
+                    project: Some("default".into()),
+                    strategies: None,
+                    variants: None,
+                },
+                ClientFeature {
+                    name: "feature_three".into(),
+                    feature_type: Some("release".into()),
+                    description: None,
+                    created_at: None,
+                    last_seen_at: None,
+                    enabled: true,
+                    stale: None,
+                    impression_data: None,
+                    project: Some("default".into()),
+                    strategies: Some(vec![
+                        Strategy {
+                            name: "gradualRollout".to_string(),
+                            sort_order: None,
+                            segments: None,
+                            constraints: Some(vec![Constraint {
+                                context_name: "version".to_string(),
+                                operator: Operator::SemverGt,
+                                case_insensitive: false,
+                                inverted: false,
+                                values: None,
+                                value: Some("1.5.0".into()),
+                            }]),
+                            parameters: None,
+                        },
+                        Strategy {
+                            name: "".to_string(),
+                            sort_order: None,
+                            segments: None,
+                            constraints: None,
+                            parameters: None,
+                        },
+                    ]),
+                    variants: None,
+                },
+            ],
+            segments: None,
+            query: None,
+        }
+    }
+
+    fn features_from_disk(path: PathBuf) -> ClientFeatures {
+        let file = fs::File::open(path).unwrap();
+        let reader = BufReader::new(file);
+        serde_json::from_reader(reader).unwrap()
+    }
+
+    #[tokio::test]
+    async fn register_endpoint_correctly_aggregates_applications() {
+        let metrics_cache = Arc::new(MetricsCache::default());
+        let our_app = ConnectVia {
+            app_name: "test".into(),
+            instance_id: Ulid::new().to_string(),
+        };
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::new(our_app.clone()))
+                .app_data(Data::from(metrics_cache.clone()))
+                .service(web::scope("/api").service(super::register)),
+        )
+        .await;
+        let mut client_app = ClientApplication::new("test_application", 15);
+        client_app.instance_id = Some("test_instance".into());
+        let req = make_register_post_request(client_app.clone()).await;
+        let res = test::call_service(&app, req).await;
+        assert_eq!(res.status(), StatusCode::ACCEPTED);
+        assert_eq!(metrics_cache.applications.len(), 1);
+        let application_key = ApplicationKey {
+            app_name: client_app.app_name.clone(),
+            instance_id: client_app.instance_id.unwrap(),
+        };
+        let saved_app = metrics_cache
+            .applications
+            .get(&application_key)
+            .unwrap()
+            .value()
+            .clone();
+        assert_eq!(saved_app.app_name, client_app.app_name);
+        assert_eq!(saved_app.connect_via, Some(vec![our_app]));
+    }
+
+    #[tokio::test]
+    async fn client_features_endpoint_correctly_returns_cached_features() {
+        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::from(features_cache.clone()))
+                .service(web::scope("/api").service(features)),
+        )
+        .await;
+        let client_features = cached_client_features();
+        let example_features = features_from_disk(PathBuf::from("../examples/features.json"));
+        features_cache.insert("development".into(), client_features.clone());
+        features_cache.insert("production".into(), example_features.clone());
+        let req = make_features_request_with_development_token().await;
+        let res: ClientFeatures = test::call_and_read_body_json(&app, req).await;
+        assert_eq!(res.features, client_features.features);
+        let req = make_features_request_with_production_token().await;
+        let res: ClientFeatures = test::call_and_read_body_json(&app, req).await;
+        assert_eq!(res.features.len(), example_features.features.len());
+    }
+
+    #[tokio::test]
+    async fn client_features_endpoint_filters_on_project_access_in_token() {
+        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::from(features_cache.clone()))
+                .service(web::scope("/api").service(features)),
+        )
+        .await;
+        let example_features = features_from_disk(PathBuf::from("../examples/features.json"));
+        features_cache.insert("production".into(), example_features.clone());
+        let req = make_features_request_with_demo_app_production_token().await;
+        let res: ClientFeatures = test::call_and_read_body_json(&app, req).await;
+        assert!(res
+            .features
+            .iter()
+            .all(|t| t.project == Some("demo-app".into())));
     }
 }

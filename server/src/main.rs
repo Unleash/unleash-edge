@@ -16,7 +16,6 @@ use unleash_edge::types::{EdgeToken, TokenRefresh};
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ConnectVia;
 
-use unleash_edge::client_api;
 use unleash_edge::edge_api;
 use unleash_edge::frontend_api;
 use unleash_edge::internal_backstage;
@@ -24,10 +23,11 @@ use unleash_edge::metrics::client_metrics::MetricsCache;
 use unleash_edge::openapi;
 use unleash_edge::prom_metrics;
 use unleash_edge::{cli, middleware};
-use utoipa_swagger_ui::SwaggerUi;
-mod tls;
+use unleash_edge::{client_api, tls};
 use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
 
+#[cfg(not(tarpaulin_include))]
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {
     dotenv::dotenv().ok();
@@ -145,6 +145,7 @@ async fn main() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
+#[cfg(not(tarpaulin_include))]
 async fn clean_shutdown(
     persistence: Option<Arc<dyn EdgePersistence>>,
     feature_cache: Arc<DashMap<String, ClientFeatures>>,
