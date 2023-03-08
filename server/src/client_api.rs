@@ -118,6 +118,7 @@ mod tests {
     use std::{collections::HashMap, fs, sync::Arc};
 
     use crate::metrics::client_metrics::MetricsKey;
+    use crate::types::{TokenType, TokenValidationStatus};
 
     use super::*;
 
@@ -201,6 +202,13 @@ mod tests {
                 "Authorization",
                 "demo-app:production.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7",
             ))
+            .to_request()
+    }
+
+    async fn make_features_request_with_eg_dx_unleash_cloud_project_token() -> Request {
+        test::TestRequest::get()
+            .uri("/api/client/features")
+            .insert_header(("Authorization", "[]:production.puff_the_magic_dragon"))
             .to_request()
     }
 
@@ -413,9 +421,39 @@ mod tests {
         features_cache.insert("production".into(), example_features.clone());
         let req = make_features_request_with_demo_app_production_token().await;
         let res: ClientFeatures = test::call_and_read_body_json(&app, req).await;
+        assert_eq!(res.features.len(), 5);
         assert!(res
             .features
             .iter()
             .all(|t| t.project == Some("demo-app".into())));
+    }
+
+    #[tokio::test]
+    async fn client_features_endpoint_filters_when_multiple_projects_in_token() {
+        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::from(features_cache.clone()))
+                .app_data(Data::from(token_cache.clone()))
+                .service(web::scope("/api").service(features)),
+        )
+        .await;
+        let mut token =
+            EdgeToken::try_from("[]:production.puff_the_magic_dragon".to_string()).unwrap();
+        token.projects = vec!["dx".into(), "eg".into(), "unleash-cloud".into()];
+        token.status = TokenValidationStatus::Validated;
+        token.token_type = Some(TokenType::Client);
+        token_cache.insert(token.token.clone(), token.clone());
+
+        let example_features = features_from_disk(PathBuf::from("../examples/hostedexample.json"));
+        features_cache.insert("production".into(), example_features.clone());
+        let req = make_features_request_with_eg_dx_unleash_cloud_project_token().await;
+        let res: ClientFeatures = test::call_and_read_body_json(&app, req).await;
+        assert_eq!(res.features.len(), 24);
+        assert!(res
+            .features
+            .iter()
+            .all(|f| token.projects.contains(&f.project.clone().unwrap())));
     }
 }
