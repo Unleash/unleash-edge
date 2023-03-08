@@ -5,7 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.3.2 (2023-03-08)
+
+### Bug Fixes
+
+ - <csr-id-5cd559399192a4381e117d3b190bb4f815a28817/> Uses token cache when resolving token from request
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 1 commit contributed to the release.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 1 unique issue was worked on: [#99](https://github.com/Unleash/unleash-edge/issues/99)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#99](https://github.com/Unleash/unleash-edge/issues/99)**
+    - Uses token cache when resolving token from request ([`5cd5593`](https://github.com/Unleash/unleash-edge/commit/5cd559399192a4381e117d3b190bb4f815a28817))
+</details>
+
 ## v0.3.1 (2023-03-08)
+
+<csr-id-036ab110d80cc696fcc166b3547294d2e0e6b6e1/>
 
 ### Chore
 
@@ -25,7 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 1 commit contributed to the release.
+ - 2 commits contributed to the release.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#98](https://github.com/Unleash/unleash-edge/issues/98)
 
@@ -37,6 +63,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  * **[#98](https://github.com/Unleash/unleash-edge/issues/98)**
     - Added tests for edge and client_api ([`036ab11`](https://github.com/Unleash/unleash-edge/commit/036ab110d80cc696fcc166b3547294d2e0e6b6e1))
+ * **Uncategorized**
+    - Release unleash-edge v0.3.1 ([`1eda8d6`](https://github.com/Unleash/unleash-edge/commit/1eda8d662ca9d991526a038985194f295a3fd74b))
 </details>
 
 ## v0.3.0 (2023-03-07)
