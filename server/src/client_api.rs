@@ -1,7 +1,7 @@
 use crate::error::EdgeError;
 use crate::metrics::client_metrics::{ApplicationKey, MetricsCache};
 use crate::tokens::cache_key;
-use crate::types::{EdgeJsonResult, EdgeResult, EdgeToken};
+use crate::types::{EdgeJsonResult, EdgeResult, EdgeToken, ProjectFilter};
 use actix_web::web::{self, Json};
 use actix_web::{get, post, HttpResponse};
 use dashmap::DashMap;
@@ -28,8 +28,12 @@ pub async fn features(
     features_cache: web::Data<DashMap<String, ClientFeatures>>,
 ) -> EdgeJsonResult<ClientFeatures> {
     features_cache
-        .get(&cache_key(edge_token))
+        .get(&cache_key(edge_token.clone()))
         .map(|features| features.clone())
+        .map(|client_features| ClientFeatures {
+            features: client_features.features.filter_by_projects(&edge_token),
+            ..client_features
+        })
         .map(Json)
         .ok_or_else(|| EdgeError::PersistenceError("Feature set not present in cache yet".into()))
 }
@@ -170,7 +174,7 @@ mod tests {
             .to_request()
     }
 
-    async fn make_features_get_request() -> Request {
+    async fn make_features_request_with_development_token() -> Request {
         test::TestRequest::get()
             .uri("/api/client/features")
             .insert_header((
@@ -180,12 +184,22 @@ mod tests {
             .to_request()
     }
 
-    async fn make_features_with_production_token() -> Request {
+    async fn make_features_request_with_production_token() -> Request {
         test::TestRequest::get()
             .uri("/api/client/features")
             .insert_header((
                 "Authorization",
                 "*:production.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7",
+            ))
+            .to_request()
+    }
+
+    async fn make_features_request_with_demo_app_production_token() -> Request {
+        test::TestRequest::get()
+            .uri("/api/client/features")
+            .insert_header((
+                "Authorization",
+                "demo-app:production.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7",
             ))
             .to_request()
     }
@@ -378,11 +392,30 @@ mod tests {
         let example_features = features_from_disk(PathBuf::from("../examples/features.json"));
         features_cache.insert("development".into(), client_features.clone());
         features_cache.insert("production".into(), example_features.clone());
-        let req = make_features_get_request().await;
+        let req = make_features_request_with_development_token().await;
         let res: ClientFeatures = test::call_and_read_body_json(&app, req).await;
         assert_eq!(res.features, client_features.features);
-        let req = make_features_with_production_token().await;
+        let req = make_features_request_with_production_token().await;
         let res: ClientFeatures = test::call_and_read_body_json(&app, req).await;
         assert_eq!(res.features.len(), example_features.features.len());
+    }
+
+    #[tokio::test]
+    async fn client_features_endpoint_filters_on_project_access_in_token() {
+        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::from(features_cache.clone()))
+                .service(web::scope("/api").service(features)),
+        )
+        .await;
+        let example_features = features_from_disk(PathBuf::from("../examples/features.json"));
+        features_cache.insert("production".into(), example_features.clone());
+        let req = make_features_request_with_demo_app_production_token().await;
+        let res: ClientFeatures = test::call_and_read_body_json(&app, req).await;
+        assert!(res
+            .features
+            .iter()
+            .all(|t| t.project == Some("demo-app".into())));
     }
 }
