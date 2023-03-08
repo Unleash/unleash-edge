@@ -1,0 +1,2 @@
+[all]
+exclude-files= ["src/main.rs", ""
