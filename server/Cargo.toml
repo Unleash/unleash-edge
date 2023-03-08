@@ -49,7 +49,7 @@ unleash-yggdrasil = "0.5.3"
 utoipa = {version = "3", features = ["actix_extras", "chrono"]}
 utoipa-swagger-ui = {version = "3", features = ["actix-web"]}
 [dev-dependencies]
-actix-http = "3.3.0"
+actix-http = "3.3.1"
 actix-http-test = "3.1.0"
 actix-service = "2.0.2"
 env_logger = "0.10.0"
