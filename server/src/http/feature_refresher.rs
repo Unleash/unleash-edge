@@ -5,9 +5,11 @@ use chrono::Utc;
 use dashmap::DashMap;
 use std::collections::HashSet;
 use tracing::{debug, warn};
+use unleash_types::client_metrics::ClientApplication;
 use unleash_types::{client_features::ClientFeatures, Upsert};
 use unleash_yggdrasil::EngineState;
 
+use crate::types::build;
 use crate::{
     persistence::EdgePersistence,
     tokens::{cache_key, simplify},
@@ -24,6 +26,19 @@ pub struct FeatureRefresher {
     pub engine_cache: Arc<DashMap<String, EngineState>>,
     pub refresh_interval: chrono::Duration,
     pub persistence: Option<Arc<dyn EdgePersistence>>,
+}
+
+fn client_application_from_token(token: EdgeToken) -> ClientApplication {
+    ClientApplication {
+        app_name: "unleash_edge".into(),
+        connect_via: None,
+        environment: token.environment,
+        instance_id: None,
+        interval: 5,
+        sdk_version: Some(format!("unleash-edge:{}", build::PKG_VERSION)),
+        started: Utc::now(),
+        strategies: vec![],
+    }
 }
 
 impl FeatureRefresher {
@@ -59,6 +74,13 @@ impl FeatureRefresher {
 
     pub async fn register_token_for_refresh(&self, token: EdgeToken) -> EdgeResult<()> {
         if !self.tokens_to_refresh.contains_key(&token.token) {
+            let _ = self
+                .unleash_client
+                .register_as_client(
+                    token.token.clone(),
+                    client_application_from_token(token.clone()),
+                )
+                .await;
             let mut registered_tokens: Vec<TokenRefresh> =
                 self.tokens_to_refresh.iter().map(|t| t.clone()).collect();
             registered_tokens.push(TokenRefresh::new(token));
