@@ -32,8 +32,11 @@ pub(crate) fn simplify(tokens: &[TokenRefresh]) -> Vec<&TokenRefresh> {
         .collect()
 }
 
-pub(crate) fn cache_key(token: EdgeToken) -> String {
-    token.environment.unwrap_or(token.token)
+pub(crate) fn cache_key(token: &EdgeToken) -> String {
+    token
+        .environment
+        .clone()
+        .unwrap_or_else(|| token.token.clone())
 }
 
 impl EdgeToken {
