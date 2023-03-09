@@ -9,6 +9,7 @@ pub enum EdgeError {
     AuthorizationPending,
     ClientFeaturesFetchError,
     ClientFeaturesParseError,
+    ClientRegisterError,
     PersistenceError(String),
     EdgeMetricsError,
     EdgeTokenError,
@@ -43,6 +44,9 @@ impl Display for EdgeError {
             EdgeError::ClientFeaturesParseError => {
                 write!(f, "Failed to parse client features")
             }
+            EdgeError::ClientRegisterError => {
+                write!(f, "Failed to register client")
+            }
             EdgeError::InvalidServerUrl(msg) => write!(f, "Failed to parse server url: [{msg}]"),
             EdgeError::EdgeTokenError => write!(f, "Edge token error"),
             EdgeError::EdgeTokenParseError => write!(f, "Failed to parse token response"),
@@ -72,6 +76,7 @@ impl ResponseError for EdgeError {
             EdgeError::EdgeTokenParseError => StatusCode::BAD_REQUEST,
             EdgeError::AuthorizationPending => StatusCode::UNAUTHORIZED,
             EdgeError::EdgeMetricsError => StatusCode::BAD_REQUEST,
+            EdgeError::ClientRegisterError => StatusCode::BAD_REQUEST,
         }
     }
 

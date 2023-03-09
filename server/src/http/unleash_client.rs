@@ -11,6 +11,7 @@ use crate::types::{
     ValidateTokensRequest,
 };
 use reqwest::{header, Client};
+use unleash_types::client_metrics::ClientApplication;
 
 use crate::urls::UnleashUrls;
 use crate::{error::EdgeError, types::ClientFeaturesRequest};
@@ -40,10 +41,7 @@ fn new_reqwest_client(instance_id: String) -> Client {
         header::HeaderValue::from_static(unleash_yggdrasil::SUPPORTED_SPEC_VERSION),
     );
     Client::builder()
-        .user_agent(format!(
-            "unleash-edge-{}",
-            crate::types::build::PROJECT_NAME
-        ))
+        .user_agent(format!("unleash-edge-{}", crate::types::build::PKG_VERSION))
         .default_headers(header_map)
         .timeout(Duration::from_secs(5))
         .build()
@@ -80,6 +78,21 @@ impl UnleashClient {
         } else {
             client_req
         }
+    }
+
+    pub async fn register_as_client(
+        &self,
+        api_key: String,
+        application: ClientApplication,
+    ) -> EdgeResult<()> {
+        self.backing_client
+            .post(self.urls.client_register_app_url.to_string())
+            .header(header::AUTHORIZATION, api_key)
+            .json(&application)
+            .send()
+            .await
+            .map_err(|_| EdgeError::ClientRegisterError)
+            .map(|_| ())
     }
 
     pub async fn get_client_features(
