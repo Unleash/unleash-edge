@@ -33,7 +33,7 @@ pub struct EdgeArgs {
     pub features_refresh_interval_seconds: i64,
 
     /// Get data for these client tokens at startup. Hot starts your feature cache
-    #[clap(short, long, env)]
+    #[clap(short, long, env, value_delimiter = ',')]
     pub tokens: Vec<String>,
 }
 
