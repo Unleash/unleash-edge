@@ -22,3 +22,18 @@ pub mod tls;
 pub mod tokens;
 pub mod types;
 pub mod urls;
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+    use std::io::BufReader;
+    use std::path::PathBuf;
+    use unleash_types::client_features::ClientFeatures;
+
+    pub fn features_from_disk(path: &str) -> ClientFeatures {
+        let path = PathBuf::from(path);
+        let file = fs::File::open(path).unwrap();
+        let reader = BufReader::new(file);
+        serde_json::from_reader(reader).unwrap()
+    }
+}

@@ -5,7 +5,6 @@ use crate::types::{EdgeJsonResult, EdgeResult, EdgeToken, ProjectFilter};
 use actix_web::web::{self, Json};
 use actix_web::{get, post, HttpResponse};
 use dashmap::DashMap;
-use tracing::debug;
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::{
     from_bucket_app_name_and_env, ClientApplication, ClientMetrics, ConnectVia,
@@ -106,9 +105,8 @@ pub async fn metrics(
     let metrics = from_bucket_app_name_and_env(
         metrics.bucket,
         metrics.app_name,
-        edge_token.environment.unwrap(),
+        edge_token.environment.unwrap_or_else(|| "default".into()),
     );
-    debug!("Received metrics: {metrics:?}");
     metrics_cache.sink_metrics(&metrics);
     Ok(HttpResponse::Accepted().finish())
 }
@@ -120,15 +118,16 @@ pub fn configure_client_api(cfg: &mut web::ServiceConfig) {
 #[cfg(test)]
 mod tests {
 
-    use std::io::BufReader;
     use std::path::PathBuf;
-    use std::{collections::HashMap, fs, sync::Arc};
+    use std::{collections::HashMap, sync::Arc};
 
     use crate::metrics::client_metrics::MetricsKey;
     use crate::types::{TokenType, TokenValidationStatus};
 
     use super::*;
 
+    use crate::cli::OfflineArgs;
+    use crate::tests::features_from_disk;
     use actix_http::Request;
     use actix_web::{
         http::header::ContentType,
@@ -324,12 +323,6 @@ mod tests {
         }
     }
 
-    fn features_from_disk(path: PathBuf) -> ClientFeatures {
-        let file = fs::File::open(path).unwrap();
-        let reader = BufReader::new(file);
-        serde_json::from_reader(reader).unwrap()
-    }
-
     #[tokio::test]
     async fn register_endpoint_correctly_aggregates_applications() {
         let metrics_cache = Arc::new(MetricsCache::default());
@@ -376,7 +369,7 @@ mod tests {
         )
         .await;
         let client_features = cached_client_features();
-        let example_features = features_from_disk(PathBuf::from("../examples/features.json"));
+        let example_features = features_from_disk("../examples/features.json");
         features_cache.insert("development".into(), client_features.clone());
         features_cache.insert("production".into(), example_features.clone());
         let mut token = EdgeToken::try_from(
@@ -419,7 +412,7 @@ mod tests {
         .unwrap();
         edge_token.token_type = Some(TokenType::Client);
         token_cache.insert(edge_token.token.clone(), edge_token.clone());
-        let example_features = features_from_disk(PathBuf::from("../examples/features.json"));
+        let example_features = features_from_disk("../examples/features.json");
         features_cache.insert("production".into(), example_features.clone());
         let req = make_features_request_with_token(edge_token.clone()).await;
         let res: ClientFeatures = test::call_and_read_body_json(&app, req).await;
@@ -447,7 +440,7 @@ mod tests {
         token.status = TokenValidationStatus::Validated;
         token.token_type = Some(TokenType::Client);
         token_cache.insert(token.token.clone(), token.clone());
-        let example_features = features_from_disk(PathBuf::from("../examples/hostedexample.json"));
+        let example_features = features_from_disk("../examples/hostedexample.json");
         features_cache.insert("production".into(), example_features.clone());
         let req = make_features_request_with_token(token.clone()).await;
         let res: ClientFeatures = test::call_and_read_body_json(&app, req).await;
@@ -456,5 +449,29 @@ mod tests {
             .features
             .iter()
             .all(|f| token.projects.contains(&f.project.clone().unwrap())));
+    }
+
+    #[tokio::test]
+    async fn when_running_in_offline_mode_with_proxy_key_should_not_filter_features() {
+        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::from(features_cache.clone()))
+                .app_data(Data::from(token_cache.clone()))
+                .app_data(Data::new(crate::cli::EdgeMode::Offline(OfflineArgs {
+                    bootstrap_file: Some(PathBuf::from("../examples/features.json")),
+                    tokens: vec!["secret_123".into()],
+                })))
+                .service(web::scope("/api").service(features)),
+        )
+        .await;
+        let token = EdgeToken::offline_token("secret-123");
+        token_cache.insert(token.token.clone(), token.clone());
+        let example_features = features_from_disk("../examples/features.json");
+        features_cache.insert(token.token.clone(), example_features.clone());
+        let req = make_features_request_with_token(token.clone()).await;
+        let res: ClientFeatures = test::call_and_read_body_json(&app, req).await;
+        assert_eq!(res.features.len(), example_features.features.len());
     }
 }

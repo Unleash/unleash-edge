@@ -190,7 +190,8 @@ impl ProjectFilter<ClientFeature> for Vec<ClientFeature> {
         self.iter()
             .filter(|feature| {
                 if let Some(feature_project) = &feature.project {
-                    token.projects.contains(&"*".to_string())
+                    token.projects.is_empty()
+                        || token.projects.contains(&"*".to_string())
                         || token.projects.contains(feature_project)
                 } else {
                     false
@@ -205,7 +206,8 @@ impl ProjectFilter<EvaluatedToggle> for Vec<EvaluatedToggle> {
     fn filter_by_projects(&self, token: &EdgeToken) -> Vec<EvaluatedToggle> {
         self.iter()
             .filter(|toggle| {
-                token.projects.contains(&"*".to_string())
+                token.projects.is_empty()
+                    || token.projects.contains(&"*".to_string())
                     || token.projects.contains(&toggle.project)
             })
             .cloned()

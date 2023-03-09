@@ -343,6 +343,7 @@ mod tests {
     use std::sync::Arc;
 
     use crate::builder::build_offline_mode;
+    use crate::cli::{EdgeMode, OfflineArgs};
     use crate::metrics::client_metrics::MetricsCache;
     use crate::metrics::client_metrics::MetricsKey;
     use actix_http::Request;
@@ -606,5 +607,61 @@ mod tests {
         assert_eq!(found_metric.yes, 1);
         assert_eq!(found_metric.no, 0);
         assert_eq!(found_metric.no, expected.no);
+    }
+
+    #[tokio::test]
+    async fn when_running_in_offline_mode_with_proxy_key_should_not_filter_features() {
+        let client_features = client_features_with_constraint_requiring_user_id_of_seven();
+        let (token_cache, feature_cache, engine_cache) =
+            build_offline_mode(client_features.clone(), vec!["secret-123".to_string()]).unwrap();
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::from(token_cache))
+                .app_data(Data::from(feature_cache))
+                .app_data(Data::from(engine_cache))
+                .app_data(Data::new(EdgeMode::Offline(OfflineArgs {
+                    bootstrap_file: None,
+                    tokens: vec!["secret-123".into()],
+                })))
+                .service(web::scope("/api").service(super::get_frontend_all_features)),
+        )
+        .await;
+
+        let req = test::TestRequest::get()
+            .uri("/api/frontend/all")
+            .insert_header(ContentType::json())
+            .insert_header(("Authorization", "secret-123"))
+            .to_request();
+
+        let result: FrontendResult = test::call_and_read_body_json(&app, req).await;
+        assert_eq!(result.toggles.len(), client_features.features.len());
+    }
+
+    #[tokio::test]
+    async fn frontend_api_filters_evaluated_toggles_to_tokens_access() {
+        let client_features = crate::tests::features_from_disk("../examples/hostedexample.json");
+        let (token_cache, feature_cache, engine_cache) = build_offline_mode(
+            client_features.clone(),
+            vec!["dx:development.secret123".to_string()],
+        )
+        .unwrap();
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::from(token_cache))
+                .app_data(Data::from(feature_cache))
+                .app_data(Data::from(engine_cache))
+                .service(web::scope("/api").service(super::get_frontend_all_features)),
+        )
+        .await;
+
+        let req = test::TestRequest::get()
+            .uri("/api/frontend/all")
+            .insert_header(ContentType::json())
+            .insert_header(("Authorization", "dx:development.secret123"))
+            .to_request();
+
+        let result: FrontendResult = test::call_and_read_body_json(&app, req).await;
+        assert_eq!(result.toggles.len(), 16);
+        assert!(result.toggles.iter().all(|toggle| toggle.project == "dx"));
     }
 }
