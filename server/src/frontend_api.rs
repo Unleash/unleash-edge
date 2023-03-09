@@ -16,219 +16,251 @@ use crate::{
     error::EdgeError,
     metrics::client_metrics::MetricsCache,
     tokens::{self, cache_key},
-    types::{EdgeJsonResult, EdgeResult, EdgeToken},
+    types::{EdgeJsonResult, EdgeResult, EdgeToken, ProjectFilter},
 };
 
 ///
 /// Returns all evaluated toggles for the key used
 #[utoipa::path(
-    path = "/api/proxy/all",
-    responses(
-        (status = 200, description = "Return all known feature toggles for this token in evaluated (true|false) state", body = FrontendResult),
-        (status = 403, description = "Was not allowed to access features")
-    ),
-    params(Context),
-    security(
-        ("Authorization" = [])
-    )
+path = "/api/proxy/all",
+responses(
+(status = 200, description = "Return all known feature toggles for this token in evaluated (true|false) state", body = FrontendResult),
+(status = 403, description = "Was not allowed to access features")
+),
+params(Context),
+security(
+("Authorization" = [])
+)
 )]
 #[get("/proxy/all")]
 pub async fn get_proxy_all_features(
     edge_token: EdgeToken,
     engine_cache: web::Data<DashMap<String, EngineState>>,
+    token_cache: web::Data<DashMap<String, EdgeToken>>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    get_all_features(edge_token, engine_cache, context)
+    get_all_features(edge_token, engine_cache, token_cache, context)
 }
 
 #[utoipa::path(
-    path = "/api/frontend/all",
-    responses(
-        (status = 200, description = "Return all known feature toggles for this token in evaluated (true|false) state", body = FrontendResult),
-        (status = 403, description = "Was not allowed to access features")
-    ),
-    params(Context),
-    security(
-        ("Authorization" = [])
-    )
+path = "/api/frontend/all",
+responses(
+(status = 200, description = "Return all known feature toggles for this token in evaluated (true|false) state", body = FrontendResult),
+(status = 403, description = "Was not allowed to access features")
+),
+params(Context),
+security(
+("Authorization" = [])
+)
 )]
 #[get("/frontend/all")]
 pub async fn get_frontend_all_features(
     edge_token: EdgeToken,
     engine_cache: web::Data<DashMap<String, EngineState>>,
+    token_cache: web::Data<DashMap<String, EdgeToken>>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    get_all_features(edge_token, engine_cache, context)
+    get_all_features(edge_token, engine_cache, token_cache, context)
 }
 
 #[utoipa::path(
-    path = "/api/proxy/all",
-    responses(
-        (status = 200, description = "Return all known feature toggles for this token in evaluated (true|false) state", body = FrontendResult),
-        (status = 403, description = "Was not allowed to access features"),
-        (status = 400, description = "Invalid parameters used")
-    ),
-    request_body = Context,
-    security(
-        ("Authorization" = [])
-    )
+path = "/api/proxy/all",
+responses(
+(status = 200, description = "Return all known feature toggles for this token in evaluated (true|false) state", body = FrontendResult),
+(status = 403, description = "Was not allowed to access features"),
+(status = 400, description = "Invalid parameters used")
+),
+request_body = Context,
+security(
+("Authorization" = [])
+)
 )]
 #[post("/proxy/all")]
 async fn post_proxy_all_features(
     edge_token: EdgeToken,
     engine_cache: web::Data<DashMap<String, EngineState>>,
+    token_cache: web::Data<DashMap<String, EdgeToken>>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    get_all_features(edge_token, engine_cache, context)
+    get_all_features(edge_token, engine_cache, token_cache, context)
 }
 
 #[utoipa::path(
-    path = "/api/frontend/all",
-    responses(
-        (status = 200, description = "Return all known feature toggles for this token in evaluated (true|false) state", body = FrontendResult),
-        (status = 403, description = "Was not allowed to access features"),
-        (status = 400, description = "Invalid parameters used")
-    ),
-    request_body = Context,
-    security(
-        ("Authorization" = [])
-    )
+path = "/api/frontend/all",
+responses(
+(status = 200, description = "Return all known feature toggles for this token in evaluated (true|false) state", body = FrontendResult),
+(status = 403, description = "Was not allowed to access features"),
+(status = 400, description = "Invalid parameters used")
+),
+request_body = Context,
+security(
+("Authorization" = [])
+)
 )]
 #[post("/frontend/all")]
 async fn post_frontend_all_features(
     edge_token: EdgeToken,
     engine_cache: web::Data<DashMap<String, EngineState>>,
+    token_cache: web::Data<DashMap<String, EdgeToken>>,
     context: web::Json<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    post_all_features(edge_token, engine_cache, context)
+    post_all_features(edge_token, engine_cache, token_cache, context)
 }
 
 fn post_all_features(
     edge_token: EdgeToken,
     engine_cache: web::Data<DashMap<String, EngineState>>,
+    token_cache: web::Data<DashMap<String, EdgeToken>>,
     context: web::Json<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
     let context = context.into_inner();
-    let engine = edge_token
-        .environment
-        .and_then(|k| engine_cache.get(&k))
+    let token = token_cache
+        .get(&edge_token.token)
+        .map(|e| e.value().clone())
+        .unwrap_or_else(|| edge_token.clone());
+    let key = cache_key(&token);
+    let engine = engine_cache
+        .get(&key)
         .ok_or_else(|| EdgeError::PersistenceError("Could not find data for token".into()))?;
     let feature_results = engine.resolve_all(&context).unwrap();
-    Ok(Json(frontend_from_yggdrasil(feature_results, true)))
+    Ok(Json(frontend_from_yggdrasil(feature_results, true, &token)))
 }
 
 #[utoipa::path(
-    path = "/api/proxy",
-    responses(
-        (status = 200, description = "Return feature toggles for this token that evaluated to true", body = FrontendResult),
-        (status = 403, description = "Was not allowed to access features"),
-        (status = 400, description = "Invalid parameters used")
-    ),
-    params(Context),
-    security(
-        ("Authorization" = [])
-    )
+path = "/api/proxy",
+responses(
+(status = 200, description = "Return feature toggles for this token that evaluated to true", body = FrontendResult),
+(status = 403, description = "Was not allowed to access features"),
+(status = 400, description = "Invalid parameters used")
+),
+params(Context),
+security(
+("Authorization" = [])
+)
 )]
 #[get("/proxy")]
 async fn get_enabled_proxy(
     edge_token: EdgeToken,
     engine_cache: web::Data<DashMap<String, EngineState>>,
+    token_cache: web::Data<DashMap<String, EdgeToken>>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    get_enabled_features(edge_token, engine_cache, context)
+    get_enabled_features(edge_token, engine_cache, token_cache, context)
 }
 
 #[utoipa::path(
-    path = "/api/frontend",
-    responses(
-        (status = 200, description = "Return feature toggles for this token that evaluated to true", body = FrontendResult),
-        (status = 403, description = "Was not allowed to access features"),
-        (status = 400, description = "Invalid parameters used")
-    ),
-    params(Context),
-    security(
-        ("Authorization" = [])
-    )
+path = "/api/frontend",
+responses(
+(status = 200, description = "Return feature toggles for this token that evaluated to true", body = FrontendResult),
+(status = 403, description = "Was not allowed to access features"),
+(status = 400, description = "Invalid parameters used")
+),
+params(Context),
+security(
+("Authorization" = [])
+)
 )]
 #[get("/frontend")]
 async fn get_enabled_frontend(
     edge_token: EdgeToken,
     engine_cache: web::Data<DashMap<String, EngineState>>,
+    token_cache: web::Data<DashMap<String, EdgeToken>>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    get_enabled_features(edge_token, engine_cache, context)
+    get_enabled_features(edge_token, engine_cache, token_cache, context)
 }
 
 fn get_enabled_features(
     edge_token: EdgeToken,
     engine_cache: web::Data<DashMap<String, EngineState>>,
+    token_cache: web::Data<DashMap<String, EdgeToken>>,
+
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
     let context = context.into_inner();
-    let key = crate::tokens::cache_key(edge_token);
+    let token = token_cache
+        .get(&edge_token.token)
+        .map(|e| e.value().clone())
+        .unwrap_or_else(|| edge_token.clone());
+    let key = crate::tokens::cache_key(&token);
     let engine = engine_cache
         .get(&key)
         .ok_or_else(|| EdgeError::PersistenceError("Could not find data for token".into()))?;
     let feature_results = engine.resolve_all(&context).unwrap();
-    Ok(Json(frontend_from_yggdrasil(feature_results, false)))
+    Ok(Json(frontend_from_yggdrasil(
+        feature_results,
+        false,
+        &token,
+    )))
 }
 
 #[utoipa::path(
-    path = "/api/proxy",
-    responses(
-        (status = 200, description = "Return feature toggles for this token that evaluated to true", body = FrontendResult),
-        (status = 403, description = "Was not allowed to access features"),
-        (status = 400, description = "Invalid parameters used")
-    ),
-    request_body = Context,
-    security(
-        ("Authorization" = [])
-    )
+path = "/api/proxy",
+responses(
+(status = 200, description = "Return feature toggles for this token that evaluated to true", body = FrontendResult),
+(status = 403, description = "Was not allowed to access features"),
+(status = 400, description = "Invalid parameters used")
+),
+request_body = Context,
+security(
+("Authorization" = [])
+)
 )]
 #[post("/proxy")]
 async fn post_proxy_enabled_features(
     edge_token: EdgeToken,
     engine_cache: web::Data<DashMap<String, EngineState>>,
+    token_cache: web::Data<DashMap<String, EdgeToken>>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    post_enabled_features(edge_token, engine_cache, context).await
+    post_enabled_features(edge_token, engine_cache, token_cache, context).await
 }
 
 #[utoipa::path(
-    path = "/api/frontend",
-    responses(
-        (status = 200, description = "Return feature toggles for this token that evaluated to true", body = FrontendResult),
-        (status = 403, description = "Was not allowed to access features"),
-        (status = 400, description = "Invalid parameters used")
-    ),
-    request_body = Context,
-    security(
-        ("Authorization" = [])
-    )
+path = "/api/frontend",
+responses(
+(status = 200, description = "Return feature toggles for this token that evaluated to true", body = FrontendResult),
+(status = 403, description = "Was not allowed to access features"),
+(status = 400, description = "Invalid parameters used")
+),
+request_body = Context,
+security(
+("Authorization" = [])
+)
 )]
 #[post("/frontend")]
 async fn post_frontend_enabled_features(
     edge_token: EdgeToken,
     engine_cache: web::Data<DashMap<String, EngineState>>,
+    token_cache: web::Data<DashMap<String, EdgeToken>>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    post_enabled_features(edge_token, engine_cache, context).await
+    post_enabled_features(edge_token, engine_cache, token_cache, context).await
 }
 
 async fn post_enabled_features(
     edge_token: EdgeToken,
     engine_cache: web::Data<DashMap<String, EngineState>>,
+    token_cache: web::Data<DashMap<String, EdgeToken>>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
     let context = context.into_inner();
+    let token = token_cache
+        .get(&edge_token.token)
+        .map(|e| e.value().clone())
+        .unwrap_or_else(|| edge_token.clone());
     let engine =
         engine_cache
-            .get(&tokens::cache_key(edge_token))
+            .get(&tokens::cache_key(&edge_token))
             .ok_or(EdgeError::PersistenceError(
                 "Could not find data for token".into(),
             ))?;
     let feature_results = engine.resolve_all(&context).unwrap();
-    Ok(Json(frontend_from_yggdrasil(feature_results, false)))
+    Ok(Json(frontend_from_yggdrasil(
+        feature_results,
+        false,
+        &token,
+    )))
 }
 
 #[post("/proxy/client/metrics")]
@@ -265,6 +297,7 @@ pub fn configure_frontend_api(cfg: &mut web::ServiceConfig) {
 pub fn frontend_from_yggdrasil(
     res: HashMap<String, ResolvedToggle>,
     include_all: bool,
+    edge_token: &EdgeToken,
 ) -> FrontendResult {
     let toggles: Vec<EvaluatedToggle> = res
         .iter()
@@ -280,22 +313,28 @@ pub fn frontend_from_yggdrasil(
             },
             impression_data: resolved.impression_data,
         })
-        .collect();
+        .collect::<Vec<EvaluatedToggle>>()
+        .filter_by_projects(edge_token);
     FrontendResult { toggles }
 }
 
 pub fn get_all_features(
     edge_token: EdgeToken,
     engine_cache: web::Data<DashMap<String, EngineState>>,
+    token_cache: web::Data<DashMap<String, EdgeToken>>,
     context: web::Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
     let context = context.into_inner();
-    let key = cache_key(edge_token);
+    let token = token_cache
+        .get(&edge_token.token)
+        .map(|e| e.value().clone())
+        .unwrap_or_else(|| edge_token.clone());
+    let key = cache_key(&token);
     let engine = engine_cache
         .get(&key)
         .ok_or_else(|| EdgeError::PersistenceError("Could not find data for token".into()))?;
     let feature_results = engine.resolve_all(&context).unwrap();
-    Ok(Json(frontend_from_yggdrasil(feature_results, true)))
+    Ok(Json(frontend_from_yggdrasil(feature_results, true, &token)))
 }
 
 #[cfg(test)]
@@ -304,6 +343,7 @@ mod tests {
     use std::sync::Arc;
 
     use crate::builder::build_offline_mode;
+    use crate::cli::{EdgeMode, OfflineArgs};
     use crate::metrics::client_metrics::MetricsCache;
     use crate::metrics::client_metrics::MetricsKey;
     use actix_http::Request;
@@ -567,5 +607,61 @@ mod tests {
         assert_eq!(found_metric.yes, 1);
         assert_eq!(found_metric.no, 0);
         assert_eq!(found_metric.no, expected.no);
+    }
+
+    #[tokio::test]
+    async fn when_running_in_offline_mode_with_proxy_key_should_not_filter_features() {
+        let client_features = client_features_with_constraint_requiring_user_id_of_seven();
+        let (token_cache, feature_cache, engine_cache) =
+            build_offline_mode(client_features.clone(), vec!["secret-123".to_string()]).unwrap();
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::from(token_cache))
+                .app_data(Data::from(feature_cache))
+                .app_data(Data::from(engine_cache))
+                .app_data(Data::new(EdgeMode::Offline(OfflineArgs {
+                    bootstrap_file: None,
+                    tokens: vec!["secret-123".into()],
+                })))
+                .service(web::scope("/api").service(super::get_frontend_all_features)),
+        )
+        .await;
+
+        let req = test::TestRequest::get()
+            .uri("/api/frontend/all")
+            .insert_header(ContentType::json())
+            .insert_header(("Authorization", "secret-123"))
+            .to_request();
+
+        let result: FrontendResult = test::call_and_read_body_json(&app, req).await;
+        assert_eq!(result.toggles.len(), client_features.features.len());
+    }
+
+    #[tokio::test]
+    async fn frontend_api_filters_evaluated_toggles_to_tokens_access() {
+        let client_features = crate::tests::features_from_disk("../examples/hostedexample.json");
+        let (token_cache, feature_cache, engine_cache) = build_offline_mode(
+            client_features.clone(),
+            vec!["dx:development.secret123".to_string()],
+        )
+        .unwrap();
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::from(token_cache))
+                .app_data(Data::from(feature_cache))
+                .app_data(Data::from(engine_cache))
+                .service(web::scope("/api").service(super::get_frontend_all_features)),
+        )
+        .await;
+
+        let req = test::TestRequest::get()
+            .uri("/api/frontend/all")
+            .insert_header(ContentType::json())
+            .insert_header(("Authorization", "dx:development.secret123"))
+            .to_request();
+
+        let result: FrontendResult = test::call_and_read_body_json(&app, req).await;
+        assert_eq!(result.toggles.len(), 16);
+        assert!(result.toggles.iter().all(|toggle| toggle.project == "dx"));
     }
 }
