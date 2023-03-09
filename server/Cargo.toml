@@ -22,7 +22,7 @@ actix-web = {version = "4.3.1", features = ["rustls"]}
 actix-web-opentelemetry = {version = "0.13.0", features = ["metrics", "metrics-prometheus"]}
 
 anyhow = "1.0.69"
-async-trait = "0.1.64"
+async-trait = "0.1.66"
 chrono = {version = "0.4.23", features = ["serde"]}
 clap = {version = "4.1.8", features = ["derive", "env"]}
 dashmap = "5.4.0"
@@ -37,7 +37,7 @@ redis = {version = "0.22.3", features = ["tokio-comp"]}
 reqwest = {version = "0.11.14", default-features = false, features = ["rustls", "json", "rustls-tls"]}
 rustls = "0.20.8"
 rustls-pemfile = "1.0.2"
-serde = {version = "1.0.152", features = ["derive"]}
+serde = {version = "1.0.154", features = ["derive"]}
 serde_json = "1.0.94"
 shadow-rs = "0.21.0"
 tokio = {version = "1.25.0", features = ["macros", "rt-multi-thread", "tracing", "fs"]}
@@ -49,7 +49,7 @@ unleash-yggdrasil = "0.5.3"
 utoipa = {version = "3", features = ["actix_extras", "chrono"]}
 utoipa-swagger-ui = {version = "3", features = ["actix-web"]}
 [dev-dependencies]
-actix-http = "3.3.0"
+actix-http = "3.3.1"
 actix-http-test = "3.1.0"
 actix-service = "2.0.2"
 env_logger = "0.10.0"
