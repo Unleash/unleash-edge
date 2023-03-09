@@ -93,7 +93,7 @@ impl FeatureRefresher {
                                     }
                                     ClientFeaturesResponse::Updated(features, etag) => {
                                         debug!("Got updated client features. Updating features");
-                                        let key = cache_key(refresh.token.clone());
+                                        let key = cache_key(&refresh.token);
                                         self.update_last_refresh(&refresh.token, etag);
                                         self.features_cache.entry(key.clone()).and_modify(|existing_data| {
                                             *existing_data = existing_data.clone().upsert(features.clone());

@@ -1458,6 +1458,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "maplit"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e2e65a1a2e43cfcb47a895c4c8b10d1f4a61097f9f254f183aee60cad9c651d"
+
+[[package]]
 name = "matchers"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2702,7 +2708,7 @@ checksum = "f962df74c8c05a667b5ee8bcf162993134c104e96440b663c8daa176dc772d8c"
 
 [[package]]
 name = "unleash-edge"
-version = "0.3.0"
+version = "0.3.2"
 dependencies = [
  "actix-cors",
  "actix-http",
@@ -2720,6 +2726,7 @@ dependencies = [
  "env_logger",
  "futures",
  "futures-core",
+ "maplit",
  "num_cpus",
  "opentelemetry",
  "opentelemetry-prometheus",
@@ -2745,9 +2752,9 @@ dependencies = [
 
 [[package]]
 name = "unleash-types"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37077eaa34746d302b170815c10a2b94261afed5428a6126fddd9fc6f5c8cfd3"
+checksum = "12c017f4f74da54723023692f157e9ee2d523548f2ffbbfca131e0cf80db8cca"
 dependencies = [
  "base64",
  "chrono",

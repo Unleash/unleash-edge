@@ -4,9 +4,9 @@ use rustls::{Certificate, PrivateKey, ServerConfig};
 use rustls_pemfile::{certs, pkcs8_private_keys};
 
 use crate::cli::TlsOptions;
-use unleash_edge::error::EdgeError;
+use crate::error::EdgeError;
 
-pub(crate) fn config(tls_config: TlsOptions) -> Result<ServerConfig, EdgeError> {
+pub fn config(tls_config: TlsOptions) -> Result<ServerConfig, EdgeError> {
     let config = ServerConfig::builder()
         .with_safe_defaults()
         .with_no_client_auth();
