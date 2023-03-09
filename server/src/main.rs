@@ -64,7 +64,7 @@ async fn main() -> Result<(), anyhow::Error> {
         let mut app = App::new()
             .app_data(web::Data::new(mode_arg.clone()))
             .app_data(web::Data::new(connect_via.clone()))
-            .app_data(web::Data::new(metrics_cache.clone()))
+            .app_data(web::Data::from(metrics_cache.clone()))
             .app_data(web::Data::from(token_cache.clone()))
             .app_data(web::Data::from(features_cache.clone()))
             .app_data(web::Data::from(engine_cache.clone()));

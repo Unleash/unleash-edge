@@ -62,7 +62,6 @@ impl TokenValidator {
                     tokens: token_strings_to_validate,
                 })
                 .await?;
-
             let tokens_to_sink: Vec<EdgeToken> = unknown_tokens
                 .into_iter()
                 .map(|maybe_valid| {
