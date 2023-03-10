@@ -33,17 +33,12 @@ pub enum ClientFeaturesResponse {
     Updated(ClientFeatures, Option<EntityTag>),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Default, Deserialize, utoipa::ToSchema)]
 pub enum TokenValidationStatus {
     Invalid,
+    #[default]
     Unknown,
     Validated,
-}
-
-impl Default for TokenValidationStatus {
-    fn default() -> Self {
-        TokenValidationStatus::Unknown
-    }
 }
 
 #[derive(Clone, Debug)]
