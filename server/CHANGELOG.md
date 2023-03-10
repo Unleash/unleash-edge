@@ -5,7 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.4.1 (2023-03-09)
+
+### Bug Fixes
+
+ - <csr-id-8bd4e85740160dafcd185b4703fd4cb3db65f8c0/> make sure edgemode allows comma separated tokens for prewarming
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 1 commit contributed to the release.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Make sure edgemode allows comma separated tokens for prewarming ([`8bd4e85`](https://github.com/Unleash/unleash-edge/commit/8bd4e85740160dafcd185b4703fd4cb3db65f8c0))
+</details>
+
 ## v0.4.0 (2023-03-09)
+
+<csr-id-f496004e73c6bce8ecf0485179a9bb1b25dca2fe/>
 
 ### Chore
 
@@ -18,18 +44,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - <csr-id-34a945c402c2c0888b35e180c4a6ae3df3aa311f/> update rust crate async-trait to 0.1.66
  - <csr-id-a8a6a6afba5d696e3703eed79f167e2d3b5e3f62/> Move token cache resolution out of FromRequest
    * fix: Move token cache resolution out of FromRequest
-   
-   This was unfortunately the wrong place to have it, it meant we never hit
-   the middleware which validates our token. So unfortunately, we had to
-   make our endpoints depend on the tokencache in order to have the up-to-date EdgeToken (validated), rather than the one that comes in with the request.
-   
-   * fix: metrics caches was passed in web::Data<Arc<MetricCache>>
+* fix: metrics caches was passed in web::Data<Arc<MetricCache>>
 
 ### Commit Statistics
 
 <csr-read-only-do-not-edit/>
 
- - 5 commits contributed to the release.
+ - 6 commits contributed to the release.
  - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 5 unique issues were worked on: [#100](https://github.com/Unleash/unleash-edge/issues/100), [#88](https://github.com/Unleash/unleash-edge/issues/88), [#90](https://github.com/Unleash/unleash-edge/issues/90), [#91](https://github.com/Unleash/unleash-edge/issues/91), [#97](https://github.com/Unleash/unleash-edge/issues/97)
 
@@ -49,7 +70,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Update rust crate serde_json to 1.0.94 ([`1797ac7`](https://github.com/Unleash/unleash-edge/commit/1797ac70057328d32ed6cb7130fa720ccf659c63))
  * **[#97](https://github.com/Unleash/unleash-edge/issues/97)**
     - Update rust crate serde to 1.0.154 ([`15b1faa`](https://github.com/Unleash/unleash-edge/commit/15b1faa6680ef4f609ab16bb1caf54f6b7004091))
+ * **Uncategorized**
+    - Release unleash-edge v0.4.0 ([`c11fdce`](https://github.com/Unleash/unleash-edge/commit/c11fdce9e01f23a55ff6bb58c623f67be1792286))
 </details>
+
+<csr-unknown>
+This was unfortunately the wrong place to have it, it meant we never hitthe middleware which validates our token. So unfortunately, we had tomake our endpoints depend on the tokencache in order to have the up-to-date EdgeToken (validated), rather than the one that comes in with the request.<csr-unknown/>
 
 ## v0.3.2 (2023-03-08)
 
