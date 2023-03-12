@@ -23,7 +23,7 @@ actix-web-opentelemetry = {version = "0.13.0", features = ["metrics", "metrics-p
 
 anyhow = "1.0.69"
 async-trait = "0.1.66"
-chrono = {version = "0.4.23", features = ["serde"]}
+chrono = {version = "0.4.24", features = ["serde"]}
 clap = {version = "4.1.8", features = ["derive", "env"]}
 dashmap = "5.4.0"
 dotenv = {version = "0.15.0", features = ["clap"]}
