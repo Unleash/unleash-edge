@@ -166,7 +166,10 @@ async fn build_edge(args: &EdgeArgs) -> EdgeResult<EdgeInfo> {
         .filter(|candidate| candidate.value().token_type == Some(TokenType::Client))
     {
         let _ = feature_refresher
-            .register_token_for_refresh(validated_token.clone())
+            .register_token_for_refresh(
+                validated_token.clone(),
+                args.features_refresh_interval_seconds,
+            )
             .await;
     }
     Ok((
