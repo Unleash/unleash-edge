@@ -1,8 +1,9 @@
 use crate::error::EdgeError;
 use crate::http::unleash_client::UnleashClient;
 use crate::persistence::EdgePersistence;
-use crate::types::{EdgeResult, EdgeToken, ValidateTokensRequest};
+use crate::types::{EdgeResult, EdgeToken, TokenValidationStatus, ValidateTokensRequest};
 use std::sync::Arc;
+use std::time::Duration;
 
 use dashmap::DashMap;
 use unleash_types::Upsert;
@@ -91,12 +92,50 @@ impl TokenValidator {
             Ok(updated_tokens)
         }
     }
+
+    pub async fn schedule_validation_of_known_tokens(&self, validation_interval: Duration) {
+        loop {
+            let _ = self.revalidate_known_tokens().await;
+            tokio::time::sleep(validation_interval).await;
+        }
+    }
+    pub async fn revalidate_known_tokens(&self) -> EdgeResult<()> {
+        let tokens_to_validate: Vec<String> = self
+            .token_cache
+            .iter()
+            .filter(|t| t.value().status == TokenValidationStatus::Validated)
+            .map(|e| e.key().clone())
+            .collect();
+        if !tokens_to_validate.is_empty() {
+            let validation_result = self
+                .unleash_client
+                .validate_tokens(ValidateTokensRequest {
+                    tokens: tokens_to_validate.clone(),
+                })
+                .await;
+
+            if let Ok(valid_tokens) = validation_result {
+                let invalid = tokens_to_validate
+                    .into_iter()
+                    .filter(|t| !valid_tokens.iter().any(|e| &e.token == t));
+                for token in invalid {
+                    self.token_cache
+                        .entry(token)
+                        .and_modify(|t| t.status = TokenValidationStatus::Invalid);
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::TokenValidator;
-    use crate::types::{EdgeToken, TokenType, TokenValidationStatus};
+    use crate::{
+        http::unleash_client::UnleashClient,
+        types::{EdgeToken, TokenType, TokenValidationStatus},
+    };
     use actix_http::HttpService;
     use actix_http_test::{test_server, TestServer};
     use actix_service::map_config;
@@ -132,6 +171,28 @@ mod tests {
                 App::new().service(
                     web::resource("/edge/validate").route(web::post().to(return_validated_tokens)),
                 ),
+                |_| AppConfig::default(),
+            ))
+            .tcp()
+        })
+        .await
+    }
+
+    async fn validation_server_with_valid_tokens(
+        token_cache: Arc<DashMap<String, EdgeToken>>,
+    ) -> TestServer {
+        let token_cache_wrapper = web::Data::from(token_cache.clone());
+        let token_validator = web::Data::new(TokenValidator {
+            token_cache: token_cache.clone(),
+            persistence: None,
+            unleash_client: Arc::new(UnleashClient::new("http://localhost:4242", None).unwrap()),
+        });
+        test_server(move || {
+            HttpService::new(map_config(
+                App::new()
+                    .app_data(token_cache_wrapper.clone())
+                    .app_data(token_validator.clone())
+                    .service(web::scope("/edge").service(crate::edge_api::validate)),
                 |_| AppConfig::default(),
             ))
             .tcp()
@@ -184,5 +245,92 @@ mod tests {
         let invalid_tokens = vec!["jamesbond".into(), "invalidtoken".into()];
         let validated_tokens = validation_holder.register_tokens(invalid_tokens).await;
         assert!(validated_tokens.is_err());
+    }
+
+    #[tokio::test]
+    pub async fn upstream_invalid_tokens_are_set_to_invalid() {
+        let upstream_tokens = Arc::new(DashMap::default());
+        let mut valid_token_development =
+            EdgeToken::try_from("*:development.secret123".to_string()).expect("Bad Test Data");
+        valid_token_development.status = TokenValidationStatus::Validated;
+        valid_token_development.token_type = Some(TokenType::Client);
+        upstream_tokens.insert(
+            valid_token_development.token.clone(),
+            valid_token_development.clone(),
+        );
+        let mut no_longer_valid_token = EdgeToken::try_from("*:production.123secret".to_string())
+            .expect("Bad test production token");
+        no_longer_valid_token.status = TokenValidationStatus::Invalid;
+        no_longer_valid_token.token_type = Some(TokenType::Client);
+        upstream_tokens.insert(
+            no_longer_valid_token.token.clone(),
+            no_longer_valid_token.clone(),
+        );
+
+        let srv = validation_server_with_valid_tokens(upstream_tokens).await;
+        let unleash_client =
+            crate::http::unleash_client::UnleashClient::new(srv.url("/").as_str(), None)
+                .expect("Couldn't build client");
+
+        let local_token_cache = Arc::new(DashMap::default());
+        let mut previously_valid_token = no_longer_valid_token.clone();
+        previously_valid_token.status = TokenValidationStatus::Validated;
+        local_token_cache.insert(
+            previously_valid_token.token.clone(),
+            previously_valid_token.clone(),
+        );
+        let validation_holder = TokenValidator {
+            unleash_client: Arc::new(unleash_client),
+            token_cache: local_token_cache.clone(),
+            persistence: None,
+        };
+        let _ = validation_holder.revalidate_known_tokens().await;
+        assert!(validation_holder
+            .token_cache
+            .iter()
+            .all(|t| t.value().status == TokenValidationStatus::Invalid));
+    }
+
+    #[tokio::test]
+    pub async fn still_valid_tokens_are_left_untouched() {
+        let upstream_tokens: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let mut valid_token_development =
+            EdgeToken::try_from("*:development.secret123".to_string()).expect("Bad Test Data");
+        valid_token_development.status = TokenValidationStatus::Validated;
+        valid_token_development.token_type = Some(TokenType::Client);
+        let mut valid_token_production =
+            EdgeToken::try_from("*:production.magic123".to_string()).expect("Bad Test Data");
+        valid_token_production.status = TokenValidationStatus::Validated;
+        valid_token_production.token_type = Some(TokenType::Frontend);
+        upstream_tokens.insert(
+            valid_token_development.token.clone(),
+            valid_token_development.clone(),
+        );
+        upstream_tokens.insert(
+            valid_token_production.token.clone(),
+            valid_token_production.clone(),
+        );
+        let server = validation_server_with_valid_tokens(upstream_tokens).await;
+        let client = UnleashClient::new(server.url("/").as_str(), None).unwrap();
+        let local_tokens: DashMap<String, EdgeToken> = DashMap::default();
+        local_tokens.insert(
+            valid_token_development.token.clone(),
+            valid_token_development,
+        );
+        local_tokens.insert(
+            valid_token_production.token.clone(),
+            valid_token_production.clone(),
+        );
+        let validator = TokenValidator {
+            token_cache: Arc::new(local_tokens),
+            unleash_client: Arc::new(client),
+            persistence: None,
+        };
+        let _ = validator.revalidate_known_tokens().await;
+        assert_eq!(validator.token_cache.len(), 2);
+        assert!(validator
+            .token_cache
+            .iter()
+            .all(|t| t.value().status == TokenValidationStatus::Validated));
     }
 }
