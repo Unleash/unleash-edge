@@ -5,7 +5,7 @@ on:
   push:
     branches:
       - main
-    files:
+    paths:
       - "**.rs"
       - "**.toml"
       - ".github/workflows/docker_ecr_arch64.yaml"
