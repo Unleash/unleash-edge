@@ -143,7 +143,7 @@ async fn build_edge(args: &EdgeArgs) -> EdgeResult<EdgeInfo> {
         unleash_client,
         feature_cache.clone(),
         engine_cache.clone(),
-        Duration::seconds(args.features_refresh_interval_seconds),
+        Duration::seconds(args.features_refresh_interval_seconds.try_into().unwrap()),
         persistence.clone(),
     ));
     let _ = token_validator.register_tokens(args.tokens.clone()).await;

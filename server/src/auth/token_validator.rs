@@ -3,10 +3,10 @@ use crate::http::unleash_client::UnleashClient;
 use crate::persistence::EdgePersistence;
 use crate::types::{EdgeResult, EdgeToken, TokenValidationStatus, ValidateTokensRequest};
 use std::sync::Arc;
-use std::time::Duration;
 
 use dashmap::DashMap;
 use unleash_types::Upsert;
+
 #[derive(Clone)]
 pub struct TokenValidator {
     pub unleash_client: Arc<UnleashClient>,
@@ -93,10 +93,14 @@ impl TokenValidator {
         }
     }
 
-    pub async fn schedule_validation_of_known_tokens(&self, validation_interval: Duration) {
+    pub async fn schedule_validation_of_known_tokens(&self, validation_interval_seconds: u64) {
+        let sleep_duration = tokio::time::Duration::from_secs(validation_interval_seconds);
         loop {
-            let _ = self.revalidate_known_tokens().await;
-            tokio::time::sleep(validation_interval).await;
+            tokio::select! {
+                _ = tokio::time::sleep(sleep_duration) => {
+                    let _ = self.revalidate_known_tokens().await;
+                }
+            }
         }
     }
     pub async fn revalidate_known_tokens(&self) -> EdgeResult<()> {
