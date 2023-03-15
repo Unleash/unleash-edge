@@ -5,7 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.5.1 (2023-03-15)
+
+### Bug Fixes
+
+ - <csr-id-c11ff4057398b63126effc93aa71578e328f79f4/> persist on shutdown also persists only validated tokens
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 1 commit contributed to the release.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - persist on shutdown also persists only validated tokens ([`c11ff40`](https://github.com/Unleash/unleash-edge/commit/c11ff4057398b63126effc93aa71578e328f79f4))
+</details>
+
 ## v0.5.0 (2023-03-15)
+
+<csr-id-51bcd7db417a43c29c756a096db24ec6eba5b1c4/>
+<csr-id-510fe21aad1733ea8010637bd69fa0039c8e1400/>
+<csr-id-eab611cd924a401dfd36e06670782f377d56cc81/>
 
 ### Chore
 
@@ -44,7 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 7 commits contributed to the release over the course of 1 calendar day.
+ - 8 commits contributed to the release over the course of 1 calendar day.
  - 6 days passed between releases.
  - 7 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 7 unique issues were worked on: [#102](https://github.com/Unleash/unleash-edge/issues/102), [#103](https://github.com/Unleash/unleash-edge/issues/103), [#105](https://github.com/Unleash/unleash-edge/issues/105), [#106](https://github.com/Unleash/unleash-edge/issues/106), [#107](https://github.com/Unleash/unleash-edge/issues/107), [#108](https://github.com/Unleash/unleash-edge/issues/108), [#109](https://github.com/Unleash/unleash-edge/issues/109)
@@ -69,6 +97,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - update rust crate serde to 1.0.156 ([`dee24ad`](https://github.com/Unleash/unleash-edge/commit/dee24adaf6086c14b309160809211fad1a601899))
  * **[#109](https://github.com/Unleash/unleash-edge/issues/109)**
     - Prepare a token revalidator ([`510fe21`](https://github.com/Unleash/unleash-edge/commit/510fe21aad1733ea8010637bd69fa0039c8e1400))
+ * **Uncategorized**
+    - Release unleash-edge v0.5.0 ([`02d31d0`](https://github.com/Unleash/unleash-edge/commit/02d31d0325f36bd65aa33a3a3e21612b6af000fd))
 </details>
 
 ## v0.4.1 (2023-03-09)
