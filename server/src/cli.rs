@@ -30,7 +30,11 @@ pub struct EdgeArgs {
     pub metrics_interval_seconds: u64,
     /// How long between each refresh for a token
     #[clap(short, long, env, default_value_t = 10)]
-    pub features_refresh_interval_seconds: i64,
+    pub features_refresh_interval_seconds: u64,
+
+    /// How long between each revalidation of a token
+    #[clap(long, env, default_value_t = 3600)]
+    pub token_revalidation_interval_seconds: u64,
 
     /// Get data for these client tokens at startup. Hot starts your feature cache
     #[clap(short, long, env, value_delimiter = ',')]

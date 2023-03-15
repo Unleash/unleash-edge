@@ -5,7 +5,7 @@ use dashmap::DashMap;
 use tracing::{debug, warn};
 use unleash_types::client_features::ClientFeatures;
 
-use crate::types::{EdgeResult, EdgeToken, TokenRefresh};
+use crate::types::{EdgeResult, EdgeToken, TokenRefresh, TokenValidationStatus};
 
 pub mod file;
 pub mod redis;
@@ -31,14 +31,14 @@ pub async fn persist_data(
         tokio::select! {
             _ = tokio::time::sleep(Duration::from_secs(60)) => {
                 if let Some(persister) = persistence.clone() {
-                    if persister.save_tokens(token_cache.iter().map(|e| e.value().clone()).collect()).await.is_ok() {
+                    if persister.save_tokens(token_cache.iter().filter(|t| t.value().status == TokenValidationStatus::Validated).map(|e| e.value().clone()).collect()).await.is_ok() {
                         debug!("Persisted tokens");
                     } else {
                         warn!("Could not persist tokens");
                     }
                     if persister.save_features(features_cache.iter().map(|e| (e.key().clone(), e.value().clone())).collect()).await.is_ok() {
                         debug!("Persisted features");
-                    }else {
+                    } else {
                         warn!("Could not persist features");
                     }
 
