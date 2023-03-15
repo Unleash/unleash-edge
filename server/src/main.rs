@@ -11,7 +11,7 @@ use dashmap::DashMap;
 use futures::future::join_all;
 use unleash_edge::builder::build_caches_and_refreshers;
 use unleash_edge::persistence::{persist_data, EdgePersistence};
-use unleash_edge::types::{EdgeToken, TokenRefresh};
+use unleash_edge::types::{EdgeToken, TokenRefresh, TokenValidationStatus};
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ConnectVia;
 
@@ -158,6 +158,7 @@ async fn clean_shutdown(
 ) {
     let tokens: Vec<EdgeToken> = token_cache
         .iter()
+        .filter(|e| e.value().status == TokenValidationStatus::Validated)
         .map(|entry| entry.value().clone())
         .collect();
 
