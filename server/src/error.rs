@@ -4,10 +4,16 @@ use std::fmt::Display;
 use actix_web::{http::StatusCode, HttpResponseBuilder, ResponseError};
 
 #[derive(Debug)]
+pub enum FeatureError {
+    AccessDenied,
+    Retriable,
+}
+
+#[derive(Debug)]
 pub enum EdgeError {
     AuthorizationDenied,
     AuthorizationPending,
-    ClientFeaturesFetchError,
+    ClientFeaturesFetchError(FeatureError),
     ClientFeaturesParseError,
     ClientRegisterError,
     PersistenceError(String),
@@ -38,9 +44,13 @@ impl Display for EdgeError {
             EdgeError::TokenParseError => write!(f, "Could not parse edge token"),
             EdgeError::PersistenceError(msg) => write!(f, "{msg}"),
             EdgeError::JsonParseError(msg) => write!(f, "{msg}"),
-            EdgeError::ClientFeaturesFetchError => {
-                write!(f, "Could not fetch client features")
-            }
+            EdgeError::ClientFeaturesFetchError(fe) => match fe {
+                FeatureError::Retriable => write!(f, "Could not fetch client features. Will retry"),
+                FeatureError::AccessDenied => write!(
+                    f,
+                    "Could not fetch client features because api key was not allowed"
+                ),
+            },
             EdgeError::ClientFeaturesParseError => {
                 write!(f, "Failed to parse client features")
             }
@@ -68,7 +78,7 @@ impl ResponseError for EdgeError {
             EdgeError::NoTokenProvider => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::TokenParseError => StatusCode::FORBIDDEN,
             EdgeError::ClientFeaturesParseError => StatusCode::INTERNAL_SERVER_ERROR,
-            EdgeError::ClientFeaturesFetchError => StatusCode::INTERNAL_SERVER_ERROR,
+            EdgeError::ClientFeaturesFetchError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::InvalidServerUrl(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::PersistenceError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::JsonParseError(_) => StatusCode::INTERNAL_SERVER_ERROR,

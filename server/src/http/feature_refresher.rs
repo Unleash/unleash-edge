@@ -9,6 +9,7 @@ use unleash_types::client_metrics::ClientApplication;
 use unleash_types::{client_features::ClientFeatures, Upsert};
 use unleash_yggdrasil::EngineState;
 
+use crate::error::{EdgeError, FeatureError};
 use crate::types::build;
 use crate::{
     persistence::EdgePersistence,
@@ -72,17 +73,16 @@ impl FeatureRefresher {
             .collect()
     }
 
-    pub async fn register_token_for_refresh(
-        &self,
-        token: EdgeToken,
-        features_refresh_interval: i64,
-    ) -> EdgeResult<()> {
+    pub async fn register_token_for_refresh(&self, token: EdgeToken) -> EdgeResult<()> {
         if !self.tokens_to_refresh.contains_key(&token.token) {
             let _ = self
                 .unleash_client
                 .register_as_client(
                     token.token.clone(),
-                    client_application_from_token(token.clone(), features_refresh_interval),
+                    client_application_from_token(
+                        token.clone(),
+                        self.refresh_interval.num_seconds(),
+                    ),
                 )
                 .await;
             let mut registered_tokens: Vec<TokenRefresh> =
@@ -100,50 +100,81 @@ impl FeatureRefresher {
         Ok(())
     }
 
-    pub async fn refresh_features(&self) {
+    pub async fn start_refresh_features_background_task(&self) {
         loop {
             tokio::select! {
                 _ = tokio::time::sleep(Duration::from_secs(5)) => {
-                    let refreshes = self.get_tokens_due_for_refresh();
-                        for refresh in refreshes {
-                            let features_result = self.unleash_client.get_client_features(ClientFeaturesRequest {
-                                api_key: refresh.token.token.clone(),
-                                etag: refresh.etag
-                            }).await;
+                    self.refresh_features().await;
+                }
+            }
+        }
+    }
 
-                            match features_result {
-                                Ok(feature_response)  => match feature_response {
-                                    ClientFeaturesResponse::NoUpdate(_) => {
-                                        debug!("No update needed. Will update last check time");
-                                        self.update_last_check(&refresh.token.clone());
+    pub async fn refresh_features(&self) {
+        let refreshes = self.get_tokens_due_for_refresh();
+        for refresh in refreshes {
+            let features_result = self
+                .unleash_client
+                .get_client_features(ClientFeaturesRequest {
+                    api_key: refresh.token.token.clone(),
+                    etag: refresh.etag,
+                })
+                .await;
+
+            match features_result {
+                Ok(feature_response) => match feature_response {
+                    ClientFeaturesResponse::NoUpdate(_) => {
+                        debug!("No update needed. Will update last check time");
+                        self.update_last_check(&refresh.token.clone());
+                    }
+                    ClientFeaturesResponse::Updated(features, etag) => {
+                        debug!("Got updated client features. Updating features");
+                        let key = cache_key(&refresh.token);
+                        self.update_last_refresh(&refresh.token, etag);
+                        self.features_cache
+                            .entry(key.clone())
+                            .and_modify(|existing_data| {
+                                *existing_data = existing_data.clone().upsert(features.clone());
+                            })
+                            .or_insert(features.clone());
+                        if self.engine_cache.contains_key(&key) {
+                            self.engine_cache.entry(key.clone()).and_modify(|engine| {
+                                if let Some(f) = self.features_cache.get(&key) {
+                                    let mut new_state = EngineState::default();
+                                    new_state.take_state(f.clone());
+                                    *engine = new_state;
+                                }
+                            });
+                        } else {
+                            let mut new_state = EngineState::default();
+                            new_state.take_state(features.clone());
+                            self.engine_cache.insert(key, new_state);
+                        }
+                    }
+                },
+                Err(e) => {
+                    match e {
+                        EdgeError::ClientFeaturesFetchError(fe) => {
+                            match fe {
+                                FeatureError::Retriable => {
+                                    warn!("Couldn't refresh features, but will retry next go")
+                                }
+                                FeatureError::AccessDenied => {
+                                    warn!("Token used to fetch features was Forbidden, will remove from list of refresh tasks");
+                                    self.tokens_to_refresh.remove(&refresh.token.token);
+                                    if !self.tokens_to_refresh.iter().any(|e| {
+                                        e.value().token.environment == refresh.token.environment
+                                    }) {
+                                        let cache_key = cache_key(&refresh.token);
+                                        // No tokens left that access the environment of our current refresh. Deleting client features and engine cache
+                                        self.features_cache.remove(&cache_key);
+                                        self.engine_cache.remove(&cache_key);
                                     }
-                                    ClientFeaturesResponse::Updated(features, etag) => {
-                                        debug!("Got updated client features. Updating features");
-                                        let key = cache_key(&refresh.token);
-                                        self.update_last_refresh(&refresh.token, etag);
-                                        self.features_cache.entry(key.clone()).and_modify(|existing_data| {
-                                            *existing_data = existing_data.clone().upsert(features.clone());
-                                        }).or_insert(features.clone());
-                                        if self.engine_cache.contains_key(&key) {
-                                            self.engine_cache.entry(key.clone()).and_modify(|engine| {
-                                                if let Some(f) = self.features_cache.get(&key) {
-                                                        let mut new_state = EngineState::default();
-                                                        new_state.take_state(f.clone());
-                                                        *engine = new_state;
-                                                }
-                                            });
-                                        } else {
-                                            let mut new_state = EngineState::default();
-                                            new_state.take_state(features.clone());
-                                            self.engine_cache.insert(key, new_state);
-                                        }
-                                    }
-                                },
-                                Err(e) => {
-                                    warn!("Couldn't refresh features: {e:?}");
                                 }
                             }
                         }
+                        _ => warn!("Couldn't refresh features: {e:?}. Will retry next pass"),
+                    }
                 }
             }
         }
@@ -168,13 +199,23 @@ impl FeatureRefresher {
 
 #[cfg(test)]
 mod tests {
+    use actix_http::HttpService;
+    use actix_http_test::{test_server, TestServer};
+    use actix_service::map_config;
+    use actix_web::dev::AppConfig;
     use actix_web::http::header::EntityTag;
+    use actix_web::{web, App};
     use chrono::{Duration, Utc};
     use std::sync::Arc;
 
     use dashmap::DashMap;
     use reqwest::Url;
+    use unleash_types::client_features::ClientFeatures;
+    use unleash_yggdrasil::EngineState;
 
+    use crate::tests::features_from_disk;
+    use crate::tokens::cache_key;
+    use crate::types::{TokenType, TokenValidationStatus};
     use crate::{
         http::unleash_client::UnleashClient,
         types::{EdgeToken, TokenRefresh},
@@ -207,9 +248,7 @@ mod tests {
         );
         let token =
             EdgeToken::try_from("*:development.abcdefghijklmnopqrstuvwxyz".to_string()).unwrap();
-        let _ = feature_refresher
-            .register_token_for_refresh(token, 10)
-            .await;
+        let _ = feature_refresher.register_token_for_refresh(token).await;
 
         assert_eq!(feature_refresher.tokens_to_refresh.len(), 1);
     }
@@ -237,13 +276,13 @@ mod tests {
             EdgeToken::try_from("projectc:development.abcdefghijklmnopqrstuvwxyz".to_string())
                 .unwrap();
         let _ = feature_refresher
-            .register_token_for_refresh(project_a_token, 10)
+            .register_token_for_refresh(project_a_token)
             .await;
         let _ = feature_refresher
-            .register_token_for_refresh(project_b_token, 10)
+            .register_token_for_refresh(project_b_token)
             .await;
         let _ = feature_refresher
-            .register_token_for_refresh(project_c_token, 10)
+            .register_token_for_refresh(project_c_token)
             .await;
 
         assert_eq!(feature_refresher.tokens_to_refresh.len(), 3);
@@ -275,16 +314,16 @@ mod tests {
             EdgeToken::try_from("*:development.abcdefghijklmnopqrstuvwxyz".to_string()).unwrap();
 
         let _ = feature_refresher
-            .register_token_for_refresh(project_a_token, 10)
+            .register_token_for_refresh(project_a_token)
             .await;
         let _ = feature_refresher
-            .register_token_for_refresh(project_b_token, 10)
+            .register_token_for_refresh(project_b_token)
             .await;
         let _ = feature_refresher
-            .register_token_for_refresh(project_c_token, 10)
+            .register_token_for_refresh(project_c_token)
             .await;
         let _ = feature_refresher
-            .register_token_for_refresh(wildcard_token, 10)
+            .register_token_for_refresh(wildcard_token)
             .await;
 
         assert_eq!(feature_refresher.tokens_to_refresh.len(), 1);
@@ -320,19 +359,19 @@ mod tests {
         project_a_and_c_token.projects = vec!["projecta".into(), "projectc".into()];
 
         feature_refresher
-            .register_token_for_refresh(project_a_token, 10)
+            .register_token_for_refresh(project_a_token)
             .await
             .unwrap();
         feature_refresher
-            .register_token_for_refresh(project_b_token, 10)
+            .register_token_for_refresh(project_b_token)
             .await
             .unwrap();
         feature_refresher
-            .register_token_for_refresh(project_c_token, 10)
+            .register_token_for_refresh(project_c_token)
             .await
             .unwrap();
         feature_refresher
-            .register_token_for_refresh(project_a_and_c_token, 10)
+            .register_token_for_refresh(project_a_and_c_token)
             .await
             .unwrap();
 
@@ -366,11 +405,11 @@ mod tests {
                 .unwrap();
 
         feature_refresher
-            .register_token_for_refresh(star_token, 10)
+            .register_token_for_refresh(star_token)
             .await
             .unwrap();
         feature_refresher
-            .register_token_for_refresh(project_a_token, 10)
+            .register_token_for_refresh(project_a_token)
             .await
             .unwrap();
 
@@ -400,11 +439,11 @@ mod tests {
         let production_wildcard_token =
             EdgeToken::try_from("*:production.abcdefghijklmnopqrstuvwxyz".to_string()).unwrap();
         feature_refresher
-            .register_token_for_refresh(project_a_token, 10)
+            .register_token_for_refresh(project_a_token)
             .await
             .unwrap();
         feature_refresher
-            .register_token_for_refresh(production_wildcard_token, 10)
+            .register_token_for_refresh(production_wildcard_token)
             .await
             .unwrap();
         assert_eq!(feature_refresher.tokens_to_refresh.len(), 2);
@@ -471,5 +510,163 @@ mod tests {
         assert_eq!(tokens_to_refresh.len(), 2);
         assert!(tokens_to_refresh.contains(&etag_but_last_refreshed_ten_seconds_ago));
         assert!(tokens_to_refresh.contains(&no_etag_so_is_due_for_refresh));
+    }
+
+    async fn client_api_test_server(
+        upstream_token_cache: Arc<DashMap<String, EdgeToken>>,
+        upstream_features_cache: Arc<DashMap<String, ClientFeatures>>,
+        upstream_engine_cache: Arc<DashMap<String, EngineState>>,
+    ) -> TestServer {
+        test_server(move || {
+            HttpService::new(map_config(
+                App::new()
+                    .app_data(web::Data::from(upstream_features_cache.clone()))
+                    .app_data(web::Data::from(upstream_engine_cache.clone()))
+                    .app_data(web::Data::from(upstream_token_cache.clone()))
+                    .service(
+                        web::scope("/api")
+                            .service(crate::client_api::features)
+                            .service(crate::client_api::register),
+                    ),
+                |_| AppConfig::default(),
+            ))
+            .tcp()
+        })
+        .await
+    }
+    #[tokio::test]
+    pub async fn getting_403_when_refreshing_features_will_remove_token() {
+        let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
+            Arc::new(DashMap::default());
+        let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
+        let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let server = client_api_test_server(
+            upstream_token_cache,
+            upstream_features_cache,
+            upstream_engine_cache,
+        )
+        .await;
+        let unleash_client = UnleashClient::new(server.url("/").as_str(), None).unwrap();
+        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
+        let feature_refresher = FeatureRefresher {
+            unleash_client: Arc::new(unleash_client),
+            tokens_to_refresh: Arc::new(DashMap::default()),
+            features_cache,
+            engine_cache,
+            refresh_interval: Duration::seconds(60),
+            persistence: None,
+        };
+        let mut token = EdgeToken::try_from("*:development.secret123".to_string()).unwrap();
+        token.status = TokenValidationStatus::Validated;
+        token.token_type = Some(TokenType::Client);
+        let _ = feature_refresher.register_token_for_refresh(token).await;
+        assert!(!feature_refresher.tokens_to_refresh.is_empty());
+        feature_refresher.refresh_features().await;
+        assert!(feature_refresher.tokens_to_refresh.is_empty());
+        assert!(feature_refresher.features_cache.is_empty());
+        assert!(feature_refresher.engine_cache.is_empty());
+    }
+
+    #[tokio::test]
+    pub async fn when_we_have_a_cache_and_token_gets_removed_caches_are_emptied() {
+        let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
+            Arc::new(DashMap::default());
+        let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
+        let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let token_cache_to_modify = upstream_token_cache.clone();
+        let mut valid_token = EdgeToken::try_from("*:development.secret123".to_string()).unwrap();
+        valid_token.token_type = Some(TokenType::Client);
+        valid_token.status = TokenValidationStatus::Validated;
+        upstream_token_cache.insert(valid_token.token.clone(), valid_token.clone());
+        let example_features = features_from_disk("../examples/features.json");
+        let cache_key = cache_key(&valid_token);
+        let mut engine_state = EngineState::default();
+        engine_state.take_state(example_features.clone());
+        upstream_features_cache.insert(cache_key.clone(), example_features.clone());
+        upstream_engine_cache.insert(cache_key.clone(), engine_state);
+        let server = client_api_test_server(
+            upstream_token_cache,
+            upstream_features_cache,
+            upstream_engine_cache,
+        )
+        .await;
+        let unleash_client = UnleashClient::new(server.url("/").as_str(), None).unwrap();
+        let feature_refresher = FeatureRefresher {
+            unleash_client: Arc::new(unleash_client),
+            tokens_to_refresh: Arc::new(DashMap::default()),
+            features_cache: Arc::new(DashMap::default()),
+            engine_cache: Arc::new(DashMap::default()),
+            refresh_interval: Duration::seconds(0),
+            persistence: None,
+        };
+        let _ = feature_refresher
+            .register_token_for_refresh(valid_token.clone())
+            .await;
+        assert!(!feature_refresher.tokens_to_refresh.is_empty());
+        feature_refresher.refresh_features().await;
+        assert!(!feature_refresher.features_cache.is_empty());
+        assert!(!feature_refresher.engine_cache.is_empty());
+        token_cache_to_modify.remove(&valid_token.token);
+        feature_refresher.refresh_features().await;
+        assert!(feature_refresher.tokens_to_refresh.is_empty());
+        assert!(feature_refresher.features_cache.is_empty());
+        assert!(feature_refresher.engine_cache.is_empty());
+    }
+
+    #[tokio::test]
+    pub async fn removing_one_of_multiple_keys_from_same_environment_does_not_remove_feature_and_engine_caches(
+    ) {
+        let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
+            Arc::new(DashMap::default());
+        let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
+        let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let token_cache_to_modify = upstream_token_cache.clone();
+        let mut dx_token = EdgeToken::try_from("dx:development.secret123".to_string()).unwrap();
+        dx_token.token_type = Some(TokenType::Client);
+        dx_token.status = TokenValidationStatus::Validated;
+        upstream_token_cache.insert(dx_token.token.clone(), dx_token.clone());
+        let mut eg_token = EdgeToken::try_from("eg:development.secret123".to_string()).unwrap();
+        eg_token.token_type = Some(TokenType::Client);
+        eg_token.status = TokenValidationStatus::Validated;
+        upstream_token_cache.insert(eg_token.token.clone(), eg_token.clone());
+        let example_features = features_from_disk("../examples/hostedexample.json");
+        let cache_key = cache_key(&dx_token);
+        let mut engine_state = EngineState::default();
+        engine_state.take_state(example_features.clone());
+        upstream_features_cache.insert(cache_key.clone(), example_features.clone());
+        upstream_engine_cache.insert(cache_key.clone(), engine_state);
+        let server = client_api_test_server(
+            upstream_token_cache,
+            upstream_features_cache,
+            upstream_engine_cache,
+        )
+        .await;
+        let unleash_client = UnleashClient::new(server.url("/").as_str(), None).unwrap();
+        let feature_refresher = FeatureRefresher {
+            unleash_client: Arc::new(unleash_client),
+            tokens_to_refresh: Arc::new(DashMap::default()),
+            features_cache: Arc::new(DashMap::default()),
+            engine_cache: Arc::new(DashMap::default()),
+            refresh_interval: Duration::seconds(0),
+            persistence: None,
+        };
+        let _ = feature_refresher
+            .register_token_for_refresh(dx_token.clone())
+            .await;
+        let _ = feature_refresher
+            .register_token_for_refresh(eg_token.clone())
+            .await;
+        assert_eq!(feature_refresher.tokens_to_refresh.len(), 2);
+        assert_eq!(feature_refresher.features_cache.len(), 0);
+        assert_eq!(feature_refresher.engine_cache.len(), 0);
+        feature_refresher.refresh_features().await;
+        assert_eq!(feature_refresher.features_cache.len(), 1);
+        assert_eq!(feature_refresher.engine_cache.len(), 1);
+        token_cache_to_modify.remove(&dx_token.token);
+        feature_refresher.refresh_features().await;
+        assert_eq!(feature_refresher.tokens_to_refresh.len(), 1);
+        assert_eq!(feature_refresher.features_cache.len(), 1);
+        assert_eq!(feature_refresher.engine_cache.len(), 1);
     }
 }

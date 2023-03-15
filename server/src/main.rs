@@ -120,7 +120,7 @@ async fn main() -> Result<(), anyhow::Error> {
                     clean_shutdown(persistence.clone(), lazy_feature_cache.clone(), lazy_token_cache.clone(), refresher.tokens_to_refresh.clone()).await;
                     tracing::info!("Actix was shutdown properly");
                 },
-                _ = refresher.refresh_features() => {
+                _ = refresher.start_refresh_features_background_task() => {
                     tracing::info!("Feature refresher unexpectedly shut down");
                 }
                 _ = unleash_edge::http::background_send_metrics::send_metrics_task(metrics_cache_clone.clone(), refresher.unleash_client.clone(), edge.metrics_interval_seconds) => {

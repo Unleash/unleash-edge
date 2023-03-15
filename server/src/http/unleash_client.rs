@@ -13,6 +13,7 @@ use crate::types::{
 use reqwest::{header, Client};
 use unleash_types::client_metrics::ClientApplication;
 
+use crate::error::FeatureError;
 use crate::urls::UnleashUrls;
 use crate::{error::EdgeError, types::ClientFeaturesRequest};
 
@@ -103,7 +104,7 @@ impl UnleashClient {
             .client_features_req(request.clone())
             .send()
             .await
-            .map_err(|_| EdgeError::ClientFeaturesFetchError)?;
+            .map_err(|_| EdgeError::ClientFeaturesFetchError(FeatureError::Retriable))?;
         if response.status() == StatusCode::NOT_MODIFIED {
             Ok(ClientFeaturesResponse::NoUpdate(
                 request.etag.expect("Got NOT_MODIFIED without an ETag"),
@@ -118,8 +119,12 @@ impl UnleashClient {
                 .await
                 .map_err(|_e| EdgeError::ClientFeaturesParseError)?;
             Ok(ClientFeaturesResponse::Updated(features, etag))
+        } else if response.status() == StatusCode::FORBIDDEN {
+            Err(EdgeError::ClientFeaturesFetchError(
+                FeatureError::AccessDenied,
+            ))
         } else {
-            Err(EdgeError::ClientFeaturesFetchError)
+            Err(EdgeError::ClientFeaturesFetchError(FeatureError::Retriable))
         }
     }
 
