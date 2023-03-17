@@ -13,7 +13,7 @@ use unleash_types::{
 use unleash_yggdrasil::{Context, EngineState, ResolvedToggle};
 
 use crate::{
-    error::EdgeError,
+    error::{EdgeError, FrontendHydrationMissing},
     metrics::client_metrics::MetricsCache,
     tokens::{self, cache_key},
     types::{EdgeJsonResult, EdgeResult, EdgeToken, ProjectFilter},
@@ -119,9 +119,9 @@ fn post_all_features(
         .map(|e| e.value().clone())
         .unwrap_or_else(|| edge_token.clone());
     let key = cache_key(&token);
-    let engine = engine_cache
-        .get(&key)
-        .ok_or_else(|| EdgeError::PersistenceError("Could not find data for token".into()))?;
+    let engine = engine_cache.get(&key).ok_or_else(|| {
+        EdgeError::FrontendNotYetHydrated(FrontendHydrationMissing::from(&edge_token))
+    })?;
     let feature_results = engine.resolve_all(&context).unwrap();
     Ok(Json(frontend_from_yggdrasil(feature_results, true, &token)))
 }
@@ -183,9 +183,9 @@ fn get_enabled_features(
         .map(|e| e.value().clone())
         .unwrap_or_else(|| edge_token.clone());
     let key = crate::tokens::cache_key(&token);
-    let engine = engine_cache
-        .get(&key)
-        .ok_or_else(|| EdgeError::PersistenceError("Could not find data for token".into()))?;
+    let engine = engine_cache.get(&key).ok_or_else(|| {
+        EdgeError::FrontendNotYetHydrated(FrontendHydrationMissing::from(&edge_token))
+    })?;
     let feature_results = engine.resolve_all(&context).unwrap();
     Ok(Json(frontend_from_yggdrasil(
         feature_results,
@@ -249,12 +249,9 @@ async fn post_enabled_features(
         .get(&edge_token.token)
         .map(|e| e.value().clone())
         .unwrap_or_else(|| edge_token.clone());
-    let engine =
-        engine_cache
-            .get(&tokens::cache_key(&edge_token))
-            .ok_or(EdgeError::PersistenceError(
-                "Could not find data for token".into(),
-            ))?;
+    let engine = engine_cache.get(&tokens::cache_key(&edge_token)).ok_or(
+        EdgeError::FrontendNotYetHydrated(FrontendHydrationMissing::from(&edge_token)),
+    )?;
     let feature_results = engine.resolve_all(&context).unwrap();
     Ok(Json(frontend_from_yggdrasil(
         feature_results,
@@ -330,9 +327,9 @@ pub fn get_all_features(
         .map(|e| e.value().clone())
         .unwrap_or_else(|| edge_token.clone());
     let key = cache_key(&token);
-    let engine = engine_cache
-        .get(&key)
-        .ok_or_else(|| EdgeError::PersistenceError("Could not find data for token".into()))?;
+    let engine = engine_cache.get(&key).ok_or_else(|| {
+        EdgeError::FrontendNotYetHydrated(FrontendHydrationMissing::from(&edge_token))
+    })?;
     let feature_results = engine.resolve_all(&context).unwrap();
     Ok(Json(frontend_from_yggdrasil(feature_results, true, &token)))
 }
@@ -346,7 +343,9 @@ mod tests {
     use crate::cli::{EdgeMode, OfflineArgs};
     use crate::metrics::client_metrics::MetricsCache;
     use crate::metrics::client_metrics::MetricsKey;
-    use actix_http::Request;
+    use crate::middleware;
+    use crate::types::{EdgeToken, TokenType, TokenValidationStatus};
+    use actix_http::{Request, StatusCode};
     use actix_web::{
         http::header::ContentType,
         test,
@@ -354,12 +353,14 @@ mod tests {
         App,
     };
     use chrono::{DateTime, Utc};
+    use dashmap::DashMap;
     use serde_json::json;
     use unleash_types::client_metrics::ClientMetricsEnv;
     use unleash_types::{
         client_features::{ClientFeature, ClientFeatures, Constraint, Operator, Strategy},
         frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult},
     };
+    use unleash_yggdrasil::EngineState;
 
     async fn make_test_request() -> Request {
         test::TestRequest::post()
@@ -663,5 +664,62 @@ mod tests {
         let result: FrontendResult = test::call_and_read_body_json(&app, req).await;
         assert_eq!(result.toggles.len(), 16);
         assert!(result.toggles.iter().all(|toggle| toggle.project == "dx"));
+    }
+
+    #[tokio::test]
+    async fn frontend_token_without_matching_client_token_yields_511_when_trying_to_access_frontend_api(
+    ) {
+        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
+        let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::from(token_cache.clone()))
+                .app_data(Data::from(features_cache.clone()))
+                .app_data(Data::from(engine_cache.clone()))
+                .wrap(middleware::as_async_middleware::as_async_middleware(
+                    middleware::validate_token::validate_token,
+                ))
+                .service(web::scope("/api").configure(super::configure_frontend_api)),
+        )
+        .await;
+
+        let mut frontend_token =
+            EdgeToken::try_from("ourtests:rocking.secret123".to_string()).unwrap();
+        frontend_token.status = TokenValidationStatus::Validated;
+        frontend_token.token_type = Some(TokenType::Frontend);
+        token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
+        let req = test::TestRequest::get()
+            .uri("/api/frontend/all")
+            .insert_header(ContentType::json())
+            .insert_header(("Authorization", frontend_token.token))
+            .to_request();
+        let res = test::call_service(&app, req).await;
+        assert_eq!(res.status(), StatusCode::NETWORK_AUTHENTICATION_REQUIRED);
+    }
+
+    #[tokio::test]
+    async fn invalid_token_is_refused_with_403() {
+        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
+        let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::from(token_cache.clone()))
+                .app_data(Data::from(features_cache.clone()))
+                .app_data(Data::from(engine_cache.clone()))
+                .wrap(middleware::as_async_middleware::as_async_middleware(
+                    middleware::validate_token::validate_token,
+                ))
+                .service(web::scope("/api").configure(super::configure_frontend_api)),
+        )
+        .await;
+        let req = test::TestRequest::get()
+            .uri("/api/frontend/all")
+            .insert_header(ContentType::json())
+            .insert_header(("Authorization", "dx:rocking.secret123"))
+            .to_request();
+        let res = test::call_service(&app, req).await;
+        assert_eq!(res.status(), StatusCode::FORBIDDEN);
     }
 }

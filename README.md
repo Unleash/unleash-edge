@@ -107,9 +107,16 @@ Edge mode also supports dynamic tokens, meaning that Edge doesn't need a token t
 
 Even though Edge supports dynamic tokens, you still have the option of providing a token through the command line argument or environment variable. This way, since Edge already knows about your token at start up, it will sync your features for that token and should be ready for your requests right away (_warm up / hot start_).
 
-[Front-end tokens](https://docs.getunleash.io/reference/api-tokens-and-client-keys#front-end-tokens) can also be used with `/api/frontend` and `/api/proxy` endpoints, however they are not allowed to fetch features upstream. In order to use these tokens correctly and make sure they return the correct information, it's important that the features they are allowed to access are already present in that Edge node's features cache. The easiest way to ensure this is by passing in at least one client token as one of the command line arguments, ensuring it has access to the same features as the front-end token you'll be using.
+[Front-end tokens](https://docs.getunleash.io/reference/api-tokens-and-client-keys#front-end-tokens) can also be used with `/api/frontend` and `/api/proxy` endpoints, however they are not allowed to fetch features upstream. In order to use these tokens correctly and make sure they return the correct information, it's important that the features they are allowed to access are already present in that Edge node's features cache. The easiest way to ensure this is by passing in at least one client token as one of the command line arguments, ensuring it has access to the same features as the front-end token you'll be using. If you're using a frontend token that doesn't have data in the node's feature cache, you will receive an HTTP Status code: 511 Network Authentication Required along with a body of which project and environment you will need to add a client token for. 
+```json
+{
+    "access": {
+        "environment": "default",
+        "project": "demo-app"
+    },
+    "explanation": "Edge does not yet have data for this token. Please make a call against /api/client/features with a client token that has the same access as your token"
+}```
 
-Besides dynamic tokens, Edge mode also supports metrics and other advanced features.
 
 To launch in this mode, run:
 

@@ -2,11 +2,33 @@ use std::error::Error;
 use std::fmt::Display;
 
 use actix_web::{http::StatusCode, HttpResponseBuilder, ResponseError};
+use serde::Serialize;
+use serde_json::json;
+
+use crate::types::EdgeToken;
 
 #[derive(Debug)]
 pub enum FeatureError {
     AccessDenied,
     Retriable,
+}
+
+#[derive(Debug, Serialize)]
+pub struct FrontendHydrationMissing {
+    pub project: String,
+    pub environment: String,
+}
+
+impl From<&EdgeToken> for FrontendHydrationMissing {
+    fn from(value: &EdgeToken) -> Self {
+        Self {
+            project: value.projects.join(","),
+            environment: value
+                .environment
+                .clone()
+                .unwrap_or_else(|| "default".into()), // Should never hit or_else because we don't handle admin tokens
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -16,6 +38,7 @@ pub enum EdgeError {
     ClientFeaturesFetchError(FeatureError),
     ClientFeaturesParseError,
     ClientRegisterError,
+    FrontendNotYetHydrated(FrontendHydrationMissing),
     PersistenceError(String),
     EdgeMetricsError,
     EdgeTokenError,
@@ -64,6 +87,9 @@ impl Display for EdgeError {
                 write!(f, "No validation for token has happened yet")
             }
             EdgeError::EdgeMetricsError => write!(f, "Edge metrics error"),
+            EdgeError::FrontendNotYetHydrated(hydration_info) => {
+                write!(f, "Edge not yet hydrated for {hydration_info:?}")
+            }
         }
     }
 }
@@ -87,11 +113,20 @@ impl ResponseError for EdgeError {
             EdgeError::AuthorizationPending => StatusCode::UNAUTHORIZED,
             EdgeError::EdgeMetricsError => StatusCode::BAD_REQUEST,
             EdgeError::ClientRegisterError => StatusCode::BAD_REQUEST,
+            EdgeError::FrontendNotYetHydrated(_) => StatusCode::NETWORK_AUTHENTICATION_REQUIRED,
         }
     }
 
     fn error_response(&self) -> actix_web::HttpResponse<actix_web::body::BoxBody> {
-        HttpResponseBuilder::new(self.status_code()).finish()
+        match self {
+            EdgeError::FrontendNotYetHydrated(hydration_info) => {
+                HttpResponseBuilder::new(self.status_code()).json(json!({
+                    "explanation": "Edge does not yet have data for this token. Please make a call against /api/client/features with a client token that has the same access as your token",
+                    "access": hydration_info
+                }))
+            },
+            _ => HttpResponseBuilder::new(self.status_code()).finish()
+        }
     }
 }
 
