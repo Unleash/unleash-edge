@@ -33,61 +33,22 @@ pub async fn get_features(
         .get(&edge_token.token)
         .map(|e| e.value().clone())
         .ok_or(EdgeError::AuthorizationDenied)?;
-
-    let features = features_cache
-        .get(&cache_key(&edge_token))
-        .map(|features| features.clone())
-        .map(|client_features| ClientFeatures {
-            features: client_features
-                .features
-                .filter_by_projects(&validated_token),
-            ..client_features
-        })
-        .map(Json);
-    if let Some(refresher) = req.app_data::<Data<FeatureRefresher>>() {
-        match features {
-            Some(f) => {
-                if f.features.is_empty() {
-                    refresher
-                        .register_token_for_refresh(validated_token.clone(), None)
-                        .await
-                        .expect("Unexpectedly failed to register tokens");
-                    refresher.hydrate_new_tokens().await;
-                    features_cache
-                        .get(&cache_key(&edge_token))
-                        .map(|features| features.clone())
-                        .map(|client_features| ClientFeatures {
-                            features: client_features
-                                .features
-                                .filter_by_projects(&validated_token),
-                            ..client_features
-                        })
-                        .map(Json)
-                        .ok_or(EdgeError::ClientFeaturesFetchError(FeatureError::Retriable))
-                } else {
-                    Ok(f)
-                }
-            }
-            None => {
-                refresher
-                    .register_token_for_refresh(validated_token.clone(), None)
-                    .await?;
-                refresher.hydrate_new_tokens().await;
-                features_cache
-                    .get(&cache_key(&edge_token))
-                    .map(|features| features.clone())
-                    .map(|client_features| ClientFeatures {
-                        features: client_features
-                            .features
-                            .filter_by_projects(&validated_token),
-                        ..client_features
-                    })
-                    .map(Json)
-                    .ok_or(EdgeError::ClientFeaturesFetchError(FeatureError::Retriable))
-            }
-        }
-    } else {
-        features.ok_or(EdgeError::ClientFeaturesFetchError(FeatureError::Retriable))
+    match req.app_data::<Data<FeatureRefresher>>() {
+        Some(refresher) => refresher
+            .features_for_token(validated_token)
+            .await
+            .map(Json),
+        None => features_cache
+            .get(&cache_key(&edge_token))
+            .map(|features| features.clone())
+            .map(|client_features| ClientFeatures {
+                features: client_features
+                    .features
+                    .filter_by_projects(&validated_token),
+                ..client_features
+            })
+            .map(Json)
+            .ok_or(EdgeError::ClientFeaturesFetchError(FeatureError::Retriable)),
     }
 }
 
@@ -556,7 +517,7 @@ mod tests {
             unleash_client: unleash_client.clone(),
             tokens_to_refresh: Arc::new(Default::default()),
             features_cache: features_cache.clone(),
-            subsumed_tokens: Default::default(),
+            seen_tokens: Default::default(),
             engine_cache: engine_cache.clone(),
             refresh_interval: Duration::seconds(6000),
             persistence: None,
