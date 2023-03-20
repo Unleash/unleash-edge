@@ -68,7 +68,7 @@ async fn redis_saves_and_restores_token_refreshes_correctly() {
     let redis_persister = RedisPersister::new(&url).unwrap();
     let edge_token = EdgeToken::from_str("someproject:development.abcdefghijklmnopqr").unwrap();
 
-    let mut token_refresh = TokenRefresh::new(edge_token.clone());
+    let mut token_refresh = TokenRefresh::new(edge_token.clone(), None);
     let now = Utc::now();
     token_refresh.last_check = Some(now);
     token_refresh.last_refreshed = Some(now);

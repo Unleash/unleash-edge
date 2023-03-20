@@ -186,7 +186,7 @@ mod tests {
             test_token(Some("p1project2"), None, vec!["p1"]),
         ]
         .into_iter()
-        .map(TokenRefresh::new)
+        .map(|t| TokenRefresh::new(t, None))
         .collect();
 
         let expected = vec![test_token(Some("twoprojects"), None, vec!["p1", "p2"])];
@@ -203,7 +203,7 @@ mod tests {
             test_token(Some("p1"), None, vec!["p1"]),
         ]
         .into_iter()
-        .map(TokenRefresh::new)
+        .map(|t| TokenRefresh::new(t, None))
         .collect();
 
         let expected = vec![
@@ -224,7 +224,7 @@ mod tests {
             test_token(Some("p1_and_p2"), None, vec!["p1", "p2"]),
         ]
         .into_iter()
-        .map(TokenRefresh::new)
+        .map(|t| TokenRefresh::new(t, None))
         .collect();
         let expected = vec![test_token(Some("wildcard"), None, vec!["*"])];
 
@@ -246,7 +246,7 @@ mod tests {
             test_token(Some("p2_someenv"), Some("env"), vec!["p2"]),
         ]
         .into_iter()
-        .map(TokenRefresh::new)
+        .map(|t| TokenRefresh::new(t, None))
         .collect();
 
         let expected = vec![

@@ -14,7 +14,7 @@ use utoipa::{
         crate::frontend_api::get_frontend_all_features,
         crate::frontend_api::post_proxy_all_features,
         crate::frontend_api::post_frontend_all_features,
-        crate::client_api::features,
+        crate::client_api::get_features,
         crate::client_api::register,
         crate::client_api::metrics,
         crate::edge_api::validate,
