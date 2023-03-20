@@ -5,6 +5,64 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.0.0 (2023-03-20)
+
+### New Features
+
+ - <csr-id-1e73fdcbce1786aea9f4a1b1a5a9a188c656e85c/> Client features are hydrated synchronously.
+   Previously Edge returned a 503 the first time it saw a new client token.
+   It now blocks until it's fetched the data for the new token and then
+   returns it.
+
+### Bug Fixes
+
+ - <csr-id-d3dfefc08b4a2bdc837d153e89a17a5025908764/> clone value of cache entry
+   When in offline mode, was using DashMap incorrectly. The get function
+   returns a ref to the entry, so to get at the actual data you have to
+   call .value(). This commit fixes that for the client features api
+ - <csr-id-0a9353a95e83b30b46b04047f06f359933306ec7/> update rust crate serde to 1.0.158
+ - <csr-id-b5604a34ee23aa17847fb8280c10cababce5ad26/> update rust crate clap to 4.1.11
+ - <csr-id-4d704b68b78eb066a03d0c5006979db3189f5d43/> update rust crate clap to 4.1.9
+
+### Other
+
+ - <csr-id-584e61bb98e32083996720f9d703341ca0025ed6/> Return 511 if edge has not hydrated.
+   Our client/frontend token separation leads to us having to hydrate
+   client features using a client token. If a frontend token comes in that has
+   access to a project/environment combination that Edge has not yet seen a
+   client token for, this PR now makes Edge consistently return a 511 with
+   a body explaining which project and environment the user has to add a
+   client token for
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 6 commits contributed to the release over the course of 3 calendar days.
+ - 4 days passed between releases.
+ - 6 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 5 unique issues were worked on: [#110](https://github.com/Unleash/unleash-edge/issues/110), [#111](https://github.com/Unleash/unleash-edge/issues/111), [#112](https://github.com/Unleash/unleash-edge/issues/112), [#113](https://github.com/Unleash/unleash-edge/issues/113), [#116](https://github.com/Unleash/unleash-edge/issues/116)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#110](https://github.com/Unleash/unleash-edge/issues/110)**
+    - update rust crate clap to 4.1.9 ([`4d704b6`](https://github.com/Unleash/unleash-edge/commit/4d704b68b78eb066a03d0c5006979db3189f5d43))
+ * **[#111](https://github.com/Unleash/unleash-edge/issues/111)**
+    - Return 511 if edge has not hydrated. ([`584e61b`](https://github.com/Unleash/unleash-edge/commit/584e61bb98e32083996720f9d703341ca0025ed6))
+ * **[#112](https://github.com/Unleash/unleash-edge/issues/112)**
+    - Client features are hydrated synchronously. ([`1e73fdc`](https://github.com/Unleash/unleash-edge/commit/1e73fdcbce1786aea9f4a1b1a5a9a188c656e85c))
+ * **[#113](https://github.com/Unleash/unleash-edge/issues/113)**
+    - update rust crate clap to 4.1.11 ([`b5604a3`](https://github.com/Unleash/unleash-edge/commit/b5604a34ee23aa17847fb8280c10cababce5ad26))
+ * **[#116](https://github.com/Unleash/unleash-edge/issues/116)**
+    - update rust crate serde to 1.0.158 ([`0a9353a`](https://github.com/Unleash/unleash-edge/commit/0a9353a95e83b30b46b04047f06f359933306ec7))
+ * **Uncategorized**
+    - clone value of cache entry ([`d3dfefc`](https://github.com/Unleash/unleash-edge/commit/d3dfefc08b4a2bdc837d153e89a17a5025908764))
+</details>
+
 ## v0.5.1 (2023-03-15)
 
 ### Bug Fixes
@@ -15,7 +73,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 1 commit contributed to the release.
+ - 2 commits contributed to the release.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -26,6 +84,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release unleash-edge v0.5.1 ([`4fb3ca9`](https://github.com/Unleash/unleash-edge/commit/4fb3ca98dc0c9c53ce1402e7048a0f3bee28f96c))
     - persist on shutdown also persists only validated tokens ([`c11ff40`](https://github.com/Unleash/unleash-edge/commit/c11ff4057398b63126effc93aa71578e328f79f4))
 </details>
 
