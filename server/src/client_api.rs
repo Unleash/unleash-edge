@@ -1,9 +1,10 @@
-use crate::error::EdgeError;
+use crate::error::{EdgeError, FeatureError};
+use crate::http::feature_refresher::FeatureRefresher;
 use crate::metrics::client_metrics::{ApplicationKey, MetricsCache};
 use crate::tokens::cache_key;
 use crate::types::{EdgeJsonResult, EdgeResult, EdgeToken, ProjectFilter};
-use actix_web::web::{self, Json};
-use actix_web::{get, post, HttpResponse};
+use actix_web::web::{self, Data, Json};
+use actix_web::{get, post, HttpRequest, HttpResponse};
 use dashmap::DashMap;
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::{
@@ -22,26 +23,33 @@ use unleash_types::client_metrics::{
     )
 )]
 #[get("/client/features")]
-pub async fn features(
+pub async fn get_features(
     edge_token: EdgeToken,
-    features_cache: web::Data<DashMap<String, ClientFeatures>>,
-    token_cache: web::Data<DashMap<String, EdgeToken>>,
+    features_cache: Data<DashMap<String, ClientFeatures>>,
+    token_cache: Data<DashMap<String, EdgeToken>>,
+    req: HttpRequest,
 ) -> EdgeJsonResult<ClientFeatures> {
     let validated_token = token_cache
         .get(&edge_token.token)
         .map(|e| e.value().clone())
         .ok_or(EdgeError::AuthorizationDenied)?;
-    features_cache
-        .get(&cache_key(&edge_token))
-        .map(|features| features.clone())
-        .map(|client_features| ClientFeatures {
-            features: client_features
-                .features
-                .filter_by_projects(&validated_token),
-            ..client_features
-        })
-        .map(Json)
-        .ok_or_else(|| EdgeError::PersistenceError("Feature set not present in cache yet".into()))
+    match req.app_data::<Data<FeatureRefresher>>() {
+        Some(refresher) => refresher
+            .features_for_token(validated_token)
+            .await
+            .map(Json),
+        None => features_cache
+            .get(&cache_key(&edge_token))
+            .map(|features| features.clone())
+            .map(|client_features| ClientFeatures {
+                features: client_features
+                    .features
+                    .filter_by_projects(&validated_token),
+                ..client_features
+            })
+            .map(Json)
+            .ok_or(EdgeError::ClientFeaturesFetchError(FeatureError::Retriable)),
+    }
 }
 
 #[utoipa::path(
@@ -58,9 +66,9 @@ pub async fn features(
 #[post("/client/register")]
 pub async fn register(
     edge_token: EdgeToken,
-    connect_via: web::Data<ConnectVia>,
+    connect_via: Data<ConnectVia>,
     client_application: Json<ClientApplication>,
-    metrics_cache: web::Data<MetricsCache>,
+    metrics_cache: Data<MetricsCache>,
 ) -> EdgeResult<HttpResponse> {
     let client_application = client_application.into_inner();
     let updated_with_connection_info = client_application.connect_via(
@@ -99,7 +107,7 @@ pub async fn register(
 pub async fn metrics(
     edge_token: EdgeToken,
     metrics: Json<ClientMetrics>,
-    metrics_cache: web::Data<MetricsCache>,
+    metrics_cache: Data<MetricsCache>,
 ) -> EdgeResult<HttpResponse> {
     let metrics = metrics.into_inner();
     let metrics = from_bucket_app_name_and_env(
@@ -112,13 +120,14 @@ pub async fn metrics(
 }
 
 pub fn configure_client_api(cfg: &mut web::ServiceConfig) {
-    cfg.service(features).service(register).service(metrics);
+    cfg.service(get_features).service(register).service(metrics);
 }
 
 #[cfg(test)]
 mod tests {
 
     use std::path::PathBuf;
+    use std::str::FromStr;
     use std::{collections::HashMap, sync::Arc};
 
     use crate::metrics::client_metrics::MetricsKey;
@@ -126,8 +135,11 @@ mod tests {
 
     use super::*;
 
+    use crate::auth::token_validator::TokenValidator;
     use crate::cli::OfflineArgs;
-    use crate::tests::features_from_disk;
+    use crate::http::unleash_client::UnleashClient;
+    use crate::middleware;
+    use crate::tests::{features_from_disk, upstream_server};
     use actix_http::Request;
     use actix_web::{
         http::header::ContentType,
@@ -135,12 +147,13 @@ mod tests {
         web::{self, Data},
         App,
     };
-    use chrono::{DateTime, TimeZone, Utc};
+    use chrono::{DateTime, Duration, TimeZone, Utc};
     use maplit::hashmap;
     use reqwest::StatusCode;
     use ulid::Ulid;
     use unleash_types::client_features::{ClientFeature, Constraint, Operator, Strategy};
     use unleash_types::client_metrics::{ClientMetricsEnv, MetricBucket, ToggleStats};
+    use unleash_yggdrasil::EngineState;
 
     async fn make_metrics_post_request() -> Request {
         test::TestRequest::post()
@@ -334,7 +347,7 @@ mod tests {
             App::new()
                 .app_data(Data::new(our_app.clone()))
                 .app_data(Data::from(metrics_cache.clone()))
-                .service(web::scope("/api").service(super::register)),
+                .service(web::scope("/api").service(register)),
         )
         .await;
         let mut client_app = ClientApplication::new("test_application", 15);
@@ -365,7 +378,7 @@ mod tests {
             App::new()
                 .app_data(Data::from(features_cache.clone()))
                 .app_data(Data::from(token_cache.clone()))
-                .service(web::scope("/api").service(features)),
+                .service(web::scope("/api").service(get_features)),
         )
         .await;
         let client_features = cached_client_features();
@@ -402,7 +415,7 @@ mod tests {
             App::new()
                 .app_data(Data::from(features_cache.clone()))
                 .app_data(Data::from(token_cache.clone()))
-                .service(web::scope("/api").service(features)),
+                .service(web::scope("/api").service(get_features)),
         )
         .await;
         let mut edge_token = EdgeToken::try_from(
@@ -431,7 +444,7 @@ mod tests {
             App::new()
                 .app_data(Data::from(features_cache.clone()))
                 .app_data(Data::from(token_cache.clone()))
-                .service(web::scope("/api").service(features)),
+                .service(web::scope("/api").service(get_features)),
         )
         .await;
         let mut token =
@@ -463,7 +476,7 @@ mod tests {
                     bootstrap_file: Some(PathBuf::from("../examples/features.json")),
                     tokens: vec!["secret_123".into()],
                 })))
-                .service(web::scope("/api").service(features)),
+                .service(web::scope("/api").service(get_features)),
         )
         .await;
         let token = EdgeToken::offline_token("secret-123");
@@ -473,5 +486,134 @@ mod tests {
         let req = make_features_request_with_token(token.clone()).await;
         let res: ClientFeatures = test::call_and_read_body_json(&app, req).await;
         assert_eq!(res.features.len(), example_features.features.len());
+    }
+
+    #[tokio::test]
+    async fn calling_client_features_endpoint_with_new_token_hydrates_from_upstream() {
+        let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
+            Arc::new(DashMap::default());
+        let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
+        let server = upstream_server(
+            upstream_token_cache.clone(),
+            upstream_features_cache.clone(),
+            upstream_engine_cache.clone(),
+        )
+        .await;
+        let upstream_features = features_from_disk("../examples/hostedexample.json");
+        let mut upstream_known_token = EdgeToken::from_str("dx:development.secret123").unwrap();
+        upstream_known_token.status = TokenValidationStatus::Validated;
+        upstream_known_token.token_type = Some(TokenType::Client);
+        upstream_token_cache.insert(
+            upstream_known_token.token.clone(),
+            upstream_known_token.clone(),
+        );
+        upstream_features_cache.insert(cache_key(&upstream_known_token), upstream_features.clone());
+        let unleash_client = Arc::new(UnleashClient::new(server.url("/").as_str(), None).unwrap());
+        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
+        let feature_refresher = Arc::new(FeatureRefresher {
+            unleash_client: unleash_client.clone(),
+            tokens_to_refresh: Arc::new(Default::default()),
+            features_cache: features_cache.clone(),
+            engine_cache: engine_cache.clone(),
+            refresh_interval: Duration::seconds(6000),
+            persistence: None,
+        });
+        let token_validator = Arc::new(TokenValidator {
+            unleash_client: unleash_client.clone(),
+            token_cache: token_cache.clone(),
+            persistence: None,
+        });
+        let local_app = test::init_service(
+            App::new()
+                .app_data(Data::from(token_validator.clone()))
+                .app_data(Data::from(features_cache.clone()))
+                .app_data(Data::from(engine_cache.clone()))
+                .app_data(Data::from(token_cache.clone()))
+                .app_data(Data::from(feature_refresher.clone()))
+                .wrap(middleware::as_async_middleware::as_async_middleware(
+                    middleware::validate_token::validate_token,
+                ))
+                .service(web::scope("/api").configure(configure_client_api)),
+        )
+        .await;
+        let req = test::TestRequest::get()
+            .uri("/api/client/features")
+            .insert_header(ContentType::json())
+            .insert_header(("Authorization", upstream_known_token.token.clone()))
+            .to_request();
+        let res = test::call_service(&local_app, req).await;
+        assert_eq!(res.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    pub async fn still_subsumes_tokens_after_moving_registration_to_initial_hydration() {
+        let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
+            Arc::new(DashMap::default());
+        let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
+        let server = upstream_server(
+            upstream_token_cache.clone(),
+            upstream_features_cache.clone(),
+            upstream_engine_cache.clone(),
+        )
+        .await;
+        let upstream_features = features_from_disk("../examples/hostedexample.json");
+        let mut upstream_dx_token = EdgeToken::from_str("dx:development.secret123").unwrap();
+        upstream_dx_token.status = TokenValidationStatus::Validated;
+        upstream_dx_token.token_type = Some(TokenType::Client);
+        upstream_token_cache.insert(upstream_dx_token.token.clone(), upstream_dx_token.clone());
+        let mut upstream_eg_token = EdgeToken::from_str("eg:development.secret321").unwrap();
+        upstream_eg_token.status = TokenValidationStatus::Validated;
+        upstream_eg_token.token_type = Some(TokenType::Client);
+        upstream_token_cache.insert(upstream_eg_token.token.clone(), upstream_eg_token.clone());
+        upstream_features_cache.insert(cache_key(&upstream_dx_token), upstream_features.clone());
+        let unleash_client = Arc::new(UnleashClient::new(server.url("/").as_str(), None).unwrap());
+        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
+        let feature_refresher = Arc::new(FeatureRefresher::new(
+            unleash_client.clone(),
+            features_cache.clone(),
+            engine_cache.clone(),
+            Duration::seconds(6000),
+            None,
+        ));
+        let token_validator = Arc::new(TokenValidator {
+            unleash_client: unleash_client.clone(),
+            token_cache: token_cache.clone(),
+            persistence: None,
+        });
+        let local_app = test::init_service(
+            App::new()
+                .app_data(Data::from(token_validator.clone()))
+                .app_data(Data::from(features_cache.clone()))
+                .app_data(Data::from(engine_cache.clone()))
+                .app_data(Data::from(token_cache.clone()))
+                .app_data(Data::from(feature_refresher.clone()))
+                .wrap(middleware::as_async_middleware::as_async_middleware(
+                    middleware::validate_token::validate_token,
+                ))
+                .service(web::scope("/api").configure(configure_client_api)),
+        )
+        .await;
+        let dx_req = test::TestRequest::get()
+            .uri("/api/client/features")
+            .insert_header(ContentType::json())
+            .insert_header(("Authorization", upstream_dx_token.token.clone()))
+            .to_request();
+        let res: ClientFeatures = test::call_and_read_body_json(&local_app, dx_req).await;
+        assert!(!res.features.is_empty());
+        let eg_req = test::TestRequest::get()
+            .uri("/api/client/features")
+            .insert_header(ContentType::json())
+            .insert_header(("Authorization", upstream_eg_token.token.clone()))
+            .to_request();
+        let eg_res: ClientFeatures = test::call_and_read_body_json(&local_app, eg_req).await;
+        assert!(!eg_res.features.is_empty());
+        assert_eq!(feature_refresher.tokens_to_refresh.len(), 2);
+        assert_eq!(features_cache.len(), 1);
     }
 }

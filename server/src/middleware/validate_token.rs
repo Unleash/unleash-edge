@@ -1,5 +1,4 @@
 use crate::auth::token_validator::TokenValidator;
-use crate::http::feature_refresher::FeatureRefresher;
 use crate::types::{EdgeToken, TokenType, TokenValidationStatus};
 use actix_web::{
     body::MessageBody,
@@ -15,7 +14,6 @@ pub async fn validate_token(
     srv: crate::middleware::as_async_middleware::Next<impl MessageBody + 'static>,
 ) -> Result<ServiceResponse<impl MessageBody>, actix_web::Error> {
     let maybe_validator = req.app_data::<Data<TokenValidator>>();
-    let maybe_refresher = req.app_data::<Data<FeatureRefresher>>();
     let token_cache = req
         .app_data::<Data<DashMap<String, EdgeToken>>>()
         .unwrap()
@@ -36,12 +34,6 @@ pub async fn validate_token(
                         }
                     }
                     Some(TokenType::Client) => {
-                        if maybe_refresher.is_some() {
-                            let _ = maybe_refresher
-                                .unwrap()
-                                .register_token_for_refresh(known_token.clone())
-                                .await;
-                        }
                         if req.path().contains("/api/client") {
                             srv.call(req).await?.map_into_left_body()
                         } else {

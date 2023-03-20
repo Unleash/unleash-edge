@@ -112,10 +112,10 @@ pub struct TokenRefresh {
 }
 
 impl TokenRefresh {
-    pub fn new(token: EdgeToken) -> Self {
+    pub fn new(token: EdgeToken, etag: Option<EntityTag>) -> Self {
         Self {
             token,
-            etag: None,
+            etag,
             last_refreshed: None,
             last_check: None,
         }
