@@ -123,7 +123,7 @@ impl FeatureRefresher {
                 if self.token_is_subsumed(&token) {
                     Ok(features)
                 } else {
-                    debug!("Token is a super token to existing tokens. Registering");
+                    debug!("Token is not subsumed by existing tokens. Registering");
                     self.register_and_hydrate_token(token.clone()).await
                 }
             }
