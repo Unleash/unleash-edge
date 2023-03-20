@@ -21,7 +21,7 @@ actix-service = "2.0.2"
 actix-web = {version = "4.3.1", features = ["rustls"]}
 actix-web-opentelemetry = {version = "0.13.0", features = ["metrics", "metrics-prometheus"]}
 
-anyhow = "1.0.69"
+anyhow = "1.0.70"
 async-trait = "0.1.66"
 chrono = {version = "0.4.24", features = ["serde"]}
 clap = {version = "4.1.11", features = ["derive", "env"]}
