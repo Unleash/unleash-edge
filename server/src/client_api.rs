@@ -66,9 +66,9 @@ pub async fn get_features(
 #[post("/client/register")]
 pub async fn register(
     edge_token: EdgeToken,
-    connect_via: web::Data<ConnectVia>,
+    connect_via: Data<ConnectVia>,
     client_application: Json<ClientApplication>,
-    metrics_cache: web::Data<MetricsCache>,
+    metrics_cache: Data<MetricsCache>,
 ) -> EdgeResult<HttpResponse> {
     let client_application = client_application.into_inner();
     let updated_with_connection_info = client_application.connect_via(
@@ -107,7 +107,7 @@ pub async fn register(
 pub async fn metrics(
     edge_token: EdgeToken,
     metrics: Json<ClientMetrics>,
-    metrics_cache: web::Data<MetricsCache>,
+    metrics_cache: Data<MetricsCache>,
 ) -> EdgeResult<HttpResponse> {
     let metrics = metrics.into_inner();
     let metrics = from_bucket_app_name_and_env(
@@ -347,7 +347,7 @@ mod tests {
             App::new()
                 .app_data(Data::new(our_app.clone()))
                 .app_data(Data::from(metrics_cache.clone()))
-                .service(web::scope("/api").service(super::register)),
+                .service(web::scope("/api").service(register)),
         )
         .await;
         let mut client_app = ClientApplication::new("test_application", 15);
@@ -517,7 +517,6 @@ mod tests {
             unleash_client: unleash_client.clone(),
             tokens_to_refresh: Arc::new(Default::default()),
             features_cache: features_cache.clone(),
-            seen_tokens: Default::default(),
             engine_cache: engine_cache.clone(),
             refresh_interval: Duration::seconds(6000),
             persistence: None,
@@ -537,7 +536,7 @@ mod tests {
                 .wrap(middleware::as_async_middleware::as_async_middleware(
                     middleware::validate_token::validate_token,
                 ))
-                .service(web::scope("/api").configure(super::configure_client_api)),
+                .service(web::scope("/api").configure(configure_client_api)),
         )
         .await;
         let req = test::TestRequest::get()
@@ -597,7 +596,7 @@ mod tests {
                 .wrap(middleware::as_async_middleware::as_async_middleware(
                     middleware::validate_token::validate_token,
                 ))
-                .service(web::scope("/api").configure(super::configure_client_api)),
+                .service(web::scope("/api").configure(configure_client_api)),
         )
         .await;
         let dx_req = test::TestRequest::get()

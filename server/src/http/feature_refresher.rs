@@ -23,7 +23,6 @@ pub struct FeatureRefresher {
     pub tokens_to_refresh: Arc<DashMap<String, TokenRefresh>>,
     pub features_cache: Arc<DashMap<String, ClientFeatures>>,
     pub engine_cache: Arc<DashMap<String, EngineState>>,
-    pub seen_tokens: DashMap<String, String>,
     pub refresh_interval: chrono::Duration,
     pub persistence: Option<Arc<dyn EdgePersistence>>,
 }
@@ -36,7 +35,6 @@ impl Default for FeatureRefresher {
             tokens_to_refresh: Arc::new(DashMap::default()),
             features_cache: Default::default(),
             engine_cache: Default::default(),
-            seen_tokens: Default::default(),
             persistence: None,
         }
     }
@@ -69,7 +67,6 @@ impl FeatureRefresher {
             features_cache: features,
             engine_cache: engines,
             refresh_interval: features_refresh_interval,
-            seen_tokens: DashMap::default(),
             persistence,
         }
     }
@@ -80,7 +77,6 @@ impl FeatureRefresher {
             tokens_to_refresh: Arc::new(Default::default()),
             features_cache: Arc::new(Default::default()),
             engine_cache: Arc::new(Default::default()),
-            seen_tokens: Default::default(),
             refresh_interval: chrono::Duration::seconds(10),
             persistence: None,
         }
@@ -155,9 +151,7 @@ impl FeatureRefresher {
         token: EdgeToken,
         etag: Option<EntityTag>,
     ) -> EdgeResult<()> {
-        if !self.tokens_to_refresh.contains_key(&token.token)
-            && !self.seen_tokens.contains_key(&token.token)
-        {
+        if !self.tokens_to_refresh.contains_key(&token.token) {
             let _ = self
                 .unleash_client
                 .register_as_client(
@@ -171,8 +165,6 @@ impl FeatureRefresher {
             let mut registered_tokens: Vec<TokenRefresh> =
                 self.tokens_to_refresh.iter().map(|t| t.clone()).collect();
             registered_tokens.push(TokenRefresh::new(token.clone(), etag));
-            self.seen_tokens
-                .insert(token.token.clone(), token.token.clone());
             let minimum = simplify(&registered_tokens);
             let mut keys = HashSet::new();
             for refreshes in minimum {
@@ -280,7 +272,7 @@ impl FeatureRefresher {
 
     pub fn update_last_check(&self, token: &EdgeToken) {
         if let Some(mut token) = self.tokens_to_refresh.get_mut(&token.token) {
-            token.last_check = Some(chrono::Utc::now());
+            token.last_check = Some(Utc::now());
         }
     }
 
@@ -288,8 +280,8 @@ impl FeatureRefresher {
         self.tokens_to_refresh
             .entry(token.token.clone())
             .and_modify(|token_to_refresh| {
-                token_to_refresh.last_check = Some(chrono::Utc::now());
-                token_to_refresh.last_refreshed = Some(chrono::Utc::now());
+                token_to_refresh.last_check = Some(Utc::now());
+                token_to_refresh.last_refreshed = Some(Utc::now());
                 token_to_refresh.etag = etag
             });
     }
@@ -314,8 +306,8 @@ mod tests {
 
     use crate::tests::features_from_disk;
     use crate::tokens::cache_key;
+    use crate::types::TokenType;
     use crate::types::TokenValidationStatus::Validated;
-    use crate::types::{TokenType, TokenValidationStatus};
     use crate::{
         http::unleash_client::UnleashClient,
         types::{EdgeToken, TokenRefresh},
@@ -513,9 +505,6 @@ mod tests {
         assert!(feature_refresher
             .tokens_to_refresh
             .contains_key("*:development.abcdefghijklmnopqrstuvwxyz"));
-        assert!(feature_refresher
-            .seen_tokens
-            .contains_key("projecta:development.abcdefghijklmnopqrstuvwxyz"));
     }
 
     #[tokio::test]
@@ -650,7 +639,7 @@ mod tests {
             None,
         );
         let mut token = EdgeToken::try_from("*:development.secret123".to_string()).unwrap();
-        token.status = TokenValidationStatus::Validated;
+        token.status = Validated;
         token.token_type = Some(TokenType::Client);
         let _ = feature_refresher
             .register_token_for_refresh(token, None)
@@ -671,7 +660,7 @@ mod tests {
         let token_cache_to_modify = upstream_token_cache.clone();
         let mut valid_token = EdgeToken::try_from("*:development.secret123".to_string()).unwrap();
         valid_token.token_type = Some(TokenType::Client);
-        valid_token.status = TokenValidationStatus::Validated;
+        valid_token.status = Validated;
         upstream_token_cache.insert(valid_token.token.clone(), valid_token.clone());
         let example_features = features_from_disk("../examples/features.json");
         let cache_key = cache_key(&valid_token);
@@ -712,11 +701,11 @@ mod tests {
         let token_cache_to_modify = upstream_token_cache.clone();
         let mut dx_token = EdgeToken::try_from("dx:development.secret123".to_string()).unwrap();
         dx_token.token_type = Some(TokenType::Client);
-        dx_token.status = TokenValidationStatus::Validated;
+        dx_token.status = Validated;
         upstream_token_cache.insert(dx_token.token.clone(), dx_token.clone());
         let mut eg_token = EdgeToken::try_from("eg:development.secret123".to_string()).unwrap();
         eg_token.token_type = Some(TokenType::Client);
-        eg_token.status = TokenValidationStatus::Validated;
+        eg_token.status = Validated;
         upstream_token_cache.insert(eg_token.token.clone(), eg_token.clone());
         let example_features = features_from_disk("../examples/hostedexample.json");
         let cache_key = cache_key(&dx_token);
@@ -760,11 +749,11 @@ mod tests {
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let mut dx_token = EdgeToken::try_from("dx:development.secret123".to_string()).unwrap();
         dx_token.token_type = Some(TokenType::Client);
-        dx_token.status = TokenValidationStatus::Validated;
+        dx_token.status = Validated;
         upstream_token_cache.insert(dx_token.token.clone(), dx_token.clone());
         let mut eg_token = EdgeToken::try_from("eg:development.secret123".to_string()).unwrap();
         eg_token.token_type = Some(TokenType::Client);
-        eg_token.status = TokenValidationStatus::Validated;
+        eg_token.status = Validated;
         upstream_token_cache.insert(eg_token.token.clone(), eg_token.clone());
         let example_features = features_from_disk("../examples/hostedexample.json");
         let cache_key = cache_key(&dx_token);
