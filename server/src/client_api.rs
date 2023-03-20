@@ -40,7 +40,7 @@ pub async fn get_features(
             .map(Json),
         None => features_cache
             .get(&cache_key(&edge_token))
-            .map(|features| features.clone())
+            .map(|features| features.value().clone())
             .map(|client_features| ClientFeatures {
                 features: client_features
                     .features
