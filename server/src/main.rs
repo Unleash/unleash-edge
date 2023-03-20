@@ -112,7 +112,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let server = server?.workers(http_args.workers).shutdown_timeout(5);
 
     match schedule_args.mode {
-        crate::cli::EdgeMode::Edge(edge) => {
+        cli::EdgeMode::Edge(edge) => {
             let refresher = feature_refresher.clone().unwrap();
             let validator = token_validator_schedule.clone().unwrap();
             tokio::select! {
@@ -138,8 +138,9 @@ async fn main() -> Result<(), anyhow::Error> {
         _ => tokio::select! {
             _ = server.run() => {
                 tracing::info!("Actix is shutting down. Persisting data");
-                let refresher = feature_refresher.clone().unwrap();
-                clean_shutdown(persistence, lazy_feature_cache.clone(), lazy_token_cache.clone(), refresher.tokens_to_refresh.clone()).await;
+                if let Some(refresher) = feature_refresher.clone() {
+                    clean_shutdown(persistence, lazy_feature_cache.clone(), lazy_token_cache.clone(), refresher.tokens_to_refresh.clone()).await;
+                }
                 tracing::info!("Actix was shutdown properly");
 
             }
