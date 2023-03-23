@@ -25,6 +25,7 @@ pub enum TokenType {
     Frontend,
     Client,
     Admin,
+    Invalid,
 }
 
 #[derive(Clone, Debug)]
