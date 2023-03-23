@@ -115,7 +115,8 @@ Even though Edge supports dynamic tokens, you still have the option of providing
         "project": "demo-app"
     },
     "explanation": "Edge does not yet have data for this token. Please make a call against /api/client/features with a client token that has the same access as your token"
-}```
+}
+```
 
 
 To launch in this mode, run:
