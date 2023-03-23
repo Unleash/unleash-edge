@@ -3,7 +3,7 @@
 [![crates.io](https://img.shields.io/crates/v/unleash-edge?label=latest)](https://crates.io/crates/unleash-edge)
 [![Documentation](https://docs.rs/unleash-edge/badge.svg?version=latest)](https://docs.rs/unleash-edge/latest)
 ![MIT licensed](https://img.shields.io/crates/l/unleash-edge.svg)
-[![Dependency Status](https://deps.rs/crate/unleash-edge/1.0.0/status.svg)](https://deps.rs/crate/unleash-edge/1.0.0)
+[![Dependency Status](https://deps.rs/crate/unleash-edge/1.0.1/status.svg)](https://deps.rs/crate/unleash-edge/1.0.1)
 [![CI](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml/badge.svg)](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml)
 [![Coverage Status](https://coveralls.io/repos/github/Unleash/unleash-edge/badge.svg?branch=main)](https://coveralls.io/github/Unleash/unleash-edge?branch=main)
 ![downloads](https://img.shields.io/crates/d/unleash-edge.svg)
@@ -222,7 +222,7 @@ $ hey -z 10s -H "Authorization: <frontend token>" http://localhost:3063/api/fron
 | --- | ------ | --- | -------- | --- | ---------------- |
 | 0.1 | 4.3 Mi | 3673 | /api/frontend | 93ms | 9Mi |
 | 1 | 6.7 Mi | 39000 | /api/frontend | 1.6ms | 80Mi |
-| 4 | 6.9 Mi | 110000 | /api/frontend | 600μs | 252Mi |
+| 4 | 6.9 Mi | 1.0.10 | /api/frontend | 600μs | 252Mi |
 | 8 | 12.5 Mi | 141090 | /api/frontend | 600μs | 324Mi |
 
 and against our client features endpoint.
