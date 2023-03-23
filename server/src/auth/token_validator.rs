@@ -1,7 +1,9 @@
 use crate::error::EdgeError;
 use crate::http::unleash_client::UnleashClient;
 use crate::persistence::EdgePersistence;
-use crate::types::{EdgeResult, EdgeToken, TokenValidationStatus, ValidateTokensRequest};
+use crate::types::{
+    EdgeResult, EdgeToken, TokenType, TokenValidationStatus, ValidateTokensRequest,
+};
 use std::sync::Arc;
 
 use dashmap::DashMap;
@@ -77,6 +79,7 @@ impl TokenValidator {
                     } else {
                         EdgeToken {
                             status: crate::types::TokenValidationStatus::Invalid,
+                            token_type: Some(TokenType::Invalid),
                             ..maybe_valid
                         }
                     }
