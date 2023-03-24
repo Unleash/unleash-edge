@@ -21,18 +21,20 @@ actix-service = "2.0.2"
 actix-web = {version = "4.3.1", features = ["rustls"]}
 actix-web-opentelemetry = {version = "0.13.0", features = ["metrics", "metrics-prometheus"]}
 
-anyhow = "1.0.69"
-async-trait = "0.1.66"
+anyhow = "1.0.70"
+async-trait = "0.1.67"
 chrono = {version = "0.4.24", features = ["serde"]}
 clap = {version = "4.1.13", features = ["derive", "env"]}
 dashmap = "5.4.0"
 dotenv = {version = "0.15.0", features = ["clap"]}
 futures = "0.3.27"
 futures-core = "0.3.27"
+lazy_static = "1.4.0"
 num_cpus = "1.15.0"
 opentelemetry = {version = "0.18.0", features = ["trace", "rt-tokio", "metrics"]}
 opentelemetry-prometheus = "0.11.0"
 prometheus = {version = "0.13.3", features = ["process"]}
+prometheus-static-metric = "0.5.1"
 redis = {version = "0.22.3", features = ["tokio-comp"]}
 reqwest = {version = "0.11.15", default-features = false, features = ["rustls", "json", "rustls-tls"]}
 rustls = "0.20.8"

@@ -76,7 +76,8 @@ async fn main() -> Result<(), anyhow::Error> {
             Some(refresher) => app.app_data(web::Data::from(refresher)),
             None => app,
         };
-        app.wrap(Etag::default())
+        app.wrap(actix_web::middleware::Compress::default())
+            .wrap(Etag::default())
             .wrap(cors_middleware)
             .wrap(RequestTracing::new())
             .wrap(request_metrics.clone())

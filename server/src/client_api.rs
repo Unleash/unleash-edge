@@ -229,6 +229,7 @@ mod tests {
                 timestamp: DateTime::parse_from_rfc3339("1867-11-07T12:00:00Z")
                     .unwrap()
                     .with_timezone(&Utc),
+                environment: "development".into(),
             })
             .unwrap();
 
