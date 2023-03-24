@@ -1,12 +1,22 @@
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
+use lazy_static::lazy_static;
+use prometheus::{register_histogram, Histogram};
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 use tracing::{debug, instrument};
 use unleash_types::client_metrics::{ClientApplication, ClientMetricsEnv};
-
 pub const UPSTREAM_MAX_BODY_SIZE: usize = 100 * 1024;
 pub const BATCH_BODY_SIZE: usize = 95 * 1024;
+
+lazy_static! {
+    pub static ref METRICS_SIZE_HISTOGRAM: Histogram = register_histogram!(
+        "metrics_size_in_bytes",
+        "Size of metrics when posting",
+        vec![1000.0, 10000.0, 20000.0, 50000.0, 75000.0, 100000.0, 250000.0, 500000.0, 1000000.0]
+    )
+    .unwrap();
+}
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct ApplicationKey {
@@ -162,6 +172,7 @@ impl MetricsCache {
         for metric in batch.metrics.clone() {
             self.metrics.remove(&MetricsKey::from(metric.clone()));
         }
+        METRICS_SIZE_HISTOGRAM.observe(size_of_batch(&batch) as f64);
         if sendable(&batch) {
             vec![batch]
         } else {
