@@ -19,7 +19,7 @@ use unleash_types::client_metrics::ClientApplication;
 use crate::error::FeatureError;
 use crate::urls::UnleashUrls;
 use crate::{error::EdgeError, types::ClientFeaturesRequest};
-use tracing::{debug, instrument};
+use tracing::instrument;
 
 const UNLEASH_APPNAME_HEADER: &str = "UNLEASH-APPNAME";
 const UNLEASH_INSTANCE_ID_HEADER: &str = "UNLEASH-INSTANCEID";
@@ -144,7 +144,6 @@ impl UnleashClient {
             .await
             .map_err(|_| EdgeError::ClientFeaturesFetchError(FeatureError::Retriable))?;
         if response.status() == StatusCode::NOT_MODIFIED {
-            debug!("Got 304 when fetching features from {request:?}");
             Ok(ClientFeaturesResponse::NoUpdate(
                 request.etag.expect("Got NOT_MODIFIED without an ETag"),
             ))
@@ -153,13 +152,7 @@ impl UnleashClient {
                 .headers()
                 .get("ETag")
                 .or_else(|| response.headers().get("etag"))
-                .and_then(|etag| match EntityTag::from_str(etag.to_str().unwrap()) {
-                    Ok(e) => Some(e),
-                    Err(_) => {
-                        EntityTag::from_str(format!("\"{}\"", etag.to_str().unwrap()).as_str()).ok()
-                    }
-                });
-            debug!("Got an update with etag: {etag:?}");
+                .and_then(|etag| EntityTag::from_str(etag.to_str().unwrap()).ok());
             let features = response
                 .json::<ClientFeatures>()
                 .await

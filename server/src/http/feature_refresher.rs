@@ -213,12 +213,12 @@ impl FeatureRefresher {
 
         match features_result {
             Ok(feature_response) => match feature_response {
-                ClientFeaturesResponse::NoUpdate(_) => {
-                    debug!("No update needed. Will update last check time");
+                ClientFeaturesResponse::NoUpdate(tag) => {
+                    debug!("No update needed. Will update last check time with {tag}");
                     self.update_last_check(&refresh.token.clone());
                 }
                 ClientFeaturesResponse::Updated(features, etag) => {
-                    debug!("Got updated client features. Updating features");
+                    debug!("Got updated client features. Updating features with {etag:?}");
                     let key = cache_key(&refresh.token);
                     self.update_last_refresh(&refresh.token, etag);
                     self.features_cache
