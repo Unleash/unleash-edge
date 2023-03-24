@@ -1,4 +1,5 @@
 use actix_web::http::header::EntityTag;
+use lazy_static::lazy_static;
 use reqwest::{RequestBuilder, StatusCode, Url};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -6,20 +7,50 @@ use std::time::Duration;
 use ulid::Ulid;
 use unleash_types::client_features::ClientFeatures;
 
+use crate::metrics::client_metrics::MetricsBatch;
 use crate::types::{
-    BatchMetricsRequestBody, ClientFeaturesResponse, EdgeResult, EdgeToken, TokenValidationStatus,
-    ValidateTokensRequest,
+    ClientFeaturesResponse, EdgeResult, EdgeToken, TokenValidationStatus, ValidateTokensRequest,
 };
+
+use prometheus::{register_int_gauge_vec, IntGaugeVec, Opts};
 use reqwest::{header, Client};
 use unleash_types::client_metrics::ClientApplication;
 
 use crate::error::FeatureError;
 use crate::urls::UnleashUrls;
 use crate::{error::EdgeError, types::ClientFeaturesRequest};
+use tracing::instrument;
 
 const UNLEASH_APPNAME_HEADER: &str = "UNLEASH-APPNAME";
 const UNLEASH_INSTANCE_ID_HEADER: &str = "UNLEASH-INSTANCEID";
 const UNLEASH_CLIENT_SPEC_HEADER: &str = "Unleash-Client-Spec";
+
+lazy_static! {
+    pub static ref CLIENT_REGISTER_FAILURES: IntGaugeVec = register_int_gauge_vec!(
+        Opts::new(
+            "client_register_failures",
+            "Why we failed to register upstream"
+        ),
+        &["status_code"]
+    )
+    .unwrap();
+    pub static ref CLIENT_FEATURE_FETCH_FAILURES: IntGaugeVec = register_int_gauge_vec!(
+        Opts::new(
+            "client_feature_fetch_failures",
+            "Why we failed to fetch features"
+        ),
+        &["status_code"]
+    )
+    .unwrap();
+    pub static ref TOKEN_VALIDATION_FAILURES: IntGaugeVec = register_int_gauge_vec!(
+        Opts::new(
+            "token_validation_failures",
+            "Why we failed to validate tokens"
+        ),
+        &["status_code"]
+    )
+    .unwrap();
+}
 
 #[derive(Clone, Debug, Default)]
 pub struct UnleashClient {
@@ -81,6 +112,7 @@ impl UnleashClient {
         }
     }
 
+    #[instrument]
     pub async fn register_as_client(
         &self,
         api_key: String,
@@ -93,7 +125,13 @@ impl UnleashClient {
             .send()
             .await
             .map_err(|_| EdgeError::ClientRegisterError)
-            .map(|_| ())
+            .map(|r| {
+                if !r.status().is_success() {
+                    CLIENT_REGISTER_FAILURES
+                        .with_label_values(&[r.status().as_str()])
+                        .inc()
+                }
+            })
     }
 
     pub async fn get_client_features(
@@ -120,15 +158,21 @@ impl UnleashClient {
                 .map_err(|_e| EdgeError::ClientFeaturesParseError)?;
             Ok(ClientFeaturesResponse::Updated(features, etag))
         } else if response.status() == StatusCode::FORBIDDEN {
+            CLIENT_FEATURE_FETCH_FAILURES
+                .with_label_values(&[response.status().as_str()])
+                .inc();
             Err(EdgeError::ClientFeaturesFetchError(
                 FeatureError::AccessDenied,
             ))
         } else {
+            CLIENT_FEATURE_FETCH_FAILURES
+                .with_label_values(&[response.status().as_str()])
+                .inc();
             Err(EdgeError::ClientFeaturesFetchError(FeatureError::Retriable))
         }
     }
 
-    pub async fn send_batch_metrics(&self, request: BatchMetricsRequestBody) -> EdgeResult<()> {
+    pub async fn send_batch_metrics(&self, request: MetricsBatch) -> EdgeResult<()> {
         let result = self
             .backing_client
             .post(self.urls.edge_metrics_url.to_string())
@@ -139,7 +183,7 @@ impl UnleashClient {
         if result.status().is_success() {
             Ok(())
         } else {
-            Err(EdgeError::EdgeMetricsError)
+            Err(EdgeError::EdgeMetricsRequestError(result.status()))
         }
     }
 
@@ -176,7 +220,12 @@ impl UnleashClient {
                     })
                     .collect())
             }
-            _ => Err(EdgeError::EdgeTokenError),
+            _ => {
+                TOKEN_VALIDATION_FAILURES
+                    .with_label_values(&[result.status().as_str()])
+                    .inc();
+                Err(EdgeError::EdgeTokenError)
+            }
         }
     }
 }

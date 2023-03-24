@@ -586,6 +586,7 @@ mod tests {
             .get(&MetricsKey {
                 app_name: "some-app".into(),
                 feature_name: "some-feature".into(),
+                environment: "development".into(),
                 timestamp: DateTime::parse_from_rfc3339("1867-11-07T12:00:00Z")
                     .unwrap()
                     .with_timezone(&Utc),

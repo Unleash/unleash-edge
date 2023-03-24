@@ -41,6 +41,7 @@ pub enum EdgeError {
     FrontendNotYetHydrated(FrontendHydrationMissing),
     PersistenceError(String),
     EdgeMetricsError,
+    EdgeMetricsRequestError(StatusCode),
     EdgeTokenError,
     EdgeTokenParseError,
     InvalidBackupFile(String, String),
@@ -83,6 +84,9 @@ impl Display for EdgeError {
             EdgeError::InvalidServerUrl(msg) => write!(f, "Failed to parse server url: [{msg}]"),
             EdgeError::EdgeTokenError => write!(f, "Edge token error"),
             EdgeError::EdgeTokenParseError => write!(f, "Failed to parse token response"),
+            EdgeError::EdgeMetricsRequestError(status_code) => {
+                write!(f, "Failed to post metrics with status code: {status_code}")
+            }
             EdgeError::AuthorizationPending => {
                 write!(f, "No validation for token has happened yet")
             }
@@ -114,6 +118,7 @@ impl ResponseError for EdgeError {
             EdgeError::EdgeMetricsError => StatusCode::BAD_REQUEST,
             EdgeError::ClientRegisterError => StatusCode::BAD_REQUEST,
             EdgeError::FrontendNotYetHydrated(_) => StatusCode::NETWORK_AUTHENTICATION_REQUIRED,
+            EdgeError::EdgeMetricsRequestError(status_code) => *status_code,
         }
     }
 
