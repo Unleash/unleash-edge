@@ -183,8 +183,7 @@ Options:
 
 ## Metrics
 
-| :exclamation: | To see SDK usage metrics from Edge instances, you will need Unleash v4.22 or newer. |
-| ------------- | ----------------------------------------------------------------------------------- |
+**❗  Note:**  For Unleash to correctly register SDK usage metrics sent from Edge instances, your Unleash instance must be v4.22 or newer.
 
 ## Performance
 
