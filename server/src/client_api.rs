@@ -35,7 +35,7 @@ pub async fn get_features(
         .ok_or(EdgeError::AuthorizationDenied)?;
     match req.app_data::<Data<FeatureRefresher>>() {
         Some(refresher) => refresher
-            .features_for_token(validated_token)
+            .features_for_token(&validated_token)
             .await
             .map(Json),
         None => features_cache

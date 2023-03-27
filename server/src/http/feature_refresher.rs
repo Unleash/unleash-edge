@@ -110,26 +110,26 @@ impl FeatureRefresher {
             .any(|t| t.token.subsumes(token))
     }
 
-    async fn register_and_hydrate_token(&self, token: EdgeToken) -> EdgeResult<ClientFeatures> {
+    async fn register_and_hydrate_token(&self, token: &EdgeToken) -> EdgeResult<ClientFeatures> {
         self.register_token_for_refresh(token.clone(), None).await?;
         self.hydrate_new_tokens().await;
-        self.get_filtered_features(&token)
+        self.get_filtered_features(token)
             .ok_or(EdgeError::ClientFeaturesFetchError(FeatureError::Retriable))
     }
 
-    pub async fn features_for_token(&self, token: EdgeToken) -> EdgeResult<ClientFeatures> {
-        match self.get_filtered_features(&token) {
+    pub async fn features_for_token(&self, token: &EdgeToken) -> EdgeResult<ClientFeatures> {
+        match self.get_filtered_features(token) {
             Some(features) => {
-                if self.token_is_subsumed(&token) {
+                if self.token_is_subsumed(token) {
                     Ok(features)
                 } else {
                     debug!("Token is not subsumed by existing tokens. Registering");
-                    self.register_and_hydrate_token(token.clone()).await
+                    self.register_and_hydrate_token(token).await
                 }
             }
             None => {
                 debug!("Had never seen this environment. Configuring fetcher");
-                self.register_and_hydrate_token(token.clone()).await
+                self.register_and_hydrate_token(token).await
             }
         }
     }
