@@ -249,9 +249,11 @@ async fn post_enabled_features(
         .get(&edge_token.token)
         .map(|e| e.value().clone())
         .unwrap_or_else(|| edge_token.clone());
-    let engine = engine_cache.get(&tokens::cache_key(&edge_token)).ok_or(
-        EdgeError::FrontendNotYetHydrated(FrontendHydrationMissing::from(&edge_token)),
-    )?;
+    let engine = engine_cache
+        .get(&tokens::cache_key(&edge_token))
+        .ok_or_else(|| {
+            EdgeError::FrontendNotYetHydrated(FrontendHydrationMissing::from(&edge_token))
+        })?;
     let feature_results = engine.resolve_all(&context).unwrap();
     Ok(Json(frontend_from_yggdrasil(
         feature_results,
