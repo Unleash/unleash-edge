@@ -181,9 +181,13 @@ Options:
   -t, --tokens <TOKENS>                  [env: TOKENS=]
 ```
 
-## Metrics
+## [Metrics](https://docs.getunleash.io/reference/api/unleash/metrics)
 
 **❗  Note:**  For Unleash to correctly register SDK usage metrics sent from Edge instances, your Unleash instance must be v4.22 or newer.
+
+Since Edge is designed to avoid overloading its upstream, Edge gathers and accumulates usage metrics from SDKs for a set interval (METRICS_INTERVAL_SECONDS) before posting a batch upstream.
+This reduces load on Unleash instances down to a single call every interval, instead of every single client posting to Unleash for updating metrics.
+Unleash installations older than 4.22 are not able to handle the batch format Edge posts, so with these installations, you won't see any metrics from clients connected to an Edge instance until you're able to update to 4.22 or newer.
 
 ## Performance
 
