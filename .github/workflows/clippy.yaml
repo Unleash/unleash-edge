@@ -5,13 +5,13 @@ on:
   push:
     branches:
       - main
-    files:
+    paths:
       - '**.rs'
       - '**.toml'
   pull_request:
     branches:
       - main
-    files:
+    paths:
       - '**.rs'
       - '**.toml'
 
