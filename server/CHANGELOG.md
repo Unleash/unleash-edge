@@ -5,6 +5,59 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.0.2 (2023-03-28)
+
+### Chore
+
+ - <csr-id-1ab5962ebc10c8a5f14492fcd28b46e541d2992d/> use fewer clones to reduce allocation
+
+### Bug Fixes
+
+ - <csr-id-a858391e9cc7d9bd805a892519f38da6b4be0ebb/> added custom metrics handler to drop dependency
+ - <csr-id-f835db09798cdd45181000b194348d7cd1f3ba08/> update rust crate clap to 4.1.13
+ - <csr-id-5034f87f9d0d0d38bd8674fd00acc52bf863559a/> update rust crate reqwest to 0.11.15
+
+### Other
+
+ - <csr-id-b97681b8e9d40afd35b629f0d9b4757c66a637a8/> Post appropriately sized metric batches
+   * task: Post appropriately sized metric batches
+   
+   Previously we would save unacknowledged metrics until upstream accepted
+   the post. This PR, splits into 90kB chunks, listens for http status
+   codes to decide what to do on failure.
+   * 400 will cause us to drop the metrics we tried to post
+   * 413 would be a surprise, since we already split into chunks to avoid
+     just this
+   * other status codes will be reinserted to the cache and tried again
+     next minute.
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 5 commits contributed to the release over the course of 3 calendar days.
+ - 5 days passed between releases.
+ - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 5 unique issues were worked on: [#117](https://github.com/Unleash/unleash-edge/issues/117), [#121](https://github.com/Unleash/unleash-edge/issues/121), [#122](https://github.com/Unleash/unleash-edge/issues/122), [#127](https://github.com/Unleash/unleash-edge/issues/127), [#135](https://github.com/Unleash/unleash-edge/issues/135)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#117](https://github.com/Unleash/unleash-edge/issues/117)**
+    - Update rust crate reqwest to 0.11.15 ([`5034f87`](https://github.com/Unleash/unleash-edge/commit/5034f87f9d0d0d38bd8674fd00acc52bf863559a))
+ * **[#121](https://github.com/Unleash/unleash-edge/issues/121)**
+    - Update rust crate clap to 4.1.13 ([`f835db0`](https://github.com/Unleash/unleash-edge/commit/f835db09798cdd45181000b194348d7cd1f3ba08))
+ * **[#122](https://github.com/Unleash/unleash-edge/issues/122)**
+    - Post appropriately sized metric batches ([`b97681b`](https://github.com/Unleash/unleash-edge/commit/b97681b8e9d40afd35b629f0d9b4757c66a637a8))
+ * **[#127](https://github.com/Unleash/unleash-edge/issues/127)**
+    - Use fewer clones to reduce allocation ([`1ab5962`](https://github.com/Unleash/unleash-edge/commit/1ab5962ebc10c8a5f14492fcd28b46e541d2992d))
+ * **[#135](https://github.com/Unleash/unleash-edge/issues/135)**
+    - Added custom metrics handler to drop dependency ([`a858391`](https://github.com/Unleash/unleash-edge/commit/a858391e9cc7d9bd805a892519f38da6b4be0ebb))
+</details>
+
 ## v1.0.1 (2023-03-23)
 
 ### Bug Fixes
@@ -18,7 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 1 commit contributed to the release.
+ - 2 commits contributed to the release.
  - 2 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#120](https://github.com/Unleash/unleash-edge/issues/120)
@@ -31,6 +84,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  * **[#120](https://github.com/Unleash/unleash-edge/issues/120)**
     - Save checked tokens even if invalid ([`d067f92`](https://github.com/Unleash/unleash-edge/commit/d067f92d42a7a2051ea45683763297bfc20cc7c1))
+ * **Uncategorized**
+    - Release unleash-edge v1.0.1 ([`a470163`](https://github.com/Unleash/unleash-edge/commit/a470163679862369666c90bdc33e4cd4c1bceb55))
 </details>
 
 ## v1.0.0 (2023-03-20)
