@@ -488,7 +488,7 @@ mod test {
             cache.applications.insert(
                 ApplicationKey {
                     app_name: app.app_name.clone(),
-                    instance_id: app.instance_id.clone().unwrap_or("unknown".into()),
+                    instance_id: app.instance_id.clone().unwrap_or_else(|| "unknown".into()),
                 },
                 app,
             );
