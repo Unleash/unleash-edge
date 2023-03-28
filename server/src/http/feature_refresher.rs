@@ -117,19 +117,19 @@ impl FeatureRefresher {
             .ok_or(EdgeError::ClientFeaturesFetchError(FeatureError::Retriable))
     }
 
-    pub async fn features_for_token(&self, token: &EdgeToken) -> EdgeResult<ClientFeatures> {
-        match self.get_filtered_features(token) {
+    pub async fn features_for_token(&self, token: EdgeToken) -> EdgeResult<ClientFeatures> {
+        match self.get_filtered_features(&token) {
             Some(features) => {
-                if self.token_is_subsumed(token) {
+                if self.token_is_subsumed(&token) {
                     Ok(features)
                 } else {
                     debug!("Token is not subsumed by existing tokens. Registering");
-                    self.register_and_hydrate_token(token).await
+                    self.register_and_hydrate_token(&token).await
                 }
             }
             None => {
                 debug!("Had never seen this environment. Configuring fetcher");
-                self.register_and_hydrate_token(token).await
+                self.register_and_hydrate_token(&token).await
             }
         }
     }
@@ -771,7 +771,7 @@ mod tests {
         let mut feature_refresher = FeatureRefresher::with_client(Arc::new(unleash_client));
         feature_refresher.refresh_interval = Duration::seconds(0);
         let dx_features = feature_refresher
-            .features_for_token(&dx_token)
+            .features_for_token(dx_token)
             .await
             .expect("No dx features");
         assert!(dx_features
@@ -780,7 +780,7 @@ mod tests {
             .all(|f| f.project == Some("dx".into())));
         assert_eq!(dx_features.features.len(), 16);
         let eg_features = feature_refresher
-            .features_for_token(&eg_token)
+            .features_for_token(eg_token)
             .await
             .expect("Could not get eg features");
         assert_eq!(eg_features.features.len(), 7);
@@ -826,12 +826,12 @@ mod tests {
         let mut feature_refresher = FeatureRefresher::with_client(Arc::new(unleash_client));
         feature_refresher.refresh_interval = Duration::seconds(0);
         let dx_features = feature_refresher
-            .features_for_token(&dx_token)
+            .features_for_token(dx_token)
             .await
             .expect("No dx features found");
         assert_eq!(dx_features.features.len(), 16);
         let unleash_cloud_features = feature_refresher
-            .features_for_token(&multitoken)
+            .features_for_token(multitoken)
             .await
             .expect("No multi features");
         assert_eq!(
@@ -851,7 +851,7 @@ mod tests {
             7
         );
         let eg_features = feature_refresher
-            .features_for_token(&eg_token)
+            .features_for_token(eg_token)
             .await
             .expect("No eg_token features");
         assert_eq!(
