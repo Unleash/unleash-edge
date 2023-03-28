@@ -1,4 +1,3 @@
-use actix_web_opentelemetry::{PrometheusMetricsHandler, RequestMetrics, RequestMetricsBuilder};
 use opentelemetry::{
     global,
     sdk::{
@@ -12,6 +11,9 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::{EnvFilter, Registry};
 
 use crate::http::background_send_metrics;
+use crate::metrics::actix_web_metrics::{
+    PrometheusMetricsHandler, RequestMetrics, RequestMetricsBuilder,
+};
 
 fn instantiate_tracing_and_logging() {
     let logger = tracing_subscriber::fmt::layer();
@@ -35,13 +37,10 @@ pub fn instantiate(
 fn instantiate_prometheus_metrics_handler(
     registry: prometheus::Registry,
 ) -> (PrometheusMetricsHandler, RequestMetrics) {
-    let controller = controllers::basic(
-        processors::factory(
-            selectors::simple::histogram([0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0]), // Will give histogram for with resolution in n ms
-            aggregation::cumulative_temporality_selector(),
-        )
-        .with_memory(true),
-    )
+    let controller = controllers::basic(processors::factory(
+        selectors::simple::histogram([0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0]), // Will give histogram for with resolution in n ms
+        aggregation::cumulative_temporality_selector(),
+    ))
     .with_resource(opentelemetry::sdk::Resource::new(vec![
         opentelemetry::KeyValue::new("service.name", "unleash-edge"),
         opentelemetry::KeyValue::new("edge.version", crate::types::build::PKG_VERSION),
