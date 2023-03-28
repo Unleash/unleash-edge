@@ -1,8 +1,8 @@
+use crate::metrics::actix_web_metrics::PrometheusMetricsHandler;
 use actix_web::{
     get,
     web::{self, Json},
 };
-use actix_web_opentelemetry::PrometheusMetricsHandler;
 use serde::Serialize;
 
 use crate::types::{BuildInfo, EdgeJsonResult};
