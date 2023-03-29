@@ -12,7 +12,7 @@ use unleash_types::client_metrics::{
 };
 
 #[utoipa::path(
-    path = "/api/client/features",
+    context_path = "/api",
     responses(
         (status = 200, description = "Return feature toggles for this token", body = ClientFeatures),
         (status = 403, description = "Was not allowed to access features"),
@@ -55,10 +55,10 @@ pub async fn get_features(
     context_path = "/api",
     params(("feature_name" = String, Path,)),    
     responses(
-        (status = 200, description = "Return feature toggles for this token", body = ClientFeatures),
+        (status = 200, description = "Return feature toggles for this token", body = ClientFeature),
         (status = 403, description = "Was not allowed to access feature"),
         (status = 400, description = "Invalid parameters used"),
-        (status = 404, description = "Feature did not exist in accessible")
+        (status = 404, description = "Feature did not exist or token used was not allowed to access it")
     ),
     security(
         ("Authorization" = [])
@@ -98,7 +98,7 @@ pub async fn get_feature(
 }
 
 #[utoipa::path(
-    path = "/api/client/register",
+    context_path = "/api",
     responses(
         (status = 202, description = "Accepted client application registration"),
         (status = 403, description = "Was not allowed to access features"),
@@ -138,7 +138,7 @@ pub async fn register(
 }
 
 #[utoipa::path(
-    path = "/api/client/metrics",
+    context_path = "/api",
     responses(
         (status = 202, description = "Accepted client metrics"),
         (status = 403, description = "Was not allowed to access features"),
