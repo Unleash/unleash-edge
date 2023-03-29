@@ -17,6 +17,7 @@ use utoipa::{
         crate::client_api::get_features,
         crate::client_api::register,
         crate::client_api::metrics,
+        crate::client_api::get_feature,
         crate::edge_api::validate,
         crate::edge_api::metrics
     ),

@@ -77,6 +77,7 @@ async fn main() -> Result<(), anyhow::Error> {
             None => app,
         };
         app.wrap(actix_web::middleware::Compress::default())
+            .wrap(actix_web::middleware::NormalizePath::default())
             .wrap(Etag::default())
             .wrap(cors_middleware)
             .wrap(RequestTracing::new())
