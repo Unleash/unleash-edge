@@ -39,6 +39,7 @@ pub enum EdgeError {
     ClientFeaturesParseError,
     ClientRegisterError,
     FrontendNotYetHydrated(FrontendHydrationMissing),
+    FeatureNotFound(String),
     PersistenceError(String),
     EdgeMetricsError,
     EdgeMetricsRequestError(StatusCode),
@@ -75,6 +76,9 @@ impl Display for EdgeError {
                     "Could not fetch client features because api key was not allowed"
                 ),
             },
+            EdgeError::FeatureNotFound(name) => {
+                write!(f, "Failed to find feature with name {name}")
+            }
             EdgeError::ClientFeaturesParseError => {
                 write!(f, "Failed to parse client features")
             }
@@ -115,6 +119,7 @@ impl ResponseError for EdgeError {
             EdgeError::EdgeTokenError => StatusCode::BAD_REQUEST,
             EdgeError::EdgeTokenParseError => StatusCode::BAD_REQUEST,
             EdgeError::AuthorizationPending => StatusCode::UNAUTHORIZED,
+            EdgeError::FeatureNotFound(_) => StatusCode::NOT_FOUND,
             EdgeError::EdgeMetricsError => StatusCode::BAD_REQUEST,
             EdgeError::ClientRegisterError => StatusCode::BAD_REQUEST,
             EdgeError::FrontendNotYetHydrated(_) => StatusCode::NETWORK_AUTHENTICATION_REQUIRED,
