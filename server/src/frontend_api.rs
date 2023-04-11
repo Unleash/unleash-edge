@@ -1,17 +1,20 @@
 use std::collections::HashMap;
 
+use actix_web::web::{Data, Query};
 use actix_web::{
     get, post,
     web::{self, Json},
     HttpResponse,
 };
 use dashmap::DashMap;
+use unleash_types::client_metrics::{ClientApplication, ConnectVia};
 use unleash_types::{
     client_metrics::{from_bucket_app_name_and_env, ClientMetrics},
     frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult},
 };
 use unleash_yggdrasil::{Context, EngineState, ResolvedToggle};
 
+use crate::metrics::client_metrics::ApplicationKey;
 use crate::{
     error::{EdgeError, FrontendHydrationMissing},
     metrics::client_metrics::MetricsCache,
@@ -231,18 +234,18 @@ security(
 #[post("/frontend")]
 async fn post_frontend_enabled_features(
     edge_token: EdgeToken,
-    engine_cache: web::Data<DashMap<String, EngineState>>,
-    token_cache: web::Data<DashMap<String, EdgeToken>>,
-    context: web::Query<Context>,
+    engine_cache: Data<DashMap<String, EngineState>>,
+    token_cache: Data<DashMap<String, EdgeToken>>,
+    context: Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
     post_enabled_features(edge_token, engine_cache, token_cache, context).await
 }
 
 async fn post_enabled_features(
     edge_token: EdgeToken,
-    engine_cache: web::Data<DashMap<String, EngineState>>,
-    token_cache: web::Data<DashMap<String, EdgeToken>>,
-    context: web::Query<Context>,
+    engine_cache: Data<DashMap<String, EngineState>>,
+    token_cache: Data<DashMap<String, EdgeToken>>,
+    context: Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
     let context = context.into_inner();
     let token = token_cache
@@ -262,11 +265,22 @@ async fn post_enabled_features(
     )))
 }
 
+#[utoipa::path(
+context_path = "/api",
+responses(
+(status = 202, description = "Accepted client metrics"),
+(status = 403, description = "Was not allowed to post metrics"),
+),
+request_body = ClientMetrics,
+security(
+("Authorization" = [])
+)
+)]
 #[post("/proxy/client/metrics")]
-async fn post_frontend_metrics(
+async fn post_proxy_metrics(
     edge_token: EdgeToken,
-    metrics: web::Json<ClientMetrics>,
-    metrics_cache: web::Data<MetricsCache>,
+    metrics: Json<ClientMetrics>,
+    metrics_cache: Data<MetricsCache>,
 ) -> EdgeResult<HttpResponse> {
     let metrics = metrics.into_inner();
 
@@ -281,16 +295,128 @@ async fn post_frontend_metrics(
     Ok(HttpResponse::Accepted().finish())
 }
 
+#[utoipa::path(
+context_path = "/api",
+responses(
+(status = 202, description = "Accepted client metrics"),
+(status = 403, description = "Was not allowed to post metrics"),
+),
+request_body = ClientMetrics,
+security(
+("Authorization" = [])
+)
+)]
+#[post("/frontend/client/metrics")]
+async fn post_frontend_metrics(
+    edge_token: EdgeToken,
+    metrics: Json<ClientMetrics>,
+    metrics_cache: Data<MetricsCache>,
+) -> EdgeResult<HttpResponse> {
+    let metrics = metrics.into_inner();
+
+    let metrics = from_bucket_app_name_and_env(
+        metrics.bucket,
+        metrics.app_name,
+        edge_token.environment.unwrap(),
+    );
+
+    metrics_cache.sink_metrics(&metrics);
+
+    Ok(HttpResponse::Accepted().finish())
+}
+
+#[utoipa::path(
+context_path = "/api",
+responses(
+(status = 202, description = "Accepted client application registration"),
+(status = 403, description = "Was not allowed to register client"),
+),
+request_body = ClientApplication,
+security(
+("Authorization" = [])
+)
+)]
+#[post("/proxy/client/register")]
+pub async fn post_proxy_register(
+    edge_token: EdgeToken,
+    connect_via: Data<ConnectVia>,
+    client_application: Json<ClientApplication>,
+    metrics_cache: Data<MetricsCache>,
+) -> EdgeResult<HttpResponse> {
+    let client_application = client_application.into_inner();
+    let updated_with_connection_info = client_application.connect_via(
+        connect_via.app_name.as_str(),
+        connect_via.instance_id.as_str(),
+    );
+    let to_write = ClientApplication {
+        environment: edge_token.environment,
+        ..updated_with_connection_info
+    };
+    metrics_cache.applications.insert(
+        ApplicationKey {
+            app_name: to_write.app_name.clone(),
+            instance_id: to_write
+                .instance_id
+                .clone()
+                .unwrap_or_else(|| ulid::Ulid::new().to_string()),
+        },
+        to_write,
+    );
+    Ok(HttpResponse::Accepted().finish())
+}
+
+#[utoipa::path(
+context_path = "/api",
+responses(
+(status = 202, description = "Accepted client application registration"),
+(status = 403, description = "Was not allowed to register client"),
+),
+request_body = ClientApplication,
+security(
+("Authorization" = [])
+)
+)]
+#[post("/frontend/client/register")]
+pub async fn post_frontend_register(
+    edge_token: EdgeToken,
+    connect_via: Data<ConnectVia>,
+    client_application: Json<ClientApplication>,
+    metrics_cache: Data<MetricsCache>,
+) -> EdgeResult<HttpResponse> {
+    let client_application = client_application.into_inner();
+    let updated_with_connection_info = client_application.connect_via(
+        connect_via.app_name.as_str(),
+        connect_via.instance_id.as_str(),
+    );
+    let to_write = ClientApplication {
+        environment: edge_token.environment,
+        ..updated_with_connection_info
+    };
+    metrics_cache.applications.insert(
+        ApplicationKey {
+            app_name: to_write.app_name.clone(),
+            instance_id: to_write
+                .instance_id
+                .clone()
+                .unwrap_or_else(|| ulid::Ulid::new().to_string()),
+        },
+        to_write,
+    );
+    Ok(HttpResponse::Accepted().finish())
+}
 pub fn configure_frontend_api(cfg: &mut web::ServiceConfig) {
     cfg.service(get_enabled_proxy)
         .service(get_enabled_frontend)
         .service(get_proxy_all_features)
         .service(get_frontend_all_features)
+        .service(post_proxy_metrics)
         .service(post_frontend_metrics)
         .service(post_frontend_all_features)
         .service(post_proxy_all_features)
         .service(post_proxy_enabled_features)
-        .service(post_frontend_enabled_features);
+        .service(post_frontend_enabled_features)
+        .service(post_proxy_register)
+        .service(post_frontend_register);
 }
 
 pub fn frontend_from_yggdrasil(
@@ -576,7 +702,7 @@ mod tests {
         let app = test::init_service(
             App::new()
                 .app_data(Data::from(metrics_cache.clone()))
-                .service(web::scope("/api").service(super::post_frontend_metrics)),
+                .service(web::scope("/api").service(super::post_proxy_metrics)),
         )
         .await;
 

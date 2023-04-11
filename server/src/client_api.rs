@@ -101,7 +101,7 @@ pub async fn get_feature(
     context_path = "/api",
     responses(
         (status = 202, description = "Accepted client application registration"),
-        (status = 403, description = "Was not allowed to access features"),
+        (status = 403, description = "Was not allowed to register client application"),
     ),
     request_body = ClientApplication,
     security(
@@ -141,7 +141,7 @@ pub async fn register(
     context_path = "/api",
     responses(
         (status = 202, description = "Accepted client metrics"),
-        (status = 403, description = "Was not allowed to access features"),
+        (status = 403, description = "Was not allowed to post metrics"),
     ),
     request_body = ClientMetrics,
     security(
