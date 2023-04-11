@@ -268,7 +268,6 @@ impl Default for BuildInfo {
 #[derive(Clone, Debug, Serialize, Deserialize, IntoParams)]
 #[serde(rename_all = "camelCase")]
 pub struct FeatureFilters {
-    pub project: Option<Vec<String>>,
     pub name_prefix: Option<String>,
 }
 
