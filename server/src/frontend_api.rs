@@ -9,12 +9,11 @@ use actix_web::{
 use dashmap::DashMap;
 use unleash_types::client_metrics::{ClientApplication, ConnectVia};
 use unleash_types::{
-    client_metrics::{from_bucket_app_name_and_env, ClientMetrics},
+    client_metrics::ClientMetrics,
     frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult},
 };
 use unleash_yggdrasil::{Context, EngineState, ResolvedToggle};
 
-use crate::metrics::client_metrics::ApplicationKey;
 use crate::{
     error::{EdgeError, FrontendHydrationMissing},
     metrics::client_metrics::MetricsCache,
@@ -282,15 +281,11 @@ async fn post_proxy_metrics(
     metrics: Json<ClientMetrics>,
     metrics_cache: Data<MetricsCache>,
 ) -> EdgeResult<HttpResponse> {
-    let metrics = metrics.into_inner();
-
-    let metrics = from_bucket_app_name_and_env(
-        metrics.bucket,
-        metrics.app_name,
-        edge_token.environment.unwrap(),
+    crate::metrics::client_metrics::register_client_metrics(
+        edge_token,
+        metrics.into_inner(),
+        metrics_cache,
     );
-
-    metrics_cache.sink_metrics(&metrics);
 
     Ok(HttpResponse::Accepted().finish())
 }
@@ -312,15 +307,11 @@ async fn post_frontend_metrics(
     metrics: Json<ClientMetrics>,
     metrics_cache: Data<MetricsCache>,
 ) -> EdgeResult<HttpResponse> {
-    let metrics = metrics.into_inner();
-
-    let metrics = from_bucket_app_name_and_env(
-        metrics.bucket,
-        metrics.app_name,
-        edge_token.environment.unwrap(),
+    crate::metrics::client_metrics::register_client_metrics(
+        edge_token,
+        metrics.into_inner(),
+        metrics_cache,
     );
-
-    metrics_cache.sink_metrics(&metrics);
 
     Ok(HttpResponse::Accepted().finish())
 }
@@ -343,24 +334,11 @@ pub async fn post_proxy_register(
     client_application: Json<ClientApplication>,
     metrics_cache: Data<MetricsCache>,
 ) -> EdgeResult<HttpResponse> {
-    let client_application = client_application.into_inner();
-    let updated_with_connection_info = client_application.connect_via(
-        connect_via.app_name.as_str(),
-        connect_via.instance_id.as_str(),
-    );
-    let to_write = ClientApplication {
-        environment: edge_token.environment,
-        ..updated_with_connection_info
-    };
-    metrics_cache.applications.insert(
-        ApplicationKey {
-            app_name: to_write.app_name.clone(),
-            instance_id: to_write
-                .instance_id
-                .clone()
-                .unwrap_or_else(|| ulid::Ulid::new().to_string()),
-        },
-        to_write,
+    crate::metrics::client_metrics::register_client_application(
+        edge_token,
+        &connect_via,
+        client_application.into_inner(),
+        metrics_cache,
     );
     Ok(HttpResponse::Accepted().finish())
 }
@@ -383,27 +361,15 @@ pub async fn post_frontend_register(
     client_application: Json<ClientApplication>,
     metrics_cache: Data<MetricsCache>,
 ) -> EdgeResult<HttpResponse> {
-    let client_application = client_application.into_inner();
-    let updated_with_connection_info = client_application.connect_via(
-        connect_via.app_name.as_str(),
-        connect_via.instance_id.as_str(),
-    );
-    let to_write = ClientApplication {
-        environment: edge_token.environment,
-        ..updated_with_connection_info
-    };
-    metrics_cache.applications.insert(
-        ApplicationKey {
-            app_name: to_write.app_name.clone(),
-            instance_id: to_write
-                .instance_id
-                .clone()
-                .unwrap_or_else(|| ulid::Ulid::new().to_string()),
-        },
-        to_write,
+    crate::metrics::client_metrics::register_client_application(
+        edge_token,
+        &connect_via,
+        client_application.into_inner(),
+        metrics_cache,
     );
     Ok(HttpResponse::Accepted().finish())
 }
+
 pub fn configure_frontend_api(cfg: &mut web::ServiceConfig) {
     cfg.service(get_enabled_proxy)
         .service(get_enabled_frontend)
