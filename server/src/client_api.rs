@@ -2,8 +2,8 @@ use crate::error::{EdgeError, FeatureError};
 use crate::http::feature_refresher::FeatureRefresher;
 use crate::metrics::client_metrics::MetricsCache;
 use crate::tokens::cache_key;
-use crate::types::{EdgeJsonResult, EdgeResult, EdgeToken, ProjectFilter};
-use actix_web::web::{self, Data, Json};
+use crate::types::{EdgeJsonResult, EdgeResult, EdgeToken, FeatureFilters, ProjectFilter};
+use actix_web::web::{self, Data, Json, Query};
 use actix_web::{get, post, HttpRequest, HttpResponse};
 use dashmap::DashMap;
 use unleash_types::client_features::{ClientFeature, ClientFeatures};
@@ -11,6 +11,7 @@ use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ConnectVia
 
 #[utoipa::path(
     context_path = "/api",
+    params(FeatureFilters),
     responses(
         (status = 200, description = "Return feature toggles for this token", body = ClientFeatures),
         (status = 403, description = "Was not allowed to access features"),
@@ -25,17 +26,15 @@ pub async fn get_features(
     edge_token: EdgeToken,
     features_cache: Data<DashMap<String, ClientFeatures>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
+    filter_query: Query<FeatureFilters>,
     req: HttpRequest,
 ) -> EdgeJsonResult<ClientFeatures> {
     let validated_token = token_cache
         .get(&edge_token.token)
         .map(|e| e.value().clone())
         .ok_or(EdgeError::AuthorizationDenied)?;
-    match req.app_data::<Data<FeatureRefresher>>() {
-        Some(refresher) => refresher
-            .features_for_token(validated_token)
-            .await
-            .map(Json),
+    let client_features = match req.app_data::<Data<FeatureRefresher>>() {
+        Some(refresher) => refresher.features_for_token(validated_token.clone()).await,
         None => features_cache
             .get(&cache_key(&edge_token))
             .map(|features| features.value().clone())
@@ -45,9 +44,34 @@ pub async fn get_features(
                     .filter_by_projects(&validated_token),
                 ..client_features
             })
-            .map(Json)
             .ok_or(EdgeError::ClientFeaturesFetchError(FeatureError::Retriable)),
-    }
+    };
+    let filters = filter_query.into_inner();
+    let query = unleash_types::client_features::Query {
+        tags: None,
+        projects: Some(validated_token.projects),
+        name_prefix: filters.name_prefix.clone(),
+        environment: validated_token.environment,
+        inline_segment_constraints: Some(false),
+    };
+    client_features
+        .map(|f| ClientFeatures {
+            query: Some(query),
+            features: f
+                .features
+                .clone()
+                .into_iter()
+                .filter(|f| {
+                    filters
+                        .name_prefix
+                        .clone()
+                        .map(|prefix| f.name.starts_with(&prefix))
+                        .unwrap_or(true)
+                })
+                .collect(),
+            ..f
+        })
+        .map(Json)
 }
 #[utoipa::path(
     context_path = "/api",
@@ -710,5 +734,37 @@ mod tests {
         assert!(!eg_res.features.is_empty());
         assert_eq!(feature_refresher.tokens_to_refresh.len(), 2);
         assert_eq!(features_cache.len(), 1);
+    }
+
+    #[tokio::test]
+    pub async fn can_filter_features_list_by_name_prefix() {
+        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
+        let features = features_from_disk("../examples/hostedexample.json");
+        let mut dx_token = EdgeToken::from_str("dx:development.secret123").unwrap();
+        dx_token.status = TokenValidationStatus::Validated;
+        dx_token.token_type = Some(TokenType::Client);
+        token_cache.insert(dx_token.token.clone(), dx_token.clone());
+        features_cache.insert(cache_key(&dx_token), features.clone());
+        let local_app = test::init_service(
+            App::new()
+                .app_data(Data::from(features_cache.clone()))
+                .app_data(Data::from(engine_cache.clone()))
+                .app_data(Data::from(token_cache.clone()))
+                .wrap(middleware::as_async_middleware::as_async_middleware(
+                    middleware::validate_token::validate_token,
+                ))
+                .service(web::scope("/api").configure(configure_client_api)),
+        )
+        .await;
+        let request = test::TestRequest::get()
+            .uri("/api/client/features?namePrefix=embed")
+            .insert_header(ContentType::json())
+            .insert_header(("Authorization", dx_token.token.clone()))
+            .to_request();
+        let result: ClientFeatures = test::call_and_read_body_json(&local_app, request).await;
+        assert_eq!(result.features.len(), 2);
+        assert_eq!(result.query.unwrap().name_prefix.unwrap(), "embed");
     }
 }

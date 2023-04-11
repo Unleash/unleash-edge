@@ -9,12 +9,14 @@ use crate::error::EdgeError;
 use actix_web::{http::header::EntityTag, web::Json};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
+use dashmap::DashMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use shadow_rs::shadow;
 use unleash_types::client_features::{ClientFeature, ClientFeatures};
 use unleash_types::client_metrics::{ClientApplication, ClientMetricsEnv};
+use unleash_types::frontend::EvaluatedToggle;
 use unleash_yggdrasil::EngineState;
-use utoipa::ToSchema;
+use utoipa::{IntoParams, ToSchema};
 
 pub type EdgeJsonResult<T> = Result<Json<T>, EdgeError>;
 pub type EdgeResult<T> = Result<T, EdgeError>;
@@ -133,8 +135,6 @@ impl fmt::Debug for TokenRefresh {
             .finish()
     }
 }
-use dashmap::DashMap;
-use unleash_types::frontend::EvaluatedToggle;
 
 #[derive(Clone, Default)]
 pub struct CacheHolder {
@@ -263,6 +263,12 @@ impl Default for BuildInfo {
             build_target: build::BUILD_TARGET.into(),
         }
     }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, IntoParams)]
+#[serde(rename_all = "camelCase")]
+pub struct FeatureFilters {
+    pub name_prefix: Option<String>,
 }
 
 #[cfg(test)]
