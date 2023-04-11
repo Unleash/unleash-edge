@@ -1,3 +1,5 @@
+use crate::types::EdgeToken;
+use actix_web::web::Data;
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use lazy_static::lazy_static;
@@ -5,7 +7,10 @@ use prometheus::{register_histogram, Histogram};
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 use tracing::{debug, instrument};
-use unleash_types::client_metrics::{ClientApplication, ClientMetricsEnv};
+use unleash_types::client_metrics::{
+    ClientApplication, ClientMetrics, ClientMetricsEnv, ConnectVia,
+};
+
 pub const UPSTREAM_MAX_BODY_SIZE: usize = 100 * 1024;
 pub const BATCH_BODY_SIZE: usize = 95 * 1024;
 
@@ -102,6 +107,46 @@ pub fn size_of_batch(batch: &MetricsBatch) -> usize {
     serde_json::to_string(batch)
         .map(|s| s.as_bytes().len())
         .unwrap_or(0)
+}
+
+pub fn register_client_application(
+    edge_token: EdgeToken,
+    connect_via: &ConnectVia,
+    client_application: ClientApplication,
+    metrics_cache: Data<MetricsCache>,
+) {
+    let updated_with_connection_info = client_application.connect_via(
+        connect_via.app_name.as_str(),
+        connect_via.instance_id.as_str(),
+    );
+    let to_write = ClientApplication {
+        environment: edge_token.environment,
+        ..updated_with_connection_info
+    };
+    metrics_cache.applications.insert(
+        ApplicationKey {
+            app_name: to_write.app_name.clone(),
+            instance_id: to_write
+                .instance_id
+                .clone()
+                .unwrap_or_else(|| ulid::Ulid::new().to_string()),
+        },
+        to_write,
+    );
+}
+
+pub fn register_client_metrics(
+    edge_token: EdgeToken,
+    metrics: ClientMetrics,
+    metrics_cache: Data<MetricsCache>,
+) {
+    let metrics = unleash_types::client_metrics::from_bucket_app_name_and_env(
+        metrics.bucket,
+        metrics.app_name,
+        edge_token.environment.unwrap(),
+    );
+
+    metrics_cache.sink_metrics(&metrics);
 }
 
 pub fn sendable(batch: &MetricsBatch) -> bool {

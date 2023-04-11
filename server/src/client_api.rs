@@ -1,15 +1,13 @@
 use crate::error::{EdgeError, FeatureError};
 use crate::http::feature_refresher::FeatureRefresher;
-use crate::metrics::client_metrics::{ApplicationKey, MetricsCache};
+use crate::metrics::client_metrics::MetricsCache;
 use crate::tokens::cache_key;
 use crate::types::{EdgeJsonResult, EdgeResult, EdgeToken, ProjectFilter};
 use actix_web::web::{self, Data, Json};
 use actix_web::{get, post, HttpRequest, HttpResponse};
 use dashmap::DashMap;
 use unleash_types::client_features::{ClientFeature, ClientFeatures};
-use unleash_types::client_metrics::{
-    from_bucket_app_name_and_env, ClientApplication, ClientMetrics, ConnectVia,
-};
+use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ConnectVia};
 
 #[utoipa::path(
     context_path = "/api",
@@ -101,7 +99,7 @@ pub async fn get_feature(
     context_path = "/api",
     responses(
         (status = 202, description = "Accepted client application registration"),
-        (status = 403, description = "Was not allowed to access features"),
+        (status = 403, description = "Was not allowed to register client application"),
     ),
     request_body = ClientApplication,
     security(
@@ -115,24 +113,11 @@ pub async fn register(
     client_application: Json<ClientApplication>,
     metrics_cache: Data<MetricsCache>,
 ) -> EdgeResult<HttpResponse> {
-    let client_application = client_application.into_inner();
-    let updated_with_connection_info = client_application.connect_via(
-        connect_via.app_name.as_str(),
-        connect_via.instance_id.as_str(),
-    );
-    let to_write = ClientApplication {
-        environment: edge_token.environment,
-        ..updated_with_connection_info
-    };
-    metrics_cache.applications.insert(
-        ApplicationKey {
-            app_name: to_write.app_name.clone(),
-            instance_id: to_write
-                .instance_id
-                .clone()
-                .unwrap_or_else(|| ulid::Ulid::new().to_string()),
-        },
-        to_write,
+    crate::metrics::client_metrics::register_client_application(
+        edge_token,
+        &connect_via,
+        client_application.into_inner(),
+        metrics_cache,
     );
     Ok(HttpResponse::Accepted().finish())
 }
@@ -141,7 +126,7 @@ pub async fn register(
     context_path = "/api",
     responses(
         (status = 202, description = "Accepted client metrics"),
-        (status = 403, description = "Was not allowed to access features"),
+        (status = 403, description = "Was not allowed to post metrics"),
     ),
     request_body = ClientMetrics,
     security(
@@ -154,13 +139,11 @@ pub async fn metrics(
     metrics: Json<ClientMetrics>,
     metrics_cache: Data<MetricsCache>,
 ) -> EdgeResult<HttpResponse> {
-    let metrics = metrics.into_inner();
-    let metrics = from_bucket_app_name_and_env(
-        metrics.bucket,
-        metrics.app_name,
-        edge_token.environment.unwrap_or_else(|| "default".into()),
+    crate::metrics::client_metrics::register_client_metrics(
+        edge_token,
+        metrics.into_inner(),
+        metrics_cache,
     );
-    metrics_cache.sink_metrics(&metrics);
     Ok(HttpResponse::Accepted().finish())
 }
 
@@ -178,7 +161,7 @@ mod tests {
     use std::str::FromStr;
     use std::{collections::HashMap, sync::Arc};
 
-    use crate::metrics::client_metrics::MetricsKey;
+    use crate::metrics::client_metrics::{ApplicationKey, MetricsKey};
     use crate::types::{TokenType, TokenValidationStatus};
 
     use super::*;
