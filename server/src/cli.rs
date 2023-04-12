@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use clap::{ArgGroup, Args, Parser, Subcommand};
+use iter_tools::Itertools;
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum EdgeMode {
@@ -39,6 +40,28 @@ pub struct EdgeArgs {
     /// Get data for these client tokens at startup. Hot starts your feature cache
     #[clap(short, long, env, value_delimiter = ',')]
     pub tokens: Vec<String>,
+
+    /// Expects curl header format (-H <HEADERNAME>: <HEADERVALUE>)
+    /// for instance `-H X-Api-Key: mysecretapikey`
+    #[clap(short = 'H', long, env, value_delimiter = ',', value_parser = string_to_header_tuple)]
+    pub custom_client_headers: Vec<(String, String)>,
+}
+
+pub fn string_to_header_tuple(s: &str) -> Result<(String, String), String> {
+    let format_message =
+        "Please pass headers in the format <headername>: <headervalue>".to_string();
+    if s.contains(':') {
+        if let Some((header_name, header_value)) = s.split(':').collect_tuple() {
+            Ok((
+                header_name.trim().to_string(),
+                header_value.trim().to_string(),
+            ))
+        } else {
+            Err(format_message)
+        }
+    } else {
+        Err(format_message)
+    }
 }
 
 #[derive(Args, Debug, Clone)]
@@ -107,5 +130,60 @@ impl HttpServerArgs {
 
     pub fn https_server_tuple(&self) -> (String, u16) {
         (self.interface.clone(), self.tls.tls_server_port)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::cli::{CliArgs, EdgeMode};
+    use clap::Parser;
+
+    #[test]
+    pub fn can_parse_multiple_client_headers() {
+        let args = vec![
+            "unleash-edge",
+            "edge",
+            "-u http://localhost:4242",
+            r#"-H Authorization: abc123"#,
+            r#"-H X-Api-Key: mysecret"#,
+        ];
+        let args = CliArgs::parse_from(args);
+        match args.mode {
+            EdgeMode::Edge(args) => {
+                let client_headers = args.custom_client_headers;
+                assert_eq!(client_headers.len(), 2);
+                let auth = client_headers.get(0).unwrap();
+                assert_eq!(auth.0, "Authorization");
+                assert_eq!(auth.1, "abc123");
+                let api_key = client_headers.get(1).unwrap();
+                assert_eq!(api_key.0, "X-Api-Key");
+                assert_eq!(api_key.1, "mysecret")
+            }
+            EdgeMode::Offline(_) => unreachable!(),
+        }
+    }
+
+    #[test]
+    pub fn can_parse_comma_separated_client_headers() {
+        let args = vec![
+            "unleash-edge",
+            "edge",
+            "-u http://localhost:4242",
+            r#"-H Authorization: abc123,X-Api-Key: mysecret"#,
+        ];
+        let args = CliArgs::parse_from(args);
+        match args.mode {
+            EdgeMode::Edge(args) => {
+                let client_headers = args.custom_client_headers;
+                assert_eq!(client_headers.len(), 2);
+                let auth = client_headers.get(0).unwrap();
+                assert_eq!(auth.0, "Authorization");
+                assert_eq!(auth.1, "abc123");
+                let api_key = client_headers.get(1).unwrap();
+                assert_eq!(api_key.0, "X-Api-Key");
+                assert_eq!(api_key.1, "mysecret")
+            }
+            EdgeMode::Offline(_) => unreachable!(),
+        }
     }
 }
