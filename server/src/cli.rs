@@ -50,7 +50,7 @@ pub struct EdgeArgs {
 
 pub fn string_to_header_tuple(s: &str) -> Result<(String, String), String> {
     let format_message =
-        "Please pass headers in the format <headername>: <headervalue>".to_string();
+        "Please pass headers in the format <headername>:<headervalue>".to_string();
     if s.contains(':') {
         if let Some((header_name, header_value)) = s.split(':').collect_tuple() {
             Ok((
