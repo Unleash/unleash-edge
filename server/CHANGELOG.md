@@ -5,11 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 1.3.0 (2023-04-13)
+
+<csr-id-9a651efc0393cebeb67e639aa612434606b4c9ed/>
 
 ### Chore
 
  - <csr-id-9a651efc0393cebeb67e639aa612434606b4c9ed/> bump dependency status link
+
+### Chore
+
+ - <csr-id-8bba7f47b2204d63409b0220ada78edb6bc156de/> added changelog for 1.3.0 release
 
 ### Documentation
 
@@ -30,9 +36,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 5 commits contributed to the release over the course of 1 calendar day.
+ - 6 commits contributed to the release over the course of 1 calendar day.
  - 1 day passed between releases.
- - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#151](https://github.com/Unleash/unleash-edge/issues/151), [#154](https://github.com/Unleash/unleash-edge/issues/154)
 
 ### Commit Details
@@ -46,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#154](https://github.com/Unleash/unleash-edge/issues/154)**
     - Update rust crate serde_json to 1.0.96 ([`d1052f7`](https://github.com/Unleash/unleash-edge/commit/d1052f7f913713c488d3cd038709a872cb493c71))
  * **Uncategorized**
+    - Added changelog for 1.3.0 release ([`8bba7f4`](https://github.com/Unleash/unleash-edge/commit/8bba7f47b2204d63409b0220ada78edb6bc156de))
     - Updated README in server subfolder ([`625b076`](https://github.com/Unleash/unleash-edge/commit/625b0760c66574f94a098885ff94735330a2bb2d))
     - Bump dependency status link ([`9a651ef`](https://github.com/Unleash/unleash-edge/commit/9a651efc0393cebeb67e639aa612434606b4c9ed))
     - * feat: Add custom headers for clients ([`bde2d01`](https://github.com/Unleash/unleash-edge/commit/bde2d013b9b0e664ce087b0f6d6b979e11454414))
