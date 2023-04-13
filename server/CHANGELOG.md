@@ -5,6 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Chore
+
+ - <csr-id-9a651efc0393cebeb67e639aa612434606b4c9ed/> bump dependency status link
+
+### Documentation
+
+ - <csr-id-625b0760c66574f94a098885ff94735330a2bb2d/> updated README in server subfolder
+
+### New Features
+
+ - <csr-id-c417cab5698ac1f45e8f640012b06b655abb900d/> Added single feature evaluation endpoint
+   For now, we resolve all toggles, waiting for feature improvement in
+   Yggdrasil that allows us to query single ResolvedToggle by name
+ - <csr-id-bde2d013b9b0e664ce087b0f6d6b979e11454414/> Added support for --custom-client-headers (CUSTOM_CLIENT_HEADERS)
+
+### Bug Fixes
+
+ - <csr-id-d1052f7f913713c488d3cd038709a872cb493c71/> update rust crate serde_json to 1.0.96
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 5 commits contributed to the release over the course of 1 calendar day.
+ - 1 day passed between releases.
+ - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 2 unique issues were worked on: [#151](https://github.com/Unleash/unleash-edge/issues/151), [#154](https://github.com/Unleash/unleash-edge/issues/154)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#151](https://github.com/Unleash/unleash-edge/issues/151)**
+    - Added single feature evaluation endpoint ([`c417cab`](https://github.com/Unleash/unleash-edge/commit/c417cab5698ac1f45e8f640012b06b655abb900d))
+ * **[#154](https://github.com/Unleash/unleash-edge/issues/154)**
+    - Update rust crate serde_json to 1.0.96 ([`d1052f7`](https://github.com/Unleash/unleash-edge/commit/d1052f7f913713c488d3cd038709a872cb493c71))
+ * **Uncategorized**
+    - Updated README in server subfolder ([`625b076`](https://github.com/Unleash/unleash-edge/commit/625b0760c66574f94a098885ff94735330a2bb2d))
+    - Bump dependency status link ([`9a651ef`](https://github.com/Unleash/unleash-edge/commit/9a651efc0393cebeb67e639aa612434606b4c9ed))
+    - * feat: Add custom headers for clients ([`bde2d01`](https://github.com/Unleash/unleash-edge/commit/bde2d013b9b0e664ce087b0f6d6b979e11454414))
+</details>
+
 ## v1.2.0 (2023-04-11)
 
 ### Documentation
@@ -24,7 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 4 commits contributed to the release over the course of 11 calendar days.
+ - 5 commits contributed to the release over the course of 11 calendar days.
  - 13 days passed between releases.
  - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 3 unique issues were worked on: [#141](https://github.com/Unleash/unleash-edge/issues/141), [#147](https://github.com/Unleash/unleash-edge/issues/147), [#149](https://github.com/Unleash/unleash-edge/issues/149)
@@ -42,6 +88,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#149](https://github.com/Unleash/unleash-edge/issues/149)**
     - Add namePrefix filtering support ([`ebd6300`](https://github.com/Unleash/unleash-edge/commit/ebd63005c3ff2f73da7cb35872bd132d1c953dd7))
  * **Uncategorized**
+    - Release unleash-edge v1.2.0 ([`ab51228`](https://github.com/Unleash/unleash-edge/commit/ab5122837f0476d055eaf007a55c13a715b1fdb3))
     - Update dependency links ([`26805bb`](https://github.com/Unleash/unleash-edge/commit/26805bb55b25edc4cc2e41f525c7eee71df4cd54))
 </details>
 
