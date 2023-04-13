@@ -130,6 +130,7 @@ async fn build_edge(args: &EdgeArgs) -> EdgeResult<EdgeInfo> {
 
     let unleash_client = Url::parse(&args.upstream_url.clone())
         .map(UnleashClient::from_url)
+        .map(|c| c.with_custom_client_headers(args.custom_client_headers.clone()))
         .map(Arc::new)
         .map_err(|_| EdgeError::InvalidServerUrl(args.upstream_url.clone()))?;
 

@@ -136,15 +136,19 @@ Options:
   -u, --upstream-url <UPSTREAM_URL>
           Where is your upstream URL. Remember, this is the URL to your instance, without any trailing /api suffix [env: UPSTREAM_URL=]
   -r, --redis-url <REDIS_URL>
-         A URL pointing to a running Redis instance. Edge will use this instance to persist feature and token data and read this back after restart. Mutually exclusive with the --backup-folder option [env: REDIS_URL=]
+          A URL pointing to a running Redis instance. Edge will use this instance to persist feature and token data and read this back after restart. Mutually exclusive with the --backup-folder option [env: REDIS_URL=]
   -b, --backup-folder <BACKUP_FOLDER>
-          A path to a local folder. Edge will write feature and token data to disk in this folder and read this back after restart. Mutually exclusive with the --redis-url option  [env: BACKUP_FOLDER=]
+          A path to a local folder. Edge will write feature and token data to disk in this folder and read this back after restart. Mutually exclusive with the --redis-url option [env: BACKUP_FOLDER=]
   -m, --metrics-interval-seconds <METRICS_INTERVAL_SECONDS>
           How often should we post metrics upstream? [env: METRICS_INTERVAL_SECONDS=] [default: 60]
   -f, --features-refresh-interval-seconds <FEATURES_REFRESH_INTERVAL_SECONDS>
           How long between each refresh for a token [env: FEATURES_REFRESH_INTERVAL_SECONDS=] [default: 10]
+      --token-revalidation-interval-seconds <TOKEN_REVALIDATION_INTERVAL_SECONDS>
+          How long between each revalidation of a token [env: TOKEN_REVALIDATION_INTERVAL_SECONDS=] [default: 3600]
   -t, --tokens <TOKENS>
           Get data for these client tokens at startup. Hot starts your feature cache [env: TOKENS=]
+  -H, --custom-client-headers <CUSTOM_CLIENT_HEADERS>
+          Expects curl header format (-H <HEADERNAME>: <HEADERVALUE>) for instance `-H X-Api-Key: mysecretapikey` [env: CUSTOM_CLIENT_HEADERS=]
   -h, --help
           Print help
 

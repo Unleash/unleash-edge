@@ -1,7 +1,9 @@
 use actix_web::http::header::EntityTag;
 use lazy_static::lazy_static;
+use reqwest::header::{HeaderMap, HeaderName};
 use reqwest::{RequestBuilder, StatusCode, Url};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::str::FromStr;
 use std::time::Duration;
 use ulid::Ulid;
@@ -19,7 +21,6 @@ use unleash_types::client_metrics::ClientApplication;
 use crate::error::FeatureError;
 use crate::urls::UnleashUrls;
 use crate::{error::EdgeError, types::ClientFeaturesRequest};
-use tracing::instrument;
 
 const UNLEASH_APPNAME_HEADER: &str = "UNLEASH-APPNAME";
 const UNLEASH_INSTANCE_ID_HEADER: &str = "UNLEASH-INSTANCEID";
@@ -56,10 +57,11 @@ lazy_static! {
 pub struct UnleashClient {
     pub urls: UnleashUrls,
     backing_client: Client,
+    custom_headers: HashMap<String, String>,
 }
 
 fn new_reqwest_client(instance_id: String) -> Client {
-    let mut header_map = header::HeaderMap::new();
+    let mut header_map = HeaderMap::new();
     header_map.insert(
         UNLEASH_APPNAME_HEADER,
         header::HeaderValue::from_static("unleash-edge"),
@@ -89,6 +91,7 @@ impl UnleashClient {
         Self {
             urls: UnleashUrls::from_base_url(server_url),
             backing_client: new_reqwest_client("unleash_edge".into()),
+            custom_headers: Default::default(),
         }
     }
 
@@ -97,6 +100,7 @@ impl UnleashClient {
         Ok(Self {
             urls: UnleashUrls::from_str(server_url)?,
             backing_client: new_reqwest_client(instance_id),
+            custom_headers: Default::default(),
         })
     }
 
@@ -104,15 +108,33 @@ impl UnleashClient {
         let client_req = self
             .backing_client
             .get(self.urls.client_features_url.to_string())
-            .header(reqwest::header::AUTHORIZATION, req.api_key);
+            .headers(self.header_map(Some(req.api_key)));
         if let Some(tag) = req.etag {
-            client_req.header(reqwest::header::IF_NONE_MATCH, tag.to_string())
+            client_req.header(header::IF_NONE_MATCH, tag.to_string())
         } else {
             client_req
         }
     }
 
-    #[instrument]
+    fn header_map(&self, api_key: Option<String>) -> HeaderMap {
+        let mut header_map = HeaderMap::new();
+        if let Some(key) = api_key {
+            header_map.insert(header::AUTHORIZATION, key.parse().unwrap());
+        }
+        for (header_name, header_value) in self.custom_headers.iter() {
+            let key = HeaderName::from_str(header_name.as_str()).unwrap();
+            header_map.insert(key, header_value.parse().unwrap());
+        }
+        header_map
+    }
+
+    pub fn with_custom_client_headers(self, custom_headers: Vec<(String, String)>) -> Self {
+        Self {
+            custom_headers: custom_headers.iter().cloned().collect(),
+            ..self
+        }
+    }
+
     pub async fn register_as_client(
         &self,
         api_key: String,
@@ -120,7 +142,7 @@ impl UnleashClient {
     ) -> EdgeResult<()> {
         self.backing_client
             .post(self.urls.client_register_app_url.to_string())
-            .header(header::AUTHORIZATION, api_key)
+            .headers(self.header_map(Some(api_key)))
             .json(&application)
             .send()
             .await
@@ -177,6 +199,7 @@ impl UnleashClient {
         let result = self
             .backing_client
             .post(self.urls.edge_metrics_url.to_string())
+            .headers(self.header_map(None))
             .json(&request)
             .send()
             .await
@@ -195,6 +218,7 @@ impl UnleashClient {
         let result = self
             .backing_client
             .post(self.urls.edge_validate_url.to_string())
+            .headers(self.header_map(None))
             .json(&request)
             .send()
             .await
@@ -233,15 +257,22 @@ impl UnleashClient {
 
 #[cfg(test)]
 mod tests {
-    use crate::types::{
-        ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenValidationStatus,
-        ValidateTokensRequest,
+    use crate::{
+        middleware::as_async_middleware::as_async_middleware,
+        types::{
+            ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenValidationStatus,
+            ValidateTokensRequest,
+        },
     };
-    use actix_http::HttpService;
+    use actix_http::{body::MessageBody, HttpService};
     use actix_http_test::{test_server, TestServer};
     use actix_middleware_etag::Etag;
     use actix_service::map_config;
-    use actix_web::{dev::AppConfig, http::header::EntityTag, web, App, HttpResponse};
+    use actix_web::{
+        dev::{AppConfig, ServiceRequest, ServiceResponse},
+        http::header::EntityTag,
+        web, App, HttpResponse,
+    };
     use std::str::FromStr;
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
@@ -287,6 +318,45 @@ mod tests {
             HttpService::new(map_config(
                 App::new()
                     .wrap(Etag::default())
+                    .service(
+                        web::resource("/api/client/features")
+                            .route(web::get().to(return_client_features)),
+                    )
+                    .service(
+                        web::resource("/edge/validate")
+                            .route(web::post().to(return_validate_tokens)),
+                    ),
+                |_| AppConfig::default(),
+            ))
+            .tcp()
+        })
+        .await
+    }
+
+    async fn validate_api_key_middleware(
+        req: ServiceRequest,
+        srv: crate::middleware::as_async_middleware::Next<impl MessageBody + 'static>,
+    ) -> Result<ServiceResponse<impl MessageBody>, actix_web::Error> {
+        let res = if req
+            .headers()
+            .get("X-Api-Key")
+            .map(|key| key.to_str().unwrap() == "MyMagicKey")
+            .unwrap_or(false)
+        {
+            srv.call(req).await?.map_into_left_body()
+        } else {
+            req.into_response(HttpResponse::Forbidden().finish())
+                .map_into_right_body()
+        };
+        Ok(res)
+    }
+
+    async fn test_features_server_with_required_custom_header() -> TestServer {
+        test_server(move || {
+            HttpService::new(map_config(
+                App::new()
+                    .wrap(Etag::default())
+                    .wrap(as_async_middleware(validate_api_key_middleware))
                     .service(
                         web::resource("/api/client/features")
                             .route(web::get().to(return_client_features)),
@@ -383,5 +453,29 @@ mod tests {
     pub fn parse_entity_tag() {
         let optimal_304_tag = EntityTag::from_str("\"76d8bb0e:2841\"");
         assert!(optimal_304_tag.is_ok());
+    }
+
+    #[actix_web::test]
+    pub async fn custom_client_headers_are_sent_along() {
+        let custom_headers = vec![("X-Api-Key".to_string(), "MyMagicKey".to_string())];
+        let srv = test_features_server_with_required_custom_header().await;
+        let client_without_extra_headers = UnleashClient::new(srv.url("/").as_str(), None).unwrap();
+        let client_with_headers = client_without_extra_headers
+            .clone()
+            .with_custom_client_headers(custom_headers);
+        let res = client_without_extra_headers
+            .get_client_features(ClientFeaturesRequest {
+                api_key: "notneeded".into(),
+                etag: None,
+            })
+            .await;
+        assert!(res.is_err());
+        let authed_res = client_with_headers
+            .get_client_features(ClientFeaturesRequest {
+                api_key: "notneeded".into(),
+                etag: None,
+            })
+            .await;
+        assert!(authed_res.is_ok());
     }
 }
