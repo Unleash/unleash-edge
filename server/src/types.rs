@@ -14,8 +14,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use shadow_rs::shadow;
 use unleash_types::client_features::{ClientFeature, ClientFeatures};
 use unleash_types::client_metrics::{ClientApplication, ClientMetricsEnv};
-use unleash_types::frontend::EvaluatedToggle;
-use unleash_yggdrasil::EngineState;
+use unleash_yggdrasil::{EngineState, ResolvedToggle};
 use utoipa::{IntoParams, ToSchema};
 
 pub type EdgeJsonResult<T> = Result<Json<T>, EdgeError>;
@@ -197,8 +196,8 @@ impl ProjectFilter<ClientFeature> for Vec<ClientFeature> {
     }
 }
 
-impl ProjectFilter<EvaluatedToggle> for Vec<EvaluatedToggle> {
-    fn filter_by_projects(&self, token: &EdgeToken) -> Vec<EvaluatedToggle> {
+impl ProjectFilter<ResolvedToggle> for Vec<ResolvedToggle> {
+    fn filter_by_projects(&self, token: &EdgeToken) -> Vec<ResolvedToggle> {
         self.iter()
             .filter(|toggle| {
                 token.projects.is_empty()
