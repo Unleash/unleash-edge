@@ -5,9 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 1.3.1 (2023-04-14)
+
+### Bug Fixes
+
+ - <csr-id-a4930e6897b30e2b00e118a078d45e953190cfc6/> Fixes incorrect parsing of extra arguments.
+   Currently we do not parse extra parameters into the properties holder
+   for the context. This PR updates to make sure that overflows (properties
+   we haven't explicitly defined) get parsed into the properties map
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 1 commit contributed to the release.
+ - 1 day passed between releases.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 1 unique issue was worked on: [#156](https://github.com/Unleash/unleash-edge/issues/156)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#156](https://github.com/Unleash/unleash-edge/issues/156)**
+    - Fixes incorrect parsing of extra arguments. ([`a4930e6`](https://github.com/Unleash/unleash-edge/commit/a4930e6897b30e2b00e118a078d45e953190cfc6))
+</details>
+
 ## 1.3.0 (2023-04-13)
 
 <csr-id-9a651efc0393cebeb67e639aa612434606b4c9ed/>
+<csr-id-8bba7f47b2204d63409b0220ada78edb6bc156de/>
 
 ### Chore
 
@@ -36,7 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 6 commits contributed to the release over the course of 1 calendar day.
+ - 7 commits contributed to the release over the course of 1 calendar day.
  - 1 day passed between releases.
  - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#151](https://github.com/Unleash/unleash-edge/issues/151), [#154](https://github.com/Unleash/unleash-edge/issues/154)
@@ -52,6 +81,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#154](https://github.com/Unleash/unleash-edge/issues/154)**
     - Update rust crate serde_json to 1.0.96 ([`d1052f7`](https://github.com/Unleash/unleash-edge/commit/d1052f7f913713c488d3cd038709a872cb493c71))
  * **Uncategorized**
+    - Release unleash-edge v1.3.0 ([`83a7b97`](https://github.com/Unleash/unleash-edge/commit/83a7b97fe9ddff1871fe8563a96025a63fc91f4d))
     - Added changelog for 1.3.0 release ([`8bba7f4`](https://github.com/Unleash/unleash-edge/commit/8bba7f47b2204d63409b0220ada78edb6bc156de))
     - Updated README in server subfolder ([`625b076`](https://github.com/Unleash/unleash-edge/commit/625b0760c66574f94a098885ff94735330a2bb2d))
     - Bump dependency status link ([`9a651ef`](https://github.com/Unleash/unleash-edge/commit/9a651efc0393cebeb67e639aa612434606b4c9ed))
