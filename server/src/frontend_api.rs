@@ -17,7 +17,7 @@ use crate::{
     error::{EdgeError, FrontendHydrationMissing},
     metrics::client_metrics::MetricsCache,
     tokens::{self, cache_key},
-    types::{EdgeJsonResult, EdgeResult, EdgeToken, ProjectFilter},
+    types::{EdgeJsonResult, EdgeResult, EdgeToken},
 };
 
 ///
@@ -101,18 +101,18 @@ security(
 #[post("/frontend/all")]
 async fn post_frontend_all_features(
     edge_token: EdgeToken,
-    engine_cache: web::Data<DashMap<String, EngineState>>,
-    token_cache: web::Data<DashMap<String, EdgeToken>>,
-    context: web::Json<Context>,
+    engine_cache: Data<DashMap<String, EngineState>>,
+    token_cache: Data<DashMap<String, EdgeToken>>,
+    context: Json<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
     post_all_features(edge_token, engine_cache, token_cache, context)
 }
 
 fn post_all_features(
     edge_token: EdgeToken,
-    engine_cache: web::Data<DashMap<String, EngineState>>,
-    token_cache: web::Data<DashMap<String, EdgeToken>>,
-    context: web::Json<Context>,
+    engine_cache: Data<DashMap<String, EngineState>>,
+    token_cache: Data<DashMap<String, EdgeToken>>,
+    context: Json<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
     let context = context.into_inner();
     let token = token_cache
@@ -211,7 +211,7 @@ async fn post_proxy_enabled_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: Query<Context>,
+    context: Json<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
     post_enabled_features(edge_token, engine_cache, token_cache, context).await
 }
@@ -233,7 +233,7 @@ async fn post_frontend_enabled_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: Query<Context>,
+    context: Json<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
     post_enabled_features(edge_token, engine_cache, token_cache, context).await
 }
@@ -333,7 +333,6 @@ pub fn evaluate_feature(
         })
         .map(|r| EvaluatedToggle {
             name: feature_name.clone(),
-            project: r.project,
             enabled: r.enabled,
             variant: EvaluatedVariant {
                 name: r.variant.name,
@@ -349,7 +348,7 @@ async fn post_enabled_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: Query<Context>,
+    context: Json<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
     let context = context.into_inner();
     let token = token_cache
@@ -500,10 +499,14 @@ pub fn frontend_from_yggdrasil(
     let toggles: Vec<EvaluatedToggle> = res
         .iter()
         .filter(|(_, resolved)| include_all || resolved.enabled)
+        .filter(|(_, resolved)| {
+            edge_token.projects.is_empty()
+                || edge_token.projects.contains(&"*".to_string())
+                || edge_token.projects.contains(&resolved.project)
+        })
         .map(|(name, resolved)| EvaluatedToggle {
             name: name.into(),
             enabled: resolved.enabled,
-            project: resolved.project.clone(),
             variant: EvaluatedVariant {
                 name: resolved.variant.name.clone(),
                 enabled: resolved.variant.enabled,
@@ -511,16 +514,15 @@ pub fn frontend_from_yggdrasil(
             },
             impression_data: resolved.impression_data,
         })
-        .collect::<Vec<EvaluatedToggle>>()
-        .filter_by_projects(edge_token);
+        .collect::<Vec<EvaluatedToggle>>();
     FrontendResult { toggles }
 }
 
 pub fn get_all_features(
     edge_token: EdgeToken,
-    engine_cache: web::Data<DashMap<String, EngineState>>,
-    token_cache: web::Data<DashMap<String, EdgeToken>>,
-    context: web::Query<Context>,
+    engine_cache: Data<DashMap<String, EngineState>>,
+    token_cache: Data<DashMap<String, EdgeToken>>,
+    context: Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
     let context = context.into_inner();
     let token = token_cache
@@ -727,7 +729,6 @@ mod tests {
                     payload: None,
                 },
                 impression_data: false,
-                project: "default".into(),
             }],
         };
 
@@ -865,7 +866,6 @@ mod tests {
 
         let result: FrontendResult = test::call_and_read_body_json(&app, req).await;
         assert_eq!(result.toggles.len(), 16);
-        assert!(result.toggles.iter().all(|toggle| toggle.project == "dx"));
     }
 
     #[tokio::test]
