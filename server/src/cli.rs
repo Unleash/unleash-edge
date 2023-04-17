@@ -46,6 +46,10 @@ pub struct EdgeArgs {
     /// for instance `-H X-Api-Key: mysecretapikey`
     #[clap(short = 'H', long, env, value_delimiter = ',', value_parser = string_to_header_tuple)]
     pub custom_client_headers: Vec<(String, String)>,
+
+    /// If set to true, we will skip SSL verification when connecting to the upstream Unleash server
+    #[clap(short, long, env, default_value_t = false)]
+    pub skip_ssl_verification: bool,
 }
 
 pub fn string_to_header_tuple(s: &str) -> Result<(String, String), String> {

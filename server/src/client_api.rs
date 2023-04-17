@@ -75,7 +75,7 @@ pub async fn get_features(
 }
 #[utoipa::path(
     context_path = "/api",
-    params(("feature_name" = String, Path,)),    
+    params(("feature_name" = String, Path,)),
     responses(
         (status = 200, description = "Return feature toggles for this token", body = ClientFeature),
         (status = 403, description = "Was not allowed to access feature"),
