@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::time::Duration;
-use ulid::Ulid;
 use unleash_types::client_features::ClientFeatures;
 
 use crate::metrics::client_metrics::MetricsBatch;
@@ -60,7 +59,7 @@ pub struct UnleashClient {
     custom_headers: HashMap<String, String>,
 }
 
-fn new_reqwest_client(instance_id: String) -> Client {
+fn new_reqwest_client(instance_id: String, skip_ssl_verification: bool) -> Client {
     let mut header_map = HeaderMap::new();
     header_map.insert(
         UNLEASH_APPNAME_HEADER,
@@ -77,6 +76,7 @@ fn new_reqwest_client(instance_id: String) -> Client {
     Client::builder()
         .user_agent(format!("unleash-edge-{}", crate::types::build::PKG_VERSION))
         .default_headers(header_map)
+        .danger_accept_invalid_certs(skip_ssl_verification)
         .timeout(Duration::from_secs(5))
         .build()
         .unwrap()
@@ -87,19 +87,33 @@ pub struct EdgeTokens {
 }
 
 impl UnleashClient {
-    pub fn from_url(server_url: Url) -> Self {
+    pub fn from_url(server_url: Url, skip_ssl_verification: bool) -> Self {
         Self {
             urls: UnleashUrls::from_base_url(server_url),
-            backing_client: new_reqwest_client("unleash_edge".into()),
+            backing_client: new_reqwest_client("unleash_edge".into(), skip_ssl_verification),
             custom_headers: Default::default(),
         }
     }
 
+    #[cfg(test)]
     pub fn new(server_url: &str, instance_id_opt: Option<String>) -> Result<Self, EdgeError> {
+        use ulid::Ulid;
+
         let instance_id = instance_id_opt.unwrap_or_else(|| Ulid::new().to_string());
         Ok(Self {
             urls: UnleashUrls::from_str(server_url)?,
-            backing_client: new_reqwest_client(instance_id),
+            backing_client: new_reqwest_client(instance_id, false),
+            custom_headers: Default::default(),
+        })
+    }
+
+    #[cfg(test)]
+    pub fn new_insecure(server_url: &str) -> Result<Self, EdgeError> {
+        use ulid::Ulid;
+
+        Ok(Self {
+            urls: UnleashUrls::from_str(server_url)?,
+            backing_client: new_reqwest_client(Ulid::new().to_string(), true),
             custom_headers: Default::default(),
         })
     }
@@ -258,13 +272,15 @@ impl UnleashClient {
 #[cfg(test)]
 mod tests {
     use crate::{
+        cli::TlsOptions,
         middleware::as_async_middleware::as_async_middleware,
+        tls,
         types::{
             ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenValidationStatus,
             ValidateTokensRequest,
         },
     };
-    use actix_http::{body::MessageBody, HttpService};
+    use actix_http::{body::MessageBody, HttpService, TlsAcceptorConfig};
     use actix_http_test::{test_server, TestServer};
     use actix_middleware_etag::Etag;
     use actix_service::map_config;
@@ -273,7 +289,7 @@ mod tests {
         http::header::EntityTag,
         web, App, HttpResponse,
     };
-    use std::str::FromStr;
+    use std::{str::FromStr, time::Duration};
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
     use super::{EdgeTokens, UnleashClient};
@@ -329,6 +345,35 @@ mod tests {
                 |_| AppConfig::default(),
             ))
             .tcp()
+        })
+        .await
+    }
+
+    async fn test_features_server_with_untrusted_ssl() -> TestServer {
+        test_server(move || {
+            let tls_options = TlsOptions {
+                tls_server_cert: Some("../examples/server.crt".into()),
+                tls_enable: true,
+                tls_server_key: Some("../examples/server.key".into()),
+                tls_server_port: 443,
+            };
+            let server_config = tls::config(tls_options).unwrap();
+            let tls_acceptor_config =
+                TlsAcceptorConfig::default().handshake_timeout(Duration::from_secs(5));
+            HttpService::new(map_config(
+                App::new()
+                    .wrap(Etag::default())
+                    .service(
+                        web::resource("/api/client/features")
+                            .route(web::get().to(return_client_features)),
+                    )
+                    .service(
+                        web::resource("/edge/validate")
+                            .route(web::post().to(return_validate_tokens)),
+                    ),
+                |_| AppConfig::default(),
+            ))
+            .rustls_with_config(server_config, tls_acceptor_config)
         })
         .await
     }
@@ -477,5 +522,35 @@ mod tests {
             })
             .await;
         assert!(authed_res.is_ok());
+    }
+
+    #[actix_web::test]
+    pub async fn disabling_ssl_verification_allows_communicating_with_upstream_unleash_with_self_signed_cert(
+    ) {
+        let srv = test_features_server_with_untrusted_ssl().await;
+        let client = UnleashClient::new_insecure(srv.surl("/").as_str()).unwrap();
+
+        let validate_result = client
+            .validate_tokens(ValidateTokensRequest {
+                tokens: vec![TEST_TOKEN.to_string()],
+            })
+            .await;
+
+        validate_result.unwrap();
+    }
+
+    #[actix_web::test]
+    pub async fn not_disabling_ssl_verification_fails_communicating_with_upstream_unleash_with_self_signed_cert(
+    ) {
+        let srv = test_features_server_with_untrusted_ssl().await;
+        let client = UnleashClient::new(srv.surl("/").as_str(), None).unwrap();
+
+        let validate_result = client
+            .validate_tokens(ValidateTokensRequest {
+                tokens: vec![TEST_TOKEN.to_string()],
+            })
+            .await;
+
+        assert!(validate_result.is_err());
     }
 }
