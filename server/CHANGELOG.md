@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 1.4.0 (2023-04-17)
+
+### New Features
+
+ - <csr-id-b74027319c87e078b042a28051e52e37dab956a9/> allow cli option to disable ssl verification
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 1 commit contributed to the release.
+ - 2 days passed between releases.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 1 unique issue was worked on: [#157](https://github.com/Unleash/unleash-edge/issues/157)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#157](https://github.com/Unleash/unleash-edge/issues/157)**
+    - Allow cli option to disable ssl verification ([`b740273`](https://github.com/Unleash/unleash-edge/commit/b74027319c87e078b042a28051e52e37dab956a9))
+</details>
+
 ## 1.3.1 (2023-04-14)
 
 ### Bug Fixes
@@ -18,7 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 1 commit contributed to the release.
+ - 2 commits contributed to the release.
  - 1 day passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#156](https://github.com/Unleash/unleash-edge/issues/156)
@@ -31,6 +56,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  * **[#156](https://github.com/Unleash/unleash-edge/issues/156)**
     - Fixes incorrect parsing of extra arguments. ([`a4930e6`](https://github.com/Unleash/unleash-edge/commit/a4930e6897b30e2b00e118a078d45e953190cfc6))
+ * **Uncategorized**
+    - Release unleash-edge v1.3.1 ([`845aa17`](https://github.com/Unleash/unleash-edge/commit/845aa177220a6ce61091c8861d1342e69f680ace))
 </details>
 
 ## 1.3.0 (2023-04-13)
