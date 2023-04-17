@@ -536,7 +536,7 @@ mod tests {
             })
             .await;
 
-        validate_result.unwrap();
+        assert!(validate_result.is_ok());
     }
 
     #[actix_web::test]
