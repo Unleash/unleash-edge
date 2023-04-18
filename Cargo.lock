@@ -2215,6 +2215,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_qs"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0431a35568651e363364210c91983c1da5eb29404d9f0928b67d4ebcfa7d330c"
+dependencies = [
+ "actix-web",
+ "futures",
+ "percent-encoding",
+ "serde",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
 name = "serde_urlencoded"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2825,6 +2839,7 @@ dependencies = [
  "rustls-pemfile",
  "serde",
  "serde_json",
+ "serde_qs",
  "shadow-rs",
  "test-case",
  "testcontainers",
@@ -2841,8 +2856,6 @@ dependencies = [
 [[package]]
 name = "unleash-types"
 version = "0.9.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "090b39230921b4172d055758306417f15d81202968305a063a62c4ab4975ae39"
 dependencies = [
  "base64",
  "chrono",
@@ -2856,8 +2869,6 @@ dependencies = [
 [[package]]
 name = "unleash-yggdrasil"
 version = "0.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebd697f12aea246f16aeab33428db8ed2c9989807a6b9f90ce55b4bd3e8d1e7e"
 dependencies = [
  "chrono",
  "convert_case 0.6.0",

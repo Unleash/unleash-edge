@@ -56,12 +56,16 @@ async fn main() -> Result<(), anyhow::Error> {
     let openapi = openapi::ApiDoc::openapi();
     let refresher_for_app_data = feature_refresher.clone();
     let server = HttpServer::new(move || {
+        let qs_config =
+            serde_qs::actix::QsQueryConfig::default().qs_config(serde_qs::Config::new(5, false));
+
         let cors_middleware = Cors::default()
             .allow_any_origin()
             .send_wildcard()
             .allow_any_header()
             .allow_any_method();
         let mut app = App::new()
+            .app_data(qs_config)
             .app_data(web::Data::new(mode_arg.clone()))
             .app_data(web::Data::new(connect_via.clone()))
             .app_data(web::Data::from(metrics_cache.clone()))

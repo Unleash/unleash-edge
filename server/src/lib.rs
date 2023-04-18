@@ -57,9 +57,14 @@ mod tests {
             token_cache: upstream_token_cache.clone(),
             persistence: None,
         });
+
         test_server(move || {
+            let config = serde_qs::actix::QsQueryConfig::default()
+                .qs_config(serde_qs::Config::new(5, false));
+
             HttpService::new(map_config(
                 App::new()
+                    .app_data(config)
                     .app_data(web::Data::from(token_validator.clone()))
                     .app_data(web::Data::from(upstream_features_cache.clone()))
                     .app_data(web::Data::from(upstream_engine_cache.clone()))
