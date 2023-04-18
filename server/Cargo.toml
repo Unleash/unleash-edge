@@ -48,7 +48,7 @@ tokio = {version = "1.27.0", features = ["macros", "rt-multi-thread", "tracing",
 tracing = {version = "0.1.37", features = ["log"]}
 tracing-subscriber = {version = "0.3.16", features = ["json", "env-filter"]}
 ulid = "1.0.0"
-unleash-types = {version = "0.9.4", features = ["openapi", "hashes"]}
+unleash-types = {version = "0.10.0", features = ["openapi", "hashes"]}
 unleash-yggdrasil = "0.5.3"
 utoipa = {version = "3", features = ["actix_extras", "chrono"]}
 utoipa-swagger-ui = {version = "3", features = ["actix-web"]}
