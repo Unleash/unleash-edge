@@ -7,6 +7,7 @@ use actix_web::{
 };
 use dashmap::DashMap;
 use serde_qs::actix::QsQuery;
+use tracing::debug;
 use unleash_types::client_features::Context;
 use unleash_types::client_metrics::{ClientApplication, ConnectVia};
 use unleash_types::{
@@ -172,6 +173,7 @@ async fn get_enabled_frontend(
     token_cache: Data<DashMap<String, EdgeToken>>,
     context: QsQuery<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
+    debug!("{context:?}");
     get_enabled_features(edge_token, engine_cache, token_cache, context.into_inner())
 }
 
