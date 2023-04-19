@@ -43,8 +43,8 @@ jobs:
           registry-type: public
           aws-region: 'us-east-1'
         env:
-          AWS_ACCESS_KEY_ID: ${{ secret.AWS_ECR_PUBLIC_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secret.AWS_ECR_PUBLIC_SECRET_ACCESS_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ECR_PUBLIC_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_PUBLIC_SECRET_ACCESS_KEY }}
       - name: Login to docker hub
         uses: docker/login-action@v2
         with:
