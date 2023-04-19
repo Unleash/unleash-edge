@@ -52,6 +52,7 @@ pub enum EdgeError {
     NoTokenProvider,
     TlsError,
     TokenParseError,
+    ContextParseError,
 }
 
 impl Error for EdgeError {}
@@ -98,6 +99,9 @@ impl Display for EdgeError {
             EdgeError::FrontendNotYetHydrated(hydration_info) => {
                 write!(f, "Edge not yet hydrated for {hydration_info:?}")
             }
+            EdgeError::ContextParseError => {
+                write!(f, "Failed to parse query parameters to frontend api")
+            }
         }
     }
 }
@@ -123,6 +127,7 @@ impl ResponseError for EdgeError {
             EdgeError::EdgeMetricsError => StatusCode::BAD_REQUEST,
             EdgeError::ClientRegisterError => StatusCode::BAD_REQUEST,
             EdgeError::FrontendNotYetHydrated(_) => StatusCode::NETWORK_AUTHENTICATION_REQUIRED,
+            EdgeError::ContextParseError => StatusCode::BAD_REQUEST,
             EdgeError::EdgeMetricsRequestError(status_code) => *status_code,
         }
     }
