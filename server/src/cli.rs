@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 
 use clap::{ArgGroup, Args, Parser, Subcommand};
-use iter_tools::Itertools;
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum EdgeMode {
@@ -55,7 +54,7 @@ pub struct EdgeArgs {
 pub fn string_to_header_tuple(s: &str) -> Result<(String, String), String> {
     let format_message = "Please pass headers in the format <headername>:<headervalue>".to_string();
     if s.contains(':') {
-        if let Some((header_name, header_value)) = s.split(':').collect_tuple() {
+        if let Some((header_name, header_value)) = s.split_once(':') {
             Ok((
                 header_name.trim().to_string(),
                 header_value.trim().to_string(),
@@ -186,6 +185,27 @@ mod tests {
                 let api_key = client_headers.get(1).unwrap();
                 assert_eq!(api_key.0, "X-Api-Key");
                 assert_eq!(api_key.1, "mysecret")
+            }
+            EdgeMode::Offline(_) => unreachable!(),
+        }
+    }
+
+    #[test]
+    pub fn can_handle_colons_in_header_value() {
+        let args = vec![
+            "unleash-edge",
+            "edge",
+            "-u http://localhost:4242",
+            r#"-H Authorization: test:test.secret"#,
+        ];
+        let args = CliArgs::parse_from(args);
+        match args.mode {
+            EdgeMode::Edge(args) => {
+                let client_headers = args.custom_client_headers;
+                assert_eq!(client_headers.len(), 1);
+                let auth = client_headers.get(0).unwrap();
+                assert_eq!(auth.0, "Authorization");
+                assert_eq!(auth.1, "test:test.secret");
             }
             EdgeMode::Offline(_) => unreachable!(),
         }
