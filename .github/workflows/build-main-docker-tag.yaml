@@ -1,14 +1,14 @@
 ---
-name: Build Release - docker image for Github, DockerHub and AWS public gallery
+name: Build main - docker image for DockerHub and AWS public gallery
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
     paths:
       - "**/*.rs"
       - "**/*.toml"
       - ".github/workflows/build-docker-release.yaml"
-    tags:
-      - unleash-edge-v[0-9]+.*
 
 permissions:
   id-token: write
@@ -57,11 +57,9 @@ jobs:
         with:
           images: |
             unleashorg/unleash-edge
-            ghcr.io/Unleash/unleash-edge
             ${{ steps.login-ecr-public.outputs.registry }}/unleashorg/unleash-edge
           tags: |
-            type=match,pattern=unleash-edge-v(\d+\.\d+.\d+),group=1,prefix=v
-            type=match,pattern=unleash-edge-v(\d+\.\d+).*,group=1,prefix=v
+            type=edge
 
       - name: Login to docker hub
         uses: docker/login-action@v2
