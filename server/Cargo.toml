@@ -21,7 +21,7 @@ actix-middleware-etag = "0.2.0"
 actix-service = "2.0.2"
 actix-web = {version = "4.3.1", features = ["rustls", "compress-zstd"]}
 
-anyhow = "1.0.70"
+anyhow = "1.0.71"
 async-trait = "0.1.68"
 chrono = {version = "0.4.24", features = ["serde"]}
 clap = {version = "4.2.4", features = ["derive", "env"]}
