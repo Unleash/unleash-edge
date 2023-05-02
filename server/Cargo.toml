@@ -38,7 +38,7 @@ opentelemetry-semantic-conventions = "0.11.0"
 prometheus = {version = "0.13.3", features = ["process"]}
 prometheus-static-metric = "0.5.1"
 redis = {version = "0.23.0", features = ["tokio-comp"]}
-reqwest = {version = "0.11.17", default-features = false, features = ["rustls", "json", "rustls-tls"]}
+reqwest = {version = "0.11.17", default-features = false, features = ["rustls", "json", "rustls-tls", "native-tls"]}
 rustls = "0.20.8"
 rustls-pemfile = "1.0.2"
 serde = {version = "1.0.160", features = ["derive"]}

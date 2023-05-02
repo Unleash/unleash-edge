@@ -9,6 +9,42 @@ pub enum EdgeMode {
     /// Run in offline mode
     Offline(OfflineArgs),
 }
+
+#[derive(Args, Debug, Clone)]
+pub struct Pkcs12Der {
+    /// Identity file in pkcs12 format. Typically this file has a pfx extension
+    #[clap(long, env)]
+    pub pkcs12_identity_file: Option<PathBuf>,
+    #[clap(long, env)]
+    /// Passphrase used to unlock the pkcs12 file
+    pub pkcs12_passphrase: Option<String>,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct Pkcs8Pem {
+    /// Client certificate chain in PEM encoded X509 format with the leaf certificate first.
+    /// The certificate chain should contain any intermediate certificates that should be sent to clients to allow them to build a chain to a trusted root
+    #[clap(long, env)]
+    pub pkcs8_client_certificate_file: Option<PathBuf>,
+
+    /// Client key is a PEM encoded PKCS#8 formatted private key for the leaf certificate
+    pub pkcs8_client_key_file: Option<PathBuf>,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct Pem {
+    /// A file containing a PEM encoded private key and at least one PEM encoded certificate
+    /// The private key must be in RSA, SEC1 Elliptic Curve or PKCS#8 format
+    #[clap(long, env)]
+    pub pem_client_private_key_and_certificate: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone)]
+pub enum ClientIdentity {
+    Pkcs12Der(Pkcs12Der),
+    Pkcs8(Pkcs8Pem),
+    Pem(Pem),
+}
 #[derive(Args, Debug, Clone)]
 #[command(group(
     ArgGroup::new("data-provider")
@@ -49,6 +85,9 @@ pub struct EdgeArgs {
     /// If set to true, we will skip SSL verification when connecting to the upstream Unleash server
     #[clap(short, long, env, default_value_t = false)]
     pub skip_ssl_verification: bool,
+
+    #[clap(skip)]
+    pub client_identity: Option<ClientIdentity>,
 }
 
 pub fn string_to_header_tuple(s: &str) -> Result<(String, String), String> {

@@ -1,9 +1,10 @@
 use actix_web::http::header::EntityTag;
 use lazy_static::lazy_static;
 use reqwest::header::{HeaderMap, HeaderName};
-use reqwest::{RequestBuilder, StatusCode, Url};
+use reqwest::{ClientBuilder, Identity, RequestBuilder, StatusCode, Url};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fs;
 use std::str::FromStr;
 use std::time::Duration;
 use unleash_types::client_features::ClientFeatures;
@@ -15,10 +16,11 @@ use crate::types::{
 
 use prometheus::{register_int_gauge_vec, IntGaugeVec, Opts};
 use reqwest::{header, Client};
-use tracing::warn;
+use tracing::{debug, warn};
 use unleash_types::client_metrics::ClientApplication;
 
-use crate::error::FeatureError;
+use crate::cli::{ClientIdentity, Pem, Pkcs12Der, Pkcs8Pem};
+use crate::error::{CertificateError, FeatureError};
 use crate::urls::UnleashUrls;
 use crate::{error::EdgeError, types::ClientFeaturesRequest};
 
@@ -60,27 +62,82 @@ pub struct UnleashClient {
     custom_headers: HashMap<String, String>,
 }
 
-fn new_reqwest_client(instance_id: String, skip_ssl_verification: bool) -> Client {
-    let mut header_map = HeaderMap::new();
-    header_map.insert(
-        UNLEASH_APPNAME_HEADER,
-        header::HeaderValue::from_static("unleash-edge"),
-    );
-    header_map.insert(
-        UNLEASH_INSTANCE_ID_HEADER,
-        header::HeaderValue::from_bytes(instance_id.as_bytes()).unwrap(),
-    );
-    header_map.insert(
-        UNLEASH_CLIENT_SPEC_HEADER,
-        header::HeaderValue::from_static(unleash_yggdrasil::SUPPORTED_SPEC_VERSION),
-    );
-    Client::builder()
-        .user_agent(format!("unleash-edge-{}", crate::types::build::PKG_VERSION))
-        .default_headers(header_map)
-        .danger_accept_invalid_certs(skip_ssl_verification)
-        .timeout(Duration::from_secs(5))
-        .build()
-        .unwrap()
+fn load_pkcs12(pkcs12_der: Pkcs12Der) -> EdgeResult<Identity> {
+    let pfx = fs::read(pkcs12_der.pkcs12_identity_file.unwrap()).map_err(|e| {
+        EdgeError::ClientCertificateError(CertificateError::Pkcs12ArchiveNotFound(format!("{e:?}")))
+    })?;
+    Identity::from_pkcs12_der(&pfx, &pkcs12_der.pkcs12_passphrase.unwrap()).map_err(|e| {
+        EdgeError::ClientCertificateError(CertificateError::Pkcs12IdentityGeneration(format!(
+            "{e:?}"
+        )))
+    })
+}
+
+fn load_pkcs8(pkcs8_pem: Pkcs8Pem) -> EdgeResult<Identity> {
+    let cert = fs::read(pkcs8_pem.pkcs8_client_certificate_file.unwrap()).map_err(|e| {
+        EdgeError::ClientCertificateError(CertificateError::Pem8ClientCertNotFound(format!("{e:}")))
+    })?;
+    let key = fs::read(pkcs8_pem.pkcs8_client_key_file.unwrap()).map_err(|e| {
+        EdgeError::ClientCertificateError(CertificateError::Pem8ClientKeyNotFound(format!("{e:?}")))
+    })?;
+    Identity::from_pkcs8_pem(&cert, &key).map_err(|e| {
+        EdgeError::ClientCertificateError(CertificateError::Pem8IdentityGeneration(format!(
+            "{e:?}"
+        )))
+    })
+}
+fn load_pem(pem: Pem) -> EdgeResult<Identity> {
+    let pem =
+        fs::read(pem.pem_client_private_key_and_certificate.clone().unwrap()).map_err(|e| {
+            EdgeError::ClientCertificateError(CertificateError::PemFileNotFound(format!("{e:?}")))
+        })?;
+    Identity::from_pem(&pem).map_err(|e| {
+        EdgeError::ClientCertificateError(CertificateError::PemIdentityGeneration(format!("{e:?}")))
+    })
+}
+
+fn build_identity(identity: Option<ClientIdentity>) -> EdgeResult<ClientBuilder> {
+    identity.map_or_else(
+        || Ok(ClientBuilder::new()),
+        |id| {
+            let req_identity = match id {
+                ClientIdentity::Pkcs12Der(pkcs12) => load_pkcs12(pkcs12),
+                ClientIdentity::Pkcs8(pkcs8) => load_pkcs8(pkcs8),
+                ClientIdentity::Pem(pem) => load_pem(pem),
+            }?;
+            debug!("Successfully loaded client identity");
+            Ok(ClientBuilder::new().identity(req_identity))
+        },
+    )
+}
+fn new_reqwest_client(
+    instance_id: String,
+    skip_ssl_verification: bool,
+    identity: Option<ClientIdentity>,
+) -> EdgeResult<Client> {
+    build_identity(identity).and_then(|client| {
+        let mut header_map = HeaderMap::new();
+        header_map.insert(
+            UNLEASH_APPNAME_HEADER,
+            header::HeaderValue::from_static("unleash-edge"),
+        );
+        header_map.insert(
+            UNLEASH_INSTANCE_ID_HEADER,
+            header::HeaderValue::from_bytes(instance_id.as_bytes()).unwrap(),
+        );
+        header_map.insert(
+            UNLEASH_CLIENT_SPEC_HEADER,
+            header::HeaderValue::from_static(unleash_yggdrasil::SUPPORTED_SPEC_VERSION),
+        );
+
+        client
+            .user_agent(format!("unleash-edge-{}", crate::types::build::PKG_VERSION))
+            .default_headers(header_map)
+            .danger_accept_invalid_certs(skip_ssl_verification)
+            .timeout(Duration::from_secs(5))
+            .build()
+            .map_err(|e| EdgeError::ClientBuildError(format!("{e:?}")))
+    })
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EdgeTokens {
@@ -88,10 +145,19 @@ pub struct EdgeTokens {
 }
 
 impl UnleashClient {
-    pub fn from_url(server_url: Url, skip_ssl_verification: bool) -> Self {
+    pub fn from_url(
+        server_url: Url,
+        skip_ssl_verification: bool,
+        identity: Option<ClientIdentity>,
+    ) -> Self {
         Self {
             urls: UnleashUrls::from_base_url(server_url),
-            backing_client: new_reqwest_client("unleash_edge".into(), skip_ssl_verification),
+            backing_client: new_reqwest_client(
+                "unleash_edge".into(),
+                skip_ssl_verification,
+                identity,
+            )
+            .unwrap(),
             custom_headers: Default::default(),
         }
     }
@@ -103,7 +169,7 @@ impl UnleashClient {
         let instance_id = instance_id_opt.unwrap_or_else(|| Ulid::new().to_string());
         Ok(Self {
             urls: UnleashUrls::from_str(server_url)?,
-            backing_client: new_reqwest_client(instance_id, false),
+            backing_client: new_reqwest_client(instance_id, false, None).unwrap(),
             custom_headers: Default::default(),
         })
     }
@@ -114,7 +180,7 @@ impl UnleashClient {
 
         Ok(Self {
             urls: UnleashUrls::from_str(server_url)?,
-            backing_client: new_reqwest_client(Ulid::new().to_string(), true),
+            backing_client: new_reqwest_client(Ulid::new().to_string(), true, None).unwrap(),
             custom_headers: Default::default(),
         })
     }
@@ -272,6 +338,8 @@ impl UnleashClient {
 
 #[cfg(test)]
 mod tests {
+    use crate::cli::{ClientIdentity, Pem, Pkcs12Der, Pkcs8Pem};
+    use crate::http::unleash_client::new_reqwest_client;
     use crate::{
         cli::TlsOptions,
         middleware::as_async_middleware::as_async_middleware,
@@ -290,6 +358,7 @@ mod tests {
         http::header::EntityTag,
         web, App, HttpResponse,
     };
+    use std::path::PathBuf;
     use std::{str::FromStr, time::Duration};
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
@@ -553,5 +622,52 @@ mod tests {
             .await;
 
         assert!(validate_result.is_err());
+    }
+
+    #[test]
+    pub fn can_instantiate_pkcs_12_client() {
+        let pfx = "./testdata/pkcs12/snakeoil.pfx";
+        let passphrase = "password";
+        let identity = ClientIdentity::Pkcs12Der(Pkcs12Der {
+            pkcs12_identity_file: Some(PathBuf::from(pfx)),
+            pkcs12_passphrase: Some(passphrase.into()),
+        });
+        let client = new_reqwest_client("test_pkcs12".into(), false, Some(identity));
+        assert!(client.is_ok());
+    }
+
+    #[test]
+    pub fn should_throw_error_if_wrong_passphrase_to_pfx_file() {
+        let pfx = "./testdata/pkcs12/snakeoil.pfx";
+        let passphrase = "wrongpassword";
+        let identity = ClientIdentity::Pkcs12Der(Pkcs12Der {
+            pkcs12_identity_file: Some(PathBuf::from(pfx)),
+            pkcs12_passphrase: Some(passphrase.into()),
+        });
+        let client = new_reqwest_client("test_pkcs12".into(), false, Some(identity));
+        assert!(client.is_err());
+    }
+
+    #[test]
+    pub fn can_instantiate_pkcs_8_client() {
+        let key = "./testdata/pkcs8/snakeoil.key";
+        let cert = "./testdata/pkcs12/snakeoil.pem";
+        let identity = ClientIdentity::Pkcs8(Pkcs8Pem {
+            pkcs8_client_certificate_file: Some(cert.into()),
+            pkcs8_client_key_file: Some(key.into()),
+        });
+        let client = new_reqwest_client("test_pkcs8".into(), false, Some(identity));
+        assert!(client.is_ok());
+    }
+
+    #[test]
+    pub fn can_instantiate_pem_client() {
+        let pem = "./testdata/pem/snakeoil.pem";
+        let identity = ClientIdentity::Pem(Pem {
+            pem_client_private_key_and_certificate: Some(pem.into()),
+        });
+        let client = new_reqwest_client("test_pem".into(), false, Some(identity));
+        println!("{client:?}");
+        assert!(client.is_ok());
     }
 }
