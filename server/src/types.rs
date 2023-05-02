@@ -23,8 +23,11 @@ pub type EdgeResult<T> = Result<T, EdgeError>;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum TokenType {
+    #[serde(alias = "FRONTEND")]
     Frontend,
+    #[serde(alias = "CLIENT")]
     Client,
+    #[serde(alias = "ADMIN")]
     Admin,
     Invalid,
 }
@@ -274,10 +277,12 @@ pub struct FeatureFilters {
 mod tests {
     use std::str::FromStr;
 
+    use crate::error::EdgeError::EdgeTokenParseError;
+    use crate::http::unleash_client::EdgeTokens;
     use test_case::test_case;
     use tracing::warn;
 
-    use crate::types::EdgeToken;
+    use crate::types::{EdgeResult, EdgeToken};
 
     fn test_str(token: &str) -> EdgeToken {
         EdgeToken::from_str(
@@ -359,5 +364,27 @@ mod tests {
 
         assert!(token1.subsumes(&token2));
         assert!(!token2.subsumes(&token1));
+    }
+
+    #[test]
+    fn token_type_should_be_case_insensitive() {
+        let json = r###"{ "tokens": [{
+              "token": "chriswk-test:development.notusedsecret",
+              "type": "CLIENT",
+              "projects": [
+                "chriswk-test"
+              ]
+            },
+            {
+              "token": "demo-app:production.notusedsecret",
+              "type": "client",
+              "projects": [
+                "demo-app"
+              ]
+            }] }"###;
+        let tokens: EdgeResult<EdgeTokens> =
+            serde_json::from_str(json).map_err(|_| EdgeTokenParseError);
+        assert!(tokens.is_ok());
+        assert_eq!(tokens.unwrap().tokens.len(), 2);
     }
 }

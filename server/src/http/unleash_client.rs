@@ -15,6 +15,7 @@ use crate::types::{
 
 use prometheus::{register_int_gauge_vec, IntGaugeVec, Opts};
 use reqwest::{header, Client};
+use tracing::warn;
 use unleash_types::client_metrics::ClientApplication;
 
 use crate::error::FeatureError;
@@ -239,10 +240,10 @@ impl UnleashClient {
             .map_err(|_| EdgeError::EdgeTokenError)?;
         match result.status() {
             StatusCode::OK => {
-                let token_response = result
-                    .json::<EdgeTokens>()
-                    .await
-                    .map_err(|_| EdgeError::EdgeTokenParseError)?;
+                let token_response = result.json::<EdgeTokens>().await.map_err(|e| {
+                    warn!("Failed to parse validation response with error: {e:?}");
+                    EdgeError::EdgeTokenParseError
+                })?;
                 Ok(token_response
                     .tokens
                     .into_iter()
