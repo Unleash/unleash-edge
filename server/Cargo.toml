@@ -21,10 +21,10 @@ actix-middleware-etag = "0.2.0"
 actix-service = "2.0.2"
 actix-web = {version = "4.3.1", features = ["rustls", "compress-zstd"]}
 
-anyhow = "1.0.70"
+anyhow = "1.0.71"
 async-trait = "0.1.68"
 chrono = {version = "0.4.24", features = ["serde"]}
-clap = {version = "4.2.4", features = ["derive", "env"]}
+clap = {version = "4.2.5", features = ["derive", "env"]}
 dashmap = "5.4.0"
 dotenv = {version = "0.15.0", features = ["clap"]}
 futures = "0.3.28"
@@ -38,19 +38,19 @@ opentelemetry-semantic-conventions = "0.11.0"
 prometheus = {version = "0.13.3", features = ["process"]}
 prometheus-static-metric = "0.5.1"
 redis = {version = "0.23.0", features = ["tokio-comp"]}
-reqwest = {version = "0.11.16", default-features = false, features = ["rustls", "json", "rustls-tls"]}
+reqwest = {version = "0.11.17", default-features = false, features = ["rustls", "json", "rustls-tls"]}
 rustls = "0.20.8"
 rustls-pemfile = "1.0.2"
 serde = {version = "1.0.160", features = ["derive"]}
 serde_json = "1.0.96"
 serde_qs = { version = "0.12.0", features = ["actix4", "tracing"] }
 shadow-rs = "0.21.0"
-tokio = {version = "1.27.0", features = ["macros", "rt-multi-thread", "tracing", "fs"]}
+tokio = {version = "1.28.0", features = ["macros", "rt-multi-thread", "tracing", "fs"]}
 tracing = {version = "0.1.37", features = ["log"]}
-tracing-subscriber = {version = "0.3.16", features = ["json", "env-filter"]}
+tracing-subscriber = {version = "0.3.17", features = ["json", "env-filter"]}
 ulid = "1.0.0"
 unleash-types = { version = "0.10.0", features = ["openapi", "hashes"]}
-unleash-yggdrasil = { version = "0.5.4" }
+unleash-yggdrasil = { version = "0.5.5" }
 utoipa = {version = "3", features = ["actix_extras", "chrono"]}
 utoipa-swagger-ui = {version = "3", features = ["actix-web"]}
 [dev-dependencies]

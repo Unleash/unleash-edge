@@ -24,4 +24,4 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
       - name: Check semver
-        uses: obi1kenobi/cargo-semver-checks-action@v1
+        uses: obi1kenobi/cargo-semver-checks-action@v2
