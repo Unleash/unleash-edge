@@ -130,11 +130,7 @@ async fn build_edge(args: &EdgeArgs) -> EdgeResult<EdgeInfo> {
 
     let unleash_client = Url::parse(&args.upstream_url.clone())
         .map(|url| {
-            UnleashClient::from_url(
-                url,
-                args.skip_ssl_verification.clone(),
-                args.client_identity.clone(),
-            )
+            UnleashClient::from_url(url, args.skip_ssl_verification, args.client_tls.clone())
         })
         .map(|c| c.with_custom_client_headers(args.custom_client_headers.clone()))
         .map(Arc::new)

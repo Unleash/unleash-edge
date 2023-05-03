@@ -38,8 +38,8 @@ pub enum CertificateError {
     Pem8ClientKeyNotFound(String),
     Pem8ClientCertNotFound(String),
     Pem8IdentityGeneration(String),
-    PemFileNotFound(String),
-    PemIdentityGeneration(String),
+    NoCertificateFiles,
+    RootCertificatesError(String),
 }
 
 impl Display for CertificateError {
@@ -66,14 +66,14 @@ impl Display for CertificateError {
                     "Failed to generate pkcs8 identity from parameters. {e:?}"
                 )
             }
-            CertificateError::PemFileNotFound(e) => {
-                write!(f, "Failed to get valid pem file {e:?}")
-            }
-            CertificateError::PemIdentityGeneration(e) => {
+            CertificateError::NoCertificateFiles => {
                 write!(
                     f,
-                    "Failed to generate valid pem identity from parameters. {e:?}"
+                    "Could find neither a pfx file nor a pkcs#8 certificate. Aborting"
                 )
+            }
+            CertificateError::RootCertificatesError(e) => {
+                write!(f, "Could not load root certificate {e:?}")
             }
         }
     }
