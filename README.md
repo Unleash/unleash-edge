@@ -19,6 +19,10 @@ Unleash Edge offers two important features:
 
 Unleash Edge is built to help you scale Unleash, if you're looking for the easiest way to connect your client SDKs you can check out our [Frontend API](https://docs.getunleash.io/reference/front-end-api).
 
+## Migrating to Edge from the Proxy
+
+We have a migration guide [here](./migration-guide.md), that details the differences between Edge and the Proxy and how to achieve similar behavior in Edge.
+
 ## Running Unleash Edge
 
 Unleash Edge is compiled to a single binary. You can configure it by passing in arguments or setting environment variables.
@@ -70,7 +74,7 @@ Unleash Edge is distributed as a binary and as a docker image.
 - For Github package registry use the coordinates `ghpr.io/unleash/unleash-edge:<version>`
 - If you'd like to live on the edge (sic) you can use the tag `edge`. This is built from `HEAD` on each commit
 - When running the docker image, the same CLI arguments that's available when running the binary is available to your `docker run` command. To start successfully you will need to decide which mode you're running in.
-  - If running in `edge` mode your command should be 
+  - If running in `edge` mode your command should be
     - `docker run -p 3063:3063 -e UPSTREAM_URL=<YOUR_UNLEASH_INSTANCE> unleashorg/unleash-edge:v2.0.1 edge`
   - If running in `offline` mode you will need to provide a volume containing your feature toggles file. An example is available inside the examples folder. To use this, you can use the command
     - `docker run -v ./examples:/edge/data -p 3063:3063 -e BOOTSTRAP_FILE=/edge/data/features.json -e TOKENS='my-secret-123' unleashorg/unleash-edge:v2.0.1 offline`
