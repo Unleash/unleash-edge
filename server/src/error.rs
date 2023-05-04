@@ -1,5 +1,5 @@
 use std::error::Error;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 
 use actix_web::{http::StatusCode, HttpResponseBuilder, ResponseError};
 use serde::Serialize;
@@ -32,9 +32,59 @@ impl From<&EdgeToken> for FrontendHydrationMissing {
 }
 
 #[derive(Debug)]
+pub enum CertificateError {
+    Pkcs12ArchiveNotFound(String),
+    Pkcs12IdentityGeneration(String),
+    Pem8ClientKeyNotFound(String),
+    Pem8ClientCertNotFound(String),
+    Pem8IdentityGeneration(String),
+    NoCertificateFiles,
+    RootCertificatesError(String),
+}
+
+impl Display for CertificateError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CertificateError::Pkcs12ArchiveNotFound(e) => {
+                write!(f, "Failed to find pkcs12 archive. {e:?}")
+            }
+            CertificateError::Pkcs12IdentityGeneration(e) => {
+                write!(
+                    f,
+                    "Failed to generate pkcs12 identity from parameters. {e:?}"
+                )
+            }
+            CertificateError::Pem8ClientKeyNotFound(e) => {
+                write!(f, "Failed to get pem8 client key. {e:?}")
+            }
+            CertificateError::Pem8ClientCertNotFound(e) => {
+                write!(f, "Failed to get pem8 client cert. {e:?}")
+            }
+            CertificateError::Pem8IdentityGeneration(e) => {
+                write!(
+                    f,
+                    "Failed to generate pkcs8 identity from parameters. {e:?}"
+                )
+            }
+            CertificateError::NoCertificateFiles => {
+                write!(
+                    f,
+                    "Could find neither a pfx file nor a pkcs#8 certificate. Aborting"
+                )
+            }
+            CertificateError::RootCertificatesError(e) => {
+                write!(f, "Could not load root certificate {e:?}")
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
 pub enum EdgeError {
     AuthorizationDenied,
     AuthorizationPending,
+    ClientBuildError(String),
+    ClientCertificateError(CertificateError),
     ClientFeaturesFetchError(FeatureError),
     ClientFeaturesParseError,
     ClientRegisterError,
@@ -86,6 +136,10 @@ impl Display for EdgeError {
             EdgeError::ClientRegisterError => {
                 write!(f, "Failed to register client")
             }
+            EdgeError::ClientCertificateError(cert_error) => {
+                write!(f, "Failed to build cert {cert_error:?}")
+            }
+            EdgeError::ClientBuildError(e) => write!(f, "Failed to build client {e:?}"),
             EdgeError::InvalidServerUrl(msg) => write!(f, "Failed to parse server url: [{msg}]"),
             EdgeError::EdgeTokenError => write!(f, "Edge token error"),
             EdgeError::EdgeTokenParseError => write!(f, "Failed to parse token response"),
@@ -115,6 +169,7 @@ impl ResponseError for EdgeError {
             EdgeError::AuthorizationDenied => StatusCode::FORBIDDEN,
             EdgeError::NoTokenProvider => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::TokenParseError => StatusCode::FORBIDDEN,
+            EdgeError::ClientBuildError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::ClientFeaturesParseError => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::ClientFeaturesFetchError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::InvalidServerUrl(_) => StatusCode::INTERNAL_SERVER_ERROR,
@@ -126,6 +181,7 @@ impl ResponseError for EdgeError {
             EdgeError::FeatureNotFound(_) => StatusCode::NOT_FOUND,
             EdgeError::EdgeMetricsError => StatusCode::BAD_REQUEST,
             EdgeError::ClientRegisterError => StatusCode::BAD_REQUEST,
+            EdgeError::ClientCertificateError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::FrontendNotYetHydrated(_) => StatusCode::NETWORK_AUTHENTICATION_REQUIRED,
             EdgeError::ContextParseError => StatusCode::BAD_REQUEST,
             EdgeError::EdgeMetricsRequestError(status_code) => *status_code,

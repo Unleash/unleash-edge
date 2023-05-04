@@ -154,6 +154,19 @@ Options:
           Get data for these client tokens at startup. Hot starts your feature cache [env: TOKENS=]
   -H, --custom-client-headers <CUSTOM_CLIENT_HEADERS>
           Expects curl header format (-H <HEADERNAME>: <HEADERVALUE>) for instance `-H X-Api-Key: mysecretapikey` [env: CUSTOM_CLIENT_HEADERS=]
+  -s, --skip-ssl-verification
+          If set to true, we will skip SSL verification when connecting to the upstream Unleash server [env: SKIP_SSL_VERIFICATION=]
+      --pkcs8-client-certificate-file <PKCS8_CLIENT_CERTIFICATE_FILE>
+          Client certificate chain in PEM encoded X509 format with the leaf certificate first. The certificate chain should contain any intermediate certificates that should be sent to clients to allow them to build a chain to a trusted root [env: PKCS8_CLIENT_CERTIFICATE_FILE=]
+      --pkcs8-client-key-file <PKCS8_CLIENT_KEY_FILE>
+          Client key is a PEM encoded PKCS#8 formatted private key for the leaf certificate [env: PKCS8_CLIENT_KEY_FILE=]
+      --pkcs12-identity-file <PKCS12_IDENTITY_FILE>
+          Identity file in pkcs12 format. Typically this file has a pfx extension [env: PKCS12_IDENTITY_FILE=]
+      --pkcs12-passphrase <PKCS12_PASSPHRASE>
+          Passphrase used to unlock the pkcs12 file [env: PKCS12_PASSPHRASE=]
+      --upstream-certificate-file <UPSTREAM_CERTIFICATE_FILE>
+          Extra certificate passed to the client for building its trust chain. Needs to be in PEM format (crt or pem extensions usually are) [env: UPSTREAM_CERTIFICATE_FILE=]
+
   -h, --help
           Print help
 
