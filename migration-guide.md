@@ -26,7 +26,7 @@ curl --location --request GET 'http://0.0.0.0:3063/api/client/features' \
 
 - Context Enrichers. The Unleash Proxy provides an experimental option to automatically enrich requests with additional context. This is not supported in currently in Edge, we're open to adding this feature to Edge, opening an issue would help us to know that this is a valuable feature to you.
 
-- JS integration. Edge is written in Rust, rather than JavaScript, like the Proxy. If you're wrapping the Proxy code in your own JavaScript, you'll need to port that equivalent code to Rust. Generally, if you have a deep integration on the existing Proxy, we would recommend not moving to Edge or to reaching out to us to discuss your use case.
+- JS integration. Edge is written in Rust. The Unleash proxy is written JavaScript. If you're wrapping the Proxy code in your own JavaScript, you'll need to port that equivalent code to Rust. Generally, if you have a deep integration on the existing Proxy, we would recommend either not moving to Edge, or to reach out to us to discuss your use case.
 
 
 ## Existing features in new ways
