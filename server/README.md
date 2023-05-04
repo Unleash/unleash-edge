@@ -69,6 +69,11 @@ Unleash Edge is distributed as a binary and as a docker image.
 - For dockerhub use the coordinates `unleashorg/unleash-edge:<version>`.
 - For Github package registry use the coordinates `ghpr.io/unleash/unleash-edge:<version>`
 - If you'd like to live on the edge (sic) you can use the tag `edge`. This is built from `HEAD` on each commit
+- When running the docker image, the same CLI arguments that's available when running the binary is available to your `docker run` command. To start successfully you will need to decide which mode you're running in.
+  - If running in `edge` mode your command should be 
+    - `docker run -p 3063:3063 -e UPSTREAM_URL=<YOUR_UNLEASH_INSTANCE> unleashorg/unleash-edge:v2.0.1 edge`
+  - If running in `offline` mode you will need to provide a volume containing your feature toggles file. An example is available inside the examples folder. To use this, you can use the command
+    - `docker run -v ./examples:/edge/data -p 3063:3063 -e BOOTSTRAP_FILE=/edge/data/features.json -e TOKENS='my-secret-123' unleashorg/unleash-edge:v2.0.1 offline`
 
 ### Cargo/Rust
 
@@ -149,6 +154,19 @@ Options:
           Get data for these client tokens at startup. Hot starts your feature cache [env: TOKENS=]
   -H, --custom-client-headers <CUSTOM_CLIENT_HEADERS>
           Expects curl header format (-H <HEADERNAME>: <HEADERVALUE>) for instance `-H X-Api-Key: mysecretapikey` [env: CUSTOM_CLIENT_HEADERS=]
+  -s, --skip-ssl-verification
+          If set to true, we will skip SSL verification when connecting to the upstream Unleash server [env: SKIP_SSL_VERIFICATION=]
+      --pkcs8-client-certificate-file <PKCS8_CLIENT_CERTIFICATE_FILE>
+          Client certificate chain in PEM encoded X509 format with the leaf certificate first. The certificate chain should contain any intermediate certificates that should be sent to clients to allow them to build a chain to a trusted root [env: PKCS8_CLIENT_CERTIFICATE_FILE=]
+      --pkcs8-client-key-file <PKCS8_CLIENT_KEY_FILE>
+          Client key is a PEM encoded PKCS#8 formatted private key for the leaf certificate [env: PKCS8_CLIENT_KEY_FILE=]
+      --pkcs12-identity-file <PKCS12_IDENTITY_FILE>
+          Identity file in pkcs12 format. Typically this file has a pfx extension [env: PKCS12_IDENTITY_FILE=]
+      --pkcs12-passphrase <PKCS12_PASSPHRASE>
+          Passphrase used to unlock the pkcs12 file [env: PKCS12_PASSPHRASE=]
+      --upstream-certificate-file <UPSTREAM_CERTIFICATE_FILE>
+          Extra certificate passed to the client for building its trust chain. Needs to be in PEM format (crt or pem extensions usually are) [env: UPSTREAM_CERTIFICATE_FILE=]
+
   -h, --help
           Print help
 
