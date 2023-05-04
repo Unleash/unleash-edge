@@ -1,6 +1,13 @@
 # Migrating from the Unleash Proxy to Edge
 
-Since Edge is built to be a near drop in replacement for the Unleash Proxy, this guide should take you through the differences between Edge and the Unleash Proxy, and how to migrate from the Unleash Proxy to Edge, and, in cases where the feature set isn't equivalent, how to achieve the same results in Edge. A full docker compose is provided [here](./examples/docker-compose.yml), that will spin up Edge, Unleash and Redis, to allow you to understand the configuration options in context. After starting the compose, you should be able to access the Unleash UI at `http://localhost:4242`, add a toggle and cURL the edge instance with:
+Edge is built to be a near drop-in replacement for the Unleash proxy, but there are some differences. This guide takes you through 
+- the differences between Edge and the Unleash proxy 
+- how to migrate from the Unleash Proxy to Edge
+- in cases where the feature set isn't equivalent, how to achieve the same results in Edge. 
+
+A full [Docker compose file](./examples/docker-compose.yml) is also provided. It will spin up Edge, Unleash, and Redis, to allow you to understand the configuration options in context. 
+
+After starting the compose, you should be able to access the Unleash UI at `http://localhost:4242`, add a toggle, and cURL the edge instance with:
 
 ``` sh
 curl --location --request GET 'http://0.0.0.0:3063/api/client/features' \
