@@ -9,6 +9,4 @@ COPY target/aarch64-unknown-linux-gnu/release/unleash-edge /unleash-edge
 
 FROM final-${TARGETARCH}
 
-RUN apt install libssl-dev
-
 ENTRYPOINT [ "/unleash-edge" ]

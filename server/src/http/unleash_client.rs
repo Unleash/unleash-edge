@@ -106,7 +106,7 @@ fn build_identity(tls: Option<ClientTls>) -> EdgeResult<ClientBuilder> {
                 ))
             };
             let builder = if let Some(root_cert) = tls
-                .root_certificate
+                .upstream_certificate_file
                 .map(|cert| {
                     fs::read(cert).map_err(|e| {
                         EdgeError::ClientCertificateError(CertificateError::RootCertificatesError(
@@ -654,7 +654,7 @@ mod tests {
             pkcs8_client_key_file: None,
             pkcs12_identity_file: Some(PathBuf::from(pfx)),
             pkcs12_passphrase: Some(passphrase.into()),
-            root_certificate: None,
+            upstream_certificate_file: None,
         };
         let client = new_reqwest_client("test_pkcs12".into(), false, Some(identity));
         assert!(client.is_ok());
@@ -669,7 +669,7 @@ mod tests {
             pkcs8_client_key_file: None,
             pkcs12_identity_file: Some(PathBuf::from(pfx)),
             pkcs12_passphrase: Some(passphrase.into()),
-            root_certificate: None,
+            upstream_certificate_file: None,
         };
         let client = new_reqwest_client("test_pkcs12".into(), false, Some(identity));
         assert!(client.is_err());
@@ -684,7 +684,7 @@ mod tests {
             pkcs8_client_key_file: Some(key.into()),
             pkcs12_identity_file: None,
             pkcs12_passphrase: None,
-            root_certificate: None,
+            upstream_certificate_file: None,
         };
         let client = new_reqwest_client("test_pkcs8".into(), false, Some(identity));
         assert!(client.is_ok());
@@ -700,7 +700,7 @@ mod tests {
             pkcs8_client_key_file: Some(key.into()),
             pkcs12_identity_file: None,
             pkcs12_passphrase: None,
-            root_certificate: Some(root_cert.into()),
+            upstream_certificate_file: Some(root_cert.into()),
         };
         let client = new_reqwest_client("test_pkcs8".into(), false, Some(identity));
         assert!(client.is_ok());

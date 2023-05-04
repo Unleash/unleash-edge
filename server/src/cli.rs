@@ -29,7 +29,7 @@ pub struct ClientTls {
 
     /// Extra certificate passed to the client for building its trust chain. Needs to be in PEM format (crt or pem extensions usually are)
     #[clap(long, env)]
-    pub root_certificate: Option<PathBuf>,
+    pub upstream_certificate_file: Option<PathBuf>,
 }
 
 #[derive(Args, Debug, Clone)]
