@@ -21,7 +21,7 @@ Unleash Edge is built to help you scale Unleash, if you're looking for the easie
 
 ## Migrating to Edge from the Proxy
 
-We have a migration guide [here](./migration-guide.md), that details the differences between Edge and the Proxy and how to achieve similar behavior in Edge.
+For more info on migrating, check out the [migration guide](./migration-guide.md) that details the differences between Edge and the Proxy and how to achieve similar behavior in Edge.
 
 ## Running Unleash Edge
 
