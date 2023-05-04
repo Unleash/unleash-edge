@@ -18,7 +18,7 @@ curl --location --request GET 'http://0.0.0.0:3063/api/client/features' \
 
 ## Not supported
 
-- Custom Strategies are not supported in Edge today. If you need to use a custom strategy, you will need to use the Unleash Proxy. We believe that the overwhelming majority of custom strategies are better expressed as a set of Unleash Constraints. If you have a situation where this absolutely isn't the case, please raise this as an issue with details on what you're trying to achieve. We are looking into supporting custom strategies in Edge in the future.
+- [Custom Strategies](https://docs.getunleash.io/reference/custom-activation-strategies) are not supported in Edge today. If you need to use a custom strategy, you will need to use the Unleash proxy. We believe that the overwhelming majority of custom strategies are better expressed as a set of [strategy constraints](https://docs.getunleash.io/reference/strategy-constraints). If you have a situation where constraints **cannot** replace your strategy, please raise this as an issue with details on what you're trying to achieve. We are looking into supporting custom strategies in Edge in the future.
 
 - Legacy Proxy Tokens. If you're using the Proxy, you may be using the legacy Proxy token format. These are not supported in Edge. You will need to create a new front end SDK token in the Unleash UI and use that. These are the same tokens that the front end API requires. Because of the way Edge handles API tokens, this is not a feature we're planning to support.
 
