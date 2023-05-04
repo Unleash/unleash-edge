@@ -1,11 +1,11 @@
 # Migrating from the Unleash Proxy to Edge
 
-Edge is built to be a near drop-in replacement for the Unleash proxy, but there are some differences. This guide takes you through 
-- the differences between Edge and the Unleash proxy 
+Edge is built to be a near drop-in replacement for the Unleash proxy, but there are some differences. This guide takes you through
+- the differences between Edge and the Unleash proxy
 - how to migrate from the Unleash Proxy to Edge
-- in cases where the feature set isn't equivalent, how to achieve the same results in Edge. 
+- in cases where the feature set isn't equivalent, how to achieve the same results in Edge.
 
-A full [Docker compose file](./examples/docker-compose.yml) is also provided. It will spin up Edge, Unleash, and Redis, to allow you to understand the configuration options in context. 
+A full [Docker compose file](./examples/docker-compose.yml) is also provided. It will spin up Edge, Unleash, and Redis, to allow you to understand the configuration options in context.
 
 After starting the compose, you should be able to access the Unleash UI at `http://localhost:4242`, add a toggle, and cURL the edge instance with:
 
@@ -74,6 +74,3 @@ This section unpacks the small changes in Edge from the Proxy. These are ports o
     This will start Edge in offline mode and set the initial feature set to the contents of the `features.json` file. Edge will not send metrics to upstream Unleash instances, update its feature information, or dynamically resolve tokens. Note that you must set a token or tokens on startup in this mode - Edge will only use this set of tokens to validate incoming requests, this doesn't have to be a valid Unleash token, so this is very similar to the original Proxy tokens.
 
 - Daisy chaining. Edge is capable of both mimicking an Unleash server and talking to an Unleash server. This means that Edge can use another Edge instance as another upstream source. This can be extremely useful for high scaling scenarios where you can have a single instance close to your SDKs that retrieves all toggles for all projects and environments and specific Edge instances syncing to the parent Edge instance, with much more narrowly defined API tokens for security reasons. No extra configuration is needed to achieve this, simply point the downstream Edge instance at the upstream Edge instance and it will automatically resolve the tokens and features from the upstream Edge instance. Metrics will propagate up the daisy chain from downstream Edge instances to upstream instances until the metrics hit the end of the chain. There are two important details you need to be aware of when using daisy chaining with a top level instance in offline mode. Firstly, you won't receive any metrics for your connected SDKs - the metrics will propagate all the way to the final offline instance in the chain and then be discarded. Secondly, the top level instance needs to be started with all the API tokens necessary to serve downstream SDK requests.
-
-
-
