@@ -3,7 +3,7 @@
 [![crates.io](https://img.shields.io/crates/v/unleash-edge?label=latest)](https://crates.io/crates/unleash-edge)
 [![Documentation](https://docs.rs/unleash-edge/badge.svg?version=latest)](https://docs.rs/unleash-edge/latest)
 ![MIT licensed](https://img.shields.io/crates/l/unleash-edge.svg)
-[![Dependency Status](https://deps.rs/crate/unleash-edge/2.0.2/status.svg)](https://deps.rs/crate/unleash-edge/2.0.2)
+[![Dependency Status](https://deps.rs/crate/unleash-edge/3.0.0/status.svg)](https://deps.rs/crate/unleash-edge/3.0.0)
 [![CI](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml/badge.svg)](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml)
 [![Coverage Status](https://coveralls.io/repos/github/Unleash/unleash-edge/badge.svg?branch=main)](https://coveralls.io/github/Unleash/unleash-edge?branch=main)
 ![downloads](https://img.shields.io/crates/d/unleash-edge.svg)
@@ -18,6 +18,10 @@ Unleash Edge offers two important features:
 - **Resilience**: Unleash Edge is designed to survive restarts and operate properly even if you lose connection to your Unleash server.
 
 Unleash Edge is built to help you scale Unleash, if you're looking for the easiest way to connect your client SDKs you can check out our [Frontend API](https://docs.getunleash.io/reference/front-end-api).
+
+## Migrating to Edge from the Proxy
+
+For more info on migrating, check out the [migration guide](./migration-guide.md) that details the differences between Edge and the Proxy and how to achieve similar behavior in Edge.
 
 ## Running Unleash Edge
 
@@ -70,7 +74,7 @@ Unleash Edge is distributed as a binary and as a docker image.
 - For Github package registry use the coordinates `ghpr.io/unleash/unleash-edge:<version>`
 - If you'd like to live on the edge (sic) you can use the tag `edge`. This is built from `HEAD` on each commit
 - When running the docker image, the same CLI arguments that's available when running the binary is available to your `docker run` command. To start successfully you will need to decide which mode you're running in.
-  - If running in `edge` mode your command should be 
+  - If running in `edge` mode your command should be
     - `docker run -p 3063:3063 -e UPSTREAM_URL=<YOUR_UNLEASH_INSTANCE> unleashorg/unleash-edge:v2.0.1 edge`
   - If running in `offline` mode you will need to provide a volume containing your feature toggles file. An example is available inside the examples folder. To use this, you can use the command
     - `docker run -v ./examples:/edge/data -p 3063:3063 -e BOOTSTRAP_FILE=/edge/data/features.json -e TOKENS='my-secret-123' unleashorg/unleash-edge:v2.0.1 offline`
