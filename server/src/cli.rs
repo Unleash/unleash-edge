@@ -70,7 +70,7 @@ pub struct EdgeArgs {
     pub skip_ssl_verification: bool,
 
     #[clap(flatten)]
-    pub client_tls: Option<ClientIdentity>,
+    pub client_identity: Option<ClientIdentity>,
 
     /// Extra certificate passed to the client for building its trust chain. Needs to be in PEM format (crt or pem extensions usually are)
     #[clap(long, env)]

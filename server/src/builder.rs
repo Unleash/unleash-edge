@@ -133,7 +133,7 @@ async fn build_edge(args: &EdgeArgs) -> EdgeResult<EdgeInfo> {
             UnleashClient::from_url(
                 url,
                 args.skip_ssl_verification,
-                args.client_tls.clone(),
+                args.client_identity.clone(),
                 args.upstream_certificate_file.clone(),
             )
         })
