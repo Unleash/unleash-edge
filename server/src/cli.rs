@@ -12,7 +12,7 @@ pub enum EdgeMode {
 }
 
 #[derive(Args, Debug, Clone)]
-pub struct ClientTls {
+pub struct ClientIdentity {
     /// Client certificate chain in PEM encoded X509 format with the leaf certificate first.
     /// The certificate chain should contain any intermediate certificates that should be sent to clients to allow them to build a chain to a trusted root
     #[clap(long, env)]
@@ -26,10 +26,6 @@ pub struct ClientTls {
     #[clap(long, env)]
     /// Passphrase used to unlock the pkcs12 file
     pub pkcs12_passphrase: Option<String>,
-
-    /// Extra certificate passed to the client for building its trust chain. Needs to be in PEM format (crt or pem extensions usually are)
-    #[clap(long, env)]
-    pub upstream_certificate_file: Option<PathBuf>,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -74,7 +70,11 @@ pub struct EdgeArgs {
     pub skip_ssl_verification: bool,
 
     #[clap(flatten)]
-    pub client_tls: Option<ClientTls>,
+    pub client_tls: Option<ClientIdentity>,
+
+    /// Extra certificate passed to the client for building its trust chain. Needs to be in PEM format (crt or pem extensions usually are)
+    #[clap(long, env)]
+    pub upstream_certificate_file: Option<PathBuf>,
 }
 
 pub fn string_to_header_tuple(s: &str) -> Result<(String, String), String> {

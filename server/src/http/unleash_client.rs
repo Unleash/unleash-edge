@@ -1,10 +1,11 @@
 use actix_web::http::header::EntityTag;
 use lazy_static::lazy_static;
 use reqwest::header::{HeaderMap, HeaderName};
-use reqwest::{ClientBuilder, Identity, RequestBuilder, StatusCode, Url};
+use reqwest::{Certificate, ClientBuilder, Identity, RequestBuilder, StatusCode, Url};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
 use unleash_types::client_features::ClientFeatures;
@@ -16,10 +17,10 @@ use crate::types::{
 
 use prometheus::{register_int_gauge_vec, IntGaugeVec, Opts};
 use reqwest::{header, Client};
-use tracing::warn;
+use tracing::{info, warn};
 use unleash_types::client_metrics::ClientApplication;
 
-use crate::cli::ClientTls;
+use crate::cli::ClientIdentity;
 use crate::error::{CertificateError, FeatureError};
 use crate::urls::UnleashUrls;
 use crate::{error::EdgeError, types::ClientFeaturesRequest};
@@ -62,7 +63,7 @@ pub struct UnleashClient {
     custom_headers: HashMap<String, String>,
 }
 
-fn load_pkcs12(id: &ClientTls) -> EdgeResult<Identity> {
+fn load_pkcs12(id: &ClientIdentity) -> EdgeResult<Identity> {
     let pfx = fs::read(id.pkcs12_identity_file.clone().unwrap()).map_err(|e| {
         EdgeError::ClientCertificateError(CertificateError::Pkcs12ArchiveNotFound(format!("{e:?}")))
     })?;
@@ -77,7 +78,7 @@ fn load_pkcs12(id: &ClientTls) -> EdgeResult<Identity> {
     })
 }
 
-fn load_pkcs8(id: &ClientTls) -> EdgeResult<Identity> {
+fn load_pkcs8(id: &ClientIdentity) -> EdgeResult<Identity> {
     let cert = fs::read(id.pkcs8_client_certificate_file.clone().unwrap()).map_err(|e| {
         EdgeError::ClientCertificateError(CertificateError::Pem8ClientCertNotFound(format!("{e:}")))
     })?;
@@ -91,7 +92,7 @@ fn load_pkcs8(id: &ClientTls) -> EdgeResult<Identity> {
     })
 }
 
-fn build_identity(tls: Option<ClientTls>) -> EdgeResult<ClientBuilder> {
+fn build_identity(tls: Option<ClientIdentity>) -> EdgeResult<ClientBuilder> {
     tls.map_or_else(
         || Ok(ClientBuilder::new()),
         |tls| {
@@ -105,60 +106,70 @@ fn build_identity(tls: Option<ClientTls>) -> EdgeResult<ClientBuilder> {
                     CertificateError::NoCertificateFiles,
                 ))
             };
-            let builder = if let Some(root_cert) = tls
-                .upstream_certificate_file
-                .map(|cert| {
-                    fs::read(cert).map_err(|e| {
+            req_identity.map(|id| ClientBuilder::new().identity(id))
+        },
+    )
+}
+
+fn build_upstream_certificate(
+    upstream_certificate: Option<PathBuf>,
+) -> EdgeResult<Option<Certificate>> {
+    upstream_certificate
+        .map(|cert| {
+            fs::read(cert)
+                .map_err(|e| {
+                    EdgeError::ClientCertificateError(CertificateError::RootCertificatesError(
+                        format!("{e:?}"),
+                    ))
+                })
+                .and_then(|bytes| {
+                    reqwest::Certificate::from_pem(&bytes).map_err(|e| {
                         EdgeError::ClientCertificateError(CertificateError::RootCertificatesError(
                             format!("{e:?}"),
                         ))
                     })
                 })
-                .map(|f| {
-                    f.and_then(|root_cert_bytes| {
-                        reqwest::Certificate::from_pem(&root_cert_bytes).map_err(|e| {
-                            EdgeError::ClientCertificateError(
-                                CertificateError::RootCertificatesError(format!("{e:?}")),
-                            )
-                        })
-                    })
-                }) {
-                ClientBuilder::new().add_root_certificate(root_cert?)
-            } else {
-                ClientBuilder::new()
-            };
-            req_identity.map(|id| builder.identity(id))
-        },
-    )
+                .map(Some)
+        })
+        .unwrap_or(Ok(None))
 }
+
 fn new_reqwest_client(
     instance_id: String,
     skip_ssl_verification: bool,
-    client_tls: Option<ClientTls>,
+    client_identity: Option<ClientIdentity>,
+    upstream_certificate_file: Option<PathBuf>,
 ) -> EdgeResult<Client> {
-    build_identity(client_tls).and_then(|client| {
-        let mut header_map = HeaderMap::new();
-        header_map.insert(
-            UNLEASH_APPNAME_HEADER,
-            header::HeaderValue::from_static("unleash-edge"),
-        );
-        header_map.insert(
-            UNLEASH_INSTANCE_ID_HEADER,
-            header::HeaderValue::from_bytes(instance_id.as_bytes()).unwrap(),
-        );
-        header_map.insert(
-            UNLEASH_CLIENT_SPEC_HEADER,
-            header::HeaderValue::from_static(unleash_yggdrasil::SUPPORTED_SPEC_VERSION),
-        );
+    build_identity(client_identity)
+        .and_then(|builder| {
+            build_upstream_certificate(upstream_certificate_file).map(|cert| match cert {
+                Some(c) => builder.add_root_certificate(c),
+                None => builder,
+            })
+        })
+        .and_then(|client| {
+            let mut header_map = HeaderMap::new();
+            header_map.insert(
+                UNLEASH_APPNAME_HEADER,
+                header::HeaderValue::from_static("unleash-edge"),
+            );
+            header_map.insert(
+                UNLEASH_INSTANCE_ID_HEADER,
+                header::HeaderValue::from_bytes(instance_id.as_bytes()).unwrap(),
+            );
+            header_map.insert(
+                UNLEASH_CLIENT_SPEC_HEADER,
+                header::HeaderValue::from_static(unleash_yggdrasil::SUPPORTED_SPEC_VERSION),
+            );
 
-        client
-            .user_agent(format!("unleash-edge-{}", crate::types::build::PKG_VERSION))
-            .default_headers(header_map)
-            .danger_accept_invalid_certs(skip_ssl_verification)
-            .timeout(Duration::from_secs(5))
-            .build()
-            .map_err(|e| EdgeError::ClientBuildError(format!("{e:?}")))
-    })
+            client
+                .user_agent(format!("unleash-edge-{}", crate::types::build::PKG_VERSION))
+                .default_headers(header_map)
+                .danger_accept_invalid_certs(skip_ssl_verification)
+                .timeout(Duration::from_secs(5))
+                .build()
+                .map_err(|e| EdgeError::ClientBuildError(format!("{e:?}")))
+        })
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EdgeTokens {
@@ -169,14 +180,16 @@ impl UnleashClient {
     pub fn from_url(
         server_url: Url,
         skip_ssl_verification: bool,
-        client_tls: Option<ClientTls>,
+        client_identity: Option<ClientIdentity>,
+        upstream_certificate_file: Option<PathBuf>,
     ) -> Self {
         Self {
             urls: UnleashUrls::from_base_url(server_url),
             backing_client: new_reqwest_client(
                 "unleash_edge".into(),
                 skip_ssl_verification,
-                client_tls,
+                client_identity,
+                upstream_certificate_file,
             )
             .unwrap(),
             custom_headers: Default::default(),
@@ -190,7 +203,7 @@ impl UnleashClient {
         let instance_id = instance_id_opt.unwrap_or_else(|| Ulid::new().to_string());
         Ok(Self {
             urls: UnleashUrls::from_str(server_url)?,
-            backing_client: new_reqwest_client(instance_id, false, None).unwrap(),
+            backing_client: new_reqwest_client(instance_id, false, None, None).unwrap(),
             custom_headers: Default::default(),
         })
     }
@@ -201,7 +214,7 @@ impl UnleashClient {
 
         Ok(Self {
             urls: UnleashUrls::from_str(server_url)?,
-            backing_client: new_reqwest_client(Ulid::new().to_string(), true, None).unwrap(),
+            backing_client: new_reqwest_client(Ulid::new().to_string(), true, None, None).unwrap(),
             custom_headers: Default::default(),
         })
     }
@@ -248,7 +261,10 @@ impl UnleashClient {
             .json(&application)
             .send()
             .await
-            .map_err(|_| EdgeError::ClientRegisterError)
+            .map_err(|e| {
+                warn!("{e:?}");
+                EdgeError::ClientRegisterError
+            })
             .map(|r| {
                 if !r.status().is_success() {
                     CLIENT_REGISTER_FAILURES
@@ -266,7 +282,10 @@ impl UnleashClient {
             .client_features_req(request.clone())
             .send()
             .await
-            .map_err(|_| EdgeError::ClientFeaturesFetchError(FeatureError::Retriable))?;
+            .map_err(|e| {
+                warn!("Failed to fetch errors due to [{e:?}] - Will retry");
+                EdgeError::ClientFeaturesFetchError(FeatureError::Retriable)
+            })?;
         if response.status() == StatusCode::NOT_MODIFIED {
             Ok(ClientFeaturesResponse::NoUpdate(
                 request.etag.expect("Got NOT_MODIFIED without an ETag"),
@@ -277,10 +296,10 @@ impl UnleashClient {
                 .get("ETag")
                 .or_else(|| response.headers().get("etag"))
                 .and_then(|etag| EntityTag::from_str(etag.to_str().unwrap()).ok());
-            let features = response
-                .json::<ClientFeatures>()
-                .await
-                .map_err(|_e| EdgeError::ClientFeaturesParseError)?;
+            let features = response.json::<ClientFeatures>().await.map_err(|_e| {
+                warn!("Could not parse features response to internal representation");
+                EdgeError::ClientFeaturesParseError
+            })?;
             Ok(ClientFeaturesResponse::Updated(features, etag))
         } else if response.status() == StatusCode::FORBIDDEN {
             CLIENT_FEATURE_FETCH_FAILURES
@@ -305,7 +324,10 @@ impl UnleashClient {
             .json(&request)
             .send()
             .await
-            .map_err(|_| EdgeError::EdgeMetricsError)?;
+            .map_err(|e| {
+                info!("Failed to send batch metrics: {e:?}");
+                EdgeError::EdgeMetricsError
+            })?;
         if result.status().is_success() {
             Ok(())
         } else {
@@ -324,7 +346,10 @@ impl UnleashClient {
             .json(&request)
             .send()
             .await
-            .map_err(|_| EdgeError::EdgeTokenError)?;
+            .map_err(|e| {
+                info!("Failed to validate tokens: [{e:?}]");
+                EdgeError::EdgeTokenError
+            })?;
         match result.status() {
             StatusCode::OK => {
                 let token_response = result.json::<EdgeTokens>().await.map_err(|e| {
@@ -359,7 +384,7 @@ impl UnleashClient {
 
 #[cfg(test)]
 mod tests {
-    use crate::cli::ClientTls;
+    use crate::cli::ClientIdentity;
     use crate::http::unleash_client::new_reqwest_client;
     use crate::{
         cli::TlsOptions,
@@ -649,14 +674,13 @@ mod tests {
     pub fn can_instantiate_pkcs_12_client() {
         let pfx = "./testdata/pkcs12/snakeoil.pfx";
         let passphrase = "password";
-        let identity = ClientTls {
+        let identity = ClientIdentity {
             pkcs8_client_certificate_file: None,
             pkcs8_client_key_file: None,
             pkcs12_identity_file: Some(PathBuf::from(pfx)),
             pkcs12_passphrase: Some(passphrase.into()),
-            upstream_certificate_file: None,
         };
-        let client = new_reqwest_client("test_pkcs12".into(), false, Some(identity));
+        let client = new_reqwest_client("test_pkcs12".into(), false, Some(identity), None);
         assert!(client.is_ok());
     }
 
@@ -664,14 +688,13 @@ mod tests {
     pub fn should_throw_error_if_wrong_passphrase_to_pfx_file() {
         let pfx = "./testdata/pkcs12/snakeoil.pfx";
         let passphrase = "wrongpassword";
-        let identity = ClientTls {
+        let identity = ClientIdentity {
             pkcs8_client_certificate_file: None,
             pkcs8_client_key_file: None,
             pkcs12_identity_file: Some(PathBuf::from(pfx)),
             pkcs12_passphrase: Some(passphrase.into()),
-            upstream_certificate_file: None,
         };
-        let client = new_reqwest_client("test_pkcs12".into(), false, Some(identity));
+        let client = new_reqwest_client("test_pkcs12".into(), false, Some(identity), None);
         assert!(client.is_err());
     }
 
@@ -679,14 +702,13 @@ mod tests {
     pub fn can_instantiate_pkcs_8_client() {
         let key = "./testdata/pkcs8/snakeoil.key";
         let cert = "./testdata/pkcs12/snakeoil.pem";
-        let identity = ClientTls {
+        let identity = ClientIdentity {
             pkcs8_client_certificate_file: Some(cert.into()),
             pkcs8_client_key_file: Some(key.into()),
             pkcs12_identity_file: None,
             pkcs12_passphrase: None,
-            upstream_certificate_file: None,
         };
-        let client = new_reqwest_client("test_pkcs8".into(), false, Some(identity));
+        let client = new_reqwest_client("test_pkcs8".into(), false, Some(identity), None);
         assert!(client.is_ok());
     }
 
