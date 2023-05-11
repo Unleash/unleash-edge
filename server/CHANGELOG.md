@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 4.0.0 (2023-05-11)
+
+### New Features
+
+ - <csr-id-72656280a07c2d2c7729f9f25e9894f22f276ae5/> Add more visible info and warn logging for http errors
+
+### Bug Fixes
+
+ - <csr-id-bb09da9d9f2545a9ab8efda93a4ec270739f07ae/> update rust crate clap to 4.2.7
+
+### Other
+
+ - <csr-id-b5930bcc55d9e241b1fe29002d5cfb8f9191407f/> Prepare for 4.0.0 release
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 3 commits contributed to the release.
+ - 6 days passed between releases.
+ - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 2 unique issues were worked on: [#171](https://github.com/Unleash/unleash-edge/issues/171), [#182](https://github.com/Unleash/unleash-edge/issues/182)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#171](https://github.com/Unleash/unleash-edge/issues/171)**
+    - Update rust crate clap to 4.2.7 ([`bb09da9`](https://github.com/Unleash/unleash-edge/commit/bb09da9d9f2545a9ab8efda93a4ec270739f07ae))
+ * **[#182](https://github.com/Unleash/unleash-edge/issues/182)**
+    - Add more visible info and warn logging for http errors ([`7265628`](https://github.com/Unleash/unleash-edge/commit/72656280a07c2d2c7729f9f25e9894f22f276ae5))
+ * **Uncategorized**
+    - Prepare for 4.0.0 release ([`b5930bc`](https://github.com/Unleash/unleash-edge/commit/b5930bcc55d9e241b1fe29002d5cfb8f9191407f))
+</details>
+
 ## 3.0.0 (2023-05-05)
 
 ### Documentation
@@ -19,7 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 2 commits contributed to the release.
+ - 3 commits contributed to the release.
  - 2 days passed between releases.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#176](https://github.com/Unleash/unleash-edge/issues/176)
@@ -33,6 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#176](https://github.com/Unleash/unleash-edge/issues/176)**
     - Client TLS Identification ([`9f01316`](https://github.com/Unleash/unleash-edge/commit/9f01316d6ac029d8b5b25140f54827a9627026e7))
  * **Uncategorized**
+    - Release unleash-edge v3.0.0 ([`a6779cd`](https://github.com/Unleash/unleash-edge/commit/a6779cdb17f676ff278c3182e66284c3800955df))
     - Prepare README for 3.0 ([`effe175`](https://github.com/Unleash/unleash-edge/commit/effe175168bc59fddd04284a4217edcaddb0a714))
 </details>
 
