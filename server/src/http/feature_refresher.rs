@@ -211,6 +211,11 @@ impl FeatureRefresher {
             })
             .await;
 
+        debug!(
+            "Made a request to unleash for features and received the following: {:#?}",
+            features_result
+        );
+
         match features_result {
             Ok(feature_response) => match feature_response {
                 ClientFeaturesResponse::NoUpdate(tag) => {
