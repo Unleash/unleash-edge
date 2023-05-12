@@ -196,7 +196,9 @@ impl ResponseError for EdgeError {
                     "access": hydration_info
                 }))
             },
-            _ => HttpResponseBuilder::new(self.status_code()).finish()
+            _ => HttpResponseBuilder::new(self.status_code()).json(json!({
+                "error": self.to_string()
+            }))
         }
     }
 }
