@@ -5,7 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 4.0.1 (2023-05-12)
+
+### Chore
+
+ - <csr-id-4984c3eb039837f0bdfa85f94e8129a03b2675a4/> allow output from bad requests to respond with the error rather than just the status code
+ - <csr-id-5b821f831db0dd6d4e4c5affd36624c0929268af/> output logs for any response from feature query in debug output
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release.
+ - 1 day passed between releases.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 2 unique issues were worked on: [#184](https://github.com/Unleash/unleash-edge/issues/184), [#185](https://github.com/Unleash/unleash-edge/issues/185)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#184](https://github.com/Unleash/unleash-edge/issues/184)**
+    - Allow output from bad requests to respond with the error rather than just the status code ([`4984c3e`](https://github.com/Unleash/unleash-edge/commit/4984c3eb039837f0bdfa85f94e8129a03b2675a4))
+ * **[#185](https://github.com/Unleash/unleash-edge/issues/185)**
+    - Output logs for any response from feature query in debug output ([`5b821f8`](https://github.com/Unleash/unleash-edge/commit/5b821f831db0dd6d4e4c5affd36624c0929268af))
+</details>
+
 ## 4.0.0 (2023-05-11)
+
+<csr-id-b5930bcc55d9e241b1fe29002d5cfb8f9191407f/>
 
 ### New Features
 
@@ -23,7 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 3 commits contributed to the release.
+ - 4 commits contributed to the release.
  - 6 days passed between releases.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#171](https://github.com/Unleash/unleash-edge/issues/171), [#182](https://github.com/Unleash/unleash-edge/issues/182)
@@ -39,6 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#182](https://github.com/Unleash/unleash-edge/issues/182)**
     - Add more visible info and warn logging for http errors ([`7265628`](https://github.com/Unleash/unleash-edge/commit/72656280a07c2d2c7729f9f25e9894f22f276ae5))
  * **Uncategorized**
+    - Release unleash-edge v4.0.0 ([`7d43885`](https://github.com/Unleash/unleash-edge/commit/7d438852ba3ea4f3a1fbef2359a5398a8aa6da22))
     - Prepare for 4.0.0 release ([`b5930bc`](https://github.com/Unleash/unleash-edge/commit/b5930bcc55d9e241b1fe29002d5cfb8f9191407f))
 </details>
 
