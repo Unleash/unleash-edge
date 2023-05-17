@@ -5,7 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 4.0.2 (2023-05-17)
+
+### Chore
+
+ - <csr-id-447baab59e4488565e1f4b28613e9a60c2ef4af7/> bump yggdrasil to pull through fix for rollout not working with random
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 1 commit contributed to the release.
+ - 4 days passed between releases.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 1 unique issue was worked on: [#187](https://github.com/Unleash/unleash-edge/issues/187)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#187](https://github.com/Unleash/unleash-edge/issues/187)**
+    - Bump yggdrasil to pull through fix for rollout not working with random ([`447baab`](https://github.com/Unleash/unleash-edge/commit/447baab59e4488565e1f4b28613e9a60c2ef4af7))
+</details>
+
 ## 4.0.1 (2023-05-12)
+
+<csr-id-4984c3eb039837f0bdfa85f94e8129a03b2675a4/>
+<csr-id-5b821f831db0dd6d4e4c5affd36624c0929268af/>
 
 ### Chore
 
@@ -16,7 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 2 commits contributed to the release.
+ - 3 commits contributed to the release.
  - 1 day passed between releases.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#184](https://github.com/Unleash/unleash-edge/issues/184), [#185](https://github.com/Unleash/unleash-edge/issues/185)
@@ -31,6 +59,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Allow output from bad requests to respond with the error rather than just the status code ([`4984c3e`](https://github.com/Unleash/unleash-edge/commit/4984c3eb039837f0bdfa85f94e8129a03b2675a4))
  * **[#185](https://github.com/Unleash/unleash-edge/issues/185)**
     - Output logs for any response from feature query in debug output ([`5b821f8`](https://github.com/Unleash/unleash-edge/commit/5b821f831db0dd6d4e4c5affd36624c0929268af))
+ * **Uncategorized**
+    - Release unleash-edge v4.0.1 ([`c28ca3f`](https://github.com/Unleash/unleash-edge/commit/c28ca3f2a26557da6431c1a9f56941ec99388342))
 </details>
 
 ## 4.0.0 (2023-05-11)
