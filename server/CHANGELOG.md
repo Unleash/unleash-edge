@@ -5,7 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 4.0.3 (2023-05-18)
+
+### Bug Fixes
+
+ - <csr-id-808db80fcc68606f540a0339acb8cd757934ecdb/> allow multiple client tokens at startup
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 1 commit contributed to the release.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 1 unique issue was worked on: [#188](https://github.com/Unleash/unleash-edge/issues/188)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#188](https://github.com/Unleash/unleash-edge/issues/188)**
+    - Allow multiple client tokens at startup ([`808db80`](https://github.com/Unleash/unleash-edge/commit/808db80fcc68606f540a0339acb8cd757934ecdb))
+</details>
+
 ## 4.0.2 (2023-05-17)
+
+<csr-id-447baab59e4488565e1f4b28613e9a60c2ef4af7/>
 
 ### Chore
 
@@ -15,7 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 1 commit contributed to the release.
+ - 2 commits contributed to the release.
  - 4 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#187](https://github.com/Unleash/unleash-edge/issues/187)
@@ -28,6 +54,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  * **[#187](https://github.com/Unleash/unleash-edge/issues/187)**
     - Bump yggdrasil to pull through fix for rollout not working with random ([`447baab`](https://github.com/Unleash/unleash-edge/commit/447baab59e4488565e1f4b28613e9a60c2ef4af7))
+ * **Uncategorized**
+    - Release unleash-edge v4.0.2 ([`940bb5b`](https://github.com/Unleash/unleash-edge/commit/940bb5b7376aed092922df87c40ff8198504d4a6))
 </details>
 
 ## 4.0.1 (2023-05-12)
