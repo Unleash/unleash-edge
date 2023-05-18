@@ -3,6 +3,7 @@ use actix_web::http::header::HeaderValue;
 use actix_web::web::Data;
 use actix_web::FromRequest;
 use actix_web::HttpRequest;
+use std::collections::HashSet;
 use std::future::{ready, Ready};
 use std::str::FromStr;
 
@@ -13,11 +14,12 @@ use crate::types::EdgeToken;
 use crate::types::TokenRefresh;
 use crate::types::TokenValidationStatus;
 
-pub(crate) fn simplify(tokens: &[TokenRefresh]) -> Vec<&TokenRefresh> {
-    tokens
+pub(crate) fn simplify(tokens: &[TokenRefresh]) -> Vec<TokenRefresh> {
+    let uniques = filter_unique_tokens(tokens);
+    uniques
         .iter()
         .filter_map(|token| {
-            tokens.iter().fold(Some(token), |acc, current| {
+            uniques.iter().fold(Some(token), |acc, current| {
                 acc.and_then(|lead| {
                     if current.token.token != lead.token.token
                         && current.token.subsumes(&lead.token)
@@ -29,7 +31,26 @@ pub(crate) fn simplify(tokens: &[TokenRefresh]) -> Vec<&TokenRefresh> {
                 })
             })
         })
+        .cloned()
         .collect()
+}
+
+fn filter_unique_tokens(tokens: &[TokenRefresh]) -> Vec<TokenRefresh> {
+    let mut unique_tokens = Vec::new();
+    let mut unique_keys = HashSet::new();
+
+    for token in tokens {
+        let key = (
+            token.token.projects.clone(),
+            token.token.environment.clone(),
+        );
+        if !unique_keys.contains(&key) {
+            unique_tokens.push(token.clone());
+            unique_keys.insert(key);
+        }
+    }
+
+    unique_tokens
 }
 
 pub(crate) fn cache_key(token: &EdgeToken) -> String {
@@ -254,6 +275,27 @@ mod tests {
             test_token(Some("p2p3_someenv"), Some("env"), vec!["p2", "p3"]),
             test_token(Some("wildcard_noenv"), None, vec!["*"]),
         ];
+
+        let actual: Vec<EdgeToken> = simplify(&tokens).iter().map(|x| x.token.clone()).collect();
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_case_5_when_two_tokens_share_environments_and_products_we_return_only_the_first() {
+        let tokens: Vec<TokenRefresh> = vec![
+            test_token(Some("abcdefghijklmnopqrst"), Some("development"), vec!["*"]),
+            test_token(Some("tsrqponmlkjihgfedcba"), Some("development"), vec!["*"]),
+        ]
+        .into_iter()
+        .map(|t| TokenRefresh::new(t, None))
+        .collect();
+
+        let expected = vec![test_token(
+            Some("abcdefghijklmnopqrst"),
+            Some("development"),
+            vec!["*"],
+        )];
 
         let actual: Vec<EdgeToken> = simplify(&tokens).iter().map(|x| x.token.clone()).collect();
 

@@ -111,7 +111,7 @@ impl FeatureRefresher {
     }
 
     async fn register_and_hydrate_token(&self, token: &EdgeToken) -> EdgeResult<ClientFeatures> {
-        self.register_token_for_refresh(token.clone(), None).await?;
+        self.register_token_for_refresh(token.clone(), None).await;
         self.hydrate_new_tokens().await;
         self.get_filtered_features(token)
             .ok_or(EdgeError::ClientFeaturesFetchError(FeatureError::Retriable))
@@ -145,12 +145,8 @@ impl FeatureRefresher {
     }
 
     ///
-    /// Registers a token for refresh, returns true if token did not exist and as such needs hydration before we can guarantee that we have data for it
-    pub async fn register_token_for_refresh(
-        &self,
-        token: EdgeToken,
-        etag: Option<EntityTag>,
-    ) -> EdgeResult<()> {
+    /// Registers a token for refresh, the token will be discarded if it can be subsumed by another previously registered token
+    pub async fn register_token_for_refresh(&self, token: EdgeToken, etag: Option<EntityTag>) {
         if !self.tokens_to_refresh.contains_key(&token.token) {
             let _ = self
                 .unleash_client
@@ -173,9 +169,6 @@ impl FeatureRefresher {
                     .insert(refreshes.token.token.clone(), refreshes.clone());
             }
             self.tokens_to_refresh.retain(|key, _| keys.contains(key));
-            Ok(())
-        } else {
-            Ok(())
         }
     }
 
@@ -350,8 +343,42 @@ mod tests {
         );
         let token =
             EdgeToken::try_from("*:development.abcdefghijklmnopqrstuvwxyz".to_string()).unwrap();
-        let _ = feature_refresher
+        feature_refresher
             .register_token_for_refresh(token, None)
+            .await;
+
+        assert_eq!(feature_refresher.tokens_to_refresh.len(), 1);
+    }
+
+    #[tokio::test]
+    pub async fn registering_multiple_tokens_with_same_environment_reduces_tokens_to_valid_minimal_set(
+    ) {
+        let unleash_client = UnleashClient::from_url(
+            Url::parse("http://localhost:4242").unwrap(),
+            false,
+            None,
+            None,
+        );
+        let features_cache = Arc::new(DashMap::default());
+        let engines_cache = Arc::new(DashMap::default());
+
+        let duration = Duration::seconds(5);
+        let feature_refresher = FeatureRefresher::new(
+            Arc::new(unleash_client),
+            features_cache,
+            engines_cache,
+            duration,
+            None,
+        );
+        let token1 =
+            EdgeToken::try_from("*:development.abcdefghijklmnopqrstuvwxyz".to_string()).unwrap();
+        let token2 =
+            EdgeToken::try_from("*:development.zyxwvutsrqponmlkjihgfedcba".to_string()).unwrap();
+        feature_refresher
+            .register_token_for_refresh(token1, None)
+            .await;
+        feature_refresher
+            .register_token_for_refresh(token2, None)
             .await;
 
         assert_eq!(feature_refresher.tokens_to_refresh.len(), 1);
@@ -384,13 +411,13 @@ mod tests {
         let project_c_token =
             EdgeToken::try_from("projectc:development.abcdefghijklmnopqrstuvwxyz".to_string())
                 .unwrap();
-        let _ = feature_refresher
+        feature_refresher
             .register_token_for_refresh(project_a_token, None)
             .await;
-        let _ = feature_refresher
+        feature_refresher
             .register_token_for_refresh(project_b_token, None)
             .await;
-        let _ = feature_refresher
+        feature_refresher
             .register_token_for_refresh(project_c_token, None)
             .await;
 
@@ -427,16 +454,16 @@ mod tests {
         let wildcard_token =
             EdgeToken::try_from("*:development.abcdefghijklmnopqrstuvwxyz".to_string()).unwrap();
 
-        let _ = feature_refresher
+        feature_refresher
             .register_token_for_refresh(project_a_token, None)
             .await;
-        let _ = feature_refresher
+        feature_refresher
             .register_token_for_refresh(project_b_token, None)
             .await;
-        let _ = feature_refresher
+        feature_refresher
             .register_token_for_refresh(project_c_token, None)
             .await;
-        let _ = feature_refresher
+        feature_refresher
             .register_token_for_refresh(wildcard_token, None)
             .await;
 
@@ -477,16 +504,16 @@ mod tests {
             EdgeToken::try_from("[]:development.abcdefghijklmnopqrstuvwxyz".to_string()).unwrap();
         project_a_and_c_token.projects = vec!["projecta".into(), "projectc".into()];
 
-        let _ = feature_refresher
+        feature_refresher
             .register_token_for_refresh(project_a_token, None)
             .await;
-        let _ = feature_refresher
+        feature_refresher
             .register_token_for_refresh(project_b_token, None)
             .await;
-        let _ = feature_refresher
+        feature_refresher
             .register_token_for_refresh(project_c_token, None)
             .await;
-        let _ = feature_refresher
+        feature_refresher
             .register_token_for_refresh(project_a_and_c_token, None)
             .await;
 
@@ -524,10 +551,10 @@ mod tests {
             EdgeToken::try_from("projecta:development.abcdefghijklmnopqrstuvwxyz".to_string())
                 .unwrap();
 
-        let _ = feature_refresher
+        feature_refresher
             .register_token_for_refresh(star_token, None)
             .await;
-        let _ = feature_refresher
+        feature_refresher
             .register_token_for_refresh(project_a_token, None)
             .await;
 
@@ -561,10 +588,10 @@ mod tests {
                 .unwrap();
         let production_wildcard_token =
             EdgeToken::try_from("*:production.abcdefghijklmnopqrstuvwxyz".to_string()).unwrap();
-        let _ = feature_refresher
+        feature_refresher
             .register_token_for_refresh(project_a_token, None)
             .await;
-        let _ = feature_refresher
+        feature_refresher
             .register_token_for_refresh(production_wildcard_token, None)
             .await;
         assert_eq!(feature_refresher.tokens_to_refresh.len(), 2);
@@ -681,7 +708,7 @@ mod tests {
         let mut token = EdgeToken::try_from("*:development.secret123".to_string()).unwrap();
         token.status = Validated;
         token.token_type = Some(TokenType::Client);
-        let _ = feature_refresher
+        feature_refresher
             .register_token_for_refresh(token, None)
             .await;
         assert!(!feature_refresher.tokens_to_refresh.is_empty());
@@ -717,7 +744,7 @@ mod tests {
         let unleash_client = UnleashClient::new(server.url("/").as_str(), None).unwrap();
         let mut feature_refresher = FeatureRefresher::with_client(Arc::new(unleash_client));
         feature_refresher.refresh_interval = Duration::seconds(0);
-        let _ = feature_refresher
+        feature_refresher
             .register_token_for_refresh(valid_token.clone(), None)
             .await;
         assert!(!feature_refresher.tokens_to_refresh.is_empty());
@@ -762,10 +789,10 @@ mod tests {
         let unleash_client = UnleashClient::new(server.url("/").as_str(), None).unwrap();
         let mut feature_refresher = FeatureRefresher::with_client(Arc::new(unleash_client));
         feature_refresher.refresh_interval = Duration::seconds(0);
-        let _ = feature_refresher
+        feature_refresher
             .register_token_for_refresh(dx_token.clone(), None)
             .await;
-        let _ = feature_refresher
+        feature_refresher
             .register_token_for_refresh(eg_token.clone(), None)
             .await;
         assert_eq!(feature_refresher.tokens_to_refresh.len(), 2);
