@@ -34,6 +34,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let schedule_args = args.clone();
     let mode_arg = args.clone().mode;
     let http_args = args.clone().http;
+    let base_path = http_args.base_path.clone();
     let (metrics_handler, request_metrics) = prom_metrics::instantiate(None);
     let connect_via = ConnectVia {
         app_name: args.clone().app_name,
@@ -80,31 +81,35 @@ async fn main() -> Result<(), anyhow::Error> {
             Some(refresher) => app.app_data(web::Data::from(refresher)),
             None => app,
         };
-        app.wrap(actix_web::middleware::Compress::default())
-            .wrap(actix_web::middleware::NormalizePath::default())
-            .wrap(Etag::default())
-            .wrap(cors_middleware)
-            .wrap(RequestTracing::new())
-            .wrap(request_metrics.clone())
-            .wrap(Logger::default())
-            .service(web::scope("/internal-backstage").configure(|service_cfg| {
-                internal_backstage::configure_internal_backstage(
-                    service_cfg,
-                    metrics_handler.clone(),
+        app.service(
+            web::scope(&base_path)
+                .wrap(actix_web::middleware::Compress::default())
+                .wrap(actix_web::middleware::NormalizePath::default())
+                .wrap(Etag::default())
+                .wrap(cors_middleware)
+                .wrap(RequestTracing::new())
+                .wrap(request_metrics.clone())
+                .wrap(Logger::default())
+                .service(web::scope("/internal-backstage").configure(|service_cfg| {
+                    internal_backstage::configure_internal_backstage(
+                        service_cfg,
+                        metrics_handler.clone(),
+                    )
+                }))
+                .service(
+                    web::scope("/api")
+                        .wrap(middleware::as_async_middleware::as_async_middleware(
+                            middleware::validate_token::validate_token,
+                        ))
+                        .configure(client_api::configure_client_api)
+                        .configure(frontend_api::configure_frontend_api),
                 )
-            }))
-            .service(
-                web::scope("/api")
-                    .wrap(middleware::as_async_middleware::as_async_middleware(
-                        middleware::validate_token::validate_token,
-                    ))
-                    .configure(client_api::configure_client_api)
-                    .configure(frontend_api::configure_frontend_api),
-            )
-            .service(web::scope("/edge").configure(edge_api::configure_edge_api))
-            .service(
-                SwaggerUi::new("/swagger-ui/{_:.*}").url("/api-doc/openapi.json", openapi.clone()),
-            )
+                .service(web::scope("/edge").configure(edge_api::configure_edge_api))
+                .service(
+                    SwaggerUi::new("/swagger-ui/{_:.*}")
+                        .url("/api-doc/openapi.json", openapi.clone()),
+                ),
+        )
     });
     let server = if http_args.tls.tls_enable {
         let config = tls::config(http_args.clone().tls)

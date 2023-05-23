@@ -142,6 +142,9 @@ pub struct HttpServerArgs {
     /// Which interfaces should this server listen for HTTP traffic on
     #[clap(short, long, env, default_value = "0.0.0.0")]
     pub interface: String,
+    /// Which base path should this server listen for HTTP traffic on
+    #[clap(short, long, env, default_value = "")]
+    pub base_path: String,
 
     /// How many workers should be started to handle requests.
     /// Defaults to number of physical cpus
