@@ -50,6 +50,17 @@ mod base_path_tests {
         // Assert that the app_name field matches the expected value
         assert_eq!(info.app_name, "unleash-edge");
 
+        // Test a different endpoint
+        let url = format!("{}{}{}", base_url, base_path, "/api/client/features");
+        let resp = client
+            .get(&url)
+            .send()
+            .await
+            .expect("Failed to send request");
+
+        // Assert that the response status is 403 Forbidden
+        assert_eq!(resp.status(), 403);
+
         // Terminate the app process
         app_process.kill().expect("Failed to kill the app process");
         app_process
