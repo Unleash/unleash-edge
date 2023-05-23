@@ -40,6 +40,8 @@ Options:
           Which port should this server listen for HTTP traffic on [env: PORT=] [default: 3063]
   -i, --interface <INTERFACE>
           Which interfaces should this server listen for HTTP traffic on [env: INTERFACE=] [default: 0.0.0.0]
+  -b, --base-path <BASE_PATH>
+          Which base path should this server listen for HTTP traffic on [env: BASE_PATH=] [default: ]
   -w, --workers <WORKERS>
           How many workers should be started to handle requests. Defaults to number of physical cpus [env: WORKERS=] [default: number of physical cpus]
       --tls-enable
@@ -209,7 +211,7 @@ Options:
 
 ## [Metrics](https://docs.getunleash.io/reference/api/unleash/metrics)
 
-**❗  Note:**  For Unleash to correctly register SDK usage metrics sent from Edge instances, your Unleash instance must be v4.22 or newer.
+**❗ Note:** For Unleash to correctly register SDK usage metrics sent from Edge instances, your Unleash instance must be v4.22 or newer.
 
 Since Edge is designed to avoid overloading its upstream, Edge gathers and accumulates usage metrics from SDKs for a set interval (METRICS_INTERVAL_SECONDS) before posting a batch upstream.
 This reduces load on Unleash instances down to a single call every interval, instead of every single client posting to Unleash for updating metrics.
