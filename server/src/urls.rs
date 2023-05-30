@@ -1,6 +1,7 @@
 use reqwest::Url;
 use std::str::FromStr;
 
+use crate::edge_api;
 use crate::error::EdgeError;
 use crate::types::EdgeResult;
 
@@ -15,6 +16,7 @@ pub struct UnleashUrls {
     pub edge_api_url: Url,
     pub edge_validate_url: Url,
     pub edge_metrics_url: Url,
+    pub new_api_token_url: Url,
 }
 
 impl FromStr for UnleashUrls {
@@ -73,6 +75,12 @@ impl UnleashUrls {
             .expect("Could not create /edge/metrics")
             .push("metrics");
 
+        let mut new_api_token_url = base_url.clone();
+        new_api_token_url.path_segments_mut().expect("Could not create /api/admin/api-tokens")
+            .push("api")
+            .push("admin")
+            .push("api-tokens");
+
         UnleashUrls {
             base_url,
             api_url,
@@ -83,6 +91,7 @@ impl UnleashUrls {
             edge_api_url,
             edge_validate_url,
             edge_metrics_url,
+            new_api_token_url,
         }
     }
 }

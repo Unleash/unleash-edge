@@ -3097,6 +3097,7 @@ dependencies = [
  "opentelemetry-semantic-conventions",
  "prometheus",
  "prometheus-static-metric",
+ "rand",
  "redis",
  "reqwest",
  "rustls 0.20.8",

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use actix_web::{
     get, post,
     web::{self, Data, Json, Path},
-    HttpRequest, HttpResponse,
+    HttpRequest, HttpResponse, middleware,
 };
 use dashmap::DashMap;
 use serde_qs::actix::QsQuery;
@@ -16,7 +16,7 @@ use unleash_types::{
 };
 use unleash_yggdrasil::{EngineState, ResolvedToggle};
 
-use crate::error::EdgeError::ContextParseError;
+use crate::{error::EdgeError::ContextParseError, types::ServiceAccountToken, http::unleash_client::UnleashClient, middleware::as_async_middleware::as_async_middleware};
 use crate::{
     error::{EdgeError, FrontendHydrationMissing},
     metrics::client_metrics::MetricsCache,
@@ -478,7 +478,8 @@ pub async fn post_frontend_register(
 }
 
 pub fn configure_frontend_api(cfg: &mut web::ServiceConfig) {
-    cfg.service(get_enabled_proxy)
+    cfg
+        .service(get_enabled_proxy)
         .service(get_enabled_frontend)
         .service(get_proxy_all_features)
         .service(get_frontend_all_features)

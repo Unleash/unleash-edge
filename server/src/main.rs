@@ -30,6 +30,8 @@ use utoipa_swagger_ui::SwaggerUi;
 #[cfg(not(tarpaulin_include))]
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {
+    use unleash_edge::{cli::EdgeMode, types::ServiceAccountToken};
+
     dotenv::dotenv().ok();
     let args = CliArgs::parse();
     if args.markdown_help {
@@ -88,6 +90,18 @@ async fn main() -> Result<(), anyhow::Error> {
             Some(v) => app.app_data(web::Data::from(v)),
             None => app,
         };
+        app = match mode_arg.clone() {
+            EdgeMode::Edge(edge_args) => {
+                if let Some(sa_token) = edge_args.service_account_token {
+                    app.app_data(web::Data::new(ServiceAccountToken {
+                        token: sa_token
+                    }))
+                } else {
+                    app
+                }
+            },
+            _ => app
+        };
         app = match refresher_for_app_data.clone() {
             Some(refresher) => app.app_data(web::Data::from(refresher)),
             None => app,
@@ -112,6 +126,7 @@ async fn main() -> Result<(), anyhow::Error> {
                         .wrap(middleware::as_async_middleware::as_async_middleware(
                             middleware::validate_token::validate_token,
                         ))
+                        .wrap(middleware::as_async_middleware::as_async_middleware(middleware::client_token_from_frontend_token::client_token_from_frontend_token))
                         .configure(client_api::configure_client_api)
                         .configure(frontend_api::configure_frontend_api)
                         .configure(|cfg| {
