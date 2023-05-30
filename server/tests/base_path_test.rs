@@ -12,10 +12,10 @@ mod base_path_tests {
         // Run the app as a separate process
         let mut app_process = Command::new("./../target/debug/unleash-edge")
             .arg("-b")
-            .arg(&base_path)
+            .arg(base_path)
             .arg("offline")
             .arg("-t")
-            .arg(&token)
+            .arg(token)
             .arg("-b")
             .arg("../examples/features.json")
             .stdout(Stdio::null()) // Suppress stdout
