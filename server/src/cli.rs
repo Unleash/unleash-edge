@@ -135,6 +135,13 @@ pub struct TlsOptions {
 }
 
 #[derive(Args, Debug, Clone)]
+pub struct ExperimentalArgs {
+    /// Exposes the api/client/features endpoint for POST requests. This may be removed in a future release
+    #[clap(env, long, default_value_t = false)]
+    pub enable_post_features: bool,
+}
+
+#[derive(Args, Debug, Clone)]
 pub struct HttpServerArgs {
     /// Which port should this server listen for HTTP traffic on
     #[clap(short, long, env, default_value_t = 3063)]
@@ -150,6 +157,9 @@ pub struct HttpServerArgs {
     /// Defaults to number of physical cpus
     #[clap(short, long, env, default_value_t = num_cpus::get_physical())]
     pub workers: usize,
+
+    #[clap(flatten)]
+    pub experimental: ExperimentalArgs,
 
     #[clap(flatten)]
     pub tls: TlsOptions,
