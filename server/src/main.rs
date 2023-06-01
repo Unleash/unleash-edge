@@ -93,6 +93,7 @@ async fn main() -> Result<(), anyhow::Error> {
         app = match mode_arg.clone() {
             EdgeMode::Edge(edge_args) => {
                 if let Some(sa_token) = edge_args.service_account_token {
+                    tracing::info!("Service account token was {sa_token}");
                     app.app_data(web::Data::new(ServiceAccountToken {
                         token: sa_token
                     }))
@@ -123,10 +124,10 @@ async fn main() -> Result<(), anyhow::Error> {
                 }))
                 .service(
                     web::scope("/api")
-                        .wrap(middleware::as_async_middleware::as_async_middleware(
+                    .wrap(middleware::as_async_middleware::as_async_middleware(middleware::client_token_from_frontend_token::client_token_from_frontend_token))
+                    .wrap(middleware::as_async_middleware::as_async_middleware(
                             middleware::validate_token::validate_token,
                         ))
-                        .wrap(middleware::as_async_middleware::as_async_middleware(middleware::client_token_from_frontend_token::client_token_from_frontend_token))
                         .configure(client_api::configure_client_api)
                         .configure(frontend_api::configure_frontend_api)
                         .configure(|cfg| {

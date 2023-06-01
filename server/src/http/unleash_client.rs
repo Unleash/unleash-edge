@@ -175,6 +175,26 @@ impl UnleashClient {
             service_account_token: Default::default(),
         }
     }
+    pub fn from_url_with_service_account_token(
+        server_url: Url,
+        skip_ssl_verification: bool,
+        client_identity: Option<ClientIdentity>,
+        upstream_certificate_file: Option<PathBuf>,
+        service_account_token: String
+    ) -> Self {
+        Self {
+            urls: UnleashUrls::from_base_url(server_url),
+            backing_client: new_reqwest_client(
+                "unleash_edge".into(),
+                skip_ssl_verification,
+                client_identity,
+                upstream_certificate_file,
+            )
+            .unwrap(),
+            custom_headers: Default::default(),
+            service_account_token: Default::default(),
+        }
+    }
 
     #[cfg(test)]
     pub fn new(server_url: &str, instance_id_opt: Option<String>) -> Result<Self, EdgeError> {
@@ -241,6 +261,12 @@ impl UnleashClient {
     pub fn with_custom_client_headers(self, custom_headers: Vec<(String, String)>) -> Self {
         Self {
             custom_headers: custom_headers.iter().cloned().collect(),
+            ..self
+        }
+    }
+    pub fn with_service_account_token(self, service_account_token: Option<String>) -> Self {
+        Self {
+            service_account_token,
             ..self
         }
     }
