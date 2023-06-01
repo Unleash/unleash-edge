@@ -53,6 +53,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let metrics_cache = Arc::new(MetricsCache::default());
     let metrics_cache_clone = metrics_cache.clone();
+    let experimental_post_enabled = http_args.experimental.enable_post_features;
 
     let openapi = openapi::ApiDoc::openapi();
     let refresher_for_app_data = feature_refresher.clone();
@@ -102,7 +103,13 @@ async fn main() -> Result<(), anyhow::Error> {
                             middleware::validate_token::validate_token,
                         ))
                         .configure(client_api::configure_client_api)
-                        .configure(frontend_api::configure_frontend_api),
+                        .configure(frontend_api::configure_frontend_api)
+                        .configure(|cfg| {
+                            client_api::configure_experimental_post_features(
+                                cfg,
+                                experimental_post_enabled,
+                            )
+                        }),
                 )
                 .service(web::scope("/edge").configure(edge_api::configure_edge_api))
                 .service(
