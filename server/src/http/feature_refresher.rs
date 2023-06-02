@@ -2,7 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use super::unleash_client::UnleashClient;
 use crate::error::{EdgeError, FeatureError};
-use crate::types::{build, EdgeResult, ProjectFilter};
+use crate::types::{build, EdgeResult, ProjectFilter, TokenValidationStatus, TokenType};
 use crate::{
     persistence::EdgePersistence,
     tokens::{cache_key, simplify},
@@ -117,6 +117,19 @@ impl FeatureRefresher {
             .ok_or(EdgeError::ClientFeaturesFetchError(FeatureError::Retriable))
     }
 
+    pub async fn create_client_token_for_fe_token(&self, token: EdgeToken) -> EdgeResult<()> {
+        if token.status == TokenValidationStatus::Validated && token.token_type == Some(TokenType::Frontend) {
+            debug!("We have valid frontend token");
+            if !self.token_is_subsumed(&token) {
+                debug!("The frontend token access is not covered by our current client tokens");
+                let client_token = self.unleash_client.get_client_token_for_unhydrated_frontend_token(token).await?;
+                let _ = self.register_and_hydrate_token(&client_token).await;
+            } else {
+                debug!("It is already subsumed by another client token. Doing nothing");
+            }
+        }
+        Ok(())
+    }
     pub async fn features_for_token(&self, token: EdgeToken) -> EdgeResult<ClientFeatures> {
         match self.get_filtered_features(&token) {
             Some(features) => {
