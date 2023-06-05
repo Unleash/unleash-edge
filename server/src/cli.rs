@@ -184,6 +184,9 @@ pub struct CliArgs {
     /// App name. Used for metrics reporting.
     #[clap(short, long, env, default_value = "unleash-edge")]
     pub app_name: String,
+
+    #[arg(long, hide = true)]
+    pub markdown_help: bool,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -223,7 +226,7 @@ pub struct HttpServerArgs {
 
     /// How many workers should be started to handle requests.
     /// Defaults to number of physical cpus
-    #[clap(short, long, env, default_value_t = num_cpus::get_physical())]
+    #[clap(short, long, env, global=true, default_value_t = num_cpus::get_physical())]
     pub workers: usize,
 
     #[clap(flatten)]
