@@ -29,6 +29,38 @@ pub async fn get_features(
     filter_query: Query<FeatureFilters>,
     req: HttpRequest,
 ) -> EdgeJsonResult<ClientFeatures> {
+    resolve_features(edge_token, features_cache, token_cache, filter_query, req).await
+}
+#[utoipa::path(
+    context_path = "/api",
+    params(FeatureFilters),
+    responses(
+        (status = 200, description = "Return feature toggles for this token", body = ClientFeatures),
+        (status = 403, description = "Was not allowed to access features"),
+        (status = 400, description = "Invalid parameters used")
+    ),
+    security(
+        ("Authorization" = [])
+    )
+)]
+#[post("/client/features")]
+pub async fn post_features(
+    edge_token: EdgeToken,
+    features_cache: Data<DashMap<String, ClientFeatures>>,
+    token_cache: Data<DashMap<String, EdgeToken>>,
+    filter_query: Query<FeatureFilters>,
+    req: HttpRequest,
+) -> EdgeJsonResult<ClientFeatures> {
+    resolve_features(edge_token, features_cache, token_cache, filter_query, req).await
+}
+
+async fn resolve_features(
+    edge_token: EdgeToken,
+    features_cache: Data<DashMap<String, ClientFeatures>>,
+    token_cache: Data<DashMap<String, EdgeToken>>,
+    filter_query: Query<FeatureFilters>,
+    req: HttpRequest,
+) -> EdgeJsonResult<ClientFeatures> {
     let validated_token = token_cache
         .get(&edge_token.token)
         .map(|e| e.value().clone())
@@ -176,6 +208,15 @@ pub fn configure_client_api(cfg: &mut web::ServiceConfig) {
         .service(get_feature)
         .service(register)
         .service(metrics);
+}
+
+pub fn configure_experimental_post_features(
+    cfg: &mut web::ServiceConfig,
+    post_features_enabled: bool,
+) {
+    if post_features_enabled {
+        cfg.service(post_features);
+    }
 }
 
 #[cfg(test)]
@@ -461,6 +502,56 @@ mod tests {
         let req = make_features_request_with_token(production_token.clone()).await;
         let res: ClientFeatures = test::call_and_read_body_json(&app, req).await;
         assert_eq!(res.features.len(), example_features.features.len());
+    }
+
+    #[tokio::test]
+    async fn post_request_to_client_features_does_the_same_as_get_when_mounted() {
+        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::from(features_cache.clone()))
+                .app_data(Data::from(token_cache.clone()))
+                .service(
+                    web::scope("/api")
+                        .service(get_features)
+                        .service(post_features),
+                ),
+        )
+        .await;
+        let client_features = cached_client_features();
+        let example_features = features_from_disk("../examples/features.json");
+        features_cache.insert("development".into(), client_features.clone());
+        features_cache.insert("production".into(), example_features.clone());
+        let mut token = EdgeToken::try_from(
+            "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7".to_string(),
+        )
+        .unwrap();
+        token.token_type = Some(TokenType::Client);
+        token.status = TokenValidationStatus::Validated;
+        token_cache.insert(token.token.clone(), token.clone());
+        let req = make_features_request_with_token(token.clone()).await;
+        let res: ClientFeatures = test::call_and_read_body_json(&app, req).await;
+        assert_eq!(res.features, client_features.features);
+        let mut production_token = EdgeToken::try_from(
+            "*:production.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7".to_string(),
+        )
+        .unwrap();
+        production_token.token_type = Some(TokenType::Client);
+        production_token.status = TokenValidationStatus::Validated;
+        token_cache.insert(production_token.token.clone(), production_token.clone());
+
+        let post_req = test::TestRequest::post()
+            .uri("/api/client/features")
+            .insert_header(("Authorization", production_token.clone().token))
+            .insert_header(ContentType::json())
+            .to_request();
+
+        let get_req = make_features_request_with_token(production_token.clone()).await;
+        let get_res: ClientFeatures = test::call_and_read_body_json(&app, get_req).await;
+        let post_res: ClientFeatures = test::call_and_read_body_json(&app, post_req).await;
+
+        assert_eq!(get_res.features, post_res.features)
     }
 
     #[tokio::test]

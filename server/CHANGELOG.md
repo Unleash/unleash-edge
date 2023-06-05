@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 5.0.0 (2023-06-01)
+
+### New Features
+
+ - <csr-id-4c187c622a78b7a91b8b3d868e51c51ddd0777c1/> makes a post to api/client/features possible by setting a cli arg
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 1 commit contributed to the release.
+ - 2 days passed between releases.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 1 unique issue was worked on: [#197](https://github.com/Unleash/unleash-edge/issues/197)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#197](https://github.com/Unleash/unleash-edge/issues/197)**
+    - Makes a post to api/client/features possible by setting a cli arg ([`4c187c6`](https://github.com/Unleash/unleash-edge/commit/4c187c622a78b7a91b8b3d868e51c51ddd0777c1))
+</details>
+
 ## 4.1.1 (2023-05-30)
 
 ### Bug Fixes
@@ -15,7 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 1 commit contributed to the release.
+ - 2 commits contributed to the release.
  - 6 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#196](https://github.com/Unleash/unleash-edge/issues/196)
@@ -28,6 +53,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  * **[#196](https://github.com/Unleash/unleash-edge/issues/196)**
     - Pulls in fixes from Unleash Types so that Segments correctly update ([`d60702d`](https://github.com/Unleash/unleash-edge/commit/d60702d1693d4723a22443245ffe02e0771cae82))
+ * **Uncategorized**
+    - Release unleash-edge v4.1.1 ([`2464099`](https://github.com/Unleash/unleash-edge/commit/2464099f18c8e5d9c82b377137a1e7679556fdae))
 </details>
 
 ## 4.1.0 (2023-05-23)
