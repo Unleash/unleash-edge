@@ -110,7 +110,7 @@ fn build_offline(offline_args: OfflineArgs) -> EdgeResult<CacheContainer> {
 }
 
 async fn get_data_source(args: &EdgeArgs) -> Option<Arc<dyn EdgePersistence>> {
-    if let Some(redis_url) = args.redis_url.clone() {
+    if let Some(redis_url) = args.redis.clone().and_then(|r| r.to_url()) {
         let redis_client = RedisPersister::new(&redis_url).expect("Failed to connect to Redis");
         return Some(Arc::new(redis_client));
     }

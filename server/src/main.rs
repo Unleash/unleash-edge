@@ -31,6 +31,10 @@ use utoipa_swagger_ui::SwaggerUi;
 async fn main() -> Result<(), anyhow::Error> {
     dotenv::dotenv().ok();
     let args = CliArgs::parse();
+    if args.markdown_help {
+        clap_markdown::print_help_markdown::<CliArgs>();
+        return Ok(());
+    }
     let schedule_args = args.clone();
     let mode_arg = args.clone().mode;
     let http_args = args.clone().http;
