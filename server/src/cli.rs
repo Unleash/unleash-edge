@@ -44,7 +44,7 @@ pub struct RedisArgs {
     pub redis_host: Option<String>,
     #[clap(long, env, default_value_t = false)]
     pub redis_secure: bool,
-    #[clap(long, env, default_value_t = RedisSchema::Redis, value_enum)]
+    #[clap(long, env, default_value_t = RedisScheme::Redis, value_enum)]
     pub redis_scheme: RedisScheme,
 }
 
