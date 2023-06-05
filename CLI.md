@@ -25,9 +25,15 @@ This document contains the help content for the `unleash-edge` command-line prog
 * `-i`, `--interface <INTERFACE>` — Which interfaces should this server listen for HTTP traffic on
 
   Default value: `0.0.0.0`
+* `-b`, `--base-path <BASE_PATH>` — Which base path should this server listen for HTTP traffic on
+
+  Default value: ``
 * `-w`, `--workers <WORKERS>` — How many workers should be started to handle requests. Defaults to number of physical cpus
 
   Default value: `16`
+* `--enable-post-features` — Exposes the api/client/features endpoint for POST requests. This may be removed in a future release
+
+  Default value: `false`
 * `--tls-enable` — Should we bind TLS
 
   Default value: `false`
@@ -38,7 +44,7 @@ This document contains the help content for the `unleash-edge` command-line prog
   Default value: `3043`
 * `--instance-id <INSTANCE_ID>` — Instance id. Used for metrics reporting
 
-  Default value: `01H02BTHPET4SB7M4ST7GQPC30`
+  Default value: `01H25S347DVN3YGHBYTV8GBRFM`
 * `-a`, `--app-name <APP_NAME>` — App name. Used for metrics reporting
 
   Default value: `unleash-edge`
@@ -55,7 +61,20 @@ Run in edge mode
 ###### **Options:**
 
 * `-u`, `--upstream-url <UPSTREAM_URL>` — Where is your upstream URL. Remember, this is the URL to your instance, without any trailing /api suffix
-* `-r`, `--redis-url <REDIS_URL>` — A URL pointing to a running Redis instance. Edge will use this instance to persist feature and token data and read this back after restart. Mutually exclusive with the --backup-folder option
+* `--redis-url <REDIS_URL>`
+* `--redis-password <REDIS_PASSWORD>`
+* `--redis-username <REDIS_USERNAME>`
+* `--redis-port <REDIS_PORT>`
+* `--redis-host <REDIS_HOST>`
+* `--redis-secure`
+
+  Default value: `false`
+* `--redis-scheme <REDIS_SCHEME>`
+
+  Default value: `redis`
+
+  Possible values: `redis`, `rediss`, `redis-unix`, `unix`
+
 * `-b`, `--backup-folder <BACKUP_FOLDER>` — A path to a local folder. Edge will write feature and token data to disk in this folder and read this back after restart. Mutually exclusive with the --redis-url option
 * `-m`, `--metrics-interval-seconds <METRICS_INTERVAL_SECONDS>` — How often should we post metrics upstream?
 
