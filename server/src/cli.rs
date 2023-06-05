@@ -13,20 +13,20 @@ pub enum EdgeMode {
 }
 
 #[derive(ValueEnum, Debug, Clone)]
-pub enum RedisSchema {
+pub enum RedisScheme {
     Redis,
     Rediss,
     RedisUnix,
     Unix,
 }
 
-impl Display for RedisSchema {
+impl Display for RedisScheme {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            RedisSchema::Redis => write!(f, "redis"),
-            RedisSchema::Rediss => write!(f, "rediss"),
-            RedisSchema::RedisUnix => write!(f, "redis+unix"),
-            RedisSchema::Unix => write!(f, "unix"),
+            RedisScheme::Redis => write!(f, "redis"),
+            RedisScheme::Rediss => write!(f, "rediss"),
+            RedisScheme::RedisUnix => write!(f, "redis+unix"),
+            RedisScheme::Unix => write!(f, "unix"),
         }
     }
 }
@@ -45,7 +45,7 @@ pub struct RedisArgs {
     #[clap(long, env, default_value_t = false)]
     pub redis_secure: bool,
     #[clap(long, env, default_value_t = RedisSchema::Redis, value_enum)]
-    pub redis_scheme: RedisSchema,
+    pub redis_scheme: RedisScheme,
 }
 
 impl RedisArgs {
@@ -71,9 +71,7 @@ impl RedisArgs {
             }).map(|almost_finished_url| {
                 let mut base_url = almost_finished_url;
                 if self.redis_secure {
-                    println!("Yves should be secure");
-                    let scheme = "rediss";
-                    base_url.set_scheme(scheme).expect("Failed to set redis scheme");
+                    base_url.set_scheme("rediss").expect("Failed to set redis scheme");
                 }
                 base_url
         }).map(|f| f.to_string())
