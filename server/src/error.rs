@@ -97,6 +97,7 @@ pub enum EdgeError {
     EdgeTokenParseError,
     InvalidBackupFile(String, String),
     InvalidServerUrl(String),
+    HealthCheckError(String),
     JsonParseError(String),
     NoFeaturesFile,
     NoTokenProvider,
@@ -156,6 +157,9 @@ impl Display for EdgeError {
             EdgeError::ContextParseError => {
                 write!(f, "Failed to parse query parameters to frontend api")
             }
+            EdgeError::HealthCheckError(message) => {
+                write!(f, "{message}")
+            }
         }
     }
 }
@@ -185,6 +189,7 @@ impl ResponseError for EdgeError {
             EdgeError::FrontendNotYetHydrated(_) => StatusCode::NETWORK_AUTHENTICATION_REQUIRED,
             EdgeError::ContextParseError => StatusCode::BAD_REQUEST,
             EdgeError::EdgeMetricsRequestError(status_code) => *status_code,
+            EdgeError::HealthCheckError(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 

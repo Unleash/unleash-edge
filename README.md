@@ -60,6 +60,17 @@ Options:
           Print help
 ```
 
+### Built-in Health check
+There is now (from 5.1.0) a subcommand named `health` which will ping your health endpoint and exit with status 0 provided the health endpoint returns 200 OK.
+
+Example:
+```shell
+./unleash-edge health
+```
+will check an Edge process running on http://localhost:3063. If you're using base-path or the port variable you should use the `-e --edge-url` CLI arg (or the EDGE_URL environment variable) to tell the health checker where edge is running.
+
+If you're hosting Edge with a self-signed certificate using the tls cli arguments, you should use the `--ca-certificate-file <file_containing_your_ca_and_key_in_pem_format>` flag (or the CA_CERTIFICATE_FILE environment variable) to allow the health checker to trust the self signed certificate.
+
 ## Getting Unleash Edge
 
 Unleash Edge is distributed as a binary and as a docker image.
