@@ -1,7 +1,6 @@
 use reqwest::Url;
 use std::str::FromStr;
 
-use crate::edge_api;
 use crate::error::EdgeError;
 use crate::types::EdgeResult;
 
@@ -76,7 +75,9 @@ impl UnleashUrls {
             .push("metrics");
 
         let mut new_api_token_url = base_url.clone();
-        new_api_token_url.path_segments_mut().expect("Could not create /api/admin/api-tokens")
+        new_api_token_url
+            .path_segments_mut()
+            .expect("Could not create /api/admin/api-tokens")
             .push("api")
             .push("admin")
             .push("api-tokens");

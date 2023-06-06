@@ -7,6 +7,7 @@ use actix_web::{
     HttpResponse,
 };
 use dashmap::DashMap;
+use tracing::{debug, info};
 
 pub async fn validate_token(
     token: EdgeToken,
@@ -25,8 +26,10 @@ pub async fn validate_token(
             let res = match known_token.status {
                 TokenValidationStatus::Validated => match known_token.token_type {
                     Some(TokenType::Frontend) => {
+                        debug!("Got FE token validated {:?}", known_token);
                         if req.path().contains("/api/frontend") || req.path().contains("/api/proxy")
                         {
+                            info!("Was allowed to access");
                             srv.call(req).await?.map_into_left_body()
                         } else {
                             req.into_response(HttpResponse::Forbidden().finish())
@@ -34,6 +37,7 @@ pub async fn validate_token(
                         }
                     }
                     Some(TokenType::Client) => {
+                        debug!("Got Client token validated {:?}", known_token);
                         if req.path().contains("/api/client") {
                             srv.call(req).await?.map_into_left_body()
                         } else {

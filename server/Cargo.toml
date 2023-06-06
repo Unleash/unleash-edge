@@ -63,6 +63,7 @@ maplit = "1.0.2"
 rand = "0.8.5"
 test-case = "3.1.0"
 testcontainers = "0.14.0"
+tracing-test = "0.2.4"
 
 [build-dependencies]
 shadow-rs = "0.23.0"

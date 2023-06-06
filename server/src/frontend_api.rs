@@ -3,11 +3,11 @@ use std::collections::HashMap;
 use actix_web::{
     get, post,
     web::{self, Data, Json, Path},
-    HttpRequest, HttpResponse, middleware,
+    HttpRequest, HttpResponse,
 };
 use dashmap::DashMap;
 use serde_qs::actix::QsQuery;
-use tracing::debug;
+use tracing::{debug, instrument};
 use unleash_types::client_features::Context;
 use unleash_types::client_metrics::{ClientApplication, ConnectVia};
 use unleash_types::{
@@ -16,7 +16,7 @@ use unleash_types::{
 };
 use unleash_yggdrasil::{EngineState, ResolvedToggle};
 
-use crate::{error::EdgeError::ContextParseError, types::ServiceAccountToken, http::unleash_client::UnleashClient, middleware::as_async_middleware::as_async_middleware};
+use crate::error::EdgeError::ContextParseError;
 use crate::{
     error::{EdgeError, FrontendHydrationMissing},
     metrics::client_metrics::MetricsCache,
@@ -167,13 +167,14 @@ security(
 )
 )]
 #[get("/frontend")]
+#[instrument(skip(engine_cache, token_cache))]
 async fn get_enabled_frontend(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
     context: QsQuery<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    debug!("{context:?}");
+    debug!("getting enabled features");
     get_enabled_features(edge_token, engine_cache, token_cache, context.into_inner())
 }
 
@@ -478,8 +479,7 @@ pub async fn post_frontend_register(
 }
 
 pub fn configure_frontend_api(cfg: &mut web::ServiceConfig) {
-    cfg
-        .service(get_enabled_proxy)
+    cfg.service(get_enabled_proxy)
         .service(get_enabled_frontend)
         .service(get_proxy_all_features)
         .service(get_frontend_all_features)
@@ -548,12 +548,6 @@ mod tests {
     use std::collections::HashMap;
     use std::sync::Arc;
 
-    use crate::builder::build_offline_mode;
-    use crate::cli::{EdgeMode, OfflineArgs};
-    use crate::metrics::client_metrics::MetricsCache;
-    use crate::metrics::client_metrics::MetricsKey;
-    use crate::middleware;
-    use crate::types::{EdgeToken, TokenType, TokenValidationStatus};
     use actix_http::{Request, StatusCode};
     use actix_web::{
         http::header::ContentType,
@@ -570,6 +564,13 @@ mod tests {
         frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult},
     };
     use unleash_yggdrasil::EngineState;
+
+    use crate::builder::build_offline_mode;
+    use crate::cli::{EdgeMode, OfflineArgs};
+    use crate::metrics::client_metrics::MetricsCache;
+    use crate::metrics::client_metrics::MetricsKey;
+    use crate::middleware;
+    use crate::types::{EdgeToken, TokenType, TokenValidationStatus};
 
     async fn make_test_request() -> Request {
         test::TestRequest::post()

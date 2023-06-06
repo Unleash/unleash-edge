@@ -1,3 +1,4 @@
+pub mod api_token;
 pub mod auth;
 #[cfg(not(tarpaulin_include))]
 pub mod builder;
@@ -23,23 +24,24 @@ pub mod tls;
 pub mod tokens;
 pub mod types;
 pub mod urls;
-
 #[cfg(test)]
 mod tests {
-    use crate::auth::token_validator::TokenValidator;
-    use crate::types::EdgeToken;
+    use std::fs;
+    use std::io::BufReader;
+    use std::path::PathBuf;
+    use std::sync::Arc;
+
     use actix_http::HttpService;
     use actix_http_test::{test_server, TestServer};
     use actix_service::map_config;
     use actix_web::dev::AppConfig;
     use actix_web::{web, App};
     use dashmap::DashMap;
-    use std::fs;
-    use std::io::BufReader;
-    use std::path::PathBuf;
-    use std::sync::Arc;
     use unleash_types::client_features::ClientFeatures;
     use unleash_yggdrasil::EngineState;
+
+    use crate::auth::token_validator::TokenValidator;
+    use crate::types::EdgeToken;
 
     pub fn features_from_disk(path: &str) -> ClientFeatures {
         let path = PathBuf::from(path);
@@ -77,6 +79,9 @@ mod tests {
                             ))
                             .configure(crate::client_api::configure_client_api)
                             .configure(crate::frontend_api::configure_frontend_api),
+                    )
+                    .service(
+                        web::scope("/api/admin").configure(crate::api_token::configure_api_token),
                     )
                     .service(web::scope("/edge").configure(crate::edge_api::configure_edge_api)),
                 |_| AppConfig::default(),

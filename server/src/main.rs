@@ -1,26 +1,29 @@
-use actix_cors::Cors;
 use std::sync::Arc;
 
+use actix_cors::Cors;
 use actix_middleware_etag::Etag;
 use actix_web::middleware::Logger;
 use actix_web::{web, App, HttpServer};
 use clap::Parser;
-use cli::CliArgs;
 use dashmap::DashMap;
 use futures::future::join_all;
-use unleash_edge::builder::build_caches_and_refreshers;
-use unleash_edge::persistence::{persist_data, EdgePersistence};
-use unleash_edge::types::{EdgeToken, TokenRefresh, TokenValidationStatus};
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ConnectVia;
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
 
+use cli::CliArgs;
+use unleash_edge::builder::build_caches_and_refreshers;
 use unleash_edge::cli::EdgeMode;
+use unleash_edge::edge_api;
 use unleash_edge::frontend_api;
 use unleash_edge::internal_backstage;
 use unleash_edge::metrics::client_metrics::MetricsCache;
 use unleash_edge::middleware::request_tracing::RequestTracing;
 use unleash_edge::openapi;
+use unleash_edge::persistence::{persist_data, EdgePersistence};
 use unleash_edge::prom_metrics;
+use unleash_edge::types::{EdgeToken, TokenRefresh, TokenValidationStatus};
 use unleash_edge::{cli, middleware};
 use unleash_edge::{client_api, tls};
 use unleash_edge::{edge_api, health_checker};
@@ -94,14 +97,12 @@ async fn main() -> Result<(), anyhow::Error> {
             EdgeMode::Edge(edge_args) => {
                 if let Some(sa_token) = edge_args.service_account_token {
                     tracing::info!("Service account token was {sa_token}");
-                    app.app_data(web::Data::new(ServiceAccountToken {
-                        token: sa_token
-                    }))
+                    app.app_data(web::Data::new(ServiceAccountToken { token: sa_token }))
                 } else {
                     app
                 }
-            },
-            _ => app
+            }
+            _ => app,
         };
         app = match refresher_for_app_data.clone() {
             Some(refresher) => app.app_data(web::Data::from(refresher)),
@@ -130,6 +131,7 @@ async fn main() -> Result<(), anyhow::Error> {
                         ))
                         .configure(client_api::configure_client_api)
                         .configure(frontend_api::configure_frontend_api)
+                        .configure(api_token::configure_api_token)
                         .configure(|cfg| {
                             client_api::configure_experimental_post_features(
                                 cfg,

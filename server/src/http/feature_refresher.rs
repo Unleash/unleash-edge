@@ -1,21 +1,26 @@
+use std::collections::HashSet;
 use std::{sync::Arc, time::Duration};
 
-use super::unleash_client::UnleashClient;
+use actix_web::http::header::EntityTag;
+use chrono::Utc;
+use dashmap::DashMap;
+use tracing::{debug, warn};
+use unleash_types::client_metrics::ClientApplication;
+use unleash_types::{client_features::ClientFeatures, Upsert};
+use unleash_yggdrasil::EngineState;
+
 use crate::error::{EdgeError, FeatureError};
-use crate::types::{build, EdgeResult, ProjectFilter, TokenValidationStatus, TokenType};
+use crate::types::{
+    build, ClientTokenRequest, ClientTokenResponse, EdgeResult, ProjectFilter, TokenType,
+    TokenValidationStatus,
+};
 use crate::{
     persistence::EdgePersistence,
     tokens::{cache_key, simplify},
     types::{ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenRefresh},
 };
-use actix_web::http::header::EntityTag;
-use chrono::Utc;
-use dashmap::DashMap;
-use std::collections::HashSet;
-use tracing::{debug, warn};
-use unleash_types::client_metrics::ClientApplication;
-use unleash_types::{client_features::ClientFeatures, Upsert};
-use unleash_yggdrasil::EngineState;
+
+use super::unleash_client::UnleashClient;
 
 #[derive(Clone)]
 pub struct FeatureRefresher {
@@ -117,12 +122,26 @@ impl FeatureRefresher {
             .ok_or(EdgeError::ClientFeaturesFetchError(FeatureError::Retriable))
     }
 
+    pub async fn forward_request_for_client_token(
+        &self,
+        client_token_request: ClientTokenRequest,
+    ) -> EdgeResult<ClientTokenResponse> {
+        self.unleash_client
+            .forward_request_for_client_token(client_token_request)
+            .await
+    }
+
     pub async fn create_client_token_for_fe_token(&self, token: EdgeToken) -> EdgeResult<()> {
-        if token.status == TokenValidationStatus::Validated && token.token_type == Some(TokenType::Frontend) {
+        if token.status == TokenValidationStatus::Validated
+            && token.token_type == Some(TokenType::Frontend)
+        {
             debug!("We have valid frontend token");
             if !self.token_is_subsumed(&token) {
                 debug!("The frontend token access is not covered by our current client tokens");
-                let client_token = self.unleash_client.get_client_token_for_unhydrated_frontend_token(token).await?;
+                let client_token = self
+                    .unleash_client
+                    .get_client_token_for_unhydrated_frontend_token(token)
+                    .await?;
                 let _ = self.register_and_hydrate_token(&client_token).await;
             } else {
                 debug!("It is already subsumed by another client token. Doing nothing");
@@ -130,6 +149,7 @@ impl FeatureRefresher {
         }
         Ok(())
     }
+
     pub async fn features_for_token(&self, token: EdgeToken) -> EdgeResult<ClientFeatures> {
         match self.get_filtered_features(&token) {
             Some(features) => {
@@ -300,6 +320,9 @@ impl FeatureRefresher {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+    use std::sync::Arc;
+
     use actix_http::HttpService;
     use actix_http_test::{test_server, TestServer};
     use actix_service::map_config;
@@ -307,9 +330,6 @@ mod tests {
     use actix_web::http::header::EntityTag;
     use actix_web::{web, App};
     use chrono::{Duration, Utc};
-    use std::str::FromStr;
-    use std::sync::Arc;
-
     use dashmap::DashMap;
     use reqwest::Url;
     use unleash_types::client_features::ClientFeatures;

@@ -7,6 +7,7 @@ use crate::types::{
 use std::sync::Arc;
 
 use dashmap::DashMap;
+use tracing::debug;
 use unleash_types::Upsert;
 
 #[derive(Clone)]
@@ -54,6 +55,7 @@ impl TokenValidator {
     pub async fn register_tokens(&self, tokens: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
         let (unknown_tokens, known_tokens) = self.get_unknown_and_known_tokens(tokens).await?;
         if unknown_tokens.is_empty() {
+            debug!("Already knew all tokens");
             Ok(known_tokens)
         } else {
             let token_strings_to_validate: Vec<String> =
@@ -86,6 +88,7 @@ impl TokenValidator {
                 })
                 .collect();
             tokens_to_sink.iter().for_each(|t| {
+                debug!("Inserting {t:?}");
                 self.token_cache.insert(t.token.clone(), t.clone());
             });
             let updated_tokens = tokens_to_sink.upsert(known_tokens);
