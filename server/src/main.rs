@@ -36,13 +36,10 @@ async fn main() -> Result<(), anyhow::Error> {
         clap_markdown::print_help_markdown::<CliArgs>();
         return Ok(());
     }
-    match args.mode {
-        EdgeMode::Health(args) => {
-            return health_checker::check_health(args)
-                .await
-                .map_err(|e| e.into())
-        }
-        _ => {}
+    if let EdgeMode::Health(args) = args.mode {
+        return health_checker::check_health(args)
+            .await
+            .map_err(|e| e.into());
     };
     let schedule_args = args.clone();
     let mode_arg = args.clone().mode;
