@@ -3112,6 +3112,7 @@ dependencies = [
  "futures",
  "futures-core",
  "iter_tools",
+ "itertools",
  "lazy_static",
  "maplit",
  "num_cpus",

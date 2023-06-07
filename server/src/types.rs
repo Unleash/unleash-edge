@@ -8,7 +8,7 @@ use std::{
 use crate::error::EdgeError;
 use actix_web::{http::header::EntityTag, web::Json};
 use async_trait::async_trait;
-use chrono::{DateTime, Utc, Duration};
+use chrono::{DateTime, Duration, Utc};
 use dashmap::DashMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use shadow_rs::shadow;
@@ -81,7 +81,7 @@ pub struct EdgeToken {
 
 #[derive(Debug, Clone)]
 pub struct ServiceAccountToken {
-    pub token: String
+    pub token: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -107,7 +107,7 @@ impl From<ClientTokenResponse> for EdgeToken {
             token_type: value.token_type,
             environment: value.environment,
             projects: value.projects,
-            status: TokenValidationStatus::Validated
+            status: TokenValidationStatus::Validated,
         }
     }
 }
@@ -130,7 +130,25 @@ impl Hash for EdgeToken {
 
 impl EdgeToken {
     pub fn to_client_token_request(&self) -> ClientTokenRequest {
-        ClientTokenRequest { token_name:  format!("edge_data_token_{}", self.environment.clone().unwrap_or("default".into())), token_type: TokenType::Client, projects: self.projects.clone(), environment: self.environment.clone().unwrap_or("default".into()), expires_at: Utc::now() + Duration::weeks(4) }
+        ClientTokenRequest {
+            token_name: format!(
+                "edge_data_token_{}",
+                self.environment.clone().unwrap_or("default".into())
+            ),
+            token_type: TokenType::Client,
+            projects: self.projects.clone(),
+            environment: self.environment.clone().unwrap_or("default".into()),
+            expires_at: Utc::now() + Duration::weeks(4),
+        }
+    }
+    pub fn admin_token(secret: &str) -> Self {
+        Self {
+            token: format!("*:*.{}", secret),
+            status: TokenValidationStatus::Validated,
+            token_type: Some(TokenType::Admin),
+            environment: None,
+            projects: vec!["*".into()],
+        }
     }
 }
 
@@ -256,7 +274,7 @@ impl ProjectFilter<ResolvedToggle> for Vec<ResolvedToggle> {
 pub struct ClientTokenRequest {
     pub token_name: String,
     #[serde(rename = "type")]
-    pub token_type: TokenType, 
+    pub token_type: TokenType,
     pub projects: Vec<String>,
     pub environment: String,
     pub expires_at: DateTime<Utc>,

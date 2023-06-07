@@ -14,6 +14,7 @@ pub async fn validate_token(
     req: ServiceRequest,
     srv: crate::middleware::as_async_middleware::Next<impl MessageBody + 'static>,
 ) -> Result<ServiceResponse<impl MessageBody>, actix_web::Error> {
+    debug!("Validating req: {}", req.path());
     let maybe_validator = req.app_data::<Data<TokenValidator>>();
     let token_cache = req
         .app_data::<Data<DashMap<String, EdgeToken>>>()

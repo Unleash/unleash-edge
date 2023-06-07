@@ -1,4 +1,4 @@
-pub mod api_token;
+pub mod admin_api;
 pub mod auth;
 #[cfg(not(tarpaulin_include))]
 pub mod builder;
@@ -74,14 +74,9 @@ mod tests {
                     .app_data(web::Data::from(upstream_token_cache.clone()))
                     .service(
                         web::scope("/api")
-                            .wrap(crate::middleware::as_async_middleware::as_async_middleware(
-                                crate::middleware::validate_token::validate_token,
-                            ))
                             .configure(crate::client_api::configure_client_api)
-                            .configure(crate::frontend_api::configure_frontend_api),
-                    )
-                    .service(
-                        web::scope("/api/admin").configure(crate::api_token::configure_api_token),
+                            .configure(crate::frontend_api::configure_frontend_api)
+                            .configure(crate::admin_api::configure_admin_api),
                     )
                     .service(web::scope("/edge").configure(crate::edge_api::configure_edge_api)),
                 |_| AppConfig::default(),

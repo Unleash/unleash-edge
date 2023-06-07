@@ -9,6 +9,7 @@ use unleash_types::client_metrics::ClientApplication;
 use unleash_types::{client_features::ClientFeatures, Upsert};
 use unleash_yggdrasil::EngineState;
 
+use super::unleash_client::UnleashClient;
 use crate::error::{EdgeError, FeatureError};
 use crate::types::{
     build, ClientTokenRequest, ClientTokenResponse, EdgeResult, ProjectFilter, TokenType,
@@ -19,8 +20,6 @@ use crate::{
     tokens::{cache_key, simplify},
     types::{ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenRefresh},
 };
-
-use super::unleash_client::UnleashClient;
 
 #[derive(Clone)]
 pub struct FeatureRefresher {
@@ -111,8 +110,14 @@ impl FeatureRefresher {
     pub fn token_is_subsumed(&self, token: &EdgeToken) -> bool {
         self.tokens_to_refresh
             .iter()
-            .filter(|r| r.value().token.environment == token.environment)
+            .filter(|r| r.token.environment == token.environment)
             .any(|t| t.token.subsumes(token))
+    }
+
+    pub fn frontend_token_is_covered_by_client_token(&self, frontend_token: &EdgeToken) -> bool {
+        self.tokens_to_refresh.iter().any(|client_token| {
+            frontend_token.same_environment_and_broader_or_equal_project_access(&client_token.token)
+        })
     }
 
     async fn register_and_hydrate_token(&self, token: &EdgeToken) -> EdgeResult<ClientFeatures> {
@@ -135,8 +140,7 @@ impl FeatureRefresher {
         if token.status == TokenValidationStatus::Validated
             && token.token_type == Some(TokenType::Frontend)
         {
-            debug!("We have valid frontend token");
-            if !self.token_is_subsumed(&token) {
+            if !self.frontend_token_is_covered_by_client_token(&token) {
                 debug!("The frontend token access is not covered by our current client tokens");
                 let client_token = self
                     .unleash_client
@@ -144,7 +148,7 @@ impl FeatureRefresher {
                     .await?;
                 let _ = self.register_and_hydrate_token(&client_token).await;
             } else {
-                debug!("It is already subsumed by another client token. Doing nothing");
+                debug!("It is already covered by an existing client token. Doing nothing");
             }
         }
         Ok(())

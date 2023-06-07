@@ -14,6 +14,7 @@ use utoipa_swagger_ui::SwaggerUi;
 
 use cli::CliArgs;
 use unleash_edge::builder::build_caches_and_refreshers;
+use unleash_edge::cli;
 use unleash_edge::cli::EdgeMode;
 use unleash_edge::edge_api;
 use unleash_edge::frontend_api;
@@ -24,6 +25,7 @@ use unleash_edge::openapi;
 use unleash_edge::persistence::{persist_data, EdgePersistence};
 use unleash_edge::prom_metrics;
 use unleash_edge::types::{EdgeToken, TokenRefresh, TokenValidationStatus};
+use unleash_edge::{admin_api, client_api, edge_api, frontend_api, tls};
 use unleash_edge::{cli, middleware};
 use unleash_edge::{client_api, tls};
 use unleash_edge::{edge_api, health_checker};
@@ -125,13 +127,9 @@ async fn main() -> Result<(), anyhow::Error> {
                 }))
                 .service(
                     web::scope("/api")
-                    .wrap(middleware::as_async_middleware::as_async_middleware(middleware::client_token_from_frontend_token::client_token_from_frontend_token))
-                    .wrap(middleware::as_async_middleware::as_async_middleware(
-                            middleware::validate_token::validate_token,
-                        ))
                         .configure(client_api::configure_client_api)
                         .configure(frontend_api::configure_frontend_api)
-                        .configure(api_token::configure_api_token)
+                        .configure(admin_api::configure_admin_api)
                         .configure(|cfg| {
                             client_api::configure_experimental_post_features(
                                 cfg,

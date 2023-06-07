@@ -1,4 +1,3 @@
-use crate::error::EdgeError;
 use crate::http::unleash_client::UnleashClient;
 use crate::persistence::EdgePersistence;
 use crate::types::{
@@ -7,7 +6,6 @@ use crate::types::{
 use std::sync::Arc;
 
 use dashmap::DashMap;
-use tracing::debug;
 use unleash_types::Upsert;
 
 #[derive(Clone)]
@@ -21,14 +19,14 @@ impl TokenValidator {
     async fn get_unknown_and_known_tokens(
         &self,
         tokens: Vec<String>,
-    ) -> EdgeResult<(Vec<EdgeToken>, Vec<EdgeToken>)> {
+    ) -> (Vec<EdgeToken>, Vec<EdgeToken>) {
         let tokens_with_valid_format: Vec<EdgeToken> = tokens
             .into_iter()
             .filter_map(|t| EdgeToken::try_from(t).ok())
             .collect();
 
         if tokens_with_valid_format.is_empty() {
-            Err(EdgeError::TokenParseError)
+            (vec![], vec![])
         } else {
             let mut tokens: Vec<EdgeToken> = vec![];
             for token in tokens_with_valid_format {
@@ -39,7 +37,7 @@ impl TokenValidator {
                     .unwrap_or_else(|| token.clone());
                 tokens.push(owned_token);
             }
-            Ok(tokens.into_iter().partition(|t| t.token_type.is_none()))
+            tokens.into_iter().partition(|t| t.token_type.is_none())
         }
     }
 
@@ -53,9 +51,8 @@ impl TokenValidator {
     }
 
     pub async fn register_tokens(&self, tokens: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
-        let (unknown_tokens, known_tokens) = self.get_unknown_and_known_tokens(tokens).await?;
+        let (unknown_tokens, known_tokens) = self.get_unknown_and_known_tokens(tokens).await;
         if unknown_tokens.is_empty() {
-            debug!("Already knew all tokens");
             Ok(known_tokens)
         } else {
             let token_strings_to_validate: Vec<String> =
@@ -88,7 +85,6 @@ impl TokenValidator {
                 })
                 .collect();
             tokens_to_sink.iter().for_each(|t| {
-                debug!("Inserting {t:?}");
                 self.token_cache.insert(t.token.clone(), t.clone());
             });
             let updated_tokens = tokens_to_sink.upsert(known_tokens);
@@ -245,16 +241,18 @@ mod tests {
     pub async fn tokens_with_wrong_format_is_not_included() {
         let srv = test_validation_server().await;
         let unleash_client =
-            crate::http::unleash_client::UnleashClient::new(srv.url("/").as_str(), None)
-                .expect("Couldn't build client");
+            UnleashClient::new(srv.url("/").as_str(), None).expect("Couldn't build client");
         let validation_holder = TokenValidator {
             unleash_client: Arc::new(unleash_client),
             token_cache: Arc::new(DashMap::default()),
             persistence: None,
         };
         let invalid_tokens = vec!["jamesbond".into(), "invalidtoken".into()];
-        let validated_tokens = validation_holder.register_tokens(invalid_tokens).await;
-        assert!(validated_tokens.is_err());
+        let validated_tokens = validation_holder
+            .register_tokens(invalid_tokens)
+            .await
+            .unwrap();
+        assert!(validated_tokens.is_empty());
     }
 
     #[tokio::test]

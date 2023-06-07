@@ -145,8 +145,8 @@ pub struct EdgeArgs {
     pub upstream_certificate_file: Option<PathBuf>,
 
     /// Service account token. Used to create client tokens if receiving a frontend token we don't have data for
-    #[clap(long, global=true, env)]
-    pub service_account_token: Option<String>
+    #[clap(long, global = true, env)]
+    pub service_account_token: Option<String>,
 }
 
 pub fn string_to_header_tuple(s: &str) -> Result<(String, String), String> {
