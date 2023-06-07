@@ -200,7 +200,7 @@ pub struct CliArgs {
     #[clap(short, long, env, default_value = "unleash-edge")]
     pub app_name: String,
 
-    #[arg(long, hide = true)]
+    #[arg(long, hide = true, global = true)]
     pub markdown_help: bool,
 }
 
