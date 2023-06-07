@@ -3,7 +3,7 @@
 [![crates.io](https://img.shields.io/crates/v/unleash-edge?label=latest)](https://crates.io/crates/unleash-edge)
 [![Documentation](https://docs.rs/unleash-edge/badge.svg?version=latest)](https://docs.rs/unleash-edge/latest)
 ![MIT licensed](https://img.shields.io/crates/l/unleash-edge.svg)
-[![Dependency Status](https://deps.rs/crate/unleash-edge/3.0.0/status.svg)](https://deps.rs/crate/unleash-edge/3.0.0)
+[![Dependency Status](https://deps.rs/crate/unleash-edge/6.0.0/status.svg)](https://deps.rs/crate/unleash-edge/6.0.0)
 [![CI](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml/badge.svg)](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml)
 [![Coverage Status](https://coveralls.io/repos/github/Unleash/unleash-edge/badge.svg?branch=main)](https://coveralls.io/github/Unleash/unleash-edge?branch=main)
 ![downloads](https://img.shields.io/crates/d/unleash-edge.svg)
@@ -60,6 +60,17 @@ Options:
           Print help
 ```
 
+### Built-in Health check
+There is now (from 5.1.0) a subcommand named `health` which will ping your health endpoint and exit with status 0 provided the health endpoint returns 200 OK.
+
+Example:
+```shell
+./unleash-edge health
+```
+will check an Edge process running on http://localhost:3063. If you're using base-path or the port variable you should use the `-e --edge-url` CLI arg (or the EDGE_URL environment variable) to tell the health checker where edge is running.
+
+If you're hosting Edge with a self-signed certificate using the tls cli arguments, you should use the `--ca-certificate-file <file_containing_your_ca_and_key_in_pem_format>` flag (or the CA_CERTIFICATE_FILE environment variable) to allow the health checker to trust the self signed certificate.
+
 ## Getting Unleash Edge
 
 Unleash Edge is distributed as a binary and as a docker image.
@@ -79,7 +90,7 @@ Unleash Edge is distributed as a binary and as a docker image.
   - If running in `edge` mode your command should be
     - `docker run -p 3063:3063 -e UPSTREAM_URL=<YOUR_UNLEASH_INSTANCE> unleashorg/unleash-edge:v2.0.1 edge`
   - If running in `offline` mode you will need to provide a volume containing your feature toggles file. An example is available inside the examples folder. To use this, you can use the command
-    - `docker run -v ./examples:/edge/data -p 3063:3063 -e BOOTSTRAP_FILE=/edge/data/features.json -e TOKENS='my-secret-123' unleashorg/unleash-edge:v2.0.1 offline`
+    - `docker run -v ./examples:/edge/data -p 3063:3063 -e BOOTSTRAP_FILE=/edge/data/features.json -e TOKENS='my-secret-123,another-secret-789' unleashorg/unleash-edge:v2.0.1 offline`
 
 ### Cargo/Rust
 
