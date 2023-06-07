@@ -12,25 +12,15 @@ use unleash_types::client_metrics::ConnectVia;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
-use cli::CliArgs;
 use unleash_edge::builder::build_caches_and_refreshers;
-use unleash_edge::cli;
-use unleash_edge::cli::EdgeMode;
-use unleash_edge::edge_api;
-use unleash_edge::frontend_api;
-use unleash_edge::internal_backstage;
+use unleash_edge::cli::CliArgs;
 use unleash_edge::metrics::client_metrics::MetricsCache;
 use unleash_edge::middleware::request_tracing::RequestTracing;
-use unleash_edge::openapi;
 use unleash_edge::persistence::{persist_data, EdgePersistence};
-use unleash_edge::prom_metrics;
 use unleash_edge::types::{EdgeToken, TokenRefresh, TokenValidationStatus};
-use unleash_edge::{admin_api, client_api, edge_api, frontend_api, tls};
-use unleash_edge::{cli, middleware};
-use unleash_edge::{client_api, tls};
-use unleash_edge::{edge_api, health_checker};
-use utoipa::OpenApi;
-use utoipa_swagger_ui::SwaggerUi;
+use unleash_edge::{admin_api, cli, client_api, frontend_api, health_checker, openapi};
+use unleash_edge::{edge_api, prom_metrics};
+use unleash_edge::{internal_backstage, tls};
 
 #[cfg(not(tarpaulin_include))]
 #[actix_web::main]

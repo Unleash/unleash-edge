@@ -1,6 +1,8 @@
 use actix_web::http::header::EntityTag;
 use lazy_static::lazy_static;
+use prometheus::{register_int_gauge_vec, IntGaugeVec, Opts};
 use reqwest::header::{HeaderMap, HeaderName};
+use reqwest::{header, Client};
 use reqwest::{ClientBuilder, Identity, RequestBuilder, StatusCode, Url};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -8,14 +10,6 @@ use std::fs;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
-
-use actix_web::http::header::EntityTag;
-use lazy_static::lazy_static;
-use prometheus::{register_int_gauge_vec, IntGaugeVec, Opts};
-use reqwest::header::{HeaderMap, HeaderName};
-use reqwest::{header, Client};
-use reqwest::{Certificate, ClientBuilder, Identity, RequestBuilder, StatusCode, Url};
-use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ClientApplication;
@@ -118,29 +112,6 @@ fn build_identity(tls: Option<ClientIdentity>) -> EdgeResult<ClientBuilder> {
     )
 }
 
-fn build_upstream_certificate(
-    upstream_certificate: Option<PathBuf>,
-) -> EdgeResult<Option<Certificate>> {
-    upstream_certificate
-        .map(|cert| {
-            fs::read(cert)
-                .map_err(|e| {
-                    EdgeError::ClientCertificateError(CertificateError::RootCertificatesError(
-                        format!("{e:?}"),
-                    ))
-                })
-                .and_then(|bytes| {
-                    reqwest::Certificate::from_pem(&bytes).map_err(|e| {
-                        EdgeError::ClientCertificateError(CertificateError::RootCertificatesError(
-                            format!("{e:?}"),
-                        ))
-                    })
-                })
-                .map(Some)
-        })
-        .unwrap_or(Ok(None))
-}
-
 fn new_reqwest_client(
     instance_id: String,
     skip_ssl_verification: bool,
@@ -178,6 +149,7 @@ fn new_reqwest_client(
                 .map_err(|e| EdgeError::ClientBuildError(format!("{e:?}")))
         })
 }
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EdgeTokens {
     pub tokens: Vec<EdgeToken>,
