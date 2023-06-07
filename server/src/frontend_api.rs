@@ -568,7 +568,6 @@ mod tests {
     use chrono::{DateTime, Utc};
     use dashmap::DashMap;
     use serde_json::json;
-    use tracing::debug;
     use tracing_test::traced_test;
     use unleash_types::client_metrics::ClientMetricsEnv;
     use unleash_types::{
@@ -785,12 +784,8 @@ mod tests {
                 "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7",
             ))
             .to_request();
-        let r = test::call_service(&app, req).await;
-        debug!("{}", r.status());
-        /*        let result: FrontendResult = test::call_and_read_body_json(&app, req).await;
-
-                assert_eq!(result.toggles.len(), 1);
-        */
+        let result: FrontendResult = test::call_and_read_body_json(&app, req).await;
+        assert_eq!(result.toggles.len(), 1);
     }
 
     #[actix_web::test]
