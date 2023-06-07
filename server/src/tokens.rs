@@ -73,10 +73,14 @@ impl EdgeToken {
 
     pub fn subsumes(&self, other: &EdgeToken) -> bool {
         return self.token_type == other.token_type
-            && self.environment == other.environment
+            && self.same_environment_and_broader_or_equal_project_access(other);
+    }
+
+    pub fn same_environment_and_broader_or_equal_project_access(&self, other: &EdgeToken) -> bool {
+        self.environment == other.environment
             && (self.projects.contains(&"*".into())
                 || (self.projects.len() >= other.projects.len()
-                    && other.projects.iter().all(|p| self.projects.contains(p))));
+                    && other.projects.iter().all(|p| self.projects.contains(p))))
     }
 }
 
@@ -147,7 +151,7 @@ impl FromStr for EdgeToken {
                     vec![projects.clone()]
                 }
             } else {
-                return Err(EdgeError::TokenParseError);
+                return Err(EdgeError::TokenParseError(s.into()));
             };
             if let Some(env_and_key) = token_parts.get(1) {
                 let e_a_k: Vec<String> = env_and_key
@@ -156,7 +160,7 @@ impl FromStr for EdgeToken {
                     .map(|s| s.to_string())
                     .collect();
                 if e_a_k.len() != 2 {
-                    return Err(EdgeError::TokenParseError);
+                    return Err(EdgeError::TokenParseError(s.into()));
                 }
                 Ok(EdgeToken {
                     environment: e_a_k.get(0).cloned(),
@@ -166,10 +170,10 @@ impl FromStr for EdgeToken {
                     status: TokenValidationStatus::Unknown,
                 })
             } else {
-                Err(EdgeError::TokenParseError)
+                Err(EdgeError::TokenParseError(s.into()))
             }
         } else {
-            Err(EdgeError::TokenParseError)
+            Err(EdgeError::TokenParseError(s.into()))
         }
     }
 }

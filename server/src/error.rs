@@ -4,6 +4,7 @@ use std::fmt::{Display, Formatter};
 use actix_web::{http::StatusCode, HttpResponseBuilder, ResponseError};
 use serde::Serialize;
 use serde_json::json;
+use tracing::debug;
 
 use crate::types::EdgeToken;
 
@@ -102,8 +103,9 @@ pub enum EdgeError {
     NoFeaturesFile,
     NoTokenProvider,
     TlsError,
-    TokenParseError,
+    TokenParseError(String),
     ContextParseError,
+    ServiceAccountTokenNotEnabled,
 }
 
 impl Error for EdgeError {}
@@ -118,7 +120,7 @@ impl Display for EdgeError {
             EdgeError::NoFeaturesFile => write!(f, "No features file located"),
             EdgeError::AuthorizationDenied => write!(f, "Not allowed to access"),
             EdgeError::NoTokenProvider => write!(f, "Could not get a TokenProvider"),
-            EdgeError::TokenParseError => write!(f, "Could not parse edge token"),
+            EdgeError::TokenParseError(token) => write!(f, "Could not parse edge token: {token}"),
             EdgeError::PersistenceError(msg) => write!(f, "{msg}"),
             EdgeError::JsonParseError(msg) => write!(f, "{msg}"),
             EdgeError::ClientFeaturesFetchError(fe) => match fe {
@@ -157,6 +159,12 @@ impl Display for EdgeError {
             EdgeError::ContextParseError => {
                 write!(f, "Failed to parse query parameters to frontend api")
             }
+            EdgeError::ServiceAccountTokenNotEnabled => {
+                write!(
+                    f,
+                    "No service account token was given at startup. Do not know how to proceed"
+                )
+            }
             EdgeError::HealthCheckError(message) => {
                 write!(f, "{message}")
             }
@@ -172,7 +180,7 @@ impl ResponseError for EdgeError {
             EdgeError::NoFeaturesFile => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::AuthorizationDenied => StatusCode::FORBIDDEN,
             EdgeError::NoTokenProvider => StatusCode::INTERNAL_SERVER_ERROR,
-            EdgeError::TokenParseError => StatusCode::FORBIDDEN,
+            EdgeError::TokenParseError(_) => StatusCode::FORBIDDEN,
             EdgeError::ClientBuildError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::ClientFeaturesParseError => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::ClientFeaturesFetchError(_) => StatusCode::INTERNAL_SERVER_ERROR,
@@ -188,6 +196,7 @@ impl ResponseError for EdgeError {
             EdgeError::ClientCertificateError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::FrontendNotYetHydrated(_) => StatusCode::NETWORK_AUTHENTICATION_REQUIRED,
             EdgeError::ContextParseError => StatusCode::BAD_REQUEST,
+            EdgeError::ServiceAccountTokenNotEnabled => StatusCode::NETWORK_AUTHENTICATION_REQUIRED,
             EdgeError::EdgeMetricsRequestError(status_code) => *status_code,
             EdgeError::HealthCheckError(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
@@ -201,6 +210,12 @@ impl ResponseError for EdgeError {
                     "access": hydration_info
                 }))
             },
+            EdgeError::TokenParseError(token) => {
+                debug!("Failed to parse token: {}", token);
+                HttpResponseBuilder::new(self.status_code()).json(json!({
+                    "explanation": format!("Edge could not parse token: {}", token),
+                }))
+            }
             _ => HttpResponseBuilder::new(self.status_code()).json(json!({
                 "error": self.to_string()
             }))

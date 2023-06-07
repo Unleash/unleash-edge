@@ -7,6 +7,7 @@ This document contains the help content for the `unleash-edge` command-line prog
 * [`unleash-edge`↴](#unleash-edge)
 * [`unleash-edge edge`↴](#unleash-edge-edge)
 * [`unleash-edge offline`↴](#unleash-edge-offline)
+* [`unleash-edge health`↴](#unleash-edge-health)
 
 ## `unleash-edge`
 
@@ -16,6 +17,7 @@ This document contains the help content for the `unleash-edge` command-line prog
 
 * `edge` — Run in edge mode
 * `offline` — Run in offline mode
+* `health` — Perform a health check against a running edge instance
 
 ###### **Options:**
 
@@ -30,7 +32,7 @@ This document contains the help content for the `unleash-edge` command-line prog
   Default value: ``
 * `-w`, `--workers <WORKERS>` — How many workers should be started to handle requests. Defaults to number of physical cpus
 
-  Default value: `16`
+  Default value: `8`
 * `--enable-post-features` — Exposes the api/client/features endpoint for POST requests. This may be removed in a future release
 
   Default value: `false`
@@ -44,7 +46,7 @@ This document contains the help content for the `unleash-edge` command-line prog
   Default value: `3043`
 * `--instance-id <INSTANCE_ID>` — Instance id. Used for metrics reporting
 
-  Default value: `01H25S347DVN3YGHBYTV8GBRFM`
+  Default value: `01H2AV7Z2V237GM56669ZCGSKY`
 * `-a`, `--app-name <APP_NAME>` — App name. Used for metrics reporting
 
   Default value: `unleash-edge`
@@ -95,6 +97,7 @@ Run in edge mode
 * `--pkcs12-identity-file <PKCS12_IDENTITY_FILE>` — Identity file in pkcs12 format. Typically this file has a pfx extension
 * `--pkcs12-passphrase <PKCS12_PASSPHRASE>` — Passphrase used to unlock the pkcs12 file
 * `--upstream-certificate-file <UPSTREAM_CERTIFICATE_FILE>` — Extra certificate passed to the client for building its trust chain. Needs to be in PEM format (crt or pem extensions usually are)
+* `--service-account-token <SERVICE_ACCOUNT_TOKEN>` — Service account token. Used to create client tokens if receiving a frontend token we don't have data for
 
 
 
@@ -108,6 +111,21 @@ Run in offline mode
 
 * `-b`, `--bootstrap-file <BOOTSTRAP_FILE>`
 * `-t`, `--tokens <TOKENS>`
+
+
+
+## `unleash-edge health`
+
+Perform a health check against a running edge instance
+
+**Usage:** `unleash-edge health [OPTIONS]`
+
+###### **Options:**
+
+* `-e`, `--edge-url <EDGE_URL>` — Where the instance you want to health check is running
+
+  Default value: `http://localhost:3063`
+* `-c`, `--ca-certificate-file <CA_CERTIFICATE_FILE>` — If you're hosting Edge using a self-signed TLS certificate use this to tell healthcheck about your CA
 
 
 

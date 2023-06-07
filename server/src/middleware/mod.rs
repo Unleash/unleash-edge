@@ -4,3 +4,5 @@ pub mod as_async_middleware;
 pub mod request_tracing;
 
 pub mod validate_token;
+
+pub mod client_token_from_frontend_token;

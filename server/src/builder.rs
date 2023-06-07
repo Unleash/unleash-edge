@@ -138,6 +138,7 @@ async fn build_edge(args: &EdgeArgs) -> EdgeResult<EdgeInfo> {
             )
         })
         .map(|c| c.with_custom_client_headers(args.custom_client_headers.clone()))
+        .map(|c| c.with_service_account_token(args.service_account_token.clone()))
         .map(Arc::new)
         .map_err(|_| EdgeError::InvalidServerUrl(args.upstream_url.clone()))?;
 

@@ -40,13 +40,29 @@ impl EdgePersistence for RedisPersister {
     async fn load_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
         let mut client = self.redis_client.write().await;
         let raw_tokens: String = client.get(TOKENS_KEY)?;
-        serde_json::from_str::<Vec<EdgeToken>>(&raw_tokens).map_err(|_| EdgeError::TokenParseError)
+        serde_json::from_str::<Vec<EdgeToken>>(&raw_tokens)
+            .map_err(|_e| EdgeError::TokenParseError("Failed to load tokens from redis".into()))
     }
 
     async fn save_tokens(&self, tokens: Vec<EdgeToken>) -> EdgeResult<()> {
         let mut client = self.redis_client.write().await;
         let raw_tokens = serde_json::to_string(&tokens)?;
         client.set(TOKENS_KEY, raw_tokens)?;
+        Ok(())
+    }
+
+    async fn load_refresh_targets(&self) -> EdgeResult<Vec<TokenRefresh>> {
+        let mut client = self.redis_client.write().await;
+        let refresh_targets: String = client.get(REFRESH_TARGETS_KEY)?;
+        serde_json::from_str::<Vec<TokenRefresh>>(&refresh_targets).map_err(|_| {
+            EdgeError::TokenParseError("Failed to load refresh targets from redis".into())
+        })
+    }
+
+    async fn save_refresh_targets(&self, refresh_targets: Vec<TokenRefresh>) -> EdgeResult<()> {
+        let mut client = self.redis_client.write().await;
+        let refresh_targets = serde_json::to_string(&refresh_targets)?;
+        client.set(REFRESH_TARGETS_KEY, refresh_targets)?;
         Ok(())
     }
 
@@ -64,19 +80,5 @@ impl EdgePersistence for RedisPersister {
         client
             .set(FEATURES_KEY, raw_features)
             .map_err(EdgeError::from)
-    }
-
-    async fn load_refresh_targets(&self) -> EdgeResult<Vec<TokenRefresh>> {
-        let mut client = self.redis_client.write().await;
-        let refresh_targets: String = client.get(REFRESH_TARGETS_KEY)?;
-        serde_json::from_str::<Vec<TokenRefresh>>(&refresh_targets)
-            .map_err(|_| EdgeError::TokenParseError)
-    }
-
-    async fn save_refresh_targets(&self, refresh_targets: Vec<TokenRefresh>) -> EdgeResult<()> {
-        let mut client = self.redis_client.write().await;
-        let refresh_targets = serde_json::to_string(&refresh_targets)?;
-        client.set(REFRESH_TARGETS_KEY, refresh_targets)?;
-        Ok(())
     }
 }

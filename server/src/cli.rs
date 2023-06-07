@@ -143,6 +143,10 @@ pub struct EdgeArgs {
     /// Extra certificate passed to the client for building its trust chain. Needs to be in PEM format (crt or pem extensions usually are)
     #[clap(long, env)]
     pub upstream_certificate_file: Option<PathBuf>,
+
+    /// Service account token. Used to create client tokens if receiving a frontend token we don't have data for
+    #[clap(long, global = true, env)]
+    pub service_account_token: Option<String>,
 }
 
 pub fn string_to_header_tuple(s: &str) -> Result<(String, String), String> {
@@ -196,7 +200,7 @@ pub struct CliArgs {
     #[clap(short, long, env, default_value = "unleash-edge")]
     pub app_name: String,
 
-    #[arg(long, hide = true)]
+    #[arg(long, hide = true, global = true)]
     pub markdown_help: bool,
 }
 

@@ -2975,6 +2975,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "tracing-test"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a2c0ff408fe918a94c428a3f2ad04e4afd5c95bbc08fcf868eff750c15728a4"
+dependencies = [
+ "lazy_static",
+ "tracing-core",
+ "tracing-subscriber",
+ "tracing-test-macro",
+]
+
+[[package]]
+name = "tracing-test-macro"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "258bc1c4f8e2e73a977812ab339d503e6feeb92700f6d07a6de4d321522d5c08"
+dependencies = [
+ "lazy_static",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "try-lock"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3089,6 +3112,7 @@ dependencies = [
  "futures",
  "futures-core",
  "iter_tools",
+ "itertools",
  "lazy_static",
  "maplit",
  "num_cpus",
@@ -3097,6 +3121,7 @@ dependencies = [
  "opentelemetry-semantic-conventions",
  "prometheus",
  "prometheus-static-metric",
+ "rand",
  "redis",
  "reqwest",
  "rustls 0.20.8",
@@ -3110,6 +3135,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "tracing-test",
  "ulid",
  "unleash-types",
  "unleash-yggdrasil",

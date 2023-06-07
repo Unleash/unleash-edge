@@ -10,7 +10,7 @@ use unleash_types::client_features::{ClientFeature, ClientFeatures};
 use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ConnectVia};
 
 #[utoipa::path(
-    context_path = "/api",
+    context_path = "/api/client",
     params(FeatureFilters),
     responses(
         (status = 200, description = "Return feature toggles for this token", body = ClientFeatures),
@@ -21,7 +21,7 @@ use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ConnectVia
         ("Authorization" = [])
     )
 )]
-#[get("/client/features")]
+#[get("/features")]
 pub async fn get_features(
     edge_token: EdgeToken,
     features_cache: Data<DashMap<String, ClientFeatures>>,
@@ -32,7 +32,7 @@ pub async fn get_features(
     resolve_features(edge_token, features_cache, token_cache, filter_query, req).await
 }
 #[utoipa::path(
-    context_path = "/api",
+    context_path = "/api/client",
     params(FeatureFilters),
     responses(
         (status = 200, description = "Return feature toggles for this token", body = ClientFeatures),
@@ -43,7 +43,7 @@ pub async fn get_features(
         ("Authorization" = [])
     )
 )]
-#[post("/client/features")]
+#[post("/features")]
 pub async fn post_features(
     edge_token: EdgeToken,
     features_cache: Data<DashMap<String, ClientFeatures>>,
@@ -106,7 +106,7 @@ async fn resolve_features(
         .map(Json)
 }
 #[utoipa::path(
-    context_path = "/api",
+    context_path = "/api/client",
     params(("feature_name" = String, Path,)),
     responses(
         (status = 200, description = "Return feature toggles for this token", body = ClientFeature),
@@ -118,7 +118,7 @@ async fn resolve_features(
         ("Authorization" = [])
     )
 )]
-#[get("/client/features/{feature_name}")]
+#[get("/features/{feature_name}")]
 pub async fn get_feature(
     edge_token: EdgeToken,
     features_cache: Data<DashMap<String, ClientFeatures>>,
@@ -152,7 +152,7 @@ pub async fn get_feature(
 }
 
 #[utoipa::path(
-    context_path = "/api",
+    context_path = "/api/client",
     responses(
         (status = 202, description = "Accepted client application registration"),
         (status = 403, description = "Was not allowed to register client application"),
@@ -162,7 +162,7 @@ pub async fn get_feature(
         ("Authorization" = [])
     )
 )]
-#[post("/client/register")]
+#[post("/register")]
 pub async fn register(
     edge_token: EdgeToken,
     connect_via: Data<ConnectVia>,
@@ -179,7 +179,7 @@ pub async fn register(
 }
 
 #[utoipa::path(
-    context_path = "/api",
+    context_path = "/api/client",
     responses(
         (status = 202, description = "Accepted client metrics"),
         (status = 403, description = "Was not allowed to post metrics"),
@@ -189,7 +189,7 @@ pub async fn register(
         ("Authorization" = [])
     )
 )]
-#[post("/client/metrics")]
+#[post("/metrics")]
 pub async fn metrics(
     edge_token: EdgeToken,
     metrics: Json<ClientMetrics>,
@@ -204,10 +204,16 @@ pub async fn metrics(
 }
 
 pub fn configure_client_api(cfg: &mut web::ServiceConfig) {
-    cfg.service(get_features)
-        .service(get_feature)
-        .service(register)
-        .service(metrics);
+    cfg.service(
+        web::scope("/client")
+            .wrap(crate::middleware::as_async_middleware::as_async_middleware(
+                crate::middleware::validate_token::validate_token,
+            ))
+            .service(get_features)
+            .service(get_feature)
+            .service(register)
+            .service(metrics),
+    );
 }
 
 pub fn configure_experimental_post_features(
@@ -308,7 +314,7 @@ mod tests {
                     instance_id: Ulid::new().to_string(),
                 }))
                 .app_data(Data::from(metrics_cache.clone()))
-                .service(web::scope("/api").service(metrics)),
+                .service(web::scope("/api/client").service(metrics)),
         )
         .await;
 
@@ -444,7 +450,7 @@ mod tests {
             App::new()
                 .app_data(Data::new(our_app.clone()))
                 .app_data(Data::from(metrics_cache.clone()))
-                .service(web::scope("/api").service(register)),
+                .service(web::scope("/api/client").service(register)),
         )
         .await;
         let mut client_app = ClientApplication::new("test_application", 15);
@@ -475,7 +481,7 @@ mod tests {
             App::new()
                 .app_data(Data::from(features_cache.clone()))
                 .app_data(Data::from(token_cache.clone()))
-                .service(web::scope("/api").service(get_features)),
+                .service(web::scope("/api/client").service(get_features)),
         )
         .await;
         let client_features = cached_client_features();
@@ -513,7 +519,7 @@ mod tests {
                 .app_data(Data::from(features_cache.clone()))
                 .app_data(Data::from(token_cache.clone()))
                 .service(
-                    web::scope("/api")
+                    web::scope("/api/client")
                         .service(get_features)
                         .service(post_features),
                 ),
@@ -562,7 +568,7 @@ mod tests {
             App::new()
                 .app_data(Data::from(features_cache.clone()))
                 .app_data(Data::from(token_cache.clone()))
-                .service(web::scope("/api").service(get_features)),
+                .service(web::scope("/api/client").service(get_features)),
         )
         .await;
         let mut edge_token = EdgeToken::try_from(
@@ -591,7 +597,7 @@ mod tests {
             App::new()
                 .app_data(Data::from(features_cache.clone()))
                 .app_data(Data::from(token_cache.clone()))
-                .service(web::scope("/api").service(get_features)),
+                .service(web::scope("/api/client").service(get_features)),
         )
         .await;
         let mut token =
@@ -623,7 +629,7 @@ mod tests {
                     bootstrap_file: Some(PathBuf::from("../examples/features.json")),
                     tokens: vec!["secret_123".into()],
                 })))
-                .service(web::scope("/api").service(get_features)),
+                .service(web::scope("/api/client").service(get_features)),
         )
         .await;
         let token = EdgeToken::offline_token("secret-123");

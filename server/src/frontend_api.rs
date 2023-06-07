@@ -7,7 +7,7 @@ use actix_web::{
 };
 use dashmap::DashMap;
 use serde_qs::actix::QsQuery;
-use tracing::debug;
+use tracing::{debug, instrument};
 use unleash_types::client_features::Context;
 use unleash_types::client_metrics::{ClientApplication, ConnectVia};
 use unleash_types::{
@@ -27,7 +27,7 @@ use crate::{
 ///
 /// Returns all evaluated toggles for the key used
 #[utoipa::path(
-context_path = "/api",
+context_path = "/api/proxy",
 responses(
 (status = 200, description = "Return all known feature toggles for this token in evaluated (true|false) state", body = FrontendResult),
 (status = 400, description = "Bad data in query parameters"),
@@ -38,7 +38,7 @@ security(
 ("Authorization" = [])
 )
 )]
-#[get("/proxy/all")]
+#[get("/all")]
 pub async fn get_proxy_all_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
@@ -49,7 +49,7 @@ pub async fn get_proxy_all_features(
 }
 
 #[utoipa::path(
-context_path = "/api",
+context_path = "/api/frontend",
 responses(
 (status = 200, description = "Return all known feature toggles for this token in evaluated (true|false) state", body = FrontendResult),
 (status = 403, description = "Was not allowed to access features")
@@ -59,7 +59,7 @@ security(
 ("Authorization" = [])
 )
 )]
-#[get("/frontend/all")]
+#[get("/all")]
 pub async fn get_frontend_all_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
@@ -70,7 +70,7 @@ pub async fn get_frontend_all_features(
 }
 
 #[utoipa::path(
-context_path = "/api",
+context_path = "/api/proxy",
 responses(
 (status = 200, description = "Return all known feature toggles for this token in evaluated (true|false) state", body = FrontendResult),
 (status = 403, description = "Was not allowed to access features"),
@@ -81,7 +81,7 @@ security(
 ("Authorization" = [])
 )
 )]
-#[post("/proxy/all")]
+#[post("/all")]
 async fn post_proxy_all_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
@@ -92,7 +92,7 @@ async fn post_proxy_all_features(
 }
 
 #[utoipa::path(
-context_path = "/api",
+context_path = "/api/frontend",
 responses(
 (status = 200, description = "Return all known feature toggles for this token in evaluated (true|false) state", body = FrontendResult),
 (status = 403, description = "Was not allowed to access features"),
@@ -103,7 +103,7 @@ security(
 ("Authorization" = [])
 )
 )]
-#[post("/frontend/all")]
+#[post("/all")]
 async fn post_frontend_all_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
@@ -133,7 +133,7 @@ fn post_all_features(
 }
 
 #[utoipa::path(
-context_path = "/api",
+context_path = "/api/proxy",
 responses(
 (status = 200, description = "Return feature toggles for this token that evaluated to true", body = FrontendResult),
 (status = 403, description = "Was not allowed to access features"),
@@ -144,7 +144,7 @@ security(
 ("Authorization" = [])
 )
 )]
-#[get("/proxy")]
+#[get("")]
 async fn get_enabled_proxy(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
@@ -155,7 +155,7 @@ async fn get_enabled_proxy(
 }
 
 #[utoipa::path(
-context_path = "/api",
+context_path = "/api/frontend",
 responses(
 (status = 200, description = "Return feature toggles for this token that evaluated to true", body = FrontendResult),
 (status = 403, description = "Was not allowed to access features"),
@@ -166,14 +166,15 @@ security(
 ("Authorization" = [])
 )
 )]
-#[get("/frontend")]
+#[get("")]
+#[instrument(skip(engine_cache, token_cache))]
 async fn get_enabled_frontend(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
     context: QsQuery<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    debug!("{context:?}");
+    debug!("getting enabled features");
     get_enabled_features(edge_token, engine_cache, token_cache, context.into_inner())
 }
 
@@ -200,7 +201,7 @@ fn get_enabled_features(
 }
 
 #[utoipa::path(
-context_path = "/api",
+context_path = "/api/proxy",
 responses(
 (status = 200, description = "Return feature toggles for this token that evaluated to true", body = FrontendResult),
 (status = 403, description = "Was not allowed to access features"),
@@ -211,7 +212,7 @@ security(
 ("Authorization" = [])
 )
 )]
-#[post("/proxy")]
+#[post("")]
 async fn post_proxy_enabled_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
@@ -222,7 +223,7 @@ async fn post_proxy_enabled_features(
 }
 
 #[utoipa::path(
-context_path = "/api",
+context_path = "/api/frontend",
 responses(
 (status = 200, description = "Return feature toggles for this token that evaluated to true", body = FrontendResult),
 (status = 403, description = "Was not allowed to access features"),
@@ -233,7 +234,7 @@ security(
 ("Authorization" = [])
 )
 )]
-#[post("/frontend")]
+#[post("")]
 async fn post_frontend_enabled_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
@@ -244,7 +245,7 @@ async fn post_frontend_enabled_features(
 }
 
 #[utoipa::path(
-context_path = "/api",
+context_path = "/api/frontend",
 params(("feature_name" = String, Path, description = "Name of the feature")),
 responses(
 (status = 200, description = "Return the feature toggle with name `name`", body = EvaluatedToggle),
@@ -257,7 +258,7 @@ security(
 ("Authorization" = [])
 )
 )]
-#[post("/frontend/features/{feature_name}")]
+#[post("/features/{feature_name}")]
 pub async fn post_frontend_evaluate_single_feature(
     edge_token: EdgeToken,
     feature_name: Path<String>,
@@ -276,7 +277,7 @@ pub async fn post_frontend_evaluate_single_feature(
 }
 
 #[utoipa::path(
-context_path = "/api",
+context_path = "/api/frontend",
 params(
     Context,
     ("feature_name" = String, Path, description = "Name of the feature"), 
@@ -291,7 +292,7 @@ security(
 ("Authorization" = [])
 )
 )]
-#[get("/frontend/features/{feature_name}")]
+#[get("/features/{feature_name}")]
 pub async fn get_frontend_evaluate_single_feature(
     edge_token: EdgeToken,
     feature_name: Path<String>,
@@ -372,7 +373,7 @@ async fn post_enabled_features(
 }
 
 #[utoipa::path(
-context_path = "/api",
+context_path = "/api/proxy",
 responses(
 (status = 202, description = "Accepted client metrics"),
 (status = 403, description = "Was not allowed to post metrics"),
@@ -382,7 +383,7 @@ security(
 ("Authorization" = [])
 )
 )]
-#[post("/proxy/client/metrics")]
+#[post("/client/metrics")]
 async fn post_proxy_metrics(
     edge_token: EdgeToken,
     metrics: Json<ClientMetrics>,
@@ -398,7 +399,7 @@ async fn post_proxy_metrics(
 }
 
 #[utoipa::path(
-context_path = "/api",
+context_path = "/api/frontend",
 responses(
 (status = 202, description = "Accepted client metrics"),
 (status = 403, description = "Was not allowed to post metrics"),
@@ -408,7 +409,7 @@ security(
 ("Authorization" = [])
 )
 )]
-#[post("/frontend/client/metrics")]
+#[post("/client/metrics")]
 async fn post_frontend_metrics(
     edge_token: EdgeToken,
     metrics: Json<ClientMetrics>,
@@ -424,7 +425,7 @@ async fn post_frontend_metrics(
 }
 
 #[utoipa::path(
-context_path = "/api",
+context_path = "/api/proxy",
 responses(
 (status = 202, description = "Accepted client application registration"),
 (status = 403, description = "Was not allowed to register client"),
@@ -434,7 +435,7 @@ security(
 ("Authorization" = [])
 )
 )]
-#[post("/proxy/client/register")]
+#[post("/client/register")]
 pub async fn post_proxy_register(
     edge_token: EdgeToken,
     connect_via: Data<ConnectVia>,
@@ -451,7 +452,7 @@ pub async fn post_proxy_register(
 }
 
 #[utoipa::path(
-context_path = "/api",
+context_path = "/api/frontend",
 responses(
 (status = 202, description = "Accepted client application registration"),
 (status = 403, description = "Was not allowed to register client"),
@@ -461,7 +462,7 @@ security(
 ("Authorization" = [])
 )
 )]
-#[post("/frontend/client/register")]
+#[post("/client/register")]
 pub async fn post_frontend_register(
     edge_token: EdgeToken,
     connect_via: Data<ConnectVia>,
@@ -478,20 +479,30 @@ pub async fn post_frontend_register(
 }
 
 pub fn configure_frontend_api(cfg: &mut web::ServiceConfig) {
-    cfg.service(get_enabled_proxy)
-        .service(get_enabled_frontend)
+    cfg.service(web::scope("/proxy")
+        .wrap(crate::middleware::as_async_middleware::as_async_middleware(
+            crate::middleware::client_token_from_frontend_token::client_token_from_frontend_token, )).wrap(crate::middleware::as_async_middleware::as_async_middleware(
+        crate::middleware::validate_token::validate_token,
+    )).service(get_enabled_proxy)
         .service(get_proxy_all_features)
-        .service(get_frontend_all_features)
         .service(post_proxy_metrics)
-        .service(post_frontend_metrics)
-        .service(post_frontend_all_features)
         .service(post_proxy_all_features)
         .service(post_proxy_enabled_features)
-        .service(post_frontend_enabled_features)
         .service(post_proxy_register)
+    ).service(
+        web::scope("/frontend").wrap(crate::middleware::as_async_middleware::as_async_middleware(
+            crate::middleware::client_token_from_frontend_token::client_token_from_frontend_token, )).wrap(crate::middleware::as_async_middleware::as_async_middleware(
+            crate::middleware::validate_token::validate_token,
+        ))
+
+        .service(get_enabled_frontend)
+        .service(get_frontend_all_features)
+        .service(post_frontend_metrics)
+        .service(post_frontend_all_features)
+        .service(post_frontend_enabled_features)
         .service(post_frontend_register)
         .service(post_frontend_evaluate_single_feature)
-        .service(get_frontend_evaluate_single_feature);
+        .service(get_frontend_evaluate_single_feature));
 }
 
 pub fn frontend_from_yggdrasil(
@@ -547,12 +558,6 @@ mod tests {
     use std::collections::HashMap;
     use std::sync::Arc;
 
-    use crate::builder::build_offline_mode;
-    use crate::cli::{EdgeMode, OfflineArgs};
-    use crate::metrics::client_metrics::MetricsCache;
-    use crate::metrics::client_metrics::MetricsKey;
-    use crate::middleware;
-    use crate::types::{EdgeToken, TokenType, TokenValidationStatus};
     use actix_http::{Request, StatusCode};
     use actix_web::{
         http::header::ContentType,
@@ -563,12 +568,20 @@ mod tests {
     use chrono::{DateTime, Utc};
     use dashmap::DashMap;
     use serde_json::json;
+    use tracing_test::traced_test;
     use unleash_types::client_metrics::ClientMetricsEnv;
     use unleash_types::{
         client_features::{ClientFeature, ClientFeatures, Constraint, Operator, Strategy},
         frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult},
     };
     use unleash_yggdrasil::EngineState;
+
+    use crate::builder::build_offline_mode;
+    use crate::cli::{EdgeMode, OfflineArgs};
+    use crate::metrics::client_metrics::MetricsCache;
+    use crate::metrics::client_metrics::MetricsKey;
+    use crate::middleware;
+    use crate::types::{EdgeToken, TokenType, TokenValidationStatus};
 
     async fn make_test_request() -> Request {
         test::TestRequest::post()
@@ -646,6 +659,7 @@ mod tests {
     }
 
     #[actix_web::test]
+    #[traced_test]
     async fn calling_post_requests_resolves_context_values_correctly() {
         let (token_cache, features_cache, engine_cache) = build_offline_mode(
             client_features_with_constraint_requiring_user_id_of_seven(),
@@ -661,7 +675,7 @@ mod tests {
                 .app_data(Data::from(token_cache))
                 .app_data(Data::from(features_cache))
                 .app_data(Data::from(engine_cache))
-                .service(web::scope("/api").service(super::post_frontend_all_features)),
+                .service(web::scope("/api/frontend").service(super::post_frontend_all_features)),
         )
         .await;
 
@@ -695,6 +709,7 @@ mod tests {
     }
 
     #[actix_web::test]
+    #[traced_test]
     async fn calling_get_requests_resolves_context_values_correctly() {
         let (feature_cache, token_cache, engine_cache) = build_offline_mode(
             client_features_with_constraint_requiring_user_id_of_seven(),
@@ -709,7 +724,7 @@ mod tests {
                 .app_data(Data::from(token_cache))
                 .app_data(Data::from(feature_cache))
                 .app_data(Data::from(engine_cache))
-                .service(web::scope("/api").service(super::get_proxy_all_features)),
+                .service(web::scope("/api/proxy").service(super::get_proxy_all_features)),
         )
         .await;
 
@@ -741,6 +756,7 @@ mod tests {
     }
 
     #[actix_web::test]
+    #[traced_test]
     async fn calling_get_requests_resolves_context_values_correctly_with_enabled_filter() {
         let (token_cache, features_cache, engine_cache) = build_offline_mode(
             client_features_with_constraint_one_enabled_toggle_and_one_disabled_toggle(),
@@ -756,7 +772,7 @@ mod tests {
                 .app_data(Data::from(token_cache))
                 .app_data(Data::from(features_cache))
                 .app_data(Data::from(engine_cache))
-                .service(web::scope("/api").service(super::get_enabled_proxy)),
+                .service(web::scope("/api/proxy").service(super::get_enabled_proxy)),
         )
         .await;
 
@@ -768,9 +784,7 @@ mod tests {
                 "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7",
             ))
             .to_request();
-
         let result: FrontendResult = test::call_and_read_body_json(&app, req).await;
-
         assert_eq!(result.toggles.len(), 1);
     }
 
@@ -781,7 +795,7 @@ mod tests {
         let app = test::init_service(
             App::new()
                 .app_data(Data::from(metrics_cache.clone()))
-                .service(web::scope("/api").service(super::post_proxy_metrics)),
+                .service(web::scope("/api/proxy").service(super::post_proxy_metrics)),
         )
         .await;
 
@@ -832,7 +846,7 @@ mod tests {
                     bootstrap_file: None,
                     tokens: vec!["secret-123".into()],
                 })))
-                .service(web::scope("/api").service(super::get_frontend_all_features)),
+                .service(web::scope("/api/frontend").service(super::get_frontend_all_features)),
         )
         .await;
 
@@ -859,7 +873,7 @@ mod tests {
                 .app_data(Data::from(token_cache))
                 .app_data(Data::from(feature_cache))
                 .app_data(Data::from(engine_cache))
-                .service(web::scope("/api").service(super::get_frontend_all_features)),
+                .service(web::scope("/api/frontend").service(super::get_frontend_all_features)),
         )
         .await;
 
