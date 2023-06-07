@@ -14,7 +14,7 @@ use unleash_edge::types::{EdgeToken, TokenRefresh, TokenValidationStatus};
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ConnectVia;
 
-use unleash_edge::edge_api;
+use unleash_edge::cli::EdgeMode;
 use unleash_edge::frontend_api;
 use unleash_edge::internal_backstage;
 use unleash_edge::metrics::client_metrics::MetricsCache;
@@ -23,6 +23,7 @@ use unleash_edge::openapi;
 use unleash_edge::prom_metrics;
 use unleash_edge::{cli, middleware};
 use unleash_edge::{client_api, tls};
+use unleash_edge::{edge_api, health_checker};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -35,6 +36,11 @@ async fn main() -> Result<(), anyhow::Error> {
         clap_markdown::print_help_markdown::<CliArgs>();
         return Ok(());
     }
+    if let EdgeMode::Health(args) = args.mode {
+        return health_checker::check_health(args)
+            .await
+            .map_err(|e| e.into());
+    };
     let schedule_args = args.clone();
     let mode_arg = args.clone().mode;
     let http_args = args.clone().http;

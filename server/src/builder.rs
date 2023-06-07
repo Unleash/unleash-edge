@@ -191,5 +191,6 @@ pub async fn build_caches_and_refreshers(args: CliArgs) -> EdgeResult<EdgeInfo> 
             build_offline(offline_args).map(|cache| (cache, None, None, None))
         }
         EdgeMode::Edge(edge_args) => build_edge(&edge_args).await,
+        EdgeMode::Health(_) => unreachable!("Trying to build caches for health check"),
     }
 }

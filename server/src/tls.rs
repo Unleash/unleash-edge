@@ -1,10 +1,35 @@
-use std::{fs::File, io::BufReader};
+use std::path::PathBuf;
+use std::{fs, fs::File, io::BufReader};
 
 use rustls::{Certificate, PrivateKey, ServerConfig};
 use rustls_pemfile::{certs, pkcs8_private_keys};
 
 use crate::cli::TlsOptions;
-use crate::error::EdgeError;
+use crate::error::{CertificateError, EdgeError};
+use crate::types::EdgeResult;
+
+pub fn build_upstream_certificate(
+    upstream_certificate: Option<PathBuf>,
+) -> EdgeResult<Option<reqwest::tls::Certificate>> {
+    upstream_certificate
+        .map(|cert| {
+            fs::read(cert)
+                .map_err(|e| {
+                    EdgeError::ClientCertificateError(CertificateError::RootCertificatesError(
+                        format!("{e:?}"),
+                    ))
+                })
+                .and_then(|bytes| {
+                    reqwest::Certificate::from_pem(&bytes).map_err(|e| {
+                        EdgeError::ClientCertificateError(CertificateError::RootCertificatesError(
+                            format!("{e:?}"),
+                        ))
+                    })
+                })
+                .map(Some)
+        })
+        .unwrap_or(Ok(None))
+}
 
 pub fn config(tls_config: TlsOptions) -> Result<ServerConfig, EdgeError> {
     let config = ServerConfig::builder()

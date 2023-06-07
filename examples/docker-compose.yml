@@ -37,6 +37,8 @@ services:
     ports:
       - "3063:3063"
     command: ["edge"]
+    healthcheck:
+      test: "./unleash-edge health"
   redis:
     image: redis:5-alpine
     command: ["redis-server", "--appendonly", "yes"]
