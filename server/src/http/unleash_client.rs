@@ -1,7 +1,7 @@
 use actix_web::http::header::EntityTag;
 use lazy_static::lazy_static;
 use reqwest::header::{HeaderMap, HeaderName};
-use reqwest::{Certificate, ClientBuilder, Identity, RequestBuilder, StatusCode, Url};
+use reqwest::{ClientBuilder, Identity, RequestBuilder, StatusCode, Url};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -22,6 +22,7 @@ use unleash_types::client_metrics::ClientApplication;
 
 use crate::cli::ClientIdentity;
 use crate::error::{CertificateError, FeatureError};
+use crate::tls::build_upstream_certificate;
 use crate::urls::UnleashUrls;
 use crate::{error::EdgeError, types::ClientFeaturesRequest};
 
@@ -109,29 +110,6 @@ fn build_identity(tls: Option<ClientIdentity>) -> EdgeResult<ClientBuilder> {
             req_identity.map(|id| ClientBuilder::new().identity(id))
         },
     )
-}
-
-fn build_upstream_certificate(
-    upstream_certificate: Option<PathBuf>,
-) -> EdgeResult<Option<Certificate>> {
-    upstream_certificate
-        .map(|cert| {
-            fs::read(cert)
-                .map_err(|e| {
-                    EdgeError::ClientCertificateError(CertificateError::RootCertificatesError(
-                        format!("{e:?}"),
-                    ))
-                })
-                .and_then(|bytes| {
-                    reqwest::Certificate::from_pem(&bytes).map_err(|e| {
-                        EdgeError::ClientCertificateError(CertificateError::RootCertificatesError(
-                            format!("{e:?}"),
-                        ))
-                    })
-                })
-                .map(Some)
-        })
-        .unwrap_or(Ok(None))
 }
 
 fn new_reqwest_client(
