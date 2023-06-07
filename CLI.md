@@ -87,7 +87,7 @@ Run in edge mode
 * `--token-revalidation-interval-seconds <TOKEN_REVALIDATION_INTERVAL_SECONDS>` — How long between each revalidation of a token
 
   Default value: `3600`
-* `-t`, `--tokens <TOKENS>` — Get data for these client tokens at startup. Hot starts your feature cache
+* `-t`, `--tokens <TOKENS>` — Get data for these client tokens at startup. Accepts comma-separated list of tokens. Hot starts your feature cache
 * `-H`, `--custom-client-headers <CUSTOM_CLIENT_HEADERS>` — Expects curl header format (-H <HEADERNAME>: <HEADERVALUE>) for instance `-H X-Api-Key: mysecretapikey`
 * `-s`, `--skip-ssl-verification` — If set to true, we will skip SSL verification when connecting to the upstream Unleash server
 

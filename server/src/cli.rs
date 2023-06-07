@@ -124,7 +124,7 @@ pub struct EdgeArgs {
     #[clap(long, env, default_value_t = 3600)]
     pub token_revalidation_interval_seconds: u64,
 
-    /// Get data for these client tokens at startup. Hot starts your feature cache
+    /// Get data for these client tokens at startup. Accepts comma-separated list of tokens. Hot starts your feature cache
     #[clap(short, long, env, value_delimiter = ',')]
     pub tokens: Vec<String>,
 

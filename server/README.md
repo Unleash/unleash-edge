@@ -157,7 +157,7 @@ Options:
       --token-revalidation-interval-seconds <TOKEN_REVALIDATION_INTERVAL_SECONDS>
           How long between each revalidation of a token [env: TOKEN_REVALIDATION_INTERVAL_SECONDS=] [default: 3600]
   -t, --tokens <TOKENS>
-          Get data for these client tokens at startup. Hot starts your feature cache [env: TOKENS=]
+          Get data for these client tokens at startup. Accepts comma-separated list of tokens. Hot starts your feature cache [env: TOKENS=]
   -H, --custom-client-headers <CUSTOM_CLIENT_HEADERS>
           Expects curl header format (-H <HEADERNAME>: <HEADERVALUE>) for instance `-H X-Api-Key: mysecretapikey` [env: CUSTOM_CLIENT_HEADERS=]
   -s, --skip-ssl-verification

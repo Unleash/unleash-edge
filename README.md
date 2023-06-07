@@ -90,7 +90,7 @@ Unleash Edge is distributed as a binary and as a docker image.
   - If running in `edge` mode your command should be
     - `docker run -p 3063:3063 -e UPSTREAM_URL=<YOUR_UNLEASH_INSTANCE> unleashorg/unleash-edge:v2.0.1 edge`
   - If running in `offline` mode you will need to provide a volume containing your feature toggles file. An example is available inside the examples folder. To use this, you can use the command
-    - `docker run -v ./examples:/edge/data -p 3063:3063 -e BOOTSTRAP_FILE=/edge/data/features.json -e TOKENS='my-secret-123' unleashorg/unleash-edge:v2.0.1 offline`
+    - `docker run -v ./examples:/edge/data -p 3063:3063 -e BOOTSTRAP_FILE=/edge/data/features.json -e TOKENS='my-secret-123,another-secret-789' unleashorg/unleash-edge:v2.0.1 offline`
 
 ### Cargo/Rust
 
@@ -181,7 +181,7 @@ Options:
       --token-revalidation-interval-seconds <TOKEN_REVALIDATION_INTERVAL_SECONDS>
           How long between each revalidation of a token [env: TOKEN_REVALIDATION_INTERVAL_SECONDS=] [default: 3600]
   -t, --tokens <TOKENS>
-          Get data for these client tokens at startup. Hot starts your feature cache [env: TOKENS=]
+          Get data for these client tokens at startup. Accepts comma-separated list of tokens. Hot starts your feature cache [env: TOKENS=]
   -H, --custom-client-headers <CUSTOM_CLIENT_HEADERS>
           Expects curl header format (-H <HEADERNAME>: <HEADERVALUE>) for instance `-H X-Api-Key: mysecretapikey` [env: CUSTOM_CLIENT_HEADERS=]
   -s, --skip-ssl-verification
