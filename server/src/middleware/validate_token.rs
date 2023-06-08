@@ -7,14 +7,14 @@ use actix_web::{
     HttpResponse,
 };
 use dashmap::DashMap;
-use tracing::{debug, info};
+use tracing::trace;
 
 pub async fn validate_token(
     token: EdgeToken,
     req: ServiceRequest,
     srv: crate::middleware::as_async_middleware::Next<impl MessageBody + 'static>,
 ) -> Result<ServiceResponse<impl MessageBody>, actix_web::Error> {
-    debug!("Validating req: {}", req.path());
+    trace!("Validating req: {}", req.path());
     let maybe_validator = req.app_data::<Data<TokenValidator>>();
     let token_cache = req
         .app_data::<Data<DashMap<String, EdgeToken>>>()
@@ -27,10 +27,10 @@ pub async fn validate_token(
             let res = match known_token.status {
                 TokenValidationStatus::Validated => match known_token.token_type {
                     Some(TokenType::Frontend) => {
-                        debug!("Got FE token validated {:?}", known_token);
+                        trace!("Got FE token validated {:?}", known_token);
                         if req.path().contains("/api/frontend") || req.path().contains("/api/proxy")
                         {
-                            info!("Was allowed to access");
+                            trace!("Was allowed to access");
                             srv.call(req).await?.map_into_left_body()
                         } else {
                             req.into_response(HttpResponse::Forbidden().finish())
@@ -38,7 +38,7 @@ pub async fn validate_token(
                         }
                     }
                     Some(TokenType::Client) => {
-                        debug!("Got Client token validated {:?}", known_token);
+                        trace!("Got Client token validated {:?}", known_token);
                         if req.path().contains("/api/client") {
                             srv.call(req).await?.map_into_left_body()
                         } else {
