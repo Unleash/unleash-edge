@@ -57,18 +57,18 @@ mod tests {
             .take(64)
             .map(char::from)
             .collect::<String>();
-        let project_token = if projects.len() > 1 {
-            if projects.contains(&"*".to_string()) {
-                "*"
-            } else {
-                "[]"
+        let project_token = match projects.len() {
+            0 => "*",
+            1 => projects.get(0).unwrap(),
+            _ => {
+                if projects.contains(&"*".to_string()) {
+                    "*"
+                } else {
+                    "[]"
+                }
             }
-        } else if projects.len() == 1 {
-            projects.get(0).unwrap()
-        } else {
-            "*"
         };
-        let token = format!("{}:{}.{}", project_token, environment.clone(), secret);
+        let token = format!("{}:{}.{}", project_token, environment, secret);
         EdgeToken {
             token,
             token_type: Some(TokenType::Client),
@@ -88,8 +88,8 @@ mod tests {
         debug!("Generating client token");
         let req = token_req.into_inner();
         let features = features_from_disk("../examples/features.json");
-        let client_token = client_token(req.environment.clone(), req.projects.clone());
-        debug!("Token generated as {:?}", client_token.clone());
+        let client_token = client_token(req.environment.clone(), req.projects);
+        debug!("Token generated as {:?}", client_token);
         features_cache.insert(cache_key(&client_token), features);
         token_cache.insert(client_token.token.clone(), client_token.clone());
         Ok(Json(ClientTokenResponse {

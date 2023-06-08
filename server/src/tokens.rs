@@ -72,8 +72,8 @@ impl EdgeToken {
     }
 
     pub fn subsumes(&self, other: &EdgeToken) -> bool {
-        return self.token_type == other.token_type
-            && self.same_environment_and_broader_or_equal_project_access(other);
+        self.token_type == other.token_type
+            && self.same_environment_and_broader_or_equal_project_access(other)
     }
 
     pub fn same_environment_and_broader_or_equal_project_access(&self, other: &EdgeToken) -> bool {
