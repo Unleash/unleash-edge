@@ -16,6 +16,8 @@ pub enum EdgeMode {
 
 #[derive(ValueEnum, Debug, Clone)]
 pub enum RedisScheme {
+    Tcp,
+    Tls,
     Redis,
     Rediss,
     RedisUnix,
@@ -29,6 +31,8 @@ impl Display for RedisScheme {
             RedisScheme::Rediss => write!(f, "rediss"),
             RedisScheme::RedisUnix => write!(f, "redis+unix"),
             RedisScheme::Unix => write!(f, "unix"),
+            RedisScheme::Tcp => write!(f, "redis"),
+            RedisScheme::Tls => write!(f, "rediss"),
         }
     }
 }
@@ -458,6 +462,62 @@ mod tests {
                 let redis_url = args.redis.unwrap().to_url();
                 assert!(redis_url.is_some());
                 assert_eq!(redis_url.unwrap(), "rediss://redis:password@localhost:6389");
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    #[test]
+    pub fn setting_scheme_to_tls_uses_the_rediss_protocol() {
+        let args = vec![
+            "unleash-edge",
+            "edge",
+            "-u http://localhost:4242",
+            "--redis-host",
+            "localhost",
+            "--redis-username",
+            "redis",
+            "--redis-password",
+            "password",
+            "--redis-port",
+            "6389",
+            "--redis-scheme",
+            "tls",
+        ];
+        let args = CliArgs::parse_from(args);
+        match args.mode {
+            EdgeMode::Edge(args) => {
+                let redis_url = args.redis.unwrap().to_url();
+                assert!(redis_url.is_some());
+                assert_eq!(redis_url.unwrap(), "rediss://redis:password@localhost:6389");
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    #[test]
+    pub fn setting_scheme_to_tcp_uses_the_redis_protocol() {
+        let args = vec![
+            "unleash-edge",
+            "edge",
+            "-u http://localhost:4242",
+            "--redis-host",
+            "localhost",
+            "--redis-username",
+            "redis",
+            "--redis-password",
+            "password",
+            "--redis-port",
+            "6389",
+            "--redis-scheme",
+            "tcp",
+        ];
+        let args = CliArgs::parse_from(args);
+        match args.mode {
+            EdgeMode::Edge(args) => {
+                let redis_url = args.redis.unwrap().to_url();
+                assert!(redis_url.is_some());
+                assert_eq!(redis_url.unwrap(), "redis://redis:password@localhost:6389");
             }
             _ => unreachable!(),
         }

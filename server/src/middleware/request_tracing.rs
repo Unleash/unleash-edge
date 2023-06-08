@@ -216,7 +216,7 @@ where
         #[cfg(feature = "sync-middleware")]
         drop(attachment);
 
-        Box::pin(async move { fut.await })
+        Box::pin(fut)
     }
 }
 
