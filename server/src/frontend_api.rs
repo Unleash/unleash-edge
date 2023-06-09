@@ -347,7 +347,7 @@ pub async fn post_frontend_evaluate_single_feature(
 context_path = "/api/frontend",
 params(
     Context,
-    ("feature_name" = String, Path, description = "Name of the feature"), 
+    ("feature_name" = String, Path, description = "Name of the feature"),
 ),
 responses(
 (status = 200, description = "Return the feature toggle with name `name`", body = EvaluatedToggle),
@@ -1189,7 +1189,7 @@ mod tests {
     async fn will_evaluate_ip_strategy_populated_from_middleware() {
         let client_features_with_custom_context_field =
             crate::tests::features_from_disk("../examples/ip_address_feature.json");
-        let auth_key = "default:development.secret123".to_string();
+        let auth_key = "gard:development.secret123".to_string();
         let (token_cache, feature_cache, engine_cache) = build_offline_mode(
             client_features_with_custom_context_field.clone(),
             vec![auth_key.clone()],
