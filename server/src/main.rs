@@ -85,16 +85,6 @@ async fn main() -> Result<(), anyhow::Error> {
             Some(v) => app.app_data(web::Data::from(v)),
             None => app,
         };
-        app = match mode_arg.clone() {
-            EdgeMode::Edge(edge_args) => {
-                if let Some(sa_token) = edge_args.service_account_token {
-                    app.app_data(web::Data::new(ServiceAccountToken { token: sa_token }))
-                } else {
-                    app
-                }
-            }
-            _ => app,
-        };
         app = match refresher_for_app_data.clone() {
             Some(refresher) => app.app_data(web::Data::from(refresher)),
             None => app,
