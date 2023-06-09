@@ -1188,7 +1188,7 @@ mod tests {
     #[traced_test]
     async fn will_evaluate_ip_strategy_populated_from_middleware() {
         let client_features_with_custom_context_field =
-            crate::tests::features_from_disk("../examples/features.json");
+            crate::tests::features_from_disk("../examples/ip_address_feature.json");
         let auth_key = "default:development.secret123".to_string();
         let (token_cache, feature_cache, engine_cache) = build_offline_mode(
             client_features_with_custom_context_field.clone(),
