@@ -170,7 +170,7 @@ pub struct ClientIp {
 
 impl Display for ClientIp {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.ip.to_string())
+        write!(f, "{}", self.ip)
     }
 }
 

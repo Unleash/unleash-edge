@@ -281,14 +281,8 @@ async fn post_proxy_enabled_features(
     context: Json<Context>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
-    post_enabled_features(
-        edge_token,
-        engine_cache,
-        token_cache,
-        context,
-        req.extensions().get::<ClientIp>().cloned(),
-    )
-    .await
+    let client_ip = req.extensions().get::<ClientIp>().cloned();
+    post_enabled_features(edge_token, engine_cache, token_cache, context, client_ip).await
 }
 
 #[utoipa::path(
@@ -311,14 +305,8 @@ async fn post_frontend_enabled_features(
     context: Json<Context>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
-    post_enabled_features(
-        edge_token,
-        engine_cache,
-        token_cache,
-        context,
-        req.extensions().get::<ClientIp>().cloned(),
-    )
-    .await
+    let client_ip = req.extensions().get::<ClientIp>().cloned();
+    post_enabled_features(edge_token, engine_cache, token_cache, context, client_ip).await
 }
 
 #[utoipa::path(
