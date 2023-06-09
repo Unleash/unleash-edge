@@ -41,6 +41,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let schedule_args = args.clone();
     let mode_arg = args.clone().mode;
     let http_args = args.clone().http;
+    let trust_proxy = args.clone().trust_proxy;
     let base_path = http_args.base_path.clone();
     let (metrics_handler, request_metrics) = prom_metrics::instantiate(None);
     let connect_via = ConnectVia {
@@ -75,6 +76,7 @@ async fn main() -> Result<(), anyhow::Error> {
             .allow_any_method();
         let mut app = App::new()
             .app_data(qs_config)
+            .app_data(web::Data::new(trust_proxy.clone()))
             .app_data(web::Data::new(mode_arg.clone()))
             .app_data(web::Data::new(connect_via.clone()))
             .app_data(web::Data::from(metrics_cache.clone()))

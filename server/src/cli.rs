@@ -1,6 +1,10 @@
+use cidr::{Ipv4Cidr, Ipv6Cidr};
 use std::fmt::{Display, Formatter};
+use std::net::IpAddr;
 use std::path::PathBuf;
+use std::str::FromStr;
 
+use crate::error;
 use clap::{ArgGroup, Args, Parser, Subcommand, ValueEnum};
 
 #[derive(Subcommand, Debug, Clone)]
@@ -171,8 +175,10 @@ pub fn string_to_header_tuple(s: &str) -> Result<(String, String), String> {
 
 #[derive(Args, Debug, Clone)]
 pub struct OfflineArgs {
+    /// The file to load our features from. This data will be loaded at startup
     #[clap(short, long, env)]
     pub bootstrap_file: Option<PathBuf>,
+    /// Tokens that should be allowed to connect to Edge. Supports a comma separated list or multiple instances of the `--tokens` argument
     #[clap(short, long, env, value_delimiter = ',')]
     pub tokens: Vec<String>,
 }
@@ -206,6 +212,9 @@ pub struct CliArgs {
 
     #[arg(long, hide = true, global = true)]
     pub markdown_help: bool,
+
+    #[clap(flatten)]
+    pub trust_proxy: TrustProxy,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -255,6 +264,40 @@ pub struct HttpServerArgs {
     pub tls: TlsOptions,
 }
 
+#[derive(Debug, Clone)]
+pub enum NetworkAddr {
+    Ip(IpAddr),
+    CidrIpv4(Ipv4Cidr),
+    CidrIpv6(Ipv6Cidr),
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct TrustProxy {
+    /// By enabling the trust proxy option. Unleash Edge will have knowledge that it's sitting behind a proxy and that the X-Forward-\* header fields may be trusted, which otherwise may be easily spoofed.
+    /// Edge will use this to populate its context's  remoteAddress field
+    /// If you need to only trust specific ips or CIDR, enable this flag and then set `--proxy-trusted-servers`
+    #[clap(long, env, global = true)]
+    pub trust_proxy: bool,
+
+    /// Tells Unleash Edge which servers to trust the X-Forwarded-For. Accepts explicit Ip addresses or Cidrs (127.0.0.1/16). Accepts a comma separated list or multiple instances of the flag.
+    /// E.g `--proxy-trusted-servers "127.0.0.1,192.168.0.1"` and `--proxy-trusted-servers 127.0.0.1 --proxy-trusted-servers 192.168.0.1` are equivalent
+    #[clap(long, env, value_delimiter = ',', global = true, value_parser = ip_or_cidr)]
+    pub proxy_trusted_servers: Vec<NetworkAddr>,
+}
+
+pub fn ip_or_cidr(s: &str) -> Result<NetworkAddr, String> {
+    match IpAddr::from_str(s) {
+        Ok(ipaddr) => Ok(NetworkAddr::Ip(ipaddr)),
+        Err(_e) => match Ipv4Cidr::from_str(s) {
+            Ok(ipv4cidr) => Ok(NetworkAddr::CidrIpv4(ipv4cidr)),
+            Err(_e) => match Ipv6Cidr::from_str(s) {
+                Ok(ipv6cidr) => Ok(NetworkAddr::CidrIpv6(ipv6cidr)),
+                Err(_e) => Err(error::TRUST_PROXY_PARSE_ERROR.into()),
+            },
+        },
+    }
+}
+
 impl HttpServerArgs {
     pub fn http_server_tuple(&self) -> (String, u16) {
         (self.interface.clone(), self.port)
@@ -267,8 +310,11 @@ impl HttpServerArgs {
 
 #[cfg(test)]
 mod tests {
-    use crate::cli::{CliArgs, EdgeMode};
+    use crate::cli::{CliArgs, EdgeMode, NetworkAddr};
+    use crate::error;
     use clap::Parser;
+    use tracing::info;
+    use tracing_test::traced_test;
 
     #[test]
     pub fn can_parse_multiple_client_headers() {
@@ -521,5 +567,84 @@ mod tests {
             }
             _ => unreachable!(),
         }
+    }
+
+    #[test]
+    #[traced_test]
+    pub fn proxy_trusted_servers_accept_both_ipv4_and_ipv6() {
+        let args = vec![
+            "unleash-edge",
+            "edge",
+            "-u http://localhost:4242",
+            "--trust-proxy",
+            "--proxy-trusted-servers",
+            "192.168.0.1",
+            "--proxy-trusted-servers",
+            "::1",
+        ];
+        let args = CliArgs::parse_from(args);
+        assert!(args.trust_proxy.trust_proxy);
+        info!("{:?}", args.trust_proxy.proxy_trusted_servers);
+        assert_eq!(args.trust_proxy.proxy_trusted_servers.len(), 2);
+        let first = args.trust_proxy.proxy_trusted_servers.get(0).unwrap();
+        if let NetworkAddr::Ip(ip_addr) = first {
+            assert!(ip_addr.is_ipv4());
+        } else {
+            assert!(false);
+        }
+        let second = args.trust_proxy.proxy_trusted_servers.get(1).unwrap();
+        if let NetworkAddr::Ip(ip_addr) = second {
+            assert!(ip_addr.is_ipv6());
+        } else {
+            assert!(false);
+        }
+    }
+
+    #[test]
+    pub fn proxy_trusted_servers_accept_both_ipv4_and_ipv6_cidr_addresses() {
+        let args = vec![
+            "unleash-edge",
+            "edge",
+            "-u http://localhost:4242",
+            "--trust-proxy",
+            "--proxy-trusted-servers",
+            "192.168.0.0/16",
+            "--proxy-trusted-servers",
+            "2001:db8:1234::/48",
+        ];
+        let args = CliArgs::parse_from(args);
+        info!("{:?}", args.trust_proxy.proxy_trusted_servers);
+        assert_eq!(args.trust_proxy.proxy_trusted_servers.len(), 2);
+        let first = args.trust_proxy.proxy_trusted_servers.get(0).unwrap();
+        if let NetworkAddr::CidrIpv4(cidr) = first {
+            assert_eq!(cidr.network_length(), 16);
+        } else {
+            assert!(false);
+        }
+        let second = args.trust_proxy.proxy_trusted_servers.get(1).unwrap();
+        if let NetworkAddr::CidrIpv6(ip_addr) = second {
+            assert_eq!(ip_addr.network_length(), 48);
+        } else {
+            assert!(false);
+        }
+    }
+
+    #[test]
+    pub fn incorrect_trusted_servers_format_yields_error_message() {
+        let args = vec![
+            "unleash-edge",
+            "edge",
+            "-u http://localhost:4242",
+            "--trust-proxy",
+            "--proxy-trusted-servers",
+            "192.168.0.0/125",
+        ];
+        let args = CliArgs::try_parse_from(args);
+        assert!(args.is_err());
+        assert!(args
+            .err()
+            .unwrap()
+            .to_string()
+            .contains(error::TRUST_PROXY_PARSE_ERROR));
     }
 }

@@ -1,4 +1,6 @@
 use std::fmt;
+use std::fmt::{Display, Formatter};
+use std::net::IpAddr;
 use std::sync::Arc;
 use std::{
     hash::{Hash, Hasher},
@@ -159,6 +161,17 @@ pub struct TokenStrings {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
 pub struct ValidatedTokens {
     pub tokens: Vec<EdgeToken>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClientIp {
+    pub ip: IpAddr,
+}
+
+impl Display for ClientIp {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.ip.to_string())
+    }
 }
 
 #[derive(Clone, Deserialize, Serialize)]
