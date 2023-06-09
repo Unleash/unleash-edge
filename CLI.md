@@ -46,11 +46,13 @@ This document contains the help content for the `unleash-edge` command-line prog
   Default value: `3043`
 * `--instance-id <INSTANCE_ID>` — Instance id. Used for metrics reporting
 
-  Default value: `01H2AV7Z2V237GM56669ZCGSKY`
+  Default value: `01H2G660P0FAGAVVVJXTNMRCW2`
 * `-a`, `--app-name <APP_NAME>` — App name. Used for metrics reporting
 
   Default value: `unleash-edge`
 * `--markdown-help`
+* `--trust-proxy` — By enabling the trust proxy option. Unleash Edge will have knowledge that it's sitting behind a proxy and that the X-Forward-\* header fields may be trusted, which otherwise may be easily spoofed. Edge will use this to populate its context's  remoteAddress field If you need to only trust specific ips or CIDR, enable this flag and then set `--proxy-trusted-servers`
+* `--proxy-trusted-servers <PROXY_TRUSTED_SERVERS>` — Tells Unleash Edge which servers to trust the X-Forwarded-For. Accepts explicit Ip addresses or Cidrs (127.0.0.1/16). Accepts a comma separated list or multiple instances of the flag. E.g `--proxy-trusted-servers "127.0.0.1,192.168.0.1"` and `--proxy-trusted-servers 127.0.0.1 --proxy-trusted-servers 192.168.0.1` are equivalent
 
 
 
@@ -75,7 +77,7 @@ Run in edge mode
 
   Default value: `redis`
 
-  Possible values: `redis`, `rediss`, `redis-unix`, `unix`
+  Possible values: `tcp`, `tls`, `redis`, `rediss`, `redis-unix`, `unix`
 
 * `-b`, `--backup-folder <BACKUP_FOLDER>` — A path to a local folder. Edge will write feature and token data to disk in this folder and read this back after restart. Mutually exclusive with the --redis-url option
 * `-m`, `--metrics-interval-seconds <METRICS_INTERVAL_SECONDS>` — How often should we post metrics upstream?
@@ -109,8 +111,8 @@ Run in offline mode
 
 ###### **Options:**
 
-* `-b`, `--bootstrap-file <BOOTSTRAP_FILE>`
-* `-t`, `--tokens <TOKENS>`
+* `-b`, `--bootstrap-file <BOOTSTRAP_FILE>` — The file to load our features from. This data will be loaded at startup
+* `-t`, `--tokens <TOKENS>` — Tokens that should be allowed to connect to Edge. Supports a comma separated list or multiple instances of the `--tokens` argument
 
 
 
