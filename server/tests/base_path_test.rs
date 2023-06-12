@@ -31,7 +31,6 @@ mod base_path_tests {
         let base_url = "http://localhost:3063";
         let endpoint = "/internal-backstage/info";
         let url = format!("{}{}{}", base_url, base_path, endpoint);
-        println!("{}", url);
         let resp = client
             .get(&url)
             .send()
@@ -39,7 +38,6 @@ mod base_path_tests {
             .expect("Failed to send request");
 
         // Assert that the response status is 200 OK
-        println!("{}", resp.status());
         assert!(resp.status().is_success());
 
         let body = resp
