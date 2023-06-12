@@ -25,7 +25,7 @@ use unleash_edge::{internal_backstage, tls};
 #[cfg(not(tarpaulin_include))]
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {
-    use unleash_edge::{cli::EdgeMode, types::ServiceAccountToken};
+    use unleash_edge::cli::EdgeMode;
 
     dotenv::dotenv().ok();
     let args = CliArgs::parse();
