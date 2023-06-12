@@ -310,6 +310,7 @@ impl HttpServerArgs {
 
 #[cfg(test)]
 mod tests {
+
     use crate::cli::{CliArgs, EdgeMode, NetworkAddr};
     use crate::error;
     use clap::Parser;
@@ -590,13 +591,13 @@ mod tests {
         if let NetworkAddr::Ip(ip_addr) = first {
             assert!(ip_addr.is_ipv4());
         } else {
-            assert!(false);
+            unreachable!()
         }
         let second = args.trust_proxy.proxy_trusted_servers.get(1).unwrap();
         if let NetworkAddr::Ip(ip_addr) = second {
             assert!(ip_addr.is_ipv6());
         } else {
-            assert!(false);
+            unreachable!()
         }
     }
 
@@ -619,13 +620,13 @@ mod tests {
         if let NetworkAddr::CidrIpv4(cidr) = first {
             assert_eq!(cidr.network_length(), 16);
         } else {
-            assert!(false);
+            unreachable!()
         }
         let second = args.trust_proxy.proxy_trusted_servers.get(1).unwrap();
         if let NetworkAddr::CidrIpv6(ip_addr) = second {
             assert_eq!(ip_addr.network_length(), 48);
         } else {
-            assert!(false);
+            unreachable!()
         }
     }
 
