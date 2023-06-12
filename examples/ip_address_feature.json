@@ -1,0 +1,19 @@
+{"version":2, "features": [{
+  "name": "ip_addr",
+  "type": "release",
+  "enabled": true,
+  "project": "gard",
+  "stale": false,
+  "strategies": [
+    {
+      "name": "remoteAddress",
+      "constraints": [],
+      "parameters": {
+        "IPs": "127.0.0.1,192.168.0.1"
+      }
+    }
+  ],
+  "variants": [],
+  "description": "",
+  "impressionData": false
+}], "query":{"environment":"default","inlineSegmentConstraints":true}}

@@ -1,3 +1,4 @@
+use actix_http::HttpMessage;
 use std::collections::HashMap;
 
 use actix_web::{
@@ -17,6 +18,7 @@ use unleash_types::{
 use unleash_yggdrasil::{EngineState, ResolvedToggle};
 
 use crate::error::EdgeError::ContextParseError;
+use crate::types::ClientIp;
 use crate::{
     error::{EdgeError, FrontendHydrationMissing},
     metrics::client_metrics::MetricsCache,
@@ -45,7 +47,13 @@ pub async fn get_proxy_all_features(
     token_cache: Data<DashMap<String, EdgeToken>>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
-    get_all_features(edge_token, engine_cache, token_cache, req.query_string())
+    get_all_features(
+        edge_token,
+        engine_cache,
+        token_cache,
+        req.query_string(),
+        req.extensions().get::<ClientIp>(),
+    )
 }
 
 #[utoipa::path(
@@ -66,7 +74,13 @@ pub async fn get_frontend_all_features(
     token_cache: Data<DashMap<String, EdgeToken>>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
-    get_all_features(edge_token, engine_cache, token_cache, req.query_string())
+    get_all_features(
+        edge_token,
+        engine_cache,
+        token_cache,
+        req.query_string(),
+        req.extensions().get::<ClientIp>(),
+    )
 }
 
 #[utoipa::path(
@@ -87,8 +101,15 @@ async fn post_proxy_all_features(
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
     context: Json<Context>,
+    req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
-    post_all_features(edge_token, engine_cache, token_cache, context)
+    post_all_features(
+        edge_token,
+        engine_cache,
+        token_cache,
+        context,
+        req.extensions().get::<ClientIp>(),
+    )
 }
 
 #[utoipa::path(
@@ -109,8 +130,15 @@ async fn post_frontend_all_features(
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
     context: Json<Context>,
+    req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
-    post_all_features(edge_token, engine_cache, token_cache, context)
+    post_all_features(
+        edge_token,
+        engine_cache,
+        token_cache,
+        context,
+        req.extensions().get::<ClientIp>(),
+    )
 }
 
 fn post_all_features(
@@ -118,8 +146,17 @@ fn post_all_features(
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
     context: Json<Context>,
+    client_ip: Option<&ClientIp>,
 ) -> EdgeJsonResult<FrontendResult> {
     let context = context.into_inner();
+    let context_with_ip = if context.remote_address.is_none() {
+        Context {
+            remote_address: client_ip.map(|ip| ip.to_string()),
+            ..context
+        }
+    } else {
+        context
+    };
     let token = token_cache
         .get(&edge_token.token)
         .map(|e| e.value().clone())
@@ -128,7 +165,7 @@ fn post_all_features(
     let engine = engine_cache.get(&key).ok_or_else(|| {
         EdgeError::FrontendNotYetHydrated(FrontendHydrationMissing::from(&edge_token))
     })?;
-    let feature_results = engine.resolve_all(&context).unwrap();
+    let feature_results = engine.resolve_all(&context_with_ip).unwrap();
     Ok(Json(frontend_from_yggdrasil(feature_results, true, &token)))
 }
 
@@ -150,8 +187,15 @@ async fn get_enabled_proxy(
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
     context: QsQuery<Context>,
+    req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
-    get_enabled_features(edge_token, engine_cache, token_cache, context.into_inner())
+    get_enabled_features(
+        edge_token,
+        engine_cache,
+        token_cache,
+        context.into_inner(),
+        req.extensions().get::<ClientIp>().cloned(),
+    )
 }
 
 #[utoipa::path(
@@ -173,9 +217,17 @@ async fn get_enabled_frontend(
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
     context: QsQuery<Context>,
+    req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
     debug!("getting enabled features");
-    get_enabled_features(edge_token, engine_cache, token_cache, context.into_inner())
+    let client_ip = req.extensions().get::<ClientIp>().cloned();
+    get_enabled_features(
+        edge_token,
+        engine_cache,
+        token_cache,
+        context.into_inner(),
+        client_ip,
+    )
 }
 
 fn get_enabled_features(
@@ -183,7 +235,16 @@ fn get_enabled_features(
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
     context: Context,
+    client_ip: Option<ClientIp>,
 ) -> EdgeJsonResult<FrontendResult> {
+    let context_with_ip = if context.remote_address.is_none() {
+        Context {
+            remote_address: client_ip.map(|ip| ip.to_string()),
+            ..context
+        }
+    } else {
+        context
+    };
     let token = token_cache
         .get(&edge_token.token)
         .map(|e| e.value().clone())
@@ -192,7 +253,7 @@ fn get_enabled_features(
     let engine = engine_cache.get(&key).ok_or_else(|| {
         EdgeError::FrontendNotYetHydrated(FrontendHydrationMissing::from(&edge_token))
     })?;
-    let feature_results = engine.resolve_all(&context).unwrap();
+    let feature_results = engine.resolve_all(&context_with_ip).unwrap();
     Ok(Json(frontend_from_yggdrasil(
         feature_results,
         false,
@@ -218,8 +279,10 @@ async fn post_proxy_enabled_features(
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
     context: Json<Context>,
+    req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
-    post_enabled_features(edge_token, engine_cache, token_cache, context).await
+    let client_ip = req.extensions().get::<ClientIp>().cloned();
+    post_enabled_features(edge_token, engine_cache, token_cache, context, client_ip).await
 }
 
 #[utoipa::path(
@@ -240,8 +303,10 @@ async fn post_frontend_enabled_features(
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
     context: Json<Context>,
+    req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
-    post_enabled_features(edge_token, engine_cache, token_cache, context).await
+    let client_ip = req.extensions().get::<ClientIp>().cloned();
+    post_enabled_features(edge_token, engine_cache, token_cache, context, client_ip).await
 }
 
 #[utoipa::path(
@@ -265,6 +330,7 @@ pub async fn post_frontend_evaluate_single_feature(
     context: Json<Context>,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
+    req: HttpRequest,
 ) -> EdgeJsonResult<EvaluatedToggle> {
     evaluate_feature(
         edge_token,
@@ -272,6 +338,7 @@ pub async fn post_frontend_evaluate_single_feature(
         &context.into_inner(),
         token_cache,
         engine_cache,
+        req.extensions().get::<ClientIp>().cloned(),
     )
     .map(Json)
 }
@@ -280,7 +347,7 @@ pub async fn post_frontend_evaluate_single_feature(
 context_path = "/api/frontend",
 params(
     Context,
-    ("feature_name" = String, Path, description = "Name of the feature"), 
+    ("feature_name" = String, Path, description = "Name of the feature"),
 ),
 responses(
 (status = 200, description = "Return the feature toggle with name `name`", body = EvaluatedToggle),
@@ -299,6 +366,7 @@ pub async fn get_frontend_evaluate_single_feature(
     context: QsQuery<Context>,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
+    req: HttpRequest,
 ) -> EdgeJsonResult<EvaluatedToggle> {
     evaluate_feature(
         edge_token,
@@ -306,6 +374,7 @@ pub async fn get_frontend_evaluate_single_feature(
         &context.into_inner(),
         token_cache,
         engine_cache,
+        req.extensions().get::<ClientIp>().cloned(),
     )
     .map(Json)
 }
@@ -316,7 +385,16 @@ pub fn evaluate_feature(
     context: &Context,
     token_cache: Data<DashMap<String, EdgeToken>>,
     engine_cache: Data<DashMap<String, EngineState>>,
+    client_ip: Option<ClientIp>,
 ) -> EdgeResult<EvaluatedToggle> {
+    let context_with_ip = if context.remote_address.is_none() {
+        Context {
+            remote_address: client_ip.map(|ip| ip.to_string()),
+            ..context.clone()
+        }
+    } else {
+        context.clone()
+    };
     let validated_token = token_cache
         .get(&edge_token.token)
         .ok_or(EdgeError::EdgeTokenError)?
@@ -324,7 +402,7 @@ pub fn evaluate_feature(
         .clone();
     engine_cache
         .get(&cache_key(&validated_token))
-        .and_then(|engine| engine.resolve_all(context))
+        .and_then(|engine| engine.resolve_all(&context_with_ip))
         .and_then(|toggles| toggles.get(&feature_name).cloned())
         .and_then(|resolved_toggle| {
             if validated_token.projects.contains(&"*".into())
@@ -353,8 +431,17 @@ async fn post_enabled_features(
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
     context: Json<Context>,
+    client_ip: Option<ClientIp>,
 ) -> EdgeJsonResult<FrontendResult> {
     let context = context.into_inner();
+    let context_with_ip = if context.remote_address.is_none() {
+        Context {
+            remote_address: client_ip.map(|ip| ip.to_string()),
+            ..context
+        }
+    } else {
+        context
+    };
     let token = token_cache
         .get(&edge_token.token)
         .map(|e| e.value().clone())
@@ -364,7 +451,7 @@ async fn post_enabled_features(
         .ok_or_else(|| {
             EdgeError::FrontendNotYetHydrated(FrontendHydrationMissing::from(&edge_token))
         })?;
-    let feature_results = engine.resolve_all(&context).unwrap();
+    let feature_results = engine.resolve_all(&context_with_ip).unwrap();
     Ok(Json(frontend_from_yggdrasil(
         feature_results,
         false,
@@ -481,7 +568,11 @@ pub async fn post_frontend_register(
 pub fn configure_frontend_api(cfg: &mut web::ServiceConfig) {
     cfg.service(web::scope("/proxy")
         .wrap(crate::middleware::as_async_middleware::as_async_middleware(
-            crate::middleware::client_token_from_frontend_token::client_token_from_frontend_token, )).wrap(crate::middleware::as_async_middleware::as_async_middleware(
+            crate::middleware::enrich_with_client_ip::enrich_with_client_ip
+        ))
+        .wrap(crate::middleware::as_async_middleware::as_async_middleware(
+            crate::middleware::client_token_from_frontend_token::client_token_from_frontend_token, ))
+        .wrap(crate::middleware::as_async_middleware::as_async_middleware(
         crate::middleware::validate_token::validate_token,
     )).service(get_enabled_proxy)
         .service(get_proxy_all_features)
@@ -490,8 +581,13 @@ pub fn configure_frontend_api(cfg: &mut web::ServiceConfig) {
         .service(post_proxy_enabled_features)
         .service(post_proxy_register)
     ).service(
-        web::scope("/frontend").wrap(crate::middleware::as_async_middleware::as_async_middleware(
-            crate::middleware::client_token_from_frontend_token::client_token_from_frontend_token, )).wrap(crate::middleware::as_async_middleware::as_async_middleware(
+        web::scope("/frontend")
+            .wrap(crate::middleware::as_async_middleware::as_async_middleware(
+                crate::middleware::enrich_with_client_ip::enrich_with_client_ip
+            ))
+            .wrap(crate::middleware::as_async_middleware::as_async_middleware(
+            crate::middleware::client_token_from_frontend_token::client_token_from_frontend_token))
+            .wrap(crate::middleware::as_async_middleware::as_async_middleware(
             crate::middleware::validate_token::validate_token,
         ))
 
@@ -537,10 +633,19 @@ pub fn get_all_features(
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
     query_string: &str,
+    client_ip: Option<&ClientIp>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let context = serde_qs::Config::new(0, false)
+    let context: Context = serde_qs::Config::new(0, false)
         .deserialize_str(query_string)
         .map_err(|_| ContextParseError)?;
+    let context_with_ip = if context.remote_address.is_none() {
+        Context {
+            remote_address: client_ip.map(|ip| ip.to_string()),
+            ..context
+        }
+    } else {
+        context
+    };
     let token = token_cache
         .get(&edge_token.token)
         .map(|e| e.value().clone())
@@ -549,15 +654,12 @@ pub fn get_all_features(
     let engine = engine_cache.get(&key).ok_or_else(|| {
         EdgeError::FrontendNotYetHydrated(FrontendHydrationMissing::from(&edge_token))
     })?;
-    let feature_results = engine.resolve_all(&context).unwrap();
+    let feature_results = engine.resolve_all(&context_with_ip).unwrap();
     Ok(Json(frontend_from_yggdrasil(feature_results, true, &token)))
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-    use std::sync::Arc;
-
     use actix_http::{Request, StatusCode};
     use actix_web::{
         http::header::ContentType,
@@ -568,6 +670,10 @@ mod tests {
     use chrono::{DateTime, Utc};
     use dashmap::DashMap;
     use serde_json::json;
+    use std::collections::HashMap;
+    use std::net::SocketAddr;
+    use std::str::FromStr;
+    use std::sync::Arc;
     use tracing_test::traced_test;
     use unleash_types::client_metrics::ClientMetricsEnv;
     use unleash_types::{
@@ -577,7 +683,7 @@ mod tests {
     use unleash_yggdrasil::EngineState;
 
     use crate::builder::build_offline_mode;
-    use crate::cli::{EdgeMode, OfflineArgs};
+    use crate::cli::{EdgeMode, OfflineArgs, TrustProxy};
     use crate::metrics::client_metrics::MetricsCache;
     use crate::metrics::client_metrics::MetricsKey;
     use crate::middleware;
@@ -1036,6 +1142,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[traced_test]
     async fn can_handle_custom_context_fields_with_post() {
         let client_features_with_custom_context_field =
             crate::tests::features_from_disk("../examples/with_custom_constraint.json");
@@ -1045,8 +1152,13 @@ mod tests {
             vec![auth_key.clone()],
         )
         .unwrap();
+        let trust_proxy = TrustProxy {
+            trust_proxy: true,
+            proxy_trusted_servers: vec![],
+        };
         let app = test::init_service(
             App::new()
+                .app_data(Data::new(trust_proxy.clone()))
                 .app_data(Data::from(token_cache))
                 .app_data(Data::from(feature_cache))
                 .app_data(Data::from(engine_cache))
@@ -1070,5 +1182,41 @@ mod tests {
             .to_request();
         let result: FrontendResult = test::call_and_read_body_json(&app, req).await;
         assert!(result.toggles.is_empty());
+    }
+
+    #[tokio::test]
+    #[traced_test]
+    async fn will_evaluate_ip_strategy_populated_from_middleware() {
+        let client_features_with_custom_context_field =
+            crate::tests::features_from_disk("../examples/ip_address_feature.json");
+        let auth_key = "gard:development.secret123".to_string();
+        let (token_cache, feature_cache, engine_cache) = build_offline_mode(
+            client_features_with_custom_context_field.clone(),
+            vec![auth_key.clone()],
+        )
+        .unwrap();
+        let trust_proxy = TrustProxy {
+            trust_proxy: true,
+            proxy_trusted_servers: vec![],
+        };
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::new(trust_proxy.clone()))
+                .app_data(Data::from(token_cache))
+                .app_data(Data::from(feature_cache))
+                .app_data(Data::from(engine_cache))
+                .service(web::scope("/api").configure(super::configure_frontend_api)),
+        )
+        .await;
+        let req = test::TestRequest::post()
+            .uri("/api/frontend")
+            .peer_addr(SocketAddr::from_str("192.168.0.1:80").unwrap())
+            .insert_header(ContentType::json())
+            .insert_header(("Authorization", auth_key.clone()))
+            .set_json(json!({ "properties": {"companyId": "bricks"}}))
+            .to_request();
+        let result: FrontendResult = test::call_and_read_body_json(&app, req).await;
+        let ip_addr_was_enabled = result.toggles.iter().any(|r| r.name == "ip_addr");
+        assert!(ip_addr_was_enabled);
     }
 }

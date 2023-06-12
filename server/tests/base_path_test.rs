@@ -11,12 +11,12 @@ mod base_path_tests {
 
         // Run the app as a separate process
         let mut app_process = Command::new("./../target/debug/unleash-edge")
-            .arg("-b")
+            .arg("--base-path")
             .arg(base_path)
             .arg("offline")
             .arg("-t")
             .arg(token)
-            .arg("-b")
+            .arg("--bootstrap-file")
             .arg("../examples/features.json")
             .stdout(Stdio::null()) // Suppress stdout
             .stderr(Stdio::null()) // Suppress stderr
@@ -24,14 +24,13 @@ mod base_path_tests {
             .expect("Failed to start the app");
 
         // Wait for the app to start up
-        std::thread::sleep(std::time::Duration::from_secs(2));
+        std::thread::sleep(std::time::Duration::from_secs(1));
 
         // Send a request to the app
         let client = Client::new();
         let base_url = "http://localhost:3063";
         let endpoint = "/internal-backstage/info";
         let url = format!("{}{}{}", base_url, base_path, endpoint);
-
         let resp = client
             .get(&url)
             .send()
