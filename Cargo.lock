@@ -564,6 +564,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "cidr"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "300bccc729b1ada84523246038aad61fead689ac362bb9d44beea6f6a188c34b"
+
+[[package]]
 name = "clap"
 version = "2.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3093,7 +3099,7 @@ checksum = "f962df74c8c05a667b5ee8bcf162993134c104e96440b663c8daa176dc772d8c"
 
 [[package]]
 name = "unleash-edge"
-version = "6.0.0"
+version = "7.0.0"
 dependencies = [
  "actix-cors",
  "actix-http",
@@ -3104,6 +3110,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "chrono",
+ "cidr",
  "clap 4.3.2",
  "clap-markdown",
  "dashmap",

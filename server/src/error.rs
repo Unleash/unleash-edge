@@ -8,6 +8,9 @@ use tracing::debug;
 
 use crate::types::EdgeToken;
 
+pub const TRUST_PROXY_PARSE_ERROR: &str =
+    "needs to be a valid ip address (ipv4 or ipv6) or a valid cidr (ipv4 or ipv6)";
+
 #[derive(Debug)]
 pub enum FeatureError {
     AccessDenied,

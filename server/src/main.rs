@@ -13,7 +13,7 @@ use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
 use unleash_edge::builder::build_caches_and_refreshers;
-use unleash_edge::cli::CliArgs;
+use unleash_edge::cli::{CliArgs, EdgeMode};
 use unleash_edge::metrics::client_metrics::MetricsCache;
 use unleash_edge::middleware::request_tracing::RequestTracing;
 use unleash_edge::persistence::{persist_data, EdgePersistence};
@@ -25,8 +25,6 @@ use unleash_edge::{internal_backstage, tls};
 #[cfg(not(tarpaulin_include))]
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {
-    use unleash_edge::{cli::EdgeMode, types::ServiceAccountToken};
-
     dotenv::dotenv().ok();
     let args = CliArgs::parse();
     if args.markdown_help {
@@ -41,6 +39,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let schedule_args = args.clone();
     let mode_arg = args.clone().mode;
     let http_args = args.clone().http;
+    let trust_proxy = args.clone().trust_proxy;
     let base_path = http_args.base_path.clone();
     let (metrics_handler, request_metrics) = prom_metrics::instantiate(None);
     let connect_via = ConnectVia {
@@ -75,6 +74,7 @@ async fn main() -> Result<(), anyhow::Error> {
             .allow_any_method();
         let mut app = App::new()
             .app_data(qs_config)
+            .app_data(web::Data::new(trust_proxy.clone()))
             .app_data(web::Data::new(mode_arg.clone()))
             .app_data(web::Data::new(connect_via.clone()))
             .app_data(web::Data::from(metrics_cache.clone()))
@@ -84,17 +84,6 @@ async fn main() -> Result<(), anyhow::Error> {
         app = match token_validator.clone() {
             Some(v) => app.app_data(web::Data::from(v)),
             None => app,
-        };
-        app = match mode_arg.clone() {
-            EdgeMode::Edge(edge_args) => {
-                if let Some(sa_token) = edge_args.service_account_token {
-                    tracing::info!("Service account token was {sa_token}");
-                    app.app_data(web::Data::new(ServiceAccountToken { token: sa_token }))
-                } else {
-                    app
-                }
-            }
-            _ => app,
         };
         app = match refresher_for_app_data.clone() {
             Some(refresher) => app.app_data(web::Data::from(refresher)),
