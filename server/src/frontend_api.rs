@@ -402,8 +402,7 @@ pub fn evaluate_feature(
         .clone();
     engine_cache
         .get(&cache_key(&validated_token))
-        .and_then(|engine| engine.resolve_all(&context_with_ip))
-        .and_then(|toggles| toggles.get(&feature_name).cloned())
+        .and_then(|engine| engine.resolve(&feature_name, &context_with_ip))
         .and_then(|resolved_toggle| {
             if validated_token.projects.contains(&"*".into())
                 || validated_token.projects.contains(&resolved_toggle.project)
