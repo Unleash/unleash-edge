@@ -5,7 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 7.0.1 (2023-06-23)
+
+### Chore
+
+ - <csr-id-0920dad3c42cf8284cf21899a8a5f392271acca9/> allows resolving a single toggle to do that instead of iterating the whole hashmap
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 1 commit contributed to the release.
+ - 10 days passed between releases.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 1 unique issue was worked on: [#215](https://github.com/Unleash/unleash-edge/issues/215)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#215](https://github.com/Unleash/unleash-edge/issues/215)**
+    - Allows resolving a single toggle to do that instead of iterating the whole hashmap ([`0920dad`](https://github.com/Unleash/unleash-edge/commit/0920dad3c42cf8284cf21899a8a5f392271acca9))
+</details>
+
 ## 7.0.0 (2023-06-12)
+
+<csr-id-21178ab0934176e7c1aac9a9093253b806acd399/>
 
 ### Chore
 
@@ -13,17 +40,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### New Features
 
+<csr-id-38b36e8af9e1560bc7ece1f644a0349257bf1a36/>
+<csr-id-baecc67a5f81fa1c76798c320c65a5e6dbd5b061/>
+
  - <csr-id-2fcfcc54cc61ae277c8b1b66fe9d8e619ab47494/> trust-proxy - resolving peer ip for context
    * Added trust proxy for enriching context
- - <csr-id-38b36e8af9e1560bc7ece1f644a0349257bf1a36/> You can now use tcp or tls as schemes for Redis
- - <csr-id-baecc67a5f81fa1c76798c320c65a5e6dbd5b061/> Use service account to create client tokens
-   Previously, if Edge saw a frontend token that we did not have matching or more access to via a client token we'd return 511 when
-   trying to get data.
-   With this patch we now create client tokens with same access as the frontend token if we have a service-account to use to create a client token.
-   
-   If we do not, we still return 511 when a frontend token that we can't build data for does not exist.
-   
-   We do comparison based on environment and projects list in existing client tokens and frontend tokens, in order to ensure that we have enough data.
 
 ### Bug Fixes
 
@@ -34,7 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 6 commits contributed to the release over the course of 5 calendar days.
+ - 7 commits contributed to the release over the course of 4 calendar days.
  - 5 days passed between releases.
  - 6 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 3 unique issues were worked on: [#206](https://github.com/Unleash/unleash-edge/issues/206), [#208](https://github.com/Unleash/unleash-edge/issues/208), [#210](https://github.com/Unleash/unleash-edge/issues/210)
@@ -52,10 +73,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#210](https://github.com/Unleash/unleash-edge/issues/210)**
     - Remove unneeded import ([`21178ab`](https://github.com/Unleash/unleash-edge/commit/21178ab0934176e7c1aac9a9093253b806acd399))
  * **Uncategorized**
+    - Release unleash-edge v7.0.0 ([`e6b53a0`](https://github.com/Unleash/unleash-edge/commit/e6b53a0a0e61b98924315f86bc1f4d4d3ea9c317))
     - Trust-proxy - resolving peer ip for context ([`2fcfcc5`](https://github.com/Unleash/unleash-edge/commit/2fcfcc54cc61ae277c8b1b66fe9d8e619ab47494))
     - Remove SA token from app_data, it's already added to the FeatureRefresher ([`6c3942e`](https://github.com/Unleash/unleash-edge/commit/6c3942ef330bc6bf04344193d0ab3be9a1a1e3ed))
     - Don't log the SA token on startup ([`d6da27a`](https://github.com/Unleash/unleash-edge/commit/d6da27a77551ee22d4e406deb6a3351ad013cf1e))
 </details>
+
+<csr-unknown>
+ You can now use tcp or tls as schemes for Redis Use service account to create client tokensPreviously, if Edge saw a frontend token that we did not have matching or more access to via a client token we’d return 511 whentrying to get data.With this patch we now create client tokens with same access as the frontend token if we have a service-account to use to create a client token.If we do not, we still return 511 when a frontend token that we can’t build data for does not exist.We do comparison based on environment and projects list in existing client tokens and frontend tokens, in order to ensure that we have enough data.<csr-unknown/>
 
 ## 6.0.0 (2023-06-07)
 
