@@ -91,7 +91,6 @@ async fn resolve_features(
             query: Some(query),
             features: f
                 .features
-                .clone()
                 .into_iter()
                 .filter(|f| {
                     filters
