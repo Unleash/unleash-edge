@@ -95,8 +95,8 @@ async fn resolve_features(
                 .filter(|f| {
                     filters
                         .name_prefix
-                        .clone()
-                        .map(|prefix| f.name.starts_with(&prefix))
+                        .as_ref()
+                        .map(|prefix| f.name.starts_with(prefix))
                         .unwrap_or(true)
                 })
                 .collect(),
