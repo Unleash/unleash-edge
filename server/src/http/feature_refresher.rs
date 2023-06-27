@@ -60,7 +60,7 @@ fn client_application_from_token(token: EdgeToken, refresh_interval: i64) -> Cli
     }
 }
 
-type FeatureFilter = Box<dyn Fn(&ClientFeature) -> bool>;
+pub type FeatureFilter = Box<dyn Fn(&ClientFeature) -> bool>;
 
 pub struct FeatureFilterSet {
     filters: Vec<FeatureFilter>,
@@ -84,17 +84,15 @@ impl FeatureFilterSet {
 }
 
 pub fn filter_features(
-    cache: Option<Ref<'_, String, ClientFeatures>>,
+    feature_cache: &Ref<'_, String, ClientFeatures>,
     filters: FeatureFilterSet,
-) -> Option<Vec<ClientFeature>> {
-    cache.map(|client_features| {
-        client_features
-            .features
-            .iter()
-            .filter(|feature| filters.apply(feature))
-            .cloned()
-            .collect::<Vec<ClientFeature>>()
-    })
+) -> Vec<ClientFeature> {
+    feature_cache
+        .features
+        .iter()
+        .filter(|feature| filters.apply(feature))
+        .cloned()
+        .collect::<Vec<ClientFeature>>()
 }
 
 impl FeatureRefresher {
@@ -219,6 +217,23 @@ impl FeatureRefresher {
                 features: features_response.features.filter_by_projects(token),
                 ..features_response
             })
+    }
+
+    fn get_features_by_filter(
+        &self,
+        token: &EdgeToken,
+        filters: FeatureFilterSet,
+    ) -> Option<ClientFeatures> {
+
+        let client_features = self.features_cache.get(&cache_key(token))?;
+        let features = filter_features(&client_features, filters);
+
+        Some(ClientFeatures {
+            features,
+            query: client_features.query.clone(),
+            segments: client_features.segments.clone(),
+            version: client_features.version.clone(),
+        })
     }
 
     ///
@@ -426,21 +441,17 @@ mod tests {
         let map = DashMap::default();
         map.insert(feature_name.clone(), client_features.clone());
 
-        let features = map.get(&feature_name);
+        let features = map.get(&feature_name).unwrap();
         let filter_for_enabled = FeatureFilterSet::from(Box::new(|f| f.enabled));
-        let enabled_features = filter_features(features, filter_for_enabled);
+        let enabled_features = filter_features(&features, filter_for_enabled);
 
-        let features = map.get(&feature_name);
+        let features = map.get(&feature_name).unwrap();
         let filter_for_disabled = FeatureFilterSet::from(Box::new(|f| !f.enabled));
-        let disabled_features = filter_features(features, filter_for_disabled);
+        let disabled_features = filter_features(&features, filter_for_disabled);
 
-        assert_eq!(
-            enabled_features.unwrap()[0].name,
-            client_features.features[0].name
-        );
+        assert_eq!(enabled_features[0].name, client_features.features[0].name);
 
-        assert!(disabled_features.is_some());
-        assert!(disabled_features.unwrap().is_empty(),);
+        assert!(disabled_features.is_empty());
     }
 
     #[tokio::test]
