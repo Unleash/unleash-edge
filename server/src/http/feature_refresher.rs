@@ -60,7 +60,28 @@ fn client_application_from_token(token: EdgeToken, refresh_interval: i64) -> Cli
     }
 }
 
-type FeatureFilterSet = Vec<Box<dyn Fn(&ClientFeature) -> bool>>;
+type FeatureFilter = Box<dyn Fn(&ClientFeature) -> bool>;
+
+pub struct FeatureFilterSet {
+    filters: Vec<FeatureFilter>,
+}
+
+impl FeatureFilterSet {
+    pub fn from(filter: FeatureFilter) -> Self {
+        Self {
+            filters: vec![filter],
+        }
+    }
+
+    pub fn with_filter(mut self, filter: FeatureFilter) -> Self {
+        self.filters.push(filter);
+        self
+    }
+
+    pub fn apply(&self, feature: &ClientFeature) -> bool {
+        self.filters.iter().all(|filter| filter(feature))
+    }
+}
 
 pub fn filter_features(
     cache: Option<Ref<'_, String, ClientFeatures>>,
@@ -70,7 +91,7 @@ pub fn filter_features(
         client_features
             .features
             .iter()
-            .filter(|feature| filters.iter().all(|filter| filter(feature)))
+            .filter(|feature| filters.apply(feature))
             .cloned()
             .collect::<Vec<ClientFeature>>()
     })
@@ -406,12 +427,12 @@ mod tests {
         map.insert(feature_name.clone(), client_features.clone());
 
         let features = map.get(&feature_name);
-        let filter_for_all_enabled: FeatureFilterSet = vec![Box::new(|f| f.enabled)];
-        let enabled_features = filter_features(features, filter_for_all_enabled);
+        let filter_for_enabled = FeatureFilterSet::from(Box::new(|f| f.enabled));
+        let enabled_features = filter_features(features, filter_for_enabled);
 
         let features = map.get(&feature_name);
-        let filter_for_all_disabled: FeatureFilterSet = vec![Box::new(|f| !f.enabled)];
-        let disabled_features = filter_features(features, filter_for_all_disabled);
+        let filter_for_disabled = FeatureFilterSet::from(Box::new(|f| !f.enabled));
+        let disabled_features = filter_features(features, filter_for_disabled);
 
         assert_eq!(
             enabled_features.unwrap()[0].name,
