@@ -91,13 +91,12 @@ async fn resolve_features(
             query: Some(query),
             features: f
                 .features
-                .clone()
                 .into_iter()
                 .filter(|f| {
                     filters
                         .name_prefix
-                        .clone()
-                        .map(|prefix| f.name.starts_with(&prefix))
+                        .as_ref()
+                        .map(|prefix| f.name.starts_with(prefix))
                         .unwrap_or(true)
                 })
                 .collect(),
