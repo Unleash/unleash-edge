@@ -127,7 +127,7 @@ mod tests {
         let map = DashMap::default();
         let map_key = "some-key".to_string();
 
-        map.insert(map_key.clone(), client_features.clone());
+        map.insert(map_key.clone(), client_features);
         let features = map.get(&map_key).unwrap();
 
         let chained_filter = FeatureFilterSet::from(Box::new(|f| f.enabled))
@@ -162,7 +162,7 @@ mod tests {
         let map = DashMap::default();
         let map_key = "some-feature".to_string();
 
-        map.insert(map_key.clone(), client_features.clone());
+        map.insert(map_key.clone(), client_features);
         let features = map.get(&map_key).unwrap();
 
         let filter = FeatureFilterSet::from(name_prefix_filter(Some("feature-".to_string())));
@@ -209,7 +209,7 @@ mod tests {
         let map = DashMap::default();
         let map_key = "some-key".to_string();
 
-        map.insert(map_key.clone(), client_features.clone());
+        map.insert(map_key.clone(), client_features);
         let features = map.get(&map_key).unwrap();
 
         let token = EdgeToken {
