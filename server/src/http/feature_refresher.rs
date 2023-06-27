@@ -3,9 +3,11 @@ use std::{sync::Arc, time::Duration};
 
 use actix_web::http::header::EntityTag;
 use chrono::Utc;
+use dashmap::mapref::one::Ref;
 use dashmap::DashMap;
 use tracing::log::trace;
 use tracing::{debug, warn};
+use unleash_types::client_features::ClientFeature;
 use unleash_types::client_metrics::ClientApplication;
 use unleash_types::{client_features::ClientFeatures, Upsert};
 use unleash_yggdrasil::EngineState;
@@ -56,6 +58,22 @@ fn client_application_from_token(token: EdgeToken, refresh_interval: i64) -> Cli
         started: Utc::now(),
         strategies: vec![],
     }
+}
+
+type FeatureFilterSet = Vec<Box<dyn Fn(&ClientFeature) -> bool>>;
+
+pub fn filter_features(
+    cache: Option<Ref<'_, String, ClientFeatures>>,
+    filters: FeatureFilterSet,
+) -> Option<Vec<ClientFeature>> {
+    cache.map(|client_features| {
+        client_features
+            .features
+            .iter()
+            .filter(|feature| filters.iter().all(|filter| filter(feature)))
+            .cloned()
+            .collect::<Vec<ClientFeature>>()
+    })
 }
 
 impl FeatureRefresher {
@@ -337,9 +355,10 @@ mod tests {
     use chrono::{Duration, Utc};
     use dashmap::DashMap;
     use reqwest::Url;
-    use unleash_types::client_features::ClientFeatures;
+    use unleash_types::client_features::{ClientFeature, ClientFeatures};
     use unleash_yggdrasil::EngineState;
 
+    use crate::http::feature_refresher::FeatureFilterSet;
     use crate::tests::features_from_disk;
     use crate::tokens::cache_key;
     use crate::types::TokenType;
@@ -349,7 +368,7 @@ mod tests {
         types::{EdgeToken, TokenRefresh},
     };
 
-    use super::FeatureRefresher;
+    use super::{filter_features, FeatureRefresher};
 
     impl PartialEq for TokenRefresh {
         fn eq(&self, other: &Self) -> bool {
@@ -358,6 +377,49 @@ mod tests {
                 && self.last_refreshed == other.last_refreshed
                 && self.last_check == other.last_check
         }
+    }
+
+    #[test]
+    pub fn filter_features_applies_filters() {
+        let feature_name = "some-feature".to_string();
+
+        let client_features = ClientFeatures {
+            version: 0,
+            features: vec![ClientFeature {
+                enabled: true,
+                created_at: None,
+                description: None,
+                feature_type: None,
+                project: Some("default".into()),
+                stale: None,
+                strategies: None,
+                impression_data: Some(false),
+                last_seen_at: None,
+                name: feature_name.clone(),
+                variants: None,
+            }],
+            query: None,
+            segments: None,
+        };
+
+        let map = DashMap::default();
+        map.insert(feature_name.clone(), client_features.clone());
+
+        let features = map.get(&feature_name);
+        let filter_for_all_enabled: FeatureFilterSet = vec![Box::new(|f| f.enabled)];
+        let enabled_features = filter_features(features, filter_for_all_enabled);
+
+        let features = map.get(&feature_name);
+        let filter_for_all_disabled: FeatureFilterSet = vec![Box::new(|f| !f.enabled)];
+        let disabled_features = filter_features(features, filter_for_all_disabled);
+
+        assert_eq!(
+            enabled_features.unwrap()[0].name,
+            client_features.features[0].name
+        );
+
+        assert!(disabled_features.is_some());
+        assert!(disabled_features.unwrap().is_empty(),);
     }
 
     #[tokio::test]
