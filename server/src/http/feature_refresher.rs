@@ -12,7 +12,7 @@ use unleash_yggdrasil::EngineState;
 
 use super::unleash_client::UnleashClient;
 use crate::error::{EdgeError, FeatureError};
-use crate::filters::{filter_features, FeatureFilterSet};
+use crate::filters::{filter_features, project_filter, FeatureFilterSet};
 use crate::types::{
     build, ClientTokenRequest, ClientTokenResponse, EdgeResult, ProjectFilter, TokenType,
     TokenValidationStatus,
@@ -181,6 +181,27 @@ impl FeatureRefresher {
                 features: features_response.features.filter_by_projects(token),
                 ..features_response
             })
+    }
+
+    pub async fn features_for_filter(
+        &self,
+        token: EdgeToken,
+        filters: FeatureFilterSet,
+    ) -> EdgeResult<ClientFeatures> {
+        match self.get_features_by_filter(&token, filters) {
+            Some(features) => {
+                if self.token_is_subsumed(&token) {
+                    Ok(features)
+                } else {
+                    debug!("Token is not subsumed by existing tokens. Registering");
+                    self.register_and_hydrate_token(&token).await
+                }
+            }
+            None => {
+                debug!("Had never seen this environment. Configuring fetcher");
+                self.register_and_hydrate_token(&token).await
+            }
+        }
     }
 
     fn get_features_by_filter(

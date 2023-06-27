@@ -5,6 +5,7 @@ use crate::types::EdgeToken;
 
 pub type FeatureFilter = Box<dyn Fn(&ClientFeature) -> bool>;
 
+#[derive(Default)]
 pub struct FeatureFilterSet {
     filters: Vec<FeatureFilter>,
 }
@@ -38,13 +39,8 @@ pub fn filter_features(
         .collect::<Vec<ClientFeature>>()
 }
 
-pub fn name_prefix_filter(name_prefix: Option<String>) -> FeatureFilter {
-    Box::new(move |f| {
-        name_prefix
-            .as_ref()
-            .map(|prefix| f.name.starts_with(prefix))
-            .unwrap_or(true)
-    })
+pub fn name_prefix_filter(name_prefix: String) -> FeatureFilter {
+    Box::new(move |f| f.name.starts_with(&name_prefix))
 }
 
 pub fn project_filter(token: &EdgeToken) -> FeatureFilter {
@@ -165,17 +161,22 @@ mod tests {
         map.insert(map_key.clone(), client_features);
         let features = map.get(&map_key).unwrap();
 
-        let filter = FeatureFilterSet::from(name_prefix_filter(Some("feature-".to_string())));
+        let filter = FeatureFilterSet::from(name_prefix_filter("feature-".to_string()));
         let filtered_features = filter_features(&features, filter);
 
         assert_eq!(filtered_features.len(), 3);
 
-        let filter = FeatureFilterSet::from(name_prefix_filter(Some("feature-o".to_string())));
+        let filter = FeatureFilterSet::from(name_prefix_filter("feature-t".to_string()));
+        let filtered_features = filter_features(&features, filter);
+
+        assert_eq!(filtered_features.len(), 2);
+
+        let filter = FeatureFilterSet::from(name_prefix_filter("feature-o".to_string()));
         let filtered_features = filter_features(&features, filter);
 
         assert_eq!(filtered_features.len(), 1);
 
-        let filter = FeatureFilterSet::from(name_prefix_filter(Some("feature-four".to_string())));
+        let filter = FeatureFilterSet::from(name_prefix_filter("feature-four".to_string()));
         let filtered_features = filter_features(&features, filter);
 
         assert_eq!(filtered_features.len(), 0);
