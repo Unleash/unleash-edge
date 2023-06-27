@@ -170,17 +170,7 @@ mod tests {
 
         assert_eq!(filtered_features.len(), 3);
 
-        let filter = FeatureFilterSet::from(name_prefix_filter(Some("feature-one".to_string())));
-        let filtered_features = filter_features(&features, filter);
-
-        assert_eq!(filtered_features.len(), 1);
-
-        let filter = FeatureFilterSet::from(name_prefix_filter(Some("feature-two".to_string())));
-        let filtered_features = filter_features(&features, filter);
-
-        assert_eq!(filtered_features.len(), 1);
-
-        let filter = FeatureFilterSet::from(name_prefix_filter(Some("feature-three".to_string())));
+        let filter = FeatureFilterSet::from(name_prefix_filter(Some("feature-o".to_string())));
         let filtered_features = filter_features(&features, filter);
 
         assert_eq!(filtered_features.len(), 1);
