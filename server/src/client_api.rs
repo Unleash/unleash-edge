@@ -1,8 +1,11 @@
 use crate::error::{EdgeError, FeatureError};
+use crate::filters::{
+    filter_client_features, name_match_filter, name_prefix_filter, project_filter, FeatureFilterSet,
+};
 use crate::http::feature_refresher::FeatureRefresher;
 use crate::metrics::client_metrics::MetricsCache;
 use crate::tokens::cache_key;
-use crate::types::{EdgeJsonResult, EdgeResult, EdgeToken, FeatureFilters, ProjectFilter};
+use crate::types::{EdgeJsonResult, EdgeResult, EdgeToken, FeatureFilters};
 use actix_web::web::{self, Data, Json, Query};
 use actix_web::{get, post, HttpRequest, HttpResponse};
 use dashmap::DashMap;
@@ -65,44 +68,39 @@ async fn resolve_features(
         .get(&edge_token.token)
         .map(|e| e.value().clone())
         .ok_or(EdgeError::AuthorizationDenied)?;
-    let client_features = match req.app_data::<Data<FeatureRefresher>>() {
-        Some(refresher) => refresher.features_for_token(validated_token.clone()).await,
-        None => features_cache
-            .get(&cache_key(&edge_token))
-            .map(|features| features.value().clone())
-            .map(|client_features| ClientFeatures {
-                features: client_features
-                    .features
-                    .filter_by_projects(&validated_token),
-                ..client_features
-            })
-            .ok_or(EdgeError::ClientFeaturesFetchError(FeatureError::Retriable)),
-    };
-    let filters = filter_query.into_inner();
+
+    let query_filters = filter_query.into_inner();
     let query = unleash_types::client_features::Query {
         tags: None,
-        projects: Some(validated_token.projects),
-        name_prefix: filters.name_prefix.clone(),
-        environment: validated_token.environment,
+        projects: Some(validated_token.projects.clone()),
+        name_prefix: query_filters.name_prefix.clone(),
+        environment: validated_token.environment.clone(),
         inline_segment_constraints: Some(false),
     };
-    client_features
-        .map(|f| ClientFeatures {
-            query: Some(query),
-            features: f
-                .features
-                .into_iter()
-                .filter(|f| {
-                    filters
-                        .name_prefix
-                        .as_ref()
-                        .map(|prefix| f.name.starts_with(prefix))
-                        .unwrap_or(true)
-                })
-                .collect(),
-            ..f
-        })
-        .map(Json)
+
+    let filter_set = if let Some(name_prefix) = query_filters.name_prefix {
+        FeatureFilterSet::from(Box::new(name_prefix_filter(name_prefix)))
+    } else {
+        FeatureFilterSet::default()
+    }
+    .with_filter(project_filter(&edge_token));
+
+    let client_features = match req.app_data::<Data<FeatureRefresher>>() {
+        Some(refresher) => {
+            refresher
+                .features_for_filter(validated_token.clone(), filter_set)
+                .await
+        }
+        None => features_cache
+            .get(&cache_key(&edge_token))
+            .map(|client_features| filter_client_features(&client_features, filter_set))
+            .ok_or(EdgeError::ClientFeaturesFetchError(FeatureError::Retriable)),
+    }?;
+
+    Ok(Json(ClientFeatures {
+        query: Some(query),
+        ..client_features
+    }))
 }
 #[utoipa::path(
     context_path = "/api/client",
@@ -129,25 +127,24 @@ pub async fn get_feature(
         .get(&edge_token.token)
         .map(|e| e.value().clone())
         .ok_or(EdgeError::AuthorizationDenied)?;
-    let client_features = match req.app_data::<Data<FeatureRefresher>>() {
-        Some(refresher) => refresher.features_for_token(validated_token).await,
+
+    let filter_set = FeatureFilterSet::from(Box::new(name_match_filter(feature_name.clone())))
+        .with_filter(project_filter(&edge_token));
+
+    match req.app_data::<Data<FeatureRefresher>>() {
+        Some(refresher) => {
+            refresher
+                .features_for_filter(validated_token.clone(), filter_set)
+                .await
+        }
         None => features_cache
             .get(&cache_key(&edge_token))
-            .map(|features| features.value().clone())
-            .map(|client_features| ClientFeatures {
-                features: client_features
-                    .features
-                    .filter_by_projects(&validated_token),
-                ..client_features
-            })
+            .map(|client_features| filter_client_features(&client_features, filter_set))
             .ok_or(EdgeError::ClientFeaturesFetchError(FeatureError::Retriable)),
-    }?;
-    client_features
-        .features
-        .into_iter()
-        .find(|feature| feature.name == feature_name.clone())
-        .map(Json)
-        .ok_or(EdgeError::FeatureNotFound(feature_name.into_inner()))
+    }
+    .map(|client_features| client_features.features.into_iter().next())?
+    .ok_or(EdgeError::FeatureNotFound(feature_name.into_inner()))
+    .map(Json)
 }
 
 #[utoipa::path(
