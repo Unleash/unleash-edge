@@ -27,7 +27,7 @@ impl FeatureFilterSet {
     }
 }
 
-pub fn filter_features(
+fn filter_features(
     feature_cache: &Ref<'_, String, ClientFeatures>,
     filters: FeatureFilterSet,
 ) -> Vec<ClientFeature> {
@@ -37,6 +37,18 @@ pub fn filter_features(
         .filter(|feature| filters.apply(feature))
         .cloned()
         .collect::<Vec<ClientFeature>>()
+}
+
+pub fn filter_client_features(
+    feature_cache: &Ref<'_, String, ClientFeatures>,
+    filters: FeatureFilterSet,
+) -> ClientFeatures {
+    ClientFeatures {
+        features: filter_features(feature_cache, filters),
+        segments: feature_cache.segments.clone(),
+        query: feature_cache.query.clone(),
+        version: feature_cache.version,
+    }
 }
 
 pub fn name_prefix_filter(name_prefix: String) -> FeatureFilter {

@@ -1,5 +1,7 @@
 use crate::error::{EdgeError, FeatureError};
-use crate::filters::{name_prefix_filter, project_filter, FeatureFilterSet};
+use crate::filters::{
+    filter_client_features, name_prefix_filter, project_filter, FeatureFilterSet,
+};
 use crate::http::feature_refresher::FeatureRefresher;
 use crate::metrics::client_metrics::MetricsCache;
 use crate::tokens::cache_key;
@@ -67,16 +69,16 @@ async fn resolve_features(
         .map(|e| e.value().clone())
         .ok_or(EdgeError::AuthorizationDenied)?;
 
-    let filters = filter_query.into_inner();
+    let query_filters = filter_query.into_inner();
     let query = unleash_types::client_features::Query {
         tags: None,
         projects: Some(validated_token.projects.clone()),
-        name_prefix: filters.name_prefix.clone(),
+        name_prefix: query_filters.name_prefix.clone(),
         environment: validated_token.environment.clone(),
         inline_segment_constraints: Some(false),
     };
 
-    let filter_set = if let Some(name_prefix) = filters.name_prefix {
+    let filter_set = if let Some(name_prefix) = query_filters.name_prefix {
         FeatureFilterSet::from(Box::new(name_prefix_filter(name_prefix)))
     } else {
         FeatureFilterSet::default()
@@ -91,13 +93,7 @@ async fn resolve_features(
         }
         None => features_cache
             .get(&cache_key(&edge_token))
-            .map(|features| features.value().clone())
-            .map(|client_features| ClientFeatures {
-                features: client_features
-                    .features
-                    .filter_by_projects(&validated_token),
-                ..client_features
-            })
+            .map(|client_features| filter_client_features(&client_features, filter_set))
             .ok_or(EdgeError::ClientFeaturesFetchError(FeatureError::Retriable)),
     }?;
 

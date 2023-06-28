@@ -12,7 +12,7 @@ use unleash_yggdrasil::EngineState;
 
 use super::unleash_client::UnleashClient;
 use crate::error::{EdgeError, FeatureError};
-use crate::filters::{filter_features, project_filter, FeatureFilterSet};
+use crate::filters::{filter_client_features, FeatureFilterSet};
 use crate::types::{
     build, ClientTokenRequest, ClientTokenResponse, EdgeResult, ProjectFilter, TokenType,
     TokenValidationStatus,
@@ -209,15 +209,9 @@ impl FeatureRefresher {
         token: &EdgeToken,
         filters: FeatureFilterSet,
     ) -> Option<ClientFeatures> {
-        let client_features = self.features_cache.get(&cache_key(token))?;
-        let features = filter_features(&client_features, filters);
-
-        Some(ClientFeatures {
-            features,
-            query: client_features.query.clone(),
-            segments: client_features.segments.clone(),
-            version: client_features.version,
-        })
+        self.features_cache
+            .get(&cache_key(token))
+            .map(|client_features| filter_client_features(&client_features, filters))
     }
 
     ///
