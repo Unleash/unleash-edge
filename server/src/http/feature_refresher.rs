@@ -87,7 +87,7 @@ impl FeatureRefresher {
         }
     }
 
-    pub fn get_tokens_due_for_refresh(&self) -> Vec<TokenRefresh> {
+    pub(crate) fn get_tokens_due_for_refresh(&self) -> Vec<TokenRefresh> {
         self.tokens_to_refresh
             .iter()
             .map(|e| e.value().clone())
@@ -100,7 +100,7 @@ impl FeatureRefresher {
             .collect()
     }
 
-    pub fn get_tokens_never_refreshed(&self) -> Vec<TokenRefresh> {
+    pub(crate) fn get_tokens_never_refreshed(&self) -> Vec<TokenRefresh> {
         self.tokens_to_refresh
             .iter()
             .map(|e| e.value().clone())
@@ -108,20 +108,26 @@ impl FeatureRefresher {
             .collect()
     }
 
-    pub fn token_is_subsumed(&self, token: &EdgeToken) -> bool {
+    pub(crate) fn token_is_subsumed(&self, token: &EdgeToken) -> bool {
         self.tokens_to_refresh
             .iter()
             .filter(|r| r.token.environment == token.environment)
             .any(|t| t.token.subsumes(token))
     }
 
-    pub fn frontend_token_is_covered_by_client_token(&self, frontend_token: &EdgeToken) -> bool {
+    pub(crate) fn frontend_token_is_covered_by_client_token(
+        &self,
+        frontend_token: &EdgeToken,
+    ) -> bool {
         self.tokens_to_refresh.iter().any(|client_token| {
             frontend_token.same_environment_and_broader_or_equal_project_access(&client_token.token)
         })
     }
 
-    async fn register_and_hydrate_token(&self, token: &EdgeToken) -> EdgeResult<ClientFeatures> {
+    pub(crate) async fn register_and_hydrate_token(
+        &self,
+        token: &EdgeToken,
+    ) -> EdgeResult<ClientFeatures> {
         let filter = FeatureFilterSet::from(project_filter(token));
         self.register_token_for_refresh(token.clone(), None).await;
         self.hydrate_new_tokens().await;
@@ -129,7 +135,7 @@ impl FeatureRefresher {
             .ok_or(EdgeError::ClientFeaturesFetchError(FeatureError::Retriable))
     }
 
-    pub async fn forward_request_for_client_token(
+    pub(crate) async fn forward_request_for_client_token(
         &self,
         client_token_request: ClientTokenRequest,
     ) -> EdgeResult<ClientTokenResponse> {
@@ -138,7 +144,10 @@ impl FeatureRefresher {
             .await
     }
 
-    pub async fn create_client_token_for_fe_token(&self, token: EdgeToken) -> EdgeResult<()> {
+    pub(crate) async fn create_client_token_for_fe_token(
+        &self,
+        token: EdgeToken,
+    ) -> EdgeResult<()> {
         if token.status == TokenValidationStatus::Validated
             && token.token_type == Some(TokenType::Frontend)
         {
@@ -156,7 +165,7 @@ impl FeatureRefresher {
         Ok(())
     }
 
-    pub async fn features_for_filter(
+    pub(crate) async fn features_for_filter(
         &self,
         token: EdgeToken,
         filters: FeatureFilterSet,

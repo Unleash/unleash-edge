@@ -6,7 +6,7 @@ use crate::types::EdgeToken;
 pub type FeatureFilter = Box<dyn Fn(&ClientFeature) -> bool>;
 
 #[derive(Default)]
-pub struct FeatureFilterSet {
+pub(crate) struct FeatureFilterSet {
     filters: Vec<FeatureFilter>,
 }
 
@@ -39,7 +39,7 @@ fn filter_features(
         .collect::<Vec<ClientFeature>>()
 }
 
-pub fn filter_client_features(
+pub(crate) fn filter_client_features(
     feature_cache: &Ref<'_, String, ClientFeatures>,
     filters: FeatureFilterSet,
 ) -> ClientFeatures {
@@ -51,15 +51,15 @@ pub fn filter_client_features(
     }
 }
 
-pub fn name_prefix_filter(name_prefix: String) -> FeatureFilter {
+pub(crate) fn name_prefix_filter(name_prefix: String) -> FeatureFilter {
     Box::new(move |f| f.name.starts_with(&name_prefix))
 }
 
-pub fn name_match_filter(name_prefix: String) -> FeatureFilter {
+pub(crate) fn name_match_filter(name_prefix: String) -> FeatureFilter {
     Box::new(move |f| f.name.starts_with(&name_prefix))
 }
 
-pub fn project_filter(token: &EdgeToken) -> FeatureFilter {
+pub(crate) fn project_filter(token: &EdgeToken) -> FeatureFilter {
     let token = token.clone();
     Box::new(move |feature| {
         if let Some(feature_project) = &feature.project {

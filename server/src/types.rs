@@ -59,15 +59,6 @@ pub struct ValidateTokensRequest {
     pub tokens: Vec<String>,
 }
 
-impl ClientFeaturesRequest {
-    pub fn new(api_key: String, etag: Option<String>) -> Self {
-        Self {
-            api_key,
-            etag: etag.map(EntityTag::new_weak),
-        }
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, ToSchema)]
 #[cfg_attr(test, derive(Default))]
 #[serde(rename_all = "camelCase")]

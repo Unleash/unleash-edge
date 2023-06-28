@@ -24,18 +24,9 @@ lazy_static! {
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub struct ApplicationKey {
+pub(crate) struct ApplicationKey {
     pub app_name: String,
     pub instance_id: String,
-}
-
-impl ApplicationKey {
-    pub fn from_app_name(app_name: String) -> Self {
-        Self {
-            app_name,
-            instance_id: ulid::Ulid::new().to_string(),
-        }
-    }
 }
 
 impl From<ClientApplication> for ApplicationKey {
@@ -99,17 +90,17 @@ pub struct MetricsBatch {
 
 #[derive(Default, Debug)]
 pub struct MetricsCache {
-    pub applications: DashMap<ApplicationKey, ClientApplication>,
-    pub metrics: DashMap<MetricsKey, ClientMetricsEnv>,
+    pub(crate) applications: DashMap<ApplicationKey, ClientApplication>,
+    pub(crate) metrics: DashMap<MetricsKey, ClientMetricsEnv>,
 }
 
-pub fn size_of_batch(batch: &MetricsBatch) -> usize {
+pub(crate) fn size_of_batch(batch: &MetricsBatch) -> usize {
     serde_json::to_string(batch)
         .map(|s| s.as_bytes().len())
         .unwrap_or(0)
 }
 
-pub fn register_client_application(
+pub(crate) fn register_client_application(
     edge_token: EdgeToken,
     connect_via: &ConnectVia,
     client_application: ClientApplication,
@@ -135,7 +126,7 @@ pub fn register_client_application(
     );
 }
 
-pub fn register_client_metrics(
+pub(crate) fn register_client_metrics(
     edge_token: EdgeToken,
     metrics: ClientMetrics,
     metrics_cache: Data<MetricsCache>,
@@ -149,12 +140,12 @@ pub fn register_client_metrics(
     metrics_cache.sink_metrics(&metrics);
 }
 
-pub fn sendable(batch: &MetricsBatch) -> bool {
+pub(crate) fn sendable(batch: &MetricsBatch) -> bool {
     size_of_batch(batch) < UPSTREAM_MAX_BODY_SIZE
 }
 
 #[instrument(skip(batch))]
-pub fn cut_into_sendable_batches(batch: MetricsBatch) -> Vec<MetricsBatch> {
+pub(crate) fn cut_into_sendable_batches(batch: MetricsBatch) -> Vec<MetricsBatch> {
     let batch_count = (size_of_batch(&batch) / BATCH_BODY_SIZE) + 1;
     let apps_count = batch.applications.len();
     let apps_per_batch = apps_count / batch_count;
