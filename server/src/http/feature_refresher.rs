@@ -12,10 +12,9 @@ use unleash_yggdrasil::EngineState;
 
 use super::unleash_client::UnleashClient;
 use crate::error::{EdgeError, FeatureError};
-use crate::filters::{filter_client_features, FeatureFilterSet};
+use crate::filters::{filter_client_features, project_filter, FeatureFilterSet};
 use crate::types::{
-    build, ClientTokenRequest, ClientTokenResponse, EdgeResult, ProjectFilter, TokenType,
-    TokenValidationStatus,
+    build, ClientTokenRequest, ClientTokenResponse, EdgeResult, TokenType, TokenValidationStatus,
 };
 use crate::{
     persistence::EdgePersistence,
@@ -123,9 +122,10 @@ impl FeatureRefresher {
     }
 
     async fn register_and_hydrate_token(&self, token: &EdgeToken) -> EdgeResult<ClientFeatures> {
+        let filter = FeatureFilterSet::from(project_filter(token));
         self.register_token_for_refresh(token.clone(), None).await;
         self.hydrate_new_tokens().await;
-        self.get_filtered_features(token)
+        self.get_features_by_filter(token, filter)
             .ok_or(EdgeError::ClientFeaturesFetchError(FeatureError::Retriable))
     }
 
@@ -154,33 +154,6 @@ impl FeatureRefresher {
             }
         }
         Ok(())
-    }
-
-    pub async fn features_for_token(&self, token: EdgeToken) -> EdgeResult<ClientFeatures> {
-        match self.get_filtered_features(&token) {
-            Some(features) => {
-                if self.token_is_subsumed(&token) {
-                    Ok(features)
-                } else {
-                    debug!("Token is not subsumed by existing tokens. Registering");
-                    self.register_and_hydrate_token(&token).await
-                }
-            }
-            None => {
-                debug!("Had never seen this environment. Configuring fetcher");
-                self.register_and_hydrate_token(&token).await
-            }
-        }
-    }
-
-    fn get_filtered_features(&self, token: &EdgeToken) -> Option<ClientFeatures> {
-        self.features_cache
-            .get(&cache_key(token))
-            .map(|e| e.value().clone())
-            .map(|features_response| ClientFeatures {
-                features: features_response.features.filter_by_projects(token),
-                ..features_response
-            })
     }
 
     pub async fn features_for_filter(
@@ -372,6 +345,7 @@ mod tests {
     use unleash_types::client_features::ClientFeatures;
     use unleash_yggdrasil::EngineState;
 
+    use crate::filters::{project_filter, FeatureFilterSet};
     use crate::tests::features_from_disk;
     use crate::tokens::cache_key;
     use crate::types::TokenType;
@@ -908,7 +882,10 @@ mod tests {
         let mut feature_refresher = FeatureRefresher::with_client(Arc::new(unleash_client));
         feature_refresher.refresh_interval = Duration::seconds(0);
         let dx_features = feature_refresher
-            .features_for_token(dx_token)
+            .features_for_filter(
+                dx_token.clone(),
+                FeatureFilterSet::from(project_filter(&dx_token)),
+            )
             .await
             .expect("No dx features");
         assert!(dx_features
@@ -917,7 +894,10 @@ mod tests {
             .all(|f| f.project == Some("dx".into())));
         assert_eq!(dx_features.features.len(), 16);
         let eg_features = feature_refresher
-            .features_for_token(eg_token)
+            .features_for_filter(
+                eg_token.clone(),
+                FeatureFilterSet::from(project_filter(&eg_token)),
+            )
             .await
             .expect("Could not get eg features");
         assert_eq!(eg_features.features.len(), 7);
@@ -963,12 +943,18 @@ mod tests {
         let mut feature_refresher = FeatureRefresher::with_client(Arc::new(unleash_client));
         feature_refresher.refresh_interval = Duration::seconds(0);
         let dx_features = feature_refresher
-            .features_for_token(dx_token)
+            .features_for_filter(
+                dx_token.clone(),
+                FeatureFilterSet::from(project_filter(&dx_token)),
+            )
             .await
             .expect("No dx features found");
         assert_eq!(dx_features.features.len(), 16);
         let unleash_cloud_features = feature_refresher
-            .features_for_token(multitoken)
+            .features_for_filter(
+                multitoken.clone(),
+                FeatureFilterSet::from(project_filter(&multitoken)),
+            )
             .await
             .expect("No multi features");
         assert_eq!(
@@ -988,7 +974,10 @@ mod tests {
             7
         );
         let eg_features = feature_refresher
-            .features_for_token(eg_token)
+            .features_for_filter(
+                eg_token.clone(),
+                FeatureFilterSet::from(project_filter(&eg_token)),
+            )
             .await
             .expect("No eg_token features");
         assert_eq!(

@@ -14,9 +14,9 @@ use chrono::{DateTime, Duration, Utc};
 use dashmap::DashMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use shadow_rs::shadow;
-use unleash_types::client_features::{ClientFeature, ClientFeatures};
+use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::{ClientApplication, ClientMetricsEnv};
-use unleash_yggdrasil::{EngineState, ResolvedToggle};
+use unleash_yggdrasil::EngineState;
 use utoipa::{IntoParams, ToSchema};
 
 pub type EdgeJsonResult<T> = Result<Json<T>, EdgeError>;
@@ -247,39 +247,6 @@ pub struct BatchMetricsRequest {
 pub struct BatchMetricsRequestBody {
     pub applications: Vec<ClientApplication>,
     pub metrics: Vec<ClientMetricsEnv>,
-}
-pub trait ProjectFilter<T> {
-    fn filter_by_projects(&self, token: &EdgeToken) -> Vec<T>;
-}
-
-impl ProjectFilter<ClientFeature> for Vec<ClientFeature> {
-    fn filter_by_projects(&self, token: &EdgeToken) -> Vec<ClientFeature> {
-        self.iter()
-            .filter(|feature| {
-                if let Some(feature_project) = &feature.project {
-                    token.projects.is_empty()
-                        || token.projects.contains(&"*".to_string())
-                        || token.projects.contains(feature_project)
-                } else {
-                    false
-                }
-            })
-            .cloned()
-            .collect::<Vec<ClientFeature>>()
-    }
-}
-
-impl ProjectFilter<ResolvedToggle> for Vec<ResolvedToggle> {
-    fn filter_by_projects(&self, token: &EdgeToken) -> Vec<ResolvedToggle> {
-        self.iter()
-            .filter(|toggle| {
-                token.projects.is_empty()
-                    || token.projects.contains(&"*".to_string())
-                    || token.projects.contains(&toggle.project)
-            })
-            .cloned()
-            .collect()
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
