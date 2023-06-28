@@ -1,11 +1,11 @@
 use crate::error::{EdgeError, FeatureError};
 use crate::filters::{
-    filter_client_features, name_prefix_filter, project_filter, FeatureFilterSet,
+    filter_client_features, name_match_filter, name_prefix_filter, project_filter, FeatureFilterSet,
 };
 use crate::http::feature_refresher::FeatureRefresher;
 use crate::metrics::client_metrics::MetricsCache;
 use crate::tokens::cache_key;
-use crate::types::{EdgeJsonResult, EdgeResult, EdgeToken, FeatureFilters, ProjectFilter};
+use crate::types::{EdgeJsonResult, EdgeResult, EdgeToken, FeatureFilters};
 use actix_web::web::{self, Data, Json, Query};
 use actix_web::{get, post, HttpRequest, HttpResponse};
 use dashmap::DashMap;
@@ -127,25 +127,24 @@ pub async fn get_feature(
         .get(&edge_token.token)
         .map(|e| e.value().clone())
         .ok_or(EdgeError::AuthorizationDenied)?;
-    let client_features = match req.app_data::<Data<FeatureRefresher>>() {
-        Some(refresher) => refresher.features_for_token(validated_token).await,
+
+    let filter_set = FeatureFilterSet::from(Box::new(name_match_filter(feature_name.clone())))
+        .with_filter(project_filter(&edge_token));
+
+    match req.app_data::<Data<FeatureRefresher>>() {
+        Some(refresher) => {
+            refresher
+                .features_for_filter(validated_token.clone(), filter_set)
+                .await
+        }
         None => features_cache
             .get(&cache_key(&edge_token))
-            .map(|features| features.value().clone())
-            .map(|client_features| ClientFeatures {
-                features: client_features
-                    .features
-                    .filter_by_projects(&validated_token),
-                ..client_features
-            })
+            .map(|client_features| filter_client_features(&client_features, filter_set))
             .ok_or(EdgeError::ClientFeaturesFetchError(FeatureError::Retriable)),
-    }?;
-    client_features
-        .features
-        .into_iter()
-        .find(|feature| feature.name == feature_name.clone())
-        .map(Json)
-        .ok_or(EdgeError::FeatureNotFound(feature_name.into_inner()))
+    }
+    .map(|client_features| client_features.features.into_iter().next())?
+    .ok_or(EdgeError::FeatureNotFound(feature_name.into_inner()))
+    .map(Json)
 }
 
 #[utoipa::path(

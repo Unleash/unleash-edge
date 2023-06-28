@@ -55,6 +55,10 @@ pub fn name_prefix_filter(name_prefix: String) -> FeatureFilter {
     Box::new(move |f| f.name.starts_with(&name_prefix))
 }
 
+pub fn name_match_filter(name_prefix: String) -> FeatureFilter {
+    Box::new(move |f| f.name.starts_with(&name_prefix))
+}
+
 pub fn project_filter(token: &EdgeToken) -> FeatureFilter {
     let token = token.clone();
     Box::new(move |feature| {
