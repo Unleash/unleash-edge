@@ -5,7 +5,50 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 8.0.0 (2023-06-28)
+
+### Chore
+
+ - <csr-id-a85c2f3911b5cffb6ccee78a74ffa4ece61cebc8/> reduce public api for a number of functions/structs that should never have been public anyway
+ - <csr-id-9dd9930d22cf259a20b8168d203c3919df019921/> bump unleash-types to no longer serialize nulls
+
+### Bug Fixes
+
+ - <csr-id-61306041de7f58584ee2ab8d310b12a00f8eeb87/> log levels were too high
+
+### Performance
+
+ - <csr-id-4c03cba94693fe5ede4b7d16fb8ee00ec2d4e572/> improve memory usage during request lifecycle
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 5 commits contributed to the release over the course of 1 calendar day.
+ - 5 days passed between releases.
+ - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 3 unique issues were worked on: [#218](https://github.com/Unleash/unleash-edge/issues/218), [#220](https://github.com/Unleash/unleash-edge/issues/220), [#221](https://github.com/Unleash/unleash-edge/issues/221)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#218](https://github.com/Unleash/unleash-edge/issues/218)**
+    - Perf/remove unnecessary clone ([`5808004`](https://github.com/Unleash/unleash-edge/commit/5808004aa4725bb8debd5d9150177c910b63d733))
+ * **[#220](https://github.com/Unleash/unleash-edge/issues/220)**
+    - Improve memory usage during request lifecycle ([`4c03cba`](https://github.com/Unleash/unleash-edge/commit/4c03cba94693fe5ede4b7d16fb8ee00ec2d4e572))
+ * **[#221](https://github.com/Unleash/unleash-edge/issues/221)**
+    - Reduce public api for a number of functions/structs that should never have been public anyway ([`a85c2f3`](https://github.com/Unleash/unleash-edge/commit/a85c2f3911b5cffb6ccee78a74ffa4ece61cebc8))
+ * **Uncategorized**
+    - Bump unleash-types to no longer serialize nulls ([`9dd9930`](https://github.com/Unleash/unleash-edge/commit/9dd9930d22cf259a20b8168d203c3919df019921))
+    - Log levels were too high ([`6130604`](https://github.com/Unleash/unleash-edge/commit/61306041de7f58584ee2ab8d310b12a00f8eeb87))
+</details>
+
 ## 7.0.1 (2023-06-23)
+
+<csr-id-0920dad3c42cf8284cf21899a8a5f392271acca9/>
 
 ### Chore
 
@@ -15,7 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 1 commit contributed to the release.
+ - 2 commits contributed to the release.
  - 10 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#215](https://github.com/Unleash/unleash-edge/issues/215)
@@ -28,6 +71,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  * **[#215](https://github.com/Unleash/unleash-edge/issues/215)**
     - Allows resolving a single toggle to do that instead of iterating the whole hashmap ([`0920dad`](https://github.com/Unleash/unleash-edge/commit/0920dad3c42cf8284cf21899a8a5f392271acca9))
+ * **Uncategorized**
+    - Release unleash-edge v7.0.1 ([`92c882e`](https://github.com/Unleash/unleash-edge/commit/92c882e71d2a7747b9b10913757d8767b83241f0))
 </details>
 
 ## 7.0.0 (2023-06-12)
@@ -78,9 +123,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Remove SA token from app_data, it's already added to the FeatureRefresher ([`6c3942e`](https://github.com/Unleash/unleash-edge/commit/6c3942ef330bc6bf04344193d0ab3be9a1a1e3ed))
     - Don't log the SA token on startup ([`d6da27a`](https://github.com/Unleash/unleash-edge/commit/d6da27a77551ee22d4e406deb6a3351ad013cf1e))
 </details>
-
-<csr-unknown>
- You can now use tcp or tls as schemes for Redis Use service account to create client tokensPreviously, if Edge saw a frontend token that we did not have matching or more access to via a client token we’d return 511 whentrying to get data.With this patch we now create client tokens with same access as the frontend token if we have a service-account to use to create a client token.If we do not, we still return 511 when a frontend token that we can’t build data for does not exist.We do comparison based on environment and projects list in existing client tokens and frontend tokens, in order to ensure that we have enough data.<csr-unknown/>
 
 ## 6.0.0 (2023-06-07)
 
