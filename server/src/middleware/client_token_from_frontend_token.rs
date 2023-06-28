@@ -5,23 +5,13 @@ use actix_web::{
 };
 use dashmap::DashMap;
 use tracing::{debug, instrument};
-use unleash_yggdrasil::EngineState;
 
 use crate::{
     http::feature_refresher::FeatureRefresher,
-    tokens::cache_key,
     types::{EdgeResult, EdgeToken, TokenValidationStatus},
 };
 
-pub fn have_data_for_fe_token(req: &ServiceRequest, token: &EdgeToken) -> bool {
-    if let Some(engine_cache) = req.app_data::<Data<DashMap<String, EngineState>>>() {
-        engine_cache.contains_key(&cache_key(token))
-    } else {
-        false
-    }
-}
-
-pub async fn create_client_token_for_fe_token(
+pub(crate) async fn create_client_token_for_fe_token(
     req: &ServiceRequest,
     token: &EdgeToken,
 ) -> EdgeResult<()> {

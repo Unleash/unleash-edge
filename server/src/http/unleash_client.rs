@@ -476,6 +476,15 @@ mod tests {
 
     use super::{EdgeTokens, UnleashClient};
 
+    impl ClientFeaturesRequest {
+        pub(crate) fn new(api_key: String, etag: Option<String>) -> Self {
+            Self {
+                api_key,
+                etag: etag.map(EntityTag::new_weak),
+            }
+        }
+    }
+
     const TEST_TOKEN: &str = "[]:development.08bce4267a3b1aa";
     const TEST_SERVICE_ACCOUNT_TOKEN: &str = "*:*.service-account-token";
     fn two_client_features() -> ClientFeatures {

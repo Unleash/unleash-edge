@@ -8,7 +8,7 @@ use crate::cli::TlsOptions;
 use crate::error::{CertificateError, EdgeError};
 use crate::types::EdgeResult;
 
-pub fn build_upstream_certificate(
+pub(crate) fn build_upstream_certificate(
     upstream_certificate: Option<PathBuf>,
 ) -> EdgeResult<Option<reqwest::tls::Certificate>> {
     upstream_certificate

@@ -71,12 +71,15 @@ impl EdgeToken {
         }
     }
 
-    pub fn subsumes(&self, other: &EdgeToken) -> bool {
+    pub(crate) fn subsumes(&self, other: &EdgeToken) -> bool {
         self.token_type == other.token_type
             && self.same_environment_and_broader_or_equal_project_access(other)
     }
 
-    pub fn same_environment_and_broader_or_equal_project_access(&self, other: &EdgeToken) -> bool {
+    pub(crate) fn same_environment_and_broader_or_equal_project_access(
+        &self,
+        other: &EdgeToken,
+    ) -> bool {
         self.environment == other.environment
             && (self.projects.contains(&"*".into())
                 || (self.projects.len() >= other.projects.len()
