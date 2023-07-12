@@ -1,6 +1,7 @@
 use actix_web::http::header::EntityTag;
+use chrono::Utc;
 use lazy_static::lazy_static;
-use prometheus::{register_int_gauge_vec, IntGaugeVec, Opts};
+use prometheus::{register_histogram_vec, register_int_gauge_vec, HistogramVec, IntGaugeVec, Opts};
 use reqwest::header::{HeaderMap, HeaderName};
 use reqwest::{header, Client};
 use reqwest::{ClientBuilder, Identity, RequestBuilder, StatusCode, Url};
@@ -36,6 +37,13 @@ lazy_static! {
             "Why we failed to register upstream"
         ),
         &["status_code"]
+    )
+    .unwrap();
+    pub static ref CLIENT_FEATURE_FETCH: HistogramVec = register_histogram_vec!(
+        "client_feature_fetch",
+        "Timings for fetching features in milliseconds",
+        &["status_code"],
+        vec![1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0, 5000.0]
     )
     .unwrap();
     pub static ref CLIENT_FEATURE_FETCH_FAILURES: IntGaugeVec = register_int_gauge_vec!(
@@ -298,6 +306,7 @@ impl UnleashClient {
         &self,
         request: ClientFeaturesRequest,
     ) -> EdgeResult<ClientFeaturesResponse> {
+        let start_time = Utc::now();
         let response = self
             .client_features_req(request.clone())
             .send()
@@ -306,6 +315,14 @@ impl UnleashClient {
                 warn!("Failed to fetch errors due to [{e:?}] - Will retry");
                 EdgeError::ClientFeaturesFetchError(FeatureError::Retriable)
             })?;
+        let stop_time = Utc::now();
+        CLIENT_FEATURE_FETCH
+            .with_label_values(&[&response.status().as_u16().to_string()])
+            .observe(
+                stop_time
+                    .signed_duration_since(start_time)
+                    .num_milliseconds() as f64,
+            );
         if response.status() == StatusCode::NOT_MODIFIED {
             Ok(ClientFeaturesResponse::NoUpdate(
                 request.etag.expect("Got NOT_MODIFIED without an ETag"),
