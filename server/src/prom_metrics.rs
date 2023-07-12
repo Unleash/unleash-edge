@@ -102,4 +102,9 @@ fn register_custom_metrics(registry: &prometheus::Registry) {
             crate::http::unleash_client::TOKEN_VALIDATION_FAILURES.clone(),
         ))
         .unwrap();
+    registry
+        .register(Box::new(
+            crate::http::unleash_client::CLIENT_FEATURE_FETCH.clone(),
+        ))
+        .unwrap();
 }
