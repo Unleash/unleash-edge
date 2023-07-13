@@ -5,7 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 8.0.1 (2023-07-13)
+
+### Chore
+
+ - <csr-id-263d56c6746e141610e54cabb3a8861614ee7e0a/> Prepare for release of 8.0.1
+
+### New Features
+
+ - <csr-id-5d63562e65225139c1fb67c715181896b3f982f8/> added timing for client feature fetch operations
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release.
+ - 14 days passed between releases.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 1 unique issue was worked on: [#228](https://github.com/Unleash/unleash-edge/issues/228)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#228](https://github.com/Unleash/unleash-edge/issues/228)**
+    - Added timing for client feature fetch operations ([`5d63562`](https://github.com/Unleash/unleash-edge/commit/5d63562e65225139c1fb67c715181896b3f982f8))
+ * **Uncategorized**
+    - Prepare for release of 8.0.1 ([`263d56c`](https://github.com/Unleash/unleash-edge/commit/263d56c6746e141610e54cabb3a8861614ee7e0a))
+</details>
+
 ## 8.0.0 (2023-06-28)
+
+<csr-id-a85c2f3911b5cffb6ccee78a74ffa4ece61cebc8/>
+<csr-id-9dd9930d22cf259a20b8168d203c3919df019921/>
 
 ### Chore
 
@@ -24,7 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 5 commits contributed to the release over the course of 1 calendar day.
+ - 6 commits contributed to the release over the course of 1 calendar day.
  - 5 days passed between releases.
  - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 3 unique issues were worked on: [#218](https://github.com/Unleash/unleash-edge/issues/218), [#220](https://github.com/Unleash/unleash-edge/issues/220), [#221](https://github.com/Unleash/unleash-edge/issues/221)
@@ -42,6 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#221](https://github.com/Unleash/unleash-edge/issues/221)**
     - Reduce public api for a number of functions/structs that should never have been public anyway ([`a85c2f3`](https://github.com/Unleash/unleash-edge/commit/a85c2f3911b5cffb6ccee78a74ffa4ece61cebc8))
  * **Uncategorized**
+    - Release unleash-edge v8.0.0 ([`16a34df`](https://github.com/Unleash/unleash-edge/commit/16a34dfd27b4e85abf44d440333b5fb0477d2aa3))
     - Bump unleash-types to no longer serialize nulls ([`9dd9930`](https://github.com/Unleash/unleash-edge/commit/9dd9930d22cf259a20b8168d203c3919df019921))
     - Log levels were too high ([`6130604`](https://github.com/Unleash/unleash-edge/commit/61306041de7f58584ee2ab8d310b12a00f8eeb87))
 </details>
