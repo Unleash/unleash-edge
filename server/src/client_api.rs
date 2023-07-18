@@ -365,6 +365,7 @@ mod tests {
                     project: Some("default".into()),
                     strategies: Some(vec![
                         Strategy {
+                            variants: None,
                             name: "standard".into(),
                             sort_order: Some(500),
                             segments: None,
@@ -372,6 +373,7 @@ mod tests {
                             parameters: None,
                         },
                         Strategy {
+                            variants: None,
                             name: "gradualRollout".into(),
                             sort_order: Some(100),
                             segments: None,
@@ -409,6 +411,7 @@ mod tests {
                             name: "gradualRollout".to_string(),
                             sort_order: None,
                             segments: None,
+                            variants: None,
                             constraints: Some(vec![Constraint {
                                 context_name: "version".to_string(),
                                 operator: Operator::SemverGt,
@@ -425,6 +428,7 @@ mod tests {
                             segments: None,
                             constraints: None,
                             parameters: None,
+                            variants: None,
                         },
                     ]),
                     variants: None,
