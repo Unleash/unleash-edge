@@ -723,6 +723,7 @@ mod tests {
                     name: "default".into(),
                     sort_order: None,
                     segments: None,
+                    variants: None,
                     constraints: Some(vec![Constraint {
                         context_name: "userId".into(),
                         operator: Operator::In,
