@@ -5,7 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 8.1.0 (2023-07-27)
+
+### Chore
+
+ - <csr-id-9d2271827f7c895acea280463011e638e3dd7dd4/> bumps yggdrasil and unleash-types to allow the usage of strategy variants
+ - <csr-id-d0b0b66d8c608ea742137c7647317fe876527ec9/> updated README to point to newest edge docker container
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release over the course of 5 calendar days.
+ - 5 days passed between releases.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 1 unique issue was worked on: [#231](https://github.com/Unleash/unleash-edge/issues/231)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#231](https://github.com/Unleash/unleash-edge/issues/231)**
+    - Bumps yggdrasil and unleash-types to allow the usage of strategy variants ([`9d22718`](https://github.com/Unleash/unleash-edge/commit/9d2271827f7c895acea280463011e638e3dd7dd4))
+ * **Uncategorized**
+    - Updated README to point to newest edge docker container ([`d0b0b66`](https://github.com/Unleash/unleash-edge/commit/d0b0b66d8c608ea742137c7647317fe876527ec9))
+</details>
+
 ## 8.0.1 (2023-07-13)
+
+<csr-id-263d56c6746e141610e54cabb3a8861614ee7e0a/>
 
 ### Chore
 
@@ -19,7 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 2 commits contributed to the release.
+ - 3 commits contributed to the release.
  - 14 days passed between releases.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#228](https://github.com/Unleash/unleash-edge/issues/228)
@@ -33,6 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#228](https://github.com/Unleash/unleash-edge/issues/228)**
     - Added timing for client feature fetch operations ([`5d63562`](https://github.com/Unleash/unleash-edge/commit/5d63562e65225139c1fb67c715181896b3f982f8))
  * **Uncategorized**
+    - Release unleash-edge v8.0.1 ([`74c6801`](https://github.com/Unleash/unleash-edge/commit/74c68016f3cac5d78bf30dd593083327e32ce3d1))
     - Prepare for release of 8.0.1 ([`263d56c`](https://github.com/Unleash/unleash-edge/commit/263d56c6746e141610e54cabb3a8861614ee7e0a))
 </details>
 
