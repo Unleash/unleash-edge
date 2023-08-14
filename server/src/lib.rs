@@ -76,7 +76,9 @@ mod tests {
                     .service(
                         web::scope("/api")
                             .configure(crate::client_api::configure_client_api)
-                            .configure(crate::frontend_api::configure_frontend_api)
+                            .configure(|cfg| {
+                                crate::frontend_api::configure_frontend_api(cfg, false)
+                            })
                             .configure(crate::admin_api::configure_admin_api),
                     )
                     .service(web::scope("/edge").configure(crate::edge_api::configure_edge_api)),

@@ -27,6 +27,7 @@ use unleash_edge::{internal_backstage, tls};
 async fn main() -> Result<(), anyhow::Error> {
     dotenv::dotenv().ok();
     let args = CliArgs::parse();
+    let disable_all_endpoint = args.disable_all_endpoint;
     if args.markdown_help {
         clap_markdown::print_help_markdown::<CliArgs>();
         return Ok(());
@@ -93,7 +94,7 @@ async fn main() -> Result<(), anyhow::Error> {
             web::scope(&base_path)
                 .wrap(actix_web::middleware::Compress::default())
                 .wrap(actix_web::middleware::NormalizePath::default())
-                .wrap(Etag::default())
+                .wrap(Etag)
                 .wrap(cors_middleware)
                 .wrap(RequestTracing::new())
                 .wrap(request_metrics.clone())
@@ -107,7 +108,9 @@ async fn main() -> Result<(), anyhow::Error> {
                 .service(
                     web::scope("/api")
                         .configure(client_api::configure_client_api)
-                        .configure(frontend_api::configure_frontend_api)
+                        .configure(|cfg| {
+                            frontend_api::configure_frontend_api(cfg, disable_all_endpoint)
+                        })
                         .configure(admin_api::configure_admin_api)
                         .configure(|cfg| {
                             client_api::configure_experimental_post_features(

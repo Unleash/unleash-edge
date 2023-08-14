@@ -215,6 +215,11 @@ pub struct CliArgs {
 
     #[clap(flatten)]
     pub trust_proxy: TrustProxy,
+
+    /// Set this flag to true if you want to disable /api/proxy/all and /api/frontend/all
+    /// Because returning all toggles regardless of their state is a potential security vulnerability, these endpoints can be disabled
+    #[clap(long, env, default_value_t = false, global = true)]
+    pub disable_all_endpoint: bool,
 }
 
 #[derive(Args, Debug, Clone)]

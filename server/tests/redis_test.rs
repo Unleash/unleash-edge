@@ -12,7 +12,7 @@ use unleash_edge::{
 use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
 fn setup_redis(docker: &Cli) -> (Client, String, Container<Redis>) {
-    let node: Container<Redis> = docker.run(Redis::default());
+    let node: Container<Redis> = docker.run(Redis);
     let host_port = node.get_host_port_ipv4(6379);
     let url = format!("redis://127.0.0.1:{host_port}");
 

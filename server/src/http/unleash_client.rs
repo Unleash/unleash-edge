@@ -562,7 +562,7 @@ mod tests {
         test_server(move || {
             HttpService::new(map_config(
                 App::new()
-                    .wrap(Etag::default())
+                    .wrap(Etag)
                     .service(
                         web::resource("/api/client/features")
                             .route(web::get().to(return_client_features)),
@@ -606,7 +606,7 @@ mod tests {
                 TlsAcceptorConfig::default().handshake_timeout(Duration::from_secs(5));
             HttpService::new(map_config(
                 App::new()
-                    .wrap(Etag::default())
+                    .wrap(Etag)
                     .service(
                         web::resource("/api/client/features")
                             .route(web::get().to(return_client_features)),
@@ -644,7 +644,7 @@ mod tests {
         test_server(move || {
             HttpService::new(map_config(
                 App::new()
-                    .wrap(Etag::default())
+                    .wrap(Etag)
                     .wrap(as_async_middleware(validate_api_key_middleware))
                     .service(
                         web::resource("/api/client/features")
