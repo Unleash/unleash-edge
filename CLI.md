@@ -32,7 +32,7 @@ This document contains the help content for the `unleash-edge` command-line prog
   Default value: ``
 * `-w`, `--workers <WORKERS>` — How many workers should be started to handle requests. Defaults to number of physical cpus
 
-  Default value: `8`
+  Default value: `16`
 * `--enable-post-features` — Exposes the api/client/features endpoint for POST requests. This may be removed in a future release
 
   Default value: `false`
@@ -46,13 +46,16 @@ This document contains the help content for the `unleash-edge` command-line prog
   Default value: `3043`
 * `--instance-id <INSTANCE_ID>` — Instance id. Used for metrics reporting
 
-  Default value: `01H2G660P0FAGAVVVJXTNMRCW2`
+  Default value: `01H7SY1GR08PTQ1AJAMNKY413E`
 * `-a`, `--app-name <APP_NAME>` — App name. Used for metrics reporting
 
   Default value: `unleash-edge`
 * `--markdown-help`
 * `--trust-proxy` — By enabling the trust proxy option. Unleash Edge will have knowledge that it's sitting behind a proxy and that the X-Forward-\* header fields may be trusted, which otherwise may be easily spoofed. Edge will use this to populate its context's  remoteAddress field If you need to only trust specific ips or CIDR, enable this flag and then set `--proxy-trusted-servers`
 * `--proxy-trusted-servers <PROXY_TRUSTED_SERVERS>` — Tells Unleash Edge which servers to trust the X-Forwarded-For. Accepts explicit Ip addresses or Cidrs (127.0.0.1/16). Accepts a comma separated list or multiple instances of the flag. E.g `--proxy-trusted-servers "127.0.0.1,192.168.0.1"` and `--proxy-trusted-servers 127.0.0.1 --proxy-trusted-servers 192.168.0.1` are equivalent
+* `--disable-all-endpoint` — Set this flag to true if you want to disable /api/proxy/all and /api/frontend/all Because returning all toggles regardless of their state is a potential security vulnerability, these endpoints can be disabled
+
+  Default value: `false`
 
 
 

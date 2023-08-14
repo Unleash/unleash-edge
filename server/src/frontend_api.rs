@@ -1,10 +1,13 @@
+use actix_http::body::MessageBody;
 use actix_http::HttpMessage;
+use actix_service::ServiceFactory;
 use std::collections::HashMap;
 
+use actix_web::dev::{ServiceRequest, ServiceResponse};
 use actix_web::{
     get, post,
     web::{self, Data, Json, Path},
-    HttpRequest, HttpResponse,
+    HttpRequest, HttpResponse, Scope,
 };
 use dashmap::DashMap;
 use serde_qs::actix::QsQuery;
@@ -564,40 +567,80 @@ pub async fn post_frontend_register(
     Ok(HttpResponse::Accepted().finish())
 }
 
-pub fn configure_frontend_api(cfg: &mut web::ServiceConfig) {
-    cfg.service(web::scope("/proxy")
+fn configure_frontend_endpoints(cfg: &mut web::ServiceConfig, disable_all_endpoint: bool) {
+    if !disable_all_endpoint {
+        cfg.service(
+            scope_with_auth("/frontend")
+                .service(get_frontend_all_features)
+                .service(post_frontend_all_features)
+                .service(get_enabled_frontend)
+                .service(post_frontend_metrics)
+                .service(post_frontend_enabled_features)
+                .service(post_frontend_register)
+                .service(post_frontend_evaluate_single_feature)
+                .service(get_frontend_evaluate_single_feature),
+        );
+    } else {
+        cfg.service(
+            scope_with_auth("/frontend")
+                .service(get_enabled_frontend)
+                .service(post_frontend_metrics)
+                .service(post_frontend_enabled_features)
+                .service(post_frontend_register)
+                .service(post_frontend_evaluate_single_feature)
+                .service(get_frontend_evaluate_single_feature),
+        );
+    }
+}
+
+fn scope_with_auth(
+    path: &str,
+) -> Scope<
+    impl ServiceFactory<
+        ServiceRequest,
+        Config = (),
+        Response = ServiceResponse<impl MessageBody>,
+        Error = actix_web::Error,
+        InitError = (),
+    >,
+> {
+    web::scope(path)
         .wrap(crate::middleware::as_async_middleware::as_async_middleware(
-            crate::middleware::enrich_with_client_ip::enrich_with_client_ip
+            crate::middleware::enrich_with_client_ip::enrich_with_client_ip,
         ))
         .wrap(crate::middleware::as_async_middleware::as_async_middleware(
-            crate::middleware::client_token_from_frontend_token::client_token_from_frontend_token, ))
+            crate::middleware::client_token_from_frontend_token::client_token_from_frontend_token,
+        ))
         .wrap(crate::middleware::as_async_middleware::as_async_middleware(
-        crate::middleware::validate_token::validate_token,
-    )).service(get_enabled_proxy)
-        .service(get_proxy_all_features)
-        .service(post_proxy_metrics)
-        .service(post_proxy_all_features)
-        .service(post_proxy_enabled_features)
-        .service(post_proxy_register)
-    ).service(
-        web::scope("/frontend")
-            .wrap(crate::middleware::as_async_middleware::as_async_middleware(
-                crate::middleware::enrich_with_client_ip::enrich_with_client_ip
-            ))
-            .wrap(crate::middleware::as_async_middleware::as_async_middleware(
-            crate::middleware::client_token_from_frontend_token::client_token_from_frontend_token))
-            .wrap(crate::middleware::as_async_middleware::as_async_middleware(
             crate::middleware::validate_token::validate_token,
         ))
+}
 
-        .service(get_enabled_frontend)
-        .service(get_frontend_all_features)
-        .service(post_frontend_metrics)
-        .service(post_frontend_all_features)
-        .service(post_frontend_enabled_features)
-        .service(post_frontend_register)
-        .service(post_frontend_evaluate_single_feature)
-        .service(get_frontend_evaluate_single_feature));
+fn configure_proxy_endpoints(cfg: &mut web::ServiceConfig, disable_all_endpoint: bool) {
+    if !disable_all_endpoint {
+        cfg.service(
+            scope_with_auth("/proxy")
+                .service(get_proxy_all_features)
+                .service(post_proxy_all_features)
+                .service(get_enabled_proxy)
+                .service(post_proxy_metrics)
+                .service(post_proxy_enabled_features)
+                .service(post_proxy_register),
+        );
+    } else {
+        cfg.service(
+            scope_with_auth("/proxy")
+                .service(get_enabled_proxy)
+                .service(post_proxy_metrics)
+                .service(post_proxy_enabled_features)
+                .service(post_proxy_register),
+        );
+    }
+}
+
+pub fn configure_frontend_api(cfg: &mut web::ServiceConfig, disable_all_endpoint: bool) {
+    configure_proxy_endpoints(cfg, disable_all_endpoint);
+    configure_frontend_endpoints(cfg, disable_all_endpoint);
 }
 
 pub fn frontend_from_yggdrasil(
@@ -1007,7 +1050,9 @@ mod tests {
                 .wrap(middleware::as_async_middleware::as_async_middleware(
                     middleware::validate_token::validate_token,
                 ))
-                .service(web::scope("/api").configure(super::configure_frontend_api)),
+                .service(
+                    web::scope("/api").configure(|cfg| super::configure_frontend_api(cfg, false)),
+                ),
         )
         .await;
 
@@ -1038,7 +1083,9 @@ mod tests {
                 .wrap(middleware::as_async_middleware::as_async_middleware(
                     middleware::validate_token::validate_token,
                 ))
-                .service(web::scope("/api").configure(super::configure_frontend_api)),
+                .service(
+                    web::scope("/api").configure(|cfg| super::configure_frontend_api(cfg, false)),
+                ),
         )
         .await;
         let req = test::TestRequest::get()
@@ -1063,7 +1110,9 @@ mod tests {
                 .app_data(Data::from(token_cache))
                 .app_data(Data::from(feature_cache))
                 .app_data(Data::from(engine_cache))
-                .service(web::scope("/api").configure(super::configure_frontend_api)),
+                .service(
+                    web::scope("/api").configure(|cfg| super::configure_frontend_api(cfg, false)),
+                ),
         )
         .await;
 
@@ -1090,7 +1139,9 @@ mod tests {
                 .app_data(Data::from(token_cache))
                 .app_data(Data::from(feature_cache))
                 .app_data(Data::from(engine_cache))
-                .service(web::scope("/api").configure(super::configure_frontend_api)),
+                .service(
+                    web::scope("/api").configure(|cfg| super::configure_frontend_api(cfg, false)),
+                ),
         )
         .await;
 
@@ -1122,7 +1173,9 @@ mod tests {
                 .app_data(Data::from(token_cache))
                 .app_data(Data::from(feature_cache))
                 .app_data(Data::from(engine_cache))
-                .service(web::scope("/api").configure(super::configure_frontend_api)),
+                .service(
+                    web::scope("/api").configure(|cfg| super::configure_frontend_api(cfg, false)),
+                ),
         )
         .await;
         let req = test::TestRequest::get()
@@ -1162,7 +1215,9 @@ mod tests {
                 .app_data(Data::from(token_cache))
                 .app_data(Data::from(feature_cache))
                 .app_data(Data::from(engine_cache))
-                .service(web::scope("/api").configure(super::configure_frontend_api)),
+                .service(
+                    web::scope("/api").configure(|cfg| super::configure_frontend_api(cfg, false)),
+                ),
         )
         .await;
         let req = test::TestRequest::post()
@@ -1205,7 +1260,9 @@ mod tests {
                 .app_data(Data::from(token_cache))
                 .app_data(Data::from(feature_cache))
                 .app_data(Data::from(engine_cache))
-                .service(web::scope("/api").configure(super::configure_frontend_api)),
+                .service(
+                    web::scope("/api").configure(|cfg| super::configure_frontend_api(cfg, false)),
+                ),
         )
         .await;
         let req = test::TestRequest::post()
@@ -1218,5 +1275,46 @@ mod tests {
         let result: FrontendResult = test::call_and_read_body_json(&app, req).await;
         let ip_addr_was_enabled = result.toggles.iter().any(|r| r.name == "ip_addr");
         assert!(ip_addr_was_enabled);
+    }
+
+    #[tokio::test]
+    #[traced_test]
+    async fn disabling_all_endpoints_yields_404_when_trying_to_access_them() {
+        let client_features_with_custom_context_field =
+            crate::tests::features_from_disk("../examples/ip_address_feature.json");
+        let auth_key = "gard:development.secret123".to_string();
+        let (token_cache, feature_cache, engine_cache) = build_offline_mode(
+            client_features_with_custom_context_field.clone(),
+            vec![auth_key.clone()],
+        )
+        .unwrap();
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::from(token_cache))
+                .app_data(Data::from(feature_cache))
+                .app_data(Data::from(engine_cache))
+                .service(
+                    web::scope("/api").configure(|cfg| super::configure_frontend_api(cfg, true)),
+                ),
+        )
+        .await;
+        let frontend_req = test::TestRequest::post()
+            .uri("/api/frontend/all")
+            .peer_addr(SocketAddr::from_str("192.168.0.1:80").unwrap())
+            .insert_header(ContentType::json())
+            .insert_header(("Authorization", auth_key.clone()))
+            .set_json(json!({ "properties": {"companyId": "bricks"}}))
+            .to_request();
+        let result = test::call_service(&app, frontend_req).await;
+        assert_eq!(result.status(), StatusCode::NOT_FOUND);
+        let proxy_req = test::TestRequest::post()
+            .uri("/api/proxy/all")
+            .peer_addr(SocketAddr::from_str("192.168.0.1:80").unwrap())
+            .insert_header(ContentType::json())
+            .insert_header(("Authorization", auth_key.clone()))
+            .set_json(json!({ "properties": {"companyId": "bricks"}}))
+            .to_request();
+        let result = test::call_service(&app, proxy_req).await;
+        assert_eq!(result.status(), StatusCode::NOT_FOUND);
     }
 }
