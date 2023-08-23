@@ -5,7 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 9.0.0 (2023-08-23)
+
+### Chore
+
+ - <csr-id-a6f1829102c671ebbab15f37502bc40f21616da6/> remove experimental post features endpoint
+
+### New Features
+
+ - <csr-id-af6c3a2079134acca6ae2739bd28aad61cb7f0ae/> add --disable-all-endpoint flag for disabling proxy /all endpoint
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release.
+ - 18 days passed between releases.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 2 unique issues were worked on: [#237](https://github.com/Unleash/unleash-edge/issues/237), [#238](https://github.com/Unleash/unleash-edge/issues/238)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#237](https://github.com/Unleash/unleash-edge/issues/237)**
+    - Add --disable-all-endpoint flag for disabling proxy /all endpoint ([`af6c3a2`](https://github.com/Unleash/unleash-edge/commit/af6c3a2079134acca6ae2739bd28aad61cb7f0ae))
+ * **[#238](https://github.com/Unleash/unleash-edge/issues/238)**
+    - Remove experimental post features endpoint ([`a6f1829`](https://github.com/Unleash/unleash-edge/commit/a6f1829102c671ebbab15f37502bc40f21616da6))
+</details>
+
 ## 8.1.0 (2023-07-27)
+
+<csr-id-9d2271827f7c895acea280463011e638e3dd7dd4/>
+<csr-id-d0b0b66d8c608ea742137c7647317fe876527ec9/>
 
 ### Chore
 
@@ -16,8 +50,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 2 commits contributed to the release over the course of 5 calendar days.
- - 5 days passed between releases.
+ - 3 commits contributed to the release over the course of 14 calendar days.
+ - 14 days passed between releases.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#231](https://github.com/Unleash/unleash-edge/issues/231)
 
@@ -30,6 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#231](https://github.com/Unleash/unleash-edge/issues/231)**
     - Bumps yggdrasil and unleash-types to allow the usage of strategy variants ([`9d22718`](https://github.com/Unleash/unleash-edge/commit/9d2271827f7c895acea280463011e638e3dd7dd4))
  * **Uncategorized**
+    - Release unleash-edge v8.1.0 ([`db512f8`](https://github.com/Unleash/unleash-edge/commit/db512f81b8d2bb355acd921ac3f046b7204e351d))
     - Updated README to point to newest edge docker container ([`d0b0b66`](https://github.com/Unleash/unleash-edge/commit/d0b0b66d8c608ea742137c7647317fe876527ec9))
 </details>
 
