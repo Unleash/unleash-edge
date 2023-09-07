@@ -22,6 +22,17 @@ use crate::{
     types::{ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenRefresh},
 };
 
+fn frontend_token_is_covered_by_tokens(
+    frontend_token: &EdgeToken,
+    tokens_to_refresh: Arc<DashMap<String, TokenRefresh>>,
+) -> bool {
+    tokens_to_refresh.iter().any(|client_token| {
+        client_token
+            .token
+            .same_environment_and_broader_or_equal_project_access(frontend_token)
+    })
+}
+
 #[derive(Clone)]
 pub struct FeatureRefresher {
     pub unleash_client: Arc<UnleashClient>,
@@ -119,9 +130,7 @@ impl FeatureRefresher {
         &self,
         frontend_token: &EdgeToken,
     ) -> bool {
-        self.tokens_to_refresh.iter().any(|client_token| {
-            frontend_token.same_environment_and_broader_or_equal_project_access(&client_token.token)
-        })
+        frontend_token_is_covered_by_tokens(frontend_token, self.tokens_to_refresh.clone())
     }
 
     pub(crate) async fn register_and_hydrate_token(
@@ -364,7 +373,7 @@ mod tests {
         types::{EdgeToken, TokenRefresh},
     };
 
-    use super::FeatureRefresher;
+    use super::{frontend_token_is_covered_by_tokens, FeatureRefresher};
 
     impl PartialEq for TokenRefresh {
         fn eq(&self, other: &Self) -> bool {
@@ -997,5 +1006,36 @@ mod tests {
                 .count(),
             7
         );
+    }
+
+    #[test]
+    fn front_end_token_is_properly_covered_by_current_tokens() {
+        let fe_token = EdgeToken {
+            projects: vec!["a".into(), "b".into()],
+            environment: Some("development".into()),
+            ..Default::default()
+        };
+
+        let wildcard_token = EdgeToken {
+            projects: vec!["*".into()],
+            environment: Some("development".into()),
+            ..Default::default()
+        };
+
+        let current_tokens = DashMap::new();
+        let token_refresh = TokenRefresh {
+            token: wildcard_token.clone(),
+            etag: None,
+            last_refreshed: None,
+            last_check: None,
+        };
+
+        current_tokens.insert(wildcard_token.token, token_refresh);
+
+        let current_tokens_arc = Arc::new(current_tokens);
+        assert!(frontend_token_is_covered_by_tokens(
+            &fe_token,
+            current_tokens_arc
+        ));
     }
 }
