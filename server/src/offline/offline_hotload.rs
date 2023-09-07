@@ -94,11 +94,11 @@ fn make_simple_bootstrap(simple_bootstrap: HashMap<String, SimpleFeature>) -> Cl
                 variants,
                 strategies: Some(vec![Strategy {
                     name: "default".into(),
-                    parameters: None,
+                    parameters: Some(HashMap::new()),
                     sort_order: None,
                     segments: None,
-                    constraints: None,
-                    variants: None,
+                    constraints: Some(vec![]),
+                    variants: Some(vec![]),
                 }]),
                 project: Some("default".into()),
                 ..Default::default()
