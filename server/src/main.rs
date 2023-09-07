@@ -156,9 +156,9 @@ async fn main() -> Result<(), anyhow::Error> {
                 }
             }
         }
-        cli::EdgeMode::Offline(offline_args) => {
+        cli::EdgeMode::Offline(offline_args) if offline_args.reload_interval > 0 => {
             tokio::select! {
-                _ = offline_hotload::start_hotload_loop(offline_args.bootstrap_file ,lazy_feature_cache, lazy_engine_cache, offline_args.tokens) => {
+                _ = offline_hotload::start_hotload_loop(offline_args.bootstrap_file ,lazy_feature_cache, lazy_engine_cache, offline_args.tokens, offline_args.reload_interval) => {
                     tracing::info!("Hotloader unexpectedly shut down.");
                 },
                 _ = server.run() => {

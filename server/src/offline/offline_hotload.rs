@@ -22,10 +22,11 @@ pub async fn start_hotload_loop(
     features_cache: Arc<DashMap<std::string::String, ClientFeatures>>,
     engine_cache: Arc<DashMap<std::string::String, EngineState>>,
     known_tokens: Vec<String>,
+    interval: u64,
 ) {
     loop {
         tokio::select! {
-            _ = tokio::time::sleep(Duration::from_secs(1)) => {
+            _ = tokio::time::sleep(Duration::from_secs(interval)) => {
                 let bootstrap = bootstrap_path.as_ref().map(|bootstrap_path|load_bootstrap(bootstrap_path));
                 match bootstrap {
                     Some(Ok(bootstrap)) => {

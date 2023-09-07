@@ -994,6 +994,7 @@ mod tests {
                 .app_data(Data::new(EdgeMode::Offline(OfflineArgs {
                     bootstrap_file: None,
                     tokens: vec!["secret-123".into()],
+                    reload_interval: 0,
                 })))
                 .service(web::scope("/api/frontend").service(super::get_frontend_all_features)),
         )
