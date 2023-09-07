@@ -2,9 +2,11 @@ use chrono::Duration;
 use dashmap::DashMap;
 use reqwest::Url;
 use std::fs::File;
+use std::io::Read;
 use std::sync::Arc;
 use std::{io::BufReader, str::FromStr};
 
+use crate::offline::offline_hotload::{load_bootstrap, load_offline_engine_cache};
 use crate::persistence::file::FilePersister;
 use crate::persistence::redis::RedisPersister;
 use crate::persistence::EdgePersistence;
@@ -84,13 +86,13 @@ pub(crate) fn build_offline_mode(
 
     for edge_token in edge_tokens {
         token_cache.insert(edge_token.token.clone(), edge_token.clone());
-        features_cache.insert(
-            crate::tokens::cache_key(&edge_token),
+
+        load_offline_engine_cache(
+            &edge_token,
+            features_cache.clone(),
+            engine_cache.clone(),
             client_features.clone(),
         );
-        let mut engine_state = EngineState::default();
-        engine_state.take_state(client_features.clone());
-        engine_cache.insert(crate::tokens::cache_key(&edge_token), engine_state);
     }
     Ok((token_cache, features_cache, engine_cache))
 }
@@ -98,11 +100,16 @@ pub(crate) fn build_offline_mode(
 fn build_offline(offline_args: OfflineArgs) -> EdgeResult<CacheContainer> {
     if let Some(bootstrap) = offline_args.bootstrap_file {
         let file = File::open(bootstrap.clone()).map_err(|_| EdgeError::NoFeaturesFile)?;
-        let reader = BufReader::new(file);
-        let client_features: ClientFeatures = serde_json::from_reader(reader).map_err(|e| {
-            let path = format!("{}", bootstrap.clone().display());
-            EdgeError::InvalidBackupFile(path, e.to_string())
-        })?;
+
+        let mut reader = BufReader::new(file);
+        let mut content = String::new();
+
+        reader
+            .read_to_string(&mut content)
+            .map_err(|_| EdgeError::NoFeaturesFile)?;
+
+        let client_features = load_bootstrap(&bootstrap)?;
+
         build_offline_mode(client_features, offline_args.tokens)
     } else {
         Err(EdgeError::NoFeaturesFile)
