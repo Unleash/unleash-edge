@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     fs::File,
     io::{BufReader, Read},
-    path::{Path, PathBuf},
+    path::Path,
     str::FromStr,
     sync::Arc,
     time::Duration,
@@ -15,18 +15,19 @@ use unleash_types::client_features::{
 };
 use unleash_yggdrasil::EngineState;
 
-use crate::{error::EdgeError, types::EdgeToken};
+use crate::{cli::OfflineArgs, error::EdgeError, types::EdgeToken};
 
 pub async fn start_hotload_loop(
-    bootstrap_path: Option<PathBuf>,
     features_cache: Arc<DashMap<std::string::String, ClientFeatures>>,
     engine_cache: Arc<DashMap<std::string::String, EngineState>>,
-    known_tokens: Vec<String>,
-    interval: u64,
+    offline_args: OfflineArgs,
 ) {
+    let known_tokens = offline_args.tokens;
+    let bootstrap_path = offline_args.bootstrap_file;
+
     loop {
         tokio::select! {
-            _ = tokio::time::sleep(Duration::from_secs(interval)) => {
+            _ = tokio::time::sleep(Duration::from_secs(offline_args.reload_interval)) => {
                 let bootstrap = bootstrap_path.as_ref().map(|bootstrap_path|load_bootstrap(bootstrap_path));
                 match bootstrap {
                     Some(Ok(bootstrap)) => {
