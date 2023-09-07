@@ -194,7 +194,7 @@ impl EdgeToken {
 mod tests {
     use crate::{
         tokens::simplify,
-        types::{EdgeToken, TokenRefresh},
+        types::{EdgeToken, TokenRefresh, TokenType},
     };
     use ulid::Ulid;
 
@@ -310,5 +310,81 @@ mod tests {
         let actual: Vec<EdgeToken> = simplify(&tokens).iter().map(|x| x.token.clone()).collect();
 
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_single_project_token_is_covered_by_wildcard() {
+        let self_token = EdgeToken {
+            projects: vec!["*".into()],
+            environment: Some("development".into()),
+            ..Default::default()
+        };
+
+        let other_token = EdgeToken {
+            projects: vec!["A".into()],
+            environment: Some("development".into()),
+            ..Default::default()
+        };
+
+        let is_covered =
+            self_token.same_environment_and_broader_or_equal_project_access(&other_token);
+        assert!(is_covered);
+    }
+
+    #[test]
+    fn test_multi_project_token_is_covered_by_wildcard() {
+        let self_token = EdgeToken {
+            projects: vec!["*".into()],
+            environment: Some("development".into()),
+            ..Default::default()
+        };
+
+        let other_token = EdgeToken {
+            projects: vec!["A".into(), "B".into()],
+            environment: Some("development".into()),
+            ..Default::default()
+        };
+
+        let is_covered =
+            self_token.same_environment_and_broader_or_equal_project_access(&other_token);
+        assert!(is_covered);
+    }
+
+    #[test]
+    fn test_multi_project_tokens_cover_each_other() {
+        let self_token = EdgeToken {
+            projects: vec!["A".into(), "B".into()],
+            environment: Some("development".into()),
+            ..Default::default()
+        };
+
+        let fe_token = EdgeToken {
+            projects: vec!["A".into()],
+            environment: Some("development".into()),
+            token_type: Some(TokenType::Frontend),
+            ..Default::default()
+        };
+
+        let is_covered = self_token.same_environment_and_broader_or_equal_project_access(&fe_token);
+        assert!(is_covered);
+    }
+
+    #[test]
+    fn test_multi_project_tokens_do_not_cover_each_other_when_they_do_not_overlap() {
+        let self_token = EdgeToken {
+            projects: vec!["A".into(), "B".into()],
+            environment: Some("development".into()),
+            ..Default::default()
+        };
+
+        let fe_token = EdgeToken {
+            projects: vec!["A".into(), "C".into()],
+            environment: Some("development".into()),
+            token_type: Some(TokenType::Frontend),
+            ..Default::default()
+        };
+
+        let is_covered = self_token.same_environment_and_broader_or_equal_project_access(&fe_token);
+        assert!(!is_covered);
     }
 }
