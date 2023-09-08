@@ -19,16 +19,12 @@ pub(crate) fn simplify(tokens: &[TokenRefresh]) -> Vec<TokenRefresh> {
     uniques
         .iter()
         .filter_map(|token| {
-            uniques.iter().fold(Some(token), |acc, current| {
-                acc.and_then(|lead| {
-                    if current.token.token != lead.token.token
-                        && current.token.subsumes(&lead.token)
-                    {
-                        None
-                    } else {
-                        Some(lead)
-                    }
-                })
+            uniques.iter().try_fold(token, |acc, current| {
+                if current.token.token != acc.token.token && current.token.subsumes(&acc.token) {
+                    None
+                } else {
+                    Some(acc)
+                }
             })
         })
         .cloned()
