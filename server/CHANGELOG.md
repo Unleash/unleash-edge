@@ -5,7 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 10.0.0 (2023-09-08)
+
+### New Features
+
+ - <csr-id-510073784335e8d8ec8f8e4cc988bc2aad176c8e/> add hot reloading and an optional, simpler file format to offline mode
+
+### Bug Fixes
+
+ - <csr-id-2025d5114d9e47a5b820d065642d3df697223f38/> make fe tokens respect token cache
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release.
+ - 15 days passed between releases.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 2 unique issues were worked on: [#241](https://github.com/Unleash/unleash-edge/issues/241), [#242](https://github.com/Unleash/unleash-edge/issues/242)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#241](https://github.com/Unleash/unleash-edge/issues/241)**
+    - Make fe tokens respect token cache ([`2025d51`](https://github.com/Unleash/unleash-edge/commit/2025d5114d9e47a5b820d065642d3df697223f38))
+ * **[#242](https://github.com/Unleash/unleash-edge/issues/242)**
+    - Add hot reloading and an optional, simpler file format to offline mode ([`5100737`](https://github.com/Unleash/unleash-edge/commit/510073784335e8d8ec8f8e4cc988bc2aad176c8e))
+</details>
+
 ## 9.0.0 (2023-08-23)
+
+<csr-id-a6f1829102c671ebbab15f37502bc40f21616da6/>
 
 ### Chore
 
@@ -19,8 +52,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 2 commits contributed to the release.
- - 18 days passed between releases.
+ - 3 commits contributed to the release over the course of 8 calendar days.
+ - 26 days passed between releases.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#237](https://github.com/Unleash/unleash-edge/issues/237), [#238](https://github.com/Unleash/unleash-edge/issues/238)
 
@@ -34,6 +67,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Add --disable-all-endpoint flag for disabling proxy /all endpoint ([`af6c3a2`](https://github.com/Unleash/unleash-edge/commit/af6c3a2079134acca6ae2739bd28aad61cb7f0ae))
  * **[#238](https://github.com/Unleash/unleash-edge/issues/238)**
     - Remove experimental post features endpoint ([`a6f1829`](https://github.com/Unleash/unleash-edge/commit/a6f1829102c671ebbab15f37502bc40f21616da6))
+ * **Uncategorized**
+    - Release unleash-edge v9.0.0 ([`40a6a38`](https://github.com/Unleash/unleash-edge/commit/40a6a38a51a8422ca2dd593bb56a11f4598e350e))
 </details>
 
 ## 8.1.0 (2023-07-27)
