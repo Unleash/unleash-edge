@@ -1,3 +1,9 @@
+use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
+use std::str::FromStr;
+use std::time::Duration;
+
 use actix_web::http::header::EntityTag;
 use chrono::Utc;
 use lazy_static::lazy_static;
@@ -6,11 +12,6 @@ use reqwest::header::{HeaderMap, HeaderName};
 use reqwest::{header, Client};
 use reqwest::{ClientBuilder, Identity, RequestBuilder, StatusCode, Url};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::fs;
-use std::path::PathBuf;
-use std::str::FromStr;
-use std::time::Duration;
 use tracing::{debug, info, warn};
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ClientApplication;
@@ -617,7 +618,7 @@ mod tests {
                     ),
                 |_| AppConfig::default(),
             ))
-            .rustls_with_config(server_config, tls_acceptor_config)
+            .rustls_021_with_config(server_config, tls_acceptor_config)
         })
         .await
     }

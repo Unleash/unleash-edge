@@ -407,7 +407,7 @@ mod tests {
 
     #[test]
     fn token_type_should_be_case_insensitive() {
-        let json = r###"{ "tokens": [{
+        let json = r#"{ "tokens": [{
               "token": "chriswk-test:development.notusedsecret",
               "type": "CLIENT",
               "projects": [
@@ -420,7 +420,7 @@ mod tests {
               "projects": [
                 "demo-app"
               ]
-            }] }"###;
+            }] }"#;
         let tokens: EdgeResult<EdgeTokens> =
             serde_json::from_str(json).map_err(|_| EdgeTokenParseError);
         assert!(tokens.is_ok());
