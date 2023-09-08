@@ -16,6 +16,7 @@ use unleash_edge::builder::build_caches_and_refreshers;
 use unleash_edge::cli::{CliArgs, EdgeMode};
 use unleash_edge::metrics::client_metrics::MetricsCache;
 use unleash_edge::middleware::request_tracing::RequestTracing;
+use unleash_edge::offline::offline_hotload;
 use unleash_edge::persistence::{persist_data, EdgePersistence};
 use unleash_edge::types::{EdgeToken, TokenRefresh, TokenValidationStatus};
 use unleash_edge::{admin_api, cli, client_api, frontend_api, health_checker, openapi};
@@ -57,6 +58,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let token_validator_schedule = token_validator.clone();
     let lazy_feature_cache = features_cache.clone();
     let lazy_token_cache = token_cache.clone();
+    let lazy_engine_cache = engine_cache.clone();
 
     let metrics_cache = Arc::new(MetricsCache::default());
     let metrics_cache_clone = metrics_cache.clone();
@@ -152,6 +154,16 @@ async fn main() -> Result<(), anyhow::Error> {
                 _ = validator.schedule_validation_of_known_tokens(edge.token_revalidation_interval_seconds) => {
                     tracing::info!("Token validator validator was unexpectedly shut down");
                 }
+            }
+        }
+        cli::EdgeMode::Offline(offline_args) if offline_args.reload_interval > 0 => {
+            tokio::select! {
+                _ = offline_hotload::start_hotload_loop(lazy_feature_cache, lazy_engine_cache, offline_args) => {
+                    tracing::info!("Hotloader unexpectedly shut down.");
+                },
+                _ = server.run() => {
+                    tracing::info!("Actix is shutting down. No pending tasks.");
+                },
             }
         }
         _ => tokio::select! {

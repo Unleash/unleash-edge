@@ -15,6 +15,7 @@ pub mod http;
 pub mod internal_backstage;
 pub mod metrics;
 pub mod middleware;
+pub mod offline;
 #[cfg(not(tarpaulin_include))]
 pub mod openapi;
 pub mod persistence;

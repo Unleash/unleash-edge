@@ -135,10 +135,10 @@ Edge mode also supports dynamic tokens, meaning that Edge doesn't need a token t
 Even though Edge supports dynamic tokens, you still have the option of providing a token through the command line argument or environment variable. This way, since Edge already knows about your token at start up, it will sync your features for that token and should be ready for your requests right away (_warm up / hot start_).
 
 ### Front-end tokens
-[Front-end tokens](https://docs.getunleash.io/reference/api-tokens-and-client-keys#front-end-tokens) can also be used with `/api/frontend` and `/api/proxy` endpoints, however they are not allowed to fetch features upstream. 
-In order to use these tokens correctly and make sure they return the correct information, it's important that the features they are allowed to access are already present in that Edge node's features cache. 
-The easiest way to ensure this is by passing in at least one client token as one of the command line arguments, 
-ensuring it has access to the same features as the front-end token you'll be using. 
+[Front-end tokens](https://docs.getunleash.io/reference/api-tokens-and-client-keys#front-end-tokens) can also be used with `/api/frontend` and `/api/proxy` endpoints, however they are not allowed to fetch features upstream.
+In order to use these tokens correctly and make sure they return the correct information, it's important that the features they are allowed to access are already present in that Edge node's features cache.
+The easiest way to ensure this is by passing in at least one client token as one of the command line arguments,
+ensuring it has access to the same features as the front-end token you'll be using.
 If you're using a frontend token that doesn't have data in the node's feature cache, you will receive an HTTP Status code: 511 Network Authentication Required along with a body of which project and environment you will need to add a client token for.
 
 #### Enterprise
@@ -210,15 +210,31 @@ graph LR
   B-->|Fetch toggles| C[Features dump]
 ```
 
-Offline mode should be used when you don't have a connection to an upstream node, such as your Unleash instance itself or another Edge instance. It can also be used when you need to have full control of both the data your clients will get and which tokens can be used to access it.
+Offline mode is useful when there is no connection to an upstream node, such as your Unleash instance or another Edge instance, or as a tool to make working with Unleash easier during development.
 
-Since this mode does not connect to an upstream node, it needs a downloaded JSON dump of a result from a query against an Unleash server on the [/api/client/features](https://docs.getunleash.io/reference/api/unleash/get-client-feature) endpoint as well as a comma-separated list of tokens that should be allowed to access the server.
+To use offline mode, you'll need a features file. The easiest way to get one is to download a JSON dump of a result from a query against an Unleash server on the [/api/client/features](https://docs.getunleash.io/reference/api/unleash/get-client-feature) endpoint. You can also use a hand rolled, human readable JSON version of the features file. Edge will automatically convert it to the API format when it starts up. Here's an example:
 
-If your token follows the Unleash API token format `[project]:[environment].<somesecret>`, Edge will filter the features dump to match the project contained in the token.
+``` json
+{
+  "featureOne": {
+    "enabled": true,
+    "variant": "variantOne"
+  },
+  "featureTwo": {
+    "enabled": false,
+    "variant": "variantTwo"
+  },
+  "featureThree": {
+    "enabled": true
+  }
+}
+```
 
-If you'd rather use a simple token like `secret-123`, any query against `/api/client/features` will receive the dump passed in on the command line.
+The simplified JSON format should be an object with a key for each feature. You can force the result of `is_enabled` in your SDK by setting the enabled property, likewise can also force the result of `get_variant` by specifying the name of the variant you want. This format is primarily for development.
 
-When using offline mode, you can think of these tokens as [proxy client keys](https://docs.getunleash.io/reference/api-tokens-and-client-keys#proxy-client-keys).
+When using offline mode you must specify one or more tokens at startup. These tokens will let your SDKs access Edge. Tokens following the Unleash API format [project]:[environment].<somesecret> allow Edge to recognize the project and environment specified in the token, returning only the relevant features to the calling SDK. On the other hand, for tokens not adhering to this format, Edge will return all features if there is an exact match with any of the startup tokens.
+
+To make local development easier, you can specify a reload interval in seconds; this will cause Edge to reload the features file from disk every X seconds. This can be useful for local development.
 
 Since offline mode does not connect to an upstream node, it does not support metrics or dynamic tokens.
 
@@ -229,8 +245,10 @@ $ ./unleash-edge offline --help
 Usage: unleash-edge offline [OPTIONS]
 
 Options:
-  -b, --bootstrap-file <BOOTSTRAP_FILE>  [env: BOOTSTRAP_FILE=]
-  -t, --tokens <TOKENS>                  [env: TOKENS=]
+  -b, --bootstrap-file <BOOTSTRAP_FILE>         [env: BOOTSTRAP_FILE=]
+  -t, --tokens <TOKENS>                         [env: TOKENS=]
+  -r, --reload-interval <RELOAD_INTERVAL>       [env: RELOAD_INTERVAL=]
+
 ```
 
 ## [Metrics](https://docs.getunleash.io/reference/api/unleash/metrics)
