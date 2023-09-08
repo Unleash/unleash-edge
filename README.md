@@ -232,7 +232,7 @@ To use offline mode, you'll need a features file. The easiest way to get one is 
 
 The simplified JSON format should be an object with a key for each feature. You can force the result of `is_enabled` in your SDK by setting the enabled property, likewise can also force the result of `get_variant` by specifying the name of the variant you want. This format is primarily for development.
 
-When using offline mode you must specify one or more tokens at startup. These tokens will let your SDKs access Edge. Tokens following the Unleash API format [project]:[environment].<somesecret> allow Edge to recognize the project and environment specified in the token, returning only the relevant features to the calling SDK. On the other hand, for tokens not adhering to this format, Edge will return all features if there is an exact match with any of the startup tokens.
+When using offline mode you must specify one or more tokens at startup. These tokens will let your SDKs access Edge. Tokens following the Unleash API format `[project]:[environment].<somesecret>` allow Edge to recognize the project and environment specified in the token, returning only the relevant features to the calling SDK. On the other hand, for tokens not adhering to this format, Edge will return all features if there is an exact match with any of the startup tokens.
 
 To make local development easier, you can specify a reload interval in seconds; this will cause Edge to reload the features file from disk every X seconds. This can be useful for local development.
 
