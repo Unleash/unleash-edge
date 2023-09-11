@@ -1,14 +1,12 @@
+use crate::auth::token_validator::TokenValidator;
+use crate::http::feature_refresher::FeatureRefresher;
+use crate::metrics::actix_web_metrics::PrometheusMetricsHandler;
+use crate::types::{BuildInfo, EdgeJsonResult, EdgeToken, TokenInfo, TokenRefresh};
 use actix_web::{
     get,
     web::{self, Json},
 };
 use serde::Serialize;
-
-use crate::auth::token_validator::TokenValidator;
-use crate::http::feature_refresher::FeatureRefresher;
-use crate::metrics::actix_web_metrics::PrometheusMetricsHandler;
-use crate::types::{BuildInfo, EdgeJsonResult, EdgeToken, TokenInfo, TokenRefresh};
-
 #[derive(Debug, Serialize)]
 pub struct EdgeStatus {
     status: String,
@@ -69,7 +67,11 @@ pub fn configure_internal_backstage(
 
 #[cfg(test)]
 mod tests {
+    use crate::types::BuildInfo;
+    use actix_web::body::MessageBody;
+    use actix_web::http::header::ContentType;
     use actix_web::test;
+    use actix_web::{web, App};
 
     #[actix_web::test]
     async fn test_health_ok() {
