@@ -49,6 +49,29 @@ fn filter_unique_tokens(tokens: &[TokenRefresh]) -> Vec<TokenRefresh> {
     unique_tokens
 }
 
+pub fn anonymize_token(edge_token: &EdgeToken) -> EdgeToken {
+    let mut iterator = edge_token.token.split('.');
+    let project_and_environment = iterator.next();
+    let maybe_hash = iterator.next();
+    match (project_and_environment, maybe_hash) {
+        (Some(p_and_e), Some(hash)) => {
+            let safe_hash = clean_hash(hash);
+            EdgeToken {
+                token: format!("{}.{}", p_and_e, safe_hash),
+                ..edge_token.clone()
+            }
+        }
+        _ => edge_token.clone(),
+    }
+}
+fn clean_hash(hash: &str) -> String {
+    format!(
+        "{}****{}",
+        &hash[..6].to_string(),
+        &hash[hash.len() - 6..].to_string()
+    )
+}
+
 pub(crate) fn cache_key(token: &EdgeToken) -> String {
     token
         .environment

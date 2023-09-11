@@ -1,11 +1,13 @@
-use crate::metrics::actix_web_metrics::PrometheusMetricsHandler;
 use actix_web::{
     get,
     web::{self, Json},
 };
 use serde::Serialize;
 
-use crate::types::{BuildInfo, EdgeJsonResult};
+use crate::auth::token_validator::TokenValidator;
+use crate::http::feature_refresher::FeatureRefresher;
+use crate::metrics::actix_web_metrics::PrometheusMetricsHandler;
+use crate::types::{BuildInfo, EdgeJsonResult, EdgeToken, TokenInfo, TokenRefresh};
 
 #[derive(Debug, Serialize)]
 pub struct EdgeStatus {
@@ -30,20 +32,44 @@ pub async fn info() -> EdgeJsonResult<BuildInfo> {
     Ok(Json(data))
 }
 
+#[get("/tokens")]
+pub async fn tokens(
+    feature_refresher: web::Data<FeatureRefresher>,
+    token_validator: web::Data<TokenValidator>,
+) -> EdgeJsonResult<TokenInfo> {
+    let refreshes: Vec<TokenRefresh> = feature_refresher
+        .tokens_to_refresh
+        .iter()
+        .map(|e| e.value().clone())
+        .map(|f| TokenRefresh {
+            token: crate::tokens::anonymize_token(&f.token),
+            ..f
+        })
+        .collect();
+    let token_validation_status: Vec<EdgeToken> = token_validator
+        .token_cache
+        .iter()
+        .map(|e| e.value().clone())
+        .map(|t| crate::tokens::anonymize_token(&t))
+        .collect();
+    Ok(Json(TokenInfo {
+        token_refreshes: refreshes,
+        token_validation_status,
+    }))
+}
 pub fn configure_internal_backstage(
     cfg: &mut web::ServiceConfig,
     metrics_handler: PrometheusMetricsHandler,
 ) {
     cfg.service(health)
         .service(info)
+        .service(tokens)
         .service(web::resource("/metrics").route(web::get().to(metrics_handler)));
 }
 
 #[cfg(test)]
 mod tests {
-    use actix_web::{body::MessageBody, http::header::ContentType, test, web, App};
-
-    use crate::types::BuildInfo;
+    use actix_web::test;
 
     #[actix_web::test]
     async fn test_health_ok() {

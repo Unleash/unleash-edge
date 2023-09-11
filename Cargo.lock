@@ -3124,6 +3124,7 @@ dependencies = [
  "unleash-yggdrasil",
  "utoipa",
  "utoipa-swagger-ui",
+ "xxhash-rust",
 ]
 
 [[package]]
