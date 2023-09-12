@@ -91,7 +91,7 @@ pub enum EdgeError {
     ClientBuildError(String),
     ClientCertificateError(CertificateError),
     ClientFeaturesFetchError(FeatureError),
-    ClientFeaturesParseError,
+    ClientFeaturesParseError(String),
     ClientRegisterError,
     FrontendNotYetHydrated(FrontendHydrationMissing),
     FeatureNotFound(String),
@@ -142,8 +142,8 @@ impl Display for EdgeError {
             EdgeError::FeatureNotFound(name) => {
                 write!(f, "Failed to find feature with name {name}")
             }
-            EdgeError::ClientFeaturesParseError => {
-                write!(f, "Failed to parse client features")
+            EdgeError::ClientFeaturesParseError(error) => {
+                write!(f, "Failed to parse client features: [{error}]")
             }
             EdgeError::ClientRegisterError => {
                 write!(f, "Failed to register client")
@@ -198,7 +198,7 @@ impl ResponseError for EdgeError {
             EdgeError::NoTokenProvider => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::TokenParseError(_) => StatusCode::FORBIDDEN,
             EdgeError::ClientBuildError(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            EdgeError::ClientFeaturesParseError => StatusCode::INTERNAL_SERVER_ERROR,
+            EdgeError::ClientFeaturesParseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::ClientFeaturesFetchError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::InvalidServerUrl(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::PersistenceError(_) => StatusCode::INTERNAL_SERVER_ERROR,

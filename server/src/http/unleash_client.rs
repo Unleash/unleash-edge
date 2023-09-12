@@ -334,9 +334,9 @@ impl UnleashClient {
                 .get("ETag")
                 .or_else(|| response.headers().get("etag"))
                 .and_then(|etag| EntityTag::from_str(etag.to_str().unwrap()).ok());
-            let features = response.json::<ClientFeatures>().await.map_err(|_e| {
+            let features = response.json::<ClientFeatures>().await.map_err(|e| {
                 warn!("Could not parse features response to internal representation");
-                EdgeError::ClientFeaturesParseError
+                EdgeError::ClientFeaturesParseError(e.to_string())
             })?;
             Ok(ClientFeaturesResponse::Updated(features, etag))
         } else if response.status() == StatusCode::FORBIDDEN {
