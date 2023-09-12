@@ -346,6 +346,27 @@ impl UnleashClient {
             Err(EdgeError::ClientFeaturesFetchError(
                 FeatureError::AccessDenied,
             ))
+        } else if response.status() == StatusCode::UNAUTHORIZED {
+            CLIENT_FEATURE_FETCH_FAILURES
+                .with_label_values(&[response.status().as_str()])
+                .inc();
+            warn!(
+                "Failed to get features. Url: [{}]. Status code: [401]",
+                self.urls.client_features_url.to_string()
+            );
+            Err(EdgeError::ClientFeaturesFetchError(
+                FeatureError::AccessDenied,
+            ))
+        } else if response.status() == StatusCode::NOT_FOUND {
+            CLIENT_FEATURE_FETCH_FAILURES
+                .with_label_values(&[response.status().as_str()])
+                .inc();
+            warn!(
+                "Failed to get features. Url: [{}]. Status code: [{}]",
+                self.urls.client_features_url.to_string(),
+                response.status().as_str()
+            );
+            Err(EdgeError::ClientFeaturesFetchError(FeatureError::NotFound))
         } else {
             CLIENT_FEATURE_FETCH_FAILURES
                 .with_label_values(&[response.status().as_str()])
@@ -448,11 +469,16 @@ impl UnleashClient {
                     })
                     .collect())
             }
-            _ => {
+            s => {
                 TOKEN_VALIDATION_FAILURES
                     .with_label_values(&[result.status().as_str()])
                     .inc();
-                Err(EdgeError::EdgeTokenError)
+                info!(
+                    "Failed to validate tokens. Requested url: [{}]. Got status: {:?}",
+                    self.urls.edge_validate_url.to_string(),
+                    s
+                );
+                Err(EdgeError::TokenValidationError(s))
             }
         }
     }
