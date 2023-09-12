@@ -312,6 +312,13 @@ pub struct FeatureFilters {
     pub name_prefix: Option<String>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct TokenInfo {
+    pub token_refreshes: Vec<TokenRefresh>,
+    pub token_validation_status: Vec<EdgeToken>,
+}
+
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
