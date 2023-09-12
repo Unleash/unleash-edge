@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install rust
         run: |
           rustup set auto-self-update disable
@@ -71,7 +71,7 @@ jobs:
     needs: docker
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Send to pipeline
         run: |
           bash ./.github/notify_pipeline.sh
