@@ -6,7 +6,9 @@ use actix_web::{
     get,
     web::{self, Json},
 };
+use dashmap::DashMap;
 use serde::Serialize;
+use unleash_types::client_features::ClientFeatures;
 #[derive(Debug, Serialize)]
 pub struct EdgeStatus {
     status: String,
@@ -18,7 +20,20 @@ impl EdgeStatus {
             status: "OK".into(),
         }
     }
+
+    pub fn not_ready() -> Self {
+        EdgeStatus {
+            status: "NOT_READY".into(),
+        }
+    }
+
+    pub fn ready() -> Self {
+        EdgeStatus {
+            status: "READY".into(),
+        }
+    }
 }
+
 #[get("/health")]
 pub async fn health() -> EdgeJsonResult<EdgeStatus> {
     Ok(Json(EdgeStatus::ok()))
@@ -28,6 +43,17 @@ pub async fn health() -> EdgeJsonResult<EdgeStatus> {
 pub async fn info() -> EdgeJsonResult<BuildInfo> {
     let data = BuildInfo::default();
     Ok(Json(data))
+}
+
+#[get("/ready")]
+pub async fn ready(
+    features_cache: web::Data<DashMap<String, ClientFeatures>>,
+) -> EdgeJsonResult<EdgeStatus> {
+    if features_cache.is_empty() {
+        Ok(Json(EdgeStatus::not_ready()))
+    } else {
+        Ok(Json(EdgeStatus::ready()))
+    }
 }
 
 #[get("/tokens")]
@@ -62,6 +88,7 @@ pub fn configure_internal_backstage(
     cfg.service(health)
         .service(info)
         .service(tokens)
+        .service(ready)
         .service(web::resource("/metrics").route(web::get().to(metrics_handler)));
 }
 

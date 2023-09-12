@@ -27,7 +27,7 @@ chrono = {version = "0.4.30", features = ["serde"]}
 cidr = "0.2.2"
 clap = {version = "4.4.2", features = ["derive", "env"]}
 clap-markdown = "0.1.3"
-dashmap = "5.5.0"
+dashmap = "5.5.3"
 dotenv = {version = "0.15.0", features = ["clap"]}
 futures = "0.3.28"
 futures-core = "0.3.28"
@@ -40,18 +40,18 @@ opentelemetry-prometheus = "0.12.0"
 opentelemetry-semantic-conventions = "0.11.0"
 prometheus = {version = "0.13.3", features = ["process"]}
 prometheus-static-metric = "0.5.1"
-redis = {version = "0.23.0", features = ["tokio-comp", "tokio-rustls-comp"]}
-reqwest = {version = "0.11.18", default-features = false, features = ["rustls", "json", "rustls-tls", "native-tls"]}
+redis = {version = "0.23.3", features = ["tokio-comp", "tokio-rustls-comp"]}
+reqwest = {version = "0.11.20", default-features = false, features = ["rustls", "json", "rustls-tls", "native-tls"]}
 rustls = "0.21.6"
 rustls-pemfile = "1.0.3"
-serde = {version = "1.0.171", features = ["derive"]}
-serde_json = "1.0.102"
+serde = {version = "1.0.188", features = ["derive"]}
+serde_json = "1.0.106"
 serde_qs = { version = "0.12.0", features = ["actix4", "tracing"] }
 shadow-rs = "0.23.0"
 tokio = {version = "1.29.1", features = ["macros", "rt-multi-thread", "tracing", "fs"]}
 tracing = {version = "0.1.37", features = ["log"]}
 tracing-subscriber = {version = "0.3.17", features = ["json", "env-filter"]}
-ulid = "1.0.0"
+ulid = "1.1.0"
 unleash-types = { version = "0.10", features = ["openapi", "hashes"]}
 unleash-yggdrasil = { version = "0.5.9" }
 utoipa = {version = "3", features = ["actix_extras", "chrono"]}
