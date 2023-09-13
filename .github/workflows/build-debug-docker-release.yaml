@@ -1,14 +1,14 @@
 ---
-name: Build main - debug docker image for Github Container registry
+name: Build Release - docker debug image for Github container registry
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
     paths:
       - "**/*.rs"
       - "**/*.toml"
-      - ".github/workflows/build-main-debug-docker-container.yaml"
+      - ".github/workflows/build-debug-docker-release.yaml"
+    tags:
+      - unleash-edge-v[0-9]+.*
 
 permissions:
   id-token: write
@@ -46,9 +46,11 @@ jobs:
         id: meta
         with:
           images: |
-            ghcr.io/unleash/unleash-edge-debug
+            ghcr.io/Unleash/unleash-edge-debug
           tags: |
-            type=edge
+            type=match,pattern=unleash-edge-v(\d+\.\d+.\d+),group=1,prefix=v
+            type=match,pattern=unleash-edge-v(\d+\.\d+).*,group=1,prefix=v
+
       - name: Login to Github Container registry
         uses: docker/login-action@v2
         with:
