@@ -33,9 +33,6 @@ This document contains the help content for the `unleash-edge` command-line prog
 * `-w`, `--workers <WORKERS>` — How many workers should be started to handle requests. Defaults to number of physical cpus
 
   Default value: `16`
-* `--enable-post-features` — Exposes the api/client/features endpoint for POST requests. This may be removed in a future release
-
-  Default value: `false`
 * `--tls-enable` — Should we bind TLS
 
   Default value: `false`
@@ -46,7 +43,7 @@ This document contains the help content for the `unleash-edge` command-line prog
   Default value: `3043`
 * `--instance-id <INSTANCE_ID>` — Instance id. Used for metrics reporting
 
-  Default value: `01H7SY1GR08PTQ1AJAMNKY413E`
+  Default value: `01HA7584ARNZD9X399N0CEF3SE`
 * `-a`, `--app-name <APP_NAME>` — App name. Used for metrics reporting
 
   Default value: `unleash-edge`
@@ -56,6 +53,9 @@ This document contains the help content for the `unleash-edge` command-line prog
 * `--disable-all-endpoint` — Set this flag to true if you want to disable /api/proxy/all and /api/frontend/all Because returning all toggles regardless of their state is a potential security vulnerability, these endpoints can be disabled
 
   Default value: `false`
+* `--edge-request-timeout <EDGE_REQUEST_TIMEOUT>` — Timeout for requests to Edge
+
+  Default value: `5`
 
 
 
@@ -68,20 +68,6 @@ Run in edge mode
 ###### **Options:**
 
 * `-u`, `--upstream-url <UPSTREAM_URL>` — Where is your upstream URL. Remember, this is the URL to your instance, without any trailing /api suffix
-* `--redis-url <REDIS_URL>`
-* `--redis-password <REDIS_PASSWORD>`
-* `--redis-username <REDIS_USERNAME>`
-* `--redis-port <REDIS_PORT>`
-* `--redis-host <REDIS_HOST>`
-* `--redis-secure`
-
-  Default value: `false`
-* `--redis-scheme <REDIS_SCHEME>`
-
-  Default value: `redis`
-
-  Possible values: `tcp`, `tls`, `redis`, `rediss`, `redis-unix`, `unix`
-
 * `-b`, `--backup-folder <BACKUP_FOLDER>` — A path to a local folder. Edge will write feature and token data to disk in this folder and read this back after restart. Mutually exclusive with the --redis-url option
 * `-m`, `--metrics-interval-seconds <METRICS_INTERVAL_SECONDS>` — How often should we post metrics upstream?
 
@@ -103,6 +89,26 @@ Run in edge mode
 * `--pkcs12-passphrase <PKCS12_PASSPHRASE>` — Passphrase used to unlock the pkcs12 file
 * `--upstream-certificate-file <UPSTREAM_CERTIFICATE_FILE>` — Extra certificate passed to the client for building its trust chain. Needs to be in PEM format (crt or pem extensions usually are)
 * `--service-account-token <SERVICE_ACCOUNT_TOKEN>` — Service account token. Used to create client tokens if receiving a frontend token we don't have data for
+* `--upstream-request-timeout <UPSTREAM_REQUEST_TIMEOUT>` — Timeout for requests to the upstream server
+
+  Default value: `5`
+* `--upstream-socket-timeout <UPSTREAM_SOCKET_TIMEOUT>` — Socket timeout for requests to upstream
+
+  Default value: `5`
+* `--redis-url <REDIS_URL>`
+* `--redis-password <REDIS_PASSWORD>`
+* `--redis-username <REDIS_USERNAME>`
+* `--redis-port <REDIS_PORT>`
+* `--redis-host <REDIS_HOST>`
+* `--redis-secure`
+
+  Default value: `false`
+* `--redis-scheme <REDIS_SCHEME>`
+
+  Default value: `redis`
+
+  Possible values: `tcp`, `tls`, `redis`, `rediss`, `redis-unix`, `unix`
+
 
 
 
@@ -116,6 +122,9 @@ Run in offline mode
 
 * `-b`, `--bootstrap-file <BOOTSTRAP_FILE>` — The file to load our features from. This data will be loaded at startup
 * `-t`, `--tokens <TOKENS>` — Tokens that should be allowed to connect to Edge. Supports a comma separated list or multiple instances of the `--tokens` argument
+* `-r`, `--reload-interval <RELOAD_INTERVAL>` — The interval in seconds between reloading the bootstrap file. Disabled if unset or 0
+
+  Default value: `0`
 
 
 

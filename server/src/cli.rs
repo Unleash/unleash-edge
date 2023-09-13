@@ -114,10 +114,6 @@ pub struct EdgeArgs {
     #[clap(short, long, env)]
     pub upstream_url: String,
 
-    /// A URL pointing to a running Redis instance. Edge will use this instance to persist feature and token data and read this back after restart. Mutually exclusive with the --backup-folder option
-    #[clap(flatten)]
-    pub redis: Option<RedisArgs>,
-
     /// A path to a local folder. Edge will write feature and token data to disk in this folder and read this back after restart. Mutually exclusive with the --redis-url option
     #[clap(short, long, env)]
     pub backup_folder: Option<PathBuf>,
@@ -163,6 +159,10 @@ pub struct EdgeArgs {
     /// Socket timeout for requests to upstream
     #[clap(long, env, default_value_t = 5)]
     pub upstream_socket_timeout: i64,
+
+    /// A URL pointing to a running Redis instance. Edge will use this instance to persist feature and token data and read this back after restart. Mutually exclusive with the --backup-folder option
+    #[clap(flatten)]
+    pub redis: Option<RedisArgs>,
 }
 
 pub fn string_to_header_tuple(s: &str) -> Result<(String, String), String> {
