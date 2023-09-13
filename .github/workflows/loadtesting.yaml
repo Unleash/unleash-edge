@@ -16,7 +16,7 @@ jobs:
           - 3063
     steps:
       - name: Checkout
-        uses: actions/checkout@v3        
+        uses: actions/checkout@v4        
       - name: Run K6 client/features benchmark
         uses: grafana/k6-action@v0.2.0
         with:

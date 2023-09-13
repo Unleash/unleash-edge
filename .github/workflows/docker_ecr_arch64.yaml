@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install rust
         run: |
           rustup set auto-self-update disable
@@ -36,7 +36,7 @@ jobs:
         run: |
           cross build --release --target=aarch64-unknown-linux-gnu
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::726824350591:role/unleash-github-ecr-private-publish-role
           role-session-name: actions-push-to-ecr-private
@@ -71,7 +71,7 @@ jobs:
     needs: docker
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Send to pipeline
         run: |
           bash ./.github/notify_pipeline.sh
