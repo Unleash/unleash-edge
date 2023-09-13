@@ -9,7 +9,7 @@ COPY target/aarch64-unknown-linux-gnu/release/unleash-edge /unleash-edge
 FROM final-${TARGETARCH}
 
 RUN apt update
-RUN apt install -y curl jq less telnet
+RUN apt install -y curl jq less telnet libssl3
 
 ENV RUST_LOG=DEBUG
 WORKDIR /
