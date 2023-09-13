@@ -41,6 +41,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let schedule_args = args.clone();
     let mode_arg = args.clone().mode;
     let http_args = args.clone().http;
+    let request_timeout = args.edge_request_timeout;
     let trust_proxy = args.clone().trust_proxy;
     let base_path = http_args.base_path.clone();
     let (metrics_handler, request_metrics) = prom_metrics::instantiate(None);
@@ -130,7 +131,10 @@ async fn main() -> Result<(), anyhow::Error> {
     } else {
         server.bind(http_args.http_server_tuple())
     };
-    let server = server?.workers(http_args.workers).shutdown_timeout(5);
+    let server = server?
+        .workers(http_args.workers)
+        .shutdown_timeout(5)
+        .client_request_timeout(std::time::Duration::from_secs(request_timeout));
 
     match schedule_args.mode {
         cli::EdgeMode::Edge(edge) => {

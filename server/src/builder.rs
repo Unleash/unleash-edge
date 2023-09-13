@@ -142,6 +142,8 @@ async fn build_edge(args: &EdgeArgs) -> EdgeResult<EdgeInfo> {
                 args.skip_ssl_verification,
                 args.client_identity.clone(),
                 args.upstream_certificate_file.clone(),
+                Duration::seconds(args.upstream_request_timeout),
+                Duration::seconds(args.upstream_socket_timeout),
             )
         })
         .map(|c| c.with_custom_client_headers(args.custom_client_headers.clone()))

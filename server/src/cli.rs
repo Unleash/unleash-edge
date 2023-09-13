@@ -155,6 +155,14 @@ pub struct EdgeArgs {
     /// Service account token. Used to create client tokens if receiving a frontend token we don't have data for
     #[clap(long, global = true, env)]
     pub service_account_token: Option<String>,
+
+    /// Timeout for requests to the upstream server
+    #[clap(long, env, default_value_t = 5)]
+    pub upstream_request_timeout: i64,
+
+    /// Socket timeout for requests to upstream
+    #[clap(long, env, default_value_t = 5)]
+    pub upstream_socket_timeout: i64,
 }
 
 pub fn string_to_header_tuple(s: &str) -> Result<(String, String), String> {
@@ -223,6 +231,10 @@ pub struct CliArgs {
     /// Because returning all toggles regardless of their state is a potential security vulnerability, these endpoints can be disabled
     #[clap(long, env, default_value_t = false, global = true)]
     pub disable_all_endpoint: bool,
+
+    /// Timeout for requests to Edge
+    #[clap(long, env, default_value_t = 5)]
+    pub edge_request_timeout: u64,
 }
 
 #[derive(Args, Debug, Clone)]

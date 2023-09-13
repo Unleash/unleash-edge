@@ -403,6 +403,8 @@ mod tests {
             false,
             None,
             None,
+            Duration::seconds(5),
+            Duration::seconds(5),
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
@@ -432,6 +434,8 @@ mod tests {
             false,
             None,
             None,
+            Duration::seconds(5),
+            Duration::seconds(5),
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
@@ -465,6 +469,8 @@ mod tests {
             false,
             None,
             None,
+            Duration::seconds(5),
+            Duration::seconds(5),
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
@@ -505,6 +511,8 @@ mod tests {
             false,
             None,
             None,
+            Duration::seconds(5),
+            Duration::seconds(5),
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
@@ -554,6 +562,8 @@ mod tests {
             false,
             None,
             None,
+            Duration::seconds(5),
+            Duration::seconds(5),
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
@@ -607,6 +617,8 @@ mod tests {
             false,
             None,
             None,
+            Duration::seconds(5),
+            Duration::seconds(5),
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
@@ -645,6 +657,8 @@ mod tests {
             false,
             None,
             None,
+            Duration::seconds(5),
+            Duration::seconds(5),
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
@@ -678,6 +692,8 @@ mod tests {
             false,
             None,
             None,
+            Duration::seconds(5),
+            Duration::seconds(5),
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
