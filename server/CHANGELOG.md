@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 11.0.0 (2023-09-13)
+
+### Chore
+
+ - <csr-id-77a078d71cd826f07778ebc54153579a32dbaf53/> Upgrade to actix 4.4 and rustls 0.21
+
+### New Features
+
+ - <csr-id-6da7d98617394b654fb660912af32a892c4b3546/> expose timeouts in CLI args for connecting to Edge and/or upstream
+ - <csr-id-022b361e24f6425028ae7f4b518163477305b30d/> more information in error logs
+ - <csr-id-3fff36356e5d8557e590b07399a060ad6033bde8/> add /internal-backstage/ready endpoint
+ - <csr-id-29a2584cbbf59c7e9089654859f4579f8138ef79/> added token info endpoint
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 5 commits contributed to the release over the course of 4 calendar days.
+ - 5 days passed between releases.
+ - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 5 unique issues were worked on: [#245](https://github.com/Unleash/unleash-edge/issues/245), [#250](https://github.com/Unleash/unleash-edge/issues/250), [#252](https://github.com/Unleash/unleash-edge/issues/252), [#253](https://github.com/Unleash/unleash-edge/issues/253), [#262](https://github.com/Unleash/unleash-edge/issues/262)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#245](https://github.com/Unleash/unleash-edge/issues/245)**
+    - Upgrade to actix 4.4 and rustls 0.21 ([`77a078d`](https://github.com/Unleash/unleash-edge/commit/77a078d71cd826f07778ebc54153579a32dbaf53))
+ * **[#250](https://github.com/Unleash/unleash-edge/issues/250)**
+    - Added token info endpoint ([`29a2584`](https://github.com/Unleash/unleash-edge/commit/29a2584cbbf59c7e9089654859f4579f8138ef79))
+ * **[#252](https://github.com/Unleash/unleash-edge/issues/252)**
+    - Add /internal-backstage/ready endpoint ([`3fff363`](https://github.com/Unleash/unleash-edge/commit/3fff36356e5d8557e590b07399a060ad6033bde8))
+ * **[#253](https://github.com/Unleash/unleash-edge/issues/253)**
+    - More information in error logs ([`022b361`](https://github.com/Unleash/unleash-edge/commit/022b361e24f6425028ae7f4b518163477305b30d))
+ * **[#262](https://github.com/Unleash/unleash-edge/issues/262)**
+    - Expose timeouts in CLI args for connecting to Edge and/or upstream ([`6da7d98`](https://github.com/Unleash/unleash-edge/commit/6da7d98617394b654fb660912af32a892c4b3546))
+</details>
+
 ## 10.0.0 (2023-09-08)
 
 ### New Features
@@ -19,7 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 2 commits contributed to the release.
+ - 3 commits contributed to the release.
  - 15 days passed between releases.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#241](https://github.com/Unleash/unleash-edge/issues/241), [#242](https://github.com/Unleash/unleash-edge/issues/242)
@@ -34,6 +74,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Make fe tokens respect token cache ([`2025d51`](https://github.com/Unleash/unleash-edge/commit/2025d5114d9e47a5b820d065642d3df697223f38))
  * **[#242](https://github.com/Unleash/unleash-edge/issues/242)**
     - Add hot reloading and an optional, simpler file format to offline mode ([`5100737`](https://github.com/Unleash/unleash-edge/commit/510073784335e8d8ec8f8e4cc988bc2aad176c8e))
+ * **Uncategorized**
+    - Release unleash-edge v10.0.0 ([`e76da04`](https://github.com/Unleash/unleash-edge/commit/e76da0414d2b37518ce218baa7fae51424fdeaa6))
 </details>
 
 ## 9.0.0 (2023-08-23)
