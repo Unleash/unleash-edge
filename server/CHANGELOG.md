@@ -5,7 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 11.0.1 (2023-09-13)
+
+### Chore
+
+ - <csr-id-2d124017e7b282b65ed29adb71dac450961066ea/> moved redis to bottom of edge cli struct
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 1 commit contributed to the release.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Moved redis to bottom of edge cli struct ([`2d12401`](https://github.com/Unleash/unleash-edge/commit/2d124017e7b282b65ed29adb71dac450961066ea))
+</details>
+
 ## 11.0.0 (2023-09-13)
+
+<csr-id-77a078d71cd826f07778ebc54153579a32dbaf53/>
 
 ### Chore
 
@@ -22,7 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 5 commits contributed to the release over the course of 4 calendar days.
+ - 6 commits contributed to the release over the course of 4 calendar days.
  - 5 days passed between releases.
  - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 5 unique issues were worked on: [#245](https://github.com/Unleash/unleash-edge/issues/245), [#250](https://github.com/Unleash/unleash-edge/issues/250), [#252](https://github.com/Unleash/unleash-edge/issues/252), [#253](https://github.com/Unleash/unleash-edge/issues/253), [#262](https://github.com/Unleash/unleash-edge/issues/262)
@@ -43,6 +69,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - More information in error logs ([`022b361`](https://github.com/Unleash/unleash-edge/commit/022b361e24f6425028ae7f4b518163477305b30d))
  * **[#262](https://github.com/Unleash/unleash-edge/issues/262)**
     - Expose timeouts in CLI args for connecting to Edge and/or upstream ([`6da7d98`](https://github.com/Unleash/unleash-edge/commit/6da7d98617394b654fb660912af32a892c4b3546))
+ * **Uncategorized**
+    - Release unleash-edge v11.0.0 ([`dfdbf99`](https://github.com/Unleash/unleash-edge/commit/dfdbf99708161f23cbf0f849ba781cc833ab8fcb))
 </details>
 
 ## 10.0.0 (2023-09-08)
