@@ -8,6 +8,7 @@ use tracing::{debug, instrument};
 
 use crate::{
     http::feature_refresher::FeatureRefresher,
+    tokens,
     types::{EdgeResult, EdgeToken, TokenValidationStatus},
 };
 
@@ -32,7 +33,10 @@ pub async fn client_token_from_frontend_token(
 ) -> Result<ServiceResponse<impl MessageBody>, actix_web::Error> {
     if let Some(token_cache) = req.app_data::<Data<DashMap<String, EdgeToken>>>() {
         if let Some(fe_token) = token_cache.get(&token.token) {
-            debug!("Token got extracted to {:#?}", fe_token.value().clone());
+            debug!(
+                "Token got extracted to {:#?}",
+                tokens::anonymize_token(fe_token.value())
+            );
             if fe_token.status == TokenValidationStatus::Validated {
                 create_client_token_for_fe_token(&req, &fe_token).await?;
             }

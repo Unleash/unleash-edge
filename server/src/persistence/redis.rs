@@ -70,7 +70,7 @@ impl EdgePersistence for RedisPersister {
         let mut client = self.redis_client.write().await;
         let raw_features: String = client.get(FEATURES_KEY)?;
         let raw_features = serde_json::from_str::<Vec<(String, ClientFeatures)>>(&raw_features)
-            .map_err(|_| EdgeError::ClientFeaturesParseError)?;
+            .map_err(|e| EdgeError::ClientFeaturesParseError(e.to_string()))?;
         Ok(raw_features.into_iter().collect())
     }
 
