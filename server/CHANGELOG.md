@@ -5,7 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 11.0.2 (2023-09-14)
+
+### Bug Fixes
+
+ - <csr-id-ac60f5dd3ac26ecef9befbd79b5a01b07ffb30f3/> allow startup tokens to continue to validate against unleash until they succeed
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 1 commit contributed to the release.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 1 unique issue was worked on: [#264](https://github.com/Unleash/unleash-edge/issues/264)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#264](https://github.com/Unleash/unleash-edge/issues/264)**
+    - Allow startup tokens to continue to validate against unleash until they succeed ([`ac60f5d`](https://github.com/Unleash/unleash-edge/commit/ac60f5dd3ac26ecef9befbd79b5a01b07ffb30f3))
+</details>
+
 ## 11.0.1 (2023-09-13)
+
+<csr-id-2d124017e7b282b65ed29adb71dac450961066ea/>
 
 ### Chore
 
@@ -15,7 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 1 commit contributed to the release.
+ - 2 commits contributed to the release.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -26,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release unleash-edge v11.0.1 ([`cabbf42`](https://github.com/Unleash/unleash-edge/commit/cabbf4207e505e084a0c6709e56bb694f4ece140))
     - Moved redis to bottom of edge cli struct ([`2d12401`](https://github.com/Unleash/unleash-edge/commit/2d124017e7b282b65ed29adb71dac450961066ea))
 </details>
 
