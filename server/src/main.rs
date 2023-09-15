@@ -65,6 +65,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let lazy_feature_cache = features_cache.clone();
     let lazy_token_cache = token_cache.clone();
     let lazy_engine_cache = engine_cache.clone();
+    let lazy_feature_refresher = feature_refresher.clone();
 
     let metrics_cache = Arc::new(MetricsCache::default());
     let metrics_cache_clone = metrics_cache.clone();
@@ -161,6 +162,9 @@ async fn main() -> Result<(), anyhow::Error> {
                     tracing::info!("Persister was unexpectedly shut down");
                 }
                 _ = validator.schedule_validation_of_known_tokens(edge.token_revalidation_interval_seconds) => {
+                    tracing::info!("Token validator validator was unexpectedly shut down");
+                }
+                _ = validator.schedule_revalidation_of_startup_tokens(edge.tokens, lazy_feature_refresher) => {
                     tracing::info!("Token validator validator was unexpectedly shut down");
                 }
             }

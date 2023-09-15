@@ -1,3 +1,4 @@
+use crate::http::feature_refresher::FeatureRefresher;
 use crate::http::unleash_client::UnleashClient;
 use crate::persistence::EdgePersistence;
 use crate::types::{
@@ -105,6 +106,29 @@ impl TokenValidator {
             }
         }
     }
+
+    pub async fn schedule_revalidation_of_startup_tokens(
+        &self,
+        tokens: Vec<String>,
+        refresher: Option<Arc<FeatureRefresher>>,
+    ) {
+        let sleep_duration = tokio::time::Duration::from_secs(1);
+        loop {
+            tokio::select! {
+                _ = tokio::time::sleep(sleep_duration) => {
+                    if let Some(refresher) = refresher.clone() {
+                        let token_result = self.register_tokens(tokens.clone()).await;
+                        if let Ok(good_tokens) = token_result {
+                            for token in good_tokens {
+                                let _ = refresher.register_and_hydrate_token(&token).await;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     pub async fn revalidate_known_tokens(&self) -> EdgeResult<()> {
         let tokens_to_validate: Vec<String> = self
             .token_cache
