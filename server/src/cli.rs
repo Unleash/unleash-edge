@@ -361,9 +361,7 @@ mod tests {
                 assert_eq!(api_key.0, "X-Api-Key");
                 assert_eq!(api_key.1, "mysecret")
             }
-            EdgeMode::Offline(_) => unreachable!(),
-            EdgeMode::Health(_) => unreachable!(),
-            EdgeMode::Ready(_) => unreachable!(),
+            _ => unreachable!(),
         }
     }
 
@@ -387,9 +385,7 @@ mod tests {
                 assert_eq!(api_key.0, "X-Api-Key");
                 assert_eq!(api_key.1, "mysecret")
             }
-            EdgeMode::Offline(_) => unreachable!(),
-            EdgeMode::Health(_) => unreachable!(),
-            EdgeMode::Ready(_) => unreachable!(),
+            _ => unreachable!(),
         }
     }
 
@@ -410,9 +406,7 @@ mod tests {
                 assert_eq!(auth.0, "Authorization");
                 assert_eq!(auth.1, "test:test.secret");
             }
-            EdgeMode::Offline(_) => unreachable!(),
-            EdgeMode::Health(_) => unreachable!(),
-            EdgeMode::Ready(_) => unreachable!(),
+            _ => unreachable!(),
         }
     }
 
