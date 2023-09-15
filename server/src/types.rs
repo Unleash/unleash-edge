@@ -48,6 +48,14 @@ pub enum TokenValidationStatus {
     Validated,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum Status {
+    Ok,
+    NotOk,
+    NotReady,
+    Ready,
+}
 #[derive(Clone, Debug)]
 pub struct ClientFeaturesRequest {
     pub api_key: String,

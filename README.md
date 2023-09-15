@@ -71,6 +71,36 @@ will check an Edge process running on http://localhost:3063. If you're using bas
 
 If you're hosting Edge with a self-signed certificate using the tls cli arguments, you should use the `--ca-certificate-file <file_containing_your_ca_and_key_in_pem_format>` flag (or the CA_CERTIFICATE_FILE environment variable) to allow the health checker to trust the self signed certificate.
 
+### Built-in Ready check
+There is now (from 12.0.0) a subcommand named `ready` which will ping your ready endpoint and exit with status 0 provided the ready endpoint returns 200 OK and `{ status: "READY" }`. Otherwise it will return status 1 and an error message to signal that Edge is not ready (it has not spoken to upstream or recovered from a persisted backup).
+
+Examples:
+* Edge not running:
+```shell
+$ ./unleash-edge ready
+Error: Failed to connect to ready endpoint at http://localhost:3063/internal-backstage/ready. Failed with status None
+$ echo $?
+1
+```
+ 
+* Edge running but not populated its feature cache yet (not spoken to upstream or restored from backup)
+```shell
+$ ./unleash-edge ready
+Error: Ready check returned a different status than READY. It returned EdgeStatus { status: NotReady }
+$ echo $?
+1
+```
+* Edge running and synchronized. I.e. READY
+```shell
+$ ./unleash-edge ready
+OK
+$ echo $?
+0
+```
+
+If you're hosting Edge with a self-signed certificate using the tls cli arguments, you should use the `--ca-certificate-file <file_containing_your_ca_and_key_in_pem_format>` flag (or the CA_CERTIFICATE_FILE environment variable) to allow the health checker to trust the self signed certificate.
+
+
 ## Getting Unleash Edge
 
 Unleash Edge is distributed as a binary and as a docker image.

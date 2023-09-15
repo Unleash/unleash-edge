@@ -129,6 +129,9 @@ impl FromRequest for EdgeToken {
                 EdgeMode::Health(_) => {
                     unreachable!("Trying to get token when running in healthcheck mode")
                 }
+                EdgeMode::Ready(_) => {
+                    unreachable!("Trying to get token when running in ready check mode")
+                }
             };
             ready(key)
         } else {

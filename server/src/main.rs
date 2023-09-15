@@ -19,7 +19,9 @@ use unleash_edge::middleware::request_tracing::RequestTracing;
 use unleash_edge::offline::offline_hotload;
 use unleash_edge::persistence::{persist_data, EdgePersistence};
 use unleash_edge::types::{EdgeToken, TokenRefresh, TokenValidationStatus};
-use unleash_edge::{admin_api, cli, client_api, frontend_api, health_checker, openapi};
+use unleash_edge::{
+    admin_api, cli, client_api, frontend_api, health_checker, openapi, ready_checker,
+};
 use unleash_edge::{edge_api, prom_metrics};
 use unleash_edge::{internal_backstage, tls};
 
@@ -38,6 +40,9 @@ async fn main() -> Result<(), anyhow::Error> {
             .await
             .map_err(|e| e.into());
     };
+    if let EdgeMode::Ready(args) = args.mode {
+        return ready_checker::check_ready(args).await.map_err(|e| e.into());
+    }
     let schedule_args = args.clone();
     let mode_arg = args.clone().mode;
     let http_args = args.clone().http;

@@ -21,6 +21,8 @@ pub mod openapi;
 pub mod persistence;
 #[cfg(not(tarpaulin_include))]
 pub mod prom_metrics;
+
+pub mod ready_checker;
 #[cfg(not(tarpaulin_include))]
 pub mod tls;
 pub mod tokens;

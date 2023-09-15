@@ -106,6 +106,7 @@ pub enum EdgeError {
     JsonParseError(String),
     NoFeaturesFile,
     NoTokenProvider,
+    ReadyCheckError(String),
     TlsError,
     TokenParseError(String),
     ContextParseError,
@@ -177,6 +178,9 @@ impl Display for EdgeError {
             EdgeError::HealthCheckError(message) => {
                 write!(f, "{message}")
             }
+            EdgeError::ReadyCheckError(message) => {
+                write!(f, "{message}")
+            }
             EdgeError::TokenValidationError(status_code) => {
                 write!(
                     f,
@@ -216,6 +220,7 @@ impl ResponseError for EdgeError {
             EdgeError::ServiceAccountTokenNotEnabled => StatusCode::NETWORK_AUTHENTICATION_REQUIRED,
             EdgeError::EdgeMetricsRequestError(status_code) => *status_code,
             EdgeError::HealthCheckError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            EdgeError::ReadyCheckError(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 
