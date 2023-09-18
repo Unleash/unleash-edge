@@ -281,6 +281,10 @@ Options:
 
 ```
 
+##### Environments in offline mode
+Currently, Edge does not support multiple environments in offline mode. All tokens added at startup will receive the same list of features passed in as the bootstrap argument. 
+However, tokens in <project>:<environment>.<secret> format will still filter by project.
+
 ## [Metrics](https://docs.getunleash.io/reference/api/unleash/metrics)
 
 **❗ Note:** For Unleash to correctly register SDK usage metrics sent from Edge instances, your Unleash instance must be v4.22 or newer.
