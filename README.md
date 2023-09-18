@@ -47,9 +47,9 @@ Options:
       --tls-enable
           Should we bind TLS [env: TLS_ENABLE=]
       --tls-server-key <TLS_SERVER_KEY>
-          Server key to use for TLS [env: TLS_SERVER_KEY=]
+          Server key to use for TLS [env: TLS_SERVER_KEY=] (Needs to be a path to a file)
       --tls-server-cert <TLS_SERVER_CERT>
-          Server Cert to use for TLS [env: TLS_SERVER_CERT=]
+          Server Cert to use for TLS [env: TLS_SERVER_CERT=] (Needs to be a path to a file)
       --tls-server-port <TLS_SERVER_PORT>
           Port to listen for https connection on (will use the interfaces already defined) [env: TLS_SERVER_PORT=] [default: 3043]
       --instance-id <INSTANCE_ID>
@@ -264,7 +264,7 @@ The simplified JSON format should be an object with a key for each feature. You 
 
 When using offline mode you must specify one or more tokens at startup. These tokens will let your SDKs access Edge. Tokens following the Unleash API format `[project]:[environment].<somesecret>` allow Edge to recognize the project and environment specified in the token, returning only the relevant features to the calling SDK. On the other hand, for tokens not adhering to this format, Edge will return all features if there is an exact match with any of the startup tokens.
 
-To make local development easier, you can specify a reload interval in seconds; this will cause Edge to reload the features file from disk every X seconds. This can be useful for local development.
+To make local development easier, you can specify a reload interval in seconds (Since Unleash-Edge 10.0.x); this will cause Edge to reload the features file from disk every X seconds. This can be useful for local development.
 
 Since offline mode does not connect to an upstream node, it does not support metrics or dynamic tokens.
 
