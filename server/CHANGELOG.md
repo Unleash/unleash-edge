@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 12.0.0 (2023-09-18)
+
+### Documentation
+
+ - <csr-id-16ed8c027bc68941c0b36173d3717668f64fc75f/> updated to reference 12.0.0 version
+
+### New Features
+
+ - <csr-id-62af705c24862315ac279237d7ed23ed9fe9d957/> Added ready subcommand to cli
+
+### Bug Fixes
+
+ - <csr-id-1cc30b700a6b1b6df520f1c100a90a401d7660d4/> Update docs about environment in offline mode
+   * fix: Update docs about environment in offline mode
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 3 commits contributed to the release.
+ - 4 days passed between releases.
+ - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 2 unique issues were worked on: [#267](https://github.com/Unleash/unleash-edge/issues/267), [#270](https://github.com/Unleash/unleash-edge/issues/270)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#267](https://github.com/Unleash/unleash-edge/issues/267)**
+    - Added ready subcommand to cli ([`62af705`](https://github.com/Unleash/unleash-edge/commit/62af705c24862315ac279237d7ed23ed9fe9d957))
+ * **[#270](https://github.com/Unleash/unleash-edge/issues/270)**
+    - Update docs about environment in offline mode ([`1cc30b7`](https://github.com/Unleash/unleash-edge/commit/1cc30b700a6b1b6df520f1c100a90a401d7660d4))
+ * **Uncategorized**
+    - updated to reference 12.0.0 version ([`16ed8c0`](https://github.com/Unleash/unleash-edge/commit/16ed8c027bc68941c0b36173d3717668f64fc75f))
+</details>
+
 ## 11.0.2 (2023-09-14)
 
 ### Bug Fixes
@@ -15,7 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 1 commit contributed to the release.
+ - 2 commits contributed to the release.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#264](https://github.com/Unleash/unleash-edge/issues/264)
 
@@ -26,7 +64,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **[#264](https://github.com/Unleash/unleash-edge/issues/264)**
-    - Allow startup tokens to continue to validate against unleash until they succeed ([`ac60f5d`](https://github.com/Unleash/unleash-edge/commit/ac60f5dd3ac26ecef9befbd79b5a01b07ffb30f3))
+    - allow startup tokens to continue to validate against unleash until they succeed ([`ac60f5d`](https://github.com/Unleash/unleash-edge/commit/ac60f5dd3ac26ecef9befbd79b5a01b07ffb30f3))
+ * **Uncategorized**
+    - Release unleash-edge v11.0.2 ([`7715e84`](https://github.com/Unleash/unleash-edge/commit/7715e84b44c414358c8bebcdf77f72951ff47e49))
 </details>
 
 ## 11.0.1 (2023-09-13)
@@ -53,7 +93,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  * **Uncategorized**
     - Release unleash-edge v11.0.1 ([`cabbf42`](https://github.com/Unleash/unleash-edge/commit/cabbf4207e505e084a0c6709e56bb694f4ece140))
-    - Moved redis to bottom of edge cli struct ([`2d12401`](https://github.com/Unleash/unleash-edge/commit/2d124017e7b282b65ed29adb71dac450961066ea))
+    - moved redis to bottom of edge cli struct ([`2d12401`](https://github.com/Unleash/unleash-edge/commit/2d124017e7b282b65ed29adb71dac450961066ea))
 </details>
 
 ## 11.0.0 (2023-09-13)
@@ -89,13 +129,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#245](https://github.com/Unleash/unleash-edge/issues/245)**
     - Upgrade to actix 4.4 and rustls 0.21 ([`77a078d`](https://github.com/Unleash/unleash-edge/commit/77a078d71cd826f07778ebc54153579a32dbaf53))
  * **[#250](https://github.com/Unleash/unleash-edge/issues/250)**
-    - Added token info endpoint ([`29a2584`](https://github.com/Unleash/unleash-edge/commit/29a2584cbbf59c7e9089654859f4579f8138ef79))
+    - added token info endpoint ([`29a2584`](https://github.com/Unleash/unleash-edge/commit/29a2584cbbf59c7e9089654859f4579f8138ef79))
  * **[#252](https://github.com/Unleash/unleash-edge/issues/252)**
-    - Add /internal-backstage/ready endpoint ([`3fff363`](https://github.com/Unleash/unleash-edge/commit/3fff36356e5d8557e590b07399a060ad6033bde8))
+    - add /internal-backstage/ready endpoint ([`3fff363`](https://github.com/Unleash/unleash-edge/commit/3fff36356e5d8557e590b07399a060ad6033bde8))
  * **[#253](https://github.com/Unleash/unleash-edge/issues/253)**
-    - More information in error logs ([`022b361`](https://github.com/Unleash/unleash-edge/commit/022b361e24f6425028ae7f4b518163477305b30d))
+    - more information in error logs ([`022b361`](https://github.com/Unleash/unleash-edge/commit/022b361e24f6425028ae7f4b518163477305b30d))
  * **[#262](https://github.com/Unleash/unleash-edge/issues/262)**
-    - Expose timeouts in CLI args for connecting to Edge and/or upstream ([`6da7d98`](https://github.com/Unleash/unleash-edge/commit/6da7d98617394b654fb660912af32a892c4b3546))
+    - expose timeouts in CLI args for connecting to Edge and/or upstream ([`6da7d98`](https://github.com/Unleash/unleash-edge/commit/6da7d98617394b654fb660912af32a892c4b3546))
  * **Uncategorized**
     - Release unleash-edge v11.0.0 ([`dfdbf99`](https://github.com/Unleash/unleash-edge/commit/dfdbf99708161f23cbf0f849ba781cc833ab8fcb))
 </details>
@@ -126,9 +166,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **[#241](https://github.com/Unleash/unleash-edge/issues/241)**
-    - Make fe tokens respect token cache ([`2025d51`](https://github.com/Unleash/unleash-edge/commit/2025d5114d9e47a5b820d065642d3df697223f38))
+    - make fe tokens respect token cache ([`2025d51`](https://github.com/Unleash/unleash-edge/commit/2025d5114d9e47a5b820d065642d3df697223f38))
  * **[#242](https://github.com/Unleash/unleash-edge/issues/242)**
-    - Add hot reloading and an optional, simpler file format to offline mode ([`5100737`](https://github.com/Unleash/unleash-edge/commit/510073784335e8d8ec8f8e4cc988bc2aad176c8e))
+    - add hot reloading and an optional, simpler file format to offline mode ([`5100737`](https://github.com/Unleash/unleash-edge/commit/510073784335e8d8ec8f8e4cc988bc2aad176c8e))
  * **Uncategorized**
     - Release unleash-edge v10.0.0 ([`e76da04`](https://github.com/Unleash/unleash-edge/commit/e76da0414d2b37518ce218baa7fae51424fdeaa6))
 </details>
@@ -161,9 +201,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **[#237](https://github.com/Unleash/unleash-edge/issues/237)**
-    - Add --disable-all-endpoint flag for disabling proxy /all endpoint ([`af6c3a2`](https://github.com/Unleash/unleash-edge/commit/af6c3a2079134acca6ae2739bd28aad61cb7f0ae))
+    - add --disable-all-endpoint flag for disabling proxy /all endpoint ([`af6c3a2`](https://github.com/Unleash/unleash-edge/commit/af6c3a2079134acca6ae2739bd28aad61cb7f0ae))
  * **[#238](https://github.com/Unleash/unleash-edge/issues/238)**
-    - Remove experimental post features endpoint ([`a6f1829`](https://github.com/Unleash/unleash-edge/commit/a6f1829102c671ebbab15f37502bc40f21616da6))
+    - remove experimental post features endpoint ([`a6f1829`](https://github.com/Unleash/unleash-edge/commit/a6f1829102c671ebbab15f37502bc40f21616da6))
  * **Uncategorized**
     - Release unleash-edge v9.0.0 ([`40a6a38`](https://github.com/Unleash/unleash-edge/commit/40a6a38a51a8422ca2dd593bb56a11f4598e350e))
 </details>
@@ -194,10 +234,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **[#231](https://github.com/Unleash/unleash-edge/issues/231)**
-    - Bumps yggdrasil and unleash-types to allow the usage of strategy variants ([`9d22718`](https://github.com/Unleash/unleash-edge/commit/9d2271827f7c895acea280463011e638e3dd7dd4))
+    - bumps yggdrasil and unleash-types to allow the usage of strategy variants ([`9d22718`](https://github.com/Unleash/unleash-edge/commit/9d2271827f7c895acea280463011e638e3dd7dd4))
  * **Uncategorized**
     - Release unleash-edge v8.1.0 ([`db512f8`](https://github.com/Unleash/unleash-edge/commit/db512f81b8d2bb355acd921ac3f046b7204e351d))
-    - Updated README to point to newest edge docker container ([`d0b0b66`](https://github.com/Unleash/unleash-edge/commit/d0b0b66d8c608ea742137c7647317fe876527ec9))
+    - updated README to point to newest edge docker container ([`d0b0b66`](https://github.com/Unleash/unleash-edge/commit/d0b0b66d8c608ea742137c7647317fe876527ec9))
 </details>
 
 ## 8.0.1 (2023-07-13)
@@ -228,7 +268,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **[#228](https://github.com/Unleash/unleash-edge/issues/228)**
-    - Added timing for client feature fetch operations ([`5d63562`](https://github.com/Unleash/unleash-edge/commit/5d63562e65225139c1fb67c715181896b3f982f8))
+    - added timing for client feature fetch operations ([`5d63562`](https://github.com/Unleash/unleash-edge/commit/5d63562e65225139c1fb67c715181896b3f982f8))
  * **Uncategorized**
     - Release unleash-edge v8.0.1 ([`74c6801`](https://github.com/Unleash/unleash-edge/commit/74c68016f3cac5d78bf30dd593083327e32ce3d1))
     - Prepare for release of 8.0.1 ([`263d56c`](https://github.com/Unleash/unleash-edge/commit/263d56c6746e141610e54cabb3a8861614ee7e0a))
@@ -268,15 +308,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **[#218](https://github.com/Unleash/unleash-edge/issues/218)**
-    - Perf/remove unnecessary clone ([`5808004`](https://github.com/Unleash/unleash-edge/commit/5808004aa4725bb8debd5d9150177c910b63d733))
+    - perf/remove unnecessary clone ([`5808004`](https://github.com/Unleash/unleash-edge/commit/5808004aa4725bb8debd5d9150177c910b63d733))
  * **[#220](https://github.com/Unleash/unleash-edge/issues/220)**
-    - Improve memory usage during request lifecycle ([`4c03cba`](https://github.com/Unleash/unleash-edge/commit/4c03cba94693fe5ede4b7d16fb8ee00ec2d4e572))
+    - improve memory usage during request lifecycle ([`4c03cba`](https://github.com/Unleash/unleash-edge/commit/4c03cba94693fe5ede4b7d16fb8ee00ec2d4e572))
  * **[#221](https://github.com/Unleash/unleash-edge/issues/221)**
-    - Reduce public api for a number of functions/structs that should never have been public anyway ([`a85c2f3`](https://github.com/Unleash/unleash-edge/commit/a85c2f3911b5cffb6ccee78a74ffa4ece61cebc8))
+    - reduce public api for a number of functions/structs that should never have been public anyway ([`a85c2f3`](https://github.com/Unleash/unleash-edge/commit/a85c2f3911b5cffb6ccee78a74ffa4ece61cebc8))
  * **Uncategorized**
     - Release unleash-edge v8.0.0 ([`16a34df`](https://github.com/Unleash/unleash-edge/commit/16a34dfd27b4e85abf44d440333b5fb0477d2aa3))
-    - Bump unleash-types to no longer serialize nulls ([`9dd9930`](https://github.com/Unleash/unleash-edge/commit/9dd9930d22cf259a20b8168d203c3919df019921))
-    - Log levels were too high ([`6130604`](https://github.com/Unleash/unleash-edge/commit/61306041de7f58584ee2ab8d310b12a00f8eeb87))
+    - bump unleash-types to no longer serialize nulls ([`9dd9930`](https://github.com/Unleash/unleash-edge/commit/9dd9930d22cf259a20b8168d203c3919df019921))
+    - log levels were too high ([`6130604`](https://github.com/Unleash/unleash-edge/commit/61306041de7f58584ee2ab8d310b12a00f8eeb87))
 </details>
 
 ## 7.0.1 (2023-06-23)
@@ -303,7 +343,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **[#215](https://github.com/Unleash/unleash-edge/issues/215)**
-    - Allows resolving a single toggle to do that instead of iterating the whole hashmap ([`0920dad`](https://github.com/Unleash/unleash-edge/commit/0920dad3c42cf8284cf21899a8a5f392271acca9))
+    - allows resolving a single toggle to do that instead of iterating the whole hashmap ([`0920dad`](https://github.com/Unleash/unleash-edge/commit/0920dad3c42cf8284cf21899a8a5f392271acca9))
  * **Uncategorized**
     - Release unleash-edge v7.0.1 ([`92c882e`](https://github.com/Unleash/unleash-edge/commit/92c882e71d2a7747b9b10913757d8767b83241f0))
 </details>
@@ -349,11 +389,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#208](https://github.com/Unleash/unleash-edge/issues/208)**
     - You can now use tcp or tls as schemes for Redis ([`38b36e8`](https://github.com/Unleash/unleash-edge/commit/38b36e8af9e1560bc7ece1f644a0349257bf1a36))
  * **[#210](https://github.com/Unleash/unleash-edge/issues/210)**
-    - Remove unneeded import ([`21178ab`](https://github.com/Unleash/unleash-edge/commit/21178ab0934176e7c1aac9a9093253b806acd399))
+    - remove unneeded import ([`21178ab`](https://github.com/Unleash/unleash-edge/commit/21178ab0934176e7c1aac9a9093253b806acd399))
  * **Uncategorized**
     - Release unleash-edge v7.0.0 ([`e6b53a0`](https://github.com/Unleash/unleash-edge/commit/e6b53a0a0e61b98924315f86bc1f4d4d3ea9c317))
-    - Trust-proxy - resolving peer ip for context ([`2fcfcc5`](https://github.com/Unleash/unleash-edge/commit/2fcfcc54cc61ae277c8b1b66fe9d8e619ab47494))
-    - Remove SA token from app_data, it's already added to the FeatureRefresher ([`6c3942e`](https://github.com/Unleash/unleash-edge/commit/6c3942ef330bc6bf04344193d0ab3be9a1a1e3ed))
+    - trust-proxy - resolving peer ip for context ([`2fcfcc5`](https://github.com/Unleash/unleash-edge/commit/2fcfcc54cc61ae277c8b1b66fe9d8e619ab47494))
+    - remove SA token from app_data, it's already added to the FeatureRefresher ([`6c3942e`](https://github.com/Unleash/unleash-edge/commit/6c3942ef330bc6bf04344193d0ab3be9a1a1e3ed))
     - Don't log the SA token on startup ([`d6da27a`](https://github.com/Unleash/unleash-edge/commit/d6da27a77551ee22d4e406deb6a3351ad013cf1e))
 </details>
 
@@ -397,20 +437,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **[#194](https://github.com/Unleash/unleash-edge/issues/194)**
-    - Update rust crate chrono to 0.4.26 ([`6fe165a`](https://github.com/Unleash/unleash-edge/commit/6fe165a6249290e043d21232059e4153436b4fde))
+    - update rust crate chrono to 0.4.26 ([`6fe165a`](https://github.com/Unleash/unleash-edge/commit/6fe165a6249290e043d21232059e4153436b4fde))
  * **[#201](https://github.com/Unleash/unleash-edge/issues/201)**
-    - Update rust crate unleash-yggdrasil to 0.5.7 ([`46fd893`](https://github.com/Unleash/unleash-edge/commit/46fd89353a87e6621d8d938dee7023e001ed52b0))
+    - update rust crate unleash-yggdrasil to 0.5.7 ([`46fd893`](https://github.com/Unleash/unleash-edge/commit/46fd89353a87e6621d8d938dee7023e001ed52b0))
  * **[#202](https://github.com/Unleash/unleash-edge/issues/202)**
-    - Add multiple env variables for configuring Redis ([`1074674`](https://github.com/Unleash/unleash-edge/commit/107467468f6f5875fa8ed4db456909a6bb17b89d))
+    - add multiple env variables for configuring Redis ([`1074674`](https://github.com/Unleash/unleash-edge/commit/107467468f6f5875fa8ed4db456909a6bb17b89d))
  * **[#203](https://github.com/Unleash/unleash-edge/issues/203)**
-    - Bump versions ([`60296f3`](https://github.com/Unleash/unleash-edge/commit/60296f3f8ddfdd5b187345f776d65fae58870cf2))
+    - bump versions ([`60296f3`](https://github.com/Unleash/unleash-edge/commit/60296f3f8ddfdd5b187345f776d65fae58870cf2))
  * **[#204](https://github.com/Unleash/unleash-edge/issues/204)**
     - Task/healthcheck subcommand ([`5253f5e`](https://github.com/Unleash/unleash-edge/commit/5253f5e62704432b1cdaf46a95c9af78b7d5cc96))
  * **[#205](https://github.com/Unleash/unleash-edge/issues/205)**
     - Document that tokens cli arg allows multiple comma-separated values ([`7862152`](https://github.com/Unleash/unleash-edge/commit/786215241cca06b0bbb759633bd40c00401cc19e))
  * **Uncategorized**
     - Release unleash-edge v6.0.0 ([`3ab7074`](https://github.com/Unleash/unleash-edge/commit/3ab70749ecbe19aa0a61b50090eca3af80f64e91))
-    - Update README for new release ([`7961320`](https://github.com/Unleash/unleash-edge/commit/79613201c810435b8d01696af3864f065c5f0a9b))
+    - update README for new release ([`7961320`](https://github.com/Unleash/unleash-edge/commit/79613201c810435b8d01696af3864f065c5f0a9b))
 </details>
 
 ## 5.0.0 (2023-06-01)
@@ -435,7 +475,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **[#197](https://github.com/Unleash/unleash-edge/issues/197)**
-    - Makes a post to api/client/features possible by setting a cli arg ([`4c187c6`](https://github.com/Unleash/unleash-edge/commit/4c187c622a78b7a91b8b3d868e51c51ddd0777c1))
+    - makes a post to api/client/features possible by setting a cli arg ([`4c187c6`](https://github.com/Unleash/unleash-edge/commit/4c187c622a78b7a91b8b3d868e51c51ddd0777c1))
  * **Uncategorized**
     - Release unleash-edge v5.0.0 ([`cad3589`](https://github.com/Unleash/unleash-edge/commit/cad3589b28c74f1cb753acea2243aedeb1445268))
 </details>
@@ -462,7 +502,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **[#196](https://github.com/Unleash/unleash-edge/issues/196)**
-    - Pulls in fixes from Unleash Types so that Segments correctly update ([`d60702d`](https://github.com/Unleash/unleash-edge/commit/d60702d1693d4723a22443245ffe02e0771cae82))
+    - pulls in fixes from Unleash Types so that Segments correctly update ([`d60702d`](https://github.com/Unleash/unleash-edge/commit/d60702d1693d4723a22443245ffe02e0771cae82))
  * **Uncategorized**
     - Release unleash-edge v4.1.1 ([`2464099`](https://github.com/Unleash/unleash-edge/commit/2464099f18c8e5d9c82b377137a1e7679556fdae))
 </details>
@@ -494,7 +534,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **[#191](https://github.com/Unleash/unleash-edge/issues/191)**
-    - Add base uri path to server ([`108005e`](https://github.com/Unleash/unleash-edge/commit/108005e4160ee70463d3b7434855426a874407dc))
+    - add base uri path to server ([`108005e`](https://github.com/Unleash/unleash-edge/commit/108005e4160ee70463d3b7434855426a874407dc))
  * **Uncategorized**
     - Release unleash-edge v4.1.0 ([`36e538b`](https://github.com/Unleash/unleash-edge/commit/36e538b3594da91047a0626b5811a869c75328b8))
 </details>
@@ -520,7 +560,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **[#188](https://github.com/Unleash/unleash-edge/issues/188)**
-    - Allow multiple client tokens at startup ([`808db80`](https://github.com/Unleash/unleash-edge/commit/808db80fcc68606f540a0339acb8cd757934ecdb))
+    - allow multiple client tokens at startup ([`808db80`](https://github.com/Unleash/unleash-edge/commit/808db80fcc68606f540a0339acb8cd757934ecdb))
  * **Uncategorized**
     - Release unleash-edge v4.0.3 ([`fee159c`](https://github.com/Unleash/unleash-edge/commit/fee159c0bdf5dc867b704b7a2bdc2c46fbdcf1d7))
 </details>
@@ -549,7 +589,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **[#187](https://github.com/Unleash/unleash-edge/issues/187)**
-    - Bump yggdrasil to pull through fix for rollout not working with random ([`447baab`](https://github.com/Unleash/unleash-edge/commit/447baab59e4488565e1f4b28613e9a60c2ef4af7))
+    - bump yggdrasil to pull through fix for rollout not working with random ([`447baab`](https://github.com/Unleash/unleash-edge/commit/447baab59e4488565e1f4b28613e9a60c2ef4af7))
  * **Uncategorized**
     - Release unleash-edge v4.0.2 ([`940bb5b`](https://github.com/Unleash/unleash-edge/commit/940bb5b7376aed092922df87c40ff8198504d4a6))
 </details>
@@ -580,9 +620,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **[#184](https://github.com/Unleash/unleash-edge/issues/184)**
-    - Allow output from bad requests to respond with the error rather than just the status code ([`4984c3e`](https://github.com/Unleash/unleash-edge/commit/4984c3eb039837f0bdfa85f94e8129a03b2675a4))
+    - allow output from bad requests to respond with the error rather than just the status code ([`4984c3e`](https://github.com/Unleash/unleash-edge/commit/4984c3eb039837f0bdfa85f94e8129a03b2675a4))
  * **[#185](https://github.com/Unleash/unleash-edge/issues/185)**
-    - Output logs for any response from feature query in debug output ([`5b821f8`](https://github.com/Unleash/unleash-edge/commit/5b821f831db0dd6d4e4c5affd36624c0929268af))
+    - output logs for any response from feature query in debug output ([`5b821f8`](https://github.com/Unleash/unleash-edge/commit/5b821f831db0dd6d4e4c5affd36624c0929268af))
  * **Uncategorized**
     - Release unleash-edge v4.0.1 ([`c28ca3f`](https://github.com/Unleash/unleash-edge/commit/c28ca3f2a26557da6431c1a9f56941ec99388342))
 </details>
@@ -619,7 +659,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **[#171](https://github.com/Unleash/unleash-edge/issues/171)**
-    - Update rust crate clap to 4.2.7 ([`bb09da9`](https://github.com/Unleash/unleash-edge/commit/bb09da9d9f2545a9ab8efda93a4ec270739f07ae))
+    - update rust crate clap to 4.2.7 ([`bb09da9`](https://github.com/Unleash/unleash-edge/commit/bb09da9d9f2545a9ab8efda93a4ec270739f07ae))
  * **[#182](https://github.com/Unleash/unleash-edge/issues/182)**
     - Add more visible info and warn logging for http errors ([`7265628`](https://github.com/Unleash/unleash-edge/commit/72656280a07c2d2c7729f9f25e9894f22f276ae5))
  * **Uncategorized**
@@ -696,7 +736,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Handle both upper and lowercase of apitokentype. ([`dfb1910`](https://github.com/Unleash/unleash-edge/commit/dfb191093063d676323d840614cd3e381cb4aa8a))
  * **Uncategorized**
     - Release unleash-edge v2.0.2 ([`357b407`](https://github.com/Unleash/unleash-edge/commit/357b4070d53124f8fc06627c30ae4e43dd9f9594))
-    - Prepare for release ([`dde64c8`](https://github.com/Unleash/unleash-edge/commit/dde64c8993e0c7003c544a2a68a52b1867b55ed2))
+    - prepare for release ([`dde64c8`](https://github.com/Unleash/unleash-edge/commit/dde64c8993e0c7003c544a2a68a52b1867b55ed2))
 </details>
 
 ## 2.0.1 (2023-04-20)
@@ -727,7 +767,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **[#140](https://github.com/Unleash/unleash-edge/issues/140)**
-    - Update rust crate clap to 4.2.4 ([`007a061`](https://github.com/Unleash/unleash-edge/commit/007a061b6c0eaa52de3eee81e8cadc0530562751))
+    - update rust crate clap to 4.2.4 ([`007a061`](https://github.com/Unleash/unleash-edge/commit/007a061b6c0eaa52de3eee81e8cadc0530562751))
  * **[#164](https://github.com/Unleash/unleash-edge/issues/164)**
     - Use split_once. ([`208ba30`](https://github.com/Unleash/unleash-edge/commit/208ba30133348f8cb3ae4303415ac9c1484f03c5))
  * **Uncategorized**
@@ -784,7 +824,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **[#157](https://github.com/Unleash/unleash-edge/issues/157)**
-    - Allow cli option to disable ssl verification ([`b740273`](https://github.com/Unleash/unleash-edge/commit/b74027319c87e078b042a28051e52e37dab956a9))
+    - allow cli option to disable ssl verification ([`b740273`](https://github.com/Unleash/unleash-edge/commit/b74027319c87e078b042a28051e52e37dab956a9))
  * **Uncategorized**
     - Release unleash-edge v1.4.0 ([`0847f7d`](https://github.com/Unleash/unleash-edge/commit/0847f7da0f4a761858b706300ee6048982270a7a))
 </details>
@@ -865,12 +905,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#151](https://github.com/Unleash/unleash-edge/issues/151)**
     - Added single feature evaluation endpoint ([`c417cab`](https://github.com/Unleash/unleash-edge/commit/c417cab5698ac1f45e8f640012b06b655abb900d))
  * **[#154](https://github.com/Unleash/unleash-edge/issues/154)**
-    - Update rust crate serde_json to 1.0.96 ([`d1052f7`](https://github.com/Unleash/unleash-edge/commit/d1052f7f913713c488d3cd038709a872cb493c71))
+    - update rust crate serde_json to 1.0.96 ([`d1052f7`](https://github.com/Unleash/unleash-edge/commit/d1052f7f913713c488d3cd038709a872cb493c71))
  * **Uncategorized**
     - Release unleash-edge v1.3.0 ([`83a7b97`](https://github.com/Unleash/unleash-edge/commit/83a7b97fe9ddff1871fe8563a96025a63fc91f4d))
-    - Added changelog for 1.3.0 release ([`8bba7f4`](https://github.com/Unleash/unleash-edge/commit/8bba7f47b2204d63409b0220ada78edb6bc156de))
-    - Updated README in server subfolder ([`625b076`](https://github.com/Unleash/unleash-edge/commit/625b0760c66574f94a098885ff94735330a2bb2d))
-    - Bump dependency status link ([`9a651ef`](https://github.com/Unleash/unleash-edge/commit/9a651efc0393cebeb67e639aa612434606b4c9ed))
+    - added changelog for 1.3.0 release ([`8bba7f4`](https://github.com/Unleash/unleash-edge/commit/8bba7f47b2204d63409b0220ada78edb6bc156de))
+    - updated README in server subfolder ([`625b076`](https://github.com/Unleash/unleash-edge/commit/625b0760c66574f94a098885ff94735330a2bb2d))
+    - bump dependency status link ([`9a651ef`](https://github.com/Unleash/unleash-edge/commit/9a651efc0393cebeb67e639aa612434606b4c9ed))
     - * feat: Add custom headers for clients ([`bde2d01`](https://github.com/Unleash/unleash-edge/commit/bde2d013b9b0e664ce087b0f6d6b979e11454414))
 </details>
 
@@ -905,14 +945,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **[#141](https://github.com/Unleash/unleash-edge/issues/141)**
-    - Update rust-futures monorepo to 0.3.28 ([`4899423`](https://github.com/Unleash/unleash-edge/commit/48994233364c9fa7af8dc331dede2da38913922e))
+    - update rust-futures monorepo to 0.3.28 ([`4899423`](https://github.com/Unleash/unleash-edge/commit/48994233364c9fa7af8dc331dede2da38913922e))
  * **[#147](https://github.com/Unleash/unleash-edge/issues/147)**
-    - Add metrics endpoints for frontend ([`28fff02`](https://github.com/Unleash/unleash-edge/commit/28fff02aaf3bda6305186a323b4a507356bfd6db))
+    - add metrics endpoints for frontend ([`28fff02`](https://github.com/Unleash/unleash-edge/commit/28fff02aaf3bda6305186a323b4a507356bfd6db))
  * **[#149](https://github.com/Unleash/unleash-edge/issues/149)**
-    - Add namePrefix filtering support ([`ebd6300`](https://github.com/Unleash/unleash-edge/commit/ebd63005c3ff2f73da7cb35872bd132d1c953dd7))
+    - add namePrefix filtering support ([`ebd6300`](https://github.com/Unleash/unleash-edge/commit/ebd63005c3ff2f73da7cb35872bd132d1c953dd7))
  * **Uncategorized**
     - Release unleash-edge v1.2.0 ([`ab51228`](https://github.com/Unleash/unleash-edge/commit/ab5122837f0476d055eaf007a55c13a715b1fdb3))
-    - Update dependency links ([`26805bb`](https://github.com/Unleash/unleash-edge/commit/26805bb55b25edc4cc2e41f525c7eee71df4cd54))
+    - update dependency links ([`26805bb`](https://github.com/Unleash/unleash-edge/commit/26805bb55b25edc4cc2e41f525c7eee71df4cd54))
 </details>
 
 ## v1.1.0 (2023-03-29)
@@ -942,7 +982,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **[#132](https://github.com/Unleash/unleash-edge/issues/132)**
-    - Update rust crate clap to 4.2.0 ([`8e4df8d`](https://github.com/Unleash/unleash-edge/commit/8e4df8d5b6d8800ad644cac0c6cda7c19386426f))
+    - update rust crate clap to 4.2.0 ([`8e4df8d`](https://github.com/Unleash/unleash-edge/commit/8e4df8d5b6d8800ad644cac0c6cda7c19386426f))
  * **[#138](https://github.com/Unleash/unleash-edge/issues/138)**
     - Add client feature endpoint ([`5a7040c`](https://github.com/Unleash/unleash-edge/commit/5a7040c3c5787451e31dd3e804946c321ad6805a))
  * **Uncategorized**
@@ -994,15 +1034,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **[#117](https://github.com/Unleash/unleash-edge/issues/117)**
-    - Update rust crate reqwest to 0.11.15 ([`5034f87`](https://github.com/Unleash/unleash-edge/commit/5034f87f9d0d0d38bd8674fd00acc52bf863559a))
+    - update rust crate reqwest to 0.11.15 ([`5034f87`](https://github.com/Unleash/unleash-edge/commit/5034f87f9d0d0d38bd8674fd00acc52bf863559a))
  * **[#121](https://github.com/Unleash/unleash-edge/issues/121)**
-    - Update rust crate clap to 4.1.13 ([`f835db0`](https://github.com/Unleash/unleash-edge/commit/f835db09798cdd45181000b194348d7cd1f3ba08))
+    - update rust crate clap to 4.1.13 ([`f835db0`](https://github.com/Unleash/unleash-edge/commit/f835db09798cdd45181000b194348d7cd1f3ba08))
  * **[#122](https://github.com/Unleash/unleash-edge/issues/122)**
     - Post appropriately sized metric batches ([`b97681b`](https://github.com/Unleash/unleash-edge/commit/b97681b8e9d40afd35b629f0d9b4757c66a637a8))
  * **[#127](https://github.com/Unleash/unleash-edge/issues/127)**
-    - Use fewer clones to reduce allocation ([`1ab5962`](https://github.com/Unleash/unleash-edge/commit/1ab5962ebc10c8a5f14492fcd28b46e541d2992d))
+    - use fewer clones to reduce allocation ([`1ab5962`](https://github.com/Unleash/unleash-edge/commit/1ab5962ebc10c8a5f14492fcd28b46e541d2992d))
  * **[#135](https://github.com/Unleash/unleash-edge/issues/135)**
-    - Added custom metrics handler to drop dependency ([`a858391`](https://github.com/Unleash/unleash-edge/commit/a858391e9cc7d9bd805a892519f38da6b4be0ebb))
+    - added custom metrics handler to drop dependency ([`a858391`](https://github.com/Unleash/unleash-edge/commit/a858391e9cc7d9bd805a892519f38da6b4be0ebb))
  * **Uncategorized**
     - Release unleash-edge v1.0.2 ([`7014153`](https://github.com/Unleash/unleash-edge/commit/7014153c028e95cf977d206b3741bafea4758bbb))
 </details>
@@ -1084,18 +1124,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **[#110](https://github.com/Unleash/unleash-edge/issues/110)**
-    - Update rust crate clap to 4.1.9 ([`4d704b6`](https://github.com/Unleash/unleash-edge/commit/4d704b68b78eb066a03d0c5006979db3189f5d43))
+    - update rust crate clap to 4.1.9 ([`4d704b6`](https://github.com/Unleash/unleash-edge/commit/4d704b68b78eb066a03d0c5006979db3189f5d43))
  * **[#111](https://github.com/Unleash/unleash-edge/issues/111)**
     - Return 511 if edge has not hydrated. ([`584e61b`](https://github.com/Unleash/unleash-edge/commit/584e61bb98e32083996720f9d703341ca0025ed6))
  * **[#112](https://github.com/Unleash/unleash-edge/issues/112)**
     - Client features are hydrated synchronously. ([`1e73fdc`](https://github.com/Unleash/unleash-edge/commit/1e73fdcbce1786aea9f4a1b1a5a9a188c656e85c))
  * **[#113](https://github.com/Unleash/unleash-edge/issues/113)**
-    - Update rust crate clap to 4.1.11 ([`b5604a3`](https://github.com/Unleash/unleash-edge/commit/b5604a34ee23aa17847fb8280c10cababce5ad26))
+    - update rust crate clap to 4.1.11 ([`b5604a3`](https://github.com/Unleash/unleash-edge/commit/b5604a34ee23aa17847fb8280c10cababce5ad26))
  * **[#116](https://github.com/Unleash/unleash-edge/issues/116)**
-    - Update rust crate serde to 1.0.158 ([`0a9353a`](https://github.com/Unleash/unleash-edge/commit/0a9353a95e83b30b46b04047f06f359933306ec7))
+    - update rust crate serde to 1.0.158 ([`0a9353a`](https://github.com/Unleash/unleash-edge/commit/0a9353a95e83b30b46b04047f06f359933306ec7))
  * **Uncategorized**
     - Release unleash-edge v1.0.0 ([`27c3df8`](https://github.com/Unleash/unleash-edge/commit/27c3df8c0609b7564d323b2af5c1df08841ce1d2))
-    - Clone value of cache entry ([`d3dfefc`](https://github.com/Unleash/unleash-edge/commit/d3dfefc08b4a2bdc837d153e89a17a5025908764))
+    - clone value of cache entry ([`d3dfefc`](https://github.com/Unleash/unleash-edge/commit/d3dfefc08b4a2bdc837d153e89a17a5025908764))
 </details>
 
 ## v0.5.1 (2023-03-15)
@@ -1120,7 +1160,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  * **Uncategorized**
     - Release unleash-edge v0.5.1 ([`4fb3ca9`](https://github.com/Unleash/unleash-edge/commit/4fb3ca98dc0c9c53ce1402e7048a0f3bee28f96c))
-    - Persist on shutdown also persists only validated tokens ([`c11ff40`](https://github.com/Unleash/unleash-edge/commit/c11ff4057398b63126effc93aa71578e328f79f4))
+    - persist on shutdown also persists only validated tokens ([`c11ff40`](https://github.com/Unleash/unleash-edge/commit/c11ff4057398b63126effc93aa71578e328f79f4))
 </details>
 
 ## v0.5.0 (2023-03-15)
@@ -1180,15 +1220,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#102](https://github.com/Unleash/unleash-edge/issues/102)**
     - Make Feature refresher register as client ([`eab611c`](https://github.com/Unleash/unleash-edge/commit/eab611cd924a401dfd36e06670782f377d56cc81))
  * **[#103](https://github.com/Unleash/unleash-edge/issues/103)**
-    - Adds a derive for TokenValidation status with a #[default] on the child enum ([`51bcd7d`](https://github.com/Unleash/unleash-edge/commit/51bcd7db417a43c29c756a096db24ec6eba5b1c4))
+    - adds a derive for TokenValidation status with a #[default] on the child enum ([`51bcd7d`](https://github.com/Unleash/unleash-edge/commit/51bcd7db417a43c29c756a096db24ec6eba5b1c4))
  * **[#105](https://github.com/Unleash/unleash-edge/issues/105)**
-    - Update rust-futures monorepo to 0.3.27 ([`796440a`](https://github.com/Unleash/unleash-edge/commit/796440a86ce4d734e73239adc55228b2cb39b059))
+    - update rust-futures monorepo to 0.3.27 ([`796440a`](https://github.com/Unleash/unleash-edge/commit/796440a86ce4d734e73239adc55228b2cb39b059))
  * **[#106](https://github.com/Unleash/unleash-edge/issues/106)**
-    - Update rust crate serde to 1.0.155 ([`7ba4b3a`](https://github.com/Unleash/unleash-edge/commit/7ba4b3a087fcf7165a2c02d6bd3c33ae037f0df8))
+    - update rust crate serde to 1.0.155 ([`7ba4b3a`](https://github.com/Unleash/unleash-edge/commit/7ba4b3a087fcf7165a2c02d6bd3c33ae037f0df8))
  * **[#107](https://github.com/Unleash/unleash-edge/issues/107)**
-    - Update rust crate chrono to 0.4.24 ([`0200512`](https://github.com/Unleash/unleash-edge/commit/02005129a59847271b0cac09a9cd956601c33674))
+    - update rust crate chrono to 0.4.24 ([`0200512`](https://github.com/Unleash/unleash-edge/commit/02005129a59847271b0cac09a9cd956601c33674))
  * **[#108](https://github.com/Unleash/unleash-edge/issues/108)**
-    - Update rust crate serde to 1.0.156 ([`dee24ad`](https://github.com/Unleash/unleash-edge/commit/dee24adaf6086c14b309160809211fad1a601899))
+    - update rust crate serde to 1.0.156 ([`dee24ad`](https://github.com/Unleash/unleash-edge/commit/dee24adaf6086c14b309160809211fad1a601899))
  * **[#109](https://github.com/Unleash/unleash-edge/issues/109)**
     - Prepare a token revalidator ([`510fe21`](https://github.com/Unleash/unleash-edge/commit/510fe21aad1733ea8010637bd69fa0039c8e1400))
  * **Uncategorized**
@@ -1217,7 +1257,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  * **Uncategorized**
     - Release unleash-edge v0.4.1 ([`68bce60`](https://github.com/Unleash/unleash-edge/commit/68bce604ee55631a8ccb11b49f8e75db3f45eb31))
-    - Make sure edgemode allows comma separated tokens for prewarming ([`8bd4e85`](https://github.com/Unleash/unleash-edge/commit/8bd4e85740160dafcd185b4703fd4cb3db65f8c0))
+    - make sure edgemode allows comma separated tokens for prewarming ([`8bd4e85`](https://github.com/Unleash/unleash-edge/commit/8bd4e85740160dafcd185b4703fd4cb3db65f8c0))
 </details>
 
 ## v0.4.0 (2023-03-09)
@@ -1254,13 +1294,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#100](https://github.com/Unleash/unleash-edge/issues/100)**
     - Move token cache resolution out of FromRequest ([`a8a6a6a`](https://github.com/Unleash/unleash-edge/commit/a8a6a6afba5d696e3703eed79f167e2d3b5e3f62))
  * **[#88](https://github.com/Unleash/unleash-edge/issues/88)**
-    - Update rust crate actix-http to 3.3.1 ([`f496004`](https://github.com/Unleash/unleash-edge/commit/f496004e73c6bce8ecf0485179a9bb1b25dca2fe))
+    - update rust crate actix-http to 3.3.1 ([`f496004`](https://github.com/Unleash/unleash-edge/commit/f496004e73c6bce8ecf0485179a9bb1b25dca2fe))
  * **[#90](https://github.com/Unleash/unleash-edge/issues/90)**
-    - Update rust crate async-trait to 0.1.66 ([`34a945c`](https://github.com/Unleash/unleash-edge/commit/34a945c402c2c0888b35e180c4a6ae3df3aa311f))
+    - update rust crate async-trait to 0.1.66 ([`34a945c`](https://github.com/Unleash/unleash-edge/commit/34a945c402c2c0888b35e180c4a6ae3df3aa311f))
  * **[#91](https://github.com/Unleash/unleash-edge/issues/91)**
-    - Update rust crate serde_json to 1.0.94 ([`1797ac7`](https://github.com/Unleash/unleash-edge/commit/1797ac70057328d32ed6cb7130fa720ccf659c63))
+    - update rust crate serde_json to 1.0.94 ([`1797ac7`](https://github.com/Unleash/unleash-edge/commit/1797ac70057328d32ed6cb7130fa720ccf659c63))
  * **[#97](https://github.com/Unleash/unleash-edge/issues/97)**
-    - Update rust crate serde to 1.0.154 ([`15b1faa`](https://github.com/Unleash/unleash-edge/commit/15b1faa6680ef4f609ab16bb1caf54f6b7004091))
+    - update rust crate serde to 1.0.154 ([`15b1faa`](https://github.com/Unleash/unleash-edge/commit/15b1faa6680ef4f609ab16bb1caf54f6b7004091))
  * **Uncategorized**
     - Release unleash-edge v0.4.0 ([`c11fdce`](https://github.com/Unleash/unleash-edge/commit/c11fdce9e01f23a55ff6bb58c623f67be1792286))
 </details>
@@ -1364,11 +1404,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **[#95](https://github.com/Unleash/unleash-edge/issues/95)**
-    - Update release workflow ([`c348c4f`](https://github.com/Unleash/unleash-edge/commit/c348c4f95ee8645a3ea1cdac03fb9bb338eae73d))
+    - update release workflow ([`c348c4f`](https://github.com/Unleash/unleash-edge/commit/c348c4f95ee8645a3ea1cdac03fb9bb338eae73d))
  * **Uncategorized**
     - Release unleash-edge v0.3.0 ([`2e14660`](https://github.com/Unleash/unleash-edge/commit/2e146600a044d54c9db8610003607ae8b0872dd0))
-    - Lock free feature resolution ([`a263dca`](https://github.com/Unleash/unleash-edge/commit/a263dcaf0271ca38e83f7d55f5e62b4c699c148b))
-    - Update pointers in README ([`2fc9f70`](https://github.com/Unleash/unleash-edge/commit/2fc9f70173970415e6995d1a2230699d7a2507a8))
+    - lock free feature resolution ([`a263dca`](https://github.com/Unleash/unleash-edge/commit/a263dcaf0271ca38e83f7d55f5e62b4c699c148b))
+    - update pointers in README ([`2fc9f70`](https://github.com/Unleash/unleash-edge/commit/2fc9f70173970415e6995d1a2230699d7a2507a8))
 </details>
 
 ## v0.2.0 (2023-02-28)
@@ -1419,21 +1459,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#76](https://github.com/Unleash/unleash-edge/issues/76)**
     - Added /api/frontend endpoint to match Unleash ([`60bcf76`](https://github.com/Unleash/unleash-edge/commit/60bcf7617b5673dbf66a345b4bed81857d65b70e))
  * **[#77](https://github.com/Unleash/unleash-edge/issues/77)**
-    - Update rust crate actix-web to 4.3.1 ([`2020281`](https://github.com/Unleash/unleash-edge/commit/2020281566c695f9e3e0a371f0bf9644613b2c38))
+    - update rust crate actix-web to 4.3.1 ([`2020281`](https://github.com/Unleash/unleash-edge/commit/2020281566c695f9e3e0a371f0bf9644613b2c38))
  * **[#78](https://github.com/Unleash/unleash-edge/issues/78)**
-    - Update rust crate clap to 4.1.7 ([`3b6be69`](https://github.com/Unleash/unleash-edge/commit/3b6be69d527e73b7b23bcf2311df1099e0499e73))
+    - update rust crate clap to 4.1.7 ([`3b6be69`](https://github.com/Unleash/unleash-edge/commit/3b6be69d527e73b7b23bcf2311df1099e0499e73))
  * **[#79](https://github.com/Unleash/unleash-edge/issues/79)**
     - Client features were not refreshing. ([`77b9b0c`](https://github.com/Unleash/unleash-edge/commit/77b9b0c3eb5a98b35224e16fd4594226be79cbb5))
  * **[#81](https://github.com/Unleash/unleash-edge/issues/81)**
     - Move /api/client/register to a post request. ([`98666cf`](https://github.com/Unleash/unleash-edge/commit/98666cf738ede56dd6ef5d7162194e2dafd1dcbb))
  * **[#83](https://github.com/Unleash/unleash-edge/issues/83)**
-    - Update rust crate clap to 4.1.8 ([`eaf0e79`](https://github.com/Unleash/unleash-edge/commit/eaf0e797b57ec49ce5050826705d458798619a5b))
+    - update rust crate clap to 4.1.8 ([`eaf0e79`](https://github.com/Unleash/unleash-edge/commit/eaf0e797b57ec49ce5050826705d458798619a5b))
  * **Uncategorized**
     - Release unleash-edge v0.2.0 ([`f9735fd`](https://github.com/Unleash/unleash-edge/commit/f9735fd79a7ce9ba9bbc3848980dd561ea13c2ed))
     - Release unleash-edge v0.2.0 ([`a71fd76`](https://github.com/Unleash/unleash-edge/commit/a71fd7676c606eb9004fbfa15334f1de42a3d6f3))
-    - Add README to server subfolder ([`ae3c9f7`](https://github.com/Unleash/unleash-edge/commit/ae3c9f75bcccddefd571d7fca4c87a7b4e585ea7))
-    - Bump shadow-rs to 0.21 ([`176ef57`](https://github.com/Unleash/unleash-edge/commit/176ef576d6ad6ddfb0993f7738465f2f68d3b4af))
-    - Added symlink to top level README file ([`5875ebd`](https://github.com/Unleash/unleash-edge/commit/5875ebda52a75560800e4506e3a124016258a228))
+    - add README to server subfolder ([`ae3c9f7`](https://github.com/Unleash/unleash-edge/commit/ae3c9f75bcccddefd571d7fca4c87a7b4e585ea7))
+    - bump shadow-rs to 0.21 ([`176ef57`](https://github.com/Unleash/unleash-edge/commit/176ef576d6ad6ddfb0993f7738465f2f68d3b4af))
+    - added symlink to top level README file ([`5875ebd`](https://github.com/Unleash/unleash-edge/commit/5875ebda52a75560800e4506e3a124016258a228))
 </details>
 
 ## v0.1.1 (2023-02-24)
@@ -1462,9 +1502,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **[#74](https://github.com/Unleash/unleash-edge/issues/74)**
-    - Removal of RW locks for dashmaps ([`ffe24dc`](https://github.com/Unleash/unleash-edge/commit/ffe24dcc7ec00097e43e5898b10373d6918aa234))
+    - removal of RW locks for dashmaps ([`ffe24dc`](https://github.com/Unleash/unleash-edge/commit/ffe24dcc7ec00097e43e5898b10373d6918aa234))
  * **[#75](https://github.com/Unleash/unleash-edge/issues/75)**
-    - Remove rwlock from validator, client and builder ([`3f6920a`](https://github.com/Unleash/unleash-edge/commit/3f6920a5e56f3783594624eb370bff3af68ea91c))
+    - remove rwlock from validator, client and builder ([`3f6920a`](https://github.com/Unleash/unleash-edge/commit/3f6920a5e56f3783594624eb370bff3af68ea91c))
  * **Uncategorized**
     - Release unleash-edge v0.1.1 ([`ced1712`](https://github.com/Unleash/unleash-edge/commit/ced1712b186fc3cbad7dae1b061143234cd61c8f))
 </details>
@@ -1504,17 +1544,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **[#63](https://github.com/Unleash/unleash-edge/issues/63)**
-    - Update rust crate test-case to v3 ([`cc123f6`](https://github.com/Unleash/unleash-edge/commit/cc123f6792494555c046a7eb6d164d066213c59d))
+    - update rust crate test-case to v3 ([`cc123f6`](https://github.com/Unleash/unleash-edge/commit/cc123f6792494555c046a7eb6d164d066213c59d))
  * **[#64](https://github.com/Unleash/unleash-edge/issues/64)**
-    - An issue where client features wouldn't correctly update in memory provider ([`b8b25d3`](https://github.com/Unleash/unleash-edge/commit/b8b25d3075bafb83f3a14493a1dec0155835a2e9))
+    - an issue where client features wouldn't correctly update in memory provider ([`b8b25d3`](https://github.com/Unleash/unleash-edge/commit/b8b25d3075bafb83f3a14493a1dec0155835a2e9))
  * **[#65](https://github.com/Unleash/unleash-edge/issues/65)**
-    - Implement metrics for front end clients ([`ac97379`](https://github.com/Unleash/unleash-edge/commit/ac973797915b7d965721e77e3dba7a818033d87d))
+    - implement metrics for front end clients ([`ac97379`](https://github.com/Unleash/unleash-edge/commit/ac973797915b7d965721e77e3dba7a818033d87d))
  * **[#66](https://github.com/Unleash/unleash-edge/issues/66)**
-    - Allow controlling http server workers spun up ([`ab8e5ea`](https://github.com/Unleash/unleash-edge/commit/ab8e5ea52b8550ae97096f91d461f492dc9bd0d3))
+    - allow controlling http server workers spun up ([`ab8e5ea`](https://github.com/Unleash/unleash-edge/commit/ab8e5ea52b8550ae97096f91d461f492dc9bd0d3))
  * **[#67](https://github.com/Unleash/unleash-edge/issues/67)**
     - Make offline mode handle non-Unleash tokens as valid secrets ([`8ef7a33`](https://github.com/Unleash/unleash-edge/commit/8ef7a33f61765cb7334d3791b64ffd0836bb0155))
  * **[#68](https://github.com/Unleash/unleash-edge/issues/68)**
-    - Update rust crate clap to 4.1.6 ([`aa2432e`](https://github.com/Unleash/unleash-edge/commit/aa2432e4efa9186bb5afa30df5dbc183d293672f))
+    - update rust crate clap to 4.1.6 ([`aa2432e`](https://github.com/Unleash/unleash-edge/commit/aa2432e4efa9186bb5afa30df5dbc183d293672f))
  * **[#72](https://github.com/Unleash/unleash-edge/issues/72)**
     - Chore/data store refactor ([`026de50`](https://github.com/Unleash/unleash-edge/commit/026de501dabf9be3e9e8e001f0122452dc67dc22))
  * **Uncategorized**
@@ -1679,111 +1719,111 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **[#10](https://github.com/Unleash/unleash-edge/issues/10)**
-    - Use subcommands rather than ValueEnum ([`8fe7cab`](https://github.com/Unleash/unleash-edge/commit/8fe7cabbb496c34618cae77e82ddceeeb8cfb617))
+    - use subcommands rather than ValueEnum ([`8fe7cab`](https://github.com/Unleash/unleash-edge/commit/8fe7cabbb496c34618cae77e82ddceeeb8cfb617))
  * **[#12](https://github.com/Unleash/unleash-edge/issues/12)**
-    - Add basic proxy endpoints and related test code ([`5f55517`](https://github.com/Unleash/unleash-edge/commit/5f55517e4407a7acf4b7906d82eee737bb58a53d))
+    - add basic proxy endpoints and related test code ([`5f55517`](https://github.com/Unleash/unleash-edge/commit/5f55517e4407a7acf4b7906d82eee737bb58a53d))
  * **[#13](https://github.com/Unleash/unleash-edge/issues/13)**
-    - Update rust crate clap to 4.1.4 ([`4b9e889`](https://github.com/Unleash/unleash-edge/commit/4b9e889a3d42089f206b62b9eea45dcfd8bae2f3))
+    - update rust crate clap to 4.1.4 ([`4b9e889`](https://github.com/Unleash/unleash-edge/commit/4b9e889a3d42089f206b62b9eea45dcfd8bae2f3))
  * **[#14](https://github.com/Unleash/unleash-edge/issues/14)**
-    - Patch the way CORS headers are done, without this, the server crashes on startup with an unhelpful error message ([`71a9a23`](https://github.com/Unleash/unleash-edge/commit/71a9a2372d2e5110b628fe30438cf5b6760c8899))
+    - patch the way CORS headers are done, without this, the server crashes on startup with an unhelpful error message ([`71a9a23`](https://github.com/Unleash/unleash-edge/commit/71a9a2372d2e5110b628fe30438cf5b6760c8899))
  * **[#15](https://github.com/Unleash/unleash-edge/issues/15)**
-    - Internal backstage build info endpoint ([`0469918`](https://github.com/Unleash/unleash-edge/commit/0469918e24763a5fef41a706f6f88fde986f955d))
+    - internal backstage build info endpoint ([`0469918`](https://github.com/Unleash/unleash-edge/commit/0469918e24763a5fef41a706f6f88fde986f955d))
  * **[#16](https://github.com/Unleash/unleash-edge/issues/16)**
-    - Add client for getting features ([`9e99f4b`](https://github.com/Unleash/unleash-edge/commit/9e99f4b64b3d53b2e79381a2cb0d80ef4b010b2b))
+    - add client for getting features ([`9e99f4b`](https://github.com/Unleash/unleash-edge/commit/9e99f4b64b3d53b2e79381a2cb0d80ef4b010b2b))
  * **[#17](https://github.com/Unleash/unleash-edge/issues/17)**
-    - Update rust crate unleash-yggdrasil to 0.4.2 ([`be9428d`](https://github.com/Unleash/unleash-edge/commit/be9428d76742a3f5b2436b8b5cb61374609b98c3))
+    - update rust crate unleash-yggdrasil to 0.4.2 ([`be9428d`](https://github.com/Unleash/unleash-edge/commit/be9428d76742a3f5b2436b8b5cb61374609b98c3))
  * **[#18](https://github.com/Unleash/unleash-edge/issues/18)**
-    - Add enabled toggles routes ([`92aa64b`](https://github.com/Unleash/unleash-edge/commit/92aa64bc58e4193adc95370e651579feddea2811))
+    - add enabled toggles routes ([`92aa64b`](https://github.com/Unleash/unleash-edge/commit/92aa64bc58e4193adc95370e651579feddea2811))
  * **[#20](https://github.com/Unleash/unleash-edge/issues/20)**
     - Added prometheus metrics from shadow ([`8f6fa05`](https://github.com/Unleash/unleash-edge/commit/8f6fa05435caae5cdc112fefa187b8e0681df2dd))
  * **[#22](https://github.com/Unleash/unleash-edge/issues/22)**
-    - Added etag middleware ([`b618ff1`](https://github.com/Unleash/unleash-edge/commit/b618ff1b1cd3ea30d2705b21db31be042d89309f))
+    - added etag middleware ([`b618ff1`](https://github.com/Unleash/unleash-edge/commit/b618ff1b1cd3ea30d2705b21db31be042d89309f))
  * **[#23](https://github.com/Unleash/unleash-edge/issues/23)**
-    - Update rust crate tokio to 1.25.0 ([`46a10d2`](https://github.com/Unleash/unleash-edge/commit/46a10d229bf2ccfd03f367a8e34e6f7f9f148013))
+    - update rust crate tokio to 1.25.0 ([`46a10d2`](https://github.com/Unleash/unleash-edge/commit/46a10d229bf2ccfd03f367a8e34e6f7f9f148013))
  * **[#25](https://github.com/Unleash/unleash-edge/issues/25)**
     - Implement redis datasource ([`0b2537f`](https://github.com/Unleash/unleash-edge/commit/0b2537f4bd397c666d458589bf30f9322b0c9214))
  * **[#26](https://github.com/Unleash/unleash-edge/issues/26)**
-    - Update README ([`1677111`](https://github.com/Unleash/unleash-edge/commit/16771118dbfdb4fc2dd819564b9d3f3355154134))
+    - update README ([`1677111`](https://github.com/Unleash/unleash-edge/commit/16771118dbfdb4fc2dd819564b9d3f3355154134))
  * **[#27](https://github.com/Unleash/unleash-edge/issues/27)**
-    - Fix formatting ([`2d99d7e`](https://github.com/Unleash/unleash-edge/commit/2d99d7e01e602185337f79529aba9f9fd86cd634))
+    - fix formatting ([`2d99d7e`](https://github.com/Unleash/unleash-edge/commit/2d99d7e01e602185337f79529aba9f9fd86cd634))
  * **[#28](https://github.com/Unleash/unleash-edge/issues/28)**
-    - Improve tests for redis provider ([`ea8cd1b`](https://github.com/Unleash/unleash-edge/commit/ea8cd1ba7fb36afb039f31ec4ba000a2b7271700))
+    - improve tests for redis provider ([`ea8cd1b`](https://github.com/Unleash/unleash-edge/commit/ea8cd1ba7fb36afb039f31ec4ba000a2b7271700))
  * **[#29](https://github.com/Unleash/unleash-edge/issues/29)**
-    - Implement an in memory data store ([`5ae644c`](https://github.com/Unleash/unleash-edge/commit/5ae644c8e4c98c588111a7461f359439c994209f))
+    - implement an in memory data store ([`5ae644c`](https://github.com/Unleash/unleash-edge/commit/5ae644c8e4c98c588111a7461f359439c994209f))
  * **[#3](https://github.com/Unleash/unleash-edge/issues/3)**
     - Adds client features endpoint ([`4bf25a3`](https://github.com/Unleash/unleash-edge/commit/4bf25a3402c8e9a3c48c63118da1469a69a3bbdd))
  * **[#30](https://github.com/Unleash/unleash-edge/issues/30)**
-    - Implement simplify tokens ([`eab0878`](https://github.com/Unleash/unleash-edge/commit/eab0878ce2bf49a499f032a13c47f58a4b346cc7))
+    - implement simplify tokens ([`eab0878`](https://github.com/Unleash/unleash-edge/commit/eab0878ce2bf49a499f032a13c47f58a4b346cc7))
  * **[#33](https://github.com/Unleash/unleash-edge/issues/33)**
-    - Move server startup and traits to async ([`e58f4fc`](https://github.com/Unleash/unleash-edge/commit/e58f4fc3306ae71c1bcb8e8704d38eeb176cac96))
+    - move server startup and traits to async ([`e58f4fc`](https://github.com/Unleash/unleash-edge/commit/e58f4fc3306ae71c1bcb8e8704d38eeb176cac96))
  * **[#34](https://github.com/Unleash/unleash-edge/issues/34)**
-    - Adds a call for validating tokens ([`0d037ec`](https://github.com/Unleash/unleash-edge/commit/0d037ec243b120f093b5a20efb3c5ddda6e25767))
+    - adds a call for validating tokens ([`0d037ec`](https://github.com/Unleash/unleash-edge/commit/0d037ec243b120f093b5a20efb3c5ddda6e25767))
  * **[#36](https://github.com/Unleash/unleash-edge/issues/36)**
     - Feat/implement data sync ([`862ee28`](https://github.com/Unleash/unleash-edge/commit/862ee288eab20367c5d4e487ddd679f72174e8ef))
  * **[#37](https://github.com/Unleash/unleash-edge/issues/37)**
-    - Allow any on CORS ([`5593376`](https://github.com/Unleash/unleash-edge/commit/5593376c3a89b28df6b6a8be2c93c1dc38a30c89))
+    - allow any on CORS ([`5593376`](https://github.com/Unleash/unleash-edge/commit/5593376c3a89b28df6b6a8be2c93c1dc38a30c89))
  * **[#38](https://github.com/Unleash/unleash-edge/issues/38)**
-    - Features get refreshed. ([`2b0f832`](https://github.com/Unleash/unleash-edge/commit/2b0f8320e4120b8451ddd004b8c83b1c8b9193bc))
+    - features get refreshed. ([`2b0f832`](https://github.com/Unleash/unleash-edge/commit/2b0f8320e4120b8451ddd004b8c83b1c8b9193bc))
  * **[#39](https://github.com/Unleash/unleash-edge/issues/39)**
-    - Test auto-assign-pr action ([`286dfd5`](https://github.com/Unleash/unleash-edge/commit/286dfd536ff1c5d865829dcd98bda49da6ad9d36))
+    - test auto-assign-pr action ([`286dfd5`](https://github.com/Unleash/unleash-edge/commit/286dfd536ff1c5d865829dcd98bda49da6ad9d36))
  * **[#4](https://github.com/Unleash/unleash-edge/issues/4)**
     - Add edge-token extractor to lock down access ([`e6bc817`](https://github.com/Unleash/unleash-edge/commit/e6bc817c21affd7e06883a9d56f85f254878a4c8))
  * **[#40](https://github.com/Unleash/unleash-edge/issues/40)**
-    - Switch to backing with HashMap<TokenString, EdgeToken> ([`3a8cd76`](https://github.com/Unleash/unleash-edge/commit/3a8cd761a8cd92696c9229df1a6c3614aae261fa))
+    - switch to backing with HashMap<TokenString, EdgeToken> ([`3a8cd76`](https://github.com/Unleash/unleash-edge/commit/3a8cd761a8cd92696c9229df1a6c3614aae261fa))
  * **[#41](https://github.com/Unleash/unleash-edge/issues/41)**
-    - Expose correct route on frontend api ([`ca0a50d`](https://github.com/Unleash/unleash-edge/commit/ca0a50d711f8c504f2ad9671929abc663639264b))
+    - expose correct route on frontend api ([`ca0a50d`](https://github.com/Unleash/unleash-edge/commit/ca0a50d711f8c504f2ad9671929abc663639264b))
  * **[#42](https://github.com/Unleash/unleash-edge/issues/42)**
-    - Update rust crate anyhow to 1.0.69 ([`0be62e8`](https://github.com/Unleash/unleash-edge/commit/0be62e8547f76508f9f14f949958b8529ae96b39))
+    - update rust crate anyhow to 1.0.69 ([`0be62e8`](https://github.com/Unleash/unleash-edge/commit/0be62e8547f76508f9f14f949958b8529ae96b39))
  * **[#43](https://github.com/Unleash/unleash-edge/issues/43)**
-    - Update rust crate serde_json to 1.0.92 ([`cd86cdd`](https://github.com/Unleash/unleash-edge/commit/cd86cdd7c5f6a9a6577a10b01278e3b17e36811d))
+    - update rust crate serde_json to 1.0.92 ([`cd86cdd`](https://github.com/Unleash/unleash-edge/commit/cd86cdd7c5f6a9a6577a10b01278e3b17e36811d))
  * **[#44](https://github.com/Unleash/unleash-edge/issues/44)**
     - Updated to only refresh tokens of type Client ([`d32e20b`](https://github.com/Unleash/unleash-edge/commit/d32e20bebc02fcc40670f508c86ab37ee8967b5f))
  * **[#45](https://github.com/Unleash/unleash-edge/issues/45)**
-    - Remove redis test that doesn't make sense anymore ([`ba72e09`](https://github.com/Unleash/unleash-edge/commit/ba72e090c400e7d2d7f276a89ecf79f3760c7c47))
+    - remove redis test that doesn't make sense anymore ([`ba72e09`](https://github.com/Unleash/unleash-edge/commit/ba72e090c400e7d2d7f276a89ecf79f3760c7c47))
  * **[#46](https://github.com/Unleash/unleash-edge/issues/46)**
-    - Redesign source/sink architecture ([`cdfa7c2`](https://github.com/Unleash/unleash-edge/commit/cdfa7c216c1b7066ab059259d319a8c8ce2dc82a))
+    - redesign source/sink architecture ([`cdfa7c2`](https://github.com/Unleash/unleash-edge/commit/cdfa7c216c1b7066ab059259d319a8c8ce2dc82a))
  * **[#5](https://github.com/Unleash/unleash-edge/issues/5)**
-    - Update rust crate actix-web to 4.3.0 ([`042ae38`](https://github.com/Unleash/unleash-edge/commit/042ae381536614d76f387c8d24b82c9ed9cb93bc))
+    - update rust crate actix-web to 4.3.0 ([`042ae38`](https://github.com/Unleash/unleash-edge/commit/042ae381536614d76f387c8d24b82c9ed9cb93bc))
  * **[#52](https://github.com/Unleash/unleash-edge/issues/52)**
-    - Update rust crate serde_json to 1.0.93 ([`986a743`](https://github.com/Unleash/unleash-edge/commit/986a7433f687de3126cf05bf8d776cabf3a28290))
+    - update rust crate serde_json to 1.0.93 ([`986a743`](https://github.com/Unleash/unleash-edge/commit/986a7433f687de3126cf05bf8d776cabf3a28290))
  * **[#53](https://github.com/Unleash/unleash-edge/issues/53)**
     - Task client metrics ([`81d49ef`](https://github.com/Unleash/unleash-edge/commit/81d49ef4c360a168a5c7445e56bab7e2cc78c020))
  * **[#54](https://github.com/Unleash/unleash-edge/issues/54)**
-    - Remove sinks for offline mode ([`9a34999`](https://github.com/Unleash/unleash-edge/commit/9a34999914d7c27b01b2ab7793863c8c139589fd))
+    - remove sinks for offline mode ([`9a34999`](https://github.com/Unleash/unleash-edge/commit/9a34999914d7c27b01b2ab7793863c8c139589fd))
  * **[#55](https://github.com/Unleash/unleash-edge/issues/55)**
-    - Update rust crate unleash-types to 0.8.2 ([`4f528b7`](https://github.com/Unleash/unleash-edge/commit/4f528b76b718405d151a06af6657376c9358a7a2))
+    - update rust crate unleash-types to 0.8.2 ([`4f528b7`](https://github.com/Unleash/unleash-edge/commit/4f528b76b718405d151a06af6657376c9358a7a2))
  * **[#56](https://github.com/Unleash/unleash-edge/issues/56)**
-    - Update rust crate unleash-yggdrasil to 0.4.5 ([`2d4a743`](https://github.com/Unleash/unleash-edge/commit/2d4a74312db1e5adc0d042e52e47c4f7286a966d))
+    - update rust crate unleash-yggdrasil to 0.4.5 ([`2d4a743`](https://github.com/Unleash/unleash-edge/commit/2d4a74312db1e5adc0d042e52e47c4f7286a966d))
  * **[#57](https://github.com/Unleash/unleash-edge/issues/57)**
-    - Redesign source and sinks to store features by environment and filter the responses by project ([`869294b`](https://github.com/Unleash/unleash-edge/commit/869294b93591055b8b078943771915aef0bf33d8))
+    - redesign source and sinks to store features by environment and filter the responses by project ([`869294b`](https://github.com/Unleash/unleash-edge/commit/869294b93591055b8b078943771915aef0bf33d8))
  * **[#58](https://github.com/Unleash/unleash-edge/issues/58)**
-    - Token validator ([`749b3ad`](https://github.com/Unleash/unleash-edge/commit/749b3ad08de04644d0182d891e4f097dc0c438f5))
+    - token validator ([`749b3ad`](https://github.com/Unleash/unleash-edge/commit/749b3ad08de04644d0182d891e4f097dc0c438f5))
  * **[#59](https://github.com/Unleash/unleash-edge/issues/59)**
     - Subsume keys to check ([`45d6b66`](https://github.com/Unleash/unleash-edge/commit/45d6b6641c941e391a16df3294427efe64863c3c))
  * **[#6](https://github.com/Unleash/unleash-edge/issues/6)**
-    - Update rust crate clap to 4.1.3 ([`9f817bd`](https://github.com/Unleash/unleash-edge/commit/9f817bd7f0039315ad40aa61319c6ff1543b5241))
+    - update rust crate clap to 4.1.3 ([`9f817bd`](https://github.com/Unleash/unleash-edge/commit/9f817bd7f0039315ad40aa61319c6ff1543b5241))
  * **[#60](https://github.com/Unleash/unleash-edge/issues/60)**
-    - Add edge mode ([`e6fd6c5`](https://github.com/Unleash/unleash-edge/commit/e6fd6c5fda8adea94f06eaaf10033e9ae9a194a3))
+    - add edge mode ([`e6fd6c5`](https://github.com/Unleash/unleash-edge/commit/e6fd6c5fda8adea94f06eaaf10033e9ae9a194a3))
  * **[#61](https://github.com/Unleash/unleash-edge/issues/61)**
     - Open api docs ([`49d7129`](https://github.com/Unleash/unleash-edge/commit/49d7129a02f9ff8d9a336db9718593396742bb0d))
  * **[#62](https://github.com/Unleash/unleash-edge/issues/62)**
-    - Update rust crate unleash-types to 0.8.3 ([`eea450a`](https://github.com/Unleash/unleash-edge/commit/eea450a47bfe5c32ea84994570223c1d5a746bc8))
+    - update rust crate unleash-types to 0.8.3 ([`eea450a`](https://github.com/Unleash/unleash-edge/commit/eea450a47bfe5c32ea84994570223c1d5a746bc8))
  * **[#8](https://github.com/Unleash/unleash-edge/issues/8)**
-    - Update rust crate unleash-yggdrasil to 0.4.0 ([`fa8e961`](https://github.com/Unleash/unleash-edge/commit/fa8e9610dc74dd6868e36cdb6d2ae46c3aa17303))
+    - update rust crate unleash-yggdrasil to 0.4.0 ([`fa8e961`](https://github.com/Unleash/unleash-edge/commit/fa8e9610dc74dd6868e36cdb6d2ae46c3aa17303))
  * **[#9](https://github.com/Unleash/unleash-edge/issues/9)**
     - Added cors middleware ([`3addbd6`](https://github.com/Unleash/unleash-edge/commit/3addbd639c12749c5d18775f95b1bfede106c4cf))
  * **Uncategorized**
     - Release unleash-edge v0.0.1 ([`6187c4e`](https://github.com/Unleash/unleash-edge/commit/6187c4ef1fb79345e57bc8ac06efde2211e75798))
-    - Added changelog ([`e2a5894`](https://github.com/Unleash/unleash-edge/commit/e2a589418c3bd305f04d3083b8ad1826e662956d))
-    - Added team developer to save spam ([`004aa95`](https://github.com/Unleash/unleash-edge/commit/004aa955e8bed7687090762efa0bcc53577ecf2c))
-    - Move obvious debug level logging to debug ([`76e8e2a`](https://github.com/Unleash/unleash-edge/commit/76e8e2a8d6e71bd1cf8920e00ce2373da9054a8e))
-    - Tokens are now used ([`b18c039`](https://github.com/Unleash/unleash-edge/commit/b18c039255180c8d18e786e783a40f5cf9724358))
-    - Make sure reqwest does not bring along openssl ([`93b0f22`](https://github.com/Unleash/unleash-edge/commit/93b0f22802f3fb16ac97174ccf8dc2574dafb9e0))
-    - Update to include openapi and hashes feature of types ([`bcc2051`](https://github.com/Unleash/unleash-edge/commit/bcc20510714f9c48985367e00fbd2eb6124e669a))
-    - Bump unleash-types ([`9132cc1`](https://github.com/Unleash/unleash-edge/commit/9132cc1410d1d4a14e08de15ee53c9fce1fc5c92))
+    - added changelog ([`e2a5894`](https://github.com/Unleash/unleash-edge/commit/e2a589418c3bd305f04d3083b8ad1826e662956d))
+    - added team developer to save spam ([`004aa95`](https://github.com/Unleash/unleash-edge/commit/004aa955e8bed7687090762efa0bcc53577ecf2c))
+    - move obvious debug level logging to debug ([`76e8e2a`](https://github.com/Unleash/unleash-edge/commit/76e8e2a8d6e71bd1cf8920e00ce2373da9054a8e))
+    - tokens are now used ([`b18c039`](https://github.com/Unleash/unleash-edge/commit/b18c039255180c8d18e786e783a40f5cf9724358))
+    - make sure reqwest does not bring along openssl ([`93b0f22`](https://github.com/Unleash/unleash-edge/commit/93b0f22802f3fb16ac97174ccf8dc2574dafb9e0))
+    - update to include openapi and hashes feature of types ([`bcc2051`](https://github.com/Unleash/unleash-edge/commit/bcc20510714f9c48985367e00fbd2eb6124e669a))
+    - bump unleash-types ([`9132cc1`](https://github.com/Unleash/unleash-edge/commit/9132cc1410d1d4a14e08de15ee53c9fce1fc5c92))
     - Update unleash-types to 0.5.1 ([`02e201b`](https://github.com/Unleash/unleash-edge/commit/02e201b5142e6b95ced38f3636d3015ce4f79e03))
     - Update cargo keys with ownership and license ([`1d6a518`](https://github.com/Unleash/unleash-edge/commit/1d6a5188a6334b341db72f847f55450726da3bee))
-    - Add /api/client/features endpoint ([`c270685`](https://github.com/Unleash/unleash-edge/commit/c270685a08207e0ab283e563ad6f58ad4f859161))
+    - add /api/client/features endpoint ([`c270685`](https://github.com/Unleash/unleash-edge/commit/c270685a08207e0ab283e563ad6f58ad4f859161))
     - Server with metrics and health check ready ([`231efc3`](https://github.com/Unleash/unleash-edge/commit/231efc30353f6af6f20b8431220101802ca5c2b3))
 </details>
 
