@@ -213,7 +213,7 @@ pub struct ReadyCheckArgs {
     #[clap(short, long, env, default_value = "http://localhost:3063")]
     pub edge_url: String,
 
-    /// If you're hosting Edge using a self-signed TLS certificate use this to tell healthcheck about your CA
+    /// If you're hosting Edge using a self-signed TLS certificate use this to tell the readychecker about your CA
     #[clap(short, long, env)]
     pub ca_certificate_file: Option<PathBuf>,
 }

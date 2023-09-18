@@ -45,7 +45,7 @@ This document contains the help content for the `unleash-edge` command-line prog
   Default value: `3043`
 * `--instance-id <INSTANCE_ID>` — Instance id. Used for metrics reporting
 
-  Default value: `01HAKJMM3MXFHYKY6CQVRBPN74`
+  Default value: `01HAM0JMKDMZZP0HXNT8K1J6FW`
 * `-a`, `--app-name <APP_NAME>` — App name. Used for metrics reporting
 
   Default value: `unleash-edge`
@@ -156,7 +156,7 @@ Perform a ready check against a running edge instance
 * `-e`, `--edge-url <EDGE_URL>` — Where the instance you want to health check is running
 
   Default value: `http://localhost:3063`
-* `-c`, `--ca-certificate-file <CA_CERTIFICATE_FILE>` — If you're hosting Edge using a self-signed TLS certificate use this to tell healthcheck about your CA
+* `-c`, `--ca-certificate-file <CA_CERTIFICATE_FILE>` — If you're hosting Edge using a self-signed TLS certificate use this to tell the readychecker about your CA
 
 
 
