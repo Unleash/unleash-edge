@@ -8,6 +8,7 @@ This document contains the help content for the `unleash-edge` command-line prog
 * [`unleash-edge edge`↴](#unleash-edge-edge)
 * [`unleash-edge offline`↴](#unleash-edge-offline)
 * [`unleash-edge health`↴](#unleash-edge-health)
+* [`unleash-edge ready`↴](#unleash-edge-ready)
 
 ## `unleash-edge`
 
@@ -18,6 +19,7 @@ This document contains the help content for the `unleash-edge` command-line prog
 * `edge` — Run in edge mode
 * `offline` — Run in offline mode
 * `health` — Perform a health check against a running edge instance
+* `ready` — Perform a ready check against a running edge instance
 
 ###### **Options:**
 
@@ -32,18 +34,18 @@ This document contains the help content for the `unleash-edge` command-line prog
   Default value: ``
 * `-w`, `--workers <WORKERS>` — How many workers should be started to handle requests. Defaults to number of physical cpus
 
-  Default value: `16`
+  Default value: `8`
 * `--tls-enable` — Should we bind TLS
 
   Default value: `false`
-* `--tls-server-key <TLS_SERVER_KEY>` — Server key to use for TLS
-* `--tls-server-cert <TLS_SERVER_CERT>` — Server Cert to use for TLS
+* `--tls-server-key <TLS_SERVER_KEY>` — Server key to use for TLS - Needs to be a path to a file
+* `--tls-server-cert <TLS_SERVER_CERT>` — Server Cert to use for TLS - Needs to be a path to a file
 * `--tls-server-port <TLS_SERVER_PORT>` — Port to listen for https connection on (will use the interfaces already defined)
 
   Default value: `3043`
 * `--instance-id <INSTANCE_ID>` — Instance id. Used for metrics reporting
 
-  Default value: `01HA7584ARNZD9X399N0CEF3SE`
+  Default value: `01HAM0JMKDMZZP0HXNT8K1J6FW`
 * `-a`, `--app-name <APP_NAME>` — App name. Used for metrics reporting
 
   Default value: `unleash-edge`
@@ -140,6 +142,21 @@ Perform a health check against a running edge instance
 
   Default value: `http://localhost:3063`
 * `-c`, `--ca-certificate-file <CA_CERTIFICATE_FILE>` — If you're hosting Edge using a self-signed TLS certificate use this to tell healthcheck about your CA
+
+
+
+## `unleash-edge ready`
+
+Perform a ready check against a running edge instance
+
+**Usage:** `unleash-edge ready [OPTIONS]`
+
+###### **Options:**
+
+* `-e`, `--edge-url <EDGE_URL>` — Where the instance you want to health check is running
+
+  Default value: `http://localhost:3063`
+* `-c`, `--ca-certificate-file <CA_CERTIFICATE_FILE>` — If you're hosting Edge using a self-signed TLS certificate use this to tell the readychecker about your CA
 
 
 

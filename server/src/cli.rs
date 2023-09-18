@@ -213,7 +213,7 @@ pub struct ReadyCheckArgs {
     #[clap(short, long, env, default_value = "http://localhost:3063")]
     pub edge_url: String,
 
-    /// If you're hosting Edge using a self-signed TLS certificate use this to tell healthcheck about your CA
+    /// If you're hosting Edge using a self-signed TLS certificate use this to tell the readychecker about your CA
     #[clap(short, long, env)]
     pub ca_certificate_file: Option<PathBuf>,
 }
@@ -255,11 +255,11 @@ pub struct TlsOptions {
     /// Should we bind TLS
     #[clap(env, long, default_value_t = false)]
     pub tls_enable: bool,
-    /// Server key to use for TLS
+    /// Server key to use for TLS - Needs to be a path to a file
     #[clap(env, long)]
     pub tls_server_key: Option<PathBuf>,
     #[clap(env, long)]
-    /// Server Cert to use for TLS
+    /// Server Cert to use for TLS - Needs to be a path to a file
     pub tls_server_cert: Option<PathBuf>,
     /// Port to listen for https connection on (will use the interfaces already defined)
     #[clap(env, long, default_value_t = 3043)]
