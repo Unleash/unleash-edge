@@ -1,6 +1,7 @@
 use crate::auth::token_validator::TokenValidator;
 use crate::http::feature_refresher::FeatureRefresher;
 use crate::metrics::actix_web_metrics::PrometheusMetricsHandler;
+use crate::types::Status;
 use crate::types::{BuildInfo, EdgeJsonResult, EdgeToken, TokenInfo, TokenRefresh};
 use actix_web::{
     get,
@@ -11,25 +12,22 @@ use serde::{Deserialize, Serialize};
 use unleash_types::client_features::ClientFeatures;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EdgeStatus {
-    status: String,
+    pub status: Status,
 }
 
 impl EdgeStatus {
     pub fn ok() -> Self {
-        EdgeStatus {
-            status: "OK".into(),
-        }
+        EdgeStatus { status: Status::Ok }
     }
-
     pub fn not_ready() -> Self {
         EdgeStatus {
-            status: "NOT_READY".into(),
+            status: Status::NotReady,
         }
     }
 
     pub fn ready() -> Self {
         EdgeStatus {
-            status: "READY".into(),
+            status: Status::Ready,
         }
     }
 }
@@ -104,7 +102,7 @@ mod tests {
     use crate::middleware;
     use crate::tests::upstream_server;
     use crate::tokens::cache_key;
-    use crate::types::{BuildInfo, EdgeToken, TokenInfo, TokenType, TokenValidationStatus};
+    use crate::types::{BuildInfo, EdgeToken, Status, TokenInfo, TokenType, TokenValidationStatus};
     use actix_web::body::MessageBody;
     use actix_web::http::header::ContentType;
     use actix_web::test;
@@ -161,7 +159,7 @@ mod tests {
         let resp = test::call_service(&app, req).await;
         assert!(resp.status().is_success());
         let status: EdgeStatus = test::read_body_json(resp).await;
-        assert_eq!(status.status, "NOT_READY");
+        assert_eq!(status.status, Status::NotReady);
     }
 
     #[actix_web::test]
@@ -194,7 +192,7 @@ mod tests {
         let resp = test::call_service(&app, req).await;
         assert!(resp.status().is_success());
         let status: EdgeStatus = test::read_body_json(resp).await;
-        assert_eq!(status.status, "READY");
+        assert_eq!(status.status, Status::Ready);
     }
 
     #[actix_web::test]

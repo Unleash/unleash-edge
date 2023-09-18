@@ -16,6 +16,8 @@ pub enum EdgeMode {
     Offline(OfflineArgs),
     /// Perform a health check against a running edge instance
     Health(HealthCheckArgs),
+    /// Perform a ready check against a running edge instance
+    Ready(ReadyCheckArgs),
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -205,6 +207,17 @@ pub struct HealthCheckArgs {
     pub ca_certificate_file: Option<PathBuf>,
 }
 
+#[derive(Args, Debug, Clone)]
+pub struct ReadyCheckArgs {
+    /// Where the instance you want to health check is running
+    #[clap(short, long, env, default_value = "http://localhost:3063")]
+    pub edge_url: String,
+
+    /// If you're hosting Edge using a self-signed TLS certificate use this to tell healthcheck about your CA
+    #[clap(short, long, env)]
+    pub ca_certificate_file: Option<PathBuf>,
+}
+
 #[derive(Parser, Debug, Clone)]
 pub struct CliArgs {
     #[clap(flatten)]
@@ -348,8 +361,7 @@ mod tests {
                 assert_eq!(api_key.0, "X-Api-Key");
                 assert_eq!(api_key.1, "mysecret")
             }
-            EdgeMode::Offline(_) => unreachable!(),
-            EdgeMode::Health(_) => unreachable!(),
+            _ => unreachable!(),
         }
     }
 
@@ -373,8 +385,7 @@ mod tests {
                 assert_eq!(api_key.0, "X-Api-Key");
                 assert_eq!(api_key.1, "mysecret")
             }
-            EdgeMode::Offline(_) => unreachable!(),
-            EdgeMode::Health(_) => unreachable!(),
+            _ => unreachable!(),
         }
     }
 
@@ -395,8 +406,7 @@ mod tests {
                 assert_eq!(auth.0, "Authorization");
                 assert_eq!(auth.1, "test:test.secret");
             }
-            EdgeMode::Offline(_) => unreachable!(),
-            EdgeMode::Health(_) => unreachable!(),
+            _ => unreachable!(),
         }
     }
 

@@ -126,9 +126,7 @@ impl FromRequest for EdgeToken {
                     Some(v) => EdgeToken::try_from(v.clone()),
                     None => Err(EdgeError::AuthorizationDenied),
                 },
-                EdgeMode::Health(_) => {
-                    unreachable!("Trying to get token when running in healthcheck mode")
-                }
+                _ => unreachable!(),
             };
             ready(key)
         } else {
