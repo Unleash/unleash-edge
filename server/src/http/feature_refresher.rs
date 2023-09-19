@@ -41,6 +41,11 @@ pub struct FeatureRefresher {
     pub engine_cache: Arc<DashMap<String, EngineState>>,
     pub refresh_interval: chrono::Duration,
     pub persistence: Option<Arc<dyn EdgePersistence>>,
+    pub environment_features_cache: Arc<DashMap<String, ProjectClientFeatures>>
+}
+
+pub struct ProjectClientFeatures {
+    pub project_features_cache: Arc<DashMap<String, ClientFeatures>>
 }
 
 impl Default for FeatureRefresher {
@@ -52,6 +57,7 @@ impl Default for FeatureRefresher {
             features_cache: Default::default(),
             engine_cache: Default::default(),
             persistence: None,
+            environment_features_cache: Arc::new(DashMap::default()),
         }
     }
 }
@@ -73,6 +79,7 @@ impl FeatureRefresher {
     pub fn new(
         unleash_client: Arc<UnleashClient>,
         features: Arc<DashMap<String, ClientFeatures>>,
+        environment_features: Arc<DashMap<String, ProjectClientFeatures>>,
         engines: Arc<DashMap<String, EngineState>>,
         features_refresh_interval: chrono::Duration,
         persistence: Option<Arc<dyn EdgePersistence>>,
@@ -84,6 +91,7 @@ impl FeatureRefresher {
             engine_cache: engines,
             refresh_interval: features_refresh_interval,
             persistence,
+            environment_features_cache :environment_features,
         }
     }
 
@@ -95,6 +103,8 @@ impl FeatureRefresher {
             engine_cache: Arc::new(Default::default()),
             refresh_interval: chrono::Duration::seconds(10),
             persistence: None,
+            environment_features_cache: Arc::new(Default::default()),
+
         }
     }
 
@@ -279,13 +289,44 @@ impl FeatureRefresher {
                 ClientFeaturesResponse::Updated(features, etag) => {
                     debug!("Got updated client features. Updating features with {etag:?}");
                     let key = cache_key(&refresh.token);
+                    debug!("Key is: {key:?}");
                     self.update_last_refresh(&refresh.token, etag);
+                    refresh.token.projects.clone().into_iter().for_each(|project| {
+                        let _features = ClientFeatures {
+                            version: features.version,
+                            features:  features.clone().features.into_iter().filter(|feat| feat.project.clone().unwrap() == project).collect(),
+                            segments: features.segments.clone(),
+                            query: features.query.clone(),
+
+                        };
+
+                        self.environment_features_cache
+                            .entry(key.clone())
+                            .and_modify(|pcf| {
+                                pcf.project_features_cache.entry(project.clone()).insert(_features.clone());
+                    })
+                            .or_insert_with(|| {
+                                let _pcf = ProjectClientFeatures { project_features_cache: Arc::new(DashMap::default())};
+                                _pcf.project_features_cache.entry(project).insert(_features.clone());
+                                _pcf
+                            }
+                                
+                            );
+                    }
+
+                    );
+
+
+                    let _all_features = ClientFeatures {
+                        version: features.version,
+                        features: Vec::from_iter(self.environment_features_cache.clone().get(&key).unwrap().project_features_cache.iter().map(|x| x.features.clone())).concat(),
+                        segments: features.segments.clone(),
+                        query: features.query.clone(),
+
+                    };
                     self.features_cache
                         .entry(key.clone())
-                        .and_modify(|existing_data| {
-                            *existing_data = existing_data.clone().upsert(features.clone());
-                        })
-                        .or_insert_with(|| features.clone());
+                        .insert(_all_features.clone());
                     self.engine_cache
                         .entry(key.clone())
                         .and_modify(|engine| {

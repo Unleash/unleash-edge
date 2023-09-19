@@ -160,6 +160,7 @@ async fn build_edge(args: &EdgeArgs) -> EdgeResult<EdgeInfo> {
     let feature_refresher = Arc::new(FeatureRefresher::new(
         unleash_client,
         feature_cache.clone(),
+        Arc::new(DashMap::default()),
         engine_cache.clone(),
         Duration::seconds(args.features_refresh_interval_seconds.try_into().unwrap()),
         persistence.clone(),
