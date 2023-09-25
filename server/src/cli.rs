@@ -16,6 +16,8 @@ pub enum EdgeMode {
     Offline(OfflineArgs),
     /// Perform a health check against a running edge instance
     Health(HealthCheckArgs),
+    /// Perform a ready check against a running edge instance
+    Ready(ReadyCheckArgs),
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -114,10 +116,6 @@ pub struct EdgeArgs {
     #[clap(short, long, env)]
     pub upstream_url: String,
 
-    /// A URL pointing to a running Redis instance. Edge will use this instance to persist feature and token data and read this back after restart. Mutually exclusive with the --backup-folder option
-    #[clap(flatten)]
-    pub redis: Option<RedisArgs>,
-
     /// A path to a local folder. Edge will write feature and token data to disk in this folder and read this back after restart. Mutually exclusive with the --redis-url option
     #[clap(short, long, env)]
     pub backup_folder: Option<PathBuf>,
@@ -155,6 +153,18 @@ pub struct EdgeArgs {
     /// Service account token. Used to create client tokens if receiving a frontend token we don't have data for
     #[clap(long, global = true, env)]
     pub service_account_token: Option<String>,
+
+    /// Timeout for requests to the upstream server
+    #[clap(long, env, default_value_t = 5)]
+    pub upstream_request_timeout: i64,
+
+    /// Socket timeout for requests to upstream
+    #[clap(long, env, default_value_t = 5)]
+    pub upstream_socket_timeout: i64,
+
+    /// A URL pointing to a running Redis instance. Edge will use this instance to persist feature and token data and read this back after restart. Mutually exclusive with the --backup-folder option
+    #[clap(flatten)]
+    pub redis: Option<RedisArgs>,
 }
 
 pub fn string_to_header_tuple(s: &str) -> Result<(String, String), String> {
@@ -197,6 +207,17 @@ pub struct HealthCheckArgs {
     pub ca_certificate_file: Option<PathBuf>,
 }
 
+#[derive(Args, Debug, Clone)]
+pub struct ReadyCheckArgs {
+    /// Where the instance you want to health check is running
+    #[clap(short, long, env, default_value = "http://localhost:3063")]
+    pub edge_url: String,
+
+    /// If you're hosting Edge using a self-signed TLS certificate use this to tell the readychecker about your CA
+    #[clap(short, long, env)]
+    pub ca_certificate_file: Option<PathBuf>,
+}
+
 #[derive(Parser, Debug, Clone)]
 pub struct CliArgs {
     #[clap(flatten)]
@@ -223,6 +244,10 @@ pub struct CliArgs {
     /// Because returning all toggles regardless of their state is a potential security vulnerability, these endpoints can be disabled
     #[clap(long, env, default_value_t = false, global = true)]
     pub disable_all_endpoint: bool,
+
+    /// Timeout for requests to Edge
+    #[clap(long, env, default_value_t = 5)]
+    pub edge_request_timeout: u64,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -230,11 +255,11 @@ pub struct TlsOptions {
     /// Should we bind TLS
     #[clap(env, long, default_value_t = false)]
     pub tls_enable: bool,
-    /// Server key to use for TLS
+    /// Server key to use for TLS - Needs to be a path to a file
     #[clap(env, long)]
     pub tls_server_key: Option<PathBuf>,
     #[clap(env, long)]
-    /// Server Cert to use for TLS
+    /// Server Cert to use for TLS - Needs to be a path to a file
     pub tls_server_cert: Option<PathBuf>,
     /// Port to listen for https connection on (will use the interfaces already defined)
     #[clap(env, long, default_value_t = 3043)]
@@ -336,8 +361,7 @@ mod tests {
                 assert_eq!(api_key.0, "X-Api-Key");
                 assert_eq!(api_key.1, "mysecret")
             }
-            EdgeMode::Offline(_) => unreachable!(),
-            EdgeMode::Health(_) => unreachable!(),
+            _ => unreachable!(),
         }
     }
 
@@ -361,8 +385,7 @@ mod tests {
                 assert_eq!(api_key.0, "X-Api-Key");
                 assert_eq!(api_key.1, "mysecret")
             }
-            EdgeMode::Offline(_) => unreachable!(),
-            EdgeMode::Health(_) => unreachable!(),
+            _ => unreachable!(),
         }
     }
 
@@ -383,8 +406,7 @@ mod tests {
                 assert_eq!(auth.0, "Authorization");
                 assert_eq!(auth.1, "test:test.secret");
             }
-            EdgeMode::Offline(_) => unreachable!(),
-            EdgeMode::Health(_) => unreachable!(),
+            _ => unreachable!(),
         }
     }
 

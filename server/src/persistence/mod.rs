@@ -31,21 +31,23 @@ pub async fn persist_data(
         tokio::select! {
             _ = tokio::time::sleep(Duration::from_secs(60)) => {
                 if let Some(persister) = persistence.clone() {
-                    if persister.save_tokens(token_cache.iter().filter(|t| t.value().status == TokenValidationStatus::Validated).map(|e| e.value().clone()).collect()).await.is_ok() {
-                        debug!("Persisted tokens");
-                    } else {
-                        warn!("Could not persist tokens");
+                    match persister.save_tokens(token_cache.iter().filter(|t| t.value().status == TokenValidationStatus::Validated).map(|e| e.value().clone()).collect()).await {
+                        Ok(()) => debug!("Persisted tokens"),
+                        Err(save_error) =>
+                            warn!("Could not persist tokens: {save_error:?}")
+
+
                     }
-                    if persister.save_features(features_cache.iter().map(|e| (e.key().clone(), e.value().clone())).collect()).await.is_ok() {
-                        debug!("Persisted features");
-                    } else {
-                        warn!("Could not persist features");
+                    match persister.save_features(features_cache.iter().map(|e| (e.key().clone(), e.value().clone())).collect()).await {
+                        Ok(()) => debug!("Persisted features"),
+                        Err(save_error) =>
+                            warn!("Could not persist features: {save_error:?}")
+
                     }
 
-                    if persister.save_refresh_targets(refresh_targets_cache.iter().map(|e| e.value().clone()).collect()).await.is_ok() {
-                        debug!("Persisted refresh targets");
-                    } else {
-                        warn!("Could not persist refresh targets");
+                    match persister.save_refresh_targets(refresh_targets_cache.iter().map(|e| e.value().clone()).collect()).await {
+                        Ok(()) => debug!("Persisted refresh targets"),
+                        Err(save_error) => warn!("Could not persist refresh targets: {save_error:?}")
                     }
                 } else {
                     debug!("Had no persister. Nothing was persisted");

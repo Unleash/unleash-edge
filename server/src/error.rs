@@ -14,6 +14,7 @@ pub const TRUST_PROXY_PARSE_ERROR: &str =
 #[derive(Debug)]
 pub enum FeatureError {
     AccessDenied,
+    NotFound,
     Retriable,
 }
 
@@ -90,7 +91,7 @@ pub enum EdgeError {
     ClientBuildError(String),
     ClientCertificateError(CertificateError),
     ClientFeaturesFetchError(FeatureError),
-    ClientFeaturesParseError,
+    ClientFeaturesParseError(String),
     ClientRegisterError,
     FrontendNotYetHydrated(FrontendHydrationMissing),
     FeatureNotFound(String),
@@ -105,10 +106,12 @@ pub enum EdgeError {
     JsonParseError(String),
     NoFeaturesFile,
     NoTokenProvider,
+    ReadyCheckError(String),
     TlsError,
     TokenParseError(String),
     ContextParseError,
     ServiceAccountTokenNotEnabled,
+    TokenValidationError(StatusCode),
 }
 
 impl Error for EdgeError {}
@@ -132,12 +135,16 @@ impl Display for EdgeError {
                     f,
                     "Could not fetch client features because api key was not allowed"
                 ),
+                FeatureError::NotFound => write!(
+                    f,
+                    "Could not fetch features because upstream url was not found"
+                ),
             },
             EdgeError::FeatureNotFound(name) => {
                 write!(f, "Failed to find feature with name {name}")
             }
-            EdgeError::ClientFeaturesParseError => {
-                write!(f, "Failed to parse client features")
+            EdgeError::ClientFeaturesParseError(error) => {
+                write!(f, "Failed to parse client features: [{error}]")
             }
             EdgeError::ClientRegisterError => {
                 write!(f, "Failed to register client")
@@ -171,6 +178,16 @@ impl Display for EdgeError {
             EdgeError::HealthCheckError(message) => {
                 write!(f, "{message}")
             }
+            EdgeError::ReadyCheckError(message) => {
+                write!(f, "{message}")
+            }
+            EdgeError::TokenValidationError(status_code) => {
+                write!(
+                    f,
+                    "Received status code {} when trying to validate token against upstream server",
+                    status_code
+                )
+            }
         }
     }
 }
@@ -185,13 +202,14 @@ impl ResponseError for EdgeError {
             EdgeError::NoTokenProvider => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::TokenParseError(_) => StatusCode::FORBIDDEN,
             EdgeError::ClientBuildError(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            EdgeError::ClientFeaturesParseError => StatusCode::INTERNAL_SERVER_ERROR,
+            EdgeError::ClientFeaturesParseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::ClientFeaturesFetchError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::InvalidServerUrl(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::PersistenceError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::JsonParseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::EdgeTokenError => StatusCode::BAD_REQUEST,
             EdgeError::EdgeTokenParseError => StatusCode::BAD_REQUEST,
+            EdgeError::TokenValidationError(_) => StatusCode::BAD_REQUEST,
             EdgeError::AuthorizationPending => StatusCode::UNAUTHORIZED,
             EdgeError::FeatureNotFound(_) => StatusCode::NOT_FOUND,
             EdgeError::EdgeMetricsError => StatusCode::BAD_REQUEST,
@@ -202,6 +220,7 @@ impl ResponseError for EdgeError {
             EdgeError::ServiceAccountTokenNotEnabled => StatusCode::NETWORK_AUTHENTICATION_REQUIRED,
             EdgeError::EdgeMetricsRequestError(status_code) => *status_code,
             EdgeError::HealthCheckError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            EdgeError::ReadyCheckError(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 
@@ -217,6 +236,13 @@ impl ResponseError for EdgeError {
                 debug!("Failed to parse token: {}", token);
                 HttpResponseBuilder::new(self.status_code()).json(json!({
                     "explanation": format!("Edge could not parse token: {}", token),
+                }))
+            },
+            EdgeError::TokenValidationError(status_code) => {
+                debug!("Failed to validate token upstream");
+                HttpResponseBuilder::new(self.status_code()).json(json!({
+                    "explanation": format!("Received a non 200 status code when trying to validate token upstream"),
+                    "status_code": status_code.as_str()
                 }))
             }
             _ => HttpResponseBuilder::new(self.status_code()).json(json!({

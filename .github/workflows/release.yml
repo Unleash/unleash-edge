@@ -1,9 +1,13 @@
+# Copyright 2022-2023, axodotdev
+# SPDX-License-Identifier: MIT or Apache-2.0
+#
 # CI that:
 #
 # * checks for a Git Tag that looks like a release
-# * creates a Github Release™ and fills in its text
-# * builds artifacts with cargo-dist (executable-zips, installers)
+# * creates a draft Github Release™ and fills in its text
+# * builds artifacts with cargo-dist (executable-zips, installers, hashes)
 # * uploads those artifacts to the Github Release™
+# * undrafts the Github Release™ on success
 #
 # Note that the Github Release™ will be created before the artifacts,
 # so there will be a few minutes where the release has no artifacts
@@ -50,21 +54,21 @@ jobs:
         include:
         - os: macos-11
           dist-args: --artifacts=local --target=aarch64-apple-darwin --target=x86_64-apple-darwin
-          install-dist: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.0.4/cargo-dist-v0.0.4-installer.sh | sh
-        - os: ubuntu-20.04
+          install-dist: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.2.0/cargo-dist-installer.sh | sh
+        - os: ubuntu-22.04
           dist-args: --artifacts=local --target=x86_64-unknown-linux-gnu
-          install-dist: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.0.4/cargo-dist-v0.0.4-installer.sh | sh
+          install-dist: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.2.0/cargo-dist-installer.sh | sh
         - os: windows-2019
           dist-args: --artifacts=local --target=x86_64-pc-windows-msvc
-          install-dist: irm  https://github.com/axodotdev/cargo-dist/releases/download/v0.0.4/cargo-dist-v0.0.4-installer.ps1 | iex
+          install-dist: irm  https://github.com/axodotdev/cargo-dist/releases/download/v0.2.0/cargo-dist-installer.ps1 | iex
 
     runs-on: ${{ matrix.os }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Install Rust
-        run: rustup update 1.68.0 --no-self-update && rustup default 1.68.0
+        run: rustup update 1.72.0 --no-self-update && rustup default 1.72.0
       - name: Use rust cache
         uses: Swatinem/rust-cache@v2
         with:

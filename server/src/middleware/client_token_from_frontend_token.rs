@@ -8,6 +8,7 @@ use tracing::{debug, instrument};
 
 use crate::{
     http::feature_refresher::FeatureRefresher,
+    tokens,
     types::{EdgeResult, EdgeToken, TokenValidationStatus},
 };
 
@@ -32,7 +33,10 @@ pub async fn client_token_from_frontend_token(
 ) -> Result<ServiceResponse<impl MessageBody>, actix_web::Error> {
     if let Some(token_cache) = req.app_data::<Data<DashMap<String, EdgeToken>>>() {
         if let Some(fe_token) = token_cache.get(&token.token) {
-            debug!("Token got extracted to {:#?}", fe_token.value().clone());
+            debug!(
+                "Token got extracted to {:#?}",
+                tokens::anonymize_token(fe_token.value())
+            );
             if fe_token.status == TokenValidationStatus::Validated {
                 create_client_token_for_fe_token(&req, &fe_token).await?;
             }
@@ -141,6 +145,8 @@ mod tests {
             None,
             None,
             upstream_sa.token.to_string(),
+            Duration::seconds(5),
+            Duration::seconds(5),
         );
         let arced_client = Arc::new(unleash_client);
         let local_features_cache: Arc<DashMap<String, ClientFeatures>> =
@@ -203,6 +209,8 @@ mod tests {
             None,
             None,
             upstream_sa.to_string(),
+            Duration::seconds(5),
+            Duration::seconds(5),
         );
         let arced_client = Arc::new(unleash_client);
         let local_features_cache: Arc<DashMap<String, ClientFeatures>> =
@@ -263,6 +271,8 @@ mod tests {
             false,
             None,
             None,
+            Duration::seconds(5),
+            Duration::seconds(5),
         );
         let local_features_cache: Arc<DashMap<String, ClientFeatures>> =
             Arc::new(DashMap::default());

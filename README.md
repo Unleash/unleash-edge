@@ -3,7 +3,7 @@
 [![crates.io](https://img.shields.io/crates/v/unleash-edge?label=latest)](https://crates.io/crates/unleash-edge)
 [![Documentation](https://docs.rs/unleash-edge/badge.svg?version=latest)](https://docs.rs/unleash-edge/latest)
 ![MIT licensed](https://img.shields.io/crates/l/unleash-edge.svg)
-[![Dependency Status](https://deps.rs/crate/unleash-edge/8.0.1/status.svg)](https://deps.rs/crate/unleash-edge/8.0.1)
+[![Dependency Status](https://deps.rs/crate/unleash-edge/12.0.0/status.svg)](https://deps.rs/crate/unleash-edge/12.0.0)
 [![CI](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml/badge.svg)](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml)
 [![Coverage Status](https://coveralls.io/repos/github/Unleash/unleash-edge/badge.svg?branch=main)](https://coveralls.io/github/Unleash/unleash-edge?branch=main)
 ![downloads](https://img.shields.io/crates/d/unleash-edge.svg)
@@ -47,9 +47,9 @@ Options:
       --tls-enable
           Should we bind TLS [env: TLS_ENABLE=]
       --tls-server-key <TLS_SERVER_KEY>
-          Server key to use for TLS [env: TLS_SERVER_KEY=]
+          Server key to use for TLS [env: TLS_SERVER_KEY=] (Needs to be a path to a file)
       --tls-server-cert <TLS_SERVER_CERT>
-          Server Cert to use for TLS [env: TLS_SERVER_CERT=]
+          Server Cert to use for TLS [env: TLS_SERVER_CERT=] (Needs to be a path to a file)
       --tls-server-port <TLS_SERVER_PORT>
           Port to listen for https connection on (will use the interfaces already defined) [env: TLS_SERVER_PORT=] [default: 3043]
       --instance-id <INSTANCE_ID>
@@ -70,6 +70,36 @@ Example:
 will check an Edge process running on http://localhost:3063. If you're using base-path or the port variable you should use the `-e --edge-url` CLI arg (or the EDGE_URL environment variable) to tell the health checker where edge is running.
 
 If you're hosting Edge with a self-signed certificate using the tls cli arguments, you should use the `--ca-certificate-file <file_containing_your_ca_and_key_in_pem_format>` flag (or the CA_CERTIFICATE_FILE environment variable) to allow the health checker to trust the self signed certificate.
+
+### Built-in Ready check
+There is now (from 12.0.0) a subcommand named `ready` which will ping your ready endpoint and exit with status 0 provided the ready endpoint returns 200 OK and `{ status: "READY" }`. Otherwise it will return status 1 and an error message to signal that Edge is not ready (it has not spoken to upstream or recovered from a persisted backup).
+
+Examples:
+* Edge not running:
+```shell
+$ ./unleash-edge ready
+Error: Failed to connect to ready endpoint at http://localhost:3063/internal-backstage/ready. Failed with status None
+$ echo $?
+1
+```
+ 
+* Edge running but not populated its feature cache yet (not spoken to upstream or restored from backup)
+```shell
+$ ./unleash-edge ready
+Error: Ready check returned a different status than READY. It returned EdgeStatus { status: NotReady }
+$ echo $?
+1
+```
+* Edge running and synchronized. I.e. READY
+```shell
+$ ./unleash-edge ready
+OK
+$ echo $?
+0
+```
+
+If you're hosting Edge with a self-signed certificate using the tls cli arguments, you should use the `--ca-certificate-file <file_containing_your_ca_and_key_in_pem_format>` flag (or the CA_CERTIFICATE_FILE environment variable) to allow the health checker to trust the self signed certificate.
+
 
 ## Getting Unleash Edge
 
@@ -234,7 +264,7 @@ The simplified JSON format should be an object with a key for each feature. You 
 
 When using offline mode you must specify one or more tokens at startup. These tokens will let your SDKs access Edge. Tokens following the Unleash API format `[project]:[environment].<somesecret>` allow Edge to recognize the project and environment specified in the token, returning only the relevant features to the calling SDK. On the other hand, for tokens not adhering to this format, Edge will return all features if there is an exact match with any of the startup tokens.
 
-To make local development easier, you can specify a reload interval in seconds; this will cause Edge to reload the features file from disk every X seconds. This can be useful for local development.
+To make local development easier, you can specify a reload interval in seconds (Since Unleash-Edge 10.0.x); this will cause Edge to reload the features file from disk every X seconds. This can be useful for local development.
 
 Since offline mode does not connect to an upstream node, it does not support metrics or dynamic tokens.
 
@@ -250,6 +280,10 @@ Options:
   -r, --reload-interval <RELOAD_INTERVAL>       [env: RELOAD_INTERVAL=]
 
 ```
+
+##### Environments in offline mode
+Currently, Edge does not support multiple environments in offline mode. All tokens added at startup will receive the same list of features passed in as the bootstrap argument. 
+However, tokens in `<project>:<environment>.<secret>` format will still filter by project.
 
 ## [Metrics](https://docs.getunleash.io/reference/api/unleash/metrics)
 

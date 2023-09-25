@@ -321,6 +321,18 @@ impl FeatureRefresher {
                                     self.engine_cache.remove(&cache_key);
                                 }
                             }
+                            FeatureError::NotFound => {
+                                warn!("Had a bad URL when trying to fetch features. Removing ourselves");
+                                self.tokens_to_refresh.remove(&refresh.token.token);
+                                if !self.tokens_to_refresh.iter().any(|e| {
+                                    e.value().token.environment == refresh.token.environment
+                                }) {
+                                    let cache_key = cache_key(&refresh.token);
+                                    // No tokens left that access the environment of our current refresh. Deleting client features and engine cache
+                                    self.features_cache.remove(&cache_key);
+                                    self.engine_cache.remove(&cache_key);
+                                }
+                            }
                         }
                     }
                     _ => warn!("Couldn't refresh features: {e:?}. Will retry next pass"),
@@ -391,6 +403,8 @@ mod tests {
             false,
             None,
             None,
+            Duration::seconds(5),
+            Duration::seconds(5),
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
@@ -420,6 +434,8 @@ mod tests {
             false,
             None,
             None,
+            Duration::seconds(5),
+            Duration::seconds(5),
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
@@ -453,6 +469,8 @@ mod tests {
             false,
             None,
             None,
+            Duration::seconds(5),
+            Duration::seconds(5),
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
@@ -493,6 +511,8 @@ mod tests {
             false,
             None,
             None,
+            Duration::seconds(5),
+            Duration::seconds(5),
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
@@ -542,6 +562,8 @@ mod tests {
             false,
             None,
             None,
+            Duration::seconds(5),
+            Duration::seconds(5),
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
@@ -595,6 +617,8 @@ mod tests {
             false,
             None,
             None,
+            Duration::seconds(5),
+            Duration::seconds(5),
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
@@ -633,6 +657,8 @@ mod tests {
             false,
             None,
             None,
+            Duration::seconds(5),
+            Duration::seconds(5),
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
@@ -666,6 +692,8 @@ mod tests {
             false,
             None,
             None,
+            Duration::seconds(5),
+            Duration::seconds(5),
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());

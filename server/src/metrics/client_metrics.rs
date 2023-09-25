@@ -134,7 +134,9 @@ pub(crate) fn register_client_metrics(
     let metrics = unleash_types::client_metrics::from_bucket_app_name_and_env(
         metrics.bucket,
         metrics.app_name,
-        edge_token.environment.unwrap(),
+        edge_token
+            .environment
+            .unwrap_or_else(|| "development".into()),
     );
 
     metrics_cache.sink_metrics(&metrics);

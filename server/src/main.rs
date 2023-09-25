@@ -19,7 +19,9 @@ use unleash_edge::middleware::request_tracing::RequestTracing;
 use unleash_edge::offline::offline_hotload;
 use unleash_edge::persistence::{persist_data, EdgePersistence};
 use unleash_edge::types::{EdgeToken, TokenRefresh, TokenValidationStatus};
-use unleash_edge::{admin_api, cli, client_api, frontend_api, health_checker, openapi};
+use unleash_edge::{
+    admin_api, cli, client_api, frontend_api, health_checker, openapi, ready_checker,
+};
 use unleash_edge::{edge_api, prom_metrics};
 use unleash_edge::{internal_backstage, tls};
 
@@ -38,9 +40,13 @@ async fn main() -> Result<(), anyhow::Error> {
             .await
             .map_err(|e| e.into());
     };
+    if let EdgeMode::Ready(args) = args.mode {
+        return ready_checker::check_ready(args).await.map_err(|e| e.into());
+    }
     let schedule_args = args.clone();
     let mode_arg = args.clone().mode;
     let http_args = args.clone().http;
+    let request_timeout = args.edge_request_timeout;
     let trust_proxy = args.clone().trust_proxy;
     let base_path = http_args.base_path.clone();
     let (metrics_handler, request_metrics) = prom_metrics::instantiate(None);
@@ -59,6 +65,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let lazy_feature_cache = features_cache.clone();
     let lazy_token_cache = token_cache.clone();
     let lazy_engine_cache = engine_cache.clone();
+    let lazy_feature_refresher = feature_refresher.clone();
 
     let metrics_cache = Arc::new(MetricsCache::default());
     let metrics_cache_clone = metrics_cache.clone();
@@ -130,7 +137,10 @@ async fn main() -> Result<(), anyhow::Error> {
     } else {
         server.bind(http_args.http_server_tuple())
     };
-    let server = server?.workers(http_args.workers).shutdown_timeout(5);
+    let server = server?
+        .workers(http_args.workers)
+        .shutdown_timeout(5)
+        .client_request_timeout(std::time::Duration::from_secs(request_timeout));
 
     match schedule_args.mode {
         cli::EdgeMode::Edge(edge) => {
@@ -152,6 +162,9 @@ async fn main() -> Result<(), anyhow::Error> {
                     tracing::info!("Persister was unexpectedly shut down");
                 }
                 _ = validator.schedule_validation_of_known_tokens(edge.token_revalidation_interval_seconds) => {
+                    tracing::info!("Token validator validator was unexpectedly shut down");
+                }
+                _ = validator.schedule_revalidation_of_startup_tokens(edge.tokens, lazy_feature_refresher) => {
                     tracing::info!("Token validator validator was unexpectedly shut down");
                 }
             }

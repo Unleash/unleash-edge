@@ -8,6 +8,7 @@ This document contains the help content for the `unleash-edge` command-line prog
 * [`unleash-edge edge`↴](#unleash-edge-edge)
 * [`unleash-edge offline`↴](#unleash-edge-offline)
 * [`unleash-edge health`↴](#unleash-edge-health)
+* [`unleash-edge ready`↴](#unleash-edge-ready)
 
 ## `unleash-edge`
 
@@ -18,6 +19,7 @@ This document contains the help content for the `unleash-edge` command-line prog
 * `edge` — Run in edge mode
 * `offline` — Run in offline mode
 * `health` — Perform a health check against a running edge instance
+* `ready` — Perform a ready check against a running edge instance
 
 ###### **Options:**
 
@@ -32,21 +34,18 @@ This document contains the help content for the `unleash-edge` command-line prog
   Default value: ``
 * `-w`, `--workers <WORKERS>` — How many workers should be started to handle requests. Defaults to number of physical cpus
 
-  Default value: `16`
-* `--enable-post-features` — Exposes the api/client/features endpoint for POST requests. This may be removed in a future release
-
-  Default value: `false`
+  Default value: `8`
 * `--tls-enable` — Should we bind TLS
 
   Default value: `false`
-* `--tls-server-key <TLS_SERVER_KEY>` — Server key to use for TLS
-* `--tls-server-cert <TLS_SERVER_CERT>` — Server Cert to use for TLS
+* `--tls-server-key <TLS_SERVER_KEY>` — Server key to use for TLS - Needs to be a path to a file
+* `--tls-server-cert <TLS_SERVER_CERT>` — Server Cert to use for TLS - Needs to be a path to a file
 * `--tls-server-port <TLS_SERVER_PORT>` — Port to listen for https connection on (will use the interfaces already defined)
 
   Default value: `3043`
 * `--instance-id <INSTANCE_ID>` — Instance id. Used for metrics reporting
 
-  Default value: `01H7SY1GR08PTQ1AJAMNKY413E`
+  Default value: `01HAM0JMKDMZZP0HXNT8K1J6FW`
 * `-a`, `--app-name <APP_NAME>` — App name. Used for metrics reporting
 
   Default value: `unleash-edge`
@@ -56,6 +55,9 @@ This document contains the help content for the `unleash-edge` command-line prog
 * `--disable-all-endpoint` — Set this flag to true if you want to disable /api/proxy/all and /api/frontend/all Because returning all toggles regardless of their state is a potential security vulnerability, these endpoints can be disabled
 
   Default value: `false`
+* `--edge-request-timeout <EDGE_REQUEST_TIMEOUT>` — Timeout for requests to Edge
+
+  Default value: `5`
 
 
 
@@ -68,20 +70,6 @@ Run in edge mode
 ###### **Options:**
 
 * `-u`, `--upstream-url <UPSTREAM_URL>` — Where is your upstream URL. Remember, this is the URL to your instance, without any trailing /api suffix
-* `--redis-url <REDIS_URL>`
-* `--redis-password <REDIS_PASSWORD>`
-* `--redis-username <REDIS_USERNAME>`
-* `--redis-port <REDIS_PORT>`
-* `--redis-host <REDIS_HOST>`
-* `--redis-secure`
-
-  Default value: `false`
-* `--redis-scheme <REDIS_SCHEME>`
-
-  Default value: `redis`
-
-  Possible values: `tcp`, `tls`, `redis`, `rediss`, `redis-unix`, `unix`
-
 * `-b`, `--backup-folder <BACKUP_FOLDER>` — A path to a local folder. Edge will write feature and token data to disk in this folder and read this back after restart. Mutually exclusive with the --redis-url option
 * `-m`, `--metrics-interval-seconds <METRICS_INTERVAL_SECONDS>` — How often should we post metrics upstream?
 
@@ -103,6 +91,26 @@ Run in edge mode
 * `--pkcs12-passphrase <PKCS12_PASSPHRASE>` — Passphrase used to unlock the pkcs12 file
 * `--upstream-certificate-file <UPSTREAM_CERTIFICATE_FILE>` — Extra certificate passed to the client for building its trust chain. Needs to be in PEM format (crt or pem extensions usually are)
 * `--service-account-token <SERVICE_ACCOUNT_TOKEN>` — Service account token. Used to create client tokens if receiving a frontend token we don't have data for
+* `--upstream-request-timeout <UPSTREAM_REQUEST_TIMEOUT>` — Timeout for requests to the upstream server
+
+  Default value: `5`
+* `--upstream-socket-timeout <UPSTREAM_SOCKET_TIMEOUT>` — Socket timeout for requests to upstream
+
+  Default value: `5`
+* `--redis-url <REDIS_URL>`
+* `--redis-password <REDIS_PASSWORD>`
+* `--redis-username <REDIS_USERNAME>`
+* `--redis-port <REDIS_PORT>`
+* `--redis-host <REDIS_HOST>`
+* `--redis-secure`
+
+  Default value: `false`
+* `--redis-scheme <REDIS_SCHEME>`
+
+  Default value: `redis`
+
+  Possible values: `tcp`, `tls`, `redis`, `rediss`, `redis-unix`, `unix`
+
 
 
 
@@ -116,6 +124,9 @@ Run in offline mode
 
 * `-b`, `--bootstrap-file <BOOTSTRAP_FILE>` — The file to load our features from. This data will be loaded at startup
 * `-t`, `--tokens <TOKENS>` — Tokens that should be allowed to connect to Edge. Supports a comma separated list or multiple instances of the `--tokens` argument
+* `-r`, `--reload-interval <RELOAD_INTERVAL>` — The interval in seconds between reloading the bootstrap file. Disabled if unset or 0
+
+  Default value: `0`
 
 
 
@@ -131,6 +142,21 @@ Perform a health check against a running edge instance
 
   Default value: `http://localhost:3063`
 * `-c`, `--ca-certificate-file <CA_CERTIFICATE_FILE>` — If you're hosting Edge using a self-signed TLS certificate use this to tell healthcheck about your CA
+
+
+
+## `unleash-edge ready`
+
+Perform a ready check against a running edge instance
+
+**Usage:** `unleash-edge ready [OPTIONS]`
+
+###### **Options:**
+
+* `-e`, `--edge-url <EDGE_URL>` — Where the instance you want to health check is running
+
+  Default value: `http://localhost:3063`
+* `-c`, `--ca-certificate-file <CA_CERTIFICATE_FILE>` — If you're hosting Edge using a self-signed TLS certificate use this to tell the readychecker about your CA
 
 
 

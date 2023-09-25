@@ -2,9 +2,9 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::time::Duration;
 
 use actix_web::http::header::EntityTag;
+use chrono::Duration;
 use chrono::Utc;
 use lazy_static::lazy_static;
 use prometheus::{register_histogram_vec, register_int_gauge_vec, HistogramVec, IntGaugeVec, Opts};
@@ -126,6 +126,8 @@ fn new_reqwest_client(
     skip_ssl_verification: bool,
     client_identity: Option<ClientIdentity>,
     upstream_certificate_file: Option<PathBuf>,
+    connect_timeout: Duration,
+    socket_timeout: Duration,
 ) -> EdgeResult<Client> {
     build_identity(client_identity)
         .and_then(|builder| {
@@ -153,7 +155,8 @@ fn new_reqwest_client(
                 .user_agent(format!("unleash-edge-{}", crate::types::build::PKG_VERSION))
                 .default_headers(header_map)
                 .danger_accept_invalid_certs(skip_ssl_verification)
-                .timeout(Duration::from_secs(5))
+                .timeout(socket_timeout.to_std().unwrap())
+                .connect_timeout(connect_timeout.to_std().unwrap())
                 .build()
                 .map_err(|e| EdgeError::ClientBuildError(format!("{e:?}")))
         })
@@ -170,6 +173,8 @@ impl UnleashClient {
         skip_ssl_verification: bool,
         client_identity: Option<ClientIdentity>,
         upstream_certificate_file: Option<PathBuf>,
+        connect_timeout: Duration,
+        socket_timeout: Duration,
     ) -> Self {
         Self {
             urls: UnleashUrls::from_base_url(server_url),
@@ -178,6 +183,8 @@ impl UnleashClient {
                 skip_ssl_verification,
                 client_identity,
                 upstream_certificate_file,
+                connect_timeout,
+                socket_timeout,
             )
             .unwrap(),
             custom_headers: Default::default(),
@@ -190,6 +197,8 @@ impl UnleashClient {
         client_identity: Option<ClientIdentity>,
         upstream_certificate_file: Option<PathBuf>,
         service_account_token: String,
+        connect_timeout: Duration,
+        socket_timeout: Duration,
     ) -> Self {
         Self {
             urls: UnleashUrls::from_base_url(server_url),
@@ -198,6 +207,8 @@ impl UnleashClient {
                 skip_ssl_verification,
                 client_identity,
                 upstream_certificate_file,
+                connect_timeout,
+                socket_timeout,
             )
             .unwrap(),
             custom_headers: Default::default(),
@@ -212,7 +223,15 @@ impl UnleashClient {
         let instance_id = instance_id_opt.unwrap_or_else(|| Ulid::new().to_string());
         Ok(Self {
             urls: UnleashUrls::from_str(server_url)?,
-            backing_client: new_reqwest_client(instance_id, false, None, None).unwrap(),
+            backing_client: new_reqwest_client(
+                instance_id,
+                false,
+                None,
+                None,
+                Duration::seconds(5),
+                Duration::seconds(5),
+            )
+            .unwrap(),
             custom_headers: Default::default(),
             service_account_token: Default::default(),
         })
@@ -224,7 +243,15 @@ impl UnleashClient {
 
         Ok(Self {
             urls: UnleashUrls::from_str(server_url)?,
-            backing_client: new_reqwest_client(Ulid::new().to_string(), false, None, None).unwrap(),
+            backing_client: new_reqwest_client(
+                Ulid::new().to_string(),
+                false,
+                None,
+                None,
+                Duration::seconds(5),
+                Duration::seconds(5),
+            )
+            .unwrap(),
             custom_headers: Default::default(),
             service_account_token: Some(sa_token.into()),
         })
@@ -236,7 +263,15 @@ impl UnleashClient {
 
         Ok(Self {
             urls: UnleashUrls::from_str(server_url)?,
-            backing_client: new_reqwest_client(Ulid::new().to_string(), true, None, None).unwrap(),
+            backing_client: new_reqwest_client(
+                Ulid::new().to_string(),
+                true,
+                None,
+                None,
+                Duration::seconds(5),
+                Duration::seconds(5),
+            )
+            .unwrap(),
             custom_headers: Default::default(),
             service_account_token: Default::default(),
         })
@@ -334,9 +369,9 @@ impl UnleashClient {
                 .get("ETag")
                 .or_else(|| response.headers().get("etag"))
                 .and_then(|etag| EntityTag::from_str(etag.to_str().unwrap()).ok());
-            let features = response.json::<ClientFeatures>().await.map_err(|_e| {
+            let features = response.json::<ClientFeatures>().await.map_err(|e| {
                 warn!("Could not parse features response to internal representation");
-                EdgeError::ClientFeaturesParseError
+                EdgeError::ClientFeaturesParseError(e.to_string())
             })?;
             Ok(ClientFeaturesResponse::Updated(features, etag))
         } else if response.status() == StatusCode::FORBIDDEN {
@@ -346,6 +381,27 @@ impl UnleashClient {
             Err(EdgeError::ClientFeaturesFetchError(
                 FeatureError::AccessDenied,
             ))
+        } else if response.status() == StatusCode::UNAUTHORIZED {
+            CLIENT_FEATURE_FETCH_FAILURES
+                .with_label_values(&[response.status().as_str()])
+                .inc();
+            warn!(
+                "Failed to get features. Url: [{}]. Status code: [401]",
+                self.urls.client_features_url.to_string()
+            );
+            Err(EdgeError::ClientFeaturesFetchError(
+                FeatureError::AccessDenied,
+            ))
+        } else if response.status() == StatusCode::NOT_FOUND {
+            CLIENT_FEATURE_FETCH_FAILURES
+                .with_label_values(&[response.status().as_str()])
+                .inc();
+            warn!(
+                "Failed to get features. Url: [{}]. Status code: [{}]",
+                self.urls.client_features_url.to_string(),
+                response.status().as_str()
+            );
+            Err(EdgeError::ClientFeaturesFetchError(FeatureError::NotFound))
         } else {
             CLIENT_FEATURE_FETCH_FAILURES
                 .with_label_values(&[response.status().as_str()])
@@ -448,11 +504,16 @@ impl UnleashClient {
                     })
                     .collect())
             }
-            _ => {
+            s => {
                 TOKEN_VALIDATION_FAILURES
                     .with_label_values(&[result.status().as_str()])
                     .inc();
-                Err(EdgeError::EdgeTokenError)
+                warn!(
+                    "Failed to validate tokens. Requested url: [{}]. Got status: {:?}",
+                    self.urls.edge_validate_url.to_string(),
+                    s
+                );
+                Err(EdgeError::TokenValidationError(s))
             }
         }
     }
@@ -461,7 +522,7 @@ impl UnleashClient {
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
-    use std::{str::FromStr, time::Duration};
+    use std::str::FromStr;
 
     use actix_http::{body::MessageBody, HttpService, TlsAcceptorConfig};
     use actix_http_test::{test_server, TestServer};
@@ -473,7 +534,7 @@ mod tests {
         http::header::EntityTag,
         web, App, HttpResponse,
     };
-    use chrono::Utc;
+    use chrono::{Duration, Utc};
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
     use rand::distributions::Alphanumeric;
@@ -604,7 +665,7 @@ mod tests {
             };
             let server_config = tls::config(tls_options).unwrap();
             let tls_acceptor_config =
-                TlsAcceptorConfig::default().handshake_timeout(Duration::from_secs(5));
+                TlsAcceptorConfig::default().handshake_timeout(std::time::Duration::from_secs(5));
             HttpService::new(map_config(
                 App::new()
                     .wrap(Etag)
@@ -829,7 +890,14 @@ mod tests {
             pkcs12_identity_file: Some(PathBuf::from(pfx)),
             pkcs12_passphrase: Some(passphrase.into()),
         };
-        let client = new_reqwest_client("test_pkcs12".into(), false, Some(identity), None);
+        let client = new_reqwest_client(
+            "test_pkcs12".into(),
+            false,
+            Some(identity),
+            None,
+            Duration::seconds(5),
+            Duration::seconds(5),
+        );
         assert!(client.is_ok());
     }
 
@@ -843,7 +911,14 @@ mod tests {
             pkcs12_identity_file: Some(PathBuf::from(pfx)),
             pkcs12_passphrase: Some(passphrase.into()),
         };
-        let client = new_reqwest_client("test_pkcs12".into(), false, Some(identity), None);
+        let client = new_reqwest_client(
+            "test_pkcs12".into(),
+            false,
+            Some(identity),
+            None,
+            Duration::seconds(5),
+            Duration::seconds(5),
+        );
         assert!(client.is_err());
     }
 
@@ -857,7 +932,14 @@ mod tests {
             pkcs12_identity_file: None,
             pkcs12_passphrase: None,
         };
-        let client = new_reqwest_client("test_pkcs8".into(), false, Some(identity), None);
+        let client = new_reqwest_client(
+            "test_pkcs8".into(),
+            false,
+            Some(identity),
+            None,
+            Duration::seconds(5),
+            Duration::seconds(5),
+        );
         assert!(client.is_ok());
     }
 
