@@ -129,7 +129,7 @@ pub async fn get_feature(
         .ok_or(EdgeError::AuthorizationDenied)?;
 
     let filter_set = FeatureFilterSet::from(Box::new(name_match_filter(feature_name.clone())))
-        .with_filter(project_filter(&edge_token));
+        .with_filter(project_filter(&validated_token));
 
     match req.app_data::<Data<FeatureRefresher>>() {
         Some(refresher) => {
@@ -138,7 +138,7 @@ pub async fn get_feature(
                 .await
         }
         None => features_cache
-            .get(&cache_key(&edge_token))
+            .get(&cache_key(&validated_token))
             .map(|client_features| filter_client_features(&client_features, filter_set))
             .ok_or(EdgeError::ClientFeaturesFetchError(FeatureError::Retriable)),
     }
