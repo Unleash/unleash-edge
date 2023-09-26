@@ -47,7 +47,7 @@ rustls-pemfile = "1.0.3"
 serde = {version = "1.0.188", features = ["derive"]}
 serde_json = "1.0.106"
 serde_qs = { version = "0.12.0", features = ["actix4", "tracing"] }
-shadow-rs = "0.23.0"
+shadow-rs = "0.24.0"
 tokio = {version = "1.29.1", features = ["macros", "rt-multi-thread", "tracing", "fs"]}
 tracing = {version = "0.1.37", features = ["log"]}
 tracing-subscriber = {version = "0.3.17", features = ["json", "env-filter"]}
@@ -68,4 +68,4 @@ testcontainers = "0.14.0"
 tracing-test = "0.2.4"
 
 [build-dependencies]
-shadow-rs = "0.23.0"
+shadow-rs = "0.24.0"
