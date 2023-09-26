@@ -83,7 +83,7 @@ async fn resolve_features(
     } else {
         FeatureFilterSet::default()
     }
-    .with_filter(project_filter(&edge_token));
+    .with_filter(project_filter(&validated_token));
 
     let client_features = match req.app_data::<Data<FeatureRefresher>>() {
         Some(refresher) => {
@@ -92,7 +92,7 @@ async fn resolve_features(
                 .await
         }
         None => features_cache
-            .get(&cache_key(&edge_token))
+            .get(&cache_key(&validated_token))
             .map(|client_features| filter_client_features(&client_features, filter_set))
             .ok_or(EdgeError::ClientFeaturesFetchError(FeatureError::Retriable)),
     }?;
@@ -615,6 +615,59 @@ mod tests {
             .features
             .iter()
             .all(|f| token.projects.contains(&f.project.clone().unwrap())));
+    }
+
+    #[tokio::test]
+    async fn client_features_endpoint_filters_correctly_when_token_has_access_to_multiple_projects()
+    {
+        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::from(features_cache.clone()))
+                .app_data(Data::from(token_cache.clone()))
+                .service(web::scope("/api/client").service(get_features)),
+        )
+        .await;
+
+        let mut token_a =
+            EdgeToken::try_from("[]:production.puff_the_magic_dragon".to_string()).unwrap();
+        token_a.projects = vec!["dx".into(), "eg".into()];
+        token_a.status = TokenValidationStatus::Validated;
+        token_a.token_type = Some(TokenType::Client);
+        println!("Created token A: {:?}", token_a);
+        token_cache.insert(token_a.token.clone(), token_a.clone());
+
+        let mut token_b =
+            EdgeToken::try_from("[]:production.biff_the_magic_flagon".to_string()).unwrap();
+        token_b.projects = vec!["unleash-cloud".into()];
+        token_b.status = TokenValidationStatus::Validated;
+        token_b.token_type = Some(TokenType::Client);
+        token_cache.insert(token_b.token.clone(), token_b.clone());
+
+        let example_features = features_from_disk("../examples/hostedexample.json");
+        features_cache.insert("production".into(), example_features.clone());
+
+        let req_1 = make_features_request_with_token(token_a.clone()).await;
+        let res_1: ClientFeatures = test::call_and_read_body_json(&app, req_1).await;
+        assert!(res_1
+            .features
+            .iter()
+            .all(|f| token_a.projects.contains(&f.project.clone().unwrap())));
+
+        let req_2 = make_features_request_with_token(token_b.clone()).await;
+        let res_2: ClientFeatures = test::call_and_read_body_json(&app, req_2).await;
+        assert!(res_2
+            .features
+            .iter()
+            .all(|f| token_b.projects.contains(&f.project.clone().unwrap())));
+
+        let req_3 = make_features_request_with_token(token_a.clone()).await;
+        let res_3: ClientFeatures = test::call_and_read_body_json(&app, req_3).await;
+        assert!(res_3
+            .features
+            .iter()
+            .all(|f| token_a.projects.contains(&f.project.clone().unwrap())));
     }
 
     #[tokio::test]
