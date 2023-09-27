@@ -23,9 +23,9 @@ actix-web = {version = "4.4.0", features = ["rustls-0_21", "compress-zstd"]}
 
 anyhow = "1.0.75"
 async-trait = "0.1.73"
-chrono = {version = "0.4.30", features = ["serde"]}
+chrono = {version = "0.4.31", features = ["serde"]}
 cidr = "0.2.2"
-clap = {version = "4.4.2", features = ["derive", "env"]}
+clap = {version = "4.4.5", features = ["derive", "env"]}
 clap-markdown = "0.1.3"
 dashmap = "5.5.3"
 dotenv = {version = "0.15.0", features = ["clap"]}
@@ -45,10 +45,10 @@ reqwest = {version = "0.11.20", default-features = false, features = ["rustls", 
 rustls = "0.21.6"
 rustls-pemfile = "1.0.3"
 serde = {version = "1.0.188", features = ["derive"]}
-serde_json = "1.0.106"
+serde_json = "1.0.107"
 serde_qs = { version = "0.12.0", features = ["actix4", "tracing"] }
 shadow-rs = "0.24.0"
-tokio = {version = "1.29.1", features = ["macros", "rt-multi-thread", "tracing", "fs"]}
+tokio = {version = "1.32.0", features = ["macros", "rt-multi-thread", "tracing", "fs"]}
 tracing = {version = "0.1.37", features = ["log"]}
 tracing-subscriber = {version = "0.3.17", features = ["json", "env-filter"]}
 ulid = "1.1.0"
@@ -57,13 +57,13 @@ unleash-yggdrasil = { version = "0.5.9" }
 utoipa = {version = "3", features = ["actix_extras", "chrono"]}
 utoipa-swagger-ui = {version = "3", features = ["actix-web"]}
 [dev-dependencies]
-actix-http = "3.3.1"
+actix-http = "3.4.0"
 actix-http-test = "3.1.0"
 actix-service = "2.0.2"
 env_logger = "0.10.0"
 maplit = "1.0.2"
 rand = "0.8.5"
-test-case = "3.1.0"
+test-case = "3.2.1"
 testcontainers = "0.14.0"
 tracing-test = "0.2.4"
 
