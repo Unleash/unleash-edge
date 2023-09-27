@@ -6,10 +6,11 @@ use chrono::Utc;
 use dashmap::DashMap;
 use tracing::log::trace;
 use tracing::{debug, warn};
+use unleash_types::client_features::Segment;
 use unleash_types::client_metrics::ClientApplication;
 use unleash_types::{
     client_features::{ClientFeature, ClientFeatures},
-    Upsert,
+    Deduplicate,
 };
 use unleash_yggdrasil::EngineState;
 
@@ -36,6 +37,35 @@ fn frontend_token_is_covered_by_tokens(
     })
 }
 
+fn update_client_features(old: &ClientFeatures, update: &ClientFeatures) -> ClientFeatures {
+    let mut updated_features = update_projects_from_feature_update(&old.features, &update.features);
+    updated_features.sort();
+    let segments = merge_segments_update(old.segments.clone(), update.segments.clone());
+    ClientFeatures {
+        version: old.version.max(update.version),
+        features: updated_features,
+        segments: segments.map(|mut s| {
+            s.sort();
+            s
+        }),
+        query: old.query.clone().or(update.query.clone()),
+    }
+}
+
+fn merge_segments_update(
+    segments: Option<Vec<Segment>>,
+    updated_segments: Option<Vec<Segment>>,
+) -> Option<Vec<Segment>> {
+    match (segments, updated_segments) {
+        (Some(s), Some(mut o)) => {
+            o.extend(s);
+            Some(o.deduplicate())
+        }
+        (Some(s), None) => Some(s),
+        (None, Some(o)) => Some(o),
+        (None, None) => None,
+    }
+}
 fn update_projects_from_feature_update(
     original: &[ClientFeature],
     updated: &[ClientFeature],
@@ -45,7 +75,7 @@ fn update_projects_from_feature_update(
     } else {
         let projects_to_update: HashSet<String> = updated
             .iter()
-            .map(|toggle| toggle.clone().project.unwrap_or_else(|| "default".into()))
+            .map(|toggle| toggle.project.clone().unwrap_or_else(|| "default".into()))
             .collect();
         let mut to_keep: Vec<ClientFeature> = original
             .iter()
@@ -310,15 +340,8 @@ impl FeatureRefresher {
                     self.features_cache
                         .entry(key.clone())
                         .and_modify(|existing_data| {
-                            let f = existing_data.features.clone();
-                            let client_feature_arr =
-                                update_projects_from_feature_update(&f, &features.features);
-                            let e = existing_data.clone().upsert(features.clone());
-                            let new_data = ClientFeatures {
-                                features: client_feature_arr,
-                                ..e
-                            };
-                            *existing_data = new_data;
+                            let updated_data = update_client_features(existing_data, &features);
+                            *existing_data = updated_data;
                         })
                         .or_insert_with(|| features.clone());
                     self.engine_cache
@@ -1155,7 +1178,8 @@ mod tests {
     }
 
     #[test]
-    pub fn updating_cache_works() {
+    pub fn an_update_with_one_feature_removed_from_one_project_removes_the_feature_from_the_feature_list(
+    ) {
         let features = features_from_disk("../examples/hostedexample.json").features;
         let mut dx_data: Vec<ClientFeature> = features_from_disk("../examples/hostedexample.json")
             .features
@@ -1185,5 +1209,25 @@ mod tests {
                 .filter(|p| p.project == Some("eg".into()))
                 .count()
         );
+    }
+
+    #[test]
+    pub fn project_state_from_update_should_overwrite_project_state_in_known_state() {
+        let features = features_from_disk("../examples/hostedexample.json").features;
+        let mut dx_data: Vec<ClientFeature> = features
+            .iter()
+            .filter(|f| f.project == Some("dx".into()))
+            .cloned()
+            .collect();
+        dx_data.remove(0);
+        let mut eg_data: Vec<ClientFeature> = features
+            .iter()
+            .filter(|f| f.project == Some("eg".into()))
+            .cloned()
+            .collect();
+        eg_data.remove(0);
+        dx_data.extend(eg_data);
+        let update = super::update_projects_from_feature_update(&features, &dx_data);
+        assert_eq!(features.len() - update.len(), 2); // We've removed two elements
     }
 }
