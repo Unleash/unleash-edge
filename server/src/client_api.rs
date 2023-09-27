@@ -635,7 +635,6 @@ mod tests {
         token_a.projects = vec!["dx".into(), "eg".into()];
         token_a.status = TokenValidationStatus::Validated;
         token_a.token_type = Some(TokenType::Client);
-        println!("Created token A: {:?}", token_a);
         token_cache.insert(token_a.token.clone(), token_a.clone());
 
         let mut token_b =
