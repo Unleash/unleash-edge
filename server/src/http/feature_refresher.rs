@@ -6,8 +6,12 @@ use chrono::Utc;
 use dashmap::DashMap;
 use tracing::log::trace;
 use tracing::{debug, warn};
+use unleash_types::client_features::Segment;
 use unleash_types::client_metrics::ClientApplication;
-use unleash_types::{client_features::ClientFeatures, Upsert};
+use unleash_types::{
+    client_features::{ClientFeature, ClientFeatures},
+    Deduplicate,
+};
 use unleash_yggdrasil::EngineState;
 
 use super::unleash_client::UnleashClient;
@@ -31,6 +35,59 @@ fn frontend_token_is_covered_by_tokens(
             .token
             .same_environment_and_broader_or_equal_project_access(frontend_token)
     })
+}
+
+fn update_client_features(old: &ClientFeatures, update: &ClientFeatures) -> ClientFeatures {
+    let mut updated_features = update_projects_from_feature_update(&old.features, &update.features);
+    updated_features.sort();
+    let segments = merge_segments_update(old.segments.clone(), update.segments.clone());
+    ClientFeatures {
+        version: old.version.max(update.version),
+        features: updated_features,
+        segments: segments.map(|mut s| {
+            s.sort();
+            s
+        }),
+        query: old.query.clone().or(update.query.clone()),
+    }
+}
+
+fn merge_segments_update(
+    segments: Option<Vec<Segment>>,
+    updated_segments: Option<Vec<Segment>>,
+) -> Option<Vec<Segment>> {
+    match (segments, updated_segments) {
+        (Some(s), Some(mut o)) => {
+            o.extend(s);
+            Some(o.deduplicate())
+        }
+        (Some(s), None) => Some(s),
+        (None, Some(o)) => Some(o),
+        (None, None) => None,
+    }
+}
+fn update_projects_from_feature_update(
+    original: &[ClientFeature],
+    updated: &[ClientFeature],
+) -> Vec<ClientFeature> {
+    if updated.is_empty() {
+        vec![]
+    } else {
+        let projects_to_update: HashSet<String> = updated
+            .iter()
+            .map(|toggle| toggle.project.clone().unwrap_or_else(|| "default".into()))
+            .collect();
+        let mut to_keep: Vec<ClientFeature> = original
+            .iter()
+            .filter(|toggle| {
+                let p = toggle.project.clone().unwrap_or_else(|| "default".into());
+                !projects_to_update.contains(&p)
+            })
+            .cloned()
+            .collect();
+        to_keep.extend(updated.iter().cloned());
+        to_keep
+    }
 }
 
 #[derive(Clone)]
@@ -283,7 +340,8 @@ impl FeatureRefresher {
                     self.features_cache
                         .entry(key.clone())
                         .and_modify(|existing_data| {
-                            *existing_data = existing_data.clone().upsert(features.clone());
+                            let updated_data = update_client_features(existing_data, &features);
+                            *existing_data = updated_data;
                         })
                         .or_insert_with(|| features.clone());
                     self.engine_cache
@@ -372,7 +430,7 @@ mod tests {
     use chrono::{Duration, Utc};
     use dashmap::DashMap;
     use reqwest::Url;
-    use unleash_types::client_features::ClientFeatures;
+    use unleash_types::client_features::{ClientFeature, ClientFeatures};
     use unleash_yggdrasil::EngineState;
 
     use crate::filters::{project_filter, FeatureFilterSet};
@@ -1065,5 +1123,111 @@ mod tests {
             &fe_token,
             current_tokens_arc
         ));
+    }
+
+    #[tokio::test]
+    async fn refetching_data_when_feature_is_archived_should_remove_archived_feature() {
+        let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
+            Arc::new(DashMap::default());
+        let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
+        let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let mut eg_token = EdgeToken::from_str("eg:development.devsecret").unwrap();
+        eg_token.token_type = Some(TokenType::Client);
+        eg_token.status = Validated;
+        upstream_token_cache.insert(eg_token.token.clone(), eg_token.clone());
+        let example_features = features_from_disk("../examples/hostedexample.json");
+        let cache_key = cache_key(&eg_token);
+        upstream_features_cache.insert(cache_key.clone(), example_features.clone());
+        let mut engine_state = EngineState::default();
+        engine_state.take_state(example_features.clone());
+        upstream_engine_cache.insert(cache_key.clone(), engine_state);
+        let server = client_api_test_server(
+            upstream_token_cache,
+            upstream_features_cache.clone(),
+            upstream_engine_cache,
+        )
+        .await;
+        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let unleash_client = UnleashClient::new(server.url("/").as_str(), None).unwrap();
+        let feature_refresher = FeatureRefresher {
+            unleash_client: Arc::new(unleash_client),
+            tokens_to_refresh: Arc::new(Default::default()),
+            features_cache: features_cache.clone(),
+            engine_cache: Arc::new(Default::default()),
+            refresh_interval: chrono::Duration::seconds(0),
+            persistence: None,
+        };
+
+        let _ = feature_refresher
+            .register_and_hydrate_token(&eg_token)
+            .await;
+
+        // Now, let's say that all features are archived in upstream
+        let empty_features = features_from_disk("../examples/empty-features.json");
+        upstream_features_cache.insert(cache_key.clone(), empty_features);
+
+        feature_refresher.refresh_features().await;
+        println!("{:#?}", features_cache.get(&cache_key).unwrap().features);
+        // Since our response was empty, our theory is that there should be no features here now.
+        assert!(!features_cache
+            .get(&cache_key)
+            .unwrap()
+            .features
+            .iter()
+            .any(|f| f.project == Some("eg".into())));
+    }
+
+    #[test]
+    pub fn an_update_with_one_feature_removed_from_one_project_removes_the_feature_from_the_feature_list(
+    ) {
+        let features = features_from_disk("../examples/hostedexample.json").features;
+        let mut dx_data: Vec<ClientFeature> = features_from_disk("../examples/hostedexample.json")
+            .features
+            .iter()
+            .filter(|f| f.project == Some("dx".into()))
+            .cloned()
+            .collect();
+        dx_data.remove(0);
+        let updated = super::update_projects_from_feature_update(&features, &dx_data);
+        assert_ne!(
+            features
+                .iter()
+                .filter(|p| p.project == Some("dx".into()))
+                .count(),
+            updated
+                .iter()
+                .filter(|p| p.project == Some("dx".into()))
+                .count()
+        );
+        assert_eq!(
+            features
+                .iter()
+                .filter(|p| p.project == Some("eg".into()))
+                .count(),
+            updated
+                .iter()
+                .filter(|p| p.project == Some("eg".into()))
+                .count()
+        );
+    }
+
+    #[test]
+    pub fn project_state_from_update_should_overwrite_project_state_in_known_state() {
+        let features = features_from_disk("../examples/hostedexample.json").features;
+        let mut dx_data: Vec<ClientFeature> = features
+            .iter()
+            .filter(|f| f.project == Some("dx".into()))
+            .cloned()
+            .collect();
+        dx_data.remove(0);
+        let mut eg_data: Vec<ClientFeature> = features
+            .iter()
+            .filter(|f| f.project == Some("eg".into()))
+            .cloned()
+            .collect();
+        eg_data.remove(0);
+        dx_data.extend(eg_data);
+        let update = super::update_projects_from_feature_update(&features, &dx_data);
+        assert_eq!(features.len() - update.len(), 2); // We've removed two elements
     }
 }
