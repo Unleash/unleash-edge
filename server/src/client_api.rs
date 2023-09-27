@@ -88,12 +88,12 @@ async fn resolve_features(
     let client_features = match req.app_data::<Data<FeatureRefresher>>() {
         Some(refresher) => {
             refresher
-                .features_for_filter(validated_token.clone(), filter_set)
+                .features_for_filter(validated_token.clone(), &filter_set)
                 .await
         }
         None => features_cache
             .get(&cache_key(&validated_token))
-            .map(|client_features| filter_client_features(&client_features, filter_set))
+            .map(|client_features| filter_client_features(&client_features, &filter_set))
             .ok_or(EdgeError::ClientFeaturesFetchError(FeatureError::Retriable)),
     }?;
 
@@ -134,12 +134,12 @@ pub async fn get_feature(
     match req.app_data::<Data<FeatureRefresher>>() {
         Some(refresher) => {
             refresher
-                .features_for_filter(validated_token.clone(), filter_set)
+                .features_for_filter(validated_token.clone(), &filter_set)
                 .await
         }
         None => features_cache
             .get(&cache_key(&validated_token))
-            .map(|client_features| filter_client_features(&client_features, filter_set))
+            .map(|client_features| filter_client_features(&client_features, &filter_set))
             .ok_or(EdgeError::ClientFeaturesFetchError(FeatureError::Retriable)),
     }
     .map(|client_features| client_features.features.into_iter().next())?
@@ -916,5 +916,79 @@ mod tests {
         let result: ClientFeatures = test::call_and_read_body_json(&local_app, request).await;
         assert_eq!(result.features.len(), 2);
         assert_eq!(result.query.unwrap().name_prefix.unwrap(), "embed");
+    }
+
+    #[tokio::test]
+    pub async fn only_gets_correct_feature_by_name() {
+        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
+        let features = ClientFeatures {
+            version: 2,
+            query: None,
+            features: vec![
+                ClientFeature {
+                    name: "edge-flag-1".into(),
+                    feature_type: None,
+                    description: None,
+                    created_at: None,
+                    last_seen_at: None,
+                    enabled: true,
+                    stale: None,
+                    impression_data: None,
+                    project: Some("dx".into()),
+                    strategies: None,
+                    variants: None,
+                },
+                ClientFeature {
+                    name: "edge-flag-3".into(),
+                    feature_type: None,
+                    description: None,
+                    created_at: None,
+                    last_seen_at: None,
+                    enabled: true,
+                    stale: None,
+                    impression_data: None,
+                    project: Some("eg".into()),
+                    strategies: None,
+                    variants: None,
+                },
+            ],
+            segments: None,
+        };
+        let mut dx_token = EdgeToken::from_str("dx:development.secret123").unwrap();
+        dx_token.status = TokenValidationStatus::Validated;
+        dx_token.token_type = Some(TokenType::Client);
+        let mut eg_token = EdgeToken::from_str("eg:development.secret123").unwrap();
+        eg_token.status = TokenValidationStatus::Validated;
+        eg_token.token_type = Some(TokenType::Client);
+        token_cache.insert(dx_token.token.clone(), dx_token.clone());
+        token_cache.insert(eg_token.token.clone(), eg_token.clone());
+        features_cache.insert(cache_key(&dx_token), features.clone());
+        let local_app = test::init_service(
+            App::new()
+                .app_data(Data::from(features_cache.clone()))
+                .app_data(Data::from(engine_cache.clone()))
+                .app_data(Data::from(token_cache.clone()))
+                .wrap(middleware::as_async_middleware::as_async_middleware(
+                    middleware::validate_token::validate_token,
+                ))
+                .service(web::scope("/api").configure(configure_client_api)),
+        )
+        .await;
+        let successful_request = test::TestRequest::get()
+            .uri("/api/client/features/edge-flag-3")
+            .insert_header(ContentType::json())
+            .insert_header(("Authorization", eg_token.token.clone()))
+            .to_request();
+        let res = test::call_service(&local_app, successful_request).await;
+        assert_eq!(res.status(), StatusCode::OK);
+        let request = test::TestRequest::get()
+            .uri("/api/client/features/edge-flag-3")
+            .insert_header(ContentType::json())
+            .insert_header(("Authorization", dx_token.token.clone()))
+            .to_request();
+        let res = test::call_service(&local_app, request).await;
+        assert_eq!(res.status(), StatusCode::NOT_FOUND);
     }
 }
