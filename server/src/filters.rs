@@ -29,7 +29,7 @@ impl FeatureFilterSet {
 
 fn filter_features(
     feature_cache: &Ref<'_, String, ClientFeatures>,
-    filters: FeatureFilterSet,
+    filters: &FeatureFilterSet,
 ) -> Vec<ClientFeature> {
     feature_cache
         .features
@@ -41,7 +41,7 @@ fn filter_features(
 
 pub(crate) fn filter_client_features(
     feature_cache: &Ref<'_, String, ClientFeatures>,
-    filters: FeatureFilterSet,
+    filters: &FeatureFilterSet,
 ) -> ClientFeatures {
     ClientFeatures {
         features: filter_features(feature_cache, filters),
@@ -97,11 +97,11 @@ mod tests {
 
         let features = map.get(&feature_name).unwrap();
         let filter_for_enabled = FeatureFilterSet::from(Box::new(|f| f.enabled));
-        let enabled_features = filter_features(&features, filter_for_enabled);
+        let enabled_features = filter_features(&features, &filter_for_enabled);
 
         let features = map.get(&feature_name).unwrap();
         let filter_for_disabled = FeatureFilterSet::from(Box::new(|f| !f.enabled));
-        let disabled_features = filter_features(&features, filter_for_disabled);
+        let disabled_features = filter_features(&features, &filter_for_disabled);
 
         assert_eq!(enabled_features[0].name, client_features.features[0].name);
 
@@ -144,7 +144,7 @@ mod tests {
 
         let chained_filter = FeatureFilterSet::from(Box::new(|f| f.enabled))
             .with_filter(Box::new(|f| f.impression_data.unwrap_or(false)));
-        let enabled_features = filter_features(&features, chained_filter);
+        let enabled_features = filter_features(&features, &chained_filter);
 
         assert_eq!(enabled_features[0].name, "feature-three".to_string());
     }
@@ -178,22 +178,22 @@ mod tests {
         let features = map.get(&map_key).unwrap();
 
         let filter = FeatureFilterSet::from(name_prefix_filter("feature-".to_string()));
-        let filtered_features = filter_features(&features, filter);
+        let filtered_features = filter_features(&features, &filter);
 
         assert_eq!(filtered_features.len(), 3);
 
         let filter = FeatureFilterSet::from(name_prefix_filter("feature-t".to_string()));
-        let filtered_features = filter_features(&features, filter);
+        let filtered_features = filter_features(&features, &filter);
 
         assert_eq!(filtered_features.len(), 2);
 
         let filter = FeatureFilterSet::from(name_prefix_filter("feature-o".to_string()));
-        let filtered_features = filter_features(&features, filter);
+        let filtered_features = filter_features(&features, &filter);
 
         assert_eq!(filtered_features.len(), 1);
 
         let filter = FeatureFilterSet::from(name_prefix_filter("feature-four".to_string()));
-        let filtered_features = filter_features(&features, filter);
+        let filtered_features = filter_features(&features, &filter);
 
         assert_eq!(filtered_features.len(), 0);
     }
@@ -235,7 +235,7 @@ mod tests {
         };
 
         let filter = FeatureFilterSet::from(project_filter(&token));
-        let filtered_features = filter_features(&features, filter);
+        let filtered_features = filter_features(&features, &filter);
 
         assert_eq!(filtered_features.len(), 2);
         assert_eq!(filtered_features[0].name, "feature-one".to_string());

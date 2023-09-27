@@ -92,6 +92,7 @@ pub enum EdgeError {
     ClientCertificateError(CertificateError),
     ClientFeaturesFetchError(FeatureError),
     ClientFeaturesParseError(String),
+    ClientHydrationFailed(String),
     ClientRegisterError,
     FrontendNotYetHydrated(FrontendHydrationMissing),
     FeatureNotFound(String),
@@ -117,7 +118,7 @@ pub enum EdgeError {
 impl Error for EdgeError {}
 
 impl Display for EdgeError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             EdgeError::InvalidBackupFile(path, why_invalid) => {
                 write!(f, "file at path: {path} was invalid due to {why_invalid}")
@@ -140,6 +141,7 @@ impl Display for EdgeError {
                     "Could not fetch features because upstream url was not found"
                 ),
             },
+
             EdgeError::FeatureNotFound(name) => {
                 write!(f, "Failed to find feature with name {name}")
             }
@@ -188,6 +190,12 @@ impl Display for EdgeError {
                     status_code
                 )
             }
+            EdgeError::ClientHydrationFailed(message) => {
+                write!(
+                    f,
+                    "Client hydration failed. Somehow we said [{message}] when it did"
+                )
+            }
         }
     }
 }
@@ -221,6 +229,7 @@ impl ResponseError for EdgeError {
             EdgeError::EdgeMetricsRequestError(status_code) => *status_code,
             EdgeError::HealthCheckError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::ReadyCheckError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            EdgeError::ClientHydrationFailed(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 

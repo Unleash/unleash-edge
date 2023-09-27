@@ -16,7 +16,7 @@ use unleash_yggdrasil::EngineState;
 
 use super::unleash_client::UnleashClient;
 use crate::error::{EdgeError, FeatureError};
-use crate::filters::{filter_client_features, project_filter, FeatureFilterSet};
+use crate::filters::{filter_client_features, FeatureFilterSet};
 use crate::types::{
     build, ClientTokenRequest, ClientTokenResponse, EdgeResult, TokenType, TokenValidationStatus,
 };
@@ -190,15 +190,12 @@ impl FeatureRefresher {
         frontend_token_is_covered_by_tokens(frontend_token, self.tokens_to_refresh.clone())
     }
 
-    pub(crate) async fn register_and_hydrate_token(
-        &self,
-        token: &EdgeToken,
-    ) -> EdgeResult<ClientFeatures> {
-        let filter = FeatureFilterSet::from(project_filter(token));
+    /// This method no longer returns any data. Its responsibility lies in adding the token to our
+    /// list of tokens to perform refreshes for, as well as calling out to hydrate tokens that we haven't seen before.
+    /// Other tokens will be refreshed due to the scheduled task that refreshes tokens that haven been refreshed in ${refresh_interval} seconds
+    pub(crate) async fn register_and_hydrate_token(&self, token: &EdgeToken) {
         self.register_token_for_refresh(token.clone(), None).await;
         self.hydrate_new_tokens().await;
-        self.get_features_by_filter(token, filter)
-            .ok_or(EdgeError::ClientFeaturesFetchError(FeatureError::Retriable))
     }
 
     pub(crate) async fn forward_request_for_client_token(
@@ -234,20 +231,19 @@ impl FeatureRefresher {
     pub(crate) async fn features_for_filter(
         &self,
         token: EdgeToken,
-        filters: FeatureFilterSet,
+        filters: &FeatureFilterSet,
     ) -> EdgeResult<ClientFeatures> {
         match self.get_features_by_filter(&token, filters) {
-            Some(features) => {
-                if self.token_is_subsumed(&token) {
-                    Ok(features)
-                } else {
-                    debug!("Token is not subsumed by existing tokens. Registering");
-                    self.register_and_hydrate_token(&token).await
-                }
-            }
-            None => {
+            Some(features) if self.token_is_subsumed(&token) => Ok(features),
+            _ => {
                 debug!("Had never seen this environment. Configuring fetcher");
-                self.register_and_hydrate_token(&token).await
+                self.register_and_hydrate_token(&token).await;
+                self.get_features_by_filter(&token, filters).ok_or_else(|| {
+                    EdgeError::ClientHydrationFailed(
+                        "Failed to get features by filter after registering and hydrating token (This is very likely an error in Edge. Please report this!)"
+                            .into(),
+                    )
+                })
             }
         }
     }
@@ -255,7 +251,7 @@ impl FeatureRefresher {
     fn get_features_by_filter(
         &self,
         token: &EdgeToken,
-        filters: FeatureFilterSet,
+        filters: &FeatureFilterSet,
     ) -> Option<ClientFeatures> {
         self.features_cache
             .get(&cache_key(token))
@@ -988,7 +984,7 @@ mod tests {
         let dx_features = feature_refresher
             .features_for_filter(
                 dx_token.clone(),
-                FeatureFilterSet::from(project_filter(&dx_token)),
+                &FeatureFilterSet::from(project_filter(&dx_token)),
             )
             .await
             .expect("No dx features");
@@ -1000,7 +996,7 @@ mod tests {
         let eg_features = feature_refresher
             .features_for_filter(
                 eg_token.clone(),
-                FeatureFilterSet::from(project_filter(&eg_token)),
+                &FeatureFilterSet::from(project_filter(&eg_token)),
             )
             .await
             .expect("Could not get eg features");
@@ -1049,7 +1045,7 @@ mod tests {
         let dx_features = feature_refresher
             .features_for_filter(
                 dx_token.clone(),
-                FeatureFilterSet::from(project_filter(&dx_token)),
+                &FeatureFilterSet::from(project_filter(&dx_token)),
             )
             .await
             .expect("No dx features found");
@@ -1057,7 +1053,7 @@ mod tests {
         let unleash_cloud_features = feature_refresher
             .features_for_filter(
                 multitoken.clone(),
-                FeatureFilterSet::from(project_filter(&multitoken)),
+                &FeatureFilterSet::from(project_filter(&multitoken)),
             )
             .await
             .expect("No multi features");
@@ -1080,7 +1076,7 @@ mod tests {
         let eg_features = feature_refresher
             .features_for_filter(
                 eg_token.clone(),
-                FeatureFilterSet::from(project_filter(&eg_token)),
+                &FeatureFilterSet::from(project_filter(&eg_token)),
             )
             .await
             .expect("No eg_token features");
