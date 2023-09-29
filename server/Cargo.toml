@@ -25,7 +25,7 @@ anyhow = "1.0.75"
 async-trait = "0.1.73"
 chrono = {version = "0.4.31", features = ["serde"]}
 cidr = "0.2.2"
-clap = {version = "4.4.5", features = ["derive", "env"]}
+clap = {version = "4.4.6", features = ["derive", "env"]}
 clap-markdown = "0.1.3"
 dashmap = "5.5.3"
 dotenv = {version = "0.15.0", features = ["clap"]}
