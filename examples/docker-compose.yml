@@ -5,7 +5,7 @@ services:
     ports:
       - "4242:4242"
     environment:
-      DATABASE_URL: "postgres://postgres:unleash@db/postgres"
+      DATABASE_URL: "postgres://postgres:unleash@db/db"
       DATABASE_SSL: "false"
       INIT_CLIENT_API_TOKENS: "default:development.unleash-insecure-api-token"
     depends_on:
