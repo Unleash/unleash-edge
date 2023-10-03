@@ -3,7 +3,7 @@
 [![crates.io](https://img.shields.io/crates/v/unleash-edge?label=latest)](https://crates.io/crates/unleash-edge)
 [![Documentation](https://docs.rs/unleash-edge/badge.svg?version=latest)](https://docs.rs/unleash-edge/latest)
 ![MIT licensed](https://img.shields.io/crates/l/unleash-edge.svg)
-[![Dependency Status](https://deps.rs/crate/unleash-edge/12.0.0/status.svg)](https://deps.rs/crate/unleash-edge/12.0.0)
+[![Dependency Status](https://deps.rs/crate/unleash-edge/13.0.0/status.svg)](https://deps.rs/crate/unleash-edge/13.0.0)
 [![CI](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml/badge.svg)](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml)
 [![Coverage Status](https://coveralls.io/repos/github/Unleash/unleash-edge/badge.svg?branch=main)](https://coveralls.io/github/Unleash/unleash-edge?branch=main)
 ![downloads](https://img.shields.io/crates/d/unleash-edge.svg)
@@ -17,7 +17,10 @@ Unleash Edge offers two important features:
 - **Performance**: Unleash Edge caches in memory and can run close to your end-users. A single instance can handle tens to hundreds of thousands of requests per second.
 - **Resilience**: Unleash Edge is designed to survive restarts and operate properly even if you lose connection to your Unleash server.
 
-Unleash Edge is built to help you scale Unleash, if you're looking for the easiest way to connect your client SDKs you can check out our [Frontend API](https://docs.getunleash.io/reference/front-end-api).
+Unleash Edge is built to help you scale Unleash.
+ * If you're looking for the easiest way to connect your client SDKs you can check out our [Frontend API](https://docs.getunleash.io/reference/front-end-api).
+ * If you're looking to learn how to scale your own feature flag system why not check out our recommendations for building and scaling [feature flags](https://docs.getunleash.io/topics/feature-flags/feature-flag-best-practices)
+
 
 ## Migrating to Edge from the Proxy
 
@@ -283,7 +286,7 @@ Options:
 
 ##### Environments in offline mode
 Currently, Edge does not support multiple environments in offline mode. All tokens added at startup will receive the same list of features passed in as the bootstrap argument. 
-However, tokens in <project>:<environment>.<secret> format will still filter by project.
+However, tokens in `<project>:<environment>.<secret>` format will still filter by project.
 
 ## [Metrics](https://docs.getunleash.io/reference/api/unleash/metrics)
 
