@@ -1,7 +1,4 @@
-use opentelemetry::{
-    global,
-    sdk::metrics::{controllers, processors, selectors},
-};
+use opentelemetry_sdk::metrics::MeterProvider;
 #[cfg(target_os = "linux")]
 use prometheus::process_collector::ProcessCollector;
 use tracing_subscriber::layer::SubscriberExt;
@@ -34,25 +31,17 @@ pub fn instantiate(
 fn instantiate_prometheus_metrics_handler(
     registry: prometheus::Registry,
 ) -> (PrometheusMetricsHandler, RequestMetrics) {
-    let controller = controllers::basic(processors::factory(
-        selectors::simple::histogram([0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0]), // Will give histogram for with resolution in n ms
-        aggregation::cumulative_temporality_selector(),
-    ))
-    .with_resource(opentelemetry::sdk::Resource::new(vec![
+    let resource = opentelemetry::sdk::Resource::new(vec![
         opentelemetry::KeyValue::new("service.name", "unleash-edge"),
         opentelemetry::KeyValue::new("edge.version", crate::types::build::PKG_VERSION),
         opentelemetry::KeyValue::new("edge.githash", crate::types::build::SHORT_COMMIT),
-    ]))
-    .build();
-
-    let exporter = opentelemetry_prometheus::exporter(controller)
-        .with_registry(registry)
-        .init();
-    let meter = global::meter("edge_web");
-
+    ]);
+    let provider = MeterProvider::builder().with_resource(resource).build();
     (
-        PrometheusMetricsHandler::new(exporter),
-        RequestMetricsBuilder::new().build(meter),
+        PrometheusMetricsHandler::new(registry),
+        RequestMetricsBuilder::new()
+            .with_meter_provider(provider)
+            .build(),
     )
 }
 

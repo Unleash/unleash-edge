@@ -1,12 +1,12 @@
+use actix_http::header::CONTENT_LENGTH;
 use actix_web::dev;
 use actix_web::dev::ServiceRequest;
 use actix_web::http::{header, Method, StatusCode, Version};
 use futures::{future, FutureExt};
 use futures_core::future::LocalBoxFuture;
-use opentelemetry::metrics::{Histogram, Meter, MetricsError, Unit, UpDownCounter};
+use opentelemetry::metrics::{Histogram, Meter, MeterProvider, MetricsError, Unit, UpDownCounter};
 use opentelemetry::trace::OrderMap;
-use opentelemetry::{global, Context, Key, KeyValue, Value};
-use opentelemetry_prometheus::PrometheusExporter;
+use opentelemetry::{global, Key, KeyValue, Value};
 use opentelemetry_semantic_conventions::trace::{
     CLIENT_ADDRESS, CLIENT_SOCKET_ADDRESS, HTTP_REQUEST_METHOD, HTTP_RESPONSE_STATUS_CODE,
     HTTP_ROUTE, NETWORK_PROTOCOL_NAME, NETWORK_PROTOCOL_VERSION, SERVER_ADDRESS, SERVER_PORT,
@@ -19,6 +19,8 @@ use std::time::SystemTime;
 use crate::metrics::route_formatter::RouteFormatter;
 const HTTP_SERVER_ACTIVE_REQUESTS: &str = "http.server.active_requests";
 const HTTP_SERVER_DURATION: &str = "http.server.duration";
+const HTTP_SERVER_REQUEST_SIZE: &str = "http.server.request.size";
+const HTTP_SERVER_RESPONSE_SIZE: &str = "http.server.response.size";
 
 #[inline]
 pub(super) fn http_method_str(method: &Method) -> Value {
@@ -159,6 +161,8 @@ pub(super) fn metrics_attributes_from_request(
 struct Metrics {
     http_server_active_requests: UpDownCounter<i64>,
     http_server_duration: Histogram<f64>,
+    http_server_request_size: Histogram<u64>,
+    http_server_response_size: Histogram<u64>,
 }
 
 impl Metrics {
@@ -175,9 +179,23 @@ impl Metrics {
             .with_unit(Unit::new("ms"))
             .init();
 
+        let http_server_request_size = meter
+            .u64_histogram(HTTP_SERVER_REQUEST_SIZE)
+            .with_description("Measures the size of HTTP request messages (compressed).")
+            .with_unit(Unit::new("By"))
+            .init();
+
+        let http_server_response_size = meter
+            .u64_histogram(HTTP_SERVER_RESPONSE_SIZE)
+            .with_description("Measures the size of HTTP request messages (compressed).")
+            .with_unit(Unit::new("By"))
+            .init();
+
         Metrics {
             http_server_active_requests,
             http_server_duration,
+            http_server_request_size,
+            http_server_response_size,
         }
     }
 }
@@ -186,6 +204,7 @@ impl Metrics {
 #[derive(Clone, Debug, Default)]
 pub struct RequestMetricsBuilder {
     route_formatter: Option<Arc<dyn RouteFormatter + Send + Sync + 'static>>,
+    meter: Option<Meter>,
 }
 
 impl RequestMetricsBuilder {
@@ -203,8 +222,18 @@ impl RequestMetricsBuilder {
         self
     }
 
+    /// Set the meter provider this middleware should use to construct meters
+    pub fn with_meter_provider(mut self, meter_provider: impl MeterProvider) -> Self {
+        self.meter = Some(get_versioned_meter(meter_provider));
+        self
+    }
+
     /// Build the `RequestMetrics` middleware
-    pub fn build(self, meter: Meter) -> RequestMetrics {
+    pub fn build(self) -> RequestMetrics {
+        let meter = self
+            .meter
+            .unwrap_or_else(|| get_versioned_meter(global::meter_provider()));
+
         RequestMetrics {
             route_formatter: self.route_formatter,
             metrics: Arc::new(Metrics::new(meter)),
@@ -212,6 +241,15 @@ impl RequestMetricsBuilder {
     }
 }
 
+/// construct meters for this crate
+fn get_versioned_meter(meter_provider: impl MeterProvider) -> Meter {
+    meter_provider.versioned_meter(
+        "actix_web_opentelemetry",
+        Some(env!("CARGO_PKG_VERSION")),
+        Some(opentelemetry_semantic_conventions::SCHEMA_URL),
+        None,
+    )
+}
 /// Request metrics tracking
 ///
 /// # Examples
@@ -319,15 +357,26 @@ where
     fn call(&self, req: dev::ServiceRequest) -> Self::Future {
         let timer = SystemTime::now();
 
-        let mut http_target = req.match_pattern().unwrap_or_else(|| "default".to_string());
+        let mut http_target = req
+            .match_pattern()
+            .map(std::borrow::Cow::Owned)
+            .unwrap_or(std::borrow::Cow::Borrowed("default"));
+
         if let Some(formatter) = &self.route_formatter {
-            http_target = formatter.format(&http_target);
+            http_target = std::borrow::Cow::Owned(formatter.format(&http_target));
         }
 
         let mut attributes = metrics_attributes_from_request(&req, &http_target);
-        let cx = Context::current();
-
         self.metrics.http_server_active_requests.add(1, &attributes);
+
+        let content_length = req
+            .headers()
+            .get(CONTENT_LENGTH)
+            .and_then(|len| len.to_str().ok().and_then(|s| s.parse().ok()))
+            .unwrap_or(0);
+        self.metrics
+            .http_server_request_size
+            .record(content_length, &attributes);
 
         let request_metrics = self.metrics.clone();
         Box::pin(self.service.call(req).map(move |res| {
@@ -337,13 +386,19 @@ where
 
             // Ignore actix errors for metrics
             if let Ok(res) = res {
-                attributes.push(HTTP_RESPONSE_STATUS_CODE.string(res.status().as_str().to_owned()));
+                attributes.push(HTTP_RESPONSE_STATUS_CODE.i64(res.status().as_u16() as i64));
+                let response_size = res
+                    .response()
+                    .headers()
+                    .get(CONTENT_LENGTH)
+                    .and_then(|len| len.to_str().ok().and_then(|s| s.parse().ok()))
+                    .unwrap_or(0);
+                request_metrics
+                    .http_server_response_size
+                    .record(response_size, &attributes);
 
                 request_metrics.http_server_duration.record(
-                    timer
-                        .elapsed()
-                        .map(|t| t.as_secs_f64() * 1000.0)
-                        .unwrap_or_default(),
+                    timer.elapsed().map(|t| t.as_secs_f64()).unwrap_or_default(),
                     &attributes,
                 );
 
@@ -357,22 +412,20 @@ where
 
 #[derive(Clone, Debug)]
 pub struct PrometheusMetricsHandler {
-    prometheus_exporter: PrometheusExporter,
+    registry: prometheus::Registry,
 }
 
 impl PrometheusMetricsHandler {
     /// Build a route to serve Prometheus metrics
     pub fn new(registry: prometheus::Registry) -> Self {
-        Self {
-            prometheus_exporter: Arc::new(registry),
-        }
+        Self { registry }
     }
 }
 
 impl PrometheusMetricsHandler {
     fn metrics(&self) -> String {
         let encoder = TextEncoder::new();
-        let metric_families = self.prometheus_exporter.registry().gather();
+        let metric_families = self.registry.gather();
         let mut buf = Vec::new();
         if let Err(err) = encoder.encode(&metric_families[..], &mut buf) {
             global::handle_error(MetricsError::Other(err.to_string()));
