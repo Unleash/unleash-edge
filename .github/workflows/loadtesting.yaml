@@ -18,13 +18,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4        
       - name: Run K6 client/features benchmark
-        uses: grafana/k6-action@v0.2.0
+        uses: grafana/k6-action@v0.3.0
         with:
           filename: benchmarks/clientfeaturesendpoint.js
         env:
           TOKEN: ${{ secrets.UNLEASH_CLIENT_SECRET }}
       - name: Run K6 proxy benchmark
-        uses: grafana/k6-action@v0.2.0
+        uses: grafana/k6-action@v0.3.0
         with:
           filename: benchmarks/proxyendpoint.js
         env:
