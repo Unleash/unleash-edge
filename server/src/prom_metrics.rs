@@ -1,9 +1,6 @@
 use opentelemetry::{
     global,
-    sdk::{
-        export::metrics::aggregation,
-        metrics::{controllers, processors, selectors},
-    },
+    sdk::metrics::{controllers, processors, selectors},
 };
 #[cfg(target_os = "linux")]
 use prometheus::process_collector::ProcessCollector;

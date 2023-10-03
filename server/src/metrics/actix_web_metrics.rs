@@ -8,8 +8,9 @@ use opentelemetry::trace::OrderMap;
 use opentelemetry::{global, Context, Key, KeyValue, Value};
 use opentelemetry_prometheus::PrometheusExporter;
 use opentelemetry_semantic_conventions::trace::{
-    HTTP_CLIENT_IP, HTTP_FLAVOR, HTTP_METHOD, HTTP_ROUTE, HTTP_SCHEME, HTTP_STATUS_CODE,
-    HTTP_TARGET, HTTP_USER_AGENT, NET_HOST_PORT, NET_PEER_NAME, NET_SOCK_PEER_ADDR,
+    CLIENT_ADDRESS, CLIENT_SOCKET_ADDRESS, HTTP_REQUEST_METHOD, HTTP_RESPONSE_STATUS_CODE,
+    HTTP_ROUTE, NETWORK_PROTOCOL_NAME, NETWORK_PROTOCOL_VERSION, SERVER_ADDRESS, SERVER_PORT,
+    URL_PATH, URL_SCHEME, USER_AGENT_ORIGINAL,
 };
 use prometheus::{Encoder, TextEncoder};
 use std::sync::Arc;
@@ -36,13 +37,13 @@ pub(super) fn http_method_str(method: &Method) -> Value {
 }
 
 #[inline]
-pub(super) fn http_flavor(version: Version) -> Value {
+pub(super) fn http_version(version: Version) -> Value {
     match version {
-        Version::HTTP_09 => "HTTP/0.9".into(),
-        Version::HTTP_10 => "HTTP/1.0".into(),
-        Version::HTTP_11 => "HTTP/1.1".into(),
-        Version::HTTP_2 => "HTTP/2".into(),
-        Version::HTTP_3 => "HTTP/3".into(),
+        Version::HTTP_09 => "0.9".into(),
+        Version::HTTP_10 => "1.0".into(),
+        Version::HTTP_11 => "1.1".into(),
+        Version::HTTP_2 => "2.0".into(),
+        Version::HTTP_3 => "3.0".into(),
         other => format!("{:?}", other).into(),
     }
 }
@@ -63,15 +64,16 @@ pub(crate) fn trace_attributes_from_request(
     let conn_info = req.connection_info();
 
     let mut attributes = OrderMap::with_capacity(11);
-    attributes.insert(HTTP_METHOD, http_method_str(req.method()));
-    attributes.insert(HTTP_FLAVOR, http_flavor(req.version()));
-    attributes.insert(NET_PEER_NAME, conn_info.host().to_string().into());
+    attributes.insert(HTTP_REQUEST_METHOD, http_method_str(req.method()));
+    attributes.insert(NETWORK_PROTOCOL_NAME, "http".into());
+    attributes.insert(NETWORK_PROTOCOL_VERSION, http_version(req.version()));
+    attributes.insert(CLIENT_ADDRESS, conn_info.host().to_string().into());
     attributes.insert(HTTP_ROUTE, http_route.to_owned().into());
-    attributes.insert(HTTP_SCHEME, http_scheme(conn_info.scheme()));
+    attributes.insert(URL_SCHEME, http_scheme(conn_info.scheme()));
 
     let server_name = req.app_config().host();
     if server_name != conn_info.host() {
-        attributes.insert(NET_PEER_NAME, server_name.to_string().into());
+        attributes.insert(SERVER_ADDRESS, server_name.to_string().into());
     }
     if let Some(port) = conn_info
         .host()
@@ -80,27 +82,27 @@ pub(crate) fn trace_attributes_from_request(
         .and_then(|port| port.parse::<i64>().ok())
     {
         if port != 80 && port != 443 {
-            attributes.insert(NET_HOST_PORT, port.into());
+            attributes.insert(SERVER_PORT, port.into());
         }
     }
     if let Some(path) = req.uri().path_and_query() {
-        attributes.insert(HTTP_TARGET, path.as_str().to_string().into());
+        attributes.insert(URL_PATH, path.as_str().to_string().into());
     }
     if let Some(user_agent) = req
         .headers()
         .get(header::USER_AGENT)
         .and_then(|s| s.to_str().ok())
     {
-        attributes.insert(HTTP_USER_AGENT, user_agent.to_string().into());
+        attributes.insert(USER_AGENT_ORIGINAL, user_agent.to_string().into());
     }
     let remote_addr = conn_info.realip_remote_addr();
     if let Some(remote) = remote_addr {
-        attributes.insert(HTTP_CLIENT_IP, remote.to_string().into());
+        attributes.insert(CLIENT_ADDRESS, remote.to_string().into());
     }
     if let Some(peer_addr) = req.peer_addr().map(|socket| socket.ip().to_string()) {
         if Some(peer_addr.as_str()) != remote_addr {
             // Client is going through a proxy
-            attributes.insert(NET_SOCK_PEER_ADDR, peer_addr.into());
+            attributes.insert(CLIENT_SOCKET_ADDRESS, peer_addr.into());
         }
     }
 
@@ -111,20 +113,27 @@ pub(super) fn metrics_attributes_from_request(
     req: &ServiceRequest,
     http_target: &str,
 ) -> Vec<KeyValue> {
-    use opentelemetry_semantic_conventions::trace::NET_SOCK_HOST_ADDR;
+    use opentelemetry_semantic_conventions::trace::SERVER_SOCKET_ADDRESS;
 
     let conn_info = req.connection_info();
 
     let mut attributes = Vec::with_capacity(11);
-    attributes.push(KeyValue::new(HTTP_METHOD, http_method_str(req.method())));
-    attributes.push(KeyValue::new(HTTP_FLAVOR, http_flavor(req.version())));
-    attributes.push(NET_SOCK_HOST_ADDR.string(conn_info.host().to_string()));
-    attributes.push(HTTP_TARGET.string(http_target.to_owned()));
-    attributes.push(KeyValue::new(HTTP_SCHEME, http_scheme(conn_info.scheme())));
+    attributes.push(KeyValue::new(
+        HTTP_REQUEST_METHOD,
+        http_method_str(req.method()),
+    ));
+    attributes.push(KeyValue::new(NETWORK_PROTOCOL_NAME, "http"));
+    attributes.push(KeyValue::new(
+        NETWORK_PROTOCOL_VERSION,
+        http_version(req.version()),
+    ));
+    attributes.push(SERVER_SOCKET_ADDRESS.string(conn_info.host().to_string()));
+    attributes.push(URL_PATH.string(http_target.to_owned()));
+    attributes.push(KeyValue::new(URL_SCHEME, http_scheme(conn_info.scheme())));
 
     let server_name = req.app_config().host();
     if server_name != conn_info.host() {
-        attributes.push(NET_PEER_NAME.string(server_name.to_string()));
+        attributes.push(SERVER_ADDRESS.string(server_name.to_string()));
     }
     if let Some(port) = conn_info
         .host()
@@ -132,14 +141,14 @@ pub(super) fn metrics_attributes_from_request(
         .nth(1)
         .and_then(|port| port.parse().ok())
     {
-        attributes.push(NET_HOST_PORT.i64(port))
+        attributes.push(SERVER_PORT.i64(port))
     }
 
     let remote_addr = conn_info.realip_remote_addr();
     if let Some(peer_addr) = req.peer_addr().map(|socket| socket.ip().to_string()) {
         if Some(peer_addr.as_str()) != remote_addr {
             // Client is going through a proxy
-            attributes.push(NET_SOCK_PEER_ADDR.string(peer_addr))
+            attributes.push(CLIENT_SOCKET_ADDRESS.string(peer_addr))
         }
     }
 
@@ -318,22 +327,19 @@ where
         let mut attributes = metrics_attributes_from_request(&req, &http_target);
         let cx = Context::current();
 
-        self.metrics
-            .http_server_active_requests
-            .add(&cx, 1, &attributes);
+        self.metrics.http_server_active_requests.add(1, &attributes);
 
         let request_metrics = self.metrics.clone();
         Box::pin(self.service.call(req).map(move |res| {
             request_metrics
                 .http_server_active_requests
-                .add(&cx, -1, &attributes);
+                .add(-1, &attributes);
 
             // Ignore actix errors for metrics
             if let Ok(res) = res {
-                attributes.push(HTTP_STATUS_CODE.string(res.status().as_str().to_owned()));
+                attributes.push(HTTP_RESPONSE_STATUS_CODE.string(res.status().as_str().to_owned()));
 
                 request_metrics.http_server_duration.record(
-                    &cx,
                     timer
                         .elapsed()
                         .map(|t| t.as_secs_f64() * 1000.0)
@@ -356,9 +362,9 @@ pub struct PrometheusMetricsHandler {
 
 impl PrometheusMetricsHandler {
     /// Build a route to serve Prometheus metrics
-    pub fn new(exporter: PrometheusExporter) -> Self {
+    pub fn new(registry: prometheus::Registry) -> Self {
         Self {
-            prometheus_exporter: exporter,
+            prometheus_exporter: Arc::new(registry),
         }
     }
 }
