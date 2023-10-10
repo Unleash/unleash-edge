@@ -3,7 +3,8 @@ use std::str::FromStr;
 use actix_web::http::header::EntityTag;
 use chrono::Utc;
 use redis::Client;
-use testcontainers::{clients::Cli, images::redis::Redis, Container};
+use testcontainers::{clients::Cli, Container};
+use testcontainers_modules::redis::Redis;
 
 use unleash_edge::{
     persistence::{redis::RedisPersister, EdgePersistence},
