@@ -493,11 +493,10 @@ dependencies = [
 
 [[package]]
 name = "bollard-stubs"
-version = "1.41.0"
+version = "1.42.0-rc.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed2f2e73fffe9455141e170fb9c1feb0ac521ec7e7dcd47a7cab72a658490fb8"
+checksum = "ed59b5c00048f48d7af971b71f800fdf23e858844a6f9e4d32ca72e9399e7864"
 dependencies = [
- "chrono",
  "serde",
  "serde_with",
 ]
@@ -2721,9 +2720,9 @@ dependencies = [
 
 [[package]]
 name = "testcontainers"
-version = "0.14.0"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e2b1567ca8a2b819ea7b28c92be35d9f76fb9edb214321dcc86eb96023d1f87"
+checksum = "f83d2931d7f521af5bae989f716c3fa43a6af9af7ec7a5e21b59ae40878cec00"
 dependencies = [
  "bollard-stubs",
  "futures",
@@ -2734,6 +2733,15 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+]
+
+[[package]]
+name = "testcontainers-modules"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf4510e2f8ab395df9961e9c595edfd3d41d1289ea98ec84b3cf47880ba7e302"
+dependencies = [
+ "testcontainers",
 ]
 
 [[package]]
@@ -3137,6 +3145,7 @@ dependencies = [
  "shadow-rs",
  "test-case",
  "testcontainers",
+ "testcontainers-modules",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -3165,12 +3174,13 @@ dependencies = [
 
 [[package]]
 name = "unleash-yggdrasil"
-version = "0.5.9"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7c95c91eb4777c16d5885aa1cf628c83f46cfdfd4d0b11ee9ba78fe248faab0"
+checksum = "0f8a73e4ec87181b0df2a8b5fdf41bb31100149aa902204682fc28bddb0d82d0"
 dependencies = [
  "chrono",
  "convert_case 0.6.0",
+ "dashmap",
  "ipnet",
  "lazy_static",
  "murmur3",
