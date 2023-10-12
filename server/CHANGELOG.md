@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 13.0.2 (2023-10-12)
+
+### Chore
+
+ - <csr-id-f5541a14cc2ef69a58513d212b9779eff4e4358d/> bump utoipa and unleash types
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 1 commit contributed to the release.
+ - 1 day passed between releases.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 1 unique issue was worked on: [#302](https://github.com/Unleash/unleash-edge/issues/302)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#302](https://github.com/Unleash/unleash-edge/issues/302)**
+    - Bump utoipa and unleash types ([`f5541a1`](https://github.com/Unleash/unleash-edge/commit/f5541a14cc2ef69a58513d212b9779eff4e4358d))
+</details>
+
 ## 13.0.1 (2023-10-10)
 
 ### Documentation
@@ -25,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 5 commits contributed to the release over the course of 7 calendar days.
+ - 6 commits contributed to the release over the course of 7 calendar days.
  - 12 days passed between releases.
  - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 5 unique issues were worked on: [#189](https://github.com/Unleash/unleash-edge/issues/189), [#281](https://github.com/Unleash/unleash-edge/issues/281), [#287](https://github.com/Unleash/unleash-edge/issues/287), [#288](https://github.com/Unleash/unleash-edge/issues/288), [#300](https://github.com/Unleash/unleash-edge/issues/300)
@@ -46,6 +71,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Update rust crate reqwest to 0.11.21 ([`90c30e3`](https://github.com/Unleash/unleash-edge/commit/90c30e313257a91f640f9d5020cb73004046a97a))
  * **[#300](https://github.com/Unleash/unleash-edge/issues/300)**
     - Update Yggdrasil ([`9b6a890`](https://github.com/Unleash/unleash-edge/commit/9b6a8906f17438a4332b26a892604359dc3fbaf1))
+ * **Uncategorized**
+    - Release unleash-edge v13.0.1 ([`cae9a71`](https://github.com/Unleash/unleash-edge/commit/cae9a7173401bbee9952c547c535aab5503550fb))
 </details>
 
 ## 13.0.0 (2023-09-27)
@@ -97,9 +124,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Archived toggles now removed from edge ([`9983143`](https://github.com/Unleash/unleash-edge/commit/998314337ca42eab01881b2274e6f8012f429bd3))
     - Bump tokio,clap,shadow,serde_json to latest ([`0aa7b4a`](https://github.com/Unleash/unleash-edge/commit/0aa7b4a2214dd0060ba01402f7f4cb074918d6cb))
 </details>
-
-<csr-unknown>
-This change fixes a bug where the client API would return all flagsthat existed in the cache, even if the api token did not have accessto those flags. Crucially, the API token had to have access tomultiple (but not all) projects for this to happen.The root cause is that we used the incoming edge token to check whichflags to return. Before it gets validated, its projects property isjust an empty list. In the filtering, this causes edge to return allavailable. Features.The solution was to instead use the validated edge token that wecreate further up.There is also a test that confirms this behavior is what we expect.Discussion pointCould we make it so that the with_filter function can only takevalidated edge tokens or would that break something else? Might be agood way to future proof it.I suspect these will have the same issue<csr-unknown/>
 
 ## 12.0.0 (2023-09-18)
 
