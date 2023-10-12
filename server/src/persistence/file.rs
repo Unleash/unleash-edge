@@ -215,6 +215,7 @@ mod tests {
                     last_seen_at: None,
                     stale: Some(false),
                     impression_data: Some(false),
+                    dependencies: None,
                 },
                 ClientFeature {
                     name: "test2".to_string(),
