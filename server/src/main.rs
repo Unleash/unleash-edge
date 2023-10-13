@@ -100,9 +100,9 @@ async fn main() -> Result<(), anyhow::Error> {
         };
         app.service(
             web::scope(&base_path)
+                .wrap(Etag)
                 .wrap(actix_web::middleware::Compress::default())
                 .wrap(actix_web::middleware::NormalizePath::default())
-                .wrap(Etag)
                 .wrap(cors_middleware)
                 .wrap(RequestTracing::new())
                 .wrap(request_metrics.clone())
