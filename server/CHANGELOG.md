@@ -5,7 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 13.1.0 (2023-10-13)
+
+### New Features
+
+ - <csr-id-db9fb2d6624efae325416152e3b0ebe2816f2153/> add dependent flag capability by bumping yggdrasil
+   * feat: add dependent flag capability by bumping yggdrasil
+   
+   * Update lockfile
+
+### Bug Fixes
+
+ - <csr-id-4f2adb7f5d6c47dfef2a701d8209c454a8822a3e/> move etag middleware to last in chain to ensure it gets added in gziped responses
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release.
+ - 1 day passed between releases.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 2 unique issues were worked on: [#304](https://github.com/Unleash/unleash-edge/issues/304), [#305](https://github.com/Unleash/unleash-edge/issues/305)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#304](https://github.com/Unleash/unleash-edge/issues/304)**
+    - Move etag middleware to last in chain to ensure it gets added in gziped responses ([`4f2adb7`](https://github.com/Unleash/unleash-edge/commit/4f2adb7f5d6c47dfef2a701d8209c454a8822a3e))
+ * **[#305](https://github.com/Unleash/unleash-edge/issues/305)**
+    - Add dependent flag capability by bumping yggdrasil ([`db9fb2d`](https://github.com/Unleash/unleash-edge/commit/db9fb2d6624efae325416152e3b0ebe2816f2153))
+</details>
+
 ## 13.0.2 (2023-10-12)
+
+<csr-id-f5541a14cc2ef69a58513d212b9779eff4e4358d/>
 
 ### Chore
 
@@ -15,7 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 1 commit contributed to the release.
+ - 2 commits contributed to the release.
  - 1 day passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#302](https://github.com/Unleash/unleash-edge/issues/302)
@@ -28,6 +64,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  * **[#302](https://github.com/Unleash/unleash-edge/issues/302)**
     - Bump utoipa and unleash types ([`f5541a1`](https://github.com/Unleash/unleash-edge/commit/f5541a14cc2ef69a58513d212b9779eff4e4358d))
+ * **Uncategorized**
+    - Release unleash-edge v13.0.2 ([`b856507`](https://github.com/Unleash/unleash-edge/commit/b85650717515c2ada85feed389ae8906d368eb00))
 </details>
 
 ## 13.0.1 (2023-10-10)
