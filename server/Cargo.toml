@@ -53,7 +53,7 @@ tracing = {version = "0.1.37", features = ["log"]}
 tracing-subscriber = {version = "0.3.17", features = ["json", "env-filter"]}
 ulid = "1.1.0"
 unleash-types = { version = "0.10", features = ["openapi", "hashes"]}
-unleash-yggdrasil = { version = "0.6.0" }
+unleash-yggdrasil = { version = "0.6.1" }
 utoipa = {version = "4", features = ["actix_extras", "chrono"]}
 utoipa-swagger-ui = {version = "4", features = ["actix-web"]}
 [dev-dependencies]
