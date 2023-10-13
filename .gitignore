@@ -20,3 +20,10 @@ debug/
 
 # Heaptrack dump files
 heaptrack.*
+
+# Devenv
+.devenv*
+devenv.local.nix
+
+# Direnv
+.direnv*
