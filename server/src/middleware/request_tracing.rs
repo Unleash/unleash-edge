@@ -9,7 +9,7 @@ use futures_core::future::LocalBoxFuture;
 use opentelemetry::global;
 use opentelemetry::propagation::Extractor;
 use opentelemetry::trace::{FutureExt, SpanKind, Status, TraceContextExt, Tracer, TracerProvider};
-use opentelemetry_semantic_conventions::trace::HTTP_STATUS_CODE;
+use opentelemetry_semantic_conventions::trace::HTTP_RESPONSE_STATUS_CODE;
 use std::borrow::Cow;
 use std::rc::Rc;
 use std::task::Poll;
@@ -112,6 +112,7 @@ where
             global::tracer_provider().versioned_tracer(
                 "unleash-edge",
                 Some(env!("CARGO_PKG_VERSION")),
+                Some("https://opentelemetry.io/schema/1.0.0"),
                 None,
             ),
             service,
@@ -192,7 +193,9 @@ where
             .map(move |res| match res {
                 Ok(ok_res) => {
                     let span = cx.span();
-                    span.set_attribute(HTTP_STATUS_CODE.i64(ok_res.status().as_u16() as i64));
+                    span.set_attribute(
+                        HTTP_RESPONSE_STATUS_CODE.i64(ok_res.status().as_u16() as i64),
+                    );
                     if ok_res.status().is_server_error() {
                         span.set_status(Status::error(
                             ok_res
