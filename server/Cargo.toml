@@ -22,7 +22,7 @@ actix-service = "2.0.2"
 actix-web = {version = "4.4.0", features = ["rustls-0_21", "compress-zstd"]}
 
 anyhow = "1.0.75"
-async-trait = "0.1.73"
+async-trait = "0.1.74"
 chrono = {version = "0.4.31", features = ["serde"]}
 cidr = "0.2.2"
 clap = {version = "4.4.6", features = ["derive", "env"]}
@@ -42,15 +42,15 @@ opentelemetry_sdk = { version = "0.20.0", features = ["metrics", "serde", "serde
 prometheus = {version = "0.13.3", features = ["process"]}
 prometheus-static-metric = "0.5.1"
 redis = {version = "0.23.3", features = ["tokio-comp", "tokio-rustls-comp"]}
-reqwest = {version = "0.11.21", default-features = false, features = ["rustls", "json", "rustls-tls", "native-tls"]}
+reqwest = {version = "0.11.22", default-features = false, features = ["rustls", "json", "rustls-tls", "native-tls"]}
 rustls = "0.21.7"
 rustls-pemfile = "1.0.3"
-serde = {version = "1.0.188", features = ["derive"]}
+serde = {version = "1.0.189", features = ["derive"]}
 serde_json = "1.0.107"
 serde_qs = { version = "0.12.0", features = ["actix4", "tracing"] }
 shadow-rs = "0.24.0"
-tokio = {version = "1.32.0", features = ["macros", "rt-multi-thread", "tracing", "fs"]}
-tracing = {version = "0.1.37", features = ["log"]}
+tokio = {version = "1.33.0", features = ["macros", "rt-multi-thread", "tracing", "fs"]}
+tracing = {version = "0.1.39", features = ["log"]}
 tracing-subscriber = {version = "0.3.17", features = ["json", "env-filter"]}
 ulid = "1.1.0"
 unleash-types = { version = "0.10", features = ["openapi", "hashes"]}
