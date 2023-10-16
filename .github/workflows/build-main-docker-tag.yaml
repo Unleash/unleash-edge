@@ -8,7 +8,7 @@ on:
     paths:
       - "**/*.rs"
       - "**/*.toml"
-      - ".github/workflows/build-docker-release.yaml"
+      - ".github/workflows/build-main-docker-tag.yaml"
 
 permissions:
   id-token: write
