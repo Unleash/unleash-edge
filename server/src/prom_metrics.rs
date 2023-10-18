@@ -1,4 +1,5 @@
 use opentelemetry_sdk::metrics::MeterProvider;
+
 #[cfg(target_os = "linux")]
 use prometheus::process_collector::ProcessCollector;
 use tracing_subscriber::layer::SubscriberExt;
@@ -9,14 +10,82 @@ use crate::metrics::actix_web_metrics::{
     PrometheusMetricsHandler, RequestMetrics, RequestMetricsBuilder,
 };
 
+#[cfg(feature = "opentelemetry")]
+use opentelemetry_otlp::WithExportConfig;
+
+#[cfg(feature = "opentelemetry")]
+use opentelemetry::{global, sdk::trace as sdktrace, sdk::Resource};
+
 fn instantiate_tracing_and_logging() {
-    let logger = tracing_subscriber::fmt::layer();
-    let env_filter = EnvFilter::try_from_default_env()
-        .or_else(|_| EnvFilter::try_new("info"))
-        .unwrap();
-    let collector = Registry::default().with(logger).with(env_filter);
-    // Initialize tracing
-    tracing::subscriber::set_global_default(collector).unwrap();
+    #[cfg(feature = "newrelic")]
+    {
+        std::env::var("NEWRELIC_API_KEY")
+            .map(|api_key| {
+                let new_relic = tracing_newrelic::layer(api_key);
+                let logger = tracing_subscriber::fmt::layer();
+                let env_filter = EnvFilter::try_from_default_env()
+                    .or_else(|_| EnvFilter::try_new("info"))
+                    .unwrap();
+                let collector = Registry::default()
+                    .with(new_relic)
+                    .with(logger)
+                    .with(env_filter);
+                // Initialize tracing
+                tracing::subscriber::set_global_default(collector).unwrap();
+                tracing::info!("Done setting up tracing with NewRelic layer");
+            })
+            .unwrap_or_else(|_| {
+                let logger = tracing_subscriber::fmt::layer();
+                let env_filter = EnvFilter::try_from_default_env()
+                    .or_else(|_| EnvFilter::try_new("info"))
+                    .unwrap();
+                let collector = Registry::default().with(logger).with(env_filter);
+                // Initialize tracing
+                tracing::subscriber::set_global_default(collector).unwrap();
+                tracing::warn!("NewRelic API key not set, not enabling NewRelic tracing");
+                tracing::info!("Done setting up tracing with just a logger layer");
+            })
+    }
+    #[cfg(feature = "opentelemetry")]
+    {
+        std::env::var("OTEL_COLLECTION_URL")
+            .map(|url| {
+                let tracer = opentelemetry_otlp::new_pipeline()
+                    .tracing()
+                    .with_exporter(
+                        opentelemetry_otlp::new_exporter()
+                            .tonic()
+                            .with_endpoint(url),
+                    )
+                    .with_trace_config(sdktrace::config().with_resource(resource()))
+                    .install_batch(opentelemetry::runtime::Tokio)
+                    .expect("Failed to install tracing collector");
+                let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);
+                let logger = tracing_subscriber::fmt::layer();
+                let env_filter = EnvFilter::try_from_default_env()
+                    .or_else(|_| EnvFilter::try_new("info"))
+                    .unwrap();
+                let collector = Registry::default()
+                    .with(telemetry)
+                    .with(logger)
+                    .with(env_filter);
+                // Initialize tracing
+                tracing::subscriber::set_global_default(collector).unwrap();
+                tracing::warn!("Opentelemetry tracing setup done");
+            })
+            .unwrap_or_else(|_| {})
+    }
+    #[cfg(not(any(feature = "newrelic", feature = "opentelemetry")))]
+    {
+        let logger = tracing_subscriber::fmt::layer();
+        let env_filter = EnvFilter::try_from_default_env()
+            .or_else(|_| EnvFilter::try_new("info"))
+            .unwrap();
+        let collector = Registry::default().with(logger).with(env_filter);
+        // Initialize tracing
+        tracing::subscriber::set_global_default(collector).unwrap();
+        tracing::info!("Done setting up tracing with just a logger layer");
+    }
 }
 
 pub fn instantiate(
@@ -28,14 +97,19 @@ pub fn instantiate(
     instantiate_prometheus_metrics_handler(registry)
 }
 
-fn instantiate_prometheus_metrics_handler(
-    registry: prometheus::Registry,
-) -> (PrometheusMetricsHandler, RequestMetrics) {
-    let resource = opentelemetry::sdk::Resource::new(vec![
+fn resource() -> opentelemetry::sdk::Resource {
+    opentelemetry::sdk::Resource::new(vec![
+        opentelemetry::KeyValue::new("otel.name", "unleash-edge"),
         opentelemetry::KeyValue::new("service.name", "unleash-edge"),
         opentelemetry::KeyValue::new("edge.version", crate::types::build::PKG_VERSION),
         opentelemetry::KeyValue::new("edge.githash", crate::types::build::SHORT_COMMIT),
-    ]);
+    ])
+}
+
+fn instantiate_prometheus_metrics_handler(
+    registry: prometheus::Registry,
+) -> (PrometheusMetricsHandler, RequestMetrics) {
+    let resource = resource();
     let provider = MeterProvider::builder().with_resource(resource).build();
     (
         PrometheusMetricsHandler::new(registry),

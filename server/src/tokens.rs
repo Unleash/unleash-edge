@@ -6,6 +6,7 @@ use actix_web::HttpRequest;
 use std::collections::HashSet;
 use std::future::{ready, Ready};
 use std::str::FromStr;
+use tracing::instrument;
 
 use crate::cli::EdgeMode;
 use crate::error::EdgeError;
@@ -31,6 +32,7 @@ pub(crate) fn simplify(tokens: &[TokenRefresh]) -> Vec<TokenRefresh> {
         .collect()
 }
 
+#[instrument(skip(tokens))]
 fn filter_unique_tokens(tokens: &[TokenRefresh]) -> Vec<TokenRefresh> {
     let mut unique_tokens = Vec::new();
     let mut unique_keys = HashSet::new();
@@ -49,6 +51,7 @@ fn filter_unique_tokens(tokens: &[TokenRefresh]) -> Vec<TokenRefresh> {
     unique_tokens
 }
 
+#[instrument(skip(edge_token))]
 pub fn anonymize_token(edge_token: &EdgeToken) -> EdgeToken {
     let mut iterator = edge_token.token.split('.');
     let project_and_environment = iterator.next();
@@ -72,6 +75,7 @@ fn clean_hash(hash: &str) -> String {
     )
 }
 
+#[instrument(skip(token))]
 pub(crate) fn cache_key(token: &EdgeToken) -> String {
     token
         .environment

@@ -5,7 +5,7 @@ use actix_web::http::header::EntityTag;
 use chrono::Utc;
 use dashmap::DashMap;
 use tracing::log::trace;
-use tracing::{debug, warn};
+use tracing::{debug, instrument, warn};
 use unleash_types::client_features::Segment;
 use unleash_types::client_metrics::ClientApplication;
 use unleash_types::{
@@ -26,6 +26,7 @@ use crate::{
     types::{ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenRefresh},
 };
 
+#[instrument(skip(frontend_token, tokens_to_refresh))]
 fn frontend_token_is_covered_by_tokens(
     frontend_token: &EdgeToken,
     tokens_to_refresh: Arc<DashMap<String, TokenRefresh>>,
@@ -37,6 +38,7 @@ fn frontend_token_is_covered_by_tokens(
     })
 }
 
+#[instrument(skip(old, update))]
 fn update_client_features(old: &ClientFeatures, update: &ClientFeatures) -> ClientFeatures {
     let mut updated_features = update_projects_from_feature_update(&old.features, &update.features);
     updated_features.sort();
@@ -52,6 +54,7 @@ fn update_client_features(old: &ClientFeatures, update: &ClientFeatures) -> Clie
     }
 }
 
+#[instrument(skip(segments, updated_segments))]
 fn merge_segments_update(
     segments: Option<Vec<Segment>>,
     updated_segments: Option<Vec<Segment>>,
@@ -66,6 +69,7 @@ fn merge_segments_update(
         (None, None) => None,
     }
 }
+#[instrument(skip(original, updated))]
 fn update_projects_from_feature_update(
     original: &[ClientFeature],
     updated: &[ClientFeature],
@@ -155,6 +159,7 @@ impl FeatureRefresher {
         }
     }
 
+    #[instrument(skip(self))]
     pub(crate) fn get_tokens_due_for_refresh(&self) -> Vec<TokenRefresh> {
         self.tokens_to_refresh
             .iter()
@@ -168,6 +173,7 @@ impl FeatureRefresher {
             .collect()
     }
 
+    #[instrument(skip(self))]
     pub(crate) fn get_tokens_never_refreshed(&self) -> Vec<TokenRefresh> {
         self.tokens_to_refresh
             .iter()
@@ -176,6 +182,7 @@ impl FeatureRefresher {
             .collect()
     }
 
+    #[instrument(skip(self))]
     pub(crate) fn token_is_subsumed(&self, token: &EdgeToken) -> bool {
         self.tokens_to_refresh
             .iter()
@@ -183,6 +190,7 @@ impl FeatureRefresher {
             .any(|t| t.token.subsumes(token))
     }
 
+    #[instrument(skip(self, frontend_token))]
     pub(crate) fn frontend_token_is_covered_by_client_token(
         &self,
         frontend_token: &EdgeToken,
@@ -193,11 +201,14 @@ impl FeatureRefresher {
     /// This method no longer returns any data. Its responsibility lies in adding the token to our
     /// list of tokens to perform refreshes for, as well as calling out to hydrate tokens that we haven't seen before.
     /// Other tokens will be refreshed due to the scheduled task that refreshes tokens that haven been refreshed in ${refresh_interval} seconds
+
+    #[instrument(skip(self, token))]
     pub(crate) async fn register_and_hydrate_token(&self, token: &EdgeToken) {
         self.register_token_for_refresh(token.clone(), None).await;
         self.hydrate_new_tokens().await;
     }
 
+    #[instrument(skip(self, client_token_request))]
     pub(crate) async fn forward_request_for_client_token(
         &self,
         client_token_request: ClientTokenRequest,
@@ -207,6 +218,7 @@ impl FeatureRefresher {
             .await
     }
 
+    #[instrument(skip(self, token))]
     pub(crate) async fn create_client_token_for_fe_token(
         &self,
         token: EdgeToken,
@@ -228,6 +240,7 @@ impl FeatureRefresher {
         Ok(())
     }
 
+    #[instrument(skip(self, token, filters))]
     pub(crate) async fn features_for_filter(
         &self,
         token: EdgeToken,
@@ -248,6 +261,7 @@ impl FeatureRefresher {
         }
     }
 
+    #[instrument(skip(self, token, filters))]
     fn get_features_by_filter(
         &self,
         token: &EdgeToken,
@@ -260,6 +274,7 @@ impl FeatureRefresher {
 
     ///
     /// Registers a token for refresh, the token will be discarded if it can be subsumed by another previously registered token
+    #[instrument(skip(self, token, etag))]
     pub async fn register_token_for_refresh(&self, token: EdgeToken, etag: Option<EntityTag>) {
         if !self.tokens_to_refresh.contains_key(&token.token) {
             let _ = self
@@ -296,19 +311,21 @@ impl FeatureRefresher {
         }
     }
 
+    #[instrument(skip(self))]
     pub async fn hydrate_new_tokens(&self) {
         let hydrations = self.get_tokens_never_refreshed();
         for hydration in hydrations {
             self.refresh_single(hydration).await;
         }
     }
+    #[instrument(skip(self))]
     pub async fn refresh_features(&self) {
         let refreshes = self.get_tokens_due_for_refresh();
         for refresh in refreshes {
             self.refresh_single(refresh).await;
         }
     }
-
+    #[instrument(skip(self, refresh))]
     pub async fn refresh_single(&self, refresh: TokenRefresh) {
         let features_result = self
             .unleash_client
@@ -395,12 +412,14 @@ impl FeatureRefresher {
         }
     }
 
+    #[instrument(skip(self, token))]
     pub fn update_last_check(&self, token: &EdgeToken) {
         if let Some(mut token) = self.tokens_to_refresh.get_mut(&token.token) {
             token.last_check = Some(Utc::now());
         }
     }
 
+    #[instrument(skip(self, token, etag))]
     pub fn update_last_refresh(&self, token: &EdgeToken, etag: Option<EntityTag>) {
         self.tokens_to_refresh
             .entry(token.token.clone())

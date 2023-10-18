@@ -12,6 +12,7 @@ use reqwest::header::{HeaderMap, HeaderName};
 use reqwest::{header, Client};
 use reqwest::{ClientBuilder, Identity, RequestBuilder, StatusCode, Url};
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 use tracing::{debug, info, warn};
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ClientApplication;
@@ -277,6 +278,7 @@ impl UnleashClient {
         })
     }
 
+    #[instrument(skip(self, req))]
     fn client_features_req(&self, req: ClientFeaturesRequest) -> RequestBuilder {
         let client_req = self
             .backing_client
@@ -289,6 +291,7 @@ impl UnleashClient {
         }
     }
 
+    #[instrument(skip(self, api_key))]
     fn header_map(&self, api_key: Option<String>) -> HeaderMap {
         let mut header_map = HeaderMap::new();
         if let Some(key) = api_key {
@@ -314,6 +317,7 @@ impl UnleashClient {
         }
     }
 
+    #[instrument(skip(self, api_key, application))]
     pub async fn register_as_client(
         &self,
         api_key: String,
@@ -338,6 +342,7 @@ impl UnleashClient {
             })
     }
 
+    #[instrument(skip(self, request))]
     pub async fn get_client_features(
         &self,
         request: ClientFeaturesRequest,
@@ -410,6 +415,7 @@ impl UnleashClient {
         }
     }
 
+    #[instrument(skip(self, request))]
     pub async fn send_batch_metrics(&self, request: MetricsBatch) -> EdgeResult<()> {
         let result = self
             .backing_client
@@ -429,6 +435,7 @@ impl UnleashClient {
         }
     }
 
+    #[instrument(skip(self, client_token_request))]
     pub async fn forward_request_for_client_token(
         &self,
         client_token_request: ClientTokenRequest,
@@ -458,6 +465,7 @@ impl UnleashClient {
         }
     }
 
+    #[instrument(skip(self, frontend_token))]
     pub async fn get_client_token_for_unhydrated_frontend_token(
         &self,
         frontend_token: EdgeToken,
@@ -467,6 +475,7 @@ impl UnleashClient {
             .map(EdgeToken::from)
     }
 
+    #[instrument(skip(self, request))]
     pub async fn validate_tokens(
         &self,
         request: ValidateTokensRequest,
