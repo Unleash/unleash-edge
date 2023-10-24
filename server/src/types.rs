@@ -185,6 +185,21 @@ pub struct TokenRefresh {
     pub last_check: Option<DateTime<Utc>>,
 }
 
+#[derive(Clone, Deserialize, Serialize, Debug)]
+pub struct UnleashValidationDetail {
+    pub path: Option<String>,
+    pub description: Option<String>,
+    pub message: Option<String>,
+}
+
+#[derive(Clone, Deserialize, Serialize, Debug)]
+pub struct UnleashBadRequest {
+    pub id: Option<String>,
+    pub name: Option<String>,
+    pub message: Option<String>,
+    pub details: Option<Vec<UnleashValidationDetail>>,
+}
+
 impl TokenRefresh {
     pub fn new(token: EdgeToken, etag: Option<EntityTag>) -> Self {
         Self {
