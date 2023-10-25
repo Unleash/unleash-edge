@@ -28,7 +28,6 @@ use unleash_edge::{internal_backstage, tls};
 #[cfg(not(tarpaulin_include))]
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {
-    dotenv::dotenv().ok();
     let args = CliArgs::parse();
     let disable_all_endpoint = args.disable_all_endpoint;
     if args.markdown_help {
