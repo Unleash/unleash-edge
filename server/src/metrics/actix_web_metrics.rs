@@ -250,53 +250,7 @@ fn get_versioned_meter(meter_provider: impl MeterProvider) -> Meter {
         None,
     )
 }
-/// Request metrics tracking
-///
-/// # Examples
-///
-/// ```no_run
-/// use actix_web::{dev, http, web, App, HttpRequest, HttpServer};
-/// use unleash_edge::metrics::actix_web_metrics::{PrometheusMetricsHandler,
-///     RequestMetricsBuilder};
-/// use unleash_edge::middleware::request_tracing::RequestTracing;
-/// use opentelemetry::{
-///     global,
-///     sdk::{
-///         export::metrics::aggregation,
-///         metrics::{controllers, processors, selectors},
-///         propagation::TraceContextPropagator,
-///     },
-/// };
-///
-/// #[actix_web::main]
-/// async fn main() -> std::io::Result<()> {
-///     // Request metrics middleware
-///     let meter = global::meter("actix_web");
-///     let request_metrics = RequestMetricsBuilder::new().build(meter);
-///
-///     // Prometheus request metrics handler
-///     let controller = controllers::basic(
-///         processors::factory(
-///             selectors::simple::histogram([1.0, 2.0, 5.0, 10.0, 20.0, 50.0]),
-///             aggregation::cumulative_temporality_selector(),
-///         )
-///     )
-///     .build();
-///     let exporter = opentelemetry_prometheus::exporter(controller).init();
-///     let metrics_handler = PrometheusMetricsHandler::new(exporter);
-///
-///     // Run actix server, metrics are now available at http://localhost:8080/metrics
-///     HttpServer::new(move || {
-///         App::new()
-///             .wrap(RequestTracing::new())
-///             .wrap(request_metrics.clone())
-///             .route("/metrics", web::get().to(metrics_handler.clone()))
-///     })
-///     .bind("localhost:8080")?
-///     .run()
-///     .await
-/// }
-/// ```
+
 #[derive(Clone, Debug)]
 pub struct RequestMetrics {
     route_formatter: Option<Arc<dyn RouteFormatter + Send + Sync + 'static>>,

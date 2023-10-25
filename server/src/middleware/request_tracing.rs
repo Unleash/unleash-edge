@@ -14,35 +14,6 @@ use std::borrow::Cow;
 use std::rc::Rc;
 use std::task::Poll;
 
-/// Request tracing middleware.
-///
-/// # Examples:
-///
-/// ```no_run
-/// use actix_web::{web, App, HttpServer};
-/// async fn index() -> &'static str {
-///     "Hello world!"
-/// }
-///
-/// #[actix_web::main]
-/// async fn main() -> std::io::Result<()> {
-///     // Install an OpenTelemetry trace pipeline.
-///     // Swap for https://docs.rs/opentelemetry-jaeger or other compatible
-///     // exporter to send trace information to your collector.
-///     
-///     use unleash_edge::middleware::request_tracing::RequestTracing;
-/// opentelemetry::sdk::export::trace::stdout::new_pipeline().install_simple();
-///
-///     HttpServer::new(|| {
-///         App::new()
-///             .wrap(RequestTracing::new())
-///             .service(web::resource("/").to(index))
-///     })
-///     .bind("127.0.0.1:8080")?
-///     .run()
-///     .await
-/// }
-///```
 #[derive(Default, Debug)]
 pub struct RequestTracing {
     route_formatter: Option<Rc<dyn RouteFormatter + 'static>>,
