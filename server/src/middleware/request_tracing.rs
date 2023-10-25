@@ -9,40 +9,11 @@ use futures_core::future::LocalBoxFuture;
 use opentelemetry::global;
 use opentelemetry::propagation::Extractor;
 use opentelemetry::trace::{FutureExt, SpanKind, Status, TraceContextExt, Tracer, TracerProvider};
-use opentelemetry_semantic_conventions::trace::HTTP_STATUS_CODE;
+use opentelemetry_semantic_conventions::trace::HTTP_RESPONSE_STATUS_CODE;
 use std::borrow::Cow;
 use std::rc::Rc;
 use std::task::Poll;
 
-/// Request tracing middleware.
-///
-/// # Examples:
-///
-/// ```no_run
-/// use actix_web::{web, App, HttpServer};
-/// async fn index() -> &'static str {
-///     "Hello world!"
-/// }
-///
-/// #[actix_web::main]
-/// async fn main() -> std::io::Result<()> {
-///     // Install an OpenTelemetry trace pipeline.
-///     // Swap for https://docs.rs/opentelemetry-jaeger or other compatible
-///     // exporter to send trace information to your collector.
-///     
-///     use unleash_edge::middleware::request_tracing::RequestTracing;
-/// opentelemetry::sdk::export::trace::stdout::new_pipeline().install_simple();
-///
-///     HttpServer::new(|| {
-///         App::new()
-///             .wrap(RequestTracing::new())
-///             .service(web::resource("/").to(index))
-///     })
-///     .bind("127.0.0.1:8080")?
-///     .run()
-///     .await
-/// }
-///```
 #[derive(Default, Debug)]
 pub struct RequestTracing {
     route_formatter: Option<Rc<dyn RouteFormatter + 'static>>,
@@ -112,6 +83,7 @@ where
             global::tracer_provider().versioned_tracer(
                 "unleash-edge",
                 Some(env!("CARGO_PKG_VERSION")),
+                Some("https://opentelemetry.io/schema/1.0.0"),
                 None,
             ),
             service,
@@ -192,7 +164,9 @@ where
             .map(move |res| match res {
                 Ok(ok_res) => {
                     let span = cx.span();
-                    span.set_attribute(HTTP_STATUS_CODE.i64(ok_res.status().as_u16() as i64));
+                    span.set_attribute(
+                        HTTP_RESPONSE_STATUS_CODE.i64(ok_res.status().as_u16() as i64),
+                    );
                     if ok_res.status().is_server_error() {
                         span.set_status(Status::error(
                             ok_res

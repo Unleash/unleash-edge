@@ -28,7 +28,6 @@ use unleash_edge::{internal_backstage, tls};
 #[cfg(not(tarpaulin_include))]
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {
-    dotenv::dotenv().ok();
     let args = CliArgs::parse();
     let disable_all_endpoint = args.disable_all_endpoint;
     if args.markdown_help {
@@ -100,9 +99,9 @@ async fn main() -> Result<(), anyhow::Error> {
         };
         app.service(
             web::scope(&base_path)
+                .wrap(Etag)
                 .wrap(actix_web::middleware::Compress::default())
                 .wrap(actix_web::middleware::NormalizePath::default())
-                .wrap(Etag)
                 .wrap(cors_middleware)
                 .wrap(RequestTracing::new())
                 .wrap(request_metrics.clone())

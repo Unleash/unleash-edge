@@ -36,7 +36,7 @@ pub async fn send_metrics_task(
             if !batch.applications.is_empty() || !batch.metrics.is_empty() {
                 if let Err(edge_error) = unleash_client.send_batch_metrics(batch.clone()).await {
                     match edge_error {
-                        EdgeError::EdgeMetricsRequestError(status_code) => {
+                        EdgeError::EdgeMetricsRequestError(status_code, message) => {
                             METRICS_UPSTREAM_HTTP_ERRORS
                                 .with_label_values(&[status_code.as_str()])
                                 .inc();
@@ -46,9 +46,7 @@ pub async fn send_metrics_task(
                                     size_of_batch(&batch)
                                 ),
                                 StatusCode::BAD_REQUEST => {
-                                    error!(
-                                    "We couldn't format metrics properly. Will drop what we had"
-                                );
+                                    error!("Unleash said [{message:?}]. Dropping this metric bucket to avoid consuming too much memory");
                                 }
                                 _ => {
                                     warn!("Failed to send metrics. Status code was {status_code}. Will reinsert metrics for next attempt");

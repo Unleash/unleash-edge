@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 function script_echo() {
-  echo "unleash-operator-rs: $1"
+  echo "unleash-edge: $1"
 }
 
 function generate_buildinfo() {

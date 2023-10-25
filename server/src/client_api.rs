@@ -358,6 +358,7 @@ mod tests {
                     feature_type: Some("release".into()),
                     description: Some("test feature".into()),
                     created_at: Some(Utc::now()),
+                    dependencies: None,
                     last_seen_at: None,
                     enabled: true,
                     stale: Some(false),
@@ -386,6 +387,7 @@ mod tests {
                 ClientFeature {
                     name: "feature_two_no_strats".into(),
                     feature_type: None,
+                    dependencies: None,
                     description: None,
                     created_at: Some(Utc.with_ymd_and_hms(2022, 12, 5, 12, 31, 0).unwrap()),
                     last_seen_at: None,
@@ -400,6 +402,7 @@ mod tests {
                     name: "feature_three".into(),
                     feature_type: Some("release".into()),
                     description: None,
+                    dependencies: None,
                     created_at: None,
                     last_seen_at: None,
                     enabled: true,
@@ -930,6 +933,7 @@ mod tests {
                 ClientFeature {
                     name: "edge-flag-1".into(),
                     feature_type: None,
+                    dependencies: None,
                     description: None,
                     created_at: None,
                     last_seen_at: None,
@@ -943,6 +947,7 @@ mod tests {
                 ClientFeature {
                     name: "edge-flag-3".into(),
                     feature_type: None,
+                    dependencies: None,
                     description: None,
                     created_at: None,
                     last_seen_at: None,

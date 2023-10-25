@@ -5,7 +5,118 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 13.1.0 (2023-10-13)
+
+### New Features
+
+ - <csr-id-db9fb2d6624efae325416152e3b0ebe2816f2153/> add dependent flag capability by bumping yggdrasil
+   * feat: add dependent flag capability by bumping yggdrasil
+   
+   * Update lockfile
+
+### Bug Fixes
+
+ - <csr-id-4f2adb7f5d6c47dfef2a701d8209c454a8822a3e/> move etag middleware to last in chain to ensure it gets added in gziped responses
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release.
+ - 1 day passed between releases.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 2 unique issues were worked on: [#304](https://github.com/Unleash/unleash-edge/issues/304), [#305](https://github.com/Unleash/unleash-edge/issues/305)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#304](https://github.com/Unleash/unleash-edge/issues/304)**
+    - Move etag middleware to last in chain to ensure it gets added in gziped responses ([`4f2adb7`](https://github.com/Unleash/unleash-edge/commit/4f2adb7f5d6c47dfef2a701d8209c454a8822a3e))
+ * **[#305](https://github.com/Unleash/unleash-edge/issues/305)**
+    - Add dependent flag capability by bumping yggdrasil ([`db9fb2d`](https://github.com/Unleash/unleash-edge/commit/db9fb2d6624efae325416152e3b0ebe2816f2153))
+</details>
+
+## 13.0.2 (2023-10-12)
+
+<csr-id-f5541a14cc2ef69a58513d212b9779eff4e4358d/>
+
+### Chore
+
+ - <csr-id-f5541a14cc2ef69a58513d212b9779eff4e4358d/> bump utoipa and unleash types
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release.
+ - 1 day passed between releases.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 1 unique issue was worked on: [#302](https://github.com/Unleash/unleash-edge/issues/302)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#302](https://github.com/Unleash/unleash-edge/issues/302)**
+    - Bump utoipa and unleash types ([`f5541a1`](https://github.com/Unleash/unleash-edge/commit/f5541a14cc2ef69a58513d212b9779eff4e4358d))
+ * **Uncategorized**
+    - Release unleash-edge v13.0.2 ([`b856507`](https://github.com/Unleash/unleash-edge/commit/b85650717515c2ada85feed389ae8906d368eb00))
+</details>
+
+## 13.0.1 (2023-10-10)
+
+### Documentation
+
+ - <csr-id-b8d422a08a0ec00b3ed80ed53e29f694a597afe4/> Add link to feature flags best practices
+
+### Bug Fixes
+
+ - <csr-id-9b6a8906f17438a4332b26a892604359dc3fbaf1/> update Yggdrasil
+   Previously, yggdrasil returned a disabled variant if the strategy
+   variants representation came back as an empty list instead of null.
+   With Yggdrasil 0.6 this is now fixed.
+ - <csr-id-90c30e313257a91f640f9d5020cb73004046a97a/> update rust crate reqwest to 0.11.21
+ - <csr-id-8d1c294a50c9c939f9365cd9d8e324c0faf512fc/> update rust crate clap to 4.4.6
+ - <csr-id-7d3a93b9298304cd4f5ddcf1d51ae6c850fea19e/> update rust crate rustls to 0.21.7
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 6 commits contributed to the release over the course of 7 calendar days.
+ - 12 days passed between releases.
+ - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 5 unique issues were worked on: [#189](https://github.com/Unleash/unleash-edge/issues/189), [#281](https://github.com/Unleash/unleash-edge/issues/281), [#287](https://github.com/Unleash/unleash-edge/issues/287), [#288](https://github.com/Unleash/unleash-edge/issues/288), [#300](https://github.com/Unleash/unleash-edge/issues/300)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#189](https://github.com/Unleash/unleash-edge/issues/189)**
+    - Update rust crate clap to 4.4.6 ([`8d1c294`](https://github.com/Unleash/unleash-edge/commit/8d1c294a50c9c939f9365cd9d8e324c0faf512fc))
+ * **[#281](https://github.com/Unleash/unleash-edge/issues/281)**
+    - Update rust crate rustls to 0.21.7 ([`7d3a93b`](https://github.com/Unleash/unleash-edge/commit/7d3a93b9298304cd4f5ddcf1d51ae6c850fea19e))
+ * **[#287](https://github.com/Unleash/unleash-edge/issues/287)**
+    - Add link to feature flags best practices ([`b8d422a`](https://github.com/Unleash/unleash-edge/commit/b8d422a08a0ec00b3ed80ed53e29f694a597afe4))
+ * **[#288](https://github.com/Unleash/unleash-edge/issues/288)**
+    - Update rust crate reqwest to 0.11.21 ([`90c30e3`](https://github.com/Unleash/unleash-edge/commit/90c30e313257a91f640f9d5020cb73004046a97a))
+ * **[#300](https://github.com/Unleash/unleash-edge/issues/300)**
+    - Update Yggdrasil ([`9b6a890`](https://github.com/Unleash/unleash-edge/commit/9b6a8906f17438a4332b26a892604359dc3fbaf1))
+ * **Uncategorized**
+    - Release unleash-edge v13.0.1 ([`cae9a71`](https://github.com/Unleash/unleash-edge/commit/cae9a7173401bbee9952c547c535aab5503550fb))
+</details>
+
 ## 13.0.0 (2023-09-27)
+
+<csr-id-0aa7b4a2214dd0060ba01402f7f4cb074918d6cb/>
+<csr-id-629c4b8dba5aedd0f4e0520ad01d2ec5c85d03c4/>
 
 ### Chore
 
@@ -22,39 +133,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
    drop the existing project and replace it with the incoming
  - <csr-id-00661c4ac5db8cdb6ba95d992ecd1507a9124677/> use the validated token to calculate flags to return
    * fix(#274): use the validated token to calculate flags to return
-   
-   This change fixes a bug where the client API would return all flags
-   that existed in the cache, even if the api token did not have access
-   to those flags. Crucially, the API token had to have access to
-   multiple (but not all) projects for this to happen.
-   
-   The root cause is that we used the incoming edge token to check which
-   flags to return. Before it gets validated, its `projects` property is
-   just an empty list. In the filtering, this causes edge to return all
-   available. Features.
-   
-   The solution was to instead use the validated edge token that we
-   create further up.
-   
-   There is also a test that confirms this behavior is what we expect.
-   
-   ## Discussion point
-   
-   Could we make it so that the `with_filter` function can only take
-   validated edge tokens or would that break something else? Might be a
-   good way to future proof it.
-   
-   * fix(#274): update more uses
-   
-   I suspect these will have the same issue
-   
-   * Update server/src/client_api.rs
+* fix(#274): update more uses
+* Update server/src/client_api.rs
 
 ### Commit Statistics
 
 <csr-read-only-do-not-edit/>
 
- - 5 commits contributed to the release.
+ - 6 commits contributed to the release.
  - 9 days passed between releases.
  - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 3 unique issues were worked on: [#254](https://github.com/Unleash/unleash-edge/issues/254), [#275](https://github.com/Unleash/unleash-edge/issues/275), [#283](https://github.com/Unleash/unleash-edge/issues/283)
@@ -72,6 +158,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#283](https://github.com/Unleash/unleash-edge/issues/283)**
     - No longer return wrong feature toggle ([`df73932`](https://github.com/Unleash/unleash-edge/commit/df73932e769efe9ff42f669580d7fb1de1dd31de))
  * **Uncategorized**
+    - Release unleash-edge v13.0.0 ([`9e32cd9`](https://github.com/Unleash/unleash-edge/commit/9e32cd94583795c057dd8e13969f529f1a60fd74))
     - Archived toggles now removed from edge ([`9983143`](https://github.com/Unleash/unleash-edge/commit/998314337ca42eab01881b2274e6f8012f429bd3))
     - Bump tokio,clap,shadow,serde_json to latest ([`0aa7b4a`](https://github.com/Unleash/unleash-edge/commit/0aa7b4a2214dd0060ba01402f7f4cb074918d6cb))
 </details>
