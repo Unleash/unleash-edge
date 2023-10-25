@@ -6,7 +6,7 @@ use serde::Serialize;
 use serde_json::json;
 use tracing::debug;
 
-use crate::types::EdgeToken;
+use crate::types::{EdgeToken, UnleashBadRequest};
 
 pub const TRUST_PROXY_PARSE_ERROR: &str =
     "needs to be a valid ip address (ipv4 or ipv6) or a valid cidr (ipv4 or ipv6)";
@@ -98,7 +98,7 @@ pub enum EdgeError {
     FeatureNotFound(String),
     PersistenceError(String),
     EdgeMetricsError,
-    EdgeMetricsRequestError(StatusCode),
+    EdgeMetricsRequestError(StatusCode, Option<UnleashBadRequest>),
     EdgeTokenError,
     EdgeTokenParseError,
     InvalidBackupFile(String, String),
@@ -158,8 +158,8 @@ impl Display for EdgeError {
             EdgeError::InvalidServerUrl(msg) => write!(f, "Failed to parse server url: [{msg}]"),
             EdgeError::EdgeTokenError => write!(f, "Edge token error"),
             EdgeError::EdgeTokenParseError => write!(f, "Failed to parse token response"),
-            EdgeError::EdgeMetricsRequestError(status_code) => {
-                write!(f, "Failed to post metrics with status code: {status_code}")
+            EdgeError::EdgeMetricsRequestError(status_code, message) => {
+                write!(f, "Failed to post metrics with status code: {status_code} and response {message:?}")
             }
             EdgeError::AuthorizationPending => {
                 write!(f, "No validation for token has happened yet")
@@ -226,7 +226,7 @@ impl ResponseError for EdgeError {
             EdgeError::FrontendNotYetHydrated(_) => StatusCode::NETWORK_AUTHENTICATION_REQUIRED,
             EdgeError::ContextParseError => StatusCode::BAD_REQUEST,
             EdgeError::ServiceAccountTokenNotEnabled => StatusCode::NETWORK_AUTHENTICATION_REQUIRED,
-            EdgeError::EdgeMetricsRequestError(status_code) => *status_code,
+            EdgeError::EdgeMetricsRequestError(status_code, _) => *status_code,
             EdgeError::HealthCheckError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::ReadyCheckError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::ClientHydrationFailed(_) => StatusCode::INTERNAL_SERVER_ERROR,

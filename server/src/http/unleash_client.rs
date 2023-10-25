@@ -17,6 +17,7 @@ use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ClientApplication;
 
 use crate::cli::ClientIdentity;
+use crate::error::EdgeError::EdgeMetricsRequestError;
 use crate::error::{CertificateError, FeatureError};
 use crate::metrics::client_metrics::MetricsBatch;
 use crate::tls::build_upstream_certificate;
@@ -425,7 +426,13 @@ impl UnleashClient {
         if result.status().is_success() {
             Ok(())
         } else {
-            Err(EdgeError::EdgeMetricsRequestError(result.status()))
+            match result.status() {
+                StatusCode::BAD_REQUEST => Err(EdgeError::EdgeMetricsRequestError(
+                    result.status(),
+                    result.json().await.ok(),
+                )),
+                _ => Err(EdgeMetricsRequestError(result.status(), None)),
+            }
         }
     }
 
