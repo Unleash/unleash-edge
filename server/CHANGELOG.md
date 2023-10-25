@@ -5,14 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 13.1.0 (2023-10-13)
+## 14.0.0 (2023-10-25)
+
+### Chore
+
+ - <csr-id-0bda1cfd8fc157c36a3486acc2d949b2fccc15e4/> remove dotenv and bump ahash to a non-yanked version
+ - <csr-id-0c6b33a1e011b76fd75618e4ba3cb8a52f7e6c2c/> dependencies bump
+ - <csr-id-1b4277e211e8ece600b482fe49544163bcbf5eb9/> bump renovate bot suggestions
+ - <csr-id-30958a1cddb86c2abd705b2d4fd36b51037f6879/> Start work upgrading to opentelemetry 0.20
+
+### New Features
+
+ - <csr-id-e77ea1846ae01e9489c048db64c87e53ebdb6fb0/> make edge log bad request information from upstream
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 5 commits contributed to the release over the course of 8 calendar days.
+ - 8 days passed between releases.
+ - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 2 unique issues were worked on: [#292](https://github.com/Unleash/unleash-edge/issues/292), [#313](https://github.com/Unleash/unleash-edge/issues/313)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#292](https://github.com/Unleash/unleash-edge/issues/292)**
+    - Start work upgrading to opentelemetry 0.20 ([`30958a1`](https://github.com/Unleash/unleash-edge/commit/30958a1cddb86c2abd705b2d4fd36b51037f6879))
+ * **[#313](https://github.com/Unleash/unleash-edge/issues/313)**
+    - Make edge log bad request information from upstream ([`e77ea18`](https://github.com/Unleash/unleash-edge/commit/e77ea1846ae01e9489c048db64c87e53ebdb6fb0))
+ * **Uncategorized**
+    - Remove dotenv and bump ahash to a non-yanked version ([`0bda1cf`](https://github.com/Unleash/unleash-edge/commit/0bda1cfd8fc157c36a3486acc2d949b2fccc15e4))
+    - Dependencies bump ([`0c6b33a`](https://github.com/Unleash/unleash-edge/commit/0c6b33a1e011b76fd75618e4ba3cb8a52f7e6c2c))
+    - Bump renovate bot suggestions ([`1b4277e`](https://github.com/Unleash/unleash-edge/commit/1b4277e211e8ece600b482fe49544163bcbf5eb9))
+</details>
+
+## 13.1.0 (2023-10-16)
 
 ### New Features
 
  - <csr-id-db9fb2d6624efae325416152e3b0ebe2816f2153/> add dependent flag capability by bumping yggdrasil
    * feat: add dependent flag capability by bumping yggdrasil
-   
-   * Update lockfile
+* Update lockfile
 
 ### Bug Fixes
 
@@ -22,8 +59,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 2 commits contributed to the release.
- - 1 day passed between releases.
+ - 3 commits contributed to the release over the course of 2 calendar days.
+ - 3 days passed between releases.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#304](https://github.com/Unleash/unleash-edge/issues/304), [#305](https://github.com/Unleash/unleash-edge/issues/305)
 
@@ -37,6 +74,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Move etag middleware to last in chain to ensure it gets added in gziped responses ([`4f2adb7`](https://github.com/Unleash/unleash-edge/commit/4f2adb7f5d6c47dfef2a701d8209c454a8822a3e))
  * **[#305](https://github.com/Unleash/unleash-edge/issues/305)**
     - Add dependent flag capability by bumping yggdrasil ([`db9fb2d`](https://github.com/Unleash/unleash-edge/commit/db9fb2d6624efae325416152e3b0ebe2816f2153))
+ * **Uncategorized**
+    - Release unleash-edge v13.1.0 ([`3c733fc`](https://github.com/Unleash/unleash-edge/commit/3c733fc2beb0095b46e7efc9a08d6c87039f894a))
 </details>
 
 ## 13.0.2 (2023-10-12)
