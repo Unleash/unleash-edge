@@ -1388,9 +1388,9 @@ checksum = "06d198e9919d9822d5f7083ba8530e04de87841eaf21ead9af8f2304efd57c89"
 
 [[package]]
 name = "iter_tools"
-version = "0.2.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1410c6868bcd0e7f879dc61a0b3c7950df71d5c41c4811ab09e74beea32f4e1"
+checksum = "a621162e5c4229abff44d46655dcb777f6064daa851e046df17baf74c9ddf079"
 dependencies = [
  "itertools",
 ]
