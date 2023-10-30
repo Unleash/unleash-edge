@@ -5,14 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 14.0.0 (2023-10-25)
+## 15.0.0 (2023-10-30)
 
 ### Chore
 
+ - <csr-id-3f94d5bf593daa34e671e972789a213206eea92e/> bump yggdrasil version
  - <csr-id-0bda1cfd8fc157c36a3486acc2d949b2fccc15e4/> remove dotenv and bump ahash to a non-yanked version
  - <csr-id-0c6b33a1e011b76fd75618e4ba3cb8a52f7e6c2c/> dependencies bump
  - <csr-id-1b4277e211e8ece600b482fe49544163bcbf5eb9/> bump renovate bot suggestions
  - <csr-id-30958a1cddb86c2abd705b2d4fd36b51037f6879/> Start work upgrading to opentelemetry 0.20
+
+### Documentation
+
+ - <csr-id-8279ec0c411586c91b1f7d5214be963a47bff9e0/> Update dependency pointer to 14.0.0
 
 ### New Features
 
@@ -22,10 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 5 commits contributed to the release over the course of 8 calendar days.
- - 8 days passed between releases.
- - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
- - 2 unique issues were worked on: [#292](https://github.com/Unleash/unleash-edge/issues/292), [#313](https://github.com/Unleash/unleash-edge/issues/313)
+ - 8 commits contributed to the release over the course of 14 calendar days.
+ - 14 days passed between releases.
+ - 7 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 3 unique issues were worked on: [#292](https://github.com/Unleash/unleash-edge/issues/292), [#313](https://github.com/Unleash/unleash-edge/issues/313), [#319](https://github.com/Unleash/unleash-edge/issues/319)
 
 ### Commit Details
 
@@ -37,11 +42,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Start work upgrading to opentelemetry 0.20 ([`30958a1`](https://github.com/Unleash/unleash-edge/commit/30958a1cddb86c2abd705b2d4fd36b51037f6879))
  * **[#313](https://github.com/Unleash/unleash-edge/issues/313)**
     - Make edge log bad request information from upstream ([`e77ea18`](https://github.com/Unleash/unleash-edge/commit/e77ea1846ae01e9489c048db64c87e53ebdb6fb0))
+ * **[#319](https://github.com/Unleash/unleash-edge/issues/319)**
+    - Bump yggdrasil version ([`3f94d5b`](https://github.com/Unleash/unleash-edge/commit/3f94d5bf593daa34e671e972789a213206eea92e))
  * **Uncategorized**
+    - Update dependency pointer to 14.0.0 ([`8279ec0`](https://github.com/Unleash/unleash-edge/commit/8279ec0c411586c91b1f7d5214be963a47bff9e0))
+    - Release unleash-edge v14.0.0 ([`e0cdb5c`](https://github.com/Unleash/unleash-edge/commit/e0cdb5c7de1c4bf43776f750099072df3a36ae1a))
     - Remove dotenv and bump ahash to a non-yanked version ([`0bda1cf`](https://github.com/Unleash/unleash-edge/commit/0bda1cfd8fc157c36a3486acc2d949b2fccc15e4))
     - Dependencies bump ([`0c6b33a`](https://github.com/Unleash/unleash-edge/commit/0c6b33a1e011b76fd75618e4ba3cb8a52f7e6c2c))
     - Bump renovate bot suggestions ([`1b4277e`](https://github.com/Unleash/unleash-edge/commit/1b4277e211e8ece600b482fe49544163bcbf5eb9))
 </details>
+
+## 14.0.0 (2023-10-25)
+
+<csr-id-0bda1cfd8fc157c36a3486acc2d949b2fccc15e4/>
+<csr-id-0c6b33a1e011b76fd75618e4ba3cb8a52f7e6c2c/>
+<csr-id-1b4277e211e8ece600b482fe49544163bcbf5eb9/>
+<csr-id-30958a1cddb86c2abd705b2d4fd36b51037f6879/>
+
+### Chore
+
+ - <csr-id-0bda1cfd8fc157c36a3486acc2d949b2fccc15e4/> remove dotenv and bump ahash to a non-yanked version
+ - <csr-id-0c6b33a1e011b76fd75618e4ba3cb8a52f7e6c2c/> dependencies bump
+ - <csr-id-1b4277e211e8ece600b482fe49544163bcbf5eb9/> bump renovate bot suggestions
+ - <csr-id-30958a1cddb86c2abd705b2d4fd36b51037f6879/> Start work upgrading to opentelemetry 0.20
+
+### New Features
+
+ - <csr-id-e77ea1846ae01e9489c048db64c87e53ebdb6fb0/> make edge log bad request information from upstream
 
 ## 13.1.0 (2023-10-16)
 
