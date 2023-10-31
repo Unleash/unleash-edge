@@ -153,7 +153,7 @@ fn new_reqwest_client(
             );
 
             client
-                .user_agent(format!("unleash-edge-{}", crate::types::build::PKG_VERSION))
+                .user_agent(format!("unleash-edge-{}", crate::types::CARGO_PKG_VERSION))
                 .default_headers(header_map)
                 .danger_accept_invalid_certs(skip_ssl_verification)
                 .timeout(socket_timeout.to_std().unwrap())
