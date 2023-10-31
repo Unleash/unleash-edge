@@ -2935,7 +2935,7 @@ checksum = "1dd624098567895118886609431a7c3b8f516e41d30e0643f03d94592a147e36"
 
 [[package]]
 name = "unleash-edge"
-version = "14.0.0"
+version = "15.0.0"
 dependencies = [
  "actix-cors",
  "actix-http",
@@ -3004,9 +3004,9 @@ dependencies = [
 
 [[package]]
 name = "unleash-yggdrasil"
-version = "0.6.1"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5b2a721a173d850a41862d898b373ce7c08f5e088e45c2963d586a0f454ef0c"
+checksum = "737eb34160e1e7a3a5de5f587c1f6c624cd124291c36061b5f874e93713a02d3"
 dependencies = [
  "chrono",
  "convert_case 0.6.0",
