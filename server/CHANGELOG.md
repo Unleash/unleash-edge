@@ -5,7 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 16.0.1 (2023-11-01)
+
+### Chore
+
+ - <csr-id-fc5ded0a1398e21d7fe17c1277fcf6af4f5d15e1/> prepare for 16.0.1 release
+
+### Bug Fixes
+
+ - <csr-id-5ddd1f53124a55d65bff97f30589cd810bedaaf6/> Handle archived/deleted projects
+   Previously, our cache refresh algorithm assumed that the response from
+   upstream contained all projects we wanted to do updates to. Wayfair
+   correctly reported this breaking their opportunity to archive/delete
+   projects, since the cache would still contain deleted projects.
+   
+   This patch updates Edge to use the projects the token has access to
+   decide whether or not to keep the elements in cache.
+   
+   New flow:
+   1. Fetch projects from token
+   2. Filter out all features belonging to these projects
+   3. Extend remaining list with update from response
+   4. Return extended list.
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 1 unique issue was worked on: [#324](https://github.com/Unleash/unleash-edge/issues/324)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#324](https://github.com/Unleash/unleash-edge/issues/324)**
+    - Handle archived/deleted projects ([`5ddd1f5`](https://github.com/Unleash/unleash-edge/commit/5ddd1f53124a55d65bff97f30589cd810bedaaf6))
+ * **Uncategorized**
+    - prepare for 16.0.1 release ([`fc5ded0`](https://github.com/Unleash/unleash-edge/commit/fc5ded0a1398e21d7fe17c1277fcf6af4f5d15e1))
+</details>
+
 ## 16.0.0 (2023-11-01)
+
+<csr-id-fbd72a8bc8b64b388fc4fe0fc1de61bf5ff59b7f/>
 
 ### Chore
 
@@ -19,7 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 2 commits contributed to the release.
+ - 3 commits contributed to the release.
  - 1 day passed between releases.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#322](https://github.com/Unleash/unleash-edge/issues/322)
@@ -33,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#322](https://github.com/Unleash/unleash-edge/issues/322)**
     - Add support for setting log format at startup ([`d27b81d`](https://github.com/Unleash/unleash-edge/commit/d27b81d2cdb7a7f7ea049a7e96c7b79bdabdbfe5))
  * **Uncategorized**
+    - Release unleash-edge v16.0.0 ([`fe761a2`](https://github.com/Unleash/unleash-edge/commit/fe761a2e10ab2f7ddba50d40afbd06923abc4b39))
     - prepare for release ([`fbd72a8`](https://github.com/Unleash/unleash-edge/commit/fbd72a8bc8b64b388fc4fe0fc1de61bf5ff59b7f))
 </details>
 
