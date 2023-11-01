@@ -218,6 +218,13 @@ pub struct ReadyCheckArgs {
     pub ca_certificate_file: Option<PathBuf>,
 }
 
+#[derive(Debug, Clone, ValueEnum)]
+pub enum LogFormat {
+    Plain,
+    Json,
+    Pretty,
+}
+
 #[derive(Parser, Debug, Clone)]
 pub struct CliArgs {
     #[clap(flatten)]
@@ -248,6 +255,10 @@ pub struct CliArgs {
     /// Timeout for requests to Edge
     #[clap(long, env, default_value_t = 5)]
     pub edge_request_timeout: u64,
+
+    /// Which log format should Edge use
+    #[clap(short, long, env, global = true, value_enum, default_value_t = LogFormat::Plain)]
+    pub log_format: LogFormat,
 }
 
 #[derive(Args, Debug, Clone)]

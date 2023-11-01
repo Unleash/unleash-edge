@@ -44,10 +44,7 @@ pub async fn check_ready(ready_check_args: ReadyCheckArgs) -> Result<(), EdgeErr
             ))
         })?;
         match ready_check_result.status {
-            Status::Ready => {
-                println!("OK");
-                Ok(())
-            }
+            Status::Ready => Ok(()),
             _ => Err(EdgeError::ReadyCheckError(format!(
                 "Ready check returned a different status than READY. It returned {:?}",
                 ready_check_result

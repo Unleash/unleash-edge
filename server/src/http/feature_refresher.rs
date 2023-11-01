@@ -1163,7 +1163,6 @@ mod tests {
         upstream_features_cache.insert(cache_key.clone(), empty_features);
 
         feature_refresher.refresh_features().await;
-        println!("{:#?}", features_cache.get(&cache_key).unwrap().features);
         // Since our response was empty, our theory is that there should be no features here now.
         assert!(!features_cache
             .get(&cache_key)
