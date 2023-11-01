@@ -949,24 +949,4 @@ mod tests {
         );
         assert!(client.is_ok());
     }
-
-    /* #[tokio::test]
-    pub async fn can_make_ssl_request() {
-        let root_cert = "./testdata/tls/certs/cacert.pem";
-        let key = "./testdata/client_certs/client.key.pem";
-        let cert = "./testdata/client_certs/client.cert.pem";
-        let identity = ClientTls {
-            pkcs8_client_certificate_file: Some(cert.into()),
-            pkcs8_client_key_file: Some(key.into()),
-            pkcs12_identity_file: None,
-            pkcs12_passphrase: None,
-            upstream_certificate_file: Some(root_cert.into()),
-        };
-        let client = new_reqwest_client("test_pkcs8".into(), false, Some(identity));
-        assert!(client.is_ok());
-        let actual_client = client.unwrap();
-        let res = actual_client.get("https://localhost:4433").send().await;
-        println!("{res:?}");
-        assert!(res.is_ok());
-    }*/
 }

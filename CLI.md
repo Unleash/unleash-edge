@@ -45,7 +45,7 @@ This document contains the help content for the `unleash-edge` command-line prog
   Default value: `3043`
 * `--instance-id <INSTANCE_ID>` — Instance id. Used for metrics reporting
 
-  Default value: `01HAM0JMKDMZZP0HXNT8K1J6FW`
+  Default value: `01HE51VN5SQBAWR5Q93NAESEPW`
 * `-a`, `--app-name <APP_NAME>` — App name. Used for metrics reporting
 
   Default value: `unleash-edge`
@@ -58,6 +58,12 @@ This document contains the help content for the `unleash-edge` command-line prog
 * `--edge-request-timeout <EDGE_REQUEST_TIMEOUT>` — Timeout for requests to Edge
 
   Default value: `5`
+* `-l`, `--log-format <LOG_FORMAT>` — Which log format should Edge use
+
+  Default value: `plain`
+
+  Possible values: `plain`, `json`, `pretty`
+
 
 
 

@@ -48,7 +48,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let request_timeout = args.edge_request_timeout;
     let trust_proxy = args.clone().trust_proxy;
     let base_path = http_args.base_path.clone();
-    let (metrics_handler, request_metrics) = prom_metrics::instantiate(None);
+    let (metrics_handler, request_metrics) = prom_metrics::instantiate(None, &args.log_format);
     let connect_via = ConnectVia {
         app_name: args.clone().app_name,
         instance_id: args.clone().instance_id,

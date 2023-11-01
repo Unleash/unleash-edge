@@ -1,3 +1,4 @@
+use crate::cli::LogFormat;
 use opentelemetry_sdk::metrics::MeterProvider;
 #[cfg(target_os = "linux")]
 use prometheus::process_collector::ProcessCollector;
@@ -9,20 +10,34 @@ use crate::metrics::actix_web_metrics::{
     PrometheusMetricsHandler, RequestMetrics, RequestMetricsBuilder,
 };
 
-fn instantiate_tracing_and_logging() {
-    let logger = tracing_subscriber::fmt::layer();
+fn instantiate_tracing_and_logging(log_format: &LogFormat) {
     let env_filter = EnvFilter::try_from_default_env()
         .or_else(|_| EnvFilter::try_new("info"))
         .unwrap();
-    let collector = Registry::default().with(logger).with(env_filter);
-    // Initialize tracing
-    tracing::subscriber::set_global_default(collector).unwrap();
+    match log_format {
+        LogFormat::Plain => {
+            let logger = tracing_subscriber::fmt::layer();
+            let collector = Registry::default().with(logger).with(env_filter);
+            tracing::subscriber::set_global_default(collector).unwrap();
+        }
+        LogFormat::Json => {
+            let logger = tracing_subscriber::fmt::layer().json();
+            let collector = Registry::default().with(logger).with(env_filter);
+            tracing::subscriber::set_global_default(collector).unwrap();
+        }
+        LogFormat::Pretty => {
+            let logger = tracing_subscriber::fmt::layer().pretty();
+            let collector = Registry::default().with(logger).with(env_filter);
+            tracing::subscriber::set_global_default(collector).unwrap();
+        }
+    };
 }
 
 pub fn instantiate(
     registry: Option<prometheus::Registry>,
+    log_format: &LogFormat,
 ) -> (PrometheusMetricsHandler, RequestMetrics) {
-    instantiate_tracing_and_logging();
+    instantiate_tracing_and_logging(log_format);
     let registry = registry.unwrap_or_else(instantiate_registry);
     register_custom_metrics(&registry);
     instantiate_prometheus_metrics_handler(registry)
