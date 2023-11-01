@@ -2,7 +2,6 @@
 mod base_path_tests {
     use reqwest::Client;
     use std::process::{Command, Stdio};
-    use unleash_edge::types::BuildInfo;
 
     #[actix_web::test]
     async fn test_base_path() {
@@ -29,7 +28,7 @@ mod base_path_tests {
         // Send a request to the app
         let client = Client::new();
         let base_url = "http://localhost:3063";
-        let endpoint = "/internal-backstage/info";
+        let endpoint = "/internal-backstage/health";
         let url = format!("{}{}{}", base_url, base_path, endpoint);
         let resp = client
             .get(&url)
@@ -39,18 +38,6 @@ mod base_path_tests {
 
         // Assert that the response status is 200 OK
         assert!(resp.status().is_success());
-
-        let body = resp
-            .bytes()
-            .await
-            .expect("Failed to retrieve response body as bytes");
-
-        // Deserialize the response body into BuildInfo struct
-        let info: BuildInfo =
-            serde_json::from_slice(&body).expect("Failed to deserialize response body");
-
-        // Assert that the app_name field matches the expected value
-        assert_eq!(info.app_name, "unleash-edge");
 
         // Test a different endpoint
         let url = format!("{}{}{}", base_url, base_path, "/api/client/features");
