@@ -37,8 +37,13 @@ fn frontend_token_is_covered_by_tokens(
     })
 }
 
-fn update_client_features(old: &ClientFeatures, update: &ClientFeatures) -> ClientFeatures {
-    let mut updated_features = update_projects_from_feature_update(&old.features, &update.features);
+fn update_client_features(
+    token: &EdgeToken,
+    old: &ClientFeatures,
+    update: &ClientFeatures,
+) -> ClientFeatures {
+    let mut updated_features =
+        update_projects_from_feature_update(token, &old.features, &update.features);
     updated_features.sort();
     let segments = merge_segments_update(old.segments.clone(), update.segments.clone());
     ClientFeatures {
@@ -67,16 +72,14 @@ fn merge_segments_update(
     }
 }
 fn update_projects_from_feature_update(
+    token: &EdgeToken,
     original: &[ClientFeature],
     updated: &[ClientFeature],
 ) -> Vec<ClientFeature> {
     if updated.is_empty() {
         vec![]
     } else {
-        let projects_to_update: HashSet<String> = updated
-            .iter()
-            .map(|toggle| toggle.project.clone().unwrap_or_else(|| "default".into()))
-            .collect();
+        let projects_to_update = &token.projects;
         let mut to_keep: Vec<ClientFeature> = original
             .iter()
             .filter(|toggle| {
@@ -336,7 +339,8 @@ impl FeatureRefresher {
                     self.features_cache
                         .entry(key.clone())
                         .and_modify(|existing_data| {
-                            let updated_data = update_client_features(existing_data, &features);
+                            let updated_data =
+                                update_client_features(&refresh.token, existing_data, &features);
                             *existing_data = updated_data;
                         })
                         .or_insert_with(|| features.clone());
@@ -432,8 +436,8 @@ mod tests {
     use crate::filters::{project_filter, FeatureFilterSet};
     use crate::tests::features_from_disk;
     use crate::tokens::cache_key;
-    use crate::types::TokenType;
     use crate::types::TokenValidationStatus::Validated;
+    use crate::types::{TokenType, TokenValidationStatus};
     use crate::{
         http::unleash_client::UnleashClient,
         types::{EdgeToken, TokenRefresh},
@@ -1183,7 +1187,11 @@ mod tests {
             .cloned()
             .collect();
         dx_data.remove(0);
-        let updated = super::update_projects_from_feature_update(&features, &dx_data);
+        let mut token = EdgeToken::from_str("[]:development.somesecret").unwrap();
+        token.status = TokenValidationStatus::Validated;
+        token.projects = vec![String::from("dx")];
+
+        let updated = super::update_projects_from_feature_update(&token, &features, &dx_data);
         assert_ne!(
             features
                 .iter()
@@ -1222,7 +1230,58 @@ mod tests {
             .collect();
         eg_data.remove(0);
         dx_data.extend(eg_data);
-        let update = super::update_projects_from_feature_update(&features, &dx_data);
+        let edge_token = EdgeToken {
+            token: "".to_string(),
+            token_type: Some(TokenType::Client),
+            environment: None,
+            projects: vec![String::from("dx"), String::from("eg")],
+            status: TokenValidationStatus::Validated,
+        };
+        let update = super::update_projects_from_feature_update(&edge_token, &features, &dx_data);
         assert_eq!(features.len() - update.len(), 2); // We've removed two elements
+    }
+
+    #[test]
+    pub fn if_project_is_removed_but_token_has_access_to_project_update_should_remove_cached_project(
+    ) {
+        let features = features_from_disk("../examples/hostedexample.json").features;
+        let edge_token = EdgeToken {
+            token: "".to_string(),
+            token_type: Some(TokenType::Client),
+            environment: None,
+            projects: vec![String::from("dx"), String::from("eg")],
+            status: TokenValidationStatus::Validated,
+        };
+        let eg_data: Vec<ClientFeature> = features
+            .iter()
+            .filter(|f| f.project == Some("eg".into()))
+            .cloned()
+            .collect();
+        let update = super::update_projects_from_feature_update(&edge_token, &features, &eg_data);
+        assert!(!update.iter().any(|p| p.project == Some(String::from("dx"))));
+    }
+    #[test]
+    pub fn if_token_does_not_have_access_to_project_no_update_happens_to_project() {
+        let features = features_from_disk("../examples/hostedexample.json").features;
+        let edge_token = EdgeToken {
+            token: "".to_string(),
+            token_type: Some(TokenType::Client),
+            environment: None,
+            projects: vec![String::from("dx"), String::from("eg")],
+            status: TokenValidationStatus::Validated,
+        };
+        let eg_data: Vec<ClientFeature> = features
+            .iter()
+            .filter(|f| f.project == Some("eg".into()))
+            .cloned()
+            .collect();
+        let update = super::update_projects_from_feature_update(&edge_token, &features, &eg_data);
+        assert_eq!(
+            update
+                .iter()
+                .filter(|p| p.project == Some(String::from("unleash-cloud")))
+                .count(),
+            1
+        );
     }
 }
