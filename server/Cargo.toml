@@ -35,7 +35,7 @@ iter_tools = "0.4.0"
 itertools = "0.11.0"
 lazy_static = "1.4.0"
 num_cpus = "1.16.0"
-opentelemetry = { version = "0.20.0", features = [
+opentelemetry = { version = "0.21.0", features = [
   "trace",
   "rt-tokio",
   "metrics",
