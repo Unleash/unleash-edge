@@ -168,9 +168,9 @@ This means that, in order to start up, Edge mode needs to know where the upstrea
 
 By default, Edge mode uses an in-memory cache to store the features it fetches from the upstream node. However, you may want to use a more persistent storage solution. For this purpose, Edge supports either Redis or a backup file, which you can configure by passing in either the `--redis-url` or `--backup_folder` command line argument, respectively. On start-up, Edge checks whether the persistent backup option is specified, in which case it uses it to populate its internal caches. This can be useful when your Unleash server is unreachable.
 
-Persistent storage is useful for high availability and resilience. If Edge using persistent storage is restarted, it will not have to synchronize with upstream before it is ready. Persistent storage is only read on start-up and valid until Edge is able to synchronize with upstream. This makes it so there is no need for purging cache. After Edge is synchronized with upstream it will periodically save its in-memory state to the persistent storage.
+Persistent storage is useful for high availability and resilience. If an Edge instance using persistent storage is restarted, it will not have to synchronize with upstream before it is ready. The persistent storage is only read on startup and will only be used until Edge is able to synchronize with upstream. Because of this, there is no need to purge the cache. After Edge has synchronized with an upstream, it will periodically save its in-memory state to the persistent storage.
 
-Multiple Edge nodes can share the same Redis instance or backup folder. Failure to read from persistent storage will not prevent Edge from starting up. It will delay it until Edge is able to connect with upstream.
+Multiple Edge nodes can share the same Redis instance or backup folder. Failure to read from persistent storage will not prevent Edge from starting up. In this case an Edge instance will be ready only after it is able to connect with upstream.
 
 Edge mode also supports dynamic tokens, meaning that Edge doesn't need a token to be provided when starting up. Once we make a request to the `/api/client/features` endpoint using a [client token](https://docs.getunleash.io/reference/api-tokens-and-client-keys#client-tokens) Edge will validate upstream and fetch its respective features. After that, it gets added to the list of known tokens that gets periodically synced, making sure it is a valid token and its features are up-to-date.
 
@@ -381,11 +381,13 @@ However, there are a few notable differences between the Unleash Proxy and Unlea
 
 ## Debugging
 
-You can adjust environment variable `RUST_LOG` to see more verbose log output, for example:
+You can adjust environment variable `RUST_LOG` to see more verbose log output. For example raising default log level from `error` to `warning` and to `debug` for logs originating directly from Edge (not it's dependencies) can be done with the following value:
 
 ```sh
 RUST_LOG="warn,unleash-edge=debug" ./unleash-edge #<command>
 ```
+
+See more about available logging and log levels at https://docs.rs/env_logger/latest/env_logger/#enabling-logging
 
 ## Development
 
