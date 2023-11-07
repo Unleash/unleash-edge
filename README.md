@@ -381,7 +381,7 @@ However, there are a few notable differences between the Unleash Proxy and Unlea
 
 ## Debugging
 
-You can adjust environment variable `RUST_LOG` to see more verbose log output. For example raising default log level from `error` to `warning` and to `debug` for logs originating directly from Edge (not it's dependencies) can be done with the following value:
+You can adjust the `RUST_LOG` environment variable to see more verbose log output. For example, in order to get logs originating directly from Edge but not its dependencies, you can raise the default log level from `error` to `warning` and set Edge to `debug`, like this:
 
 ```sh
 RUST_LOG="warn,unleash-edge=debug" ./unleash-edge #<command>
