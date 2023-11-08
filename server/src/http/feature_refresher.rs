@@ -4,8 +4,6 @@ use std::{sync::Arc, time::Duration};
 use actix_web::http::header::EntityTag;
 use chrono::Utc;
 use dashmap::DashMap;
-use itertools::Itertools;
-use tracing::log::trace;
 use tracing::{debug, warn};
 use unleash_types::client_features::Segment;
 use unleash_types::client_metrics::ClientApplication;
@@ -325,11 +323,6 @@ impl FeatureRefresher {
                 etag: refresh.etag,
             })
             .await;
-
-        trace!(
-            "Made a request to unleash for features and received the following: {:#?}",
-            features_result
-        );
 
         match features_result {
             Ok(feature_response) => match feature_response {
