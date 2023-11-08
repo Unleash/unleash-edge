@@ -1330,5 +1330,6 @@ mod tests {
             .collect();
         let updated = super::update_projects_from_feature_update(&edge_token, &features, &update);
         assert_eq!(updated.len(), 1);
+        assert!(updated.iter().all(|f| f.project == Some("default".into())))
     }
 }
