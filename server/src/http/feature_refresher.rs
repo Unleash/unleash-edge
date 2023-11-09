@@ -4,7 +4,6 @@ use std::{sync::Arc, time::Duration};
 use actix_web::http::header::EntityTag;
 use chrono::Utc;
 use dashmap::DashMap;
-use tracing::log::trace;
 use tracing::{debug, warn};
 use unleash_types::client_features::Segment;
 use unleash_types::client_metrics::ClientApplication;
@@ -80,16 +79,20 @@ fn update_projects_from_feature_update(
         vec![]
     } else {
         let projects_to_update = &token.projects;
-        let mut to_keep: Vec<ClientFeature> = original
-            .iter()
-            .filter(|toggle| {
-                let p = toggle.project.clone().unwrap_or_else(|| "default".into());
-                !projects_to_update.contains(&p)
-            })
-            .cloned()
-            .collect();
-        to_keep.extend(updated.iter().cloned());
-        to_keep
+        if projects_to_update.contains(&"*".into()) {
+            updated.into()
+        } else {
+            let mut to_keep: Vec<ClientFeature> = original
+                .iter()
+                .filter(|toggle| {
+                    let p = toggle.project.clone().unwrap_or_else(|| "default".into());
+                    !projects_to_update.contains(&p)
+                })
+                .cloned()
+                .collect();
+            to_keep.extend(updated.iter().cloned());
+            to_keep
+        }
     }
 }
 
@@ -320,11 +323,6 @@ impl FeatureRefresher {
                 etag: refresh.etag,
             })
             .await;
-
-        trace!(
-            "Made a request to unleash for features and received the following: {:#?}",
-            features_result
-        );
 
         match features_result {
             Ok(feature_response) => match feature_response {
@@ -1283,5 +1281,55 @@ mod tests {
                 .count(),
             1
         );
+    }
+
+    #[test]
+    pub fn if_token_is_wildcard_our_entire_cache_is_replaced_by_update() {
+        let features = vec![
+            ClientFeature {
+                name: "my.first.toggle.in.default".to_string(),
+                feature_type: Some("release".into()),
+                description: None,
+                created_at: None,
+                last_seen_at: None,
+                enabled: true,
+                stale: None,
+                impression_data: None,
+                project: Some("default".into()),
+                strategies: None,
+                variants: None,
+                dependencies: None,
+            },
+            ClientFeature {
+                name: "my.second.toggle.in.testproject".to_string(),
+                feature_type: Some("release".into()),
+                description: None,
+                created_at: None,
+                last_seen_at: None,
+                enabled: false,
+                stale: None,
+                impression_data: None,
+                project: Some("testproject".into()),
+                strategies: None,
+                variants: None,
+                dependencies: None,
+            },
+        ];
+        let edge_token = EdgeToken {
+            token: "".to_string(),
+            token_type: Some(TokenType::Client),
+            environment: None,
+            projects: vec![String::from("*")],
+            status: TokenValidationStatus::Validated,
+        };
+        let update: Vec<ClientFeature> = features
+            .clone()
+            .iter()
+            .filter(|t| t.project == Some("default".into()))
+            .cloned()
+            .collect();
+        let updated = super::update_projects_from_feature_update(&edge_token, &features, &update);
+        assert_eq!(updated.len(), 1);
+        assert!(updated.iter().all(|f| f.project == Some("default".into())))
     }
 }
