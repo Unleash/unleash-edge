@@ -42,7 +42,7 @@ opentelemetry = { version = "0.20.0", features = [
 ] }
 opentelemetry-prometheus = "0.13.0"
 opentelemetry-semantic-conventions = "0.12.0"
-opentelemetry_sdk = { version = "0.20.0", features = [
+opentelemetry_sdk = { version = "0.21.1", features = [
   "metrics",
   "serde",
   "serde_json",
