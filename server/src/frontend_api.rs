@@ -168,7 +168,7 @@ fn post_all_features(
     let engine = engine_cache.get(&key).ok_or_else(|| {
         EdgeError::FrontendNotYetHydrated(FrontendHydrationMissing::from(&edge_token))
     })?;
-    let feature_results = engine.resolve_all(&context_with_ip).unwrap();
+    let feature_results = engine.resolve_all(&context_with_ip, &None).unwrap();
     Ok(Json(frontend_from_yggdrasil(feature_results, true, &token)))
 }
 
@@ -256,7 +256,7 @@ fn get_enabled_features(
     let engine = engine_cache.get(&key).ok_or_else(|| {
         EdgeError::FrontendNotYetHydrated(FrontendHydrationMissing::from(&edge_token))
     })?;
-    let feature_results = engine.resolve_all(&context_with_ip).unwrap();
+    let feature_results = engine.resolve_all(&context_with_ip, &None).unwrap();
     Ok(Json(frontend_from_yggdrasil(
         feature_results,
         false,
@@ -405,7 +405,7 @@ pub fn evaluate_feature(
         .clone();
     engine_cache
         .get(&cache_key(&validated_token))
-        .and_then(|engine| engine.resolve(&feature_name, &context_with_ip))
+        .and_then(|engine| engine.resolve(&feature_name, &context_with_ip, &None))
         .and_then(|resolved_toggle| {
             if validated_token.projects.contains(&"*".into())
                 || validated_token.projects.contains(&resolved_toggle.project)
@@ -453,7 +453,7 @@ async fn post_enabled_features(
         .ok_or_else(|| {
             EdgeError::FrontendNotYetHydrated(FrontendHydrationMissing::from(&edge_token))
         })?;
-    let feature_results = engine.resolve_all(&context_with_ip).unwrap();
+    let feature_results = engine.resolve_all(&context_with_ip, &None).unwrap();
     Ok(Json(frontend_from_yggdrasil(
         feature_results,
         false,
@@ -696,7 +696,7 @@ pub fn get_all_features(
     let engine = engine_cache.get(&key).ok_or_else(|| {
         EdgeError::FrontendNotYetHydrated(FrontendHydrationMissing::from(&edge_token))
     })?;
-    let feature_results = engine.resolve_all(&context_with_ip).unwrap();
+    let feature_results = engine.resolve_all(&context_with_ip, &None).unwrap();
     Ok(Json(frontend_from_yggdrasil(feature_results, true, &token)))
 }
 
