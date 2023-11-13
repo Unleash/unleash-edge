@@ -46,7 +46,7 @@ pub fn instantiate(
 fn instantiate_prometheus_metrics_handler(
     registry: prometheus::Registry,
 ) -> (PrometheusMetricsHandler, RequestMetrics) {
-    let resource = opentelemetry::sdk::Resource::new(vec![
+    let resource = opentelemetry_sdk::Resource::new(vec![
         opentelemetry::KeyValue::new("service.name", "unleash-edge"),
         opentelemetry::KeyValue::new("edge.version", crate::types::build::PKG_VERSION),
         opentelemetry::KeyValue::new("edge.githash", crate::types::build::SHORT_COMMIT),
