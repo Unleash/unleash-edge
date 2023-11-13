@@ -3053,7 +3053,7 @@ checksum = "f962df74c8c05a667b5ee8bcf162993134c104e96440b663c8daa176dc772d8c"
 
 [[package]]
 name = "unleash-edge"
-version = "16.0.2"
+version = "16.0.3"
 dependencies = [
  "actix-cors",
  "actix-http",
