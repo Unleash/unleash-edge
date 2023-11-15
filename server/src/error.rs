@@ -15,7 +15,7 @@ pub const TRUST_PROXY_PARSE_ERROR: &str =
 pub enum FeatureError {
     AccessDenied,
     NotFound,
-    Retriable,
+    Retriable(StatusCode),
 }
 
 #[derive(Debug, Serialize)]
@@ -89,6 +89,7 @@ pub enum EdgeError {
     AuthorizationDenied,
     AuthorizationPending,
     ClientBuildError(String),
+    ClientCacheError,
     ClientCertificateError(CertificateError),
     ClientFeaturesFetchError(FeatureError),
     ClientFeaturesParseError(String),
@@ -131,7 +132,10 @@ impl Display for EdgeError {
             EdgeError::PersistenceError(msg) => write!(f, "{msg}"),
             EdgeError::JsonParseError(msg) => write!(f, "{msg}"),
             EdgeError::ClientFeaturesFetchError(fe) => match fe {
-                FeatureError::Retriable => write!(f, "Could not fetch client features. Will retry"),
+                FeatureError::Retriable(status_code) => write!(
+                    f,
+                    "Could not fetch client features. Will retry {status_code}"
+                ),
                 FeatureError::AccessDenied => write!(
                     f,
                     "Could not fetch client features because api key was not allowed"
@@ -196,6 +200,9 @@ impl Display for EdgeError {
                     "Client hydration failed. Somehow we said [{message}] when it did"
                 )
             }
+            EdgeError::ClientCacheError => {
+                write!(f, "Fetching client features from cache failed")
+            }
         }
     }
 }
@@ -230,6 +237,7 @@ impl ResponseError for EdgeError {
             EdgeError::HealthCheckError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::ReadyCheckError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::ClientHydrationFailed(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            EdgeError::ClientCacheError => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 

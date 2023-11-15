@@ -1,4 +1,4 @@
-use crate::error::{EdgeError, FeatureError};
+use crate::error::EdgeError;
 use crate::filters::{
     filter_client_features, name_match_filter, name_prefix_filter, project_filter, FeatureFilterSet,
 };
@@ -94,7 +94,7 @@ async fn resolve_features(
         None => features_cache
             .get(&cache_key(&validated_token))
             .map(|client_features| filter_client_features(&client_features, &filter_set))
-            .ok_or(EdgeError::ClientFeaturesFetchError(FeatureError::Retriable)),
+            .ok_or(EdgeError::ClientCacheError),
     }?;
 
     Ok(Json(ClientFeatures {
@@ -140,7 +140,7 @@ pub async fn get_feature(
         None => features_cache
             .get(&cache_key(&validated_token))
             .map(|client_features| filter_client_features(&client_features, &filter_set))
-            .ok_or(EdgeError::ClientFeaturesFetchError(FeatureError::Retriable)),
+            .ok_or(EdgeError::ClientCacheError),
     }
     .map(|client_features| client_features.features.into_iter().next())?
     .ok_or(EdgeError::FeatureNotFound(feature_name.into_inner()))

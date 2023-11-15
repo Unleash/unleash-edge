@@ -4,7 +4,8 @@ use std::{sync::Arc, time::Duration};
 use actix_web::http::header::EntityTag;
 use chrono::Utc;
 use dashmap::DashMap;
-use tracing::{debug, warn};
+use reqwest::StatusCode;
+use tracing::{debug, info, warn};
 use unleash_types::client_features::Segment;
 use unleash_types::client_metrics::ClientApplication;
 use unleash_types::{
@@ -167,8 +168,8 @@ impl FeatureRefresher {
             .map(|e| e.value().clone())
             .filter(|token| {
                 token
-                    .last_check
-                    .map(|last| Utc::now() - last > self.refresh_interval)
+                    .next_refresh
+                    .map(|refresh| Utc::now() > refresh)
                     .unwrap_or(true)
             })
             .collect()
@@ -362,9 +363,22 @@ impl FeatureRefresher {
                 match e {
                     EdgeError::ClientFeaturesFetchError(fe) => {
                         match fe {
-                            FeatureError::Retriable => {
-                                warn!("Couldn't refresh features, but will retry next go")
-                            }
+                            FeatureError::Retriable(status_code) => match status_code {
+                                StatusCode::INTERNAL_SERVER_ERROR
+                                | StatusCode::BAD_GATEWAY
+                                | StatusCode::SERVICE_UNAVAILABLE
+                                | StatusCode::GATEWAY_TIMEOUT => {
+                                    info!("Upstream is having some problems, increasing my waiting period");
+                                    self.backoff(&refresh.token);
+                                }
+                                StatusCode::TOO_MANY_REQUESTS => {
+                                    info!("Got told that upstream is receiving too many requests");
+                                    self.backoff(&refresh.token);
+                                }
+                                _ => {
+                                    warn!("Couldn't refresh features, but will retry next go")
+                                }
+                            },
                             FeatureError::AccessDenied => {
                                 warn!("Token used to fetch features was Forbidden, will remove from list of refresh tasks");
                                 self.tokens_to_refresh.remove(&refresh.token.token);
@@ -391,25 +405,31 @@ impl FeatureRefresher {
                             }
                         }
                     }
+                    EdgeError::ClientCacheError => {
+                        warn!("Couldn't refresh features, but will retry next go")
+                    }
                     _ => warn!("Couldn't refresh features: {e:?}. Will retry next pass"),
                 }
             }
         }
     }
-
+    pub fn backoff(&self, token: &EdgeToken) {
+        self.tokens_to_refresh
+            .alter(&token.token, |_k, old_refresh| {
+                old_refresh.backoff(&self.refresh_interval)
+            });
+    }
     pub fn update_last_check(&self, token: &EdgeToken) {
-        if let Some(mut token) = self.tokens_to_refresh.get_mut(&token.token) {
-            token.last_check = Some(Utc::now());
-        }
+        self.tokens_to_refresh
+            .alter(&token.token, |_k, old_refresh| {
+                old_refresh.successful_check(&self.refresh_interval)
+            });
     }
 
     pub fn update_last_refresh(&self, token: &EdgeToken, etag: Option<EntityTag>) {
         self.tokens_to_refresh
-            .entry(token.token.clone())
-            .and_modify(|token_to_refresh| {
-                token_to_refresh.last_check = Some(Utc::now());
-                token_to_refresh.last_refreshed = Some(Utc::now());
-                token_to_refresh.etag = etag
+            .alter(&token.token, |_k, old_refresh| {
+                old_refresh.successful_refresh(&self.refresh_interval, etag)
             });
     }
 }
@@ -768,8 +788,10 @@ mod tests {
         let no_etag_so_is_due_for_refresh = TokenRefresh {
             token: no_etag_due_for_refresh_token,
             etag: None,
+            next_refresh: None,
             last_refreshed: None,
             last_check: None,
+            failure_count: 0,
         };
         let etag_and_last_refreshed_token =
             EdgeToken::try_from("projectb:development.etag_and_last_refreshed_token".to_string())
@@ -777,8 +799,10 @@ mod tests {
         let etag_and_last_refreshed_less_than_duration_ago = TokenRefresh {
             token: etag_and_last_refreshed_token,
             etag: Some(EntityTag::new_weak("abcde".into())),
+            next_refresh: Some(Utc::now() + Duration::seconds(10)),
             last_refreshed: Some(Utc::now()),
             last_check: Some(Utc::now()),
+            failure_count: 0,
         };
         let etag_but_old_token =
             EdgeToken::try_from("projectb:development.etag_but_old_token".to_string()).unwrap();
@@ -787,8 +811,10 @@ mod tests {
         let etag_but_last_refreshed_ten_seconds_ago = TokenRefresh {
             token: etag_but_old_token,
             etag: Some(EntityTag::new_weak("abcde".into())),
+            next_refresh: None,
             last_refreshed: Some(ten_seconds_ago),
             last_check: Some(ten_seconds_ago),
+            failure_count: 0,
         };
         feature_refresher.tokens_to_refresh.insert(
             etag_but_last_refreshed_ten_seconds_ago.token.token.clone(),
@@ -1110,8 +1136,10 @@ mod tests {
         let token_refresh = TokenRefresh {
             token: wildcard_token.clone(),
             etag: None,
+            next_refresh: None,
             last_refreshed: None,
             last_check: None,
+            failure_count: 0,
         };
 
         current_tokens.insert(wildcard_token.token, token_refresh);
