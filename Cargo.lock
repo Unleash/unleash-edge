@@ -111,9 +111,9 @@ dependencies = [
 
 [[package]]
 name = "actix-middleware-etag"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2fd852a334e1a592c2decb06e3fa4e90d2fbaac5dfe3d94b46b3f911d314d047"
+checksum = "02a8110b54d16d1ebb90216f2bd6f1800fbcedbda190ee6759e255b022b2341a"
 dependencies = [
  "actix-service",
  "actix-web",
@@ -447,9 +447,9 @@ dependencies = [
 
 [[package]]
 name = "base64"
-version = "0.21.4"
+version = "0.21.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ba43ea6f343b788c8764558649e08df62f86c6ef251fdaeb1ffd010a9ae50a2"
+checksum = "35636a1494ede3b646cc98f74f8e62c773a38a659ebc777a2cf26b9b74171df9"
 
 [[package]]
 name = "bitflags"
@@ -3045,7 +3045,7 @@ checksum = "f962df74c8c05a667b5ee8bcf162993134c104e96440b663c8daa176dc772d8c"
 
 [[package]]
 name = "unleash-edge"
-version = "16.0.3"
+version = "16.0.4"
 dependencies = [
  "actix-cors",
  "actix-http",
