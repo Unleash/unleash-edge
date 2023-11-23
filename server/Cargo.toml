@@ -12,7 +12,7 @@ homepage = "https://github.com/Unleash/unleash-edge"
 license = "MIT"
 name = "unleash-edge"
 repository = "https://github.com/Unleash/unleash-edge"
-version = "16.0.3"
+version = "16.0.4"
 
 [dependencies]
 actix-cors = "0.6.4"
@@ -26,27 +26,25 @@ anyhow = "1.0.75"
 async-trait = "0.1.74"
 chrono = { version = "0.4.31", features = ["serde"] }
 cidr = "0.2.2"
-clap = { version = "4.4.7", features = ["derive", "env"] }
+clap = { version = "4.4.8", features = ["derive", "env"] }
 clap-markdown = "0.1.3"
 dashmap = "5.5.3"
 futures = "0.3.29"
 futures-core = "0.3.29"
 iter_tools = "0.4.0"
-itertools = "0.11.0"
+itertools = "0.12.0"
 lazy_static = "1.4.0"
 num_cpus = "1.16.0"
-opentelemetry = { version = "0.20.0", features = [
+opentelemetry = { version = "0.21.0", features = [
   "trace",
-  "rt-tokio",
   "metrics",
 ] }
-opentelemetry-prometheus = "0.13.0"
-opentelemetry-semantic-conventions = "0.12.0"
-opentelemetry_sdk = { version = "0.20.0", features = [
+opentelemetry-prometheus = "0.14.1"
+opentelemetry-semantic-conventions = "0.13.0"
+opentelemetry_sdk = { version = "0.21.1", features = [
   "metrics",
   "serde",
   "serde_json",
-  "rt-tokio-current-thread",
   "logs",
 ] }
 prometheus = { version = "0.13.3", features = ["process"] }
@@ -60,29 +58,29 @@ reqwest = { version = "0.11.22", default-features = false, features = [
   "native-tls",
 ] }
 rustls = "0.21.8"
-rustls-pemfile = "1.0.3"
-serde = { version = "1.0.190", features = ["derive"] }
+rustls-pemfile = "1.0.4"
+serde = { version = "1.0.192", features = ["derive"] }
 serde_json = "1.0.108"
 serde_qs = { version = "0.12.0", features = ["actix4", "tracing"] }
 shadow-rs = "0.24.1"
-tokio = { version = "1.33.0", features = [
+tokio = { version = "1.34.0", features = [
   "macros",
   "rt-multi-thread",
   "tracing",
   "fs",
 ] }
 tracing = { version = "0.1.40", features = ["log"] }
-tracing-subscriber = { version = "0.3.17", features = ["json", "env-filter"] }
+tracing-subscriber = { version = "0.3.18", features = ["json", "env-filter"] }
 ulid = "1.1.0"
 unleash-types = { version = "0.10", features = ["openapi", "hashes"] }
 unleash-yggdrasil = { version = "0.8.0" }
-utoipa = { version = "4", features = ["actix_extras", "chrono"] }
+utoipa = { version = "4.1.0", features = ["actix_extras", "chrono"] }
 utoipa-swagger-ui = { version = "4", features = ["actix-web"] }
 [dev-dependencies]
 actix-http = "3.4.0"
 actix-http-test = "3.1.0"
 actix-service = "2.0.2"
-env_logger = "0.10.0"
+env_logger = "0.10.1"
 maplit = "1.0.2"
 rand = "0.8.5"
 test-case = "3.2.1"
