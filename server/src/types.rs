@@ -1,6 +1,8 @@
+use std::cmp::min;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::net::IpAddr;
+
 use std::sync::Arc;
 use std::{
     hash::{Hash, Hasher},
@@ -181,8 +183,10 @@ pub struct TokenRefresh {
         serialize_with = "serialize_entity_tag"
     )]
     pub etag: Option<EntityTag>,
+    pub next_refresh: Option<DateTime<Utc>>,
     pub last_refreshed: Option<DateTime<Utc>>,
     pub last_check: Option<DateTime<Utc>>,
+    pub failure_count: u32,
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
@@ -207,7 +211,68 @@ impl TokenRefresh {
             etag,
             last_refreshed: None,
             last_check: None,
+            next_refresh: None,
+            failure_count: 0,
         }
+    }
+
+    /// Something went wrong (but it was retriable. Increment our failure count and set last_checked and next_refresh
+    pub fn backoff(&self, refresh_interval: &Duration) -> Self {
+        let failure_count: u32 = min(self.failure_count + 1, 10);
+        let now = Utc::now();
+        let next_refresh = calculate_next_refresh(now, *refresh_interval, failure_count as u64);
+        Self {
+            failure_count,
+            next_refresh: Some(next_refresh),
+            last_check: Some(now),
+            ..self.clone()
+        }
+    }
+    /// We successfully talked to upstream, but there was no updates. Update our next_refresh, decrement our failure count and set when we last_checked
+    pub fn successful_check(&self, refresh_interval: &Duration) -> Self {
+        let failure_count = if self.failure_count > 0 {
+            self.failure_count - 1
+        } else {
+            0
+        };
+        let now = Utc::now();
+        let next_refresh = calculate_next_refresh(now, *refresh_interval, failure_count as u64);
+        Self {
+            failure_count,
+            next_refresh: Some(next_refresh),
+            last_check: Some(now),
+            ..self.clone()
+        }
+    }
+    /// We successfully talked to upstream. There were updates. Update next_refresh, last_refreshed and last_check, and decrement our failure count
+    pub fn successful_refresh(&self, refresh_interval: &Duration, etag: Option<EntityTag>) -> Self {
+        let failure_count = if self.failure_count > 0 {
+            self.failure_count - 1
+        } else {
+            0
+        };
+        let now = Utc::now();
+        let next_refresh = calculate_next_refresh(now, *refresh_interval, failure_count as u64);
+        Self {
+            failure_count,
+            next_refresh: Some(next_refresh),
+            last_refreshed: Some(now),
+            last_check: Some(now),
+            etag,
+            ..self.clone()
+        }
+    }
+}
+
+fn calculate_next_refresh(
+    now: DateTime<Utc>,
+    refresh_interval: Duration,
+    failure_count: u64,
+) -> DateTime<Utc> {
+    if failure_count == 0 {
+        now + refresh_interval
+    } else {
+        now + refresh_interval + (refresh_interval * (failure_count.try_into().unwrap_or(0)))
     }
 }
 

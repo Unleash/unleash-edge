@@ -250,8 +250,10 @@ mod tests {
                     status: TokenValidationStatus::Validated,
                 },
                 etag: Some(EntityTag::new_weak("1234".into())),
+                next_refresh: None,
                 last_refreshed: Some(Utc::now()),
                 last_check: Some(Utc::now()),
+                failure_count: 0,
             },
             TokenRefresh {
                 token: EdgeToken {
@@ -259,8 +261,10 @@ mod tests {
                     ..EdgeToken::default()
                 },
                 etag: None,
+                next_refresh: None,
                 last_refreshed: None,
                 last_check: None,
+                failure_count: 0,
             },
         ];
 

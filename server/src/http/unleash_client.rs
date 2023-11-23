@@ -349,8 +349,11 @@ impl UnleashClient {
             .send()
             .await
             .map_err(|e| {
-                warn!("Failed to fetch errors due to [{e:?}] - Will retry");
-                EdgeError::ClientFeaturesFetchError(FeatureError::Retriable)
+                warn!("Failed to fetch. Due to [{e:?}] - Will retry");
+                match e.status() {
+                    Some(s) => EdgeError::ClientFeaturesFetchError(FeatureError::Retriable(s)),
+                    None => EdgeError::ClientFeaturesFetchError(FeatureError::NotFound),
+                }
             })?;
         let stop_time = Utc::now();
         CLIENT_FEATURE_FETCH
@@ -407,7 +410,9 @@ impl UnleashClient {
             CLIENT_FEATURE_FETCH_FAILURES
                 .with_label_values(&[response.status().as_str()])
                 .inc();
-            Err(EdgeError::ClientFeaturesFetchError(FeatureError::Retriable))
+            Err(EdgeError::ClientFeaturesFetchError(
+                FeatureError::Retriable(response.status()),
+            ))
         }
     }
 

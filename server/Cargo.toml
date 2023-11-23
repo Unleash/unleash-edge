@@ -49,6 +49,7 @@ opentelemetry_sdk = { version = "0.21.1", features = [
 ] }
 prometheus = { version = "0.13.3", features = ["process"] }
 prometheus-static-metric = "0.5.1"
+rand = "0.8.5"
 redis = { version = "0.23.3", features = ["tokio-comp", "tokio-rustls-comp"] }
 reqwest = { version = "0.11.22", default-features = false, features = [
   "rustls",
