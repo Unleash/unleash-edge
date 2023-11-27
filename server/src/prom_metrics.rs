@@ -1,5 +1,7 @@
 use crate::cli::LogFormat;
+use opentelemetry::global;
 use opentelemetry_sdk::metrics::MeterProvider;
+use opentelemetry_semantic_conventions::resource::SERVICE_NAME;
 #[cfg(target_os = "linux")]
 use prometheus::process_collector::ProcessCollector;
 use tracing_subscriber::layer::SubscriberExt;
@@ -47,11 +49,19 @@ fn instantiate_prometheus_metrics_handler(
     registry: prometheus::Registry,
 ) -> (PrometheusMetricsHandler, RequestMetrics) {
     let resource = opentelemetry_sdk::Resource::new(vec![
-        opentelemetry::KeyValue::new("service.name", "unleash-edge"),
-        opentelemetry::KeyValue::new("edge.version", crate::types::build::PKG_VERSION),
-        opentelemetry::KeyValue::new("edge.githash", crate::types::build::SHORT_COMMIT),
+        opentelemetry::KeyValue::new(SERVICE_NAME, "unleash-edge"),
+        opentelemetry::KeyValue::new("edge_version", crate::types::build::PKG_VERSION),
+        opentelemetry::KeyValue::new("edge_githash", crate::types::build::SHORT_COMMIT),
     ]);
-    let provider = MeterProvider::builder().with_resource(resource).build();
+    let exporter = opentelemetry_prometheus::exporter()
+        .with_registry(registry.clone())
+        .build()
+        .expect("Failed to setup prometheus");
+    let provider = MeterProvider::builder()
+        .with_resource(resource)
+        .with_reader(exporter)
+        .build();
+    global::set_meter_provider(provider.clone());
     (
         PrometheusMetricsHandler::new(registry),
         RequestMetricsBuilder::new()
