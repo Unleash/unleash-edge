@@ -307,7 +307,7 @@ Unleash instances running on versions older than 4.22 are not able to handle the
 
 ## Compatibility
 
-Unleash Edge adheres to Semantic Versioning (SemVer) on the API and CLI layers.If you're using Unleash Edge as a library in your projects, be cautious, internal codebase changes, which might occur in any version release (including minor and patch versions), could potentially break your implementation.
+Unleash Edge adheres to Semantic Versioning (SemVer) on the API and CLI layers. If you're using Unleash Edge as a library in your projects, be cautious, internal codebase changes, which might occur in any version release (including minor and patch versions), could potentially break your implementation.
 
 ## Performance
 
