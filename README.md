@@ -90,7 +90,7 @@ Error: Failed to connect to ready endpoint at http://localhost:3063/internal-bac
 $ echo $?
 1
 ```
- 
+
 * Edge running but not populated its feature cache yet (not spoken to upstream or restored from backup)
 ```shell
 $ ./unleash-edge ready
@@ -294,7 +294,7 @@ Options:
 ```
 
 ##### Environments in offline mode
-Currently, Edge does not support multiple environments in offline mode. All tokens added at startup will receive the same list of features passed in as the bootstrap argument. 
+Currently, Edge does not support multiple environments in offline mode. All tokens added at startup will receive the same list of features passed in as the bootstrap argument.
 However, tokens in `<project>:<environment>.<secret>` format will still filter by project.
 
 ## [Metrics](https://docs.getunleash.io/reference/api/unleash/metrics)
@@ -304,6 +304,10 @@ However, tokens in `<project>:<environment>.<secret>` format will still filter b
 Since Edge is designed to avoid overloading its upstream, Edge gathers and accumulates usage metrics from SDKs for a set interval (METRICS_INTERVAL_SECONDS) before posting a batch upstream.
 This reduces load on Unleash instances down to a single call every interval, instead of every single client posting to Unleash for updating metrics.
 Unleash instances running on versions older than 4.22 are not able to handle the batch format posted by Edge, which means you won't see any metrics from clients connected to an Edge instance until you're able to update to 4.22 or newer.
+
+## Compatibility
+
+Unleash Edge adheres to Semantic Versioning (SemVer) on the API and CLI layers.If you're using Unleash Edge as a library in your projects, be cautious, internal codebase changes, which might occur in any version release (including minor and patch versions), could potentially break your implementation.
 
 ## Performance
 
