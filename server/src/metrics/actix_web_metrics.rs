@@ -273,7 +273,7 @@ impl RequestMetricsBuilder {
 /// construct meters for this crate
 fn get_versioned_meter(meter_provider: impl MeterProvider) -> Meter {
     meter_provider.versioned_meter(
-        "actix_web_opentelemetry",
+        "unleash_edge",
         Some(env!("CARGO_PKG_VERSION")),
         Some(opentelemetry_semantic_conventions::SCHEMA_URL),
         None,
@@ -384,7 +384,6 @@ where
                     timer.elapsed().map(|t| t.as_secs_f64()).unwrap_or_default(),
                     &attributes,
                 );
-
                 Ok(res)
             } else {
                 res
