@@ -996,4 +996,66 @@ mod tests {
         let res = test::call_service(&local_app, request).await;
         assert_eq!(res.status(), StatusCode::NOT_FOUND);
     }
+
+    #[tokio::test]
+    pub async fn returns_emtpy_strategy_variants_when_upstream_strategy_variants_is_none() {
+        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
+        let features = ClientFeatures {
+            version: 2,
+            query: None,
+            features: vec![
+                ClientFeature {
+                    name: "edge-flag-1".into(),
+                    feature_type: None,
+                    dependencies: None,
+                    description: None,
+                    created_at: None,
+                    last_seen_at: None,
+                    enabled: true,
+                    stale: None,
+                    impression_data: None,
+                    project: Some("default".into()),
+                    strategies: Some(vec![
+                        Strategy {
+                            name: "gradualRollout".to_string(),
+                            sort_order: None,
+                            segments: None,
+                            variants: None,
+                            constraints: None,
+                            parameters: None,
+                        },
+                    ]),
+                    variants: None,
+                },
+            ],
+            segments: None,
+        };
+
+        let mut default_token = EdgeToken::from_str("*:development.secret123").unwrap();
+        default_token.status = TokenValidationStatus::Validated;
+        default_token.token_type = Some(TokenType::Client);
+        token_cache.insert(default_token.token.clone(), default_token.clone());
+        features_cache.insert(cache_key(&default_token), features.clone());
+        let local_app = test::init_service(
+            App::new()
+                .app_data(Data::from(features_cache.clone()))
+                .app_data(Data::from(engine_cache.clone()))
+                .app_data(Data::from(token_cache.clone()))
+                .wrap(middleware::as_async_middleware::as_async_middleware(
+                    middleware::validate_token::validate_token,
+                ))
+                .service(web::scope("/api").configure(configure_client_api)),
+        )
+        .await;
+        let request = test::TestRequest::get()
+            .uri("/api/client/features")
+            .insert_header(ContentType::json())
+            .insert_header(("Authorization", default_token.token.clone()))
+            .to_request();
+        let result: ClientFeatures = test::call_and_read_body_json(&local_app, request).await;
+        assert_eq!(result.features.len(), 1);
+        assert!(result.features.get(0).unwrap().strategies.as_ref().unwrap().get(0).unwrap().variants.is_some());
+    }
 }
