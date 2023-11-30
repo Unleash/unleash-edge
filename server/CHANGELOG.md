@@ -5,7 +5,60 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 16.0.6 (2023-11-30)
+
+### Chore
+
+ - <csr-id-71a7a2d935fc4f5a6f37e4f84e2ab83935ca5907/> update rust crate testcontainers-modules to 0.2.0
+ - <csr-id-4106baa990601a3cadabe1d6426d626d2ead8907/> Bump to opentelemetry 0.21
+
+### New Features
+
+ - <csr-id-33a511df756b6423a51d77e608bcf8b573cd3f99/> obey http status responses. backoff when 429 or 50x
+
+### Bug Fixes
+
+ - <csr-id-0a301414d24215f314d045bac350f28c1e6b7915/> bump deps to fix issue serializing
+ - <csr-id-034a4b2ef4bc4562077656b3264efebb9e3c2d1c/> readd http metrics
+   After upgrading opentelemetry we lost our http metrics on our prometheus
+   metrics dump due to a different call setup for getting it to work. This
+   PR again sets up our configured meter provider to be used for all
+   prometheus metrics. Which allows us to have our custom middleware work
+   again.
+ - <csr-id-361829999135ab59b905e3c456f4c2f74198af13/> use chrono durations and make jitter random 0..5 seconds instead of 0..5000 ms
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 6 commits contributed to the release over the course of 6 calendar days.
+ - 6 days passed between releases.
+ - 6 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 5 unique issues were worked on: [#339](https://github.com/Unleash/unleash-edge/issues/339), [#347](https://github.com/Unleash/unleash-edge/issues/347), [#350](https://github.com/Unleash/unleash-edge/issues/350), [#351](https://github.com/Unleash/unleash-edge/issues/351), [#354](https://github.com/Unleash/unleash-edge/issues/354)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#339](https://github.com/Unleash/unleash-edge/issues/339)**
+    - obey http status responses. backoff when 429 or 50x ([`33a511d`](https://github.com/Unleash/unleash-edge/commit/33a511df756b6423a51d77e608bcf8b573cd3f99))
+ * **[#347](https://github.com/Unleash/unleash-edge/issues/347)**
+    - update rust crate testcontainers-modules to 0.2.0 ([`71a7a2d`](https://github.com/Unleash/unleash-edge/commit/71a7a2d935fc4f5a6f37e4f84e2ab83935ca5907))
+ * **[#350](https://github.com/Unleash/unleash-edge/issues/350)**
+    - use chrono durations and make jitter random 0..5 seconds instead of 0..5000 ms ([`3618299`](https://github.com/Unleash/unleash-edge/commit/361829999135ab59b905e3c456f4c2f74198af13))
+ * **[#351](https://github.com/Unleash/unleash-edge/issues/351)**
+    - readd http metrics ([`034a4b2`](https://github.com/Unleash/unleash-edge/commit/034a4b2ef4bc4562077656b3264efebb9e3c2d1c))
+ * **[#354](https://github.com/Unleash/unleash-edge/issues/354)**
+    - bump deps to fix issue serializing ([`0a30141`](https://github.com/Unleash/unleash-edge/commit/0a301414d24215f314d045bac350f28c1e6b7915))
+ * **Uncategorized**
+    - Bump to opentelemetry 0.21 ([`4106baa`](https://github.com/Unleash/unleash-edge/commit/4106baa990601a3cadabe1d6426d626d2ead8907))
+</details>
+
 ## 16.0.5 (2023-11-30)
+
+<csr-id-4106baa990601a3cadabe1d6426d626d2ead8907/>
 
 ### Chore
 
@@ -24,35 +77,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
    prometheus metrics. Which allows us to have our custom middleware work
    again.
  - <csr-id-361829999135ab59b905e3c456f4c2f74198af13/> use chrono durations and make jitter random 0..5 seconds instead of 0..5000 ms
-
-### Commit Statistics
-
-<csr-read-only-do-not-edit/>
-
- - 8 commits contributed to the release over the course of 6 calendar days.
- - 6 days passed between releases.
- - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
- - 3 unique issues were worked on: [#339](https://github.com/Unleash/unleash-edge/issues/339), [#350](https://github.com/Unleash/unleash-edge/issues/350), [#351](https://github.com/Unleash/unleash-edge/issues/351)
-
-### Commit Details
-
-<csr-read-only-do-not-edit/>
-
-<details><summary>view details</summary>
-
- * **[#339](https://github.com/Unleash/unleash-edge/issues/339)**
-    - obey http status responses. backoff when 429 or 50x ([`33a511d`](https://github.com/Unleash/unleash-edge/commit/33a511df756b6423a51d77e608bcf8b573cd3f99))
- * **[#350](https://github.com/Unleash/unleash-edge/issues/350)**
-    - use chrono durations and make jitter random 0..5 seconds instead of 0..5000 ms ([`3618299`](https://github.com/Unleash/unleash-edge/commit/361829999135ab59b905e3c456f4c2f74198af13))
- * **[#351](https://github.com/Unleash/unleash-edge/issues/351)**
-    - readd http metrics ([`034a4b2`](https://github.com/Unleash/unleash-edge/commit/034a4b2ef4bc4562077656b3264efebb9e3c2d1c))
- * **Uncategorized**
-    - Revert "test the thing" ([`efe00db`](https://github.com/Unleash/unleash-edge/commit/efe00dbcc65cabe2d89710b58829e43483e87cce))
-    - Revert "test the thing" ([`be6afed`](https://github.com/Unleash/unleash-edge/commit/be6afed4ced7df7131cb5f6df421f0e9d96e22b3))
-    - test the thing ([`0f8306f`](https://github.com/Unleash/unleash-edge/commit/0f8306fbdf0b91c5a8e58d18b4808b7904e95fe4))
-    - test the thing ([`eddefae`](https://github.com/Unleash/unleash-edge/commit/eddefaef9db35a5be622e6bfe6908704068967c6))
-    - Bump to opentelemetry 0.21 ([`4106baa`](https://github.com/Unleash/unleash-edge/commit/4106baa990601a3cadabe1d6426d626d2ead8907))
-</details>
 
 ## 16.0.4 (2023-11-23)
 
