@@ -1005,31 +1005,27 @@ mod tests {
         let features = ClientFeatures {
             version: 2,
             query: None,
-            features: vec![
-                ClientFeature {
-                    name: "edge-flag-1".into(),
-                    feature_type: None,
-                    dependencies: None,
-                    description: None,
-                    created_at: None,
-                    last_seen_at: None,
-                    enabled: true,
-                    stale: None,
-                    impression_data: None,
-                    project: Some("default".into()),
-                    strategies: Some(vec![
-                        Strategy {
-                            name: "gradualRollout".to_string(),
-                            sort_order: None,
-                            segments: None,
-                            variants: None,
-                            constraints: None,
-                            parameters: None,
-                        },
-                    ]),
+            features: vec![ClientFeature {
+                name: "edge-flag-1".into(),
+                feature_type: None,
+                dependencies: None,
+                description: None,
+                created_at: None,
+                last_seen_at: None,
+                enabled: true,
+                stale: None,
+                impression_data: None,
+                project: Some("default".into()),
+                strategies: Some(vec![Strategy {
+                    name: "gradualRollout".to_string(),
+                    sort_order: None,
+                    segments: None,
                     variants: None,
-                },
-            ],
+                    constraints: None,
+                    parameters: None,
+                }]),
+                variants: None,
+            }],
             segments: None,
         };
 
@@ -1056,6 +1052,16 @@ mod tests {
             .to_request();
         let result: ClientFeatures = test::call_and_read_body_json(&local_app, request).await;
         assert_eq!(result.features.len(), 1);
-        assert!(result.features.get(0).unwrap().strategies.as_ref().unwrap().get(0).unwrap().variants.is_some());
+        assert!(result
+            .features
+            .get(0)
+            .unwrap()
+            .strategies
+            .as_ref()
+            .unwrap()
+            .get(0)
+            .unwrap()
+            .variants
+            .is_some());
     }
 }
