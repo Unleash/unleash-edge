@@ -72,6 +72,7 @@ pub struct UnleashClient {
     backing_client: Client,
     service_account_token: Option<String>,
     custom_headers: HashMap<String, String>,
+    token_header: String,
 }
 
 fn load_pkcs12(id: &ClientIdentity) -> EdgeResult<Identity> {
@@ -176,6 +177,7 @@ impl UnleashClient {
         upstream_certificate_file: Option<PathBuf>,
         connect_timeout: Duration,
         socket_timeout: Duration,
+        token_header: String,
     ) -> Self {
         Self {
             urls: UnleashUrls::from_base_url(server_url),
@@ -190,6 +192,7 @@ impl UnleashClient {
             .unwrap(),
             custom_headers: Default::default(),
             service_account_token: Default::default(),
+            token_header,
         }
     }
     pub fn from_url_with_service_account_token(
@@ -200,6 +203,7 @@ impl UnleashClient {
         service_account_token: String,
         connect_timeout: Duration,
         socket_timeout: Duration,
+        token_header: String
     ) -> Self {
         Self {
             urls: UnleashUrls::from_base_url(server_url),
@@ -214,6 +218,7 @@ impl UnleashClient {
             .unwrap(),
             custom_headers: Default::default(),
             service_account_token: Some(service_account_token),
+            token_header,
         }
     }
 
@@ -235,6 +240,7 @@ impl UnleashClient {
             .unwrap(),
             custom_headers: Default::default(),
             service_account_token: Default::default(),
+            token_header: "Authorization".to_string(),
         })
     }
 
@@ -255,6 +261,7 @@ impl UnleashClient {
             .unwrap(),
             custom_headers: Default::default(),
             service_account_token: Some(sa_token.into()),
+            token_header: "Authorization".to_string(),
         })
     }
 
@@ -275,6 +282,7 @@ impl UnleashClient {
             .unwrap(),
             custom_headers: Default::default(),
             service_account_token: Default::default(),
+            token_header: "Authorization".to_string(),
         })
     }
 
@@ -292,8 +300,9 @@ impl UnleashClient {
 
     fn header_map(&self, api_key: Option<String>) -> HeaderMap {
         let mut header_map = HeaderMap::new();
+        let token_header: HeaderName= HeaderName::from_str(self.token_header.as_str()).unwrap();
         if let Some(key) = api_key {
-            header_map.insert(header::AUTHORIZATION, key.parse().unwrap());
+            header_map.insert(token_header, key.parse().unwrap());
         }
         for (header_name, header_value) in self.custom_headers.iter() {
             let key = HeaderName::from_str(header_name.as_str()).unwrap();

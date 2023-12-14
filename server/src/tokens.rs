@@ -7,6 +7,7 @@ use std::collections::HashSet;
 use std::future::{ready, Ready};
 use std::str::FromStr;
 
+use crate::cli::TokenHeader;
 use crate::cli::EdgeMode;
 use crate::error::EdgeError;
 use crate::types::EdgeResult;
@@ -111,7 +112,11 @@ impl FromRequest for EdgeToken {
     type Future = Ready<EdgeResult<Self>>;
 
     fn from_request(req: &HttpRequest, _payload: &mut Payload) -> Self::Future {
-        let value = req.headers().get("Authorization");
+        let token_header = match req.app_data::<Data<TokenHeader>>() {
+            Some(data) => data.clone().into_inner().token_header.clone(),
+            None => "Authorization".to_string(),
+        };
+        let value = req.headers().get(token_header);
         if let Some(data_mode) = req.app_data::<Data<EdgeMode>>() {
             let mode = data_mode.clone().into_inner();
             let key = match *mode {
