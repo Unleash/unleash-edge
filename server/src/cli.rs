@@ -165,6 +165,10 @@ pub struct EdgeArgs {
     /// A URL pointing to a running Redis instance. Edge will use this instance to persist feature and token data and read this back after restart. Mutually exclusive with the --backup-folder option
     #[clap(flatten)]
     pub redis: Option<RedisArgs>,
+
+    /// Token header to use for both edge authorization and communication with the upstream server.
+    #[clap(long, env, global = true, default_value = "Authorization")]
+    pub token_header: TokenHeader,
 }
 
 pub fn string_to_header_tuple(s: &str) -> Result<(String, String), String> {
@@ -205,6 +209,23 @@ pub struct HealthCheckArgs {
     /// If you're hosting Edge using a self-signed TLS certificate use this to tell healthcheck about your CA
     #[clap(short, long, env)]
     pub ca_certificate_file: Option<PathBuf>,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct TokenHeader {
+    /// Token header to use for edge authorization.
+    #[clap(long, env, global = true, default_value = "Authorization")]
+    pub token_header: String,
+
+}
+
+impl FromStr for TokenHeader {
+    type Err = clap::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let token_header = s.to_owned();
+        Ok(TokenHeader { token_header })
+    }
 }
 
 #[derive(Args, Debug, Clone)]
@@ -259,6 +280,10 @@ pub struct CliArgs {
     /// Which log format should Edge use
     #[clap(short, long, env, global = true, value_enum, default_value_t = LogFormat::Plain)]
     pub log_format: LogFormat,
+
+    /// token header to use for edge authorization.
+    #[clap(long, env, global = true, default_value = "Authorization")]
+    pub token_header: TokenHeader,
 }
 
 #[derive(Args, Debug, Clone)]
