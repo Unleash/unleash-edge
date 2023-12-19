@@ -11,7 +11,7 @@ use actix_web::{
 };
 use dashmap::DashMap;
 use serde_qs::actix::QsQuery;
-use tracing::{debug, instrument, warn};
+use tracing::{debug, instrument};
 use unleash_types::client_features::Context;
 use unleash_types::client_metrics::{ClientApplication, ConnectVia};
 use unleash_types::{
