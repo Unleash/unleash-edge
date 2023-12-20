@@ -392,8 +392,8 @@ impl FeatureRefresher {
                                 }
                             }
                             FeatureError::NotFound => {
-                                info!("Had a bad URL when trying to fetch features. Removing ourselves from the list of refresh tasks");
-                                self.tokens_to_refresh.remove(&refresh.token.token);
+                                info!("Had a bad URL when trying to fetch features. Increasing waiting period for the token before trying again");
+                                self.backoff(&refresh.token);
                             }
                         }
                     }
