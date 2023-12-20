@@ -147,6 +147,7 @@ mod tests {
             upstream_sa.token.to_string(),
             Duration::seconds(5),
             Duration::seconds(5),
+            "Authorization".to_string(),
         );
         let arced_client = Arc::new(unleash_client);
         let local_features_cache: Arc<DashMap<String, ClientFeatures>> =
@@ -211,6 +212,7 @@ mod tests {
             upstream_sa.to_string(),
             Duration::seconds(5),
             Duration::seconds(5),
+            "Authorization".to_string(),
         );
         let arced_client = Arc::new(unleash_client);
         let local_features_cache: Arc<DashMap<String, ClientFeatures>> =
@@ -273,6 +275,7 @@ mod tests {
             None,
             Duration::seconds(5),
             Duration::seconds(5),
+            "Authorization".to_string(),
         );
         let local_features_cache: Arc<DashMap<String, ClientFeatures>> =
             Arc::new(DashMap::default());

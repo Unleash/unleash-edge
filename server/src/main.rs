@@ -45,6 +45,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let schedule_args = args.clone();
     let mode_arg = args.clone().mode;
     let http_args = args.clone().http;
+    let token_header = args.clone().token_header;
     let request_timeout = args.edge_request_timeout;
     let trust_proxy = args.clone().trust_proxy;
     let base_path = http_args.base_path.clone();
@@ -82,6 +83,7 @@ async fn main() -> Result<(), anyhow::Error> {
             .allow_any_method();
         let mut app = App::new()
             .app_data(qs_config)
+            .app_data(web::Data::new(token_header.clone()))
             .app_data(web::Data::new(trust_proxy.clone()))
             .app_data(web::Data::new(mode_arg.clone()))
             .app_data(web::Data::new(connect_via.clone()))
@@ -154,17 +156,17 @@ async fn main() -> Result<(), anyhow::Error> {
                 _ = refresher.start_refresh_features_background_task() => {
                     tracing::info!("Feature refresher unexpectedly shut down");
                 }
-                _ = unleash_edge::http::background_send_metrics::send_metrics_task(metrics_cache_clone.clone(), refresher.unleash_client.clone(), edge.metrics_interval_seconds) => {
+                _ = unleash_edge::http::background_send_metrics::send_metrics_task(metrics_cache_clone.clone(), refresher.unleash_client.clone(), edge.metrics_interval_seconds.try_into().unwrap()) => {
                     tracing::info!("Metrics poster unexpectedly shut down");
                 }
                 _ = persist_data(persistence.clone(), lazy_token_cache.clone(), lazy_feature_cache.clone(), refresher.tokens_to_refresh.clone()) => {
                     tracing::info!("Persister was unexpectedly shut down");
                 }
                 _ = validator.schedule_validation_of_known_tokens(edge.token_revalidation_interval_seconds) => {
-                    tracing::info!("Token validator validator was unexpectedly shut down");
+                    tracing::info!("Token validator validation of known tokens was unexpectedly shut down");
                 }
                 _ = validator.schedule_revalidation_of_startup_tokens(edge.tokens, lazy_feature_refresher) => {
-                    tracing::info!("Token validator validator was unexpectedly shut down");
+                    tracing::info!("Token validator validation of startup tokens was unexpectedly shut down");
                 }
             }
         }

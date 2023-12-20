@@ -5,7 +5,7 @@ use actix_web::http::header::EntityTag;
 use chrono::Utc;
 use dashmap::DashMap;
 use reqwest::StatusCode;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 use unleash_types::client_features::Segment;
 use unleash_types::client_metrics::ClientApplication;
 use unleash_types::{
@@ -376,11 +376,11 @@ impl FeatureRefresher {
                                     self.backoff(&refresh.token);
                                 }
                                 _ => {
-                                    warn!("Couldn't refresh features, but will retry next go")
+                                    info!("Couldn't refresh features, but will retry next go")
                                 }
                             },
                             FeatureError::AccessDenied => {
-                                warn!("Token used to fetch features was Forbidden, will remove from list of refresh tasks");
+                                info!("Token used to fetch features was Forbidden, will remove from list of refresh tasks");
                                 self.tokens_to_refresh.remove(&refresh.token.token);
                                 if !self.tokens_to_refresh.iter().any(|e| {
                                     e.value().token.environment == refresh.token.environment
@@ -392,23 +392,15 @@ impl FeatureRefresher {
                                 }
                             }
                             FeatureError::NotFound => {
-                                warn!("Had a bad URL when trying to fetch features. Removing ourselves");
-                                self.tokens_to_refresh.remove(&refresh.token.token);
-                                if !self.tokens_to_refresh.iter().any(|e| {
-                                    e.value().token.environment == refresh.token.environment
-                                }) {
-                                    let cache_key = cache_key(&refresh.token);
-                                    // No tokens left that access the environment of our current refresh. Deleting client features and engine cache
-                                    self.features_cache.remove(&cache_key);
-                                    self.engine_cache.remove(&cache_key);
-                                }
+                                info!("Had a bad URL when trying to fetch features. Increasing waiting period for the token before trying again");
+                                self.backoff(&refresh.token);
                             }
                         }
                     }
                     EdgeError::ClientCacheError => {
-                        warn!("Couldn't refresh features, but will retry next go")
+                        info!("Couldn't refresh features, but will retry next go")
                     }
-                    _ => warn!("Couldn't refresh features: {e:?}. Will retry next pass"),
+                    _ => info!("Couldn't refresh features: {e:?}. Will retry next pass"),
                 }
             }
         }
@@ -481,6 +473,7 @@ mod tests {
             None,
             Duration::seconds(5),
             Duration::seconds(5),
+            "Authorization".to_string(),
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
@@ -512,6 +505,7 @@ mod tests {
             None,
             Duration::seconds(5),
             Duration::seconds(5),
+            "Authorization".to_string(),
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
@@ -547,6 +541,7 @@ mod tests {
             None,
             Duration::seconds(5),
             Duration::seconds(5),
+            "Authorization".to_string(),
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
@@ -589,6 +584,7 @@ mod tests {
             None,
             Duration::seconds(5),
             Duration::seconds(5),
+            "Authorization".to_string(),
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
@@ -640,6 +636,7 @@ mod tests {
             None,
             Duration::seconds(5),
             Duration::seconds(5),
+            "Authorization".to_string(),
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
@@ -695,6 +692,7 @@ mod tests {
             None,
             Duration::seconds(5),
             Duration::seconds(5),
+            "Authorization".to_string(),
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
@@ -735,6 +733,7 @@ mod tests {
             None,
             Duration::seconds(5),
             Duration::seconds(5),
+            "Authorization".to_string(),
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
@@ -770,6 +769,7 @@ mod tests {
             None,
             Duration::seconds(5),
             Duration::seconds(5),
+            "Authorization".to_string(),
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
@@ -888,6 +888,55 @@ mod tests {
         assert!(feature_refresher.tokens_to_refresh.is_empty());
         assert!(feature_refresher.features_cache.is_empty());
         assert!(feature_refresher.engine_cache.is_empty());
+    }
+
+    #[tokio::test]
+    pub async fn getting_404_removes_tokens_from_token_to_refresh_but_not_its_features() {
+        let mut token = EdgeToken::try_from("*:development.secret123".to_string()).unwrap();
+        token.status = Validated;
+        token.token_type = Some(TokenType::Client);
+        let token_cache = DashMap::default();
+        token_cache.insert(token.token.clone(), token.clone());
+        let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
+            Arc::new(DashMap::default());
+        let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
+        let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(token_cache);
+        let example_features = features_from_disk("../examples/features.json");
+        let cache_key = cache_key(&token);
+        let mut engine_state = EngineState::default();
+        engine_state.take_state(example_features.clone());
+        upstream_features_cache.insert(cache_key.clone(), example_features.clone());
+        upstream_engine_cache.insert(cache_key.clone(), engine_state);
+        let mut server = client_api_test_server(
+            upstream_token_cache,
+            upstream_features_cache,
+            upstream_engine_cache,
+        )
+        .await;
+        let unleash_client = UnleashClient::new(server.url("/").as_str(), None).unwrap();
+        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
+        let feature_refresher = FeatureRefresher::new(
+            Arc::new(unleash_client),
+            features_cache,
+            engine_cache,
+            Duration::milliseconds(1),
+            None,
+        );
+        feature_refresher
+            .register_token_for_refresh(token, None)
+            .await;
+        assert!(!feature_refresher.tokens_to_refresh.is_empty());
+        feature_refresher.refresh_features().await;
+        assert!(!feature_refresher.tokens_to_refresh.is_empty());
+        assert!(!feature_refresher.features_cache.is_empty());
+        assert!(!feature_refresher.engine_cache.is_empty());
+        server.stop().await;
+        tokio::time::sleep(std::time::Duration::from_millis(5)).await; // To ensure our refresh is due
+        feature_refresher.refresh_features().await;
+        assert_eq!(feature_refresher.tokens_to_refresh.get("*:development.secret123").unwrap().failure_count, 1);
+        assert!(!feature_refresher.features_cache.is_empty());
+        assert!(!feature_refresher.engine_cache.is_empty());
     }
 
     #[tokio::test]
