@@ -234,7 +234,7 @@ mod tests {
     use super::*;
 
     use crate::auth::token_validator::TokenValidator;
-    use crate::cli::OfflineArgs;
+    use crate::cli::{OfflineArgs, TokenHeader};
     use crate::http::unleash_client::UnleashClient;
     use crate::middleware;
     use crate::tests::{features_from_disk, upstream_server};
@@ -995,5 +995,47 @@ mod tests {
             .to_request();
         let res = test::call_service(&local_app, request).await;
         assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn client_features_endpoint_works_with_overridden_token_header() {
+        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let token_header = TokenHeader::from_str("NeedsToBeTested").unwrap();
+        println!("token_header: {:?}", token_header);
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::from(features_cache.clone()))
+                .app_data(Data::from(token_cache.clone()))
+                .app_data(Data::new(token_header.clone()))
+                .service(web::scope("/api/client").service(get_features)),
+        )
+        .await;
+        let client_features = cached_client_features();
+        let example_features = features_from_disk("../examples/features.json");
+        features_cache.insert("development".into(), client_features.clone());
+        features_cache.insert("production".into(), example_features.clone());
+        let mut production_token = EdgeToken::try_from(
+            "*:production.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7".to_string(),
+        )
+        .unwrap();
+        production_token.token_type = Some(TokenType::Client);
+        production_token.status = TokenValidationStatus::Validated;
+        token_cache.insert(production_token.token.clone(), production_token.clone());
+
+        let request = test::TestRequest::get()
+            .uri("/api/client/features")
+            .insert_header(ContentType::json())
+            .insert_header(("NeedsToBeTested", production_token.token.clone()))
+            .to_request();
+        let res = test::call_service(&app, request).await;
+        assert_eq!(res.status(), StatusCode::OK);
+        let request = test::TestRequest::get()
+        .uri("/api/client/features")
+        .insert_header(ContentType::json())
+        .insert_header(("ShouldNotWork", production_token.token.clone()))
+        .to_request();
+    let res = test::call_service(&app, request).await;
+    assert_eq!(res.status(), StatusCode::FORBIDDEN);
     }
 }
