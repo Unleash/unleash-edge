@@ -440,7 +440,6 @@ mod tests {
     use chrono::{Duration, Utc};
     use dashmap::DashMap;
     use reqwest::Url;
-    use tracing_test::traced_test;
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
     use unleash_yggdrasil::EngineState;
 
@@ -892,7 +891,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[traced_test]
     pub async fn getting_404_removes_tokens_from_token_to_refresh_but_not_its_features() {
         let mut token = EdgeToken::try_from("*:development.secret123".to_string()).unwrap();
         token.status = Validated;
@@ -936,7 +934,7 @@ mod tests {
         server.stop().await;
         tokio::time::sleep(std::time::Duration::from_millis(5)).await; // To ensure our refresh is due
         feature_refresher.refresh_features().await;
-        assert!(feature_refresher.tokens_to_refresh.is_empty());
+        assert_eq!(feature_refresher.tokens_to_refresh.get("*:development.secret123").unwrap().failure_count, 1);
         assert!(!feature_refresher.features_cache.is_empty());
         assert!(!feature_refresher.engine_cache.is_empty());
     }
