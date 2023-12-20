@@ -34,7 +34,7 @@ This document contains the help content for the `unleash-edge` command-line prog
   Default value: ``
 * `-w`, `--workers <WORKERS>` — How many workers should be started to handle requests. Defaults to number of physical cpus
 
-  Default value: `8`
+  Default value: `16`
 * `--tls-enable` — Should we bind TLS
 
   Default value: `false`
@@ -45,7 +45,7 @@ This document contains the help content for the `unleash-edge` command-line prog
   Default value: `3043`
 * `--instance-id <INSTANCE_ID>` — Instance id. Used for metrics reporting
 
-  Default value: `01HE51VN5SQBAWR5Q93NAESEPW`
+  Default value: `01HJ3BRG3VA0252FZFTS2JM3QB`
 * `-a`, `--app-name <APP_NAME>` — App name. Used for metrics reporting
 
   Default value: `unleash-edge`
@@ -64,6 +64,9 @@ This document contains the help content for the `unleash-edge` command-line prog
 
   Possible values: `plain`, `json`, `pretty`
 
+* `--token-header <TOKEN_HEADER>` — token header to use for edge authorization
+
+  Default value: `Authorization`
 
 
 
@@ -117,6 +120,9 @@ Run in edge mode
 
   Possible values: `tcp`, `tls`, `redis`, `rediss`, `redis-unix`, `unix`
 
+* `--token-header <TOKEN_HEADER>` — Token header to use for both edge authorization and communication with the upstream server
+
+  Default value: `Authorization`
 
 
 

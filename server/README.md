@@ -66,6 +66,8 @@ Options:
       [env: LOG_FORMAT=]
         [default: `plain`]
       Possible values: `plain`, `json`, `pretty`
+  --token-header <TOKEN_HEADER>
+      token header to use for edge authorization [env: TOKEN_HEADER=] [default: Authorization]
 ```
 
 ### Built-in Health check
@@ -90,7 +92,7 @@ Error: Failed to connect to ready endpoint at http://localhost:3063/internal-bac
 $ echo $?
 1
 ```
- 
+
 * Edge running but not populated its feature cache yet (not spoken to upstream or restored from backup)
 ```shell
 $ ./unleash-edge ready
@@ -167,6 +169,10 @@ graph LR
 This means that, in order to start up, Edge mode needs to know where the upstream node is. This is done by passing the `--upstream-url` command line argument or setting the `UPSTREAM_URL` environment variable.
 
 By default, Edge mode uses an in-memory cache to store the features it fetches from the upstream node. However, you may want to use a more persistent storage solution. For this purpose, Edge supports either Redis or a backup file, which you can configure by passing in either the `--redis-url` or `--backup_folder` command line argument, respectively. On start-up, Edge checks whether the persistent backup option is specified, in which case it uses it to populate its internal caches. This can be useful when your Unleash server is unreachable.
+
+Persistent storage is useful for high availability and resilience. If an Edge instance using persistent storage is restarted, it will not have to synchronize with upstream before it is ready. The persistent storage is only read on startup and will only be used until Edge is able to synchronize with upstream. Because of this, there is no need to purge the cache. After Edge has synchronized with an upstream, it will periodically save its in-memory state to the persistent storage.
+
+Multiple Edge nodes can share the same Redis instance or backup folder. Failure to read from persistent storage will not prevent Edge from starting up. In this case an Edge instance will be ready only after it is able to connect with upstream.
 
 Edge mode also supports dynamic tokens, meaning that Edge doesn't need a token to be provided when starting up. Once we make a request to the `/api/client/features` endpoint using a [client token](https://docs.getunleash.io/reference/api-tokens-and-client-keys#client-tokens) Edge will validate upstream and fetch its respective features. After that, it gets added to the list of known tokens that gets periodically synced, making sure it is a valid token and its features are up-to-date.
 
@@ -290,7 +296,7 @@ Options:
 ```
 
 ##### Environments in offline mode
-Currently, Edge does not support multiple environments in offline mode. All tokens added at startup will receive the same list of features passed in as the bootstrap argument. 
+Currently, Edge does not support multiple environments in offline mode. All tokens added at startup will receive the same list of features passed in as the bootstrap argument.
 However, tokens in `<project>:<environment>.<secret>` format will still filter by project.
 
 ## [Metrics](https://docs.getunleash.io/reference/api/unleash/metrics)
@@ -300,6 +306,10 @@ However, tokens in `<project>:<environment>.<secret>` format will still filter b
 Since Edge is designed to avoid overloading its upstream, Edge gathers and accumulates usage metrics from SDKs for a set interval (METRICS_INTERVAL_SECONDS) before posting a batch upstream.
 This reduces load on Unleash instances down to a single call every interval, instead of every single client posting to Unleash for updating metrics.
 Unleash instances running on versions older than 4.22 are not able to handle the batch format posted by Edge, which means you won't see any metrics from clients connected to an Edge instance until you're able to update to 4.22 or newer.
+
+## Compatibility
+
+Unleash Edge adheres to Semantic Versioning (SemVer) on the API and CLI layers. If you're using Unleash Edge as a library in your projects, be cautious, internal codebase changes, which might occur in any version release (including minor and patch versions), could potentially break your implementation.
 
 ## Performance
 
@@ -374,6 +384,16 @@ However, there are a few notable differences between the Unleash Proxy and Unlea
 - All your Unleash environments can be handled by a single instance, no more running multiple instances of the Unleash Proxy to handle both your development and production environments.
 - Backend SDKs can connect to Unleash Edge without turning on experimental feature flags.
 - Unleash Edge is smart enough to dynamically resolve the tokens you use to connect to it against the upstream Unleash instance. This means you don't have to worry about knowing in advance what tokens your SDKs use - if you want to swap out the Unleash token your SDK uses, this can be done without ever restarting or worrying about Unleash Edge. Unleash Edge will only collect and cache data for the environments and projects you use.
+
+## Debugging
+
+You can adjust the `RUST_LOG` environment variable to see more verbose log output. For example, in order to get logs originating directly from Edge but not its dependencies, you can raise the default log level from `error` to `warning` and set Edge to `debug`, like this:
+
+```sh
+RUST_LOG="warn,unleash-edge=debug" ./unleash-edge #<command>
+```
+
+See more about available logging and log levels at https://docs.rs/env_logger/latest/env_logger/#enabling-logging
 
 ## Development
 

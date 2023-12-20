@@ -66,6 +66,8 @@ Options:
       [env: LOG_FORMAT=]
         [default: `plain`]
       Possible values: `plain`, `json`, `pretty`
+  --token-header <TOKEN_HEADER>
+      token header to use for edge authorization [env: TOKEN_HEADER=] [default: Authorization]
 ```
 
 ### Built-in Health check
