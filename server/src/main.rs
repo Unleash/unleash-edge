@@ -163,10 +163,10 @@ async fn main() -> Result<(), anyhow::Error> {
                     tracing::info!("Persister was unexpectedly shut down");
                 }
                 _ = validator.schedule_validation_of_known_tokens(edge.token_revalidation_interval_seconds) => {
-                    tracing::info!("Token validator validator was unexpectedly shut down");
+                    tracing::info!("Token validator validation of known tokens was unexpectedly shut down");
                 }
                 _ = validator.schedule_revalidation_of_startup_tokens(edge.tokens, lazy_feature_refresher) => {
-                    tracing::info!("Token validator validator was unexpectedly shut down");
+                    tracing::info!("Token validator validation of startup tokens was unexpectedly shut down");
                 }
             }
         }
