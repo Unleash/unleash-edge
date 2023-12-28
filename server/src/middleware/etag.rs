@@ -1,6 +1,8 @@
 use std::pin::Pin;
+use std::str::FromStr;
 use std::sync::Arc;
 
+use actix_http::header::{HeaderName, HeaderValue};
 use actix_service::{Service, Transform};
 use actix_web::body::{BodySize, BoxBody, EitherBody, MessageBody, None as BodyNone};
 use actix_web::dev::{ServiceRequest, ServiceResponse};
@@ -10,6 +12,7 @@ use actix_web::web::Bytes;
 use actix_web::{HttpMessage, HttpRequest, HttpResponse};
 use base64::Engine;
 use core::fmt::Write;
+use dashmap::DashMap;
 use futures::{
     future::{ok, Ready},
     Future,
@@ -18,10 +21,11 @@ use tracing::debug;
 use xxhash_rust::xxh3::xxh3_128;
 
 use crate::http::feature_refresher::FeatureRefresher;
+use crate::types::EdgeToken;
 
 #[derive(Default, Clone)]
 pub struct EdgeETag {
-    pub feature_refresher: Option<Arc<FeatureRefresher>>,
+    pub etag_cache: Arc<DashMap<EdgeToken, EntityTag>>,
 }
 
 impl<S, B> Transform<S, ServiceRequest> for EdgeETag
@@ -39,7 +43,7 @@ where
     fn new_transform(&self, service: S) -> Self::Future {
         ok(EdgeETagMiddleware {
             service: service,
-            feature_refresher: self.feature_refresher.clone(),
+            etag_cache: self.etag_cache.clone(),
         })
     }
 }
@@ -47,7 +51,7 @@ type Buffer = str_buf::StrBuf<62>;
 
 pub struct EdgeETagMiddleware<S> {
     service: S,
-    feature_refresher: Option<Arc<FeatureRefresher>>,
+    etag_cache: Arc<DashMap<EdgeToken, EntityTag>>,
 }
 
 impl<S, B> Service<ServiceRequest> for EdgeETagMiddleware<S>
@@ -66,9 +70,12 @@ where
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let request_etag_header: Option<IfNoneMatch> = req.get_header();
         let method = req.method().clone();
-        let feature_refresher = self.feature_refresher.clone();
-        debug!("Evaluating ETag");
-        if we_know_this_etag_from_upstream(feature_refresher, &request_etag_header) {
+        let auth_header = header_to_edgetoken(req.headers().get("Authorization"));
+        if we_know_this_etag_from_upstream(
+            self.etag_cache.clone(),
+            &auth_header,
+            &request_etag_header,
+        ) {
             Box::pin(async move {
                 return Ok(ServiceResponse::new(
                     req.request().clone(),
@@ -132,15 +139,21 @@ where
     }
 }
 
+fn header_to_edgetoken(header: Option<&HeaderValue>) -> Option<EdgeToken> {
+    header
+        .map(|h| h.to_str().unwrap())
+        .map_or(None, |header_str| EdgeToken::from_str(header_str).ok())
+}
+
 fn we_know_this_etag_from_upstream(
-    feature_refresher: Option<Arc<FeatureRefresher>>,
+    etag_cache: Arc<DashMap<EdgeToken, EntityTag>>,
+    client_token: &Option<EdgeToken>,
     if_none_match: &Option<IfNoneMatch>,
 ) -> bool {
-    match if_none_match {
-        Some(none_match) => match feature_refresher {
-            Some(fr) => fr.has_token_with_etag(&none_match),
-            None => false,
-        },
-        None => false,
+    match (if_none_match, client_token) {
+        (Some(if_none), Some(token)) => etag_cache.get(token).map_or(false, |etag| {
+            if_none == &IfNoneMatch::Any || if_none.to_string() == etag.to_string()
+        }),
+        _ => false,
     }
 }

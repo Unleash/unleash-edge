@@ -55,7 +55,7 @@ async fn main() -> Result<(), anyhow::Error> {
         instance_id: args.clone().instance_id,
     };
     let (
-        (token_cache, features_cache, engine_cache),
+        (token_cache, features_cache, engine_cache, etag_cache),
         token_validator,
         feature_refresher,
         persistence,
@@ -102,7 +102,7 @@ async fn main() -> Result<(), anyhow::Error> {
         app.service(
             web::scope(&base_path)
                 .wrap(unleash_edge::middleware::etag::EdgeETag {
-                    feature_refresher: refresher_for_app_data.clone(),
+                    etag_cache: etag_cache.clone(),
                 })
                 .wrap(actix_web::middleware::Compress::default())
                 .wrap(actix_web::middleware::NormalizePath::default())

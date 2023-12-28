@@ -10,6 +10,7 @@ pub mod edge_api;
 pub mod error;
 pub mod filters;
 pub mod frontend_api;
+pub mod hashing;
 pub mod health_checker;
 pub mod http;
 pub mod internal_backstage;

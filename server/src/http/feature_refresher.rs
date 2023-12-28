@@ -16,7 +16,7 @@ use unleash_yggdrasil::EngineState;
 
 use super::unleash_client::UnleashClient;
 use crate::error::{EdgeError, FeatureError};
-use crate::filters::{filter_client_features, FeatureFilterSet};
+use crate::filters::{filter_client_features, project_filter, FeatureFilterSet};
 
 use crate::types::{
     build, ClientTokenRequest, ClientTokenResponse, EdgeResult, TokenType, TokenValidationStatus,
@@ -103,6 +103,7 @@ pub struct FeatureRefresher {
     pub unleash_client: Arc<UnleashClient>,
     pub tokens_to_refresh: Arc<DashMap<String, TokenRefresh>>,
     pub features_cache: Arc<DashMap<String, ClientFeatures>>,
+    pub etag_cache: Arc<DashMap<EdgeToken, EntityTag>>,
     pub engine_cache: Arc<DashMap<String, EngineState>>,
     pub refresh_interval: chrono::Duration,
     pub persistence: Option<Arc<dyn EdgePersistence>>,
@@ -116,6 +117,7 @@ impl Default for FeatureRefresher {
             tokens_to_refresh: Arc::new(DashMap::default()),
             features_cache: Default::default(),
             engine_cache: Default::default(),
+            etag_cache: Default::default(),
             persistence: None,
         }
     }
@@ -139,6 +141,7 @@ impl FeatureRefresher {
         unleash_client: Arc<UnleashClient>,
         features: Arc<DashMap<String, ClientFeatures>>,
         engines: Arc<DashMap<String, EngineState>>,
+        etag_cache: Arc<DashMap<EdgeToken, EntityTag>>,
         features_refresh_interval: chrono::Duration,
         persistence: Option<Arc<dyn EdgePersistence>>,
     ) -> Self {
@@ -147,6 +150,7 @@ impl FeatureRefresher {
             tokens_to_refresh: Arc::new(DashMap::default()),
             features_cache: features,
             engine_cache: engines,
+            etag_cache,
             refresh_interval: features_refresh_interval,
             persistence,
         }
@@ -158,6 +162,7 @@ impl FeatureRefresher {
             tokens_to_refresh: Arc::new(Default::default()),
             features_cache: Arc::new(Default::default()),
             engine_cache: Arc::new(Default::default()),
+            etag_cache: Arc::new(Default::default()),
             refresh_interval: chrono::Duration::seconds(10),
             persistence: None,
         }
@@ -269,6 +274,10 @@ impl FeatureRefresher {
     ///
     /// Registers a token for refresh, the token will be discarded if it can be subsumed by another previously registered token
     pub async fn register_token_for_refresh(&self, token: EdgeToken, etag: Option<EntityTag>) {
+        self.etag_cache.insert(
+            token.clone(),
+            etag.clone().unwrap_or(EntityTag::new_weak("".into())),
+        );
         if !self.tokens_to_refresh.contains_key(&token.token) {
             let use_new_bulk_endpoint_for_metrics = self
                 .unleash_client
@@ -357,7 +366,6 @@ impl FeatureRefresher {
                 ClientFeaturesResponse::Updated(features, etag) => {
                     debug!("Got updated client features. Updating features with {etag:?}");
                     let key = cache_key(&refresh.token);
-                    self.update_last_refresh(&refresh.token, etag);
                     self.features_cache
                         .entry(key.clone())
                         .and_modify(|existing_data| {
@@ -366,6 +374,8 @@ impl FeatureRefresher {
                             *existing_data = updated_data;
                         })
                         .or_insert_with(|| features.clone());
+                    self.update_last_refresh(&refresh.token, etag.clone());
+
                     self.engine_cache
                         .entry(key.clone())
                         .and_modify(|engine| {
@@ -444,8 +454,31 @@ impl FeatureRefresher {
     pub fn update_last_refresh(&self, token: &EdgeToken, etag: Option<EntityTag>) {
         self.tokens_to_refresh
             .alter(&token.token, |_k, old_refresh| {
-                old_refresh.successful_refresh(&self.refresh_interval, etag)
+                old_refresh.successful_refresh(&self.refresh_interval, etag.clone())
             });
+        debug!("Updated last refresh with etag: {:?}", etag);
+        debug!("Have an etag cache of: {:?}", self.etag_cache.len());
+        if let Some(_e) = etag {
+            for mut cached in self
+                .etag_cache
+                .iter_mut()
+                .filter(|etag| token.subsumes(etag.key()))
+            {
+                debug!("Edgetoken {:?} is subsumed by {:?}", cached.key(), token);
+                let feature_filter =
+                    FeatureFilterSet::default().with_filter(project_filter(cached.key()));
+                let filtered_features = self
+                    .get_features_by_filter(cached.key(), &feature_filter)
+                    .unwrap();
+                let etag = crate::hashing::client_features_to_etag(&filtered_features);
+                debug!(
+                    "Updating etag cache for {:?} with {:?}",
+                    cached.key(),
+                    etag.clone()
+                );
+                *cached.value_mut() = etag;
+            }
+        }
     }
 }
 

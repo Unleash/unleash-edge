@@ -1,3 +1,4 @@
+use actix_web::http::header::EntityTag;
 use chrono::Duration;
 use dashmap::DashMap;
 use reqwest::Url;
@@ -24,6 +25,7 @@ type CacheContainer = (
     Arc<DashMap<String, EdgeToken>>,
     Arc<DashMap<String, ClientFeatures>>,
     Arc<DashMap<String, EngineState>>,
+    Arc<DashMap<EdgeToken, EntityTag>>,
 );
 type EdgeInfo = (
     CacheContainer,
@@ -36,10 +38,12 @@ fn build_caches() -> CacheContainer {
     let token_cache: DashMap<String, EdgeToken> = DashMap::default();
     let features_cache: DashMap<String, ClientFeatures> = DashMap::default();
     let engine_cache: DashMap<String, EngineState> = DashMap::default();
+    let etag_cache: DashMap<EdgeToken, EntityTag> = DashMap::default();
     (
         Arc::new(token_cache),
         Arc::new(features_cache),
         Arc::new(engine_cache),
+        Arc::new(etag_cache),
     )
 }
 
@@ -48,7 +52,7 @@ async fn hydrate_from_persistent_storage(
     feature_refresher: Arc<FeatureRefresher>,
     storage: Arc<dyn EdgePersistence>,
 ) {
-    let (token_cache, features_cache, engine_cache) = cache;
+    let (token_cache, features_cache, engine_cache, etag_cache) = cache;
     let tokens = storage.load_tokens().await.unwrap_or_default();
     let features = storage.load_features().await.unwrap_or_default();
     let refresh_targets = storage.load_refresh_targets().await.unwrap_or_default();
@@ -77,7 +81,7 @@ pub(crate) fn build_offline_mode(
     client_features: ClientFeatures,
     tokens: Vec<String>,
 ) -> EdgeResult<CacheContainer> {
-    let (token_cache, features_cache, engine_cache) = build_caches();
+    let (token_cache, features_cache, engine_cache, etag_cache) = build_caches();
 
     let edge_tokens: Vec<EdgeToken> = tokens
         .iter()
@@ -94,7 +98,7 @@ pub(crate) fn build_offline_mode(
             client_features.clone(),
         );
     }
-    Ok((token_cache, features_cache, engine_cache))
+    Ok((token_cache, features_cache, engine_cache, etag_cache))
 }
 
 fn build_offline(offline_args: OfflineArgs) -> EdgeResult<CacheContainer> {
@@ -131,10 +135,11 @@ async fn get_data_source(args: &EdgeArgs) -> Option<Arc<dyn EdgePersistence>> {
 }
 
 async fn build_edge(args: &EdgeArgs) -> EdgeResult<EdgeInfo> {
-    let (token_cache, feature_cache, engine_cache) = build_caches();
+    let (token_cache, feature_cache, engine_cache, etag_cache) = build_caches();
 
     let persistence = get_data_source(args).await;
 
+    let etag_cache = Arc::new(DashMap::default());
     let unleash_client = Url::parse(&args.upstream_url.clone())
         .map(|url| {
             UnleashClient::from_url(
@@ -162,6 +167,7 @@ async fn build_edge(args: &EdgeArgs) -> EdgeResult<EdgeInfo> {
         unleash_client,
         feature_cache.clone(),
         engine_cache.clone(),
+        etag_cache.clone(),
         Duration::seconds(args.features_refresh_interval_seconds.try_into().unwrap()),
         persistence.clone(),
     ));
@@ -173,6 +179,7 @@ async fn build_edge(args: &EdgeArgs) -> EdgeResult<EdgeInfo> {
                 token_cache.clone(),
                 feature_cache.clone(),
                 engine_cache.clone(),
+                etag_cache.clone(),
             ),
             feature_refresher.clone(),
             persistence,
@@ -189,7 +196,7 @@ async fn build_edge(args: &EdgeArgs) -> EdgeResult<EdgeInfo> {
             .await;
     }
     Ok((
-        (token_cache, feature_cache, engine_cache),
+        (token_cache, feature_cache, engine_cache, etag_cache),
         Some(token_validator),
         Some(feature_refresher),
         persistence,
