@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::{sync::Arc, time::Duration};
 
-use actix_web::http::header::EntityTag;
+use actix_web::http::header::{EntityTag, IfNoneMatch};
 use chrono::Utc;
 use dashmap::DashMap;
 use reqwest::StatusCode;
@@ -17,6 +17,7 @@ use unleash_yggdrasil::EngineState;
 use super::unleash_client::UnleashClient;
 use crate::error::{EdgeError, FeatureError};
 use crate::filters::{filter_client_features, FeatureFilterSet};
+
 use crate::types::{
     build, ClientTokenRequest, ClientTokenResponse, EdgeResult, TokenType, TokenValidationStatus,
 };
@@ -296,6 +297,23 @@ impl FeatureRefresher {
             }
             self.tokens_to_refresh.retain(|key, _| keys.contains(key));
         }
+    }
+
+    pub fn has_token_with_etag(&self, if_none_match: &IfNoneMatch) -> bool {
+        let etags = match if_none_match {
+            IfNoneMatch::Any => return true,
+            IfNoneMatch::Items(etags) => etags,
+        };
+        etags
+            .iter()
+            .any(|etag| self.get_etags().iter().any(|e| e.weak_eq(etag)))
+    }
+
+    pub fn get_etags(&self) -> Vec<EntityTag> {
+        self.tokens_to_refresh
+            .iter()
+            .filter_map(|t| t.value().etag.clone())
+            .collect()
     }
 
     pub async fn start_refresh_features_background_task(&self) {

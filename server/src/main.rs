@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use actix_cors::Cors;
-use actix_middleware_etag::Etag;
+
 use actix_web::middleware::Logger;
 use actix_web::{web, App, HttpServer};
 use clap::Parser;
@@ -101,7 +101,9 @@ async fn main() -> Result<(), anyhow::Error> {
         };
         app.service(
             web::scope(&base_path)
-                .wrap(Etag)
+                .wrap(unleash_edge::middleware::etag::EdgeETag {
+                    feature_refresher: refresher_for_app_data.clone(),
+                })
                 .wrap(actix_web::middleware::Compress::default())
                 .wrap(actix_web::middleware::NormalizePath::default())
                 .wrap(cors_middleware)
