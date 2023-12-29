@@ -21,7 +21,7 @@ license = false
 eula = false
 
 [dependencies]
-actix-cors = "0.6.5"
+actix-cors = "0.7.0"
 actix-http = { version = "3.5.1", features = ["compress-zstd", "rustls-0_21"] }
 actix-middleware-etag = "0.3.0"
 actix-service = "2.0.2"

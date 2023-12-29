@@ -39,6 +39,20 @@ fn filter_features(
         .collect::<Vec<ClientFeature>>()
 }
 
+pub fn filter_features_for_token(features: &ClientFeatures, token: &EdgeToken) -> ClientFeatures {
+    let f = FeatureFilterSet::from(project_filter(&token));
+    let filtered = features
+        .features
+        .iter()
+        .filter(|feature| f.apply(feature))
+        .cloned()
+        .collect::<Vec<ClientFeature>>();
+    ClientFeatures {
+        features: filtered,
+        ..features.clone()
+    }
+}
+
 pub(crate) fn filter_client_features(
     feature_cache: &Ref<'_, String, ClientFeatures>,
     filters: &FeatureFilterSet,

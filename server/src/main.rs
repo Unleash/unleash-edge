@@ -90,7 +90,8 @@ async fn main() -> Result<(), anyhow::Error> {
             .app_data(web::Data::from(metrics_cache.clone()))
             .app_data(web::Data::from(token_cache.clone()))
             .app_data(web::Data::from(features_cache.clone()))
-            .app_data(web::Data::from(engine_cache.clone()));
+            .app_data(web::Data::from(engine_cache.clone()))
+            .app_data(web::Data::from(etag_cache.clone()));
         app = match token_validator.clone() {
             Some(v) => app.app_data(web::Data::from(v)),
             None => app,

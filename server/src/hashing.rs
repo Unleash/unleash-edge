@@ -1,4 +1,4 @@
-use actix_http::header::{Header, HeaderName, HeaderValue, TryIntoHeaderPair};
+use actix_http::header::{HeaderName, HeaderValue, TryIntoHeaderPair};
 use actix_web::http::header::{ETag, EntityTag};
 use base64::Engine;
 use unleash_types::client_features::ClientFeatures;

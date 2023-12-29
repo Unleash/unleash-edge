@@ -2,14 +2,14 @@ use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use actix_http::header::{HeaderName, HeaderValue};
+use actix_http::header::HeaderValue;
 use actix_service::{Service, Transform};
 use actix_web::body::{BodySize, BoxBody, EitherBody, MessageBody, None as BodyNone};
 use actix_web::dev::{ServiceRequest, ServiceResponse};
 use actix_web::http::header::{ETag, EntityTag, IfNoneMatch, TryIntoHeaderPair};
 use actix_web::http::Method;
 use actix_web::web::Bytes;
-use actix_web::{HttpMessage, HttpRequest, HttpResponse};
+use actix_web::{HttpMessage, HttpResponse};
 use base64::Engine;
 use core::fmt::Write;
 use dashmap::DashMap;
@@ -17,10 +17,8 @@ use futures::{
     future::{ok, Ready},
     Future,
 };
-use tracing::debug;
 use xxhash_rust::xxh3::xxh3_128;
 
-use crate::http::feature_refresher::FeatureRefresher;
 use crate::types::EdgeToken;
 
 #[derive(Default, Clone)]

@@ -57,6 +57,7 @@ mod tests {
     use actix_http_test::{test_server, TestServer};
     use actix_service::map_config;
     use actix_web::dev::AppConfig;
+    use actix_web::http::header::EntityTag;
     use actix_web::{web, App};
     use chrono::Duration;
     use dashmap::DashMap;
@@ -77,6 +78,7 @@ mod tests {
         local_token_cache: Arc<DashMap<String, EdgeToken>>,
         local_features_cache: Arc<DashMap<String, ClientFeatures>>,
         local_engine_cache: Arc<DashMap<String, EngineState>>,
+        local_etag_cache: Arc<DashMap<EdgeToken, EntityTag>>,
     ) -> TestServer {
         let token_validator = Arc::new(TokenValidator {
             unleash_client: unleash_client.clone(),
@@ -87,6 +89,7 @@ mod tests {
             unleash_client.clone(),
             local_features_cache.clone(),
             local_engine_cache.clone(),
+            local_etag_cache.clone(),
             Duration::seconds(5),
             None,
         ));
@@ -102,6 +105,7 @@ mod tests {
                     .app_data(web::Data::from(local_engine_cache.clone()))
                     .app_data(web::Data::from(local_token_cache.clone()))
                     .app_data(web::Data::from(feature_refresher.clone()))
+                    .app_data(web::Data::from(local_etag_cache.clone()))
                     .service(
                         web::scope("/api")
                             .configure(crate::client_api::configure_client_api)
@@ -132,10 +136,12 @@ mod tests {
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         upstream_token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
+        let upstream_etag_cache: Arc<DashMap<EdgeToken, EntityTag>> = Arc::new(DashMap::default());
         let upstream_server = upstream_server(
             upstream_token_cache.clone(),
             upstream_features_cache.clone(),
             upstream_engine_cache.clone(),
+            upstream_etag_cache.clone(),
         )
         .await;
         info!("Upstream server: {:?}", upstream_server.url("/"));
@@ -154,11 +160,13 @@ mod tests {
             Arc::new(DashMap::default());
         let local_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let local_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
+        let local_etag_cache: Arc<DashMap<EdgeToken, EntityTag>> = Arc::new(DashMap::default());
         let local_server = local_server(
             arced_client.clone(),
             local_token_cache,
             local_features_cache,
             local_engine_cache,
+            local_etag_cache,
         )
         .await;
         let client = reqwest::Client::default();
@@ -193,6 +201,11 @@ mod tests {
         upstream_token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
         upstream_token_cache.insert(client_token.token.clone(), client_token.clone());
         upstream_features_cache.insert(client_token.environment.clone().unwrap(), features.clone());
+        let upstream_etag_cache: Arc<DashMap<EdgeToken, EntityTag>> = Arc::new(DashMap::default());
+        upstream_etag_cache.insert(
+            client_token.clone(),
+            crate::hashing::client_features_to_etag(&features),
+        );
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let mut engine = EngineState::default();
         engine.take_state(features.clone());
@@ -201,6 +214,7 @@ mod tests {
             upstream_token_cache.clone(),
             upstream_features_cache.clone(),
             upstream_engine_cache.clone(),
+            upstream_etag_cache.clone(),
         )
         .await;
         info!("Upstream server: {:?}", upstream_server.url("/"));
@@ -219,11 +233,13 @@ mod tests {
             Arc::new(DashMap::default());
         let local_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let local_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
+        let local_etag_cache: Arc<DashMap<EdgeToken, EntityTag>> = Arc::new(DashMap::default());
         let local_server = local_server(
             arced_client.clone(),
             local_token_cache,
             local_features_cache,
             local_engine_cache,
+            local_etag_cache,
         )
         .await;
         let client = reqwest::Client::default();
@@ -259,6 +275,8 @@ mod tests {
         frontend_token.token_type = Some(TokenType::Frontend);
         let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
             Arc::new(DashMap::default());
+        let upstream_etag_cache: Arc<DashMap<EdgeToken, EntityTag>> = Arc::new(DashMap::default());
+
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         upstream_token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
@@ -266,6 +284,7 @@ mod tests {
             upstream_token_cache.clone(),
             upstream_features_cache.clone(),
             upstream_engine_cache.clone(),
+            upstream_etag_cache.clone(),
         )
         .await;
         let unleash_client = UnleashClient::from_url(
@@ -281,12 +300,14 @@ mod tests {
             Arc::new(DashMap::default());
         let local_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let local_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
+        let local_etag_cache: Arc<DashMap<EdgeToken, EntityTag>> = Arc::new(DashMap::default());
 
         let local_server = local_server(
             Arc::new(unleash_client),
             local_token_cache,
             local_features_cache,
             local_engine_cache,
+            local_etag_cache,
         )
         .await;
         let client = reqwest::Client::default();
