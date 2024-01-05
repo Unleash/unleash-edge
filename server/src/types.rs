@@ -364,8 +364,8 @@ pub struct BuildInfo {
     pub build_os: String,
     pub build_target: String,
 }
-
 shadow!(build); // Get build information set to build placeholder
+pub const EDGE_VERSION: &str = build::PKG_VERSION;
 impl Default for BuildInfo {
     fn default() -> Self {
         BuildInfo {

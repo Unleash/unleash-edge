@@ -5,7 +5,7 @@ use crate::filters::{
 use crate::http::feature_refresher::FeatureRefresher;
 use crate::metrics::client_metrics::MetricsCache;
 use crate::tokens::cache_key;
-use crate::types::{EdgeJsonResult, EdgeResult, EdgeToken, FeatureFilters};
+use crate::types::{self, EdgeJsonResult, EdgeResult, EdgeToken, FeatureFilters};
 use actix_web::web::{self, Data, Json, Query};
 use actix_web::{get, post, HttpRequest, HttpResponse};
 use dashmap::DashMap;
@@ -171,7 +171,9 @@ pub async fn register(
         client_application.into_inner(),
         metrics_cache,
     );
-    Ok(HttpResponse::Accepted().finish())
+    Ok(HttpResponse::Accepted()
+        .append_header(("X-Edge-Version", types::EDGE_VERSION))
+        .finish())
 }
 
 #[utoipa::path(
@@ -474,6 +476,31 @@ mod tests {
             .clone();
         assert_eq!(saved_app.app_name, client_app.app_name);
         assert_eq!(saved_app.connect_via, Some(vec![our_app]));
+    }
+
+    #[tokio::test]
+    async fn register_endpoint_returns_version_header() {
+        let metrics_cache = Arc::new(MetricsCache::default());
+        let our_app = ConnectVia {
+            app_name: "test".into(),
+            instance_id: Ulid::new().to_string(),
+        };
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::new(our_app.clone()))
+                .app_data(Data::from(metrics_cache.clone()))
+                .service(web::scope("/api/client").service(register)),
+        )
+        .await;
+        let mut client_app = ClientApplication::new("test_application", 15);
+        client_app.instance_id = Some("test_instance".into());
+        let req = make_register_post_request(client_app.clone()).await;
+        let res = test::call_service(&app, req).await;
+        assert_eq!(res.status(), StatusCode::ACCEPTED);
+        assert_eq!(
+            res.headers().get("X-Edge-Version").unwrap(),
+            types::EDGE_VERSION
+        );
     }
 
     #[tokio::test]
@@ -1031,11 +1058,11 @@ mod tests {
         let res = test::call_service(&app, request).await;
         assert_eq!(res.status(), StatusCode::OK);
         let request = test::TestRequest::get()
-        .uri("/api/client/features")
-        .insert_header(ContentType::json())
-        .insert_header(("ShouldNotWork", production_token.token.clone()))
-        .to_request();
-    let res = test::call_service(&app, request).await;
-    assert_eq!(res.status(), StatusCode::FORBIDDEN);
+            .uri("/api/client/features")
+            .insert_header(ContentType::json())
+            .insert_header(("ShouldNotWork", production_token.token.clone()))
+            .to_request();
+        let res = test::call_service(&app, request).await;
+        assert_eq!(res.status(), StatusCode::FORBIDDEN);
     }
 }
