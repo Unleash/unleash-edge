@@ -1,4 +1,4 @@
-use crate::types::EdgeToken;
+use crate::types::{BatchMetricsRequestBody, EdgeToken};
 use actix_web::web::Data;
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
@@ -142,6 +142,14 @@ pub(crate) fn register_client_metrics(
     metrics_cache.sink_metrics(&metrics);
 }
 
+pub(crate) fn register_bulk_metrics(
+    metrics_cache: Data<MetricsCache>,
+    connect_via: &ConnectVia,
+    metrics: BatchMetricsRequestBody,
+) {
+    metrics_cache.sink_bulk_metrics(metrics, connect_via);
+}
+
 pub(crate) fn sendable(batch: &MetricsBatch) -> bool {
     size_of_batch(batch) < UPSTREAM_MAX_BODY_SIZE
 }
@@ -228,6 +236,15 @@ impl MetricsCache {
             self.register_application(application);
         }
         self.sink_metrics(&batch.metrics);
+    }
+
+    pub fn sink_bulk_metrics(&self, metrics: BatchMetricsRequestBody, connect_via: &ConnectVia) {
+        for application in metrics.applications {
+            self.register_application(
+                application.connect_via(&connect_via.app_name, &connect_via.instance_id),
+            )
+        }
+        self.sink_metrics(&metrics.metrics)
     }
 
     pub fn reset_metrics(&self) {

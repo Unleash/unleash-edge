@@ -12,6 +12,7 @@ pub struct UnleashUrls {
     pub client_features_url: Url,
     pub client_register_app_url: Url,
     pub client_metrics_url: Url,
+    pub client_bulk_metrics_url: Url,
     pub edge_api_url: Url,
     pub edge_validate_url: Url,
     pub edge_metrics_url: Url,
@@ -82,12 +83,18 @@ impl UnleashUrls {
             .push("admin")
             .push("api-tokens");
 
+        let mut client_bulk_metrics_url = client_metrics_url.clone();
+        client_bulk_metrics_url
+            .path_segments_mut()
+            .expect("Could not create /api/client/metrics/bulk")
+            .push("bulk");
         UnleashUrls {
             base_url,
             api_url,
             client_api_url,
             client_features_url,
             client_register_app_url,
+            client_bulk_metrics_url,
             client_metrics_url,
             edge_api_url,
             edge_validate_url,

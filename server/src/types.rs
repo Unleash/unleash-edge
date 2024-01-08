@@ -1,6 +1,6 @@
 use std::cmp::min;
 use std::fmt;
-use std::fmt::{Display, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use std::net::IpAddr;
 
 use std::sync::Arc;
@@ -69,7 +69,7 @@ pub struct ValidateTokensRequest {
     pub tokens: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, ToSchema)]
+#[derive(Clone, Serialize, Deserialize, Eq, ToSchema)]
 #[cfg_attr(test, derive(Default))]
 #[serde(rename_all = "camelCase")]
 pub struct EdgeToken {
@@ -80,6 +80,28 @@ pub struct EdgeToken {
     pub projects: Vec<String>,
     #[serde(default = "valid_status")]
     pub status: TokenValidationStatus,
+}
+
+impl Debug for EdgeToken {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("EdgeToken")
+            .field(
+                "token",
+                &format!(
+                    "{}.[redacted]",
+                    &self
+                        .token
+                        .chars()
+                        .take_while(|p| p != &'.')
+                        .collect::<String>()
+                ),
+            )
+            .field("token_type", &self.token_type)
+            .field("environment", &self.environment)
+            .field("projects", &self.projects)
+            .field("status", &self.status)
+            .finish()
+    }
 }
 
 #[derive(Debug, Clone)]

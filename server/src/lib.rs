@@ -42,9 +42,11 @@ mod tests {
     use actix_web::{web, App};
     use dashmap::DashMap;
     use unleash_types::client_features::ClientFeatures;
+    use unleash_types::client_metrics::ConnectVia;
     use unleash_yggdrasil::EngineState;
 
     use crate::auth::token_validator::TokenValidator;
+    use crate::metrics::client_metrics::MetricsCache;
     use crate::types::EdgeToken;
 
     pub fn features_from_disk(path: &str) -> ClientFeatures {
@@ -68,7 +70,11 @@ mod tests {
         test_server(move || {
             let config = serde_qs::actix::QsQueryConfig::default()
                 .qs_config(serde_qs::Config::new(5, false));
-
+            let metrics_cache = MetricsCache::default();
+            let connect_via = ConnectVia {
+                app_name: "edge".into(),
+                instance_id: "testinstance".into(),
+            };
             HttpService::new(map_config(
                 App::new()
                     .app_data(config)
@@ -76,6 +82,8 @@ mod tests {
                     .app_data(web::Data::from(upstream_features_cache.clone()))
                     .app_data(web::Data::from(upstream_engine_cache.clone()))
                     .app_data(web::Data::from(upstream_token_cache.clone()))
+                    .app_data(web::Data::new(metrics_cache))
+                    .app_data(web::Data::new(connect_via))
                     .service(
                         web::scope("/api")
                             .configure(crate::client_api::configure_client_api)
