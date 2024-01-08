@@ -216,7 +216,6 @@ pub struct TokenHeader {
     /// Token header to use for edge authorization.
     #[clap(long, env, global = true, default_value = "Authorization")]
     pub token_header: String,
-
 }
 
 impl FromStr for TokenHeader {
