@@ -214,14 +214,15 @@ security(
 )]
 #[post("/metrics/bulk")]
 pub async fn post_bulk_metrics(
-    _edge_token: EdgeToken,
+    edge_token: EdgeToken,
     bulk_metrics: Json<BatchMetricsRequestBody>,
     connect_via: Data<ConnectVia>,
     metrics_cache: Data<MetricsCache>,
 ) -> EdgeResult<HttpResponse> {
     crate::metrics::client_metrics::register_bulk_metrics(
-        metrics_cache,
+        metrics_cache.get_ref(),
         connect_via.get_ref(),
+        &edge_token,
         bulk_metrics.into_inner(),
     );
     Ok(HttpResponse::Accepted().finish())
