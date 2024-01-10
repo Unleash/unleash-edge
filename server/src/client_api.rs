@@ -6,7 +6,7 @@ use crate::http::feature_refresher::FeatureRefresher;
 use crate::metrics::client_metrics::MetricsCache;
 use crate::tokens::cache_key;
 use crate::types::{
-    BatchMetricsRequestBody, EdgeJsonResult, EdgeResult, EdgeToken, FeatureFilters,
+    self, BatchMetricsRequestBody, EdgeJsonResult, EdgeResult, EdgeToken, FeatureFilters,
 };
 use actix_web::web::{self, Data, Json, Query};
 use actix_web::{get, post, HttpRequest, HttpResponse};
@@ -173,7 +173,9 @@ pub async fn register(
         client_application.into_inner(),
         metrics_cache,
     );
-    Ok(HttpResponse::Accepted().finish())
+    Ok(HttpResponse::Accepted()
+        .append_header(("X-Edge-Version", types::EDGE_VERSION))
+        .finish())
 }
 
 #[utoipa::path(
@@ -609,6 +611,31 @@ mod tests {
             .await;
         assert_eq!(status.expect_err("").status_code(), StatusCode::FORBIDDEN);
     }
+    #[tokio::test]
+    async fn register_endpoint_returns_version_header() {
+        let metrics_cache = Arc::new(MetricsCache::default());
+        let our_app = ConnectVia {
+            app_name: "test".into(),
+            instance_id: Ulid::new().to_string(),
+        };
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::new(our_app.clone()))
+                .app_data(Data::from(metrics_cache.clone()))
+                .service(web::scope("/api/client").service(register)),
+        )
+        .await;
+        let mut client_app = ClientApplication::new("test_application", 15);
+        client_app.instance_id = Some("test_instance".into());
+        let req = make_register_post_request(client_app.clone()).await;
+        let res = test::call_service(&app, req).await;
+        assert_eq!(res.status(), StatusCode::ACCEPTED);
+        assert_eq!(
+            res.headers().get("X-Edge-Version").unwrap(),
+            types::EDGE_VERSION
+        );
+    }
+
     #[tokio::test]
     async fn client_features_endpoint_correctly_returns_cached_features() {
         let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
