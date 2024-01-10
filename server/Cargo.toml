@@ -16,7 +16,7 @@ version = "16.1.0"
 
 [dependencies]
 actix-cors = "0.6.5"
-actix-http = { version = "3.4.0", features = ["compress-zstd", "rustls-0_21"] }
+actix-http = { version = "3.5.1", features = ["compress-zstd", "rustls-0_21"] }
 actix-middleware-etag = "0.3.0"
 actix-service = "2.0.2"
 actix-web = { version = "4.4.1", features = ["rustls-0_21", "compress-zstd"] }
@@ -77,7 +77,7 @@ unleash-yggdrasil = { version = "0.8.0" }
 utoipa = { version = "4.1.0", features = ["actix_extras", "chrono"] }
 utoipa-swagger-ui = { version = "5", features = ["actix-web"] }
 [dev-dependencies]
-actix-http = "3.4.0"
+actix-http = "3.5.1"
 actix-http-test = "3.1.0"
 actix-service = "2.0.2"
 env_logger = "0.10.1"
