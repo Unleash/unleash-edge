@@ -1,4 +1,4 @@
-use crate::types::EdgeToken;
+use crate::types::{BatchMetricsRequestBody, EdgeToken};
 use actix_web::web::Data;
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
@@ -142,6 +142,33 @@ pub(crate) fn register_client_metrics(
     metrics_cache.sink_metrics(&metrics);
 }
 
+/***
+   Will filter out metrics that do not belong to the environment that edge_token has access to
+*/
+pub(crate) fn register_bulk_metrics(
+    metrics_cache: &MetricsCache,
+    connect_via: &ConnectVia,
+    edge_token: &EdgeToken,
+    metrics: BatchMetricsRequestBody,
+) {
+    let updated: BatchMetricsRequestBody = BatchMetricsRequestBody {
+        applications: metrics.applications.clone(),
+        metrics: metrics
+            .metrics
+            .iter()
+            .filter(|m| {
+                edge_token
+                    .environment
+                    .clone()
+                    .map(|e| e == m.environment)
+                    .unwrap_or(false)
+            })
+            .cloned()
+            .collect(),
+    };
+    metrics_cache.sink_bulk_metrics(updated, connect_via);
+}
+
 pub(crate) fn sendable(batch: &MetricsBatch) -> bool {
     size_of_batch(batch) < UPSTREAM_MAX_BODY_SIZE
 }
@@ -230,6 +257,15 @@ impl MetricsCache {
         self.sink_metrics(&batch.metrics);
     }
 
+    pub fn sink_bulk_metrics(&self, metrics: BatchMetricsRequestBody, connect_via: &ConnectVia) {
+        for application in metrics.applications {
+            self.register_application(
+                application.connect_via(&connect_via.app_name, &connect_via.instance_id),
+            )
+        }
+        self.sink_metrics(&metrics.metrics)
+    }
+
     pub fn reset_metrics(&self) {
         self.applications.clear();
         self.metrics.clear();
@@ -271,10 +307,12 @@ impl MetricsCache {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::types::{TokenType, TokenValidationStatus};
     use chrono::{DateTime, Utc};
     use std::collections::HashMap;
+    use std::str::FromStr;
     use test_case::test_case;
-    use unleash_types::client_metrics::{ClientMetricsEnv, ConnectVia};
+    use unleash_types::client_metrics::{ClientMetricsEnv, ConnectVia, ConnectViaBuilder};
 
     #[test]
     fn cache_aggregates_data_correctly() {
@@ -572,5 +610,49 @@ mod test {
         let metrics_batch = cache.get_appropriately_sized_batches();
         assert_eq!(metrics_batch.len(), 1);
         assert!(metrics_batch.get(0).unwrap().metrics.is_empty());
+    }
+
+    #[test]
+    pub fn register_bulk_metrics_filters_metrics_based_on_environment_in_token() {
+        let metrics_cache = MetricsCache::default();
+        let connect_via = ConnectViaBuilder::default()
+            .app_name("edge_bulk_metrics".into())
+            .instance_id("sometest".into())
+            .build()
+            .unwrap();
+        let mut edge_token_with_development =
+            EdgeToken::from_str("*:development.randomstring").unwrap();
+        edge_token_with_development.status = TokenValidationStatus::Validated;
+        edge_token_with_development.token_type = Some(TokenType::Client);
+        let metrics = BatchMetricsRequestBody {
+            applications: vec![],
+            metrics: vec![
+                ClientMetricsEnv {
+                    feature_name: "feature_one".into(),
+                    app_name: "my_app".into(),
+                    environment: "development".into(),
+                    timestamp: Utc::now(),
+                    yes: 50,
+                    no: 10,
+                    variants: Default::default(),
+                },
+                ClientMetricsEnv {
+                    feature_name: "feature_two".to_string(),
+                    app_name: "other_app".to_string(),
+                    environment: "production".to_string(),
+                    timestamp: Default::default(),
+                    yes: 50,
+                    no: 10,
+                    variants: Default::default(),
+                },
+            ],
+        };
+        register_bulk_metrics(
+            &metrics_cache,
+            &connect_via,
+            &edge_token_with_development,
+            metrics,
+        );
+        assert_eq!(metrics_cache.metrics.len(), 1);
     }
 }

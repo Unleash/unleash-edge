@@ -203,7 +203,7 @@ impl UnleashClient {
         service_account_token: String,
         connect_timeout: Duration,
         socket_timeout: Duration,
-        token_header: String
+        token_header: String,
     ) -> Self {
         Self {
             urls: UnleashUrls::from_base_url(server_url),
@@ -300,7 +300,7 @@ impl UnleashClient {
 
     fn header_map(&self, api_key: Option<String>) -> HeaderMap {
         let mut header_map = HeaderMap::new();
-        let token_header: HeaderName= HeaderName::from_str(self.token_header.as_str()).unwrap();
+        let token_header: HeaderName = HeaderName::from_str(self.token_header.as_str()).unwrap();
         if let Some(key) = api_key {
             header_map.insert(token_header, key.parse().unwrap());
         }
@@ -442,6 +442,35 @@ impl UnleashClient {
         } else {
             match result.status() {
                 StatusCode::BAD_REQUEST => Err(EdgeError::EdgeMetricsRequestError(
+                    result.status(),
+                    result.json().await.ok(),
+                )),
+                _ => Err(EdgeMetricsRequestError(result.status(), None)),
+            }
+        }
+    }
+
+    pub async fn send_bulk_metrics_to_client_endpoint(
+        &self,
+        request: MetricsBatch,
+        token: Option<EdgeToken>,
+    ) -> EdgeResult<()> {
+        let result = self
+            .backing_client
+            .post(self.urls.client_bulk_metrics_url.to_string())
+            .headers(self.header_map(token.map(|t| t.token)))
+            .json(&request)
+            .send()
+            .await
+            .map_err(|e| {
+                info!("Failed to send metrics to /api/client/metrics/bulk endpoint {e:?}");
+                EdgeError::EdgeMetricsError
+            })?;
+        if result.status().is_success() {
+            Ok(())
+        } else {
+            match result.status() {
+                StatusCode::BAD_REQUEST => Err(EdgeMetricsRequestError(
                     result.status(),
                     result.json().await.ok(),
                 )),

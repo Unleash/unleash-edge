@@ -5,7 +5,9 @@ use crate::filters::{
 use crate::http::feature_refresher::FeatureRefresher;
 use crate::metrics::client_metrics::MetricsCache;
 use crate::tokens::cache_key;
-use crate::types::{self, EdgeJsonResult, EdgeResult, EdgeToken, FeatureFilters};
+use crate::types::{
+    self, BatchMetricsRequestBody, EdgeJsonResult, EdgeResult, EdgeToken, FeatureFilters,
+};
 use actix_web::web::{self, Data, Json, Query};
 use actix_web::{get, post, HttpRequest, HttpResponse};
 use dashmap::DashMap;
@@ -201,6 +203,32 @@ pub async fn metrics(
     Ok(HttpResponse::Accepted().finish())
 }
 
+#[utoipa::path(
+context_path = "/api/client",
+responses(
+(status = 202, description = "Accepted bulk metrics"),
+(status = 403, description = "Was not allowed to post bulk metrics")
+),
+request_body = BatchMetricsRequestBody,
+security(
+("Authorization" = [])
+)
+)]
+#[post("/metrics/bulk")]
+pub async fn post_bulk_metrics(
+    edge_token: EdgeToken,
+    bulk_metrics: Json<BatchMetricsRequestBody>,
+    connect_via: Data<ConnectVia>,
+    metrics_cache: Data<MetricsCache>,
+) -> EdgeResult<HttpResponse> {
+    crate::metrics::client_metrics::register_bulk_metrics(
+        metrics_cache.get_ref(),
+        connect_via.get_ref(),
+        &edge_token,
+        bulk_metrics.into_inner(),
+    );
+    Ok(HttpResponse::Accepted().finish())
+}
 pub fn configure_client_api(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/client")
@@ -210,7 +238,8 @@ pub fn configure_client_api(cfg: &mut web::ServiceConfig) {
             .service(get_features)
             .service(get_feature)
             .service(register)
-            .service(metrics),
+            .service(metrics)
+            .service(post_bulk_metrics),
     );
 }
 
@@ -226,12 +255,12 @@ pub fn configure_experimental_post_features(
 #[cfg(test)]
 mod tests {
 
+    use crate::metrics::client_metrics::{ApplicationKey, MetricsBatch, MetricsKey};
+    use crate::types::{TokenType, TokenValidationStatus};
+    use std::collections::HashMap;
     use std::path::PathBuf;
     use std::str::FromStr;
-    use std::{collections::HashMap, sync::Arc};
-
-    use crate::metrics::client_metrics::{ApplicationKey, MetricsKey};
-    use crate::types::{TokenType, TokenValidationStatus};
+    use std::sync::Arc;
 
     use super::*;
 
@@ -245,14 +274,16 @@ mod tests {
         http::header::ContentType,
         test,
         web::{self, Data},
-        App,
+        App, ResponseError,
     };
     use chrono::{DateTime, Duration, TimeZone, Utc};
     use maplit::hashmap;
     use reqwest::StatusCode;
     use ulid::Ulid;
     use unleash_types::client_features::{ClientFeature, Constraint, Operator, Strategy};
-    use unleash_types::client_metrics::{ClientMetricsEnv, MetricBucket, ToggleStats};
+    use unleash_types::client_metrics::{
+        ClientMetricsEnv, ConnectViaBuilder, MetricBucket, ToggleStats,
+    };
     use unleash_yggdrasil::EngineState;
 
     async fn make_metrics_post_request() -> Request {
@@ -280,6 +311,38 @@ mod tests {
                 environment: Some("development".into()),
             }))
             .to_request()
+    }
+
+    async fn make_bulk_metrics_post_request(authorization: Option<String>) -> Request {
+        let mut req = test::TestRequest::post()
+            .uri("/api/client/metrics/bulk")
+            .insert_header(ContentType::json());
+        req = match authorization {
+            Some(auth) => req.insert_header(("Authorization", auth)),
+            None => req,
+        };
+        req.set_json(Json(BatchMetricsRequestBody {
+            applications: vec![ClientApplication {
+                app_name: "test_app".to_string(),
+                connect_via: None,
+                environment: None,
+                instance_id: None,
+                interval: 10,
+                sdk_version: None,
+                started: Default::default(),
+                strategies: vec![],
+            }],
+            metrics: vec![ClientMetricsEnv {
+                feature_name: "".to_string(),
+                app_name: "".to_string(),
+                environment: "".to_string(),
+                timestamp: Default::default(),
+                yes: 0,
+                no: 0,
+                variants: Default::default(),
+            }],
+        }))
+        .to_request()
     }
 
     async fn make_register_post_request(application: ClientApplication) -> Request {
@@ -478,6 +541,76 @@ mod tests {
         assert_eq!(saved_app.connect_via, Some(vec![our_app]));
     }
 
+    #[tokio::test]
+    async fn bulk_metrics_endpoint_correctly_accepts_data() {
+        let metrics_cache = MetricsCache::default();
+        let connect_via = ConnectViaBuilder::default()
+            .app_name("unleash-edge".into())
+            .instance_id("test".into())
+            .build()
+            .unwrap();
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::new(connect_via))
+                .app_data(web::Data::new(metrics_cache))
+                .service(web::scope("/api/client").service(post_bulk_metrics)),
+        )
+        .await;
+        let token = EdgeToken::from_str("*:development.somestring").unwrap();
+        let req = make_bulk_metrics_post_request(Some(token.token.clone())).await;
+        let call = test::call_service(&app, req).await;
+        assert_eq!(call.status(), StatusCode::ACCEPTED);
+    }
+    #[tokio::test]
+    async fn bulk_metrics_endpoint_correctly_refuses_metrics_without_auth_header() {
+        let mut token = EdgeToken::from_str("*:development.somestring").unwrap();
+        token.status = TokenValidationStatus::Validated;
+        token.token_type = Some(TokenType::Client);
+        let upstream_token_cache = Arc::new(DashMap::default());
+        let upstream_features_cache = Arc::new(DashMap::default());
+        let upstream_engine_cache = Arc::new(DashMap::default());
+        upstream_token_cache.insert(token.token.clone(), token.clone());
+        let srv = upstream_server(
+            upstream_token_cache,
+            upstream_features_cache,
+            upstream_engine_cache,
+        )
+        .await;
+        let client = UnleashClient::new(srv.url("/").as_str(), None).unwrap();
+        let status = client
+            .send_bulk_metrics_to_client_endpoint(MetricsBatch::default(), None)
+            .await;
+        assert_eq!(status.expect_err("").status_code(), StatusCode::FORBIDDEN);
+        let successful = client
+            .send_bulk_metrics_to_client_endpoint(MetricsBatch::default(), Some(token.clone()))
+            .await;
+        assert!(successful.is_ok());
+    }
+
+    #[tokio::test]
+    async fn bulk_metrics_endpoint_correctly_refuses_metrics_with_frontend_token() {
+        let mut frontend_token = EdgeToken::from_str("*:development.frontend").unwrap();
+        frontend_token.status = TokenValidationStatus::Validated;
+        frontend_token.token_type = Some(TokenType::Frontend);
+        let upstream_token_cache = Arc::new(DashMap::default());
+        let upstream_features_cache = Arc::new(DashMap::default());
+        let upstream_engine_cache = Arc::new(DashMap::default());
+        upstream_token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
+        let srv = upstream_server(
+            upstream_token_cache,
+            upstream_features_cache,
+            upstream_engine_cache,
+        )
+        .await;
+        let client = UnleashClient::new(srv.url("/").as_str(), None).unwrap();
+        let status = client
+            .send_bulk_metrics_to_client_endpoint(
+                MetricsBatch::default(),
+                Some(frontend_token.clone()),
+            )
+            .await;
+        assert_eq!(status.expect_err("").status_code(), StatusCode::FORBIDDEN);
+    }
     #[tokio::test]
     async fn register_endpoint_returns_version_header() {
         let metrics_cache = Arc::new(MetricsCache::default());

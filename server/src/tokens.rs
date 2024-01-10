@@ -7,8 +7,8 @@ use std::collections::HashSet;
 use std::future::{ready, Ready};
 use std::str::FromStr;
 
-use crate::cli::TokenHeader;
 use crate::cli::EdgeMode;
+use crate::cli::TokenHeader;
 use crate::error::EdgeError;
 use crate::types::EdgeResult;
 use crate::types::EdgeToken;

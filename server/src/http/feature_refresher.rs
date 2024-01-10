@@ -934,7 +934,14 @@ mod tests {
         server.stop().await;
         tokio::time::sleep(std::time::Duration::from_millis(5)).await; // To ensure our refresh is due
         feature_refresher.refresh_features().await;
-        assert_eq!(feature_refresher.tokens_to_refresh.get("*:development.secret123").unwrap().failure_count, 1);
+        assert_eq!(
+            feature_refresher
+                .tokens_to_refresh
+                .get("*:development.secret123")
+                .unwrap()
+                .failure_count,
+            1
+        );
         assert!(!feature_refresher.features_cache.is_empty());
         assert!(!feature_refresher.engine_cache.is_empty());
     }
