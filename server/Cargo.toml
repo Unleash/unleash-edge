@@ -22,21 +22,21 @@ eula = false
 
 [dependencies]
 actix-cors = "0.6.5"
-actix-http = { version = "3.4.0", features = ["compress-zstd", "rustls-0_21"] }
+actix-http = { version = "3.5.1", features = ["compress-zstd", "rustls-0_21"] }
 actix-middleware-etag = "0.3.0"
 actix-service = "2.0.2"
-actix-web = { version = "4.4.0", features = ["rustls-0_21", "compress-zstd"] }
-ahash = "0.8.6"
+actix-web = { version = "4.4.1", features = ["rustls-0_21", "compress-zstd"] }
+ahash = "0.8.7"
 
 anyhow = "1.0.79"
 async-trait = "0.1.77"
 chrono = { version = "0.4.31", features = ["serde"] }
 cidr = "0.2.2"
-clap = { version = "4.4.11", features = ["derive", "env"] }
+clap = { version = "4.4.14", features = ["derive", "env"] }
 clap-markdown = "0.1.3"
 dashmap = "5.5.3"
-futures = "0.3.29"
-futures-core = "0.3.29"
+futures = "0.3.30"
+futures-core = "0.3.30"
 iter_tools = "0.4.0"
 itertools = "0.12.0"
 lazy_static = "1.4.0"
@@ -47,7 +47,7 @@ opentelemetry = { version = "0.21.0", features = [
 ] }
 opentelemetry-prometheus = "0.14.1"
 opentelemetry-semantic-conventions = "0.13.0"
-opentelemetry_sdk = { version = "0.21.1", features = [
+opentelemetry_sdk = { version = "0.21.2", features = [
   "metrics",
   "serde",
   "serde_json",
@@ -56,7 +56,7 @@ opentelemetry_sdk = { version = "0.21.1", features = [
 prometheus = { version = "0.13.3", features = ["process"] }
 prometheus-static-metric = "0.5.1"
 rand = "0.8.5"
-redis = { version = "0.23.3", features = ["tokio-comp", "tokio-rustls-comp"] }
+redis = { version = "0.24.0", features = ["tokio-comp", "tokio-rustls-comp"] }
 reqwest = { version = "0.11.23", default-features = false, features = [
   "rustls",
   "json",
@@ -65,11 +65,11 @@ reqwest = { version = "0.11.23", default-features = false, features = [
 ] }
 rustls = "0.21.8"
 rustls-pemfile = "1.0.4"
-serde = { version = "1.0.193", features = ["derive"] }
-serde_json = "1.0.108"
+serde = { version = "1.0.195", features = ["derive"] }
+serde_json = "1.0.111"
 serde_qs = { version = "0.12.0", features = ["actix4", "tracing"] }
 shadow-rs = { version = "0.25.0" }
-tokio = { version = "1.34.0", features = [
+tokio = { version = "1.35.1", features = [
   "macros",
   "rt-multi-thread",
   "tracing",
@@ -83,7 +83,7 @@ unleash-yggdrasil = { version = "0.8.0" }
 utoipa = { version = "4.1.0", features = ["actix_extras", "chrono"] }
 utoipa-swagger-ui = { version = "5", features = ["actix-web"] }
 [dev-dependencies]
-actix-http = "3.4.0"
+actix-http = "3.5.1"
 actix-http-test = "3.1.0"
 actix-service = "2.0.2"
 env_logger = "0.10.1"
