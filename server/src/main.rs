@@ -156,7 +156,7 @@ async fn main() -> Result<(), anyhow::Error> {
                 _ = refresher.start_refresh_features_background_task() => {
                     tracing::info!("Feature refresher unexpectedly shut down");
                 }
-                _ = unleash_edge::http::background_send_metrics::send_metrics_task(metrics_cache_clone.clone(), refresher.unleash_client.clone(), edge.metrics_interval_seconds.try_into().unwrap()) => {
+                _ = unleash_edge::http::background_send_metrics::send_metrics_task(metrics_cache_clone.clone(), refresher.clone(), edge.metrics_interval_seconds.try_into().unwrap()) => {
                     tracing::info!("Metrics poster unexpectedly shut down");
                 }
                 _ = persist_data(persistence.clone(), lazy_token_cache.clone(), lazy_feature_cache.clone(), refresher.tokens_to_refresh.clone()) => {

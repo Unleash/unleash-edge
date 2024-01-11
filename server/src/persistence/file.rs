@@ -254,6 +254,7 @@ mod tests {
                 last_refreshed: Some(Utc::now()),
                 last_check: Some(Utc::now()),
                 failure_count: 0,
+                use_client_bulk_endpoint: false,
             },
             TokenRefresh {
                 token: EdgeToken {
@@ -265,6 +266,7 @@ mod tests {
                 last_refreshed: None,
                 last_check: None,
                 failure_count: 0,
+                use_client_bulk_endpoint: false,
             },
         ];
 
@@ -300,5 +302,29 @@ mod tests {
         let reloaded = persister.load_tokens().await.unwrap();
 
         assert_eq!(reloaded, tokens);
+    }
+
+    #[test]
+    fn can_read_token_refresh_without_use_client_bulk_field() {
+        let json = r#"{
+            "token": {
+                "token": "default:development:ajsdkajnsdlsan",
+                "token_type": "client",
+                "environment": "development",
+                "projects": [
+                    "default"
+                ],
+                "status": "Validated"
+            },
+            "etag": "W/\"1234\"",
+            "next_refresh": null,
+            "last_refreshed": "2021-03-09T13:00:00Z",
+            "last_check": "2021-03-09T13:00:00Z",
+            "failure_count": 0
+        }"#;
+
+        let token_refresh: TokenRefresh = serde_json::from_str(json).unwrap();
+
+        assert_eq!(token_refresh.use_client_bulk_endpoint, false);
     }
 }
