@@ -176,6 +176,17 @@ impl EdgeToken {
             projects: vec!["*".into()],
         }
     }
+
+    #[cfg(test)]
+    pub fn validated_client_token(token: &str) -> Self {
+        EdgeToken::from_str(token)
+            .map(|mut t| {
+                t.status = TokenValidationStatus::Validated;
+                t.token_type = Some(TokenType::Client);
+                t
+            })
+            .unwrap()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]

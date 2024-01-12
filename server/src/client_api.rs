@@ -588,10 +588,8 @@ mod tests {
             )
             .send()
             .await;
-        assert_eq!(
-            status.expect_err("").status(),
-            Some(reqwest::StatusCode::FORBIDDEN)
-        );
+        assert!(status.is_ok());
+        assert_eq!(status.unwrap().status(), StatusCode::FORBIDDEN);
         let client = UnleashClient::new(srv.url("/").as_str(), None).unwrap();
         let successful = client
             .send_bulk_metrics_to_client_endpoint(MetricsBatch::default(), &token.token)
