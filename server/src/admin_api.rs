@@ -59,7 +59,7 @@ mod tests {
             .collect::<String>();
         let project_token = match projects.len() {
             0 => "*",
-            1 => projects.get(0).unwrap(),
+            1 => projects.first().unwrap(),
             _ => {
                 if projects.contains(&"*".to_string()) {
                     "*"

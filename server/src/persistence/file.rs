@@ -325,6 +325,6 @@ mod tests {
 
         let token_refresh: TokenRefresh = serde_json::from_str(json).unwrap();
 
-        assert_eq!(token_refresh.use_client_bulk_endpoint, false);
+        assert!(!token_refresh.use_client_bulk_endpoint);
     }
 }

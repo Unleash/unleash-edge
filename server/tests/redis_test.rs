@@ -80,5 +80,5 @@ async fn redis_saves_and_restores_token_refreshes_correctly() {
         .unwrap();
     let saved_refreshes = redis_persister.load_refresh_targets().await.unwrap();
     assert_eq!(saved_refreshes.len(), 1);
-    assert_eq!(saved_refreshes.get(0).unwrap().token, edge_token);
+    assert_eq!(saved_refreshes.first().unwrap().token, edge_token);
 }

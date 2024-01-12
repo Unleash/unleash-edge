@@ -252,7 +252,7 @@ impl MetricsCache {
         for metric in batch.metrics.clone() {
             self.metrics.remove(&MetricsKey::from(metric.clone()));
         }
-        METRICS_SIZE_HISTOGRAM.observe(size_of_batch(&batch) as f64);
+        METRICS_SIZE_HISTOGRAM.observe(size_of_batch(batch) as f64);
         if sendable(batch) {
             vec![batch.clone()]
         } else {
@@ -658,7 +658,7 @@ mod test {
         cache.sink_metrics(&metrics);
         let metrics_batch = cache.get_appropriately_sized_batches();
         assert_eq!(metrics_batch.len(), 1);
-        assert!(metrics_batch.get(0).unwrap().metrics.is_empty());
+        assert!(metrics_batch.first().unwrap().metrics.is_empty());
     }
 
     #[test]

@@ -860,7 +860,7 @@ mod tests {
         match validate_result {
             Ok(token_status) => {
                 assert_eq!(token_status.len(), 1);
-                let validated_token = token_status.get(0).unwrap();
+                let validated_token = token_status.first().unwrap();
                 assert_eq!(validated_token.status, TokenValidationStatus::Validated);
                 assert_eq!(validated_token.environment, Some("development".into()))
             }

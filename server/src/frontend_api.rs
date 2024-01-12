@@ -854,7 +854,7 @@ mod tests {
         let _result: FrontendResult = test::call_and_read_body_json(&app, req).await;
         let result: FrontendResult = test::call_and_read_body_json(&app, second_req).await;
         assert_eq!(result.toggles.len(), 1);
-        assert!(result.toggles.get(0).unwrap().enabled)
+        assert!(result.toggles.first().unwrap().enabled)
     }
 
     #[actix_web::test]
