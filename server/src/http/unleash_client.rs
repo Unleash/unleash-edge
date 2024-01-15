@@ -203,6 +203,7 @@ impl UnleashClient {
             token_header,
         }
     }
+    #[allow(clippy::too_many_arguments)]
     pub fn from_url_with_service_account_token(
         server_url: Url,
         skip_ssl_verification: bool,
@@ -478,13 +479,13 @@ impl UnleashClient {
     pub async fn send_bulk_metrics_to_client_endpoint(
         &self,
         request: MetricsBatch,
-        token: &String,
+        token: &str,
     ) -> EdgeResult<()> {
         trace!("Sending metrics to bulk endpoint");
         let result = self
             .backing_client
             .post(self.urls.client_bulk_metrics_url.to_string())
-            .headers(self.header_map(Some(token.clone())))
+            .headers(self.header_map(Some(token.to_string())))
             .json(&request)
             .send()
             .await
