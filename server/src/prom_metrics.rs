@@ -100,6 +100,16 @@ fn register_custom_metrics(registry: &prometheus::Registry) {
         .unwrap();
     registry
         .register(Box::new(
+            background_send_metrics::METRICS_UPSTREAM_CLIENT_BULK.clone(),
+        ))
+        .unwrap();
+    registry
+        .register(Box::new(
+            background_send_metrics::METRICS_UPSTREAM_OUTDATED.clone(),
+        ))
+        .unwrap();
+    registry
+        .register(Box::new(
             crate::http::unleash_client::CLIENT_FEATURE_FETCH_FAILURES.clone(),
         ))
         .unwrap();
@@ -116,6 +126,11 @@ fn register_custom_metrics(registry: &prometheus::Registry) {
     registry
         .register(Box::new(
             crate::http::unleash_client::CLIENT_FEATURE_FETCH.clone(),
+        ))
+        .unwrap();
+    registry
+        .register(Box::new(
+            crate::http::unleash_client::UPSTREAM_VERSION.clone(),
         ))
         .unwrap();
 }

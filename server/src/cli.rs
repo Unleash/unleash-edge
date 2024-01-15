@@ -389,7 +389,7 @@ mod tests {
             EdgeMode::Edge(args) => {
                 let client_headers = args.custom_client_headers;
                 assert_eq!(client_headers.len(), 2);
-                let auth = client_headers.get(0).unwrap();
+                let auth = client_headers.first().unwrap();
                 assert_eq!(auth.0, "Authorization");
                 assert_eq!(auth.1, "abc123");
                 let api_key = client_headers.get(1).unwrap();
@@ -413,7 +413,7 @@ mod tests {
             EdgeMode::Edge(args) => {
                 let client_headers = args.custom_client_headers;
                 assert_eq!(client_headers.len(), 2);
-                let auth = client_headers.get(0).unwrap();
+                let auth = client_headers.first().unwrap();
                 assert_eq!(auth.0, "Authorization");
                 assert_eq!(auth.1, "abc123");
                 let api_key = client_headers.get(1).unwrap();
@@ -437,7 +437,7 @@ mod tests {
             EdgeMode::Edge(args) => {
                 let client_headers = args.custom_client_headers;
                 assert_eq!(client_headers.len(), 1);
-                let auth = client_headers.get(0).unwrap();
+                let auth = client_headers.first().unwrap();
                 assert_eq!(auth.0, "Authorization");
                 assert_eq!(auth.1, "test:test.secret");
             }
@@ -642,7 +642,7 @@ mod tests {
         assert!(args.trust_proxy.trust_proxy);
         info!("{:?}", args.trust_proxy.proxy_trusted_servers);
         assert_eq!(args.trust_proxy.proxy_trusted_servers.len(), 2);
-        let first = args.trust_proxy.proxy_trusted_servers.get(0).unwrap();
+        let first = args.trust_proxy.proxy_trusted_servers.first().unwrap();
         if let NetworkAddr::Ip(ip_addr) = first {
             assert!(ip_addr.is_ipv4());
         } else {
@@ -671,7 +671,7 @@ mod tests {
         let args = CliArgs::parse_from(args);
         info!("{:?}", args.trust_proxy.proxy_trusted_servers);
         assert_eq!(args.trust_proxy.proxy_trusted_servers.len(), 2);
-        let first = args.trust_proxy.proxy_trusted_servers.get(0).unwrap();
+        let first = args.trust_proxy.proxy_trusted_servers.first().unwrap();
         if let NetworkAddr::CidrIpv4(cidr) = first {
             assert_eq!(cidr.network_length(), 16);
         } else {

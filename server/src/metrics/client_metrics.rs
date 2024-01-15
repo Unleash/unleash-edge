@@ -2,10 +2,14 @@ use crate::types::{BatchMetricsRequestBody, EdgeToken};
 use actix_web::web::Data;
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
+use iter_tools::Itertools;
 use lazy_static::lazy_static;
 use prometheus::{register_histogram, Histogram};
 use serde::{Deserialize, Serialize};
-use std::hash::{Hash, Hasher};
+use std::{
+    collections::HashMap,
+    hash::{Hash, Hasher},
+};
 use tracing::{debug, instrument};
 use unleash_types::client_metrics::{
     ClientApplication, ClientMetrics, ClientMetricsEnv, ConnectVia,
@@ -215,6 +219,51 @@ pub(crate) fn cut_into_sendable_batches(batch: MetricsBatch) -> Vec<MetricsBatch
 }
 
 impl MetricsCache {
+    pub fn get_metrics_by_environment(&self) -> HashMap<String, MetricsBatch> {
+        let mut batches_by_environment = HashMap::new();
+
+        let applications = self
+            .applications
+            .iter()
+            .map(|e| e.value().clone())
+            .collect::<Vec<ClientApplication>>();
+        let data = self
+            .metrics
+            .iter()
+            .map(|e| e.value().clone())
+            .collect::<Vec<ClientMetricsEnv>>();
+        let map: HashMap<String, Vec<ClientMetricsEnv>> = data
+            .into_iter()
+            .into_group_map_by(|metric| metric.environment.clone());
+        for (environment, metrics) in map {
+            let batch = MetricsBatch {
+                applications: applications.clone(),
+                metrics,
+            };
+            batches_by_environment.insert(environment, batch);
+        }
+        batches_by_environment
+    }
+
+    pub fn get_appropriately_sized_env_batches(&self, batch: &MetricsBatch) -> Vec<MetricsBatch> {
+        for app in batch.applications.clone() {
+            self.applications.remove(&ApplicationKey::from(app.clone()));
+        }
+        for metric in batch.metrics.clone() {
+            self.metrics.remove(&MetricsKey::from(metric.clone()));
+        }
+        METRICS_SIZE_HISTOGRAM.observe(size_of_batch(batch) as f64);
+        if sendable(batch) {
+            vec![batch.clone()]
+        } else {
+            debug!(
+                "We have {} applications and {} metrics",
+                batch.applications.len(),
+                batch.metrics.len()
+            );
+            cut_into_sendable_batches(batch.clone())
+        }
+    }
     /// This is a destructive call. We'll remove all metrics that is due for posting
     /// Called from [crate::http::background_send_metrics::send_metrics_task] which will reinsert on 5xx server failures, but leave 413 and 400 failures on the floor
     pub fn get_appropriately_sized_batches(&self) -> Vec<MetricsBatch> {
@@ -609,7 +658,7 @@ mod test {
         cache.sink_metrics(&metrics);
         let metrics_batch = cache.get_appropriately_sized_batches();
         assert_eq!(metrics_batch.len(), 1);
-        assert!(metrics_batch.get(0).unwrap().metrics.is_empty());
+        assert!(metrics_batch.first().unwrap().metrics.is_empty());
     }
 
     #[test]
@@ -654,5 +703,35 @@ mod test {
             metrics,
         );
         assert_eq!(metrics_cache.metrics.len(), 1);
+    }
+
+    #[test]
+    pub fn metrics_will_be_gathered_per_environment() {
+        let metrics = vec![
+            ClientMetricsEnv {
+                feature_name: "feature_one".into(),
+                app_name: "my_app".into(),
+                environment: "development".into(),
+                timestamp: Utc::now(),
+                yes: 50,
+                no: 10,
+                variants: Default::default(),
+            },
+            ClientMetricsEnv {
+                feature_name: "feature_two".to_string(),
+                app_name: "other_app".to_string(),
+                environment: "production".to_string(),
+                timestamp: Default::default(),
+                yes: 50,
+                no: 10,
+                variants: Default::default(),
+            },
+        ];
+        let cache = MetricsCache::default();
+        cache.sink_metrics(&metrics);
+        let metrics_by_env_map = cache.get_metrics_by_environment();
+        assert_eq!(metrics_by_env_map.len(), 2);
+        assert!(metrics_by_env_map.contains_key("development"));
+        assert!(metrics_by_env_map.contains_key("production"));
     }
 }

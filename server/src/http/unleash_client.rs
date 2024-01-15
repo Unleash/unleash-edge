@@ -12,7 +12,7 @@ use reqwest::header::{HeaderMap, HeaderName};
 use reqwest::{header, Client};
 use reqwest::{ClientBuilder, Identity, RequestBuilder, StatusCode, Url};
 use serde::{Deserialize, Serialize};
-use tracing::{debug, info, warn};
+use tracing::{debug, info, trace, warn};
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ClientApplication;
 
@@ -62,6 +62,14 @@ lazy_static! {
             "Why we failed to validate tokens"
         ),
         &["status_code"]
+    )
+    .unwrap();
+    pub static ref UPSTREAM_VERSION: IntGaugeVec = register_int_gauge_vec!(
+        Opts::new(
+            "upstream_version",
+            "The server type (Unleash or Edge) and version of the upstream we're connected to"
+        ),
+        &["server", "version"]
     )
     .unwrap();
 }
@@ -195,6 +203,7 @@ impl UnleashClient {
             token_header,
         }
     }
+    #[allow(clippy::too_many_arguments)]
     pub fn from_url_with_service_account_token(
         server_url: Url,
         skip_ssl_verification: bool,
@@ -328,7 +337,7 @@ impl UnleashClient {
         &self,
         api_key: String,
         application: ClientApplication,
-    ) -> EdgeResult<()> {
+    ) -> EdgeResult<bool> {
         self.backing_client
             .post(self.urls.client_register_app_url.to_string())
             .headers(self.header_map(Some(api_key)))
@@ -343,7 +352,23 @@ impl UnleashClient {
                 if !r.status().is_success() {
                     CLIENT_REGISTER_FAILURES
                         .with_label_values(&[r.status().as_str()])
-                        .inc()
+                        .inc();
+                }
+                if let Some(edge_version) = r.headers().get("X-Edge-Version") {
+                    let version = edge_version.to_str().unwrap_or("pre-16.2.0");
+                    UPSTREAM_VERSION
+                        .with_label_values(&["edge", version])
+                        .inc();
+                    crate::metrics::version_is_new_enough_for_client_bulk("edge", version)
+                } else if let Some(unleash_version) = r.headers().get("X-Unleash-Version") {
+                    let version = unleash_version.to_str().unwrap_or("pre-5.9.0");
+                    UPSTREAM_VERSION
+                        .with_label_values(&["unleash", version])
+                        .inc();
+                    crate::metrics::version_is_new_enough_for_client_bulk("unleash", version)
+                } else {
+                    warn!("Connected to an old version of Unleash or Edge. Please upgrade your server to Unleash 5.9 or Edge 17.0");
+                    false
                 }
             })
     }
@@ -426,6 +451,7 @@ impl UnleashClient {
     }
 
     pub async fn send_batch_metrics(&self, request: MetricsBatch) -> EdgeResult<()> {
+        trace!("Sending metrics to old /edge/metrics endpoint");
         let result = self
             .backing_client
             .post(self.urls.edge_metrics_url.to_string())
@@ -453,12 +479,13 @@ impl UnleashClient {
     pub async fn send_bulk_metrics_to_client_endpoint(
         &self,
         request: MetricsBatch,
-        token: Option<EdgeToken>,
+        token: &str,
     ) -> EdgeResult<()> {
+        trace!("Sending metrics to bulk endpoint");
         let result = self
             .backing_client
             .post(self.urls.client_bulk_metrics_url.to_string())
-            .headers(self.header_map(token.map(|t| t.token)))
+            .headers(self.header_map(Some(token.to_string())))
             .json(&request)
             .send()
             .await
@@ -834,7 +861,7 @@ mod tests {
         match validate_result {
             Ok(token_status) => {
                 assert_eq!(token_status.len(), 1);
-                let validated_token = token_status.get(0).unwrap();
+                let validated_token = token_status.first().unwrap();
                 assert_eq!(validated_token.status, TokenValidationStatus::Validated);
                 assert_eq!(validated_token.environment, Some("development".into()))
             }

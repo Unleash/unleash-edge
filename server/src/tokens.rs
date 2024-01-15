@@ -169,7 +169,7 @@ impl FromStr for EdgeToken {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.contains(':') && s.contains('.') {
             let token_parts: Vec<String> = s.split(':').take(2).map(|s| s.to_string()).collect();
-            let token_projects = if let Some(projects) = token_parts.get(0) {
+            let token_projects = if let Some(projects) = token_parts.first() {
                 if projects == "[]" {
                     vec![]
                 } else {
@@ -188,7 +188,7 @@ impl FromStr for EdgeToken {
                     return Err(EdgeError::TokenParseError(s.into()));
                 }
                 Ok(EdgeToken {
-                    environment: e_a_k.get(0).cloned(),
+                    environment: e_a_k.first().cloned(),
                     projects: token_projects,
                     token_type: None,
                     token: s.into(),

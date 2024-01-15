@@ -576,13 +576,23 @@ mod tests {
             upstream_engine_cache,
         )
         .await;
-        let client = UnleashClient::new(srv.url("/").as_str(), None).unwrap();
-        let status = client
-            .send_bulk_metrics_to_client_endpoint(MetricsBatch::default(), None)
+        let req = reqwest::Client::new();
+        let status = req
+            .post(srv.url("/api/client/metrics/bulk").as_str())
+            .body(
+                serde_json::to_string(&crate::types::BatchMetricsRequestBody {
+                    applications: vec![],
+                    metrics: vec![],
+                })
+                .unwrap(),
+            )
+            .send()
             .await;
-        assert_eq!(status.expect_err("").status_code(), StatusCode::FORBIDDEN);
+        assert!(status.is_ok());
+        assert_eq!(status.unwrap().status(), StatusCode::FORBIDDEN);
+        let client = UnleashClient::new(srv.url("/").as_str(), None).unwrap();
         let successful = client
-            .send_bulk_metrics_to_client_endpoint(MetricsBatch::default(), Some(token.clone()))
+            .send_bulk_metrics_to_client_endpoint(MetricsBatch::default(), &token.token)
             .await;
         assert!(successful.is_ok());
     }
@@ -604,10 +614,7 @@ mod tests {
         .await;
         let client = UnleashClient::new(srv.url("/").as_str(), None).unwrap();
         let status = client
-            .send_bulk_metrics_to_client_endpoint(
-                MetricsBatch::default(),
-                Some(frontend_token.clone()),
-            )
+            .send_bulk_metrics_to_client_endpoint(MetricsBatch::default(), &frontend_token.token)
             .await;
         assert_eq!(status.expect_err("").status_code(), StatusCode::FORBIDDEN);
     }

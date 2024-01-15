@@ -2,13 +2,15 @@ use actix_web::http::StatusCode;
 use std::cmp::max;
 use tracing::{error, info, trace, warn};
 
-use super::unleash_client::UnleashClient;
+use super::feature_refresher::FeatureRefresher;
 
+use crate::types::TokenRefresh;
 use crate::{
     error::EdgeError,
     metrics::client_metrics::{size_of_batch, MetricsCache},
 };
 use chrono::Duration;
+use dashmap::DashMap;
 use lazy_static::lazy_static;
 use prometheus::{register_int_gauge, register_int_gauge_vec, IntGauge, IntGaugeVec, Opts};
 use rand::Rng;
@@ -25,76 +27,135 @@ lazy_static! {
     .unwrap();
     pub static ref METRICS_UNEXPECTED_ERRORS: IntGauge =
         register_int_gauge!(Opts::new("metrics_send_error", "Failures to send metrics")).unwrap();
+    pub static ref METRICS_UPSTREAM_OUTDATED: IntGaugeVec = register_int_gauge_vec!(
+        Opts::new(
+            "metrics_upstream_outdated",
+            "Number of times we have tried to send metrics to an outdated endpoint"
+        ),
+        &["environment"]
+    )
+    .unwrap();
+    pub static ref METRICS_UPSTREAM_CLIENT_BULK: IntGaugeVec = register_int_gauge_vec!(
+        Opts::new(
+            "metrics_upstream_client_bulk",
+            "Number of times we have tried to send metrics to the client bulk endpoint"
+        ),
+        &["environment"]
+    )
+    .unwrap();
+}
+
+fn decide_where_to_post(
+    environment: &String,
+    known_tokens: Arc<DashMap<String, TokenRefresh>>,
+) -> (bool, String) {
+    if let Some(token_refresh) = known_tokens
+        .iter()
+        .find(|t| t.token.environment == Some(environment.to_string()))
+    {
+        if token_refresh.use_client_bulk_endpoint {
+            info!("Sending metrics to client bulk endpoint");
+            METRICS_UPSTREAM_CLIENT_BULK
+                .with_label_values(&[environment])
+                .inc();
+            (true, token_refresh.token.token.clone())
+        } else {
+            warn!("Your upstream is outdated. Please upgrade to at least Unleash version 5.9.0 or Edge Version 17.0.0");
+            METRICS_UPSTREAM_OUTDATED
+                .with_label_values(&[environment])
+                .inc();
+            (false, "".into())
+        }
+    } else {
+        (false, "".into())
+    }
 }
 
 pub async fn send_metrics_task(
     metrics_cache: Arc<MetricsCache>,
-    unleash_client: Arc<UnleashClient>,
+    feature_refresher: Arc<FeatureRefresher>,
     send_interval: i64,
 ) {
     let mut failures = 0;
     let mut interval = Duration::seconds(send_interval);
     loop {
-        let batches = metrics_cache.get_appropriately_sized_batches();
-        trace!("Posting {} batches", batches.len());
-        for batch in batches {
-            if !batch.applications.is_empty() || !batch.metrics.is_empty() {
-                if let Err(edge_error) = unleash_client.send_batch_metrics(batch.clone()).await {
-                    match edge_error {
-                        EdgeError::EdgeMetricsRequestError(status_code, message) => {
-                            METRICS_UPSTREAM_HTTP_ERRORS
-                                .with_label_values(&[status_code.as_str()])
-                                .inc();
-                            match status_code {
-                                StatusCode::PAYLOAD_TOO_LARGE => error!(
-                                    "Metrics were too large. They were {}",
-                                    size_of_batch(&batch)
-                                ),
-                                StatusCode::BAD_REQUEST => {
-                                    error!("Unleash said [{message:?}]. Dropping this metric bucket to avoid consuming too much memory");
-                                }
-                                StatusCode::NOT_FOUND => {
-                                    failures = 10;
-                                    interval = new_interval(interval, failures, 5);
-                                    error!("Upstream said we are trying to post to an endpoint that doesn't exist. backing off to {} seconds", interval.num_seconds());
-                                }
-                                StatusCode::FORBIDDEN | StatusCode::UNAUTHORIZED => {
-                                    failures = 10;
-                                    interval = new_interval(interval, failures, 5);
-                                    error!("Upstream said we were not allowed to post metrics, backing off to {} seconds", interval.num_seconds());
-                                }
-                                StatusCode::TOO_MANY_REQUESTS => {
-                                    failures = max(10, failures + 1);
-                                    interval = new_interval(interval, failures, 5);
-                                    info!(
-                                        "Upstream said it was too busy, backing off to {} seconds",
-                                        interval.num_seconds()
-                                    );
-                                    metrics_cache.reinsert_batch(batch);
-                                }
-                                StatusCode::INTERNAL_SERVER_ERROR
-                                | StatusCode::BAD_GATEWAY
-                                | StatusCode::SERVICE_UNAVAILABLE
-                                | StatusCode::GATEWAY_TIMEOUT => {
-                                    failures = max(10, failures + 1);
-                                    interval = new_interval(interval, failures, 5);
-                                    info!("Upstream said it is struggling. It returned Http status {}. Backing off to {} seconds", status_code, interval.num_seconds());
-                                    metrics_cache.reinsert_batch(batch);
-                                }
-                                _ => {
-                                    warn!("Failed to send metrics. Status code was {status_code}. Will reinsert metrics for next attempt");
-                                    metrics_cache.reinsert_batch(batch);
+        trace!("Looping metrics");
+        let envs = metrics_cache.get_metrics_by_environment();
+        for (env, batch) in envs.iter() {
+            let (use_new_endpoint, token) =
+                decide_where_to_post(env, feature_refresher.tokens_to_refresh.clone());
+            let batches = metrics_cache.get_appropriately_sized_env_batches(batch);
+            trace!("Posting {} batches for {env}", batches.len());
+            for batch in batches {
+                if !batch.applications.is_empty() || !batch.metrics.is_empty() {
+                    let result = if use_new_endpoint {
+                        feature_refresher
+                            .unleash_client
+                            .send_bulk_metrics_to_client_endpoint(batch.clone(), &token)
+                            .await
+                    } else {
+                        feature_refresher
+                            .unleash_client
+                            .send_batch_metrics(batch.clone())
+                            .await
+                    };
+                    if let Err(edge_error) = result {
+                        match edge_error {
+                            EdgeError::EdgeMetricsRequestError(status_code, message) => {
+                                METRICS_UPSTREAM_HTTP_ERRORS
+                                    .with_label_values(&[status_code.as_str()])
+                                    .inc();
+                                match status_code {
+                                    StatusCode::PAYLOAD_TOO_LARGE => error!(
+                                        "Metrics were too large. They were {}",
+                                        size_of_batch(&batch)
+                                    ),
+                                    StatusCode::BAD_REQUEST => {
+                                        error!("Unleash said [{message:?}]. Dropping this metric bucket to avoid consuming too much memory");
+                                    }
+                                    StatusCode::NOT_FOUND => {
+                                        failures = 10;
+                                        interval = new_interval(interval, failures, 5);
+                                        error!("Upstream said we are trying to post to an endpoint that doesn't exist. backing off to {} seconds", interval.num_seconds());
+                                    }
+                                    StatusCode::FORBIDDEN | StatusCode::UNAUTHORIZED => {
+                                        failures = 10;
+                                        interval = new_interval(interval, failures, 5);
+                                        error!("Upstream said we were not allowed to post metrics, backing off to {} seconds", interval.num_seconds());
+                                    }
+                                    StatusCode::TOO_MANY_REQUESTS => {
+                                        failures = max(10, failures + 1);
+                                        interval = new_interval(interval, failures, 5);
+                                        info!(
+                                            "Upstream said it was too busy, backing off to {} seconds",
+                                            interval.num_seconds()
+                                        );
+                                        metrics_cache.reinsert_batch(batch);
+                                    }
+                                    StatusCode::INTERNAL_SERVER_ERROR
+                                    | StatusCode::BAD_GATEWAY
+                                    | StatusCode::SERVICE_UNAVAILABLE
+                                    | StatusCode::GATEWAY_TIMEOUT => {
+                                        failures = max(10, failures + 1);
+                                        interval = new_interval(interval, failures, 5);
+                                        info!("Upstream said it is struggling. It returned Http status {}. Backing off to {} seconds", status_code, interval.num_seconds());
+                                        metrics_cache.reinsert_batch(batch);
+                                    }
+                                    _ => {
+                                        warn!("Failed to send metrics. Status code was {status_code}. Will reinsert metrics for next attempt");
+                                        metrics_cache.reinsert_batch(batch);
+                                    }
                                 }
                             }
+                            _ => {
+                                warn!("Failed to send metrics: {edge_error:?}");
+                                METRICS_UNEXPECTED_ERRORS.inc();
+                            }
                         }
-                        _ => {
-                            warn!("Failed to send metrics: {edge_error:?}");
-                            METRICS_UNEXPECTED_ERRORS.inc();
-                        }
+                    } else {
+                        failures = max(0, failures - 1);
+                        interval = new_interval(interval, failures, 5);
                     }
-                } else {
-                    failures = max(0, failures - 1);
-                    interval = new_interval(interval, failures, 5);
                 }
             }
         }
@@ -120,11 +181,35 @@ fn random_jitter_seconds(max_jitter_seconds: u8) -> Duration {
 #[cfg(test)]
 mod tests {
     use crate::http::background_send_metrics::new_interval;
+    use crate::types::{EdgeToken, TokenRefresh};
     use chrono::Duration;
+    use dashmap::DashMap;
+    use std::sync::Arc;
 
-    #[test]
-    pub fn new_interval_does_not_overflow() {
+    #[tokio::test]
+    pub async fn new_interval_does_not_overflow() {
         let metrics = new_interval(Duration::seconds(300), 10, 5);
         assert!(metrics.num_seconds() < 3305);
+    }
+
+    #[tokio::test]
+    pub async fn decides_correctly_whether_to_post_to_client_bulk_or_edge_bulk() {
+        let refreshing_tokens = Arc::new(DashMap::default());
+        let old_token = EdgeToken::validated_client_token("*:development.somesecret");
+        let mut old_endpoint_refresh = TokenRefresh::new(old_token.clone(), None);
+        old_endpoint_refresh.use_client_bulk_endpoint = false;
+        let new_token = EdgeToken::validated_client_token("*:production.someothersecret");
+        let mut new_endpoint_refresh = TokenRefresh::new(new_token.clone(), None);
+        new_endpoint_refresh.use_client_bulk_endpoint = true;
+        refreshing_tokens.insert(old_token.token.clone(), old_endpoint_refresh);
+        refreshing_tokens.insert(new_token.token.clone(), new_endpoint_refresh);
+        let (use_new_endpoint, token) =
+            super::decide_where_to_post(&"development".to_string(), refreshing_tokens.clone());
+        assert!(!use_new_endpoint);
+        assert_eq!(&token, "");
+        let (use_new_endpoint, other_token) =
+            super::decide_where_to_post(&"production".to_string(), refreshing_tokens.clone());
+        assert!(use_new_endpoint);
+        assert_eq!(other_token, new_token.token);
     }
 }
