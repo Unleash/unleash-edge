@@ -1,6 +1,6 @@
 use actix_web::http::StatusCode;
 use std::cmp::max;
-use tracing::{error, info, trace, warn};
+use tracing::{debug, error, info, trace, warn};
 
 use super::feature_refresher::FeatureRefresher;
 
@@ -54,13 +54,13 @@ fn decide_where_to_post(
         .find(|t| t.token.environment == Some(environment.to_string()))
     {
         if token_refresh.use_client_bulk_endpoint {
-            info!("Sending metrics to client bulk endpoint");
+            debug!("Sending metrics to client bulk endpoint");
             METRICS_UPSTREAM_CLIENT_BULK
                 .with_label_values(&[environment])
                 .inc();
             (true, token_refresh.token.token.clone())
         } else {
-            warn!("Your upstream is outdated. Please upgrade to at least Unleash version 5.9.0 or Edge Version 17.0.0");
+            info!("Your upstream is outdated. Please upgrade to at least Unleash version 5.9.0 (when ready) or Edge Version 17.0.0 (this one)");
             METRICS_UPSTREAM_OUTDATED
                 .with_label_values(&[environment])
                 .inc();
