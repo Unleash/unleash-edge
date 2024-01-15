@@ -87,7 +87,7 @@ utoipa = { version = "4.2.0", features = ["actix_extras", "chrono"] }
 utoipa-swagger-ui = { version = "6", features = ["actix-web"] }
 xxhash-rust = { version = "0.8.8", features = ["xxh3"] }
 [dev-dependencies]
-actix-http = "3.4.0"
+actix-http = "3.5.1"
 actix-http-test = "3.1.0"
 actix-service = "2.0.2"
 env_logger = "0.10.1"

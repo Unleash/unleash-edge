@@ -570,11 +570,14 @@ mod tests {
         let upstream_token_cache = Arc::new(DashMap::default());
         let upstream_features_cache = Arc::new(DashMap::default());
         let upstream_engine_cache = Arc::new(DashMap::default());
+        let upstream_etag_cache = Arc::new(DashMap::default());
+
         upstream_token_cache.insert(token.token.clone(), token.clone());
         let srv = upstream_server(
             upstream_token_cache,
             upstream_features_cache,
             upstream_engine_cache,
+            upstream_etag_cache,
         )
         .await;
         let req = reqwest::Client::new();
@@ -606,11 +609,13 @@ mod tests {
         let upstream_token_cache = Arc::new(DashMap::default());
         let upstream_features_cache = Arc::new(DashMap::default());
         let upstream_engine_cache = Arc::new(DashMap::default());
+        let upstream_etag_cache = Arc::new(DashMap::default());
         upstream_token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
         let srv = upstream_server(
             upstream_token_cache,
             upstream_features_cache,
             upstream_engine_cache,
+            upstream_etag_cache,
         )
         .await;
         let client = UnleashClient::new(srv.url("/").as_str(), None).unwrap();
