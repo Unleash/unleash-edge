@@ -40,7 +40,7 @@ fn filter_features(
 }
 
 pub fn filter_features_for_token(features: &ClientFeatures, token: &EdgeToken) -> ClientFeatures {
-    let f = FeatureFilterSet::from(project_filter(&token));
+    let f = FeatureFilterSet::from(project_filter(token));
     let filtered = features
         .features
         .iter()

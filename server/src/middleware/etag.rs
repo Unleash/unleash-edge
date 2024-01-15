@@ -99,28 +99,25 @@ where
                             }
                             _ => body.boxed(),
                         });
-                        match payload {
-                            Some(bytes) => {
-                                let response_hash = xxh3_128(&bytes);
-                                let base64 = base64::prelude::BASE64_URL_SAFE
-                                    .encode(response_hash.to_le_bytes());
-                                let mut buff = Buffer::new();
-                                let _ = write!(buff, "{:x}-{}", bytes.len(), base64);
-                                let tag = EntityTag::new_weak(buff.to_string());
-                                if let Some(request_etag_header) = request_etag_header {
-                                    if request_etag_header == IfNoneMatch::Any
-                                        || request_etag_header.to_string() == tag.to_string()
-                                    {
-                                        modified = false
-                                    }
-                                }
-                                if modified {
-                                    if let Ok((name, value)) = ETag(tag.clone()).try_into_pair() {
-                                        res.headers_mut().insert(name, value);
-                                    }
+                        if let Some(bytes) = payload {
+                            let response_hash = xxh3_128(&bytes);
+                            let base64 = base64::prelude::BASE64_URL_SAFE
+                                .encode(response_hash.to_le_bytes());
+                            let mut buff = Buffer::new();
+                            let _ = write!(buff, "{:x}-{}", bytes.len(), base64);
+                            let tag = EntityTag::new_weak(buff.to_string());
+                            if let Some(request_etag_header) = request_etag_header {
+                                if request_etag_header == IfNoneMatch::Any
+                                    || request_etag_header.to_string() == tag.to_string()
+                                {
+                                    modified = false
                                 }
                             }
-                            None => {}
+                            if modified {
+                                if let Ok((name, value)) = ETag(tag.clone()).try_into_pair() {
+                                    res.headers_mut().insert(name, value);
+                                }
+                            }
                         }
 
                         Ok(match modified {
@@ -140,7 +137,7 @@ where
 fn header_to_edgetoken(header: Option<&HeaderValue>) -> Option<EdgeToken> {
     header
         .map(|h| h.to_str().unwrap())
-        .map_or(None, |header_str| EdgeToken::from_str(header_str).ok())
+        .and_then(|header_str| EdgeToken::from_str(header_str).ok())
 }
 
 fn we_know_this_etag_from_upstream(
