@@ -249,7 +249,7 @@ jobs:
           # Remove the granular manifests
           rm -f artifacts/*-dist-manifest.json
       - name: Upload assets to Github Release
-        uses: AButler/upload-release-assets@v4.0
+        uses: AButler/upload-release-assets@v3.0
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           files: "artifacts/*"
