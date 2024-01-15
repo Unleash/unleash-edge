@@ -5,7 +5,111 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 17.0.0 (2024-01-15)
+
+### Chore
+
+ - <csr-id-3b404ee302f818cd3ae07f5c9106d23322efde17/> Prepare for 17.0.0 release
+ - <csr-id-abfb62d3d0f13ad1fa3ae6484c4c31deaf6ae368/> update rust crate shadow-rs to 0.26.0
+ - <csr-id-1c359ed1d6d047be2398480c1c622e6d0952989a/> update rust crate testcontainers-modules to 0.3.1
+ - <csr-id-f06700f010c74372f53c49f9050255872334f270/> update rust crate actix-http to 3.5.1
+
+### New Features
+
+ - <csr-id-4f9c7eeffdb1b491d7e0f0aaf76d0bcb24df9fe5/> Use Version-headers to decide where to post metrics
+   * feat: Edge now dynamically posts to correct upstream metrics endpoint
+ - <csr-id-1edda8ccf4b00a147f8bceefca4b2274dd91eb53/> added client authenticated bulk metrics
+   * filters metrics posted by environment accessible by token
+
+### Bug Fixes
+
+ - <csr-id-f55176807e9c52aa358d25a14d7ad95bb60049cf/> update rust crate clap to 4.4.16
+ - <csr-id-b6e71695604144747349ddfebaf9eb94a3ecc4ab/> update rust crate utoipa-swagger-ui to v6
+ - <csr-id-7aa21b34e091fca465c9a3f1d194c743ce2abded/> update rust crate actix-cors to 0.7.0
+ - <csr-id-c63209c44186888c777ac5ffc50cb413220d96d0/> update rust crate utoipa to 4.2.0
+ - <csr-id-d8323df72f948fd923c212ce683ff5cd3a1d5a12/> update rust-futures monorepo to 0.3.30
+ - <csr-id-d6d43ff23dfb2f7011af92dc4b13e860ad755c92/> update rust crate opentelemetry_sdk to 0.21.2
+ - <csr-id-b7df877202d590ed4d0c4e883ddc521f3ee123bc/> update rust crate serde to 1.0.195
+ - <csr-id-39df71761c5e471c821e09eeb5dfc720af8bb407/> update rust crate actix-web to 4.4.1
+ - <csr-id-869b07693f0d02e4fbb5701a30ee218828ba412f/> update rust crate redis to 0.24.0
+ - <csr-id-2aea0a51861d5d3a8dfd226e8cceb68a029b8a4e/> update rust crate tokio to 1.35.1
+ - <csr-id-345ea49ff95c7e8723961b0ec4fae09a9031e5f8/> update rust crate serde_json to 1.0.111
+ - <csr-id-69aca47b7dafe56bec95e4ee1bb3f54c9e51671e/> update rust crate ahash to 0.8.7
+ - <csr-id-78ad7ca9be77894e8c36001c0a23274ef9bb5e1e/> update rust crate clap to 4.4.14
+ - <csr-id-5b8be2a12efbd88e741b312fb32756b39e0d6080/> update rust crate anyhow to 1.0.79
+ - <csr-id-367f7d336186d5e1ea9585c12828444bce72cb01/> update rust crate async-trait to 0.1.77
+
+### Other
+
+ - <csr-id-5a3db0ea8b1857a97c985789e8a7cc2a6eb3743b/> Added version header to client register response
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 24 commits contributed to the release over the course of 26 calendar days.
+ - 26 days passed between releases.
+ - 22 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 22 unique issues were worked on: [#356](https://github.com/Unleash/unleash-edge/issues/356), [#364](https://github.com/Unleash/unleash-edge/issues/364), [#368](https://github.com/Unleash/unleash-edge/issues/368), [#369](https://github.com/Unleash/unleash-edge/issues/369), [#372](https://github.com/Unleash/unleash-edge/issues/372), [#373](https://github.com/Unleash/unleash-edge/issues/373), [#374](https://github.com/Unleash/unleash-edge/issues/374), [#375](https://github.com/Unleash/unleash-edge/issues/375), [#376](https://github.com/Unleash/unleash-edge/issues/376), [#377](https://github.com/Unleash/unleash-edge/issues/377), [#378](https://github.com/Unleash/unleash-edge/issues/378), [#379](https://github.com/Unleash/unleash-edge/issues/379), [#380](https://github.com/Unleash/unleash-edge/issues/380), [#381](https://github.com/Unleash/unleash-edge/issues/381), [#382](https://github.com/Unleash/unleash-edge/issues/382), [#383](https://github.com/Unleash/unleash-edge/issues/383), [#384](https://github.com/Unleash/unleash-edge/issues/384), [#385](https://github.com/Unleash/unleash-edge/issues/385), [#386](https://github.com/Unleash/unleash-edge/issues/386), [#387](https://github.com/Unleash/unleash-edge/issues/387), [#388](https://github.com/Unleash/unleash-edge/issues/388), [#389](https://github.com/Unleash/unleash-edge/issues/389)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#356](https://github.com/Unleash/unleash-edge/issues/356)**
+    - Update rust crate redis to 0.24.0 ([`869b076`](https://github.com/Unleash/unleash-edge/commit/869b07693f0d02e4fbb5701a30ee218828ba412f))
+ * **[#364](https://github.com/Unleash/unleash-edge/issues/364)**
+    - Update rust crate tokio to 1.35.1 ([`2aea0a5`](https://github.com/Unleash/unleash-edge/commit/2aea0a51861d5d3a8dfd226e8cceb68a029b8a4e))
+ * **[#368](https://github.com/Unleash/unleash-edge/issues/368)**
+    - Update rust crate anyhow to 1.0.79 ([`5b8be2a`](https://github.com/Unleash/unleash-edge/commit/5b8be2a12efbd88e741b312fb32756b39e0d6080))
+ * **[#369](https://github.com/Unleash/unleash-edge/issues/369)**
+    - Update rust crate async-trait to 0.1.77 ([`367f7d3`](https://github.com/Unleash/unleash-edge/commit/367f7d336186d5e1ea9585c12828444bce72cb01))
+ * **[#372](https://github.com/Unleash/unleash-edge/issues/372)**
+    - Added version header to client register response ([`5a3db0e`](https://github.com/Unleash/unleash-edge/commit/5a3db0ea8b1857a97c985789e8a7cc2a6eb3743b))
+ * **[#373](https://github.com/Unleash/unleash-edge/issues/373)**
+    - Added client authenticated bulk metrics ([`1edda8c`](https://github.com/Unleash/unleash-edge/commit/1edda8ccf4b00a147f8bceefca4b2274dd91eb53))
+ * **[#374](https://github.com/Unleash/unleash-edge/issues/374)**
+    - Update rust crate serde_json to 1.0.111 ([`345ea49`](https://github.com/Unleash/unleash-edge/commit/345ea49ff95c7e8723961b0ec4fae09a9031e5f8))
+ * **[#375](https://github.com/Unleash/unleash-edge/issues/375)**
+    - Update rust crate actix-web to 4.4.1 ([`39df717`](https://github.com/Unleash/unleash-edge/commit/39df71761c5e471c821e09eeb5dfc720af8bb407))
+ * **[#376](https://github.com/Unleash/unleash-edge/issues/376)**
+    - Update rust crate ahash to 0.8.7 ([`69aca47`](https://github.com/Unleash/unleash-edge/commit/69aca47b7dafe56bec95e4ee1bb3f54c9e51671e))
+ * **[#377](https://github.com/Unleash/unleash-edge/issues/377)**
+    - Update rust crate clap to 4.4.14 ([`78ad7ca`](https://github.com/Unleash/unleash-edge/commit/78ad7ca9be77894e8c36001c0a23274ef9bb5e1e))
+ * **[#378](https://github.com/Unleash/unleash-edge/issues/378)**
+    - Update rust crate opentelemetry_sdk to 0.21.2 ([`d6d43ff`](https://github.com/Unleash/unleash-edge/commit/d6d43ff23dfb2f7011af92dc4b13e860ad755c92))
+ * **[#379](https://github.com/Unleash/unleash-edge/issues/379)**
+    - Update rust crate serde to 1.0.195 ([`b7df877`](https://github.com/Unleash/unleash-edge/commit/b7df877202d590ed4d0c4e883ddc521f3ee123bc))
+ * **[#380](https://github.com/Unleash/unleash-edge/issues/380)**
+    - Update rust crate actix-http to 3.5.1 ([`f06700f`](https://github.com/Unleash/unleash-edge/commit/f06700f010c74372f53c49f9050255872334f270))
+ * **[#381](https://github.com/Unleash/unleash-edge/issues/381)**
+    - Update rust-futures monorepo to 0.3.30 ([`d8323df`](https://github.com/Unleash/unleash-edge/commit/d8323df72f948fd923c212ce683ff5cd3a1d5a12))
+ * **[#382](https://github.com/Unleash/unleash-edge/issues/382)**
+    - Updated to cargo-dist 0.7.1 ([`be204fc`](https://github.com/Unleash/unleash-edge/commit/be204fc69aa9d9c4e64e5f105fbdce65ce73adcb))
+ * **[#383](https://github.com/Unleash/unleash-edge/issues/383)**
+    - Update rust crate shadow-rs to 0.26.0 ([`abfb62d`](https://github.com/Unleash/unleash-edge/commit/abfb62d3d0f13ad1fa3ae6484c4c31deaf6ae368))
+ * **[#384](https://github.com/Unleash/unleash-edge/issues/384)**
+    - Update rust crate testcontainers-modules to 0.3.1 ([`1c359ed`](https://github.com/Unleash/unleash-edge/commit/1c359ed1d6d047be2398480c1c622e6d0952989a))
+ * **[#385](https://github.com/Unleash/unleash-edge/issues/385)**
+    - Update rust crate actix-cors to 0.7.0 ([`7aa21b3`](https://github.com/Unleash/unleash-edge/commit/7aa21b34e091fca465c9a3f1d194c743ce2abded))
+ * **[#386](https://github.com/Unleash/unleash-edge/issues/386)**
+    - Update rust crate utoipa to 4.2.0 ([`c63209c`](https://github.com/Unleash/unleash-edge/commit/c63209c44186888c777ac5ffc50cb413220d96d0))
+ * **[#387](https://github.com/Unleash/unleash-edge/issues/387)**
+    - Update rust crate utoipa-swagger-ui to v6 ([`b6e7169`](https://github.com/Unleash/unleash-edge/commit/b6e71695604144747349ddfebaf9eb94a3ecc4ab))
+ * **[#388](https://github.com/Unleash/unleash-edge/issues/388)**
+    - Update rust crate clap to 4.4.16 ([`f551768`](https://github.com/Unleash/unleash-edge/commit/f55176807e9c52aa358d25a14d7ad95bb60049cf))
+ * **[#389](https://github.com/Unleash/unleash-edge/issues/389)**
+    - Use Version-headers to decide where to post metrics ([`4f9c7ee`](https://github.com/Unleash/unleash-edge/commit/4f9c7eeffdb1b491d7e0f0aaf76d0bcb24df9fe5))
+ * **Uncategorized**
+    - Prepare for 17.0.0 release ([`3b404ee`](https://github.com/Unleash/unleash-edge/commit/3b404ee302f818cd3ae07f5c9106d23322efde17))
+    - Update dependency reference ([`4e20dde`](https://github.com/Unleash/unleash-edge/commit/4e20dded0cd48f49779c41ac8a3d94015f641d9a))
+</details>
+
 ## 16.1.0 (2023-12-20)
+
+<csr-id-430876a904a6a406861093e3bce5b24385bcd7ce/>
 
 ### Chore
 
@@ -15,7 +119,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  - <csr-id-d28b049d0287243d32a66da86fb98a26129fc39e/> token-header override
    --token-header <TOKEN_HEADER>
-             Token header to use for both edge authorization and communication with the upstream server [env: TOKEN_HEADER=] [default: Authorization]
+   Token header to use for both edge authorization and communication with the upstream server [env: TOKEN_HEADER=] [default: Authorization]
    
    This is useful in complex deployment scenarios where proxies are using the Authorization header.
 
@@ -25,15 +129,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - <csr-id-e90b3b49084d8ed56a1caf1ed8a5a3eb38591ee9/> update rust crate reqwest to 0.11.23
  - <csr-id-32b3c00a9ab365f94cacfe81f67a6e0c1257f347/> Do not remove features cache if upstream goes away
    * fix: Do not remove features cache if upstream goes away
-   
-   If upstream goes away, edge should remain durable and keep the features
-   it has gotten for the tokens. Now use backoff to save time.
 
 ### Commit Statistics
 
 <csr-read-only-do-not-edit/>
 
- - 6 commits contributed to the release over the course of 4 calendar days.
+ - 7 commits contributed to the release over the course of 4 calendar days.
  - 19 days passed between releases.
  - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 5 unique issues were worked on: [#345](https://github.com/Unleash/unleash-edge/issues/345), [#346](https://github.com/Unleash/unleash-edge/issues/346), [#360](https://github.com/Unleash/unleash-edge/issues/360), [#362](https://github.com/Unleash/unleash-edge/issues/362), [#363](https://github.com/Unleash/unleash-edge/issues/363)
@@ -55,8 +156,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#363](https://github.com/Unleash/unleash-edge/issues/363)**
     - Update rust crate reqwest to 0.11.23 ([`e90b3b4`](https://github.com/Unleash/unleash-edge/commit/e90b3b49084d8ed56a1caf1ed8a5a3eb38591ee9))
  * **Uncategorized**
+    - Release unleash-edge v16.1.0 ([`e89df6a`](https://github.com/Unleash/unleash-edge/commit/e89df6ad7038ed31184e5d8768e9c40127d8157f))
     - Prepare for release ([`6babef8`](https://github.com/Unleash/unleash-edge/commit/6babef852a1d794f7cff1c6e60f644f5ad3b9798))
 </details>
+
+<csr-unknown>
+If upstream goes away, edge should remain durable and keep the featuresit has gotten for the tokens. Now use backoff to save time.<csr-unknown/>
 
 ## 16.0.6 (2023-11-30)
 
