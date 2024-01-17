@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::{sync::Arc, time::Duration};
 
-use actix_web::http::header::EntityTag;
+use actix_web::http::header::{EntityTag, IfNoneMatch};
 use chrono::Utc;
 use dashmap::DashMap;
 use reqwest::StatusCode;
@@ -16,7 +16,8 @@ use unleash_yggdrasil::EngineState;
 
 use super::unleash_client::UnleashClient;
 use crate::error::{EdgeError, FeatureError};
-use crate::filters::{filter_client_features, FeatureFilterSet};
+use crate::filters::{filter_client_features, project_filter, FeatureFilterSet};
+
 use crate::types::{
     build, ClientTokenRequest, ClientTokenResponse, EdgeResult, TokenType, TokenValidationStatus,
 };
@@ -102,6 +103,7 @@ pub struct FeatureRefresher {
     pub unleash_client: Arc<UnleashClient>,
     pub tokens_to_refresh: Arc<DashMap<String, TokenRefresh>>,
     pub features_cache: Arc<DashMap<String, ClientFeatures>>,
+    pub etag_cache: Arc<DashMap<EdgeToken, EntityTag>>,
     pub engine_cache: Arc<DashMap<String, EngineState>>,
     pub refresh_interval: chrono::Duration,
     pub persistence: Option<Arc<dyn EdgePersistence>>,
@@ -115,6 +117,7 @@ impl Default for FeatureRefresher {
             tokens_to_refresh: Arc::new(DashMap::default()),
             features_cache: Default::default(),
             engine_cache: Default::default(),
+            etag_cache: Default::default(),
             persistence: None,
         }
     }
@@ -138,6 +141,7 @@ impl FeatureRefresher {
         unleash_client: Arc<UnleashClient>,
         features: Arc<DashMap<String, ClientFeatures>>,
         engines: Arc<DashMap<String, EngineState>>,
+        etag_cache: Arc<DashMap<EdgeToken, EntityTag>>,
         features_refresh_interval: chrono::Duration,
         persistence: Option<Arc<dyn EdgePersistence>>,
     ) -> Self {
@@ -146,6 +150,7 @@ impl FeatureRefresher {
             tokens_to_refresh: Arc::new(DashMap::default()),
             features_cache: features,
             engine_cache: engines,
+            etag_cache,
             refresh_interval: features_refresh_interval,
             persistence,
         }
@@ -157,6 +162,7 @@ impl FeatureRefresher {
             tokens_to_refresh: Arc::new(Default::default()),
             features_cache: Arc::new(Default::default()),
             engine_cache: Arc::new(Default::default()),
+            etag_cache: Arc::new(Default::default()),
             refresh_interval: chrono::Duration::seconds(10),
             persistence: None,
         }
@@ -268,6 +274,10 @@ impl FeatureRefresher {
     ///
     /// Registers a token for refresh, the token will be discarded if it can be subsumed by another previously registered token
     pub async fn register_token_for_refresh(&self, token: EdgeToken, etag: Option<EntityTag>) {
+        self.etag_cache.insert(
+            token.clone(),
+            etag.clone().unwrap_or(EntityTag::new_weak("".into())),
+        );
         if !self.tokens_to_refresh.contains_key(&token.token) {
             let use_new_bulk_endpoint_for_metrics = self
                 .unleash_client
@@ -296,6 +306,23 @@ impl FeatureRefresher {
             }
             self.tokens_to_refresh.retain(|key, _| keys.contains(key));
         }
+    }
+
+    pub fn has_token_with_etag(&self, if_none_match: &IfNoneMatch) -> bool {
+        let etags = match if_none_match {
+            IfNoneMatch::Any => return true,
+            IfNoneMatch::Items(etags) => etags,
+        };
+        etags
+            .iter()
+            .any(|etag| self.get_etags().iter().any(|e| e.weak_eq(etag)))
+    }
+
+    pub fn get_etags(&self) -> Vec<EntityTag> {
+        self.tokens_to_refresh
+            .iter()
+            .filter_map(|t| t.value().etag.clone())
+            .collect()
     }
 
     pub async fn start_refresh_features_background_task(&self) {
@@ -339,7 +366,6 @@ impl FeatureRefresher {
                 ClientFeaturesResponse::Updated(features, etag) => {
                     debug!("Got updated client features. Updating features with {etag:?}");
                     let key = cache_key(&refresh.token);
-                    self.update_last_refresh(&refresh.token, etag);
                     self.features_cache
                         .entry(key.clone())
                         .and_modify(|existing_data| {
@@ -348,6 +374,8 @@ impl FeatureRefresher {
                             *existing_data = updated_data;
                         })
                         .or_insert_with(|| features.clone());
+                    self.update_last_refresh(&refresh.token, etag.clone());
+
                     self.engine_cache
                         .entry(key.clone())
                         .and_modify(|engine| {
@@ -426,8 +454,31 @@ impl FeatureRefresher {
     pub fn update_last_refresh(&self, token: &EdgeToken, etag: Option<EntityTag>) {
         self.tokens_to_refresh
             .alter(&token.token, |_k, old_refresh| {
-                old_refresh.successful_refresh(&self.refresh_interval, etag)
+                old_refresh.successful_refresh(&self.refresh_interval, etag.clone())
             });
+        debug!("Updated last refresh with etag: {:?}", etag);
+        debug!("Have an etag cache of: {:?}", self.etag_cache.len());
+        if let Some(_e) = etag {
+            for mut cached in self
+                .etag_cache
+                .iter_mut()
+                .filter(|etag| token.subsumes(etag.key()))
+            {
+                debug!("Edgetoken {:?} is subsumed by {:?}", cached.key(), token);
+                let feature_filter =
+                    FeatureFilterSet::default().with_filter(project_filter(cached.key()));
+                let filtered_features = self
+                    .get_features_by_filter(cached.key(), &feature_filter)
+                    .unwrap();
+                let etag = crate::hashing::client_features_to_etag(&filtered_features);
+                debug!(
+                    "Updating etag cache for {:?} with {:?}",
+                    cached.key(),
+                    etag.clone()
+                );
+                *cached.value_mut() = etag;
+            }
+        }
     }
 }
 
@@ -482,12 +533,14 @@ mod tests {
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
+        let etag_cache = Arc::new(DashMap::default());
 
         let duration = Duration::seconds(5);
         let feature_refresher = FeatureRefresher::new(
             Arc::new(unleash_client),
             features_cache,
             engines_cache,
+            etag_cache,
             duration,
             None,
         );
@@ -514,12 +567,14 @@ mod tests {
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
+        let etag_cache = Arc::new(DashMap::default());
 
         let duration = Duration::seconds(5);
         let feature_refresher = FeatureRefresher::new(
             Arc::new(unleash_client),
             features_cache,
             engines_cache,
+            etag_cache,
             duration,
             None,
         );
@@ -550,11 +605,13 @@ mod tests {
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
+        let etag_cache = Arc::new(DashMap::default());
         let duration = Duration::seconds(5);
         let feature_refresher = FeatureRefresher::new(
             Arc::new(unleash_client),
             features_cache,
             engines_cache,
+            etag_cache,
             duration,
             None,
         );
@@ -593,11 +650,13 @@ mod tests {
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
+        let etag_cache = Arc::new(DashMap::default());
         let duration = Duration::seconds(5);
         let feature_refresher = FeatureRefresher::new(
             Arc::new(unleash_client),
             features_cache,
             engines_cache,
+            etag_cache,
             duration,
             None,
         );
@@ -645,11 +704,13 @@ mod tests {
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
+        let etag_cache = Arc::new(DashMap::default());
         let duration = Duration::seconds(5);
         let feature_refresher = FeatureRefresher::new(
             Arc::new(unleash_client),
             features_cache,
             engines_cache,
+            etag_cache,
             duration,
             None,
         );
@@ -701,12 +762,13 @@ mod tests {
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
-
+        let etag_cache = Arc::new(DashMap::default());
         let duration = Duration::seconds(5);
         let feature_refresher = FeatureRefresher::new(
             Arc::new(unleash_client),
             features_cache,
             engines_cache,
+            etag_cache,
             duration,
             None,
         );
@@ -742,12 +804,14 @@ mod tests {
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
+        let etag_cache = Arc::new(DashMap::default());
 
         let duration = Duration::seconds(5);
         let feature_refresher = FeatureRefresher::new(
             Arc::new(unleash_client),
             features_cache,
             engines_cache,
+            etag_cache,
             duration,
             None,
         );
@@ -778,12 +842,14 @@ mod tests {
         );
         let features_cache = Arc::new(DashMap::default());
         let engines_cache = Arc::new(DashMap::default());
+        let etag_cache = Arc::new(DashMap::default());
 
         let duration = Duration::seconds(5);
         let feature_refresher = FeatureRefresher::new(
             Arc::new(unleash_client),
             features_cache,
             engines_cache,
+            etag_cache,
             duration,
             None,
         );
@@ -849,6 +915,7 @@ mod tests {
         upstream_token_cache: Arc<DashMap<String, EdgeToken>>,
         upstream_features_cache: Arc<DashMap<String, ClientFeatures>>,
         upstream_engine_cache: Arc<DashMap<String, EngineState>>,
+        upstream_etag_cache: Arc<DashMap<EdgeToken, EntityTag>>,
     ) -> TestServer {
         test_server(move || {
             HttpService::new(map_config(
@@ -856,6 +923,7 @@ mod tests {
                     .app_data(web::Data::from(upstream_features_cache.clone()))
                     .app_data(web::Data::from(upstream_engine_cache.clone()))
                     .app_data(web::Data::from(upstream_token_cache.clone()))
+                    .app_data(web::Data::from(upstream_etag_cache.clone()))
                     .service(web::scope("/api").configure(crate::client_api::configure_client_api)),
                 |_| AppConfig::default(),
             ))
@@ -869,19 +937,24 @@ mod tests {
             Arc::new(DashMap::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let upstream_etag_cache = Arc::new(DashMap::default());
         let server = client_api_test_server(
             upstream_token_cache,
             upstream_features_cache,
             upstream_engine_cache,
+            upstream_etag_cache,
         )
         .await;
         let unleash_client = UnleashClient::new(server.url("/").as_str(), None).unwrap();
         let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
+        let etag_cache = Arc::new(DashMap::default());
+
         let feature_refresher = FeatureRefresher::new(
             Arc::new(unleash_client),
             features_cache,
             engine_cache,
+            etag_cache,
             Duration::seconds(60),
             None,
         );
@@ -909,6 +982,8 @@ mod tests {
             Arc::new(DashMap::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(token_cache);
+        let upstream_etag_cache = Arc::new(DashMap::default());
+
         let example_features = features_from_disk("../examples/features.json");
         let cache_key = cache_key(&token);
         let mut engine_state = EngineState::default();
@@ -919,15 +994,18 @@ mod tests {
             upstream_token_cache,
             upstream_features_cache,
             upstream_engine_cache,
+            upstream_etag_cache,
         )
         .await;
         let unleash_client = UnleashClient::new(server.url("/").as_str(), None).unwrap();
         let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
+        let etag_cache = Arc::new(DashMap::default());
         let feature_refresher = FeatureRefresher::new(
             Arc::new(unleash_client),
             features_cache,
             engine_cache,
+            etag_cache,
             Duration::milliseconds(1),
             None,
         );
@@ -960,12 +1038,17 @@ mod tests {
             Arc::new(DashMap::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let upstream_etag_cache: Arc<DashMap<EdgeToken, EntityTag>> = Arc::new(DashMap::default());
         let token_cache_to_modify = upstream_token_cache.clone();
         let mut valid_token = EdgeToken::try_from("*:development.secret123".to_string()).unwrap();
         valid_token.token_type = Some(TokenType::Client);
         valid_token.status = Validated;
         upstream_token_cache.insert(valid_token.token.clone(), valid_token.clone());
         let example_features = features_from_disk("../examples/features.json");
+        upstream_etag_cache.insert(
+            valid_token.clone(),
+            crate::hashing::client_features_to_etag(&example_features),
+        );
         let cache_key = cache_key(&valid_token);
         let mut engine_state = EngineState::default();
         engine_state.take_state(example_features.clone());
@@ -975,6 +1058,7 @@ mod tests {
             upstream_token_cache,
             upstream_features_cache,
             upstream_engine_cache,
+            upstream_etag_cache,
         )
         .await;
         let unleash_client = UnleashClient::new(server.url("/").as_str(), None).unwrap();
@@ -1001,6 +1085,7 @@ mod tests {
             Arc::new(DashMap::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let upstream_etag_cache: Arc<DashMap<EdgeToken, EntityTag>> = Arc::new(DashMap::default());
         let token_cache_to_modify = upstream_token_cache.clone();
         let mut dx_token = EdgeToken::try_from("dx:development.secret123".to_string()).unwrap();
         dx_token.token_type = Some(TokenType::Client);
@@ -1020,6 +1105,7 @@ mod tests {
             upstream_token_cache,
             upstream_features_cache,
             upstream_engine_cache,
+            upstream_etag_cache,
         )
         .await;
         let unleash_client = UnleashClient::new(server.url("/").as_str(), None).unwrap();
@@ -1050,6 +1136,7 @@ mod tests {
             Arc::new(DashMap::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let upstream_etag_cache: Arc<DashMap<EdgeToken, EntityTag>> = Arc::new(DashMap::default());
         let mut dx_token = EdgeToken::try_from("dx:development.secret123".to_string()).unwrap();
         dx_token.token_type = Some(TokenType::Client);
         dx_token.status = Validated;
@@ -1068,6 +1155,7 @@ mod tests {
             upstream_token_cache,
             upstream_features_cache,
             upstream_engine_cache,
+            upstream_etag_cache,
         )
         .await;
         let unleash_client = UnleashClient::new(server.url("/").as_str(), None).unwrap();
@@ -1106,6 +1194,7 @@ mod tests {
             Arc::new(DashMap::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let upstream_etag_cache: Arc<DashMap<EdgeToken, EntityTag>> = Arc::new(DashMap::default());
         let mut dx_token = EdgeToken::from_str("dx:development.secret123").unwrap();
         dx_token.token_type = Some(TokenType::Client);
         dx_token.status = Validated;
@@ -1129,6 +1218,7 @@ mod tests {
             upstream_token_cache,
             upstream_features_cache,
             upstream_engine_cache,
+            upstream_etag_cache,
         )
         .await;
         let unleash_client = UnleashClient::new(server.url("/").as_str(), None).unwrap();
@@ -1222,11 +1312,16 @@ mod tests {
             Arc::new(DashMap::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let upstream_etag_cache: Arc<DashMap<EdgeToken, EntityTag>> = Arc::new(DashMap::default());
         let mut eg_token = EdgeToken::from_str("eg:development.devsecret").unwrap();
         eg_token.token_type = Some(TokenType::Client);
         eg_token.status = Validated;
         upstream_token_cache.insert(eg_token.token.clone(), eg_token.clone());
         let example_features = features_from_disk("../examples/hostedexample.json");
+        upstream_etag_cache.insert(
+            eg_token.clone(),
+            crate::hashing::client_features_to_etag(&example_features),
+        );
         let cache_key = cache_key(&eg_token);
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         let mut engine_state = EngineState::default();
@@ -1236,6 +1331,7 @@ mod tests {
             upstream_token_cache,
             upstream_features_cache.clone(),
             upstream_engine_cache,
+            upstream_etag_cache.clone(),
         )
         .await;
         let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
@@ -1245,7 +1341,8 @@ mod tests {
             tokens_to_refresh: Arc::new(Default::default()),
             features_cache: features_cache.clone(),
             engine_cache: Arc::new(Default::default()),
-            refresh_interval: chrono::Duration::seconds(0),
+            etag_cache: Arc::new(Default::default()),
+            refresh_interval: Duration::seconds(0),
             persistence: None,
         };
 
@@ -1279,7 +1376,7 @@ mod tests {
             .collect();
         dx_data.remove(0);
         let mut token = EdgeToken::from_str("[]:development.somesecret").unwrap();
-        token.status = TokenValidationStatus::Validated;
+        token.status = Validated;
         token.projects = vec![String::from("dx")];
 
         let updated = super::update_projects_from_feature_update(&token, &features, &dx_data);

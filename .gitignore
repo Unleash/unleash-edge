@@ -5,6 +5,7 @@ debug/
 *.ipr
 *.iws
 .vscode
+mutants.out
 
 .project
 .classpath

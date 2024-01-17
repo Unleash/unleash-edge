@@ -1,3 +1,4 @@
+use actix_web::http::header::EntityTag;
 use chrono::Duration;
 use dashmap::DashMap;
 use reqwest::Url;
@@ -14,6 +15,7 @@ use crate::{
     auth::token_validator::TokenValidator,
     cli::{CliArgs, EdgeArgs, EdgeMode, OfflineArgs},
     error::EdgeError,
+    filters, hashing,
     http::{feature_refresher::FeatureRefresher, unleash_client::UnleashClient},
     types::{EdgeResult, EdgeToken, TokenType},
 };
@@ -24,6 +26,7 @@ type CacheContainer = (
     Arc<DashMap<String, EdgeToken>>,
     Arc<DashMap<String, ClientFeatures>>,
     Arc<DashMap<String, EngineState>>,
+    Arc<DashMap<EdgeToken, EntityTag>>,
 );
 type EdgeInfo = (
     CacheContainer,
@@ -36,10 +39,12 @@ fn build_caches() -> CacheContainer {
     let token_cache: DashMap<String, EdgeToken> = DashMap::default();
     let features_cache: DashMap<String, ClientFeatures> = DashMap::default();
     let engine_cache: DashMap<String, EngineState> = DashMap::default();
+    let etag_cache: DashMap<EdgeToken, EntityTag> = DashMap::default();
     (
         Arc::new(token_cache),
         Arc::new(features_cache),
         Arc::new(engine_cache),
+        Arc::new(etag_cache),
     )
 }
 
@@ -48,18 +53,20 @@ async fn hydrate_from_persistent_storage(
     feature_refresher: Arc<FeatureRefresher>,
     storage: Arc<dyn EdgePersistence>,
 ) {
-    let (token_cache, features_cache, engine_cache) = cache;
+    let (token_cache, features_cache, engine_cache, etag_cache) = cache;
     let tokens = storage.load_tokens().await.unwrap_or_default();
     let features = storage.load_features().await.unwrap_or_default();
     let refresh_targets = storage.load_refresh_targets().await.unwrap_or_default();
     for token in tokens {
         tracing::debug!("Hydrating tokens {token:?}");
-        token_cache.insert(token.token.clone(), token);
+        token_cache.insert(token.token.clone(), token.clone());
+        etag_cache.insert(token.clone(), EntityTag::new_weak("".to_string()));
     }
 
     for (key, features) in features {
         tracing::debug!("Hydrating features for {key:?}");
         features_cache.insert(key.clone(), features.clone());
+        update_etags(etag_cache.clone(), &key, &features);
         let mut engine_state = EngineState::default();
         engine_state.take_state(features);
         engine_cache.insert(key, engine_state);
@@ -73,11 +80,25 @@ async fn hydrate_from_persistent_storage(
     }
 }
 
+fn update_etags(
+    etag_cache: Arc<DashMap<EdgeToken, EntityTag>>,
+    key: &str,
+    features: &ClientFeatures,
+) {
+    let etag = crate::hashing::client_features_to_etag(features);
+    let token = EdgeToken::from_str(key).unwrap();
+    etag_cache.iter_mut().for_each(|mut t| {
+        if token.subsumes(t.key()) || &token == t.key() {
+            *t.value_mut() = etag.clone();
+        }
+    })
+}
+
 pub(crate) fn build_offline_mode(
     client_features: ClientFeatures,
     tokens: Vec<String>,
 ) -> EdgeResult<CacheContainer> {
-    let (token_cache, features_cache, engine_cache) = build_caches();
+    let (token_cache, features_cache, engine_cache, etag_cache) = build_caches();
 
     let edge_tokens: Vec<EdgeToken> = tokens
         .iter()
@@ -93,8 +114,13 @@ pub(crate) fn build_offline_mode(
             engine_cache.clone(),
             client_features.clone(),
         );
+        let filtered = filters::filter_features_for_token(&client_features, &edge_token);
+        etag_cache.insert(
+            edge_token.clone(),
+            hashing::client_features_to_etag(&filtered),
+        );
     }
-    Ok((token_cache, features_cache, engine_cache))
+    Ok((token_cache, features_cache, engine_cache, etag_cache))
 }
 
 fn build_offline(offline_args: OfflineArgs) -> EdgeResult<CacheContainer> {
@@ -131,7 +157,7 @@ async fn get_data_source(args: &EdgeArgs) -> Option<Arc<dyn EdgePersistence>> {
 }
 
 async fn build_edge(args: &EdgeArgs) -> EdgeResult<EdgeInfo> {
-    let (token_cache, feature_cache, engine_cache) = build_caches();
+    let (token_cache, feature_cache, engine_cache, etag_cache) = build_caches();
 
     let persistence = get_data_source(args).await;
 
@@ -162,6 +188,7 @@ async fn build_edge(args: &EdgeArgs) -> EdgeResult<EdgeInfo> {
         unleash_client,
         feature_cache.clone(),
         engine_cache.clone(),
+        etag_cache.clone(),
         Duration::seconds(args.features_refresh_interval_seconds.try_into().unwrap()),
         persistence.clone(),
     ));
@@ -173,6 +200,7 @@ async fn build_edge(args: &EdgeArgs) -> EdgeResult<EdgeInfo> {
                 token_cache.clone(),
                 feature_cache.clone(),
                 engine_cache.clone(),
+                etag_cache.clone(),
             ),
             feature_refresher.clone(),
             persistence,
@@ -189,7 +217,7 @@ async fn build_edge(args: &EdgeArgs) -> EdgeResult<EdgeInfo> {
             .await;
     }
     Ok((
-        (token_cache, feature_cache, engine_cache),
+        (token_cache, feature_cache, engine_cache, etag_cache),
         Some(token_validator),
         Some(feature_refresher),
         persistence,
@@ -203,5 +231,103 @@ pub async fn build_caches_and_refreshers(args: CliArgs) -> EdgeResult<EdgeInfo> 
         }
         EdgeMode::Edge(edge_args) => build_edge(&edge_args).await,
         _ => unreachable!(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use unleash_types::client_features::{ClientFeature, Strategy};
+
+    use super::*;
+
+    #[test]
+    fn building_an_initial_state_from_backup_also_adds_etags_for_features() {
+        let client_features = ClientFeatures {
+            version: 2,
+            features: vec![
+                ClientFeature {
+                    name: "first_feature".into(),
+                    feature_type: Some("Release".into()),
+                    description: None,
+                    created_at: None,
+                    last_seen_at: None,
+                    enabled: true,
+                    stale: Some(false),
+                    impression_data: Some(false),
+                    project: Some("default".into()),
+                    strategies: Some(vec![Strategy {
+                        name: "gradualRollout".into(),
+                        sort_order: Some(1),
+                        segments: None,
+                        constraints: None,
+                        parameters: None,
+                        variants: None,
+                    }]),
+                    variants: None,
+                    dependencies: None,
+                },
+                ClientFeature {
+                    name: "second_feature".into(),
+                    feature_type: Some("Release".into()),
+                    description: None,
+                    created_at: None,
+                    last_seen_at: None,
+                    enabled: true,
+                    stale: Some(false),
+                    impression_data: Some(false),
+                    project: Some("eg".into()),
+                    strategies: Some(vec![Strategy {
+                        name: "gradualRollout".into(),
+                        sort_order: Some(1),
+                        segments: None,
+                        constraints: None,
+                        parameters: None,
+                        variants: None,
+                    }]),
+                    variants: None,
+                    dependencies: None,
+                },
+                ClientFeature {
+                    name: "third_feature".into(),
+                    feature_type: Some("Release".into()),
+                    description: None,
+                    created_at: None,
+                    last_seen_at: None,
+                    enabled: true,
+                    stale: Some(false),
+                    impression_data: Some(false),
+                    project: Some("default".into()),
+                    strategies: Some(vec![Strategy {
+                        name: "gradualRollout".into(),
+                        sort_order: Some(1),
+                        segments: None,
+                        constraints: None,
+                        parameters: None,
+                        variants: None,
+                    }]),
+                    variants: None,
+                    dependencies: None,
+                },
+            ],
+            segments: None,
+            query: None,
+        };
+        let wildcard_token = EdgeToken::from_str("*:development.somerandomstring").unwrap();
+        let subsumed_token = EdgeToken::from_str("eg:development.someotherrandomstring").unwrap();
+        let (_, _, _, etag_cache) = build_offline_mode(
+            client_features,
+            vec![wildcard_token.token.clone(), subsumed_token.token.clone()],
+        )
+        .unwrap();
+        assert!(etag_cache.contains_key(&wildcard_token));
+        assert!(etag_cache.contains_key(&subsumed_token));
+        assert_eq!(
+            etag_cache.get(&wildcard_token).unwrap().value(),
+            &EntityTag::new_weak("248-ISJs9qZR-gpTrJaMsTeZ8g==".into())
+        );
+        assert_eq!(
+            etag_cache.get(&subsumed_token).unwrap().value(),
+            &EntityTag::new_weak("da-ufCoeTJdSw9a7U9Av9k1qQ==".into())
+        );
     }
 }

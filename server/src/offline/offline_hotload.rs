@@ -62,6 +62,7 @@ pub(crate) fn load_offline_engine_cache(
         crate::tokens::cache_key(edge_token),
         client_features.clone(),
     );
+
     let mut engine_state = EngineState::default();
     engine_state.take_state(client_features);
     engine_cache.insert(crate::tokens::cache_key(edge_token), engine_state);

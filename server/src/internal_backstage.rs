@@ -79,6 +79,7 @@ pub async fn tokens(
         token_validation_status,
     }))
 }
+
 pub fn configure_internal_backstage(
     cfg: &mut web::ServiceConfig,
     metrics_handler: PrometheusMetricsHandler,
@@ -104,7 +105,7 @@ mod tests {
     use crate::tokens::cache_key;
     use crate::types::{BuildInfo, EdgeToken, Status, TokenInfo, TokenType, TokenValidationStatus};
     use actix_web::body::MessageBody;
-    use actix_web::http::header::ContentType;
+    use actix_web::http::header::{ContentType, EntityTag};
     use actix_web::test;
     use actix_web::{web, App};
     use chrono::Duration;
@@ -201,6 +202,7 @@ mod tests {
             Arc::new(DashMap::default()),
             Arc::new(DashMap::default()),
             Arc::new(DashMap::default()),
+            Arc::new(DashMap::default()),
         )
         .await;
         let unleash_client =
@@ -240,10 +242,13 @@ mod tests {
             Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
+        let upstream_etag_cache: Arc<DashMap<EdgeToken, EntityTag>> = Arc::new(DashMap::default());
+
         let server = upstream_server(
             upstream_token_cache.clone(),
             upstream_features_cache.clone(),
             upstream_engine_cache.clone(),
+            upstream_etag_cache.clone(),
         )
         .await;
         let upstream_features = crate::tests::features_from_disk("../examples/hostedexample.json");
@@ -255,15 +260,21 @@ mod tests {
             upstream_known_token.clone(),
         );
         upstream_features_cache.insert(cache_key(&upstream_known_token), upstream_features.clone());
+        upstream_etag_cache.insert(
+            upstream_known_token.clone(),
+            crate::hashing::client_features_to_etag(&upstream_features),
+        );
         let unleash_client = Arc::new(UnleashClient::new(server.url("/").as_str(), None).unwrap());
         let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
+        let etag_cache = Arc::new(DashMap::default());
         let feature_refresher = Arc::new(FeatureRefresher {
             unleash_client: unleash_client.clone(),
             tokens_to_refresh: Arc::new(Default::default()),
             features_cache: features_cache.clone(),
             engine_cache: engine_cache.clone(),
+            etag_cache: etag_cache.clone(),
             refresh_interval: Duration::seconds(6000),
             persistence: None,
         });
@@ -279,6 +290,7 @@ mod tests {
                 .app_data(web::Data::from(engine_cache.clone()))
                 .app_data(web::Data::from(token_cache.clone()))
                 .app_data(web::Data::from(feature_refresher.clone()))
+                .app_data(web::Data::from(etag_cache.clone()))
                 .service(web::scope("/internal-backstage").service(super::tokens))
                 .service(
                     web::scope("/api")

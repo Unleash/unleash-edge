@@ -810,7 +810,7 @@ mod tests {
     #[actix_web::test]
     #[traced_test]
     async fn calling_post_requests_resolves_context_values_correctly() {
-        let (token_cache, features_cache, engine_cache) = build_offline_mode(
+        let (token_cache, features_cache, engine_cache, etag_cache) = build_offline_mode(
             client_features_with_constraint_requiring_user_id_of_seven(),
             vec![
                 "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7"
@@ -824,6 +824,7 @@ mod tests {
                 .app_data(Data::from(token_cache))
                 .app_data(Data::from(features_cache))
                 .app_data(Data::from(engine_cache))
+                .app_data(Data::from(etag_cache))
                 .service(web::scope("/api/frontend").service(super::post_frontend_all_features)),
         )
         .await;
@@ -860,7 +861,7 @@ mod tests {
     #[actix_web::test]
     #[traced_test]
     async fn calling_get_requests_resolves_context_values_correctly() {
-        let (feature_cache, token_cache, engine_cache) = build_offline_mode(
+        let (feature_cache, token_cache, engine_cache, etag_cache) = build_offline_mode(
             client_features_with_constraint_requiring_user_id_of_seven(),
             vec![
                 "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7"
@@ -873,6 +874,7 @@ mod tests {
                 .app_data(Data::from(token_cache))
                 .app_data(Data::from(feature_cache))
                 .app_data(Data::from(engine_cache))
+                .app_data(Data::from(etag_cache))
                 .service(web::scope("/api/proxy").service(super::get_proxy_all_features)),
         )
         .await;
@@ -907,7 +909,7 @@ mod tests {
     #[actix_web::test]
     #[traced_test]
     async fn calling_get_requests_resolves_context_values_correctly_with_enabled_filter() {
-        let (token_cache, features_cache, engine_cache) = build_offline_mode(
+        let (token_cache, features_cache, engine_cache, etag_cache) = build_offline_mode(
             client_features_with_constraint_one_enabled_toggle_and_one_disabled_toggle(),
             vec![
                 "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7"
@@ -921,6 +923,7 @@ mod tests {
                 .app_data(Data::from(token_cache))
                 .app_data(Data::from(features_cache))
                 .app_data(Data::from(engine_cache))
+                .app_data(Data::from(etag_cache))
                 .service(web::scope("/api/proxy").service(super::get_enabled_proxy)),
         )
         .await;
@@ -984,13 +987,14 @@ mod tests {
     #[tokio::test]
     async fn when_running_in_offline_mode_with_proxy_key_should_not_filter_features() {
         let client_features = client_features_with_constraint_requiring_user_id_of_seven();
-        let (token_cache, feature_cache, engine_cache) =
+        let (token_cache, feature_cache, engine_cache, etag_cache) =
             build_offline_mode(client_features.clone(), vec!["secret-123".to_string()]).unwrap();
         let app = test::init_service(
             App::new()
                 .app_data(Data::from(token_cache))
                 .app_data(Data::from(feature_cache))
                 .app_data(Data::from(engine_cache))
+                .app_data(Data::from(etag_cache))
                 .app_data(Data::new(EdgeMode::Offline(OfflineArgs {
                     bootstrap_file: None,
                     tokens: vec!["secret-123".into()],
@@ -1013,7 +1017,7 @@ mod tests {
     #[tokio::test]
     async fn frontend_api_filters_evaluated_toggles_to_tokens_access() {
         let client_features = crate::tests::features_from_disk("../examples/hostedexample.json");
-        let (token_cache, feature_cache, engine_cache) = build_offline_mode(
+        let (token_cache, feature_cache, engine_cache, etag_cache) = build_offline_mode(
             client_features.clone(),
             vec!["dx:development.secret123".to_string()],
         )
@@ -1023,6 +1027,7 @@ mod tests {
                 .app_data(Data::from(token_cache))
                 .app_data(Data::from(feature_cache))
                 .app_data(Data::from(engine_cache))
+                .app_data(Data::from(etag_cache))
                 .service(web::scope("/api/frontend").service(super::get_frontend_all_features)),
         )
         .await;
@@ -1101,7 +1106,7 @@ mod tests {
     #[tokio::test]
     async fn can_get_single_feature() {
         let client_features = crate::tests::features_from_disk("../examples/hostedexample.json");
-        let (token_cache, feature_cache, engine_cache) = build_offline_mode(
+        let (token_cache, feature_cache, engine_cache, etag_cache) = build_offline_mode(
             client_features.clone(),
             vec!["dx:development.secret123".to_string()],
         )
@@ -1111,6 +1116,7 @@ mod tests {
                 .app_data(Data::from(token_cache))
                 .app_data(Data::from(feature_cache))
                 .app_data(Data::from(engine_cache))
+                .app_data(Data::from(etag_cache))
                 .service(
                     web::scope("/api").configure(|cfg| super::configure_frontend_api(cfg, false)),
                 ),
@@ -1130,7 +1136,7 @@ mod tests {
     #[tokio::test]
     async fn trying_to_evaluate_feature_you_do_not_have_access_to_will_give_not_found() {
         let client_features = crate::tests::features_from_disk("../examples/hostedexample.json");
-        let (token_cache, feature_cache, engine_cache) = build_offline_mode(
+        let (token_cache, feature_cache, engine_cache, etag_cache) = build_offline_mode(
             client_features.clone(),
             vec!["dx:development.secret123".to_string()],
         )
@@ -1140,6 +1146,7 @@ mod tests {
                 .app_data(Data::from(token_cache))
                 .app_data(Data::from(feature_cache))
                 .app_data(Data::from(engine_cache))
+                .app_data(Data::from(etag_cache))
                 .service(
                     web::scope("/api").configure(|cfg| super::configure_frontend_api(cfg, false)),
                 ),
@@ -1161,7 +1168,7 @@ mod tests {
         let client_features_with_custom_context_field =
             crate::tests::features_from_disk("../examples/with_custom_constraint.json");
         let auth_key = "default:development.secret123".to_string();
-        let (token_cache, feature_cache, engine_cache) = build_offline_mode(
+        let (token_cache, feature_cache, engine_cache, etag_cache) = build_offline_mode(
             client_features_with_custom_context_field.clone(),
             vec![auth_key.clone()],
         )
@@ -1174,6 +1181,7 @@ mod tests {
                 .app_data(Data::from(token_cache))
                 .app_data(Data::from(feature_cache))
                 .app_data(Data::from(engine_cache))
+                .app_data(Data::from(etag_cache))
                 .service(
                     web::scope("/api").configure(|cfg| super::configure_frontend_api(cfg, false)),
                 ),
@@ -1201,7 +1209,7 @@ mod tests {
         let client_features_with_custom_context_field =
             crate::tests::features_from_disk("../examples/with_custom_constraint.json");
         let auth_key = "default:development.secret123".to_string();
-        let (token_cache, feature_cache, engine_cache) = build_offline_mode(
+        let (token_cache, feature_cache, engine_cache, etag_cache) = build_offline_mode(
             client_features_with_custom_context_field.clone(),
             vec![auth_key.clone()],
         )
@@ -1216,6 +1224,7 @@ mod tests {
                 .app_data(Data::from(token_cache))
                 .app_data(Data::from(feature_cache))
                 .app_data(Data::from(engine_cache))
+                .app_data(Data::from(etag_cache))
                 .service(
                     web::scope("/api").configure(|cfg| super::configure_frontend_api(cfg, false)),
                 ),
@@ -1246,7 +1255,7 @@ mod tests {
         let client_features_with_custom_context_field =
             crate::tests::features_from_disk("../examples/ip_address_feature.json");
         let auth_key = "gard:development.secret123".to_string();
-        let (token_cache, feature_cache, engine_cache) = build_offline_mode(
+        let (token_cache, feature_cache, engine_cache, etag_cache) = build_offline_mode(
             client_features_with_custom_context_field.clone(),
             vec![auth_key.clone()],
         )
@@ -1261,6 +1270,7 @@ mod tests {
                 .app_data(Data::from(token_cache))
                 .app_data(Data::from(feature_cache))
                 .app_data(Data::from(engine_cache))
+                .app_data(Data::from(etag_cache))
                 .service(
                     web::scope("/api").configure(|cfg| super::configure_frontend_api(cfg, false)),
                 ),
@@ -1284,7 +1294,7 @@ mod tests {
         let client_features_with_custom_context_field =
             crate::tests::features_from_disk("../examples/ip_address_feature.json");
         let auth_key = "gard:development.secret123".to_string();
-        let (token_cache, feature_cache, engine_cache) = build_offline_mode(
+        let (token_cache, feature_cache, engine_cache, etag_cache) = build_offline_mode(
             client_features_with_custom_context_field.clone(),
             vec![auth_key.clone()],
         )
@@ -1294,6 +1304,7 @@ mod tests {
                 .app_data(Data::from(token_cache))
                 .app_data(Data::from(feature_cache))
                 .app_data(Data::from(engine_cache))
+                .app_data(Data::from(etag_cache))
                 .service(
                     web::scope("/api").configure(|cfg| super::configure_frontend_api(cfg, true)),
                 ),

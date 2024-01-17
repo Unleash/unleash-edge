@@ -10,6 +10,7 @@ pub mod edge_api;
 pub mod error;
 pub mod filters;
 pub mod frontend_api;
+pub mod hashing;
 pub mod health_checker;
 pub mod http;
 pub mod internal_backstage;
@@ -39,6 +40,7 @@ mod tests {
     use actix_http_test::{test_server, TestServer};
     use actix_service::map_config;
     use actix_web::dev::AppConfig;
+    use actix_web::http::header::EntityTag;
     use actix_web::{web, App};
     use dashmap::DashMap;
     use unleash_types::client_features::ClientFeatures;
@@ -60,6 +62,7 @@ mod tests {
         upstream_token_cache: Arc<DashMap<String, EdgeToken>>,
         upstream_features_cache: Arc<DashMap<String, ClientFeatures>>,
         upstream_engine_cache: Arc<DashMap<String, EngineState>>,
+        upstream_etag_cache: Arc<DashMap<EdgeToken, EntityTag>>,
     ) -> TestServer {
         let token_validator = Arc::new(TokenValidator {
             unleash_client: Arc::new(Default::default()),
@@ -84,6 +87,7 @@ mod tests {
                     .app_data(web::Data::from(upstream_token_cache.clone()))
                     .app_data(web::Data::new(metrics_cache))
                     .app_data(web::Data::new(connect_via))
+                    .app_data(web::Data::from(upstream_etag_cache.clone()))
                     .service(
                         web::scope("/api")
                             .configure(crate::client_api::configure_client_api)

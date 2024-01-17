@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use actix_cors::Cors;
-use actix_middleware_etag::Etag;
+
 use actix_web::middleware::Logger;
 use actix_web::{web, App, HttpServer};
 use clap::Parser;
@@ -55,7 +55,7 @@ async fn main() -> Result<(), anyhow::Error> {
         instance_id: args.clone().instance_id,
     };
     let (
-        (token_cache, features_cache, engine_cache),
+        (token_cache, features_cache, engine_cache, etag_cache),
         token_validator,
         feature_refresher,
         persistence,
@@ -90,7 +90,8 @@ async fn main() -> Result<(), anyhow::Error> {
             .app_data(web::Data::from(metrics_cache.clone()))
             .app_data(web::Data::from(token_cache.clone()))
             .app_data(web::Data::from(features_cache.clone()))
-            .app_data(web::Data::from(engine_cache.clone()));
+            .app_data(web::Data::from(engine_cache.clone()))
+            .app_data(web::Data::from(etag_cache.clone()));
         app = match token_validator.clone() {
             Some(v) => app.app_data(web::Data::from(v)),
             None => app,
@@ -101,7 +102,9 @@ async fn main() -> Result<(), anyhow::Error> {
         };
         app.service(
             web::scope(&base_path)
-                .wrap(Etag)
+                .wrap(unleash_edge::middleware::etag::EdgeETag {
+                    etag_cache: etag_cache.clone(),
+                })
                 .wrap(actix_web::middleware::Compress::default())
                 .wrap(actix_web::middleware::NormalizePath::default())
                 .wrap(cors_middleware)
