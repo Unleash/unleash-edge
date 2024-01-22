@@ -116,6 +116,58 @@ async fn post_proxy_all_features(
 }
 
 #[utoipa::path(
+    context_path = "/api/frontend",
+    responses(
+    (status = 202, description = "Accepted client metrics"),
+    (status = 403, description = "Was not allowed to post metrics"),
+    ),
+    request_body = ClientMetrics,
+    security(
+    ("Authorization" = [])
+    )
+    )]
+#[post("/all/client/metrics")]
+async fn post_all_proxy_metrics(
+    edge_token: EdgeToken,
+    metrics: Json<ClientMetrics>,
+    metrics_cache: Data<MetricsCache>,
+) -> EdgeResult<HttpResponse> {
+    crate::metrics::client_metrics::register_client_metrics(
+        edge_token,
+        metrics.into_inner(),
+        metrics_cache,
+    );
+
+    Ok(HttpResponse::Accepted().finish())
+}
+
+#[utoipa::path(
+    context_path = "/api/frontend",
+    responses(
+    (status = 202, description = "Accepted client metrics"),
+    (status = 403, description = "Was not allowed to post metrics"),
+    ),
+    request_body = ClientMetrics,
+    security(
+    ("Authorization" = [])
+    )
+    )]
+#[post("/all/client/metrics")]
+async fn post_all_frontend_metrics(
+    edge_token: EdgeToken,
+    metrics: Json<ClientMetrics>,
+    metrics_cache: Data<MetricsCache>,
+) -> EdgeResult<HttpResponse> {
+    crate::metrics::client_metrics::register_client_metrics(
+        edge_token,
+        metrics.into_inner(),
+        metrics_cache,
+    );
+
+    Ok(HttpResponse::Accepted().finish())
+}
+
+#[utoipa::path(
 context_path = "/api/frontend",
 responses(
 (status = 200, description = "Return all known feature toggles for this token in evaluated (true|false) state", body = FrontendResult),
@@ -578,7 +630,8 @@ fn configure_frontend_endpoints(cfg: &mut web::ServiceConfig, disable_all_endpoi
                 .service(post_frontend_enabled_features)
                 .service(post_frontend_register)
                 .service(post_frontend_evaluate_single_feature)
-                .service(get_frontend_evaluate_single_feature),
+                .service(get_frontend_evaluate_single_feature)
+                .service(post_all_frontend_metrics),
         );
     } else {
         cfg.service(
@@ -625,7 +678,8 @@ fn configure_proxy_endpoints(cfg: &mut web::ServiceConfig, disable_all_endpoint:
                 .service(get_enabled_proxy)
                 .service(post_proxy_metrics)
                 .service(post_proxy_enabled_features)
-                .service(post_proxy_register),
+                .service(post_proxy_register)
+                .service(post_all_proxy_metrics),
         );
     } else {
         cfg.service(
@@ -732,8 +786,12 @@ mod tests {
     use crate::types::{EdgeToken, TokenType, TokenValidationStatus};
 
     async fn make_test_request() -> Request {
+        make_test_request_to("/api/proxy/client/metrics").await
+    }
+
+    async fn make_test_request_to(path: &str) -> Request {
         test::TestRequest::post()
-            .uri("/api/proxy/client/metrics")
+            .uri(path)
             .insert_header(ContentType::json())
             .insert_header((
                 "Authorization",
@@ -979,6 +1037,40 @@ mod tests {
         assert_eq!(found_metric.yes, 1);
         assert_eq!(found_metric.no, 0);
         assert_eq!(found_metric.no, expected.no);
+    }
+
+    #[actix_web::test]
+    async fn metrics_all_does_the_same_thing_as_base_metrics() {
+        let metrics_cache = Arc::new(MetricsCache::default());
+
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::from(metrics_cache.clone()))
+                .service(web::scope("/api/proxy").service(super::post_proxy_metrics))
+                .service(web::scope("/api/frontend").service(super::post_all_frontend_metrics)),
+        )
+        .await;
+
+        let req = make_test_request_to("/api/proxy/client/metrics").await;
+        test::call_and_read_body(&app, req).await;
+
+        let req = make_test_request_to("/api/frontend/all/client/metrics").await;
+        test::call_and_read_body(&app, req).await;
+
+        let found_metric = metrics_cache
+            .metrics
+            .get(&MetricsKey {
+                app_name: "some-app".into(),
+                feature_name: "some-feature".into(),
+                environment: "development".into(),
+                timestamp: DateTime::parse_from_rfc3339("1867-11-07T12:00:00Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
+            })
+            .unwrap();
+
+        assert_eq!(found_metric.yes, 2);
+        assert_eq!(found_metric.no, 0);
     }
 
     #[tokio::test]
