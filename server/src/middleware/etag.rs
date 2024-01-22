@@ -145,10 +145,11 @@ fn we_know_this_etag_from_upstream(
     client_token: &Option<EdgeToken>,
     if_none_match: &Option<IfNoneMatch>,
 ) -> bool {
-    match (if_none_match, client_token) {
-        (Some(if_none), Some(token)) => etag_cache.get(token).map_or(false, |etag| {
+    if let (Some(if_none), Some(token)) = (if_none_match, client_token) {
+        etag_cache.get(token).map_or(false, |etag| {
             if_none == &IfNoneMatch::Any || if_none.to_string() == etag.to_string()
-        }),
-        _ => false,
+        })
+    } else {
+        false
     }
 }
