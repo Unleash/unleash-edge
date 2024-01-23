@@ -195,7 +195,7 @@ mod tests {
         upstream_features_cache.insert(client_token.environment.clone().unwrap(), features.clone());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let mut engine = EngineState::default();
-        engine.take_state(features.clone());
+        engine.take_state(features.clone()).unwrap();
         upstream_engine_cache.insert(client_token.token.clone(), engine);
         let upstream_server = upstream_server(
             upstream_token_cache.clone(),

@@ -61,8 +61,14 @@ async fn hydrate_from_persistent_storage(
         tracing::debug!("Hydrating features for {key:?}");
         features_cache.insert(key.clone(), features.clone());
         let mut engine_state = EngineState::default();
-        engine_state.take_state(features);
-        engine_cache.insert(key, engine_state);
+
+        if engine_state.take_state(features).is_err() {
+            tracing::warn!(
+                "Loaded an invalid state from persistent storage, bootstrapping has failed"
+            );
+        } else {
+            engine_cache.insert(key, engine_state);
+        }
     }
 
     for target in refresh_targets {
