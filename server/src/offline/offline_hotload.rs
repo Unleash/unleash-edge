@@ -63,8 +63,11 @@ pub(crate) fn load_offline_engine_cache(
         client_features.clone(),
     );
     let mut engine_state = EngineState::default();
-    engine_state.take_state(client_features);
-    engine_cache.insert(crate::tokens::cache_key(edge_token), engine_state);
+    if engine_state.take_state(client_features).is_err() {
+        tracing::warn!("Loaded an invalid feature set from file, likely due to a manual edit, reverting to previous state");
+    } else {
+        engine_cache.insert(crate::tokens::cache_key(edge_token), engine_state);
+    }
 }
 
 #[derive(Deserialize)]

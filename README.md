@@ -3,7 +3,7 @@
 [![crates.io](https://img.shields.io/crates/v/unleash-edge?label=latest)](https://crates.io/crates/unleash-edge)
 [![Documentation](https://docs.rs/unleash-edge/badge.svg?version=latest)](https://docs.rs/unleash-edge/latest)
 ![MIT licensed](https://img.shields.io/crates/l/unleash-edge.svg)
-[![Dependency Status](https://deps.rs/crate/unleash-edge/16.1.0/status.svg)](https://deps.rs/crate/unleash-edge/17.0.0)
+[![Dependency Status](https://deps.rs/crate/unleash-edge/17.1.0/status.svg)](https://deps.rs/crate/unleash-edge/17.1.0)
 [![CI](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml/badge.svg)](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml)
 [![Coverage Status](https://coveralls.io/repos/github/Unleash/unleash-edge/badge.svg?branch=main)](https://coveralls.io/github/Unleash/unleash-edge?branch=main)
 ![downloads](https://img.shields.io/crates/d/unleash-edge.svg)

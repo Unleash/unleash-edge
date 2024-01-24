@@ -5,7 +5,7 @@ use actix_web::http::header::EntityTag;
 use chrono::Utc;
 use dashmap::DashMap;
 use reqwest::StatusCode;
-use tracing::{debug, info};
+use tracing::{debug, error, info};
 use unleash_types::client_features::Segment;
 use unleash_types::client_metrics::ClientApplication;
 use unleash_types::{
@@ -353,13 +353,18 @@ impl FeatureRefresher {
                         .and_modify(|engine| {
                             if let Some(f) = self.features_cache.get(&key) {
                                 let mut new_state = EngineState::default();
-                                new_state.take_state(f.clone());
-                                *engine = new_state;
+                                if new_state.take_state(f.clone()).is_err() {
+                                    error!("Received a response from Unleash that cannot be compiled, this is likely a bug in Edge. Features will not be updated")
+                                } else {
+                                    *engine = new_state;
+                                }
                             }
                         })
                         .or_insert_with(|| {
                             let mut new_state = EngineState::default();
-                            new_state.take_state(features);
+                            if new_state.take_state(features).is_err() {
+                                error!("Received a response from Unleash that cannot be compiled, this is likely a bug in Edge. Features will not be updated")
+                            }
                             new_state
                         });
                 }
@@ -912,7 +917,7 @@ mod tests {
         let example_features = features_from_disk("../examples/features.json");
         let cache_key = cache_key(&token);
         let mut engine_state = EngineState::default();
-        engine_state.take_state(example_features.clone());
+        engine_state.take_state(example_features.clone()).unwrap();
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         upstream_engine_cache.insert(cache_key.clone(), engine_state);
         let mut server = client_api_test_server(
@@ -968,7 +973,7 @@ mod tests {
         let example_features = features_from_disk("../examples/features.json");
         let cache_key = cache_key(&valid_token);
         let mut engine_state = EngineState::default();
-        engine_state.take_state(example_features.clone());
+        engine_state.take_state(example_features.clone()).unwrap();
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         upstream_engine_cache.insert(cache_key.clone(), engine_state);
         let server = client_api_test_server(
@@ -1013,7 +1018,7 @@ mod tests {
         let example_features = features_from_disk("../examples/hostedexample.json");
         let cache_key = cache_key(&dx_token);
         let mut engine_state = EngineState::default();
-        engine_state.take_state(example_features.clone());
+        engine_state.take_state(example_features.clone()).unwrap();
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         upstream_engine_cache.insert(cache_key.clone(), engine_state);
         let server = client_api_test_server(
@@ -1062,7 +1067,7 @@ mod tests {
         let cache_key = cache_key(&dx_token);
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         let mut engine_state = EngineState::default();
-        engine_state.take_state(example_features.clone());
+        engine_state.take_state(example_features.clone()).unwrap();
         upstream_engine_cache.insert(cache_key, engine_state);
         let server = client_api_test_server(
             upstream_token_cache,
@@ -1123,7 +1128,7 @@ mod tests {
         let cache_key = cache_key(&dx_token);
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         let mut engine_state = EngineState::default();
-        engine_state.take_state(example_features.clone());
+        engine_state.take_state(example_features.clone()).unwrap();
         upstream_engine_cache.insert(cache_key, engine_state);
         let server = client_api_test_server(
             upstream_token_cache,
@@ -1230,7 +1235,7 @@ mod tests {
         let cache_key = cache_key(&eg_token);
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         let mut engine_state = EngineState::default();
-        engine_state.take_state(example_features.clone());
+        engine_state.take_state(example_features.clone()).unwrap();
         upstream_engine_cache.insert(cache_key.clone(), engine_state);
         let server = client_api_test_server(
             upstream_token_cache,

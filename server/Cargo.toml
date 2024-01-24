@@ -12,7 +12,7 @@ homepage = "https://github.com/Unleash/unleash-edge"
 license = "MIT"
 name = "unleash-edge"
 repository = "https://github.com/Unleash/unleash-edge"
-version = "17.0.0"
+version = "17.1.0"
 
 [package.metadata.wix]
 upgrade-guid = "11E5D83A-3034-48BB-9A84-9F589EBD648C"
@@ -79,8 +79,8 @@ tokio = { version = "1.35.1", features = [
 tracing = { version = "0.1.40", features = ["log"] }
 tracing-subscriber = { version = "0.3.18", features = ["json", "env-filter"] }
 ulid = "1.1.0"
-unleash-types = { version = "0.10", features = ["openapi", "hashes"] }
-unleash-yggdrasil = { version = "0.8.0" }
+unleash-types = { version = "0.11", features = ["openapi", "hashes"] }
+unleash-yggdrasil = { version = "0.9.0" }
 utoipa = { version = "4.2.0", features = ["actix_extras", "chrono"] }
 utoipa-swagger-ui = { version = "6", features = ["actix-web"] }
 [dev-dependencies]
