@@ -1176,6 +1176,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "hostname"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c731c3e10504cc8ed35cfe2f1db4c9274c3d35fa486e3b31df46f068ef3e867"
+dependencies = [
+ "libc",
+ "match_cfg",
+ "winapi",
+]
+
+[[package]]
 name = "http"
 version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1340,6 +1351,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f518f335dce6725a761382244631d86cf0ccb2863413590b31338feb467f9c3"
 
 [[package]]
+name = "ipnetwork"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf466541e9d546596ee94f9f69590f89473455f88372423e0008fc1a7daf100e"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "is-terminal"
 version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1499,6 +1519,12 @@ name = "maplit"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3e2e65a1a2e43cfcb47a895c4c8b10d1f4a61097f9f254f183aee60cad9c651d"
+
+[[package]]
+name = "match_cfg"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ffbee8634e0d45d258acb448e7eaab3fce7a0a467395d4d9f228e3c1f01fb2e4"
 
 [[package]]
 name = "matchers"
@@ -3024,9 +3050,9 @@ dependencies = [
 
 [[package]]
 name = "unleash-types"
-version = "0.10.6"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ff718fdcaecdcc682ef3751b2496670e064f4058408ecb4199f0bf065c27181"
+checksum = "b6db70f5a700ad12ebb8ab08483f81eea23de296d5a094d2164e442a5b701d80"
 dependencies = [
  "base64",
  "chrono",
@@ -3039,14 +3065,16 @@ dependencies = [
 
 [[package]]
 name = "unleash-yggdrasil"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd9eb99db51abff93ec3e1bff5150add9f42ecd510b6a2e5e59ded8b7f69e008"
+checksum = "37e4c35ce30ecda43c78d1f72ea55fffee3412a5a9c9ddea9de8db4efedaf03e"
 dependencies = [
  "chrono",
  "convert_case 0.6.0",
  "dashmap",
+ "hostname",
  "ipnet",
+ "ipnetwork",
  "lazy_static",
  "murmur3",
  "pest",
