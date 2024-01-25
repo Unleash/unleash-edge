@@ -2,6 +2,7 @@ version: "3.8"
 services:
   unleash:
     image: unleashorg/unleash-server
+    pull_policy: always
     ports:
       - "4242:4242"
     environment:
@@ -25,7 +26,7 @@ services:
       retries: 5
       start_period: 10s
   edge:
-    image: unleashorg/unleash-edge:v13.0.0
+    image: unleashorg/unleash-edge:latest
     pull_policy: always
     restart: always
     depends_on:
