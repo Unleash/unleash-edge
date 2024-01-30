@@ -5,7 +5,57 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 17.1.0 (2024-01-24)
+
+### Chore
+
+ - <csr-id-11f97ff47246322a899851e18724a9dfe200ecbd/> prepare for 17.1.0 release
+ - <csr-id-0f88ec8fe57e695f68f7f2b69789550191532130/> update rust crate shadow-rs to 0.26.1
+
+### New Features
+
+ - <csr-id-fab4871f0231f7074a7d2b004ac91b06899334b5/> add endpoints for metrics that support using the proxy/all
+   * feat: add endpoints for metrics that support using the proxy/all and frontend/all endpoints for clients
+
+### Bug Fixes
+
+ - <csr-id-706990d0f78439885ce4258b1da41b3514bac60a/> include strategy variant stickiness
+ - <csr-id-ff67c72492b41409798ec247fe5ebc97c465eace/> update rust crate clap to 4.4.18
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 5 commits contributed to the release over the course of 6 calendar days.
+ - 8 days passed between releases.
+ - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 4 unique issues were worked on: [#392](https://github.com/Unleash/unleash-edge/issues/392), [#395](https://github.com/Unleash/unleash-edge/issues/395), [#399](https://github.com/Unleash/unleash-edge/issues/399), [#403](https://github.com/Unleash/unleash-edge/issues/403)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#392](https://github.com/Unleash/unleash-edge/issues/392)**
+    - Update rust crate clap to 4.4.18 ([`ff67c72`](https://github.com/Unleash/unleash-edge/commit/ff67c72492b41409798ec247fe5ebc97c465eace))
+ * **[#395](https://github.com/Unleash/unleash-edge/issues/395)**
+    - Update rust crate shadow-rs to 0.26.1 ([`0f88ec8`](https://github.com/Unleash/unleash-edge/commit/0f88ec8fe57e695f68f7f2b69789550191532130))
+ * **[#399](https://github.com/Unleash/unleash-edge/issues/399)**
+    - Add endpoints for metrics that support using the proxy/all ([`fab4871`](https://github.com/Unleash/unleash-edge/commit/fab4871f0231f7074a7d2b004ac91b06899334b5))
+ * **[#403](https://github.com/Unleash/unleash-edge/issues/403)**
+    - Include strategy variant stickiness ([`706990d`](https://github.com/Unleash/unleash-edge/commit/706990d0f78439885ce4258b1da41b3514bac60a))
+ * **Uncategorized**
+    - Prepare for 17.1.0 release ([`11f97ff`](https://github.com/Unleash/unleash-edge/commit/11f97ff47246322a899851e18724a9dfe200ecbd))
+</details>
+
 ## 17.0.0 (2024-01-15)
+
+<csr-id-3b404ee302f818cd3ae07f5c9106d23322efde17/>
+<csr-id-abfb62d3d0f13ad1fa3ae6484c4c31deaf6ae368/>
+<csr-id-1c359ed1d6d047be2398480c1c622e6d0952989a/>
+<csr-id-f06700f010c74372f53c49f9050255872334f270/>
+<csr-id-5a3db0ea8b1857a97c985789e8a7cc2a6eb3743b/>
 
 ### Chore
 
@@ -16,10 +66,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### New Features
 
+<csr-id-1edda8ccf4b00a147f8bceefca4b2274dd91eb53/>
+
  - <csr-id-4f9c7eeffdb1b491d7e0f0aaf76d0bcb24df9fe5/> Use Version-headers to decide where to post metrics
    * feat: Edge now dynamically posts to correct upstream metrics endpoint
- - <csr-id-1edda8ccf4b00a147f8bceefca4b2274dd91eb53/> added client authenticated bulk metrics
-   * filters metrics posted by environment accessible by token
+* filters metrics posted by environment accessible by token
 
 ### Bug Fixes
 
@@ -38,6 +89,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - <csr-id-78ad7ca9be77894e8c36001c0a23274ef9bb5e1e/> update rust crate clap to 4.4.14
  - <csr-id-5b8be2a12efbd88e741b312fb32756b39e0d6080/> update rust crate anyhow to 1.0.79
  - <csr-id-367f7d336186d5e1ea9585c12828444bce72cb01/> update rust crate async-trait to 0.1.77
+ - <csr-id-b6507bb28ccac3b969760016ac2dc03b84128a89/> rollback actix-cors to 0.6.5
 
 ### Other
 
@@ -47,9 +99,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 24 commits contributed to the release over the course of 26 calendar days.
+ - 26 commits contributed to the release over the course of 26 calendar days.
  - 26 days passed between releases.
- - 22 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 23 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 22 unique issues were worked on: [#356](https://github.com/Unleash/unleash-edge/issues/356), [#364](https://github.com/Unleash/unleash-edge/issues/364), [#368](https://github.com/Unleash/unleash-edge/issues/368), [#369](https://github.com/Unleash/unleash-edge/issues/369), [#372](https://github.com/Unleash/unleash-edge/issues/372), [#373](https://github.com/Unleash/unleash-edge/issues/373), [#374](https://github.com/Unleash/unleash-edge/issues/374), [#375](https://github.com/Unleash/unleash-edge/issues/375), [#376](https://github.com/Unleash/unleash-edge/issues/376), [#377](https://github.com/Unleash/unleash-edge/issues/377), [#378](https://github.com/Unleash/unleash-edge/issues/378), [#379](https://github.com/Unleash/unleash-edge/issues/379), [#380](https://github.com/Unleash/unleash-edge/issues/380), [#381](https://github.com/Unleash/unleash-edge/issues/381), [#382](https://github.com/Unleash/unleash-edge/issues/382), [#383](https://github.com/Unleash/unleash-edge/issues/383), [#384](https://github.com/Unleash/unleash-edge/issues/384), [#385](https://github.com/Unleash/unleash-edge/issues/385), [#386](https://github.com/Unleash/unleash-edge/issues/386), [#387](https://github.com/Unleash/unleash-edge/issues/387), [#388](https://github.com/Unleash/unleash-edge/issues/388), [#389](https://github.com/Unleash/unleash-edge/issues/389)
 
 ### Commit Details
@@ -103,9 +155,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#389](https://github.com/Unleash/unleash-edge/issues/389)**
     - Use Version-headers to decide where to post metrics ([`4f9c7ee`](https://github.com/Unleash/unleash-edge/commit/4f9c7eeffdb1b491d7e0f0aaf76d0bcb24df9fe5))
  * **Uncategorized**
+    - Rollback actix-cors to 0.6.5 ([`b6507bb`](https://github.com/Unleash/unleash-edge/commit/b6507bb28ccac3b969760016ac2dc03b84128a89))
+    - Release unleash-edge v17.0.0 ([`48da5f1`](https://github.com/Unleash/unleash-edge/commit/48da5f1c6a8a3b8be044763cb891818a78d03a16))
     - Prepare for 17.0.0 release ([`3b404ee`](https://github.com/Unleash/unleash-edge/commit/3b404ee302f818cd3ae07f5c9106d23322efde17))
     - Update dependency reference ([`4e20dde`](https://github.com/Unleash/unleash-edge/commit/4e20dded0cd48f49779c41ac8a3d94015f641d9a))
 </details>
+
+<csr-unknown>
+ added client authenticated bulk metrics<csr-unknown/>
 
 ## 16.1.0 (2023-12-20)
 
@@ -159,9 +216,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Release unleash-edge v16.1.0 ([`e89df6a`](https://github.com/Unleash/unleash-edge/commit/e89df6ad7038ed31184e5d8768e9c40127d8157f))
     - Prepare for release ([`6babef8`](https://github.com/Unleash/unleash-edge/commit/6babef852a1d794f7cff1c6e60f644f5ad3b9798))
 </details>
-
-<csr-unknown>
-If upstream goes away, edge should remain durable and keep the featuresit has gotten for the tokens. Now use backoff to save time.<csr-unknown/>
 
 ## 16.0.6 (2023-11-30)
 

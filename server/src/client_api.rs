@@ -280,7 +280,9 @@ mod tests {
     use maplit::hashmap;
     use reqwest::StatusCode;
     use ulid::Ulid;
-    use unleash_types::client_features::{ClientFeature, Constraint, Operator, Strategy};
+    use unleash_types::client_features::{
+        ClientFeature, Constraint, Operator, Strategy, StrategyVariant,
+    };
     use unleash_types::client_metrics::{
         ClientMetricsEnv, ConnectViaBuilder, MetricBucket, ToggleStats,
     };
@@ -431,7 +433,12 @@ mod tests {
                     project: Some("default".into()),
                     strategies: Some(vec![
                         Strategy {
-                            variants: None,
+                            variants: Some(vec![StrategyVariant {
+                                name: "test".into(),
+                                payload: None,
+                                weight: 7,
+                                stickiness: Some("sticky-on-something".into()),
+                            }]),
                             name: "standard".into(),
                             sort_order: Some(500),
                             segments: None,
@@ -505,6 +512,52 @@ mod tests {
             segments: None,
             query: None,
         }
+    }
+
+    #[tokio::test]
+    async fn response_includes_variant_stickiness_for_strategy_variants() {
+        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::from(features_cache.clone()))
+                .app_data(Data::from(token_cache.clone()))
+                .service(web::scope("/api/client").service(get_features)),
+        )
+        .await;
+
+        features_cache.insert("production".into(), cached_client_features());
+        let mut production_token = EdgeToken::try_from(
+            "*:production.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7".to_string(),
+        )
+        .unwrap();
+        production_token.token_type = Some(TokenType::Client);
+        production_token.status = TokenValidationStatus::Validated;
+        token_cache.insert(production_token.token.clone(), production_token.clone());
+        let req = make_features_request_with_token(production_token.clone()).await;
+        let res: ClientFeatures = test::call_and_read_body_json(&app, req).await;
+
+        assert_eq!(res.features.len(), cached_client_features().features.len());
+        let strategy_variant_stickiness = res
+            .features
+            .iter()
+            .find(|f| f.name == "feature_one")
+            .unwrap()
+            .strategies
+            .clone()
+            .unwrap()
+            .iter()
+            .find(|s| s.name == "standard")
+            .unwrap()
+            .variants
+            .clone()
+            .unwrap()
+            .iter()
+            .find(|v| v.name == "test")
+            .unwrap()
+            .stickiness
+            .clone();
+        assert!(strategy_variant_stickiness.is_some());
     }
 
     #[tokio::test]

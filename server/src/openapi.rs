@@ -12,6 +12,9 @@ use utoipa::{
         crate::frontend_api::post_frontend_enabled_features,
         crate::frontend_api::get_proxy_all_features,
         crate::frontend_api::get_frontend_all_features,
+        crate::frontend_api::post_all_proxy_metrics,
+        crate::frontend_api::post_all_frontend_metrics,
+
         crate::frontend_api::post_proxy_all_features,
         crate::frontend_api::post_frontend_all_features,
         crate::frontend_api::post_proxy_register,
