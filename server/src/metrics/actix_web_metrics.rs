@@ -363,32 +363,31 @@ where
 
         let request_metrics = self.metrics.clone();
         Box::pin(self.service.call(req).map(move |res| {
-            request_metrics
-                .http_server_active_requests
-                .add(-1, &attributes);
-
-            // Ignore actix errors for metrics
-            if let Ok(res) = res {
-                attributes.push(HTTP_RESPONSE_STATUS_CODE.i64(res.status().as_u16() as i64));
-                let response_size = res
-                    .response()
-                    .headers()
-                    .get(CONTENT_LENGTH)
-                    .and_then(|len| len.to_str().ok().and_then(|s| s.parse().ok()))
-                    .unwrap_or(0);
-                request_metrics
-                    .http_server_response_size
-                    .record(response_size, &attributes);
-
-                request_metrics.http_server_duration.record(
-                    timer.elapsed().map(|t| t.as_secs_f64()).unwrap_or_default(),
-                    &attributes,
-                );
-                Ok(res)
-            } else {
-                res
-            }
-        }))
+          let status_code = match &res {
+              Ok(res) => res.status().as_u16() as i64,
+              Err(e) => {
+                e.as_response_error().status_code().as_u16() as i64
+              },
+          };
+      
+          attributes.push(HTTP_RESPONSE_STATUS_CODE.i64(status_code));
+          request_metrics.http_server_active_requests.add(-1, &attributes);
+      
+          let response_size = match &res {
+              Ok(res) => res.response().headers().get(CONTENT_LENGTH)
+                  .and_then(|len| len.to_str().ok().and_then(|s| s.parse().ok()))
+                  .unwrap_or(0),
+              Err(_) => 0,
+          };
+          request_metrics.http_server_response_size.record(response_size, &attributes);
+      
+          request_metrics.http_server_duration.record(
+              timer.elapsed().map(|t| t.as_secs_f64()).unwrap_or_default(),
+              &attributes,
+          );
+      
+          res
+      }))
     }
 }
 
