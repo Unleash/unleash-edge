@@ -8,6 +8,8 @@
 [![Coverage Status](https://coveralls.io/repos/github/Unleash/unleash-edge/badge.svg?branch=main)](https://coveralls.io/github/Unleash/unleash-edge?branch=main)
 ![downloads](https://img.shields.io/crates/d/unleash-edge.svg)
 
+> Warning: Unleash Edge requires Unleash v4.15.0 or higher
+
 Unleash Edge is the successor to the [Unleash Proxy](https://docs.getunleash.io/how-to/how-to-run-the-unleash-proxy).
 
 Unleash Edge sits between the Unleash API and your SDKs and provides a cached read-replica of your Unleash instance. This means you can scale up your Unleash instance to thousands of connected SDKs without increasing the number of requests you make to your Unleash instance.
@@ -128,9 +130,9 @@ Unleash Edge is distributed as a binary and as a docker image.
 - If you'd like to live on the edge (sic) you can use the tag `edge`. This is built from `HEAD` on each commit
 - When running the docker image, the same CLI arguments that's available when running the binary is available to your `docker run` command. To start successfully you will need to decide which mode you're running in.
   - If running in `edge` mode your command should be
-    - `docker run -p 3063:3063 -e UPSTREAM_URL=<YOUR_UNLEASH_INSTANCE> unleashorg/unleash-edge:v8.0.1 edge`
+    - `docker run -p 3063:3063 -e UPSTREAM_URL=<YOUR_UNLEASH_INSTANCE> unleashorg/unleash-edge:<version> edge`
   - If running in `offline` mode you will need to provide a volume containing your feature toggles file. An example is available inside the examples folder. To use this, you can use the command
-    - `docker run -v ./examples:/edge/data -p 3063:3063 -e BOOTSTRAP_FILE=/edge/data/features.json -e TOKENS='my-secret-123,another-secret-789' unleashorg/unleash-edge:v8.0.1 offline`
+    - `docker run -v ./examples:/edge/data -p 3063:3063 -e BOOTSTRAP_FILE=/edge/data/features.json -e TOKENS='my-secret-123,another-secret-789' unleashorg/unleash-edge:<version> offline`
 
 ### Cargo/Rust
 
@@ -394,6 +396,14 @@ RUST_LOG="warn,unleash-edge=debug" ./unleash-edge #<command>
 ```
 
 See more about available logging and log levels at https://docs.rs/env_logger/latest/env_logger/#enabling-logging
+
+## Troubleshooting
+
+### Missing metrics in upstream server
+
+#### Possible reasons
+- Old edge version. In order to guarantee metrics on newer Unleash versions, you will need to be using Edge v17.0.0 or newer
+- Old SDK clients. We've seen some clients, particularly early Python (1.x branch) as well as earlier .NET SDKs (we recommend you use 4.1.5 or newer) struggle to post metrics with the strict headers Edge requires.
 
 ## Development
 
