@@ -432,7 +432,7 @@ impl dev::Handler<actix_web::HttpRequest> for PrometheusMetricsHandler {
 mod tests {
     use actix_web::{test, web, App, HttpResponse, http::StatusCode};
     use prometheus::{Encoder, Registry, TextEncoder};
-    use crate::{cli::LogFormat, prom_metrics};
+    use crate::prom_metrics;
     
 
     async fn test_ok_endpoint() -> HttpResponse {
@@ -458,7 +458,7 @@ mod tests {
     #[tokio::test]
     async fn test_middleware_response_metrics() {
       let registry = Registry::new();
-      let (_, request_metrics) = prom_metrics::instantiate(Some(registry.clone()), &LogFormat::Plain);
+      let (_, request_metrics) = prom_metrics::test_instantiate_without_tracing_and_logging(Some(registry.clone()));
 
       let mut app = test::init_service(
         App::new()
