@@ -364,11 +364,10 @@ where
         let request_metrics = self.metrics.clone();
         Box::pin(self.service.call(req).map(move |res| {
           let status_code = match &res {
-              Ok(res) => res.status().as_u16() as i64,
-              Err(e) => {
-                e.as_response_error().status_code().as_u16() as i64
-              },
-          };
+            Ok(res) => res.status(),
+            Err(e) => e.as_response_error().status_code(),
+          }
+          .as_u16() as i64;
       
           attributes.push(HTTP_RESPONSE_STATUS_CODE.i64(status_code));
           request_metrics.http_server_active_requests.add(-1, &attributes);
