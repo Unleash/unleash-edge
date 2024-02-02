@@ -462,7 +462,7 @@ mod tests {
 
       let mut app = test::init_service(
         App::new()
-          .wrap(request_metrics.clone())  // Initialize your middleware
+          .wrap(request_metrics.clone())
           .service(web::resource("/test_ok").to(test_ok_endpoint))
           .service(web::resource("/test_client_error").to(test_client_error_endpoint))
           .service(web::resource("/test_server_error").to(test_server_error_endpoint))
