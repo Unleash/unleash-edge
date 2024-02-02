@@ -373,12 +373,16 @@ where
           attributes.push(HTTP_RESPONSE_STATUS_CODE.i64(status_code));
           request_metrics.http_server_active_requests.add(-1, &attributes);
       
-          let response_size = match &res {
-              Ok(res) => res.response().headers().get(CONTENT_LENGTH)
-                  .and_then(|len| len.to_str().ok().and_then(|s| s.parse().ok()))
-                  .unwrap_or(0),
-              Err(_) => 0,
-          };
+          let response_size = res
+            .as_ref()
+            .map(|res| {
+                res.response()
+                    .headers()
+                    .get(CONTENT_LENGTH)
+                    .and_then(|len| len.to_str().ok().and_then(|s| s.parse().ok()))
+                    .unwrap_or(0u64)
+            })
+            .unwrap_or(0);  
           request_metrics.http_server_response_size.record(response_size, &attributes);
       
           request_metrics.http_server_duration.record(
