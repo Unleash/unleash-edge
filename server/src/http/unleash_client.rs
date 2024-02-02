@@ -957,6 +957,7 @@ mod tests {
         assert!(validate_result.is_err());
     }
 
+    #[cfg(target_os = "linux")]
     #[test]
     pub fn can_instantiate_pkcs_12_client() {
         let pfx = "./testdata/pkcs12/snakeoil.pfx";
