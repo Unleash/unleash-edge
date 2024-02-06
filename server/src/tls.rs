@@ -1,8 +1,8 @@
+use rustls::pki_types::PrivateKeyDer;
+use rustls::ServerConfig;
+use rustls_pemfile::{certs, pkcs8_private_keys};
 use std::path::PathBuf;
 use std::{fs, fs::File, io::BufReader};
-
-use rustls::{Certificate, PrivateKey, ServerConfig};
-use rustls_pemfile::{certs, pkcs8_private_keys};
 
 use crate::cli::TlsOptions;
 use crate::error::{CertificateError, EdgeError};
@@ -32,9 +32,7 @@ pub(crate) fn build_upstream_certificate(
 }
 
 pub fn config(tls_config: TlsOptions) -> Result<ServerConfig, EdgeError> {
-    let config = ServerConfig::builder()
-        .with_safe_defaults()
-        .with_no_client_auth();
+    let config = ServerConfig::builder().with_no_client_auth();
     let mut cert_file = BufReader::new(
         File::open(
             tls_config
@@ -49,14 +47,12 @@ pub fn config(tls_config: TlsOptions) -> Result<ServerConfig, EdgeError> {
             .expect("Could not read cert file"),
     );
     let cert_chain = certs(&mut cert_file)
-        .expect("Could not build cert chain")
         .into_iter()
-        .map(Certificate)
+        .filter_map(|f| f.ok())
         .collect();
-    let mut keys: Vec<PrivateKey> = pkcs8_private_keys(&mut key_file)
-        .expect("Could not build pkcs8 private keys")
+    let mut keys: Vec<PrivateKeyDer> = pkcs8_private_keys(&mut key_file)
         .into_iter()
-        .map(PrivateKey)
+        .filter_map(|f| f.map(|k| PrivateKeyDer::from(k)).ok())
         .collect();
     config
         .with_single_cert(cert_chain, keys.remove(0))
