@@ -37,7 +37,6 @@ pub async fn health() -> EdgeJsonResult<EdgeStatus> {
     Ok(Json(EdgeStatus::ok()))
 }
 
-
 #[get("/ready")]
 pub async fn ready(
     features_cache: web::Data<DashMap<String, ClientFeatures>>,
@@ -97,7 +96,7 @@ mod tests {
     use crate::tests::upstream_server;
     use crate::tokens::cache_key;
     use crate::types::{EdgeToken, Status, TokenInfo, TokenType, TokenValidationStatus};
-    use actix_web::body::MessageBody;
+
     use actix_web::http::header::ContentType;
     use actix_web::test;
     use actix_web::{web, App};

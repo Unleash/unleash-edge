@@ -48,9 +48,10 @@ pub fn instantiate(
 fn instantiate_prometheus_metrics_handler(
     registry: prometheus::Registry,
 ) -> (PrometheusMetricsHandler, RequestMetrics) {
-    let resource = opentelemetry_sdk::Resource::new(vec![
-        opentelemetry::KeyValue::new(SERVICE_NAME, "unleash-edge"),
-    ]);
+    let resource = opentelemetry_sdk::Resource::new(vec![opentelemetry::KeyValue::new(
+        SERVICE_NAME,
+        "unleash-edge",
+    )]);
     let exporter = opentelemetry_prometheus::exporter()
         .with_registry(registry.clone())
         .build()
@@ -134,8 +135,10 @@ fn register_custom_metrics(registry: &prometheus::Registry) {
 }
 
 #[cfg(test)]
-pub fn test_instantiate_without_tracing_and_logging(registry: Option<prometheus::Registry>) -> (PrometheusMetricsHandler, RequestMetrics) {
-  let registry = registry.unwrap_or_else(instantiate_registry);
-  register_custom_metrics(&registry);
-  instantiate_prometheus_metrics_handler(registry)
+pub fn test_instantiate_without_tracing_and_logging(
+    registry: Option<prometheus::Registry>,
+) -> (PrometheusMetricsHandler, RequestMetrics) {
+    let registry = registry.unwrap_or_else(instantiate_registry);
+    register_custom_metrics(&registry);
+    instantiate_prometheus_metrics_handler(registry)
 }

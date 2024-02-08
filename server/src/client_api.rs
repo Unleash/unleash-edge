@@ -6,7 +6,7 @@ use crate::http::feature_refresher::FeatureRefresher;
 use crate::metrics::client_metrics::MetricsCache;
 use crate::tokens::cache_key;
 use crate::types::{
-    self, BatchMetricsRequestBody, EdgeJsonResult, EdgeResult, EdgeToken, FeatureFilters,
+    BatchMetricsRequestBody, EdgeJsonResult, EdgeResult, EdgeToken, FeatureFilters,
 };
 use actix_web::web::{self, Data, Json, Query};
 use actix_web::{get, post, HttpRequest, HttpResponse};
