@@ -18,7 +18,7 @@ use super::unleash_client::UnleashClient;
 use crate::error::{EdgeError, FeatureError};
 use crate::filters::{filter_client_features, FeatureFilterSet};
 use crate::types::{
-    build, ClientTokenRequest, ClientTokenResponse, EdgeResult, TokenType, TokenValidationStatus,
+    ClientTokenRequest, ClientTokenResponse, EdgeResult, TokenType, TokenValidationStatus,
 };
 use crate::{
     persistence::EdgePersistence,
@@ -127,7 +127,7 @@ fn client_application_from_token(token: EdgeToken, refresh_interval: i64) -> Cli
         environment: token.environment,
         instance_id: None,
         interval: refresh_interval as u32,
-        sdk_version: Some(format!("unleash-edge:{}", build::PKG_VERSION)),
+        sdk_version: Some(format!("unleash-edge:{}", "17.0.1")),
         started: Utc::now(),
         strategies: vec![],
     }

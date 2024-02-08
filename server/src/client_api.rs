@@ -174,7 +174,7 @@ pub async fn register(
         metrics_cache,
     );
     Ok(HttpResponse::Accepted()
-        .append_header(("X-Edge-Version", types::EDGE_VERSION))
+        .append_header(("X-Edge-Version", "17.0.1"))
         .finish())
 }
 
@@ -692,7 +692,7 @@ mod tests {
         assert_eq!(res.status(), StatusCode::ACCEPTED);
         assert_eq!(
             res.headers().get("X-Edge-Version").unwrap(),
-            types::EDGE_VERSION
+            "17.0.1".as_bytes()
         );
     }
 

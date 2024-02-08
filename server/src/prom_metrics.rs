@@ -50,8 +50,6 @@ fn instantiate_prometheus_metrics_handler(
 ) -> (PrometheusMetricsHandler, RequestMetrics) {
     let resource = opentelemetry_sdk::Resource::new(vec![
         opentelemetry::KeyValue::new(SERVICE_NAME, "unleash-edge"),
-        opentelemetry::KeyValue::new("edge_version", crate::types::build::PKG_VERSION),
-        opentelemetry::KeyValue::new("edge_githash", crate::types::build::SHORT_COMMIT),
     ]);
     let exporter = opentelemetry_prometheus::exporter()
         .with_registry(registry.clone())
