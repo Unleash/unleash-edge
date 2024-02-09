@@ -1,5 +1,6 @@
 [workspace]
-members = ["server"]
+members = ["server", "lambda"]
+default-members = ["lambda"]
 resolver = "2"
 
 # Config for 'cargo dist'
