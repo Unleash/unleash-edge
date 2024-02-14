@@ -193,7 +193,6 @@ pub async fn start_server() -> Result<(), anyhow::Error> {
         .shutdown_timeout(5)
         .client_request_timeout(std::time::Duration::from_secs(request_timeout));
 
-    println!("Entering server setup");
     match schedule_args.mode {
         cli::EdgeMode::Edge(edge) => {
             let refresher = feature_refresher.clone().unwrap();

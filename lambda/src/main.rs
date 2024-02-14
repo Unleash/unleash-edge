@@ -69,9 +69,5 @@ async fn main() -> Result<(), Error> {
         .without_time()
         .init();
 
-    println!("Pre weee");
-
-    println!("Post weee");
-
     run(service_fn(function_handler)).await
 }
