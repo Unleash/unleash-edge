@@ -47,12 +47,10 @@ pub fn config(tls_config: TlsOptions) -> Result<ServerConfig, EdgeError> {
             .expect("Could not read cert file"),
     );
     let cert_chain = certs(&mut cert_file)
-        .into_iter()
         .filter_map(|f| f.ok())
         .collect();
     let mut keys: Vec<PrivateKeyDer> = pkcs8_private_keys(&mut key_file)
-        .into_iter()
-        .filter_map(|f| f.map(|k| PrivateKeyDer::from(k)).ok())
+        .filter_map(|f| f.map(PrivateKeyDer::from).ok())
         .collect();
     config
         .with_single_cert(cert_chain, keys.remove(0))
