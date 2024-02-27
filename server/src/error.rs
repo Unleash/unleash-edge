@@ -112,7 +112,6 @@ pub enum EdgeError {
     TlsError,
     TokenParseError(String),
     ContextParseError,
-    ServiceAccountTokenNotEnabled,
     TokenValidationError(StatusCode),
 }
 
@@ -175,12 +174,6 @@ impl Display for EdgeError {
             EdgeError::ContextParseError => {
                 write!(f, "Failed to parse query parameters to frontend api")
             }
-            EdgeError::ServiceAccountTokenNotEnabled => {
-                write!(
-                    f,
-                    "No service account token was given at startup. Do not know how to proceed"
-                )
-            }
             EdgeError::HealthCheckError(message) => {
                 write!(f, "{message}")
             }
@@ -232,7 +225,6 @@ impl ResponseError for EdgeError {
             EdgeError::ClientCertificateError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::FrontendNotYetHydrated(_) => StatusCode::NETWORK_AUTHENTICATION_REQUIRED,
             EdgeError::ContextParseError => StatusCode::BAD_REQUEST,
-            EdgeError::ServiceAccountTokenNotEnabled => StatusCode::NETWORK_AUTHENTICATION_REQUIRED,
             EdgeError::EdgeMetricsRequestError(status_code, _) => *status_code,
             EdgeError::HealthCheckError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::ReadyCheckError(_) => StatusCode::INTERNAL_SERVER_ERROR,

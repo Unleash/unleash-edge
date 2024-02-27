@@ -20,7 +20,7 @@ use unleash_edge::offline::offline_hotload;
 use unleash_edge::persistence::{persist_data, EdgePersistence};
 use unleash_edge::types::{EdgeToken, TokenRefresh, TokenValidationStatus};
 use unleash_edge::{
-    admin_api, cli, client_api, frontend_api, health_checker, openapi, ready_checker,
+    cli, client_api, frontend_api, health_checker, openapi, ready_checker,
 };
 use unleash_edge::{edge_api, prom_metrics};
 use unleash_edge::{internal_backstage, tls};
@@ -120,7 +120,6 @@ async fn main() -> Result<(), anyhow::Error> {
                         .configure(|cfg| {
                             frontend_api::configure_frontend_api(cfg, disable_all_endpoint)
                         })
-                        .configure(admin_api::configure_admin_api),
                 )
                 .service(web::scope("/edge").configure(edge_api::configure_edge_api))
                 .service(

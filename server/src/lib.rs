@@ -1,4 +1,3 @@
-pub mod admin_api;
 pub mod auth;
 #[cfg(not(tarpaulin_include))]
 pub mod builder;
@@ -90,7 +89,6 @@ mod tests {
                             .configure(|cfg| {
                                 crate::frontend_api::configure_frontend_api(cfg, false)
                             })
-                            .configure(crate::admin_api::configure_admin_api),
                     )
                     .service(web::scope("/edge").configure(crate::edge_api::configure_edge_api)),
                 |_| AppConfig::default(),
