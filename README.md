@@ -187,25 +187,9 @@ The easiest way to ensure this is by passing in at least one client token as one
 ensuring it has access to the same features as the front-end token you'll be using.
 If you're using a frontend token that doesn't have data in the node's feature cache, you will receive an HTTP Status code: 511 Network Authentication Required along with a body of which project and environment you will need to add a client token for.
 
-#### Enterprise
-Using `--service-account-token` CLI arg or `SERVICE_ACCOUNT_TOKEN` environment variable you can provide Edge with a [Service Account Token](https://docs.getunleash.io/reference/service-accounts) which has access to create client tokens at startup.
-Doing so, Edge will use this token to create a client token for any frontend token where Edge is not already aware of a client token which will give it access to the necessary projects for creating the response.
+### Starting in edge mode
 
-#### Open Source
-Unleash OSS does not support Service accounts, so if you want Edge to create Client tokens for Frontend tokens you will need to use an admin token in the `--service-account-token | SERVICE_ACCOUNT_TOKEN` argument.
-
-
-```json
-{
-  "access": {
-    "environment": "default",
-    "project": "demo-app"
-  },
-  "explanation": "Edge does not yet have data for this token. Please make a call against /api/client/features with a client token that has the same access as your token"
-}
-```
-
-To launch in this mode, run:
+To see parameters available when running in this mode, run:
 
 ```bash
 $ unleash-edge edge -h
