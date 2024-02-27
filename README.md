@@ -187,6 +187,51 @@ The easiest way to ensure this is by passing in at least one client token as one
 ensuring it has access to the same features as the front-end token you'll be using.
 If you're using a frontend token that doesn't have data in the node's feature cache, you will receive an HTTP Status code: 511 Network Authentication Required along with a body of which project and environment you will need to add a client token for.
 
+### Starting in edge mode
+
+To see parameters available when running in this mode, run:
+
+```bash
+$ unleash-edge edge -h
+Run in edge mode
+
+Usage: unleash-edge edge [OPTIONS] --upstream-url <UPSTREAM_URL>
+
+Options:
+  -u, --upstream-url <UPSTREAM_URL>
+          Where is your upstream URL. Remember, this is the URL to your instance, without any trailing /api suffix [env: UPSTREAM_URL=]
+  -r, --redis-url <REDIS_URL>
+          A URL pointing to a running Redis instance. Edge will use this instance to persist feature and token data and read this back after restart. Mutually exclusive with the --backup-folder option [env: REDIS_URL=]
+  -b, --backup-folder <BACKUP_FOLDER>
+          A path to a local folder. Edge will write feature and token data to disk in this folder and read this back after restart. Mutually exclusive with the --redis-url option [env: BACKUP_FOLDER=]
+  -m, --metrics-interval-seconds <METRICS_INTERVAL_SECONDS>
+          How often should we post metrics upstream? [env: METRICS_INTERVAL_SECONDS=] [default: 60]
+  -f, --features-refresh-interval-seconds <FEATURES_REFRESH_INTERVAL_SECONDS>
+          How long between each refresh for a token [env: FEATURES_REFRESH_INTERVAL_SECONDS=] [default: 10]
+      --token-revalidation-interval-seconds <TOKEN_REVALIDATION_INTERVAL_SECONDS>
+          How long between each revalidation of a token [env: TOKEN_REVALIDATION_INTERVAL_SECONDS=] [default: 3600]
+  -t, --tokens <TOKENS>
+          Get data for these client tokens at startup. Accepts comma-separated list of tokens. Hot starts your feature cache [env: TOKENS=]
+  -H, --custom-client-headers <CUSTOM_CLIENT_HEADERS>
+          Expects curl header format (-H <HEADERNAME>: <HEADERVALUE>) for instance `-H X-Api-Key: mysecretapikey` [env: CUSTOM_CLIENT_HEADERS=]
+  -s, --skip-ssl-verification
+          If set to true, we will skip SSL verification when connecting to the upstream Unleash server [env: SKIP_SSL_VERIFICATION=]
+      --pkcs8-client-certificate-file <PKCS8_CLIENT_CERTIFICATE_FILE>
+          Client certificate chain in PEM encoded X509 format with the leaf certificate first. The certificate chain should contain any intermediate certificates that should be sent to clients to allow them to build a chain to a trusted root [env: PKCS8_CLIENT_CERTIFICATE_FILE=]
+      --pkcs8-client-key-file <PKCS8_CLIENT_KEY_FILE>
+          Client key is a PEM encoded PKCS#8 formatted private key for the leaf certificate [env: PKCS8_CLIENT_KEY_FILE=]
+      --pkcs12-identity-file <PKCS12_IDENTITY_FILE>
+          Identity file in pkcs12 format. Typically this file has a pfx extension [env: PKCS12_IDENTITY_FILE=]
+      --pkcs12-passphrase <PKCS12_PASSPHRASE>
+          Passphrase used to unlock the pkcs12 file [env: PKCS12_PASSPHRASE=]
+      --upstream-certificate-file <UPSTREAM_CERTIFICATE_FILE>
+          Extra certificate passed to the client for building its trust chain. Needs to be in PEM format (crt or pem extensions usually are) [env: UPSTREAM_CERTIFICATE_FILE=]
+
+  -h, --help
+          Print help
+
+```
+
 #### Offline
 
 ```mermaid
