@@ -12,7 +12,7 @@ use reqwest::header::{HeaderMap, HeaderName};
 use reqwest::{header, Client};
 use reqwest::{ClientBuilder, Identity, RequestBuilder, StatusCode, Url};
 use serde::{Deserialize, Serialize};
-use tracing::{debug, info, trace, warn};
+use tracing::{info, trace, warn};
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ClientApplication;
 
@@ -22,7 +22,7 @@ use crate::error::{CertificateError, FeatureError};
 use crate::metrics::client_metrics::MetricsBatch;
 use crate::tls::build_upstream_certificate;
 use crate::types::{
-    ClientFeaturesResponse, ClientTokenRequest, ClientTokenResponse, EdgeResult, EdgeToken,
+    ClientFeaturesResponse, EdgeResult, EdgeToken,
     TokenValidationStatus, ValidateTokensRequest,
 };
 use crate::urls::UnleashUrls;
@@ -78,7 +78,6 @@ lazy_static! {
 pub struct UnleashClient {
     pub urls: UnleashUrls,
     backing_client: Client,
-    service_account_token: Option<String>,
     custom_headers: HashMap<String, String>,
     token_header: String,
 }
@@ -199,34 +198,6 @@ impl UnleashClient {
             )
             .unwrap(),
             custom_headers: Default::default(),
-            service_account_token: Default::default(),
-            token_header,
-        }
-    }
-    #[allow(clippy::too_many_arguments)]
-    pub fn from_url_with_service_account_token(
-        server_url: Url,
-        skip_ssl_verification: bool,
-        client_identity: Option<ClientIdentity>,
-        upstream_certificate_file: Option<PathBuf>,
-        service_account_token: String,
-        connect_timeout: Duration,
-        socket_timeout: Duration,
-        token_header: String,
-    ) -> Self {
-        Self {
-            urls: UnleashUrls::from_base_url(server_url),
-            backing_client: new_reqwest_client(
-                "unleash_edge".into(),
-                skip_ssl_verification,
-                client_identity,
-                upstream_certificate_file,
-                connect_timeout,
-                socket_timeout,
-            )
-            .unwrap(),
-            custom_headers: Default::default(),
-            service_account_token: Some(service_account_token),
             token_header,
         }
     }
@@ -248,28 +219,6 @@ impl UnleashClient {
             )
             .unwrap(),
             custom_headers: Default::default(),
-            service_account_token: Default::default(),
-            token_header: "Authorization".to_string(),
-        })
-    }
-
-    #[cfg(test)]
-    pub fn new_with_sa_token(server_url: &str, sa_token: &str) -> Result<Self, EdgeError> {
-        use ulid::Ulid;
-
-        Ok(Self {
-            urls: UnleashUrls::from_str(server_url)?,
-            backing_client: new_reqwest_client(
-                Ulid::new().to_string(),
-                false,
-                None,
-                None,
-                Duration::seconds(5),
-                Duration::seconds(5),
-            )
-            .unwrap(),
-            custom_headers: Default::default(),
-            service_account_token: Some(sa_token.into()),
             token_header: "Authorization".to_string(),
         })
     }
@@ -290,7 +239,6 @@ impl UnleashClient {
             )
             .unwrap(),
             custom_headers: Default::default(),
-            service_account_token: Default::default(),
             token_header: "Authorization".to_string(),
         })
     }
@@ -323,12 +271,6 @@ impl UnleashClient {
     pub fn with_custom_client_headers(self, custom_headers: Vec<(String, String)>) -> Self {
         Self {
             custom_headers: custom_headers.iter().cloned().collect(),
-            ..self
-        }
-    }
-    pub fn with_service_account_token(self, service_account_token: Option<String>) -> Self {
-        Self {
-            service_account_token,
             ..self
         }
     }
@@ -506,44 +448,6 @@ impl UnleashClient {
         }
     }
 
-    pub async fn forward_request_for_client_token(
-        &self,
-        client_token_request: ClientTokenRequest,
-    ) -> EdgeResult<ClientTokenResponse> {
-        if let Some(sa_token) = self.service_account_token.clone() {
-            debug!("Had a service account token. Will try to create a client token. Requesting with a post to {}", self.urls.new_api_token_url.to_string());
-            let result = self
-                .backing_client
-                .post(self.urls.new_api_token_url.to_string())
-                .headers(self.header_map(Some(sa_token)))
-                .json(&client_token_request)
-                .send()
-                .await
-                .map_err(|e| {
-                    info!("Failed to request client token: {e:?}");
-                    EdgeError::EdgeTokenError
-                })?;
-            debug!("Result from request for client token: {}", result.status());
-            let response: ClientTokenResponse = result.json().await.map_err(|e| {
-                info!("Failed to map response to client token: {e:?}");
-                EdgeError::EdgeTokenError
-            })?;
-            Ok(response)
-        } else {
-            debug!("No service account token was found");
-            Err(EdgeError::ServiceAccountTokenNotEnabled)
-        }
-    }
-
-    pub async fn get_client_token_for_unhydrated_frontend_token(
-        &self,
-        frontend_token: EdgeToken,
-    ) -> EdgeResult<EdgeToken> {
-        self.forward_request_for_client_token(frontend_token.to_client_token_request())
-            .await
-            .map(EdgeToken::from)
-    }
-
     pub async fn validate_tokens(
         &self,
         request: ValidateTokensRequest,
@@ -605,21 +509,16 @@ mod tests {
     use actix_http_test::{test_server, TestServer};
     use actix_middleware_etag::Etag;
     use actix_service::map_config;
-    use actix_web::guard;
     use actix_web::{
         dev::{AppConfig, ServiceRequest, ServiceResponse},
         http::header::EntityTag,
         web, App, HttpResponse,
     };
-    use chrono::{Duration, Utc};
+    use chrono::Duration;
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
-
-    use rand::distributions::Alphanumeric;
-    use rand::{self, Rng};
 
     use crate::cli::ClientIdentity;
     use crate::http::unleash_client::new_reqwest_client;
-    use crate::types::{ClientTokenRequest, ClientTokenResponse, TokenType};
     use crate::{
         cli::TlsOptions,
         middleware::as_async_middleware::as_async_middleware,
@@ -642,7 +541,6 @@ mod tests {
     }
 
     const TEST_TOKEN: &str = "[]:development.08bce4267a3b1aa";
-    const TEST_SERVICE_ACCOUNT_TOKEN: &str = "*:*.service-account-token";
     fn two_client_features() -> ClientFeatures {
         ClientFeatures {
             version: 2,
@@ -676,27 +574,6 @@ mod tests {
         })
     }
 
-    async fn create_api_token(new_token: web::Json<ClientTokenRequest>) -> HttpResponse {
-        let secret = rand::thread_rng()
-            .sample_iter(&Alphanumeric)
-            .take(64)
-            .map(char::from)
-            .collect::<String>();
-        let token = new_token.into_inner();
-        HttpResponse::Ok().json(ClientTokenResponse {
-            secret,
-            token_name: token.token_name,
-            token_type: Some(TokenType::Client),
-            environment: Some(token.environment),
-            project: None,
-            projects: token.projects,
-            expires_at: Some(token.expires_at),
-            created_at: Some(Utc::now()),
-            seen_at: None,
-            alias: None,
-        })
-    }
-
     async fn test_features_server() -> TestServer {
         test_server(move || {
             HttpService::new(map_config(
@@ -710,21 +587,6 @@ mod tests {
                         web::resource("/edge/validate")
                             .route(web::post().to(return_validate_tokens)),
                     ),
-                |_| AppConfig::default(),
-            ))
-            .tcp()
-        })
-        .await
-    }
-
-    async fn test_server_with_endpoint_to_create_client_token() -> TestServer {
-        test_server(move || {
-            HttpService::new(map_config(
-                App::new().service(
-                    web::resource("/api/admin/api-tokens")
-                        .route(web::post().to(create_api_token))
-                        .guard(guard::Header("Authorization", TEST_SERVICE_ACCOUNT_TOKEN)),
-                ),
                 |_| AppConfig::default(),
             ))
             .tcp()
@@ -905,26 +767,6 @@ mod tests {
             })
             .await;
         assert!(authed_res.is_ok());
-    }
-    #[tokio::test]
-    pub async fn can_create_client_token_from_frontend_token() {
-        let srv = test_server_with_endpoint_to_create_client_token().await;
-        let client =
-            UnleashClient::new_with_sa_token(srv.url("/").as_str(), TEST_SERVICE_ACCOUNT_TOKEN)
-                .unwrap();
-        let fe_token = crate::types::EdgeToken {
-            token: "[]:development.somesecret".into(),
-            token_type: Some(TokenType::Frontend),
-            projects: vec!["default".into()],
-            environment: Some("development".into()),
-            status: TokenValidationStatus::Validated,
-        };
-        let result = client
-            .get_client_token_for_unhydrated_frontend_token(fe_token.clone())
-            .await
-            .expect("Failed to handle request");
-        assert_eq!(result.projects, fe_token.clone().projects);
-        assert_eq!(result.environment, fe_token.environment);
     }
 
     #[actix_web::test]
