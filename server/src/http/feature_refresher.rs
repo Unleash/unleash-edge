@@ -5,7 +5,7 @@ use actix_web::http::header::EntityTag;
 use chrono::Utc;
 use dashmap::DashMap;
 use reqwest::StatusCode;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 use unleash_types::client_features::Segment;
 use unleash_types::client_metrics::ClientApplication;
 use unleash_types::{
@@ -18,7 +18,7 @@ use super::unleash_client::UnleashClient;
 use crate::error::{EdgeError, FeatureError};
 use crate::filters::{filter_client_features, FeatureFilterSet};
 use crate::types::{
-    build, ClientTokenRequest, ClientTokenResponse, EdgeResult, TokenType, TokenValidationStatus,
+    build, EdgeResult, TokenType, TokenValidationStatus,
 };
 use crate::{
     persistence::EdgePersistence,
@@ -205,15 +205,6 @@ impl FeatureRefresher {
         self.hydrate_new_tokens().await;
     }
 
-    pub(crate) async fn forward_request_for_client_token(
-        &self,
-        client_token_request: ClientTokenRequest,
-    ) -> EdgeResult<ClientTokenResponse> {
-        self.unleash_client
-            .forward_request_for_client_token(client_token_request)
-            .await
-    }
-
     pub(crate) async fn create_client_token_for_fe_token(
         &self,
         token: EdgeToken,
@@ -222,17 +213,16 @@ impl FeatureRefresher {
             && token.token_type == Some(TokenType::Frontend)
         {
             if !self.frontend_token_is_covered_by_client_token(&token) {
-                debug!("The frontend token access is not covered by our current client tokens");
-                let client_token = self
-                    .unleash_client
-                    .get_client_token_for_unhydrated_frontend_token(token)
-                    .await?;
-                let _ = self.register_and_hydrate_token(&client_token).await;
+                warn!("The frontend token access is not covered by our current client tokens");
+                Err(EdgeError::EdgeTokenError)
             } else {
                 debug!("It is already covered by an existing client token. Doing nothing");
+                Ok(())
             }
+        } else {
+            debug!("Token is not validated or is not a frontend token. Doing nothing");
+            Ok(())
         }
-        Ok(())
     }
 
     pub(crate) async fn features_for_filter(
