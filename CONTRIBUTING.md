@@ -64,4 +64,5 @@ You'll need:
 - [Cargo](https://doc.rust-lang.org/cargo/) to install packages and run the project.
 
 ### How to run Unleash-Edge
-TODO!
+
+See our [development-guide](./development-guide.md)
