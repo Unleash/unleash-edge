@@ -1,10 +1,10 @@
 [package]
 authors = [
-  "Unleash developers <team@getunleash.io>",
-  "Christopher Kolstad <chriswk@getunleash.io>",
-  "Simon Hornby <simon@getunleash.io>",
-  "Nuno Gois <nuno@getunleash.io>",
-  "Gaston Fournier <gaston@getunleash.io>",
+    "Unleash developers <team@getunleash.io>",
+    "Christopher Kolstad <chriswk@getunleash.io>",
+    "Simon Hornby <simon@getunleash.io>",
+    "Nuno Gois <nuno@getunleash.io>",
+    "Gaston Fournier <gaston@getunleash.io>",
 ]
 description = "Unleash edge is a proxy for Unleash. It can return both evaluated feature toggles as well as the raw data from Unleash's client API"
 edition = "2021"
@@ -26,13 +26,13 @@ actix-http = { version = "3.6.0", features = ["compress-zstd", "rustls-0_22"] }
 actix-middleware-etag = "0.3.0"
 actix-service = "2.0.2"
 actix-web = { version = "4.5.1", features = ["rustls-0_22", "compress-zstd"] }
-ahash = "0.8.7"
+ahash = "0.8.10"
 
-anyhow = "1.0.79"
+anyhow = "1.0.80"
 async-trait = "0.1.77"
-chrono = { version = "0.4.31", features = ["serde"] }
+chrono = { version = "0.4.34", features = ["serde"] }
 cidr = "0.2.2"
-clap = { version = "4.4.18", features = ["derive", "env"] }
+clap = { version = "4.5.1", features = ["derive", "env"] }
 clap-markdown = "0.1.3"
 dashmap = "5.5.3"
 futures = "0.3.30"
@@ -45,34 +45,34 @@ opentelemetry = { version = "0.21.0", features = ["trace", "metrics"] }
 opentelemetry-prometheus = "0.14.1"
 opentelemetry-semantic-conventions = "0.13.0"
 opentelemetry_sdk = { version = "0.21.2", features = [
-  "metrics",
-  "serde",
-  "serde_json",
-  "logs",
+    "metrics",
+    "serde",
+    "serde_json",
+    "logs",
 ] }
 prometheus = { version = "0.13.3", features = ["process"] }
 prometheus-static-metric = "0.5.1"
 rand = "0.8.5"
 redis = { version = "0.24.0", features = ["tokio-comp", "tokio-rustls-comp"] }
 reqwest = { version = "0.11.24", default-features = false, features = [
-  "rustls",
-  "json",
-  "rustls-tls",
-  "native-tls",
+    "rustls",
+    "json",
+    "rustls-tls",
+    "native-tls",
 ] }
 rustls = "0.22.2"
-rustls-pemfile = "2.0.0"
-rustls-pki-types = "1.2.0"
-semver = "1.0.21"
-serde = { version = "1.0.196", features = ["derive"] }
-serde_json = "1.0.113"
+rustls-pemfile = "2.1.0"
+rustls-pki-types = "1.3.1"
+semver = "1.0.22"
+serde = { version = "1.0.197", features = ["derive"] }
+serde_json = "1.0.114"
 serde_qs = { version = "0.12.0", features = ["actix4", "tracing"] }
 shadow-rs = { version = "0.26.1" }
 tokio = { version = "1.36.0", features = [
-  "macros",
-  "rt-multi-thread",
-  "tracing",
-  "fs",
+    "macros",
+    "rt-multi-thread",
+    "tracing",
+    "fs",
 ] }
 tracing = { version = "0.1.40", features = ["log"] }
 tracing-subscriber = { version = "0.3.18", features = ["json", "env-filter"] }
@@ -90,7 +90,7 @@ maplit = "1.0.2"
 rand = "0.8.5"
 test-case = "3.3.1"
 testcontainers = "0.15.0"
-testcontainers-modules = { version = "0.3.2", features = ["redis"] }
+testcontainers-modules = { version = "0.3.4", features = ["redis"] }
 tracing-test = "0.2.4"
 
 [build-dependencies]
