@@ -46,9 +46,7 @@ pub fn config(tls_config: TlsOptions) -> Result<ServerConfig, EdgeError> {
         File::open(tls_config.tls_server_key.expect("No server key").as_path())
             .expect("Could not read cert file"),
     );
-    let cert_chain = certs(&mut cert_file)
-        .filter_map(|f| f.ok())
-        .collect();
+    let cert_chain = certs(&mut cert_file).filter_map(|f| f.ok()).collect();
     let mut keys: Vec<PrivateKeyDer> = pkcs8_private_keys(&mut key_file)
         .filter_map(|f| f.map(PrivateKeyDer::from).ok())
         .collect();
