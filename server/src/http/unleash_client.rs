@@ -22,8 +22,7 @@ use crate::error::{CertificateError, FeatureError};
 use crate::metrics::client_metrics::MetricsBatch;
 use crate::tls::build_upstream_certificate;
 use crate::types::{
-    ClientFeaturesResponse, EdgeResult, EdgeToken,
-    TokenValidationStatus, ValidateTokensRequest,
+    ClientFeaturesResponse, EdgeResult, EdgeToken, TokenValidationStatus, ValidateTokensRequest,
 };
 use crate::urls::UnleashUrls;
 use crate::{error::EdgeError, types::ClientFeaturesRequest};
