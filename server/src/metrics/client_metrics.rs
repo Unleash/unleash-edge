@@ -53,7 +53,7 @@ impl From<ClientMetricsEnv> for MetricsKey {
     }
 }
 
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone, Eq, Deserialize, Serialize)]
 pub struct MetricsKey {
     pub app_name: String,
     pub feature_name: String,

@@ -21,6 +21,7 @@ use unleash_yggdrasil::EngineState;
 use utoipa::{IntoParams, ToSchema};
 
 use crate::error::EdgeError;
+use crate::metrics::client_metrics::MetricsKey;
 
 pub type EdgeJsonResult<T> = Result<Json<T>, EdgeError>;
 pub type EdgeResult<T> = Result<T, EdgeError>;
@@ -462,6 +463,17 @@ pub struct FeatureFilters {
 pub struct TokenInfo {
     pub token_refreshes: Vec<TokenRefresh>,
     pub token_validation_status: Vec<EdgeToken>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
+pub struct ClientMetric {
+    pub key: MetricsKey,
+    pub bucket: ClientMetricsEnv,
+}
+#[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
+pub struct MetricsInfo {
+    pub applications: Vec<ClientApplication>,
+    pub metrics: Vec<ClientMetric>,
 }
 
 #[cfg(test)]
