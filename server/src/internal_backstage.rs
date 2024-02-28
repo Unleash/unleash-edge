@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::auth::token_validator::TokenValidator;
 use crate::http::feature_refresher::FeatureRefresher;
 use crate::metrics::actix_web_metrics::PrometheusMetricsHandler;
@@ -79,6 +81,17 @@ pub async fn tokens(
         token_validation_status,
     }))
 }
+
+#[get("/features")]
+pub async fn features(
+    features_cache: web::Data<DashMap<String, ClientFeatures>>,
+) -> EdgeJsonResult<HashMap<String, ClientFeatures>> {
+    let features = features_cache
+        .iter()
+        .map(|e| (e.key().clone(), e.value().clone()))
+        .collect();
+    Ok(Json(features))
+}
 pub fn configure_internal_backstage(
     cfg: &mut web::ServiceConfig,
     metrics_handler: PrometheusMetricsHandler,
@@ -87,7 +100,8 @@ pub fn configure_internal_backstage(
         .service(info)
         .service(tokens)
         .service(ready)
-        .service(web::resource("/metrics").route(web::get().to(metrics_handler)));
+        .service(web::resource("/metrics").route(web::get().to(metrics_handler)))
+        .service(features);
 }
 
 #[cfg(test)]
