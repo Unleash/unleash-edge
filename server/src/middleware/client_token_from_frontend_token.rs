@@ -105,7 +105,7 @@ mod tests {
                             .configure(crate::client_api::configure_client_api)
                             .configure(|cfg| {
                                 crate::frontend_api::configure_frontend_api(cfg, false)
-                            })
+                            }),
                     )
                     .service(web::scope("/edge").configure(crate::edge_api::configure_edge_api)),
                 |_| AppConfig::default(),

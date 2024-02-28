@@ -17,9 +17,7 @@ use unleash_yggdrasil::EngineState;
 use super::unleash_client::UnleashClient;
 use crate::error::{EdgeError, FeatureError};
 use crate::filters::{filter_client_features, FeatureFilterSet};
-use crate::types::{
-    build, EdgeResult, TokenType, TokenValidationStatus,
-};
+use crate::types::{build, EdgeResult, TokenType, TokenValidationStatus};
 use crate::{
     persistence::EdgePersistence,
     tokens::{cache_key, simplify},

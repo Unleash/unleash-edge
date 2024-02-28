@@ -136,8 +136,10 @@ fn register_custom_metrics(registry: &prometheus::Registry) {
 }
 
 #[cfg(test)]
-pub fn test_instantiate_without_tracing_and_logging(registry: Option<prometheus::Registry>) -> (PrometheusMetricsHandler, RequestMetrics) {
-  let registry = registry.unwrap_or_else(instantiate_registry);
-  register_custom_metrics(&registry);
-  instantiate_prometheus_metrics_handler(registry)
+pub fn test_instantiate_without_tracing_and_logging(
+    registry: Option<prometheus::Registry>,
+) -> (PrometheusMetricsHandler, RequestMetrics) {
+    let registry = registry.unwrap_or_else(instantiate_registry);
+    register_custom_metrics(&registry);
+    instantiate_prometheus_metrics_handler(registry)
 }
