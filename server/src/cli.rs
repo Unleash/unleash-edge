@@ -150,10 +150,6 @@ pub struct EdgeArgs {
     #[clap(long, env)]
     pub upstream_certificate_file: Option<PathBuf>,
 
-    /// Service account token. Used to create client tokens if receiving a frontend token we don't have data for
-    #[clap(long, global = true, env)]
-    pub service_account_token: Option<String>,
-
     /// Timeout for requests to the upstream server
     #[clap(long, env, default_value_t = 5)]
     pub upstream_request_timeout: i64,
