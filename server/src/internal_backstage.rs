@@ -105,6 +105,7 @@ pub async fn metrics_batch(metrics_cache: web::Data<MetricsCache>) -> EdgeJsonRe
         applications,
         metrics,
     }))
+}
 
 #[get("/features")]
 pub async fn features(
@@ -116,6 +117,7 @@ pub async fn features(
         .collect();
     Ok(Json(features))
 }
+
 pub fn configure_internal_backstage(
     cfg: &mut web::ServiceConfig,
     metrics_handler: PrometheusMetricsHandler,
@@ -150,12 +152,13 @@ mod tests {
     use dashmap::DashMap;
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
     use unleash_yggdrasil::EngineState;
+
     #[actix_web::test]
     async fn test_health_ok() {
         let app = test::init_service(
             App::new().service(web::scope("/internal-backstage").service(super::health)),
         )
-        .await;
+            .await;
         let req = test::TestRequest::get()
             .uri("/internal-backstage/health")
             .insert_header(ContentType::json())
@@ -169,7 +172,7 @@ mod tests {
         let app = test::init_service(
             App::new().service(web::scope("/internal-backstage").service(super::info)),
         )
-        .await;
+            .await;
         let req = test::TestRequest::get()
             .uri("/internal-backstage/info")
             .insert_header(ContentType::json())
@@ -190,7 +193,7 @@ mod tests {
                 .app_data(web::Data::from(client_features_arc))
                 .service(web::scope("/internal-backstage").service(super::ready)),
         )
-        .await;
+            .await;
         let req = test::TestRequest::get()
             .uri("/internal-backstage/ready")
             .insert_header(ContentType::json())
@@ -223,7 +226,7 @@ mod tests {
                 .app_data(web::Data::from(client_features_arc))
                 .service(web::scope("/internal-backstage").service(super::ready)),
         )
-        .await;
+            .await;
         let req = test::TestRequest::get()
             .uri("/internal-backstage/ready")
             .insert_header(ContentType::json())
@@ -241,7 +244,7 @@ mod tests {
             Arc::new(DashMap::default()),
             Arc::new(DashMap::default()),
         )
-        .await;
+            .await;
         let unleash_client =
             UnleashClient::new_insecure(upstream_server.url("/").as_str()).unwrap();
         let arc_unleash_client = Arc::new(unleash_client);
@@ -261,7 +264,7 @@ mod tests {
                 .app_data(web::Data::new(token_validator))
                 .service(web::scope("/internal-backstage").service(super::tokens)),
         )
-        .await;
+            .await;
         let req = test::TestRequest::get()
             .uri("/internal-backstage/tokens")
             .insert_header(ContentType::json())
@@ -284,7 +287,7 @@ mod tests {
             upstream_features_cache.clone(),
             upstream_engine_cache.clone(),
         )
-        .await;
+            .await;
         let upstream_features = crate::tests::features_from_disk("../examples/hostedexample.json");
         let mut upstream_known_token = EdgeToken::from_str("dx:development.secret123").unwrap();
         upstream_known_token.status = TokenValidationStatus::Validated;
@@ -327,7 +330,7 @@ mod tests {
                         .configure(crate::client_api::configure_client_api),
                 ),
         )
-        .await;
+            .await;
         let client_request = test::TestRequest::get()
             .uri("/api/client/features")
             .insert_header(ContentType::json())
