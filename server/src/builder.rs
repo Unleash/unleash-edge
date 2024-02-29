@@ -1,6 +1,7 @@
 use chrono::Duration;
 use dashmap::DashMap;
 use reqwest::Url;
+use tracing::warn;
 use std::fs::File;
 use std::io::Read;
 use std::sync::Arc;
@@ -62,13 +63,11 @@ async fn hydrate_from_persistent_storage(
         features_cache.insert(key.clone(), features.clone());
         let mut engine_state = EngineState::default();
 
-        if engine_state.take_state(features).is_err() {
-            tracing::warn!(
-                "Loaded an invalid state from persistent storage, bootstrapping has failed"
-            );
-        } else {
-            engine_cache.insert(key, engine_state);
+        let warnings = engine_state.take_state(features);
+        if let Some(warnings) = warnings {
+            warn!("Failed to hydrate features for {key:?}: {warnings:?}");
         }
+        engine_cache.insert(key.clone(), engine_state);
     }
 
     for target in refresh_targets {

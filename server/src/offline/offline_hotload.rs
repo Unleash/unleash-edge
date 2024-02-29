@@ -10,6 +10,7 @@ use std::{
 
 use dashmap::DashMap;
 use serde::Deserialize;
+use tracing::warn;
 use unleash_types::client_features::{
     ClientFeature, ClientFeatures, Strategy, Variant, WeightType,
 };
@@ -62,11 +63,11 @@ pub(crate) fn load_offline_engine_cache(
         crate::tokens::cache_key(edge_token),
         client_features.clone(),
     );
-    let mut engine_state = EngineState::default();
-    if engine_state.take_state(client_features).is_err() {
-        tracing::warn!("Loaded an invalid feature set from file, likely due to a manual edit, reverting to previous state");
-    } else {
-        engine_cache.insert(crate::tokens::cache_key(edge_token), engine_state);
+    let mut engine = EngineState::default();
+    let warnings = engine.take_state(client_features);
+    engine_cache.insert(crate::tokens::cache_key(edge_token), engine);
+    if let Some(warnings) = warnings {
+        warn!("The following toggle failed to compile and will be defaulted to off: {warnings:?}");
     }
 }
 
