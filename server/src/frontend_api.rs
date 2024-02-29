@@ -220,7 +220,11 @@ fn post_all_features(
     let engine = engine_cache.get(&key).ok_or_else(|| {
         EdgeError::FrontendNotYetHydrated(FrontendHydrationMissing::from(&edge_token))
     })?;
-    let feature_results = engine.resolve_all(&context_with_ip, &None).unwrap();
+    let feature_results = engine.resolve_all(&context_with_ip, &None).ok_or_else(|| {
+        EdgeError::FrontendExpectedToBeHydrated(
+            "Feature cache has not been hydrated yet, but it was expected to be. This can be due to a race condition from calling edge before it's ready. This error might auto resolve as soon as edge is able to fetch from upstream".into(),
+        )
+    })?;
     Ok(Json(frontend_from_yggdrasil(feature_results, true, &token)))
 }
 
@@ -308,7 +312,11 @@ fn get_enabled_features(
     let engine = engine_cache.get(&key).ok_or_else(|| {
         EdgeError::FrontendNotYetHydrated(FrontendHydrationMissing::from(&edge_token))
     })?;
-    let feature_results = engine.resolve_all(&context_with_ip, &None).unwrap();
+    let feature_results = engine.resolve_all(&context_with_ip, &None).ok_or_else(|| {
+        EdgeError::FrontendExpectedToBeHydrated(
+            "Feature cache has not been hydrated yet, but it was expected to be. This can be due to a race condition from calling edge before it's ready. This error might auto resolve as soon as edge is able to fetch from upstream".into(),
+        )
+    })?;
     Ok(Json(frontend_from_yggdrasil(
         feature_results,
         false,
@@ -505,7 +513,12 @@ async fn post_enabled_features(
         .ok_or_else(|| {
             EdgeError::FrontendNotYetHydrated(FrontendHydrationMissing::from(&edge_token))
         })?;
-    let feature_results = engine.resolve_all(&context_with_ip, &None).unwrap();
+    let feature_results = engine.resolve_all(&context_with_ip, &None).ok_or_else(|| {
+        EdgeError::FrontendExpectedToBeHydrated(
+            "Feature cache has not been hydrated yet, but it was expected to be. This can be due to a race condition from calling edge before it's ready. This error might auto resolve as soon as edge is able to fetch from upstream".into(),
+        )
+    })?;
+
     Ok(Json(frontend_from_yggdrasil(
         feature_results,
         false,
@@ -750,7 +763,11 @@ pub fn get_all_features(
     let engine = engine_cache.get(&key).ok_or_else(|| {
         EdgeError::FrontendNotYetHydrated(FrontendHydrationMissing::from(&edge_token))
     })?;
-    let feature_results = engine.resolve_all(&context_with_ip, &None).unwrap();
+    let feature_results = engine.resolve_all(&context_with_ip, &None).ok_or_else(|| {
+        EdgeError::FrontendExpectedToBeHydrated(
+            "Feature cache has not been hydrated yet, but it was expected to be. This can be due to a race condition from calling edge before it's ready. This error might auto resolve as soon as edge is able to fetch from upstream".into(),
+        )
+    })?;
     Ok(Json(frontend_from_yggdrasil(feature_results, true, &token)))
 }
 
