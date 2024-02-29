@@ -246,7 +246,7 @@ jobs:
       - name: "Download Github Artifacts"
         uses: actions/download-artifact@v4
         with:
-          name: artifacts-*
+          pattern: artifacts-*
           path: artifacts
           merge-multiple: true
       - name: Cleanup
