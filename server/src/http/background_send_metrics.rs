@@ -13,7 +13,7 @@ use chrono::Duration;
 use dashmap::DashMap;
 use lazy_static::lazy_static;
 use prometheus::{register_int_gauge, register_int_gauge_vec, IntGauge, IntGaugeVec, Opts};
-use rand::Rng;
+
 use std::sync::Arc;
 
 lazy_static! {
