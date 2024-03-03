@@ -26,7 +26,7 @@ actix-http = { version = "3.6.0", features = ["compress-zstd", "rustls-0_22"] }
 actix-middleware-etag = "0.3.0"
 actix-service = "2.0.2"
 actix-web = { version = "4.5.1", features = ["rustls-0_22", "compress-zstd"] }
-ahash = "0.8.10"
+ahash = "0.8.11"
 
 anyhow = "1.0.80"
 async-trait = "0.1.77"
