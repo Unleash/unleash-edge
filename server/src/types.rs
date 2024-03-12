@@ -43,8 +43,8 @@ pub struct IncomingContext {
 
 impl From<IncomingContext> for Context {
     fn from(input: IncomingContext) -> Self {
-        let mut properties = input.context.properties.unwrap_or_default();
-        properties.extend(input.extra_properties);
+        let mut properties = input.extra_properties;
+        properties.extend(input.context.properties.unwrap_or_default());
         Context {
             properties: Some(properties),
             ..input.context
