@@ -21,7 +21,7 @@ use unleash_types::{
 use unleash_yggdrasil::{EngineState, ResolvedToggle};
 
 use crate::error::EdgeError::ContextParseError;
-use crate::types::ClientIp;
+use crate::types::{ClientIp, IncomingContext};
 use crate::{
     error::{EdgeError, FrontendHydrationMissing},
     metrics::client_metrics::MetricsCache,
@@ -246,14 +246,14 @@ async fn get_enabled_proxy(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: QsQuery<Context>,
+    context: QsQuery<IncomingContext>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
     get_enabled_features(
         edge_token,
         engine_cache,
         token_cache,
-        context.into_inner(),
+        context.into_inner().into(),
         req.extensions().get::<ClientIp>().cloned(),
     )
 }
@@ -276,7 +276,7 @@ async fn get_enabled_frontend(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: QsQuery<Context>,
+    context: QsQuery<IncomingContext>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
     debug!("getting enabled features");
@@ -285,7 +285,7 @@ async fn get_enabled_frontend(
         edge_token,
         engine_cache,
         token_cache,
-        context.into_inner(),
+        context.into_inner().into(),
         client_ip,
     )
 }
