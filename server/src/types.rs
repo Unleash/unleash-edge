@@ -30,8 +30,6 @@ pub type EdgeResult<T> = Result<T, EdgeError>;
 
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-#[cfg_attr(feature = "openapi", derive(ToSchema, IntoParams))]
-#[cfg_attr(feature = "openapi", into_params(style = Form, parameter_in = Query))]
 #[serde(rename_all = "camelCase")]
 pub struct IncomingContext {
     #[serde(flatten)]
