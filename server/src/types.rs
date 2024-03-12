@@ -52,16 +52,6 @@ impl From<IncomingContext> for Context {
     }
 }
 
-impl Default for IncomingContext {
-    fn default() -> Self {
-        Self {
-            context: Default::default(),
-            extra_properties: HashMap::new(),
-        }
-    }
-}
-
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum TokenType {
