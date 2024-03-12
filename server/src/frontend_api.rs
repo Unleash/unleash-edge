@@ -241,6 +241,7 @@ security(
 )
 )]
 #[get("")]
+#[instrument(skip(edge_token, req, engine_cache, token_cache))]
 async fn get_enabled_proxy(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
