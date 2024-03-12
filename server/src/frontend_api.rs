@@ -103,7 +103,7 @@ async fn post_proxy_all_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: Json<Context>,
+    context: Json<IncomingContext>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
     post_all_features(
@@ -184,7 +184,7 @@ async fn post_frontend_all_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: Json<Context>,
+    context: Json<IncomingContext>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
     post_all_features(
@@ -200,10 +200,10 @@ fn post_all_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: Json<Context>,
+    context: Json<IncomingContext>,
     client_ip: Option<&ClientIp>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let context = context.into_inner();
+    let context = context.into_inner().into();
     let context_with_ip = if context.remote_address.is_none() {
         Context {
             remote_address: client_ip.map(|ip| ip.to_string()),
@@ -253,7 +253,7 @@ async fn get_enabled_proxy(
         edge_token,
         engine_cache,
         token_cache,
-        context.into_inner().into(),
+        context.into_inner(),
         req.extensions().get::<ClientIp>().cloned(),
     )
 }
@@ -285,7 +285,7 @@ async fn get_enabled_frontend(
         edge_token,
         engine_cache,
         token_cache,
-        context.into_inner().into(),
+        context.into_inner(),
         client_ip,
     )
 }
@@ -294,9 +294,10 @@ fn get_enabled_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: Context,
+    incoming_context: IncomingContext,
     client_ip: Option<ClientIp>,
 ) -> EdgeJsonResult<FrontendResult> {
+    let context = incoming_context.into();
     let context_with_ip = if context.remote_address.is_none() {
         Context {
             remote_address: client_ip.map(|ip| ip.to_string()),
@@ -446,18 +447,19 @@ pub async fn get_frontend_evaluate_single_feature(
 pub fn evaluate_feature(
     edge_token: EdgeToken,
     feature_name: String,
-    context: &Context,
+    incoming_context: &IncomingContext,
     token_cache: Data<DashMap<String, EdgeToken>>,
     engine_cache: Data<DashMap<String, EngineState>>,
     client_ip: Option<ClientIp>,
 ) -> EdgeResult<EvaluatedToggle> {
+    let context: Context = incoming_context.clone().into();
     let context_with_ip = if context.remote_address.is_none() {
         Context {
             remote_address: client_ip.map(|ip| ip.to_string()),
-            ..context.clone()
+            ..context
         }
     } else {
-        context.clone()
+        context
     };
     let validated_token = token_cache
         .get(&edge_token.token)
