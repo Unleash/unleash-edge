@@ -1483,7 +1483,7 @@ mod tests {
             .set_json(json!({ "companyId": "bricks"}))
             .to_request();
         let result: FrontendResult = test::call_and_read_body_json(&app, req).await;
-        assert!(result.toggles.is_empty());
+        assert_eq!(result.toggles.len(), 1);
     }
 
     #[tokio::test]
