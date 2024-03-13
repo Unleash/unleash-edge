@@ -747,9 +747,10 @@ pub fn get_all_features(
     query_string: &str,
     client_ip: Option<&ClientIp>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let context: Context = serde_qs::Config::new(0, false)
+    let raw_context: IncomingContext = serde_qs::Config::new(0, false)
         .deserialize_str(query_string)
         .map_err(|_| ContextParseError)?;
+    let context: Context = raw_context.into();
     let context_with_ip = if context.remote_address.is_none() {
         Context {
             remote_address: client_ip.map(|ip| ip.to_string()),
@@ -1027,7 +1028,9 @@ mod tests {
                 .app_data(Data::from(feature_cache))
                 .app_data(Data::from(engine_cache))
                 .service(web::scope("/api/frontend").service(super::get_enabled_frontend))
-                .service(web::scope("/api/proxy").service(super::get_enabled_proxy)),
+                .service(web::scope("/api/proxy").service(super::get_enabled_proxy))
+                .service(web::scope("/api/frontend_all").service(super::get_frontend_all_features))
+                .service(web::scope("/api/proxy_all").service(super::get_proxy_all_features)),
         )
         .await;
 
@@ -1043,7 +1046,11 @@ mod tests {
 
         let frontend_result = test::call_and_read_body(&app, req("frontend")).await;
         let proxy_result = test::call_and_read_body(&app, req("proxy")).await;
+        let proxy_all_result = test::call_and_read_body(&app, req("proxy_all/all")).await;
+        let frontend_all_result = test::call_and_read_body(&app, req("frontend_all/all")).await;
         assert_eq!(frontend_result, proxy_result);
+        assert_eq!(frontend_result, frontend_all_result);
+        assert_eq!(proxy_all_result, frontend_all_result);
 
         let expected = FrontendResult {
             toggles: vec![EvaluatedToggle {
