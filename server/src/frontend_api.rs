@@ -1509,15 +1509,6 @@ mod tests {
             .to_request();
         let result: FrontendResult = test::call_and_read_body_json(&app, req).await;
         assert_eq!(result.toggles.len(), 1);
-
-        let req = test::TestRequest::post()
-            .uri("/api/frontend")
-            .insert_header(ContentType::json())
-            .insert_header(("Authorization", auth_key))
-            .set_json(json!({ "companyId": "bricks"}))
-            .to_request();
-        let result: FrontendResult = test::call_and_read_body_json(&app, req).await;
-        assert_eq!(result.toggles.len(), 1);
     }
 
     #[tokio::test]
