@@ -1352,6 +1352,35 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn using_a_string_for_properties_gives_400() {
+        let client_features = crate::tests::features_from_disk("../examples/hostedexample.json");
+        let (token_cache, feature_cache, engine_cache) = build_offline_mode(
+            client_features,
+            vec!["dx:development.secret123".to_string()],
+        )
+        .unwrap();
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::from(token_cache))
+                .app_data(Data::from(feature_cache))
+                .app_data(Data::from(engine_cache))
+                .service(
+                    web::scope("/api").configure(|cfg| super::configure_frontend_api(cfg, false)),
+                ),
+        )
+        .await;
+
+        let req = test::TestRequest::get()
+            .uri("/api/frontend?properties=string")
+            .insert_header(ContentType::json())
+            .insert_header(("Authorization", "dx:development.secret123"))
+            .to_request();
+
+        let result = test::call_service(&app, req).await;
+        assert_eq!(result.status(), 400);
+    }
+
+    #[tokio::test]
     async fn can_get_single_feature() {
         let client_features = crate::tests::features_from_disk("../examples/hostedexample.json");
         let (token_cache, feature_cache, engine_cache) = build_offline_mode(
