@@ -21,7 +21,7 @@ use unleash_types::{
 use unleash_yggdrasil::{EngineState, ResolvedToggle};
 
 use crate::error::EdgeError::ContextParseError;
-use crate::types::ClientIp;
+use crate::types::{ClientIp, IncomingContext};
 use crate::{
     error::{EdgeError, FrontendHydrationMissing},
     metrics::client_metrics::MetricsCache,
@@ -103,7 +103,7 @@ async fn post_proxy_all_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: Json<Context>,
+    context: Json<IncomingContext>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
     post_all_features(
@@ -184,7 +184,7 @@ async fn post_frontend_all_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: Json<Context>,
+    context: Json<IncomingContext>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
     post_all_features(
@@ -200,10 +200,10 @@ fn post_all_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: Json<Context>,
+    context: Json<IncomingContext>,
     client_ip: Option<&ClientIp>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let context = context.into_inner();
+    let context = context.into_inner().into();
     let context_with_ip = if context.remote_address.is_none() {
         Context {
             remote_address: client_ip.map(|ip| ip.to_string()),
@@ -241,11 +241,12 @@ security(
 )
 )]
 #[get("")]
+#[instrument(skip(edge_token, req, engine_cache, token_cache))]
 async fn get_enabled_proxy(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: QsQuery<Context>,
+    context: QsQuery<IncomingContext>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
     get_enabled_features(
@@ -275,7 +276,7 @@ async fn get_enabled_frontend(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: QsQuery<Context>,
+    context: QsQuery<IncomingContext>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
     debug!("getting enabled features");
@@ -293,9 +294,10 @@ fn get_enabled_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: Context,
+    incoming_context: IncomingContext,
     client_ip: Option<ClientIp>,
 ) -> EdgeJsonResult<FrontendResult> {
+    let context = incoming_context.into();
     let context_with_ip = if context.remote_address.is_none() {
         Context {
             remote_address: client_ip.map(|ip| ip.to_string()),
@@ -341,7 +343,7 @@ async fn post_proxy_enabled_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: Json<Context>,
+    context: Json<IncomingContext>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
     let client_ip = req.extensions().get::<ClientIp>().cloned();
@@ -365,7 +367,7 @@ async fn post_frontend_enabled_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: Json<Context>,
+    context: Json<IncomingContext>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
     let client_ip = req.extensions().get::<ClientIp>().cloned();
@@ -445,18 +447,19 @@ pub async fn get_frontend_evaluate_single_feature(
 pub fn evaluate_feature(
     edge_token: EdgeToken,
     feature_name: String,
-    context: &Context,
+    incoming_context: &IncomingContext,
     token_cache: Data<DashMap<String, EdgeToken>>,
     engine_cache: Data<DashMap<String, EngineState>>,
     client_ip: Option<ClientIp>,
 ) -> EdgeResult<EvaluatedToggle> {
+    let context: Context = incoming_context.clone().into();
     let context_with_ip = if context.remote_address.is_none() {
         Context {
             remote_address: client_ip.map(|ip| ip.to_string()),
-            ..context.clone()
+            ..context
         }
     } else {
-        context.clone()
+        context
     };
     let validated_token = token_cache
         .get(&edge_token.token)
@@ -492,10 +495,10 @@ async fn post_enabled_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: Json<Context>,
+    context: Json<IncomingContext>,
     client_ip: Option<ClientIp>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let context = context.into_inner();
+    let context: Context = context.into_inner().into();
     let context_with_ip = if context.remote_address.is_none() {
         Context {
             remote_address: client_ip.map(|ip| ip.to_string()),
@@ -859,6 +862,34 @@ mod tests {
         }
     }
 
+    fn client_features_with_constraint_requiring_test_property_to_be_42() -> ClientFeatures {
+        ClientFeatures {
+            version: 1,
+            features: vec![ClientFeature {
+                name: "test".into(),
+                enabled: true,
+                strategies: Some(vec![Strategy {
+                    name: "default".into(),
+                    sort_order: None,
+                    segments: None,
+                    variants: None,
+                    constraints: Some(vec![Constraint {
+                        context_name: "test_property".into(),
+                        operator: Operator::In,
+                        case_insensitive: false,
+                        inverted: false,
+                        values: Some(vec!["42".into()]),
+                        value: None,
+                    }]),
+                    parameters: None,
+                }]),
+                ..ClientFeature::default()
+            }],
+            segments: None,
+            query: None,
+        }
+    }
+
     fn client_features_with_constraint_one_enabled_toggle_and_one_disabled_toggle() -> ClientFeatures
     {
         ClientFeatures {
@@ -977,6 +1008,112 @@ mod tests {
         };
 
         assert_eq!(result, serde_json::to_vec(&expected).unwrap());
+    }
+
+    #[actix_web::test]
+    #[traced_test]
+    async fn calling_get_requests_resolves_top_level_properties_correctly() {
+        let (feature_cache, token_cache, engine_cache) = build_offline_mode(
+            client_features_with_constraint_requiring_test_property_to_be_42(),
+            vec![
+                "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7"
+                    .to_string(),
+            ],
+        )
+        .unwrap();
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::from(token_cache))
+                .app_data(Data::from(feature_cache))
+                .app_data(Data::from(engine_cache))
+                .service(web::scope("/api/frontend").service(super::get_enabled_frontend))
+                .service(web::scope("/api/proxy").service(super::get_enabled_proxy)),
+        )
+        .await;
+
+        let req = |endpoint| {
+            test::TestRequest::get()
+                .uri(format!("/api/{endpoint}?test_property=42").as_str())
+                .insert_header((
+                    "Authorization",
+                    "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7",
+                ))
+                .to_request()
+        };
+
+        let frontend_result = test::call_and_read_body(&app, req("frontend")).await;
+        let proxy_result = test::call_and_read_body(&app, req("proxy")).await;
+        assert_eq!(frontend_result, proxy_result);
+
+        let expected = FrontendResult {
+            toggles: vec![EvaluatedToggle {
+                name: "test".into(),
+                enabled: true,
+                variant: EvaluatedVariant {
+                    name: "disabled".into(),
+                    enabled: false,
+                    payload: None,
+                },
+                impression_data: false,
+            }],
+        };
+
+        assert_eq!(frontend_result, serde_json::to_vec(&expected).unwrap());
+    }
+
+    #[actix_web::test]
+    #[traced_test]
+    async fn calling_post_requests_resolves_top_level_properties_correctly() {
+        let (feature_cache, token_cache, engine_cache) = build_offline_mode(
+            client_features_with_constraint_requiring_test_property_to_be_42(),
+            vec![
+                "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7"
+                    .to_string(),
+            ],
+        )
+        .unwrap();
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::from(token_cache))
+                .app_data(Data::from(feature_cache))
+                .app_data(Data::from(engine_cache))
+                .service(web::scope("/api/frontend").service(super::post_frontend_enabled_features))
+                .service(web::scope("/api/proxy").service(super::post_proxy_enabled_features)),
+        )
+        .await;
+
+        let req = |endpoint| {
+            test::TestRequest::post()
+                .uri(format!("/api/{endpoint}").as_str())
+                .insert_header(ContentType::json())
+                .insert_header((
+                    "Authorization",
+                    "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7",
+                ))
+                .set_json(json!({
+                    "test_property": "42"
+                }))
+                .to_request()
+        };
+
+        let frontend_result = test::call_and_read_body(&app, req("frontend")).await;
+        let proxy_result = test::call_and_read_body(&app, req("proxy")).await;
+        assert_eq!(frontend_result, proxy_result);
+
+        let expected = FrontendResult {
+            toggles: vec![EvaluatedToggle {
+                name: "test".into(),
+                enabled: true,
+                variant: EvaluatedVariant {
+                    name: "disabled".into(),
+                    enabled: false,
+                    payload: None,
+                },
+                impression_data: false,
+            }],
+        };
+
+        assert_eq!(frontend_result, serde_json::to_vec(&expected).unwrap());
     }
 
     #[actix_web::test]
