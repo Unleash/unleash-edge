@@ -1374,6 +1374,33 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn can_get_single_feature_with_top_level_properties() {
+        let (token_cache, feature_cache, engine_cache) = build_offline_mode(
+            client_features_with_constraint_requiring_test_property_to_be_42(),
+            vec!["*:development.secret123".to_string()],
+        )
+        .unwrap();
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::from(token_cache))
+                .app_data(Data::from(feature_cache))
+                .app_data(Data::from(engine_cache))
+                .service(
+                    web::scope("/api").configure(|cfg| super::configure_frontend_api(cfg, false)),
+                ),
+        )
+        .await;
+
+        let req = test::TestRequest::get()
+            .uri("/api/frontend/features/test?test_property=42")
+            .insert_header(("Authorization", "*:development.secret123"))
+            .to_request();
+
+        let result = test::call_service(&app, req).await;
+        assert_eq!(result.status(), 200);
+    }
+
+    #[tokio::test]
     async fn trying_to_evaluate_feature_you_do_not_have_access_to_will_give_not_found() {
         let client_features = crate::tests::features_from_disk("../examples/hostedexample.json");
         let (token_cache, feature_cache, engine_cache) = build_offline_mode(
