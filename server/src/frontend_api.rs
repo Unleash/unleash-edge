@@ -203,7 +203,7 @@ fn post_all_features(
     context: Json<IncomingContext>,
     client_ip: Option<&ClientIp>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let context = context.into_inner().into();
+    let context: Context = context.into_inner().into();
     let context_with_ip = if context.remote_address.is_none() {
         Context {
             remote_address: client_ip.map(|ip| ip.to_string()),
@@ -297,7 +297,7 @@ fn get_enabled_features(
     incoming_context: IncomingContext,
     client_ip: Option<ClientIp>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let context = incoming_context.into();
+    let context: Context = incoming_context.into();
     let context_with_ip = if context.remote_address.is_none() {
         Context {
             remote_address: client_ip.map(|ip| ip.to_string()),
@@ -392,7 +392,7 @@ security(
 pub async fn post_frontend_evaluate_single_feature(
     edge_token: EdgeToken,
     feature_name: Path<String>,
-    context: Json<Context>,
+    context: Json<IncomingContext>,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
     req: HttpRequest,
@@ -428,7 +428,7 @@ security(
 pub async fn get_frontend_evaluate_single_feature(
     edge_token: EdgeToken,
     feature_name: Path<String>,
-    context: QsQuery<Context>,
+    context: QsQuery<IncomingContext>,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
     req: HttpRequest,
