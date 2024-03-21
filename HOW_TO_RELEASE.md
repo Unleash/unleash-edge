@@ -52,5 +52,8 @@ cargo smart-release -b <patch|minor|major> -u
 ```sh
 cargo smart-release -b <patch|minor|major> -u --execute
 ```
+
+Remember to add the `--no-bump-on-demand` flag here too if it was needed to get the right version in the previous step.
+
 This will display the changelog in your $EDITOR, once satisfied with changelog, quit out of the changelog preview, and the rest (building, publishing to cargo, tagging and making release notes) will be handled by smart-release
 
