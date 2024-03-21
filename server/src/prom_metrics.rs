@@ -110,6 +110,11 @@ fn register_custom_metrics(registry: &prometheus::Registry) {
         .unwrap();
     registry
         .register(Box::new(
+            background_send_metrics::METRICS_INTERVAL_BETWEEN_SEND.clone(),
+        ))
+        .unwrap();
+    registry
+        .register(Box::new(
             crate::http::unleash_client::CLIENT_FEATURE_FETCH_FAILURES.clone(),
         ))
         .unwrap();

@@ -1,10 +1,10 @@
 [package]
 authors = [
-  "Unleash developers <team@getunleash.io>",
-  "Christopher Kolstad <chriswk@getunleash.io>",
-  "Simon Hornby <simon@getunleash.io>",
-  "Nuno Gois <nuno@getunleash.io>",
-  "Gaston Fournier <gaston@getunleash.io>",
+    "Unleash developers <team@getunleash.io>",
+    "Christopher Kolstad <chriswk@getunleash.io>",
+    "Simon Hornby <simon@getunleash.io>",
+    "Nuno Gois <nuno@getunleash.io>",
+    "Gaston Fournier <gaston@getunleash.io>",
 ]
 description = "Unleash edge is a proxy for Unleash. It can return both evaluated feature toggles as well as the raw data from Unleash's client API"
 edition = "2021"
@@ -12,7 +12,7 @@ homepage = "https://github.com/Unleash/unleash-edge"
 license = "MIT"
 name = "unleash-edge"
 repository = "https://github.com/Unleash/unleash-edge"
-version = "17.1.0"
+version = "18.0.1"
 
 [package.metadata.wix]
 upgrade-guid = "11E5D83A-3034-48BB-9A84-9F589EBD648C"
@@ -21,18 +21,18 @@ license = false
 eula = false
 
 [dependencies]
-actix-cors = "0.6.5"
-actix-http = { version = "3.5.1", features = ["compress-zstd", "rustls-0_21"] }
+actix-cors = "0.7.0"
+actix-http = { version = "3.6.0", features = ["compress-zstd", "rustls-0_22"] }
 actix-middleware-etag = "0.3.0"
 actix-service = "2.0.2"
-actix-web = { version = "4.4.1", features = ["rustls-0_21", "compress-zstd"] }
-ahash = "0.8.9"
+actix-web = { version = "4.5.1", features = ["rustls-0_22", "compress-zstd"] }
+ahash = "0.8.10"
 
-anyhow = "1.0.79"
+anyhow = "1.0.80"
 async-trait = "0.1.77"
-chrono = { version = "0.4.31", features = ["serde"] }
+chrono = { version = "0.4.34", features = ["serde"] }
 cidr = "0.2.2"
-clap = { version = "4.4.18", features = ["derive", "env"] }
+clap = { version = "4.5.1", features = ["derive", "env"] }
 clap-markdown = "0.1.3"
 dashmap = "5.5.3"
 futures = "0.3.30"
@@ -41,58 +41,56 @@ iter_tools = "0.4.0"
 itertools = "0.12.1"
 lazy_static = "1.4.0"
 num_cpus = "1.16.0"
-opentelemetry = { version = "0.21.0", features = [
-  "trace",
-  "metrics",
-] }
+opentelemetry = { version = "0.21.0", features = ["trace", "metrics"] }
 opentelemetry-prometheus = "0.14.1"
 opentelemetry-semantic-conventions = "0.13.0"
 opentelemetry_sdk = { version = "0.21.2", features = [
-  "metrics",
-  "serde",
-  "serde_json",
-  "logs",
+    "metrics",
+    "serde",
+    "serde_json",
+    "logs",
 ] }
 prometheus = { version = "0.13.3", features = ["process"] }
 prometheus-static-metric = "0.5.1"
 rand = "0.8.5"
 redis = { version = "0.24.0", features = ["tokio-comp", "tokio-rustls-comp"] }
-reqwest = { version = "0.11.23", default-features = false, features = [
-  "rustls",
-  "json",
-  "rustls-tls",
-  "native-tls",
+reqwest = { version = "0.11.24", default-features = false, features = [
+    "rustls",
+    "json",
+    "rustls-tls",
+    "native-tls",
 ] }
-rustls = "0.21.8"
-rustls-pemfile = "1.0.4"
-semver = "1.0.21"
-serde = { version = "1.0.195", features = ["derive"] }
+rustls = "0.22.2"
+rustls-pemfile = "2.1.0"
+rustls-pki-types = "1.3.1"
+semver = "1.0.22"
+serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.114"
 serde_qs = { version = "0.12.0", features = ["actix4", "tracing"] }
 shadow-rs = { version = "0.26.1" }
-tokio = { version = "1.35.1", features = [
-  "macros",
-  "rt-multi-thread",
-  "tracing",
-  "fs",
+tokio = { version = "1.36.0", features = [
+    "macros",
+    "rt-multi-thread",
+    "tracing",
+    "fs",
 ] }
 tracing = { version = "0.1.40", features = ["log"] }
 tracing-subscriber = { version = "0.3.18", features = ["json", "env-filter"] }
-ulid = "1.1.1"
+ulid = "1.1.2"
 unleash-types = { version = "0.11", features = ["openapi", "hashes"] }
-unleash-yggdrasil = { version = "0.9.0" }
+unleash-yggdrasil = { version = "0.11.0" }
 utoipa = { version = "4.2.0", features = ["actix_extras", "chrono"] }
 utoipa-swagger-ui = { version = "6", features = ["actix-web"] }
 [dev-dependencies]
-actix-http = "3.5.1"
-actix-http-test = "3.1.0"
+actix-http = "3.6.0"
+actix-http-test = "3.2.0"
 actix-service = "2.0.2"
-env_logger = "0.10.1"
+env_logger = "0.11.2"
 maplit = "1.0.2"
 rand = "0.8.5"
 test-case = "3.3.1"
 testcontainers = "0.15.0"
-testcontainers-modules = { version = "0.3.2", features = ["redis"] }
+testcontainers-modules = { version = "0.3.4", features = ["redis"] }
 tracing-test = "0.2.4"
 
 [build-dependencies]

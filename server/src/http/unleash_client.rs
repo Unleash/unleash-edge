@@ -617,7 +617,7 @@ mod tests {
                     ),
                 |_| AppConfig::default(),
             ))
-            .rustls_021_with_config(server_config, tls_acceptor_config)
+            .rustls_0_22_with_config(server_config, tls_acceptor_config)
         })
         .await
     }

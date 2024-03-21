@@ -478,7 +478,7 @@ mod tests {
         let (_, request_metrics) =
             prom_metrics::test_instantiate_without_tracing_and_logging(Some(registry.clone()));
 
-        let mut app = test::init_service(
+        let app = test::init_service(
             App::new()
                 .wrap(request_metrics.clone())
                 .service(web::resource("/test_ok").to(test_ok_endpoint))
@@ -488,19 +488,19 @@ mod tests {
         .await;
 
         let req_ok = test::TestRequest::get().uri("/test_ok").to_request();
-        let resp_ok = test::call_service(&mut app, req_ok).await;
+        let resp_ok = test::call_service(&app, req_ok).await;
         assert_eq!(resp_ok.status(), StatusCode::OK);
 
         let req_client_error = test::TestRequest::get()
             .uri("/test_client_error")
             .to_request();
-        let resp_client_error = test::call_service(&mut app, req_client_error).await;
+        let resp_client_error = test::call_service(&app, req_client_error).await;
         assert_eq!(resp_client_error.status(), StatusCode::BAD_REQUEST);
 
         let req_server_error = test::TestRequest::get()
             .uri("/test_server_error")
             .to_request();
-        let resp_server_error = test::call_service(&mut app, req_server_error).await;
+        let resp_server_error = test::call_service(&app, req_server_error).await;
         assert_eq!(
             resp_server_error.status(),
             StatusCode::INTERNAL_SERVER_ERROR

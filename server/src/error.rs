@@ -96,6 +96,7 @@ pub enum EdgeError {
     ClientHydrationFailed(String),
     ClientRegisterError,
     FrontendNotYetHydrated(FrontendHydrationMissing),
+    FrontendExpectedToBeHydrated(String),
     FeatureNotFound(String),
     PersistenceError(String),
     EdgeMetricsError,
@@ -196,6 +197,9 @@ impl Display for EdgeError {
             EdgeError::ClientCacheError => {
                 write!(f, "Fetching client features from cache failed")
             }
+            EdgeError::FrontendExpectedToBeHydrated(message) => {
+                write!(f, "{}", message)
+            }
         }
     }
 }
@@ -230,6 +234,7 @@ impl ResponseError for EdgeError {
             EdgeError::ReadyCheckError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::ClientHydrationFailed(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::ClientCacheError => StatusCode::INTERNAL_SERVER_ERROR,
+            EdgeError::FrontendExpectedToBeHydrated(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 
