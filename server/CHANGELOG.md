@@ -5,7 +5,80 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 18.0.1 (2024-03-14)
+
+### Chore
+
+ - <csr-id-7099f518250658b3902ce9856e08fede48c00840/> prepare for readmes for release
+   This change updates the readmes with the right dependencies for 18.0.1
+ - <csr-id-33cdd3727334ccf14d0d96c29189d700ffbacd4a/> add type for incoming/denormalized context
+   * test: add test
+   
+   * fix: add missing instrumentation line
+   
+   * fix: add wrapper type
+   
+   * fix: overwrite logic
+   
+   * fix: remove derive
+   
+   * fix: support incoming in get requests
+   
+   * fix: support post endpoints
+   
+   * fix: remove unused attributes. That feature doesn't even exist. Probably.
+   
+   * Chore: revert changes in frontend_api.rs
+   
+   * fix: format file
+
+### Bug Fixes
+
+ - <csr-id-e7258a9763d1bd9a7fc1c9f38ff2b5c9ab2c6cb9/> handle incoming requests on the api level
+   Update all endpoints of the frontend_api to accept top-level properties.
+   
+   This is primarily just changing the type we expect and then, on the lower level functions, converting the incoming context into a regular context.
+   
+   Most of the functions are pretty straight-forward. get_all_features appears to be the only one that doesn't share an implementation with any other functions.
+   
+   The tests check:
+   
+   -    /api/frontend/features/:feature (/api/proxy/features/:feature uses the same impl under the hood, so I've not tested that explicitly. Happy to change that though.
+   -   GET /api/{frontend,proxy}(/all)?
+   -    POST /api/{frontend,proxy) (POST all features function takes an IncomingContext as a parameter, so I'm assuming the serialization here works; can of course add tests for that too)
+   -    That providing a string as the value of properties yields a 400
+ - <csr-id-0fb91e2e68d255da88630eb9c1fdef2158c73a82/> update rust crate ulid to 1.1.2
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 4 commits contributed to the release over the course of 13 calendar days.
+ - 13 days passed between releases.
+ - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 4 unique issues were worked on: [#428](https://github.com/Unleash/unleash-edge/issues/428), [#441](https://github.com/Unleash/unleash-edge/issues/441), [#443](https://github.com/Unleash/unleash-edge/issues/443), [#445](https://github.com/Unleash/unleash-edge/issues/445)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#428](https://github.com/Unleash/unleash-edge/issues/428)**
+    - Update rust crate ulid to 1.1.2 ([`0fb91e2`](https://github.com/Unleash/unleash-edge/commit/0fb91e2e68d255da88630eb9c1fdef2158c73a82))
+ * **[#441](https://github.com/Unleash/unleash-edge/issues/441)**
+    - Add type for incoming/denormalized context ([`33cdd37`](https://github.com/Unleash/unleash-edge/commit/33cdd3727334ccf14d0d96c29189d700ffbacd4a))
+ * **[#443](https://github.com/Unleash/unleash-edge/issues/443)**
+    - Handle incoming requests on the api level ([`e7258a9`](https://github.com/Unleash/unleash-edge/commit/e7258a9763d1bd9a7fc1c9f38ff2b5c9ab2c6cb9))
+ * **[#445](https://github.com/Unleash/unleash-edge/issues/445)**
+    - Prepare for readmes for release ([`7099f51`](https://github.com/Unleash/unleash-edge/commit/7099f518250658b3902ce9856e08fede48c00840))
+</details>
+
 ## 18.0.0 (2024-02-29)
+
+<csr-id-2d1798e29af79b7a9625e7a1d1950dc7e5feccba/>
+<csr-id-d93c28d1a431c24a640ed7013da5fb44d841592f/>
+<csr-id-daa9cdbdb2a98ce4704f0703d36dae3a56bf3c24/>
 
 ### Chore
 
@@ -14,20 +87,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### New Features
 
+<csr-id-781dc4e866ed231b09b8585edb553b83284d6835/>
+
  - <csr-id-98758be874f1075cc6140a09f14c4503c85a99d2/> Add /internal-backstage/metricsbatch to view what Edge currently has stored of metrics
  - <csr-id-3ca7069a4b75c844a622d599e4ba9473aa247821/> internal backstage features endpoint
    Adds an endpoint /internal-backstage/features displaying which features
    we store per cache key
  - <csr-id-8996a805d5a515eea3979ee60e8e48bbd34d6f9f/> remove service account support
    * feat: remove service account support
- - <csr-id-781dc4e866ed231b09b8585edb553b83284d6835/> add metrics for failed requests
-   * feat: add metrics for failed requests
-   
-   * test: add tests
-   
-   * test: fix test
-   
-   * Update server/src/metrics/actix_web_metrics.rs
+* feat: add metrics for failed requests
+* test: add tests
+* test: fix test
+* Update server/src/metrics/actix_web_metrics.rs
 
 ### Bug Fixes
 
@@ -49,7 +120,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 13 commits contributed to the release over the course of 29 calendar days.
+ - 14 commits contributed to the release over the course of 29 calendar days.
  - 36 days passed between releases.
  - 13 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 12 unique issues were worked on: [#405](https://github.com/Unleash/unleash-edge/issues/405), [#408](https://github.com/Unleash/unleash-edge/issues/408), [#409](https://github.com/Unleash/unleash-edge/issues/409), [#411](https://github.com/Unleash/unleash-edge/issues/411), [#414](https://github.com/Unleash/unleash-edge/issues/414), [#417](https://github.com/Unleash/unleash-edge/issues/417), [#420](https://github.com/Unleash/unleash-edge/issues/420), [#421](https://github.com/Unleash/unleash-edge/issues/421), [#422](https://github.com/Unleash/unleash-edge/issues/422), [#426](https://github.com/Unleash/unleash-edge/issues/426), [#435](https://github.com/Unleash/unleash-edge/issues/435), [#437](https://github.com/Unleash/unleash-edge/issues/437)
@@ -85,8 +156,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#437](https://github.com/Unleash/unleash-edge/issues/437)**
     - Make metrics interval not climb forever ([`bff5e82`](https://github.com/Unleash/unleash-edge/commit/bff5e8259778277f75b9489a2b9d07b9fda4f166))
  * **Uncategorized**
+    - Release unleash-edge v18.0.0 ([`7ed5b0f`](https://github.com/Unleash/unleash-edge/commit/7ed5b0ff10d748913f4b7e59e2111f2bf0e71561))
     - Prepare for release ([`2d1798e`](https://github.com/Unleash/unleash-edge/commit/2d1798e29af79b7a9625e7a1d1950dc7e5feccba))
 </details>
+
+<csr-unknown>
+ add metrics for failed requests<csr-unknown/>
 
 ## 17.1.0 (2024-01-24)
 
