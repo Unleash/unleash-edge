@@ -47,7 +47,24 @@ git commit -m"chore: Prepare for release"
 ```sh
 cargo smart-release -b <patch|minor|major> -u
 ```
+#### Troubleshooting: what if the version resolution doesn't work?
 
+If the computed version isn't correct, you can run with the `--no-bump-on-demand` flag to make it work.
+
+For instance, in this case, smart-release thought the next version should be 13.0.2 instead of 18.0.1:
+
+> [INFO ] Manifest version of provided package 'unleash-edge' at 18.0.0 is sufficient to succeed latest released version 13.0.2, ignoring computed version 18.0.1
+
+Running it with `--no-bump-on-demand` gives this output instead:
+
+> [INFO ] WOULD patch-bump provided package 'unleash-edge' from 18.0.0 to 18.0.1 for publishing, 13.0.2 on crates.io
+
+The doc string for `--no-bump-on-demand` is:
+> --no-bump-on-demand              Always bump versions as specified by --bump or --bump-dependencies even if this is not required to publish a new version to crates.io
+
+##### Why does this happen?
+
+It appears that crates.io has changed it's index format and that smart-release hasn't quite been brought up to speed. 
 ### Perform the actual release when satisfied with output from the test
 ```sh
 cargo smart-release -b <patch|minor|major> -u --execute
