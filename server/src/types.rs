@@ -1,13 +1,13 @@
-use std::cmp::min;
-use std::fmt;
-use std::fmt::{Debug, Display, Formatter};
-use std::net::IpAddr;
-use std::sync::Arc;
 use std::{
     collections::HashMap,
     hash::{Hash, Hasher},
     str::FromStr,
 };
+use std::cmp::min;
+use std::fmt;
+use std::fmt::{Debug, Display, Formatter};
+use std::net::IpAddr;
+use std::sync::Arc;
 
 use actix_web::{http::header::EntityTag, web::Json};
 use async_trait::async_trait;
@@ -15,7 +15,6 @@ use chrono::{DateTime, Duration, Utc};
 use dashmap::DashMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use shadow_rs::shadow;
-use tracing::trace;
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_features::Context;
 use unleash_types::client_metrics::{ClientApplication, ClientMetricsEnv};
@@ -250,8 +249,6 @@ pub struct TokenRefresh {
     pub last_refreshed: Option<DateTime<Utc>>,
     pub last_check: Option<DateTime<Utc>>,
     pub failure_count: u32,
-    #[serde(default)]
-    pub use_client_bulk_endpoint: bool,
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
@@ -274,27 +271,6 @@ impl TokenRefresh {
         Self {
             token,
             etag,
-            last_refreshed: None,
-            last_check: None,
-            next_refresh: None,
-            failure_count: 0,
-            use_client_bulk_endpoint: false,
-        }
-    }
-
-    pub fn new_with_client_bulk_endpoint(
-        token: EdgeToken,
-        etag: Option<EntityTag>,
-        use_client_bulk_endpoint: bool,
-    ) -> Self {
-        trace!(
-            "Registering a token for refresh with use_client_bulk_endpoint: {}",
-            use_client_bulk_endpoint
-        );
-        Self {
-            token,
-            etag,
-            use_client_bulk_endpoint,
             last_refreshed: None,
             last_check: None,
             next_refresh: None,
@@ -511,11 +487,11 @@ mod tests {
 
     use test_case::test_case;
     use tracing::warn;
+    use unleash_types::client_features::Context;
 
     use crate::error::EdgeError::EdgeTokenParseError;
     use crate::http::unleash_client::EdgeTokens;
     use crate::types::{EdgeResult, EdgeToken, IncomingContext};
-    use unleash_types::client_features::Context;
 
     fn test_str(token: &str) -> EdgeToken {
         EdgeToken::from_str(

@@ -1,18 +1,15 @@
-use crate::types::{
-    EdgeJsonResult, EdgeToken, TokenStrings, TokenValidationStatus, ValidatedTokens,
-};
-use crate::{
-    auth::token_validator::TokenValidator,
-    metrics::client_metrics::MetricsCache,
-    types::{BatchMetricsRequestBody, EdgeResult},
-};
 use actix_web::{
+    HttpRequest,
     post,
     web::{self, Data, Json},
-    HttpRequest, HttpResponse,
 };
 use dashmap::DashMap;
 use utoipa;
+
+use crate::auth::token_validator::TokenValidator;
+use crate::types::{
+    EdgeJsonResult, EdgeToken, TokenStrings, TokenValidationStatus, ValidatedTokens,
+};
 
 #[utoipa::path(
     path = "/edge/validate",
@@ -53,103 +50,32 @@ pub async fn validate(
     }
 }
 
-#[utoipa::path(
-    path = "/edge/metrics",
-    responses(
-        (status = 202, description = "Accepted the posted metrics")
-    ),
-    request_body = BatchMetricsRequestBody,
-    security(
-        ("Authorization" = [])
-    )
-)]
-#[post("/metrics")]
-pub async fn metrics(
-    batch_metrics_request: web::Json<BatchMetricsRequestBody>,
-    metrics_cache: web::Data<MetricsCache>,
-) -> EdgeResult<HttpResponse> {
-    metrics_cache.sink_metrics(&batch_metrics_request.metrics);
-    Ok(HttpResponse::Accepted().finish())
-}
-
 pub fn configure_edge_api(cfg: &mut web::ServiceConfig) {
-    cfg.service(validate).service(metrics);
+    cfg.service(validate);
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::auth::token_validator::TokenValidator;
-    use crate::edge_api::{metrics, validate};
-    use crate::metrics::client_metrics::MetricsCache;
-    use crate::types::{
-        BatchMetricsRequestBody, EdgeToken, TokenStrings, TokenType, TokenValidationStatus,
-        ValidatedTokens,
-    };
+    use std::sync::Arc;
+
+    use actix_web::{App, test, web};
     use actix_web::http::header::ContentType;
     use actix_web::web::Json;
-    use actix_web::{test, web, App};
-    use chrono::Utc;
     use dashmap::DashMap;
-    use reqwest::StatusCode;
-    use std::sync::Arc;
-    use unleash_types::client_metrics::{ClientApplication, ClientMetricsEnv};
 
-    #[tokio::test]
-    pub async fn posting_bulk_metrics_gets_cached_properly() {
-        let metrics_cache = Arc::new(MetricsCache::default());
-        let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
-        let app = test::init_service(
-            App::new()
-                .app_data(web::Data::from(metrics_cache.clone()))
-                .app_data(web::Data::from(token_cache.clone()))
-                .service(web::scope("/edge").service(metrics).service(validate)),
-        )
-        .await;
-
-        let request_body = BatchMetricsRequestBody {
-            applications: vec![
-                ClientApplication::new("app_one", 10),
-                ClientApplication::new("app_two", 20),
-            ],
-            metrics: vec![
-                ClientMetricsEnv {
-                    feature_name: "test_feature_one".to_string(),
-                    app_name: "test_application".to_string(),
-                    environment: "development".to_string(),
-                    timestamp: Utc::now(),
-                    yes: 100,
-                    no: 50,
-                    variants: Default::default(),
-                },
-                ClientMetricsEnv {
-                    feature_name: "test_feature_two".to_string(),
-                    app_name: "test_application".to_string(),
-                    environment: "production".to_string(),
-                    timestamp: Utc::now(),
-                    yes: 1000,
-                    no: 800,
-                    variants: Default::default(),
-                },
-            ],
-        };
-        let req = test::TestRequest::post()
-            .uri("/edge/metrics")
-            .insert_header(ContentType::json())
-            .set_json(Json(request_body))
-            .to_request();
-        let res = test::call_service(&app, req).await;
-        assert_eq!(res.status(), StatusCode::ACCEPTED);
-    }
+    use crate::auth::token_validator::TokenValidator;
+    use crate::edge_api::validate;
+    use crate::types::{
+        EdgeToken, TokenStrings, TokenType, TokenValidationStatus, ValidatedTokens,
+    };
 
     #[tokio::test]
     pub async fn validating_incorrect_tokens_returns_empty_list() {
-        let metrics_cache = Arc::new(MetricsCache::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let app = test::init_service(
             App::new()
-                .app_data(web::Data::from(metrics_cache.clone()))
                 .app_data(web::Data::from(token_cache.clone()))
-                .service(web::scope("/edge").service(metrics).service(validate)),
+                .service(web::scope("/edge").service(validate)),
         )
         .await;
         let mut valid_token =
@@ -171,13 +97,11 @@ mod tests {
 
     #[tokio::test]
     pub async fn validating_a_mix_of_tokens_only_returns_valid_tokens() {
-        let metrics_cache = Arc::new(MetricsCache::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let app = test::init_service(
             App::new()
-                .app_data(web::Data::from(metrics_cache.clone()))
                 .app_data(web::Data::from(token_cache.clone()))
-                .service(web::scope("/edge").service(metrics).service(validate)),
+                .service(web::scope("/edge").service(validate)),
         )
         .await;
         let mut valid_token =
@@ -204,7 +128,6 @@ mod tests {
 
     #[tokio::test]
     pub async fn adding_a_token_validator_filters_so_only_validated_tokens_are_returned() {
-        let metrics_cache = Arc::new(MetricsCache::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let token_validator = TokenValidator {
             unleash_client: Arc::new(Default::default()),
@@ -213,10 +136,9 @@ mod tests {
         };
         let app = test::init_service(
             App::new()
-                .app_data(web::Data::from(metrics_cache.clone()))
                 .app_data(web::Data::from(token_cache.clone()))
                 .app_data(web::Data::new(token_validator))
-                .service(web::scope("/edge").service(metrics).service(validate)),
+                .service(web::scope("/edge").service(validate)),
         )
         .await;
         let mut valid_token =
