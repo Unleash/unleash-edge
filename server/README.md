@@ -381,6 +381,14 @@ RUST_LOG="warn,unleash_edge=debug" ./unleash-edge #<command>
 
 See more about available logging and log levels at https://docs.rs/env_logger/latest/env_logger/#enabling-logging
 
+## Troubleshooting
+
+### Missing metrics in upstream server
+
+#### Possible reasons
+- Old edge version. In order to guarantee metrics on newer Unleash versions, you will need to be using Edge v17.0.0 or newer
+- Old SDK clients. We've seen some clients, particularly early Python (1.x branch) as well as earlier .NET SDKs (we recommend you use 4.1.5 or newer) struggle to post metrics with the strict headers Edge requires.
+
 ## Development
 
 See our [Contributors guide](./CONTRIBUTING.md) as well as our [development-guide](./development-guide.md)
