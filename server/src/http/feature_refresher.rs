@@ -1,28 +1,29 @@
-use std::collections::HashSet;
 use std::{sync::Arc, time::Duration};
+use std::collections::HashSet;
 
 use actix_web::http::header::EntityTag;
 use chrono::Utc;
 use dashmap::DashMap;
 use reqwest::StatusCode;
 use tracing::{debug, info, warn};
-use unleash_types::client_features::Segment;
-use unleash_types::client_metrics::ClientApplication;
 use unleash_types::{
     client_features::{ClientFeature, ClientFeatures},
     Deduplicate,
 };
+use unleash_types::client_features::Segment;
+use unleash_types::client_metrics::ClientApplication;
 use unleash_yggdrasil::EngineState;
 
-use super::unleash_client::UnleashClient;
-use crate::error::{EdgeError, FeatureError};
-use crate::filters::{filter_client_features, FeatureFilterSet};
-use crate::types::{build, EdgeResult, TokenType, TokenValidationStatus};
 use crate::{
     persistence::EdgePersistence,
     tokens::{cache_key, simplify},
     types::{ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenRefresh},
 };
+use crate::error::{EdgeError, FeatureError};
+use crate::filters::{FeatureFilterSet, filter_client_features};
+use crate::types::{build, EdgeResult, TokenType, TokenValidationStatus};
+
+use super::unleash_client::UnleashClient;
 
 fn frontend_token_is_covered_by_tokens(
     frontend_token: &EdgeToken,
@@ -257,7 +258,7 @@ impl FeatureRefresher {
     /// Registers a token for refresh, the token will be discarded if it can be subsumed by another previously registered token
     pub async fn register_token_for_refresh(&self, token: EdgeToken, etag: Option<EntityTag>) {
         if !self.tokens_to_refresh.contains_key(&token.token) {
-            let use_new_bulk_endpoint_for_metrics = self
+            let _ = self
                 .unleash_client
                 .register_as_client(
                     token.token.clone(),
@@ -270,11 +271,7 @@ impl FeatureRefresher {
                 .unwrap_or_default();
             let mut registered_tokens: Vec<TokenRefresh> =
                 self.tokens_to_refresh.iter().map(|t| t.clone()).collect();
-            registered_tokens.push(TokenRefresh::new_with_client_bulk_endpoint(
-                token.clone(),
-                etag,
-                use_new_bulk_endpoint_for_metrics,
-            ));
+            registered_tokens.push(TokenRefresh::new(token.clone(), etag));
             let minimum = simplify(&registered_tokens);
             let mut keys = HashSet::new();
             for refreshes in minimum {
@@ -435,26 +432,26 @@ mod tests {
     use actix_http::HttpService;
     use actix_http_test::{test_server, TestServer};
     use actix_service::map_config;
+    use actix_web::{App, web};
     use actix_web::dev::AppConfig;
     use actix_web::http::header::EntityTag;
-    use actix_web::{web, App};
     use chrono::{Duration, Utc};
     use dashmap::DashMap;
     use reqwest::Url;
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
     use unleash_yggdrasil::EngineState;
 
-    use crate::filters::{project_filter, FeatureFilterSet};
-    use crate::tests::features_from_disk;
-    use crate::tokens::cache_key;
-    use crate::types::TokenValidationStatus::Validated;
-    use crate::types::{TokenType, TokenValidationStatus};
     use crate::{
         http::unleash_client::UnleashClient,
         types::{EdgeToken, TokenRefresh},
     };
+    use crate::filters::{FeatureFilterSet, project_filter};
+    use crate::tests::features_from_disk;
+    use crate::tokens::cache_key;
+    use crate::types::{TokenType, TokenValidationStatus};
+    use crate::types::TokenValidationStatus::Validated;
 
-    use super::{frontend_token_is_covered_by_tokens, FeatureRefresher};
+    use super::{FeatureRefresher, frontend_token_is_covered_by_tokens};
 
     impl PartialEq for TokenRefresh {
         fn eq(&self, other: &Self) -> bool {
@@ -793,7 +790,6 @@ mod tests {
             last_refreshed: None,
             last_check: None,
             failure_count: 0,
-            use_client_bulk_endpoint: false,
         };
         let etag_and_last_refreshed_token =
             EdgeToken::try_from("projectb:development.etag_and_last_refreshed_token".to_string())
@@ -805,7 +801,6 @@ mod tests {
             last_refreshed: Some(Utc::now()),
             last_check: Some(Utc::now()),
             failure_count: 0,
-            use_client_bulk_endpoint: false,
         };
         let etag_but_old_token =
             EdgeToken::try_from("projectb:development.etag_but_old_token".to_string()).unwrap();
@@ -817,7 +812,6 @@ mod tests {
             next_refresh: None,
             last_refreshed: Some(ten_seconds_ago),
             last_check: Some(ten_seconds_ago),
-            use_client_bulk_endpoint: false,
             failure_count: 0,
         };
         feature_refresher.tokens_to_refresh.insert(
@@ -1205,7 +1199,6 @@ mod tests {
             last_refreshed: None,
             last_check: None,
             failure_count: 0,
-            use_client_bulk_endpoint: false,
         };
 
         current_tokens.insert(wildcard_token.token, token_refresh);

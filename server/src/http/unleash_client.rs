@@ -7,25 +7,25 @@ use actix_web::http::header::EntityTag;
 use chrono::Duration;
 use chrono::Utc;
 use lazy_static::lazy_static;
-use prometheus::{register_histogram_vec, register_int_gauge_vec, HistogramVec, IntGaugeVec, Opts};
-use reqwest::header::{HeaderMap, HeaderName};
-use reqwest::{header, Client};
+use prometheus::{HistogramVec, IntGaugeVec, Opts, register_histogram_vec, register_int_gauge_vec};
+use reqwest::{Client, header};
 use reqwest::{ClientBuilder, Identity, RequestBuilder, StatusCode, Url};
+use reqwest::header::{HeaderMap, HeaderName};
 use serde::{Deserialize, Serialize};
 use tracing::{info, trace, warn};
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ClientApplication;
 
+use crate::{error::EdgeError, types::ClientFeaturesRequest};
 use crate::cli::ClientIdentity;
-use crate::error::EdgeError::EdgeMetricsRequestError;
 use crate::error::{CertificateError, FeatureError};
+use crate::error::EdgeError::EdgeMetricsRequestError;
 use crate::metrics::client_metrics::MetricsBatch;
 use crate::tls::build_upstream_certificate;
 use crate::types::{
     ClientFeaturesResponse, EdgeResult, EdgeToken, TokenValidationStatus, ValidateTokensRequest,
 };
 use crate::urls::UnleashUrls;
-use crate::{error::EdgeError, types::ClientFeaturesRequest};
 
 const UNLEASH_APPNAME_HEADER: &str = "UNLEASH-APPNAME";
 const UNLEASH_INSTANCE_ID_HEADER: &str = "UNLEASH-INSTANCEID";
@@ -278,7 +278,7 @@ impl UnleashClient {
         &self,
         api_key: String,
         application: ClientApplication,
-    ) -> EdgeResult<bool> {
+    ) -> EdgeResult<()> {
         self.backing_client
             .post(self.urls.client_register_app_url.to_string())
             .headers(self.header_map(Some(api_key)))
@@ -286,7 +286,7 @@ impl UnleashClient {
             .send()
             .await
             .map_err(|e| {
-                warn!("{e:?}");
+                warn!("Failed to register client: {e:?}");
                 EdgeError::ClientRegisterError
             })
             .map(|r| {
@@ -294,22 +294,10 @@ impl UnleashClient {
                     CLIENT_REGISTER_FAILURES
                         .with_label_values(&[r.status().as_str()])
                         .inc();
-                }
-                if let Some(edge_version) = r.headers().get("X-Edge-Version") {
-                    let version = edge_version.to_str().unwrap_or("pre-16.2.0");
-                    UPSTREAM_VERSION
-                        .with_label_values(&["edge", version])
-                        .inc();
-                    crate::metrics::version_is_new_enough_for_client_bulk("edge", version)
-                } else if let Some(unleash_version) = r.headers().get("X-Unleash-Version") {
-                    let version = unleash_version.to_str().unwrap_or("pre-5.9.0");
-                    UPSTREAM_VERSION
-                        .with_label_values(&["unleash", version])
-                        .inc();
-                    crate::metrics::version_is_new_enough_for_client_bulk("unleash", version)
-                } else {
-                    warn!("Connected to an old version of Unleash or Edge. Please upgrade your server to Unleash 5.9 or Edge 17.0");
-                    false
+                    warn!(
+                        "Failed to register client upstream with status code {}",
+                        r.status()
+                    );
                 }
             })
     }
@@ -509,15 +497,13 @@ mod tests {
     use actix_middleware_etag::Etag;
     use actix_service::map_config;
     use actix_web::{
+        App,
         dev::{AppConfig, ServiceRequest, ServiceResponse},
-        http::header::EntityTag,
-        web, App, HttpResponse,
+        http::header::EntityTag, HttpResponse, web,
     };
     use chrono::Duration;
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
-    use crate::cli::ClientIdentity;
-    use crate::http::unleash_client::new_reqwest_client;
     use crate::{
         cli::TlsOptions,
         middleware::as_async_middleware::as_async_middleware,
@@ -527,6 +513,8 @@ mod tests {
             ValidateTokensRequest,
         },
     };
+    use crate::cli::ClientIdentity;
+    use crate::http::unleash_client::new_reqwest_client;
 
     use super::{EdgeTokens, UnleashClient};
 
