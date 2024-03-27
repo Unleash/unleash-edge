@@ -30,7 +30,7 @@ ahash = "0.8.10"
 
 anyhow = "1.0.80"
 async-trait = "0.1.77"
-chrono = { version = "0.4.34", features = ["serde"] }
+chrono = { version = "0.4.37", features = ["serde"] }
 cidr = "0.2.2"
 clap = { version = "4.5.1", features = ["derive", "env"] }
 clap-markdown = "0.1.3"
