@@ -1,30 +1,29 @@
-use std::collections::HashSet;
 use std::{sync::Arc, time::Duration};
+use std::collections::HashSet;
 
 use actix_web::http::header::EntityTag;
 use chrono::Utc;
 use dashmap::DashMap;
 use reqwest::StatusCode;
-use tracing::{debug, error, info};
-use unleash_types::client_features::Segment;
-use unleash_types::client_metrics::ClientApplication;
+use tracing::{debug, info, warn};
 use unleash_types::{
     client_features::{ClientFeature, ClientFeatures},
     Deduplicate,
 };
+use unleash_types::client_features::Segment;
+use unleash_types::client_metrics::ClientApplication;
 use unleash_yggdrasil::EngineState;
 
-use super::unleash_client::UnleashClient;
-use crate::error::{EdgeError, FeatureError};
-use crate::filters::{filter_client_features, FeatureFilterSet};
-use crate::types::{
-    build, ClientTokenRequest, ClientTokenResponse, EdgeResult, TokenType, TokenValidationStatus,
-};
 use crate::{
     persistence::EdgePersistence,
     tokens::{cache_key, simplify},
     types::{ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenRefresh},
 };
+use crate::error::{EdgeError, FeatureError};
+use crate::filters::{FeatureFilterSet, filter_client_features};
+use crate::types::{build, EdgeResult, TokenType, TokenValidationStatus};
+
+use super::unleash_client::UnleashClient;
 
 fn frontend_token_is_covered_by_tokens(
     frontend_token: &EdgeToken,
@@ -205,15 +204,6 @@ impl FeatureRefresher {
         self.hydrate_new_tokens().await;
     }
 
-    pub(crate) async fn forward_request_for_client_token(
-        &self,
-        client_token_request: ClientTokenRequest,
-    ) -> EdgeResult<ClientTokenResponse> {
-        self.unleash_client
-            .forward_request_for_client_token(client_token_request)
-            .await
-    }
-
     pub(crate) async fn create_client_token_for_fe_token(
         &self,
         token: EdgeToken,
@@ -222,17 +212,16 @@ impl FeatureRefresher {
             && token.token_type == Some(TokenType::Frontend)
         {
             if !self.frontend_token_is_covered_by_client_token(&token) {
-                debug!("The frontend token access is not covered by our current client tokens");
-                let client_token = self
-                    .unleash_client
-                    .get_client_token_for_unhydrated_frontend_token(token)
-                    .await?;
-                let _ = self.register_and_hydrate_token(&client_token).await;
+                warn!("The frontend token access is not covered by our current client tokens");
+                Err(EdgeError::EdgeTokenError)
             } else {
                 debug!("It is already covered by an existing client token. Doing nothing");
+                Ok(())
             }
+        } else {
+            debug!("Token is not validated or is not a frontend token. Doing nothing");
+            Ok(())
         }
-        Ok(())
     }
 
     pub(crate) async fn features_for_filter(
@@ -269,7 +258,7 @@ impl FeatureRefresher {
     /// Registers a token for refresh, the token will be discarded if it can be subsumed by another previously registered token
     pub async fn register_token_for_refresh(&self, token: EdgeToken, etag: Option<EntityTag>) {
         if !self.tokens_to_refresh.contains_key(&token.token) {
-            let use_new_bulk_endpoint_for_metrics = self
+            let _ = self
                 .unleash_client
                 .register_as_client(
                     token.token.clone(),
@@ -282,11 +271,7 @@ impl FeatureRefresher {
                 .unwrap_or_default();
             let mut registered_tokens: Vec<TokenRefresh> =
                 self.tokens_to_refresh.iter().map(|t| t.clone()).collect();
-            registered_tokens.push(TokenRefresh::new_with_client_bulk_endpoint(
-                token.clone(),
-                etag,
-                use_new_bulk_endpoint_for_metrics,
-            ));
+            registered_tokens.push(TokenRefresh::new(token.clone(), etag));
             let minimum = simplify(&registered_tokens);
             let mut keys = HashSet::new();
             for refreshes in minimum {
@@ -353,18 +338,21 @@ impl FeatureRefresher {
                         .and_modify(|engine| {
                             if let Some(f) = self.features_cache.get(&key) {
                                 let mut new_state = EngineState::default();
-                                if new_state.take_state(f.clone()).is_err() {
-                                    error!("Received a response from Unleash that cannot be compiled, this is likely a bug in Edge. Features will not be updated")
-                                } else {
-                                    *engine = new_state;
-                                }
+                                let warnings = new_state.take_state(f.clone());
+                                if let Some(warnings) = warnings {
+                                    warn!("The following toggle failed to compile and will be defaulted to off: {warnings:?}");
+                                };
+                                *engine = new_state;
+
                             }
                         })
                         .or_insert_with(|| {
                             let mut new_state = EngineState::default();
-                            if new_state.take_state(features).is_err() {
-                                error!("Received a response from Unleash that cannot be compiled, this is likely a bug in Edge. Features will not be updated")
-                            }
+
+                            let warnings = new_state.take_state(features);
+                            if let Some(warnings) = warnings {
+                                warn!("The following toggle failed to compile and will be defaulted to off: {warnings:?}");
+                            };
                             new_state
                         });
                 }
@@ -444,26 +432,26 @@ mod tests {
     use actix_http::HttpService;
     use actix_http_test::{test_server, TestServer};
     use actix_service::map_config;
+    use actix_web::{App, web};
     use actix_web::dev::AppConfig;
     use actix_web::http::header::EntityTag;
-    use actix_web::{web, App};
     use chrono::{Duration, Utc};
     use dashmap::DashMap;
     use reqwest::Url;
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
     use unleash_yggdrasil::EngineState;
 
-    use crate::filters::{project_filter, FeatureFilterSet};
-    use crate::tests::features_from_disk;
-    use crate::tokens::cache_key;
-    use crate::types::TokenValidationStatus::Validated;
-    use crate::types::{TokenType, TokenValidationStatus};
     use crate::{
         http::unleash_client::UnleashClient,
         types::{EdgeToken, TokenRefresh},
     };
+    use crate::filters::{FeatureFilterSet, project_filter};
+    use crate::tests::features_from_disk;
+    use crate::tokens::cache_key;
+    use crate::types::{TokenType, TokenValidationStatus};
+    use crate::types::TokenValidationStatus::Validated;
 
-    use super::{frontend_token_is_covered_by_tokens, FeatureRefresher};
+    use super::{FeatureRefresher, frontend_token_is_covered_by_tokens};
 
     impl PartialEq for TokenRefresh {
         fn eq(&self, other: &Self) -> bool {
@@ -802,7 +790,6 @@ mod tests {
             last_refreshed: None,
             last_check: None,
             failure_count: 0,
-            use_client_bulk_endpoint: false,
         };
         let etag_and_last_refreshed_token =
             EdgeToken::try_from("projectb:development.etag_and_last_refreshed_token".to_string())
@@ -814,7 +801,6 @@ mod tests {
             last_refreshed: Some(Utc::now()),
             last_check: Some(Utc::now()),
             failure_count: 0,
-            use_client_bulk_endpoint: false,
         };
         let etag_but_old_token =
             EdgeToken::try_from("projectb:development.etag_but_old_token".to_string()).unwrap();
@@ -826,7 +812,6 @@ mod tests {
             next_refresh: None,
             last_refreshed: Some(ten_seconds_ago),
             last_check: Some(ten_seconds_ago),
-            use_client_bulk_endpoint: false,
             failure_count: 0,
         };
         feature_refresher.tokens_to_refresh.insert(
@@ -917,7 +902,7 @@ mod tests {
         let example_features = features_from_disk("../examples/features.json");
         let cache_key = cache_key(&token);
         let mut engine_state = EngineState::default();
-        engine_state.take_state(example_features.clone()).unwrap();
+        let warnings = engine_state.take_state(example_features.clone());
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         upstream_engine_cache.insert(cache_key.clone(), engine_state);
         let mut server = client_api_test_server(
@@ -957,6 +942,7 @@ mod tests {
         );
         assert!(!feature_refresher.features_cache.is_empty());
         assert!(!feature_refresher.engine_cache.is_empty());
+        assert!(warnings.is_none());
     }
 
     #[tokio::test]
@@ -973,7 +959,7 @@ mod tests {
         let example_features = features_from_disk("../examples/features.json");
         let cache_key = cache_key(&valid_token);
         let mut engine_state = EngineState::default();
-        engine_state.take_state(example_features.clone()).unwrap();
+        let warnings = engine_state.take_state(example_features.clone());
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         upstream_engine_cache.insert(cache_key.clone(), engine_state);
         let server = client_api_test_server(
@@ -997,6 +983,7 @@ mod tests {
         assert!(feature_refresher.tokens_to_refresh.is_empty());
         assert!(feature_refresher.features_cache.is_empty());
         assert!(feature_refresher.engine_cache.is_empty());
+        assert!(warnings.is_none());
     }
 
     #[tokio::test]
@@ -1018,7 +1005,7 @@ mod tests {
         let example_features = features_from_disk("../examples/hostedexample.json");
         let cache_key = cache_key(&dx_token);
         let mut engine_state = EngineState::default();
-        engine_state.take_state(example_features.clone()).unwrap();
+        let warnings = engine_state.take_state(example_features.clone());
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         upstream_engine_cache.insert(cache_key.clone(), engine_state);
         let server = client_api_test_server(
@@ -1047,6 +1034,7 @@ mod tests {
         assert_eq!(feature_refresher.tokens_to_refresh.len(), 1);
         assert_eq!(feature_refresher.features_cache.len(), 1);
         assert_eq!(feature_refresher.engine_cache.len(), 1);
+        assert!(warnings.is_none());
     }
 
     #[tokio::test]
@@ -1067,7 +1055,7 @@ mod tests {
         let cache_key = cache_key(&dx_token);
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         let mut engine_state = EngineState::default();
-        engine_state.take_state(example_features.clone()).unwrap();
+        let warnings = engine_state.take_state(example_features.clone());
         upstream_engine_cache.insert(cache_key, engine_state);
         let server = client_api_test_server(
             upstream_token_cache,
@@ -1102,6 +1090,7 @@ mod tests {
             .features
             .iter()
             .all(|f| f.project == Some("eg".into())));
+        assert!(warnings.is_none());
     }
 
     #[tokio::test]
@@ -1128,7 +1117,7 @@ mod tests {
         let cache_key = cache_key(&dx_token);
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         let mut engine_state = EngineState::default();
-        engine_state.take_state(example_features.clone()).unwrap();
+        let warnings = engine_state.take_state(example_features.clone());
         upstream_engine_cache.insert(cache_key, engine_state);
         let server = client_api_test_server(
             upstream_token_cache,
@@ -1185,6 +1174,7 @@ mod tests {
                 .count(),
             7
         );
+        assert!(warnings.is_none());
     }
 
     #[test]
@@ -1209,7 +1199,6 @@ mod tests {
             last_refreshed: None,
             last_check: None,
             failure_count: 0,
-            use_client_bulk_endpoint: false,
         };
 
         current_tokens.insert(wildcard_token.token, token_refresh);
@@ -1235,7 +1224,7 @@ mod tests {
         let cache_key = cache_key(&eg_token);
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         let mut engine_state = EngineState::default();
-        engine_state.take_state(example_features.clone()).unwrap();
+        let warnings = engine_state.take_state(example_features.clone());
         upstream_engine_cache.insert(cache_key.clone(), engine_state);
         let server = client_api_test_server(
             upstream_token_cache,
@@ -1270,6 +1259,7 @@ mod tests {
             .features
             .iter()
             .any(|f| f.project == Some("eg".into())));
+        assert!(warnings.is_none());
     }
 
     #[test]

@@ -1,16 +1,17 @@
-use async_trait::async_trait;
+use std::{path::PathBuf, str::FromStr};
 use std::collections::HashMap;
 use std::path::Path;
-use std::{path::PathBuf, str::FromStr};
+
+use async_trait::async_trait;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
 use unleash_types::client_features::ClientFeatures;
 
-use crate::types::EdgeToken;
 use crate::{
     error::EdgeError,
     types::{EdgeResult, TokenRefresh},
 };
+use crate::types::EdgeToken;
 
 use super::EdgePersistence;
 
@@ -194,8 +195,8 @@ mod tests {
     use chrono::Utc;
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
-    use crate::persistence::file::FilePersister;
     use crate::persistence::EdgePersistence;
+    use crate::persistence::file::FilePersister;
     use crate::types::{EdgeToken, TokenRefresh, TokenType, TokenValidationStatus};
 
     #[tokio::test]
@@ -254,7 +255,6 @@ mod tests {
                 last_refreshed: Some(Utc::now()),
                 last_check: Some(Utc::now()),
                 failure_count: 0,
-                use_client_bulk_endpoint: false,
             },
             TokenRefresh {
                 token: EdgeToken {
@@ -266,7 +266,6 @@ mod tests {
                 last_refreshed: None,
                 last_check: None,
                 failure_count: 0,
-                use_client_bulk_endpoint: false,
             },
         ];
 
@@ -302,29 +301,5 @@ mod tests {
         let reloaded = persister.load_tokens().await.unwrap();
 
         assert_eq!(reloaded, tokens);
-    }
-
-    #[test]
-    fn can_read_token_refresh_without_use_client_bulk_field() {
-        let json = r#"{
-            "token": {
-                "token": "default:development:ajsdkajnsdlsan",
-                "token_type": "client",
-                "environment": "development",
-                "projects": [
-                    "default"
-                ],
-                "status": "Validated"
-            },
-            "etag": "W/\"1234\"",
-            "next_refresh": null,
-            "last_refreshed": "2021-03-09T13:00:00Z",
-            "last_check": "2021-03-09T13:00:00Z",
-            "failure_count": 0
-        }"#;
-
-        let token_refresh: TokenRefresh = serde_json::from_str(json).unwrap();
-
-        assert!(!token_refresh.use_client_bulk_endpoint);
     }
 }

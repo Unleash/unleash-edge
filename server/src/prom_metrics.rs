@@ -110,6 +110,11 @@ fn register_custom_metrics(registry: &prometheus::Registry) {
         .unwrap();
     registry
         .register(Box::new(
+            background_send_metrics::METRICS_INTERVAL_BETWEEN_SEND.clone(),
+        ))
+        .unwrap();
+    registry
+        .register(Box::new(
             crate::http::unleash_client::CLIENT_FEATURE_FETCH_FAILURES.clone(),
         ))
         .unwrap();
@@ -133,4 +138,13 @@ fn register_custom_metrics(registry: &prometheus::Registry) {
             crate::http::unleash_client::UPSTREAM_VERSION.clone(),
         ))
         .unwrap();
+}
+
+#[cfg(test)]
+pub fn test_instantiate_without_tracing_and_logging(
+    registry: Option<prometheus::Registry>,
+) -> (PrometheusMetricsHandler, RequestMetrics) {
+    let registry = registry.unwrap_or_else(instantiate_registry);
+    register_custom_metrics(&registry);
+    instantiate_prometheus_metrics_handler(registry)
 }

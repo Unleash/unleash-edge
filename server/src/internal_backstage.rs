@@ -1,15 +1,21 @@
+use std::collections::HashMap;
+
 use crate::auth::token_validator::TokenValidator;
 use crate::http::feature_refresher::FeatureRefresher;
 use crate::metrics::actix_web_metrics::PrometheusMetricsHandler;
-use crate::types::Status;
+use crate::metrics::client_metrics::MetricsCache;
 use crate::types::{BuildInfo, EdgeJsonResult, EdgeToken, TokenInfo, TokenRefresh};
+use crate::types::{ClientMetric, MetricsInfo, Status};
 use actix_web::{
     get,
     web::{self, Json},
 };
 use dashmap::DashMap;
+use iter_tools::Itertools;
 use serde::{Deserialize, Serialize};
 use unleash_types::client_features::ClientFeatures;
+use unleash_types::client_metrics::ClientApplication;
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EdgeStatus {
     pub status: Status,
@@ -79,6 +85,39 @@ pub async fn tokens(
         token_validation_status,
     }))
 }
+
+#[get("/metricsbatch")]
+pub async fn metrics_batch(metrics_cache: web::Data<MetricsCache>) -> EdgeJsonResult<MetricsInfo> {
+    let applications: Vec<ClientApplication> = metrics_cache
+        .applications
+        .iter()
+        .map(|e| e.value().clone())
+        .collect_vec();
+    let metrics = metrics_cache
+        .metrics
+        .iter()
+        .map(|e| ClientMetric {
+            key: e.key().clone(),
+            bucket: e.value().clone(),
+        })
+        .collect_vec();
+    Ok(Json(MetricsInfo {
+        applications,
+        metrics,
+    }))
+}
+
+#[get("/features")]
+pub async fn features(
+    features_cache: web::Data<DashMap<String, ClientFeatures>>,
+) -> EdgeJsonResult<HashMap<String, ClientFeatures>> {
+    let features = features_cache
+        .iter()
+        .map(|e| (e.key().clone(), e.value().clone()))
+        .collect();
+    Ok(Json(features))
+}
+
 pub fn configure_internal_backstage(
     cfg: &mut web::ServiceConfig,
     metrics_handler: PrometheusMetricsHandler,
@@ -87,7 +126,9 @@ pub fn configure_internal_backstage(
         .service(info)
         .service(tokens)
         .service(ready)
-        .service(web::resource("/metrics").route(web::get().to(metrics_handler)));
+        .service(metrics_batch)
+        .service(web::resource("/metrics").route(web::get().to(metrics_handler)))
+        .service(features);
 }
 
 #[cfg(test)]
@@ -111,6 +152,7 @@ mod tests {
     use dashmap::DashMap;
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
     use unleash_yggdrasil::EngineState;
+
     #[actix_web::test]
     async fn test_health_ok() {
         let app = test::init_service(

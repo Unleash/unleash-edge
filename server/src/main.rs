@@ -19,9 +19,7 @@ use unleash_edge::middleware::request_tracing::RequestTracing;
 use unleash_edge::offline::offline_hotload;
 use unleash_edge::persistence::{persist_data, EdgePersistence};
 use unleash_edge::types::{EdgeToken, TokenRefresh, TokenValidationStatus};
-use unleash_edge::{
-    admin_api, cli, client_api, frontend_api, health_checker, openapi, ready_checker,
-};
+use unleash_edge::{cli, client_api, frontend_api, health_checker, openapi, ready_checker};
 use unleash_edge::{edge_api, prom_metrics};
 use unleash_edge::{internal_backstage, tls};
 
@@ -119,8 +117,7 @@ async fn main() -> Result<(), anyhow::Error> {
                         .configure(client_api::configure_client_api)
                         .configure(|cfg| {
                             frontend_api::configure_frontend_api(cfg, disable_all_endpoint)
-                        })
-                        .configure(admin_api::configure_admin_api),
+                        }),
                 )
                 .service(web::scope("/edge").configure(edge_api::configure_edge_api))
                 .service(
@@ -133,7 +130,7 @@ async fn main() -> Result<(), anyhow::Error> {
         let config = tls::config(http_args.clone().tls)
             .expect("Was expecting to succeed in configuring TLS");
         server
-            .bind_rustls_021(http_args.https_server_tuple(), config)?
+            .bind_rustls_0_22(http_args.https_server_tuple(), config)?
             .bind(http_args.http_server_tuple())
     } else {
         server.bind(http_args.http_server_tuple())

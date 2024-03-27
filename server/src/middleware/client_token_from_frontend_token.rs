@@ -61,15 +61,13 @@ mod tests {
     use chrono::Duration;
     use dashmap::DashMap;
     use reqwest::{StatusCode, Url};
-    use tracing::info;
     use unleash_types::client_features::ClientFeatures;
-    use unleash_types::frontend::FrontendResult;
     use unleash_yggdrasil::EngineState;
 
     use crate::auth::token_validator::TokenValidator;
     use crate::http::feature_refresher::FeatureRefresher;
     use crate::http::unleash_client::UnleashClient;
-    use crate::tests::{features_from_disk, upstream_server};
+    use crate::tests::upstream_server;
     use crate::types::{EdgeToken, TokenType, TokenValidationStatus};
 
     pub async fn local_server(
@@ -107,8 +105,7 @@ mod tests {
                             .configure(crate::client_api::configure_client_api)
                             .configure(|cfg| {
                                 crate::frontend_api::configure_frontend_api(cfg, false)
-                            })
-                            .configure(crate::admin_api::configure_admin_api),
+                            }),
                     )
                     .service(web::scope("/edge").configure(crate::edge_api::configure_edge_api)),
                 |_| AppConfig::default(),
@@ -118,142 +115,9 @@ mod tests {
         .await
     }
 
-    #[traced_test]
-    #[tokio::test]
-    pub async fn request_with_frontend_token_not_subsumed_by_existing_client_token_causes_request_for_new_client_token(
-    ) {
-        let upstream_sa = EdgeToken::admin_token("*:*.magic_token");
-        let mut frontend_token = EdgeToken::from_str("*:development.frontendtoken").unwrap();
-        frontend_token.status = TokenValidationStatus::Validated;
-        frontend_token.token_type = Some(TokenType::Frontend);
-
-        let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
-            Arc::new(DashMap::default());
-        let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
-        upstream_token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
-        let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
-        let upstream_server = upstream_server(
-            upstream_token_cache.clone(),
-            upstream_features_cache.clone(),
-            upstream_engine_cache.clone(),
-        )
-        .await;
-        info!("Upstream server: {:?}", upstream_server.url("/"));
-        let unleash_client = UnleashClient::from_url_with_service_account_token(
-            Url::parse(&upstream_server.url("/")).unwrap(),
-            false,
-            None,
-            None,
-            upstream_sa.token.to_string(),
-            Duration::seconds(5),
-            Duration::seconds(5),
-            "Authorization".to_string(),
-        );
-        let arced_client = Arc::new(unleash_client);
-        let local_features_cache: Arc<DashMap<String, ClientFeatures>> =
-            Arc::new(DashMap::default());
-        let local_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
-        let local_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
-        let local_server = local_server(
-            arced_client.clone(),
-            local_token_cache,
-            local_features_cache,
-            local_engine_cache,
-        )
-        .await;
-        let client = reqwest::Client::default();
-        let frontend_response = client
-            .get(local_server.url("/api/frontend"))
-            .header("Authorization", frontend_token.token.clone())
-            .send()
-            .await
-            .expect("Failed to send request");
-        let result = frontend_response
-            .json::<FrontendResult>()
-            .await
-            .expect("Failed to parse json");
-        assert!(!result.toggles.is_empty()); // Assuming we have at least one enabled toggle from our example features list
-    }
-
     #[tokio::test]
     #[traced_test]
-    pub async fn request_with_frontend_token_subsumed_by_existing_client_token_does_not_request_new_client_token(
-    ) {
-        let upstream_sa = "magic_token";
-        let mut frontend_token = EdgeToken::from_str("*:development.frontendtoken").unwrap();
-        frontend_token.status = TokenValidationStatus::Validated;
-        frontend_token.token_type = Some(TokenType::Frontend);
-        let mut client_token = EdgeToken::from_str("*:development.clienttoken").unwrap();
-        client_token.status = TokenValidationStatus::Validated;
-        client_token.token_type = Some(TokenType::Client);
-        let features = features_from_disk("../examples/features.json");
-        let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
-            Arc::new(DashMap::default());
-        let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
-        upstream_token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
-        upstream_token_cache.insert(client_token.token.clone(), client_token.clone());
-        upstream_features_cache.insert(client_token.environment.clone().unwrap(), features.clone());
-        let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
-        let mut engine = EngineState::default();
-        engine.take_state(features.clone()).unwrap();
-        upstream_engine_cache.insert(client_token.token.clone(), engine);
-        let upstream_server = upstream_server(
-            upstream_token_cache.clone(),
-            upstream_features_cache.clone(),
-            upstream_engine_cache.clone(),
-        )
-        .await;
-        info!("Upstream server: {:?}", upstream_server.url("/"));
-        let unleash_client = UnleashClient::from_url_with_service_account_token(
-            Url::parse(&upstream_server.url("/")).unwrap(),
-            false,
-            None,
-            None,
-            upstream_sa.to_string(),
-            Duration::seconds(5),
-            Duration::seconds(5),
-            "Authorization".to_string(),
-        );
-        let arced_client = Arc::new(unleash_client);
-        let local_features_cache: Arc<DashMap<String, ClientFeatures>> =
-            Arc::new(DashMap::default());
-        let local_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
-        let local_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
-        let local_server = local_server(
-            arced_client.clone(),
-            local_token_cache,
-            local_features_cache,
-            local_engine_cache,
-        )
-        .await;
-        let client = reqwest::Client::default();
-        let res = client
-            .get(local_server.url("/api/client/features").to_string())
-            .header("Authorization", client_token.token.clone())
-            .send()
-            .await
-            .expect("Failed to get client features");
-        let fetched_features = res
-            .json::<ClientFeatures>()
-            .await
-            .expect("Failed to convert features to json");
-        assert!(!fetched_features.features.is_empty());
-        let fe_response = client
-            .get(local_server.url("/api/frontend").to_string())
-            .header("Authorization", frontend_token.token.clone())
-            .send()
-            .await
-            .expect("Failed to get frontend response");
-        let frontend = fe_response
-            .json::<FrontendResult>()
-            .await
-            .expect("Failed to convert FE to json");
-        assert!(!frontend.toggles.is_empty());
-    }
-
-    #[tokio::test]
-    #[traced_test]
-    pub async fn request_with_frontend_token_without_service_account_token_yields_511() {
+    pub async fn request_with_frontend_token_not_covered_by_client_token_returns_511() {
         let mut frontend_token = EdgeToken::from_str("*:development.frontendtoken").unwrap();
         frontend_token.status = TokenValidationStatus::Validated;
         frontend_token.token_type = Some(TokenType::Frontend);

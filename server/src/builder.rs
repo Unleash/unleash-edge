@@ -5,6 +5,7 @@ use std::fs::File;
 use std::io::Read;
 use std::sync::Arc;
 use std::{io::BufReader, str::FromStr};
+use tracing::warn;
 
 use crate::offline::offline_hotload::{load_bootstrap, load_offline_engine_cache};
 use crate::persistence::file::FilePersister;
@@ -62,13 +63,11 @@ async fn hydrate_from_persistent_storage(
         features_cache.insert(key.clone(), features.clone());
         let mut engine_state = EngineState::default();
 
-        if engine_state.take_state(features).is_err() {
-            tracing::warn!(
-                "Loaded an invalid state from persistent storage, bootstrapping has failed"
-            );
-        } else {
-            engine_cache.insert(key, engine_state);
+        let warnings = engine_state.take_state(features);
+        if let Some(warnings) = warnings {
+            warn!("Failed to hydrate features for {key:?}: {warnings:?}");
         }
+        engine_cache.insert(key.clone(), engine_state);
     }
 
     for target in refresh_targets {
@@ -154,7 +153,6 @@ async fn build_edge(args: &EdgeArgs) -> EdgeResult<EdgeInfo> {
             )
         })
         .map(|c| c.with_custom_client_headers(args.custom_client_headers.clone()))
-        .map(|c| c.with_service_account_token(args.service_account_token.clone()))
         .map(Arc::new)
         .map_err(|_| EdgeError::InvalidServerUrl(args.upstream_url.clone()))?;
 

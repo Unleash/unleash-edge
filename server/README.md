@@ -3,7 +3,7 @@
 [![crates.io](https://img.shields.io/crates/v/unleash-edge?label=latest)](https://crates.io/crates/unleash-edge)
 [![Documentation](https://docs.rs/unleash-edge/badge.svg?version=latest)](https://docs.rs/unleash-edge/latest)
 ![MIT licensed](https://img.shields.io/crates/l/unleash-edge.svg)
-[![Dependency Status](https://deps.rs/crate/unleash-edge/17.1.0/status.svg)](https://deps.rs/crate/unleash-edge/17.1.0)
+[![Dependency Status](https://deps.rs/crate/unleash-edge/18.0.1/status.svg)](https://deps.rs/crate/unleash-edge/18.0.1)
 [![CI](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml/badge.svg)](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml)
 [![Coverage Status](https://coveralls.io/repos/github/Unleash/unleash-edge/badge.svg?branch=main)](https://coveralls.io/github/Unleash/unleash-edge?branch=main)
 ![downloads](https://img.shields.io/crates/d/unleash-edge.svg)
@@ -187,25 +187,9 @@ The easiest way to ensure this is by passing in at least one client token as one
 ensuring it has access to the same features as the front-end token you'll be using.
 If you're using a frontend token that doesn't have data in the node's feature cache, you will receive an HTTP Status code: 511 Network Authentication Required along with a body of which project and environment you will need to add a client token for.
 
-#### Enterprise
-Using `--service-account-token` CLI arg or `SERVICE_ACCOUNT_TOKEN` environment variable you can provide Edge with a [Service Account Token](https://docs.getunleash.io/reference/service-accounts) which has access to create client tokens at startup.
-Doing so, Edge will use this token to create a client token for any frontend token where Edge is not already aware of a client token which will give it access to the necessary projects for creating the response.
+### Starting in edge mode
 
-#### Open Source
-Unleash OSS does not support Service accounts, so if you want Edge to create Client tokens for Frontend tokens you will need to use an admin token in the `--service-account-token | SERVICE_ACCOUNT_TOKEN` argument.
-
-
-```json
-{
-  "access": {
-    "environment": "default",
-    "project": "demo-app"
-  },
-  "explanation": "Edge does not yet have data for this token. Please make a call against /api/client/features with a client token that has the same access as your token"
-}
-```
-
-To launch in this mode, run:
+To see parameters available when running in this mode, run:
 
 ```bash
 $ unleash-edge edge -h
@@ -392,7 +376,7 @@ However, there are a few notable differences between the Unleash Proxy and Unlea
 You can adjust the `RUST_LOG` environment variable to see more verbose log output. For example, in order to get logs originating directly from Edge but not its dependencies, you can raise the default log level from `error` to `warning` and set Edge to `debug`, like this:
 
 ```sh
-RUST_LOG="warn,unleash-edge=debug" ./unleash-edge #<command>
+RUST_LOG="warn,unleash_edge=debug" ./unleash-edge #<command>
 ```
 
 See more about available logging and log levels at https://docs.rs/env_logger/latest/env_logger/#enabling-logging

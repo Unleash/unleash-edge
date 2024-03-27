@@ -367,27 +367,34 @@ where
                 .http_server_active_requests
                 .add(-1, &attributes);
 
-            // Ignore actix errors for metrics
-            if let Ok(res) = res {
-                attributes.push(HTTP_RESPONSE_STATUS_CODE.i64(res.status().as_u16() as i64));
-                let response_size = res
-                    .response()
-                    .headers()
-                    .get(CONTENT_LENGTH)
-                    .and_then(|len| len.to_str().ok().and_then(|s| s.parse().ok()))
-                    .unwrap_or(0);
-                request_metrics
-                    .http_server_response_size
-                    .record(response_size, &attributes);
-
-                request_metrics.http_server_duration.record(
-                    timer.elapsed().map(|t| t.as_secs_f64()).unwrap_or_default(),
-                    &attributes,
-                );
-                Ok(res)
-            } else {
-                res
+            let status_code = match &res {
+                Ok(res) => res.status(),
+                Err(e) => e.as_response_error().status_code(),
             }
+            .as_u16() as i64;
+
+            attributes.push(HTTP_RESPONSE_STATUS_CODE.i64(status_code));
+
+            let response_size = res
+                .as_ref()
+                .map(|res| {
+                    res.response()
+                        .headers()
+                        .get(CONTENT_LENGTH)
+                        .and_then(|len| len.to_str().ok().and_then(|s| s.parse().ok()))
+                        .unwrap_or(0u64)
+                })
+                .unwrap_or(0);
+            request_metrics
+                .http_server_response_size
+                .record(response_size, &attributes);
+
+            request_metrics.http_server_duration.record(
+                timer.elapsed().map(|t| t.as_secs_f64()).unwrap_or_default(),
+                &attributes,
+            );
+
+            res
         }))
     }
 }
@@ -426,5 +433,104 @@ impl dev::Handler<actix_web::HttpRequest> for PrometheusMetricsHandler {
             StatusCode::OK,
             self.metrics(),
         )))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::prom_metrics;
+    use actix_web::{http::StatusCode, test, web, App, HttpResponse};
+    use prometheus::{Encoder, Registry, TextEncoder};
+
+    async fn test_ok_endpoint() -> HttpResponse {
+        HttpResponse::Ok()
+            .append_header(("Content-length", 7))
+            .body("Test OK")
+    }
+
+    async fn test_client_error_endpoint() -> HttpResponse {
+        HttpResponse::BadRequest()
+            .append_header(("Content-length", 17))
+            .body("Test Client Error")
+    }
+
+    async fn test_server_error_endpoint() -> HttpResponse {
+        HttpResponse::InternalServerError()
+            .append_header(("Content-length", 17))
+            .body("Test Server Error")
+    }
+
+    fn parse_metrics_for_status_code(metrics_output: &str, status_code: i64) -> Option<f64> {
+        metrics_output
+            .lines()
+            .filter(|line| {
+                line.contains("http_server_response_size_bytes_sum")
+                    && line.contains(&format!("http_response_status_code=\"{}\"", status_code))
+            })
+            .flat_map(|line| line.split_whitespace().last())
+            .flat_map(|value| value.parse::<f64>().ok())
+            .next()
+    }
+
+    #[tokio::test]
+    async fn test_middleware_response_metrics() {
+        let registry = Registry::new();
+        let (_, request_metrics) =
+            prom_metrics::test_instantiate_without_tracing_and_logging(Some(registry.clone()));
+
+        let app = test::init_service(
+            App::new()
+                .wrap(request_metrics.clone())
+                .service(web::resource("/test_ok").to(test_ok_endpoint))
+                .service(web::resource("/test_client_error").to(test_client_error_endpoint))
+                .service(web::resource("/test_server_error").to(test_server_error_endpoint)),
+        )
+        .await;
+
+        let req_ok = test::TestRequest::get().uri("/test_ok").to_request();
+        let resp_ok = test::call_service(&app, req_ok).await;
+        assert_eq!(resp_ok.status(), StatusCode::OK);
+
+        let req_client_error = test::TestRequest::get()
+            .uri("/test_client_error")
+            .to_request();
+        let resp_client_error = test::call_service(&app, req_client_error).await;
+        assert_eq!(resp_client_error.status(), StatusCode::BAD_REQUEST);
+
+        let req_server_error = test::TestRequest::get()
+            .uri("/test_server_error")
+            .to_request();
+        let resp_server_error = test::call_service(&app, req_server_error).await;
+        assert_eq!(
+            resp_server_error.status(),
+            StatusCode::INTERNAL_SERVER_ERROR
+        );
+
+        let mut buffer = Vec::new();
+        let encoder = TextEncoder::new();
+        let metric_families = registry.gather();
+        encoder.encode(&metric_families, &mut buffer).unwrap();
+        let metrics_output = String::from_utf8(buffer).unwrap();
+
+        let value_ok = parse_metrics_for_status_code(&metrics_output, 200)
+            .expect("Metric with status code 200 not found");
+        assert_eq!(
+            value_ok, 7.0,
+            "Metric value for status code 200 did not match expected"
+        );
+
+        let value_client_error = parse_metrics_for_status_code(&metrics_output, 400)
+            .expect("Metric with status code 400 not found");
+        assert_eq!(
+            value_client_error, 17.0,
+            "Metric value for status code 400 did not match expected"
+        );
+
+        let value_server_error = parse_metrics_for_status_code(&metrics_output, 500)
+            .expect("Metric with status code 500 not found");
+        assert_eq!(
+            value_server_error, 17.0,
+            "Metric value for status code 500 did not match expected"
+        );
     }
 }

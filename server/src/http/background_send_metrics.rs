@@ -1,20 +1,20 @@
-use actix_web::http::StatusCode;
 use std::cmp::max;
-use tracing::{debug, error, info, trace, warn};
+use std::sync::Arc;
 
-use super::feature_refresher::FeatureRefresher;
-
-use crate::types::TokenRefresh;
-use crate::{
-    error::EdgeError,
-    metrics::client_metrics::{size_of_batch, MetricsCache},
-};
+use actix_web::http::StatusCode;
 use chrono::Duration;
 use dashmap::DashMap;
 use lazy_static::lazy_static;
-use prometheus::{register_int_gauge, register_int_gauge_vec, IntGauge, IntGaugeVec, Opts};
-use rand::Rng;
-use std::sync::Arc;
+use prometheus::{IntGauge, IntGaugeVec, Opts, register_int_gauge, register_int_gauge_vec};
+use tracing::{error, info, trace, warn};
+
+use crate::{
+    error::EdgeError,
+    metrics::client_metrics::{MetricsCache, size_of_batch},
+};
+use crate::types::TokenRefresh;
+
+use super::feature_refresher::FeatureRefresher;
 
 lazy_static! {
     pub static ref METRICS_UPSTREAM_HTTP_ERRORS: IntGaugeVec = register_int_gauge_vec!(
@@ -43,6 +43,11 @@ lazy_static! {
         &["environment"]
     )
     .unwrap();
+    pub static ref METRICS_INTERVAL_BETWEEN_SEND: IntGauge = register_int_gauge!(Opts::new(
+        "metrics_interval_between_send",
+        "Interval between sending metrics"
+    ))
+    .unwrap();
 }
 
 fn decide_where_to_post(
@@ -53,19 +58,10 @@ fn decide_where_to_post(
         .iter()
         .find(|t| t.token.environment == Some(environment.to_string()))
     {
-        if token_refresh.use_client_bulk_endpoint {
-            debug!("Sending metrics to client bulk endpoint");
-            METRICS_UPSTREAM_CLIENT_BULK
-                .with_label_values(&[environment])
-                .inc();
-            (true, token_refresh.token.token.clone())
-        } else {
-            info!("Your upstream is outdated. Please upgrade to at least Unleash version 5.9.0 (when ready) or Edge Version 17.0.0 (this one)");
-            METRICS_UPSTREAM_OUTDATED
-                .with_label_values(&[environment])
-                .inc();
-            (false, "".into())
-        }
+        METRICS_UPSTREAM_CLIENT_BULK
+            .with_label_values(&[environment])
+            .inc();
+        (true, token_refresh.token.token.clone())
     } else {
         (false, "".into())
     }
@@ -115,17 +111,17 @@ pub async fn send_metrics_task(
                                     }
                                     StatusCode::NOT_FOUND => {
                                         failures = 10;
-                                        interval = new_interval(interval, failures, 5);
+                                        interval = new_interval(send_interval, failures);
                                         error!("Upstream said we are trying to post to an endpoint that doesn't exist. backing off to {} seconds", interval.num_seconds());
                                     }
                                     StatusCode::FORBIDDEN | StatusCode::UNAUTHORIZED => {
                                         failures = 10;
-                                        interval = new_interval(interval, failures, 5);
+                                        interval = new_interval(send_interval, failures);
                                         error!("Upstream said we were not allowed to post metrics, backing off to {} seconds", interval.num_seconds());
                                     }
                                     StatusCode::TOO_MANY_REQUESTS => {
                                         failures = max(10, failures + 1);
-                                        interval = new_interval(interval, failures, 5);
+                                        interval = new_interval(send_interval, failures);
                                         info!(
                                             "Upstream said it was too busy, backing off to {} seconds",
                                             interval.num_seconds()
@@ -137,7 +133,7 @@ pub async fn send_metrics_task(
                                     | StatusCode::SERVICE_UNAVAILABLE
                                     | StatusCode::GATEWAY_TIMEOUT => {
                                         failures = max(10, failures + 1);
-                                        interval = new_interval(interval, failures, 5);
+                                        interval = new_interval(send_interval, failures);
                                         info!("Upstream said it is struggling. It returned Http status {}. Backing off to {} seconds", status_code, interval.num_seconds());
                                         metrics_cache.reinsert_batch(batch);
                                     }
@@ -154,7 +150,7 @@ pub async fn send_metrics_task(
                         }
                     } else {
                         failures = max(0, failures - 1);
-                        interval = new_interval(interval, failures, 5);
+                        interval = new_interval(send_interval, failures);
                     }
                 }
             }
@@ -163,53 +159,23 @@ pub async fn send_metrics_task(
             "Done posting traces. Sleeping for {} seconds and then going again",
             interval.num_seconds()
         );
+        METRICS_INTERVAL_BETWEEN_SEND.set(interval.num_seconds());
         tokio::time::sleep(std::time::Duration::from_secs(interval.num_seconds() as u64)).await;
     }
 }
 
-fn new_interval(send_interval: Duration, failures: i32, max_jitter_seconds: u8) -> Duration {
+fn new_interval(send_interval: i64, failures: i64) -> Duration {
     let added_interval_from_failure = send_interval * failures;
-    let jitter = random_jitter_seconds(max_jitter_seconds);
-    send_interval + added_interval_from_failure + jitter
-}
-
-fn random_jitter_seconds(max_jitter_seconds: u8) -> Duration {
-    let jitter = rand::thread_rng().gen_range(0..max_jitter_seconds);
-    Duration::seconds(jitter as i64)
+    Duration::seconds(send_interval + added_interval_from_failure)
 }
 
 #[cfg(test)]
 mod tests {
     use crate::http::background_send_metrics::new_interval;
-    use crate::types::{EdgeToken, TokenRefresh};
-    use chrono::Duration;
-    use dashmap::DashMap;
-    use std::sync::Arc;
 
     #[tokio::test]
     pub async fn new_interval_does_not_overflow() {
-        let metrics = new_interval(Duration::seconds(300), 10, 5);
+        let metrics = new_interval(300, 10);
         assert!(metrics.num_seconds() < 3305);
-    }
-
-    #[tokio::test]
-    pub async fn decides_correctly_whether_to_post_to_client_bulk_or_edge_bulk() {
-        let refreshing_tokens = Arc::new(DashMap::default());
-        let old_token = EdgeToken::validated_client_token("*:development.somesecret");
-        let mut old_endpoint_refresh = TokenRefresh::new(old_token.clone(), None);
-        old_endpoint_refresh.use_client_bulk_endpoint = false;
-        let new_token = EdgeToken::validated_client_token("*:production.someothersecret");
-        let mut new_endpoint_refresh = TokenRefresh::new(new_token.clone(), None);
-        new_endpoint_refresh.use_client_bulk_endpoint = true;
-        refreshing_tokens.insert(old_token.token.clone(), old_endpoint_refresh);
-        refreshing_tokens.insert(new_token.token.clone(), new_endpoint_refresh);
-        let (use_new_endpoint, token) =
-            super::decide_where_to_post(&"development".to_string(), refreshing_tokens.clone());
-        assert!(!use_new_endpoint);
-        assert_eq!(&token, "");
-        let (use_new_endpoint, other_token) =
-            super::decide_where_to_post(&"production".to_string(), refreshing_tokens.clone());
-        assert!(use_new_endpoint);
-        assert_eq!(other_token, new_token.token);
     }
 }

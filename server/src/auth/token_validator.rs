@@ -1,13 +1,15 @@
+use std::sync::Arc;
+
+use dashmap::DashMap;
+use tracing::{instrument, trace};
+use unleash_types::Upsert;
+
 use crate::http::feature_refresher::FeatureRefresher;
 use crate::http::unleash_client::UnleashClient;
 use crate::persistence::EdgePersistence;
 use crate::types::{
     EdgeResult, EdgeToken, TokenType, TokenValidationStatus, ValidateTokensRequest,
 };
-use std::sync::Arc;
-
-use dashmap::DashMap;
-use unleash_types::Upsert;
 
 #[derive(Clone)]
 pub struct TokenValidator {
@@ -72,13 +74,15 @@ impl TokenValidator {
                         .iter()
                         .find(|v| maybe_valid.token == v.token)
                     {
+                        trace!("Validated token");
                         EdgeToken {
-                            status: crate::types::TokenValidationStatus::Validated,
+                            status: TokenValidationStatus::Validated,
                             ..validated_token.clone()
                         }
                     } else {
+                        trace!("Invalid token");
                         EdgeToken {
-                            status: crate::types::TokenValidationStatus::Invalid,
+                            status: TokenValidationStatus::Invalid,
                             token_type: Some(TokenType::Invalid),
                             ..maybe_valid
                         }
@@ -96,6 +100,7 @@ impl TokenValidator {
         }
     }
 
+    #[instrument(skip(self))]
     pub async fn schedule_validation_of_known_tokens(&self, validation_interval_seconds: u64) {
         let sleep_duration = tokio::time::Duration::from_secs(validation_interval_seconds);
         loop {
@@ -107,6 +112,7 @@ impl TokenValidator {
         }
     }
 
+    #[instrument(skip(self, tokens, refresher))]
     pub async fn schedule_revalidation_of_startup_tokens(
         &self,
         tokens: Vec<String>,
@@ -161,18 +167,21 @@ impl TokenValidator {
 
 #[cfg(test)]
 mod tests {
-    use super::TokenValidator;
+    use std::sync::Arc;
+
+    use actix_http::HttpService;
+    use actix_http_test::{test_server, TestServer};
+    use actix_service::map_config;
+    use actix_web::{App, dev::AppConfig, HttpResponse, web};
+    use dashmap::DashMap;
+    use serde::{Deserialize, Serialize};
+
     use crate::{
         http::unleash_client::UnleashClient,
         types::{EdgeToken, TokenType, TokenValidationStatus},
     };
-    use actix_http::HttpService;
-    use actix_http_test::{test_server, TestServer};
-    use actix_service::map_config;
-    use actix_web::{dev::AppConfig, web, App, HttpResponse};
-    use dashmap::DashMap;
-    use serde::{Deserialize, Serialize};
-    use std::sync::Arc;
+
+    use super::TokenValidator;
 
     #[derive(Clone, Debug, Serialize, Deserialize)]
     pub struct EdgeTokens {

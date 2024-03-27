@@ -73,7 +73,7 @@ jobs:
         with:
           ref: ${{ inputs.version }}
       - name: Install Rust
-        run: rustup update 1.75.0 --no-self-update && rustup default 1.75.0
+        run: rustup update stable --no-self-update && rustup default stable
       - name: Use rust cache
         uses: Swatinem/rust-cache@v2
         with:
