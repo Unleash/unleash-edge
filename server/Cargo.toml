@@ -60,7 +60,7 @@ reqwest = { version = "0.11.24", default-features = false, features = [
     "rustls-tls",
     "native-tls",
 ] }
-rustls = "0.22.2"
+rustls = "0.23.5"
 rustls-pemfile = "2.1.0"
 rustls-pki-types = "1.3.1"
 semver = "1.0.22"
