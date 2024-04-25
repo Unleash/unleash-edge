@@ -5,7 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 19.0.0 (2024-04-25)
+
+### Bug Fixes
+
+ - <csr-id-550dd720e56267c6cac37f77ecb942facdd3722a/> bump unleash types so that impression data is correctly camelcased
+ - <csr-id-959034463da4a37ea24392a70882b89ad8f58029/> Removed /edge/metrics and logic for posting to /edge/metrics
+   * Added notes about 5.9.0
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release over the course of 29 calendar days.
+ - 42 days passed between releases.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 2 unique issues were worked on: [#446](https://github.com/Unleash/unleash-edge/issues/446), [#449](https://github.com/Unleash/unleash-edge/issues/449)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#446](https://github.com/Unleash/unleash-edge/issues/446)**
+    - Removed /edge/metrics and logic for posting to /edge/metrics ([`9590344`](https://github.com/Unleash/unleash-edge/commit/959034463da4a37ea24392a70882b89ad8f58029))
+ * **[#449](https://github.com/Unleash/unleash-edge/issues/449)**
+    - Bump unleash types so that impression data is correctly camelcased ([`550dd72`](https://github.com/Unleash/unleash-edge/commit/550dd720e56267c6cac37f77ecb942facdd3722a))
+</details>
+
 ## 18.0.1 (2024-03-14)
+
+<csr-id-7099f518250658b3902ce9856e08fede48c00840/>
+<csr-id-33cdd3727334ccf14d0d96c29189d700ffbacd4a/>
 
 ### Chore
 
@@ -34,6 +66,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Bug Fixes
 
+<csr-id-0fb91e2e68d255da88630eb9c1fdef2158c73a82/>
+
  - <csr-id-e7258a9763d1bd9a7fc1c9f38ff2b5c9ab2c6cb9/> handle incoming requests on the api level
    Update all endpoints of the frontend_api to accept top-level properties.
    
@@ -44,16 +78,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
    The tests check:
    
    -    /api/frontend/features/:feature (/api/proxy/features/:feature uses the same impl under the hood, so I've not tested that explicitly. Happy to change that though.
-   -   GET /api/{frontend,proxy}(/all)?
-   -    POST /api/{frontend,proxy) (POST all features function takes an IncomingContext as a parameter, so I'm assuming the serialization here works; can of course add tests for that too)
-   -    That providing a string as the value of properties yields a 400
- - <csr-id-0fb91e2e68d255da88630eb9c1fdef2158c73a82/> update rust crate ulid to 1.1.2
+-   GET /api/{frontend,proxy}(/all)?
+-    POST /api/{frontend,proxy) (POST all features function takes an IncomingContext as a parameter, so I'm assuming the serialization here works; can of course add tests for that too)
+-    That providing a string as the value of properties yields a 400
 
 ### Commit Statistics
 
 <csr-read-only-do-not-edit/>
 
- - 4 commits contributed to the release over the course of 13 calendar days.
+ - 5 commits contributed to the release over the course of 13 calendar days.
  - 13 days passed between releases.
  - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 4 unique issues were worked on: [#428](https://github.com/Unleash/unleash-edge/issues/428), [#441](https://github.com/Unleash/unleash-edge/issues/441), [#443](https://github.com/Unleash/unleash-edge/issues/443), [#445](https://github.com/Unleash/unleash-edge/issues/445)
@@ -72,7 +105,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Handle incoming requests on the api level ([`e7258a9`](https://github.com/Unleash/unleash-edge/commit/e7258a9763d1bd9a7fc1c9f38ff2b5c9ab2c6cb9))
  * **[#445](https://github.com/Unleash/unleash-edge/issues/445)**
     - Prepare for readmes for release ([`7099f51`](https://github.com/Unleash/unleash-edge/commit/7099f518250658b3902ce9856e08fede48c00840))
+ * **Uncategorized**
+    - Release unleash-edge v18.0.1 ([`aeadf8b`](https://github.com/Unleash/unleash-edge/commit/aeadf8bfb5424dd146f3a41f99c99a9aba5b92e0))
 </details>
+
+<csr-unknown>
+ update rust crate ulid to 1.1.2<csr-unknown/>
 
 ## 18.0.0 (2024-02-29)
 
@@ -159,9 +197,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Release unleash-edge v18.0.0 ([`7ed5b0f`](https://github.com/Unleash/unleash-edge/commit/7ed5b0ff10d748913f4b7e59e2111f2bf0e71561))
     - Prepare for release ([`2d1798e`](https://github.com/Unleash/unleash-edge/commit/2d1798e29af79b7a9625e7a1d1950dc7e5feccba))
 </details>
-
-<csr-unknown>
- add metrics for failed requests<csr-unknown/>
 
 ## 17.1.0 (2024-01-24)
 
