@@ -6,10 +6,15 @@ use std::sync::Arc;
 use chrono::Duration;
 use dashmap::DashMap;
 use reqwest::Url;
-use tracing::warn;
+use tracing::{debug, warn};
 use unleash_types::client_features::ClientFeatures;
 use unleash_yggdrasil::EngineState;
 
+use crate::cli::RedisMode;
+use crate::offline::offline_hotload::{load_bootstrap, load_offline_engine_cache};
+use crate::persistence::file::FilePersister;
+use crate::persistence::redis::RedisPersister;
+use crate::persistence::EdgePersistence;
 use crate::{
     auth::token_validator::TokenValidator,
     cli::{CliArgs, EdgeArgs, EdgeMode, OfflineArgs},
@@ -17,11 +22,6 @@ use crate::{
     http::{feature_refresher::FeatureRefresher, unleash_client::UnleashClient},
     types::{EdgeResult, EdgeToken, TokenType},
 };
-use crate::cli::RedisMode;
-use crate::offline::offline_hotload::{load_bootstrap, load_offline_engine_cache};
-use crate::persistence::EdgePersistence;
-use crate::persistence::file::FilePersister;
-use crate::persistence::redis::RedisPersister;
 
 type CacheContainer = (
     Arc<DashMap<String, EdgeToken>>,
@@ -125,6 +125,7 @@ fn build_offline(offline_args: OfflineArgs) -> EdgeResult<CacheContainer> {
 
 async fn get_data_source(args: &EdgeArgs) -> Option<Arc<dyn EdgePersistence>> {
     if let Some(redis_args) = args.redis.clone() {
+        debug!("Configuring Redis persistence {redis_args:?}");
         let redis_persister = match redis_args.redis_mode {
             RedisMode::Single => redis_args
                 .to_url()
@@ -144,6 +145,7 @@ async fn get_data_source(args: &EdgeArgs) -> Option<Arc<dyn EdgePersistence>> {
     }
 
     if let Some(backup_folder) = args.backup_folder.clone() {
+        debug!("Configuring file persistence {backup_folder:?}");
         let backup_client = FilePersister::new(&backup_folder);
         return Some(Arc::new(backup_client));
     }

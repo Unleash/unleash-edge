@@ -2,14 +2,15 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use redis::{Client, Commands, RedisError};
 use redis::cluster::ClusterClient;
+use redis::{Client, Commands, RedisError};
 use tokio::sync::RwLock;
+use tracing::{debug, info};
 use unleash_types::client_features::ClientFeatures;
 
-use crate::{error::EdgeError, types::EdgeResult};
 use crate::persistence::redis::RedisClientOptions::{Cluster, Single};
 use crate::types::{EdgeToken, TokenRefresh};
+use crate::{error::EdgeError, types::EdgeResult};
 
 use super::EdgePersistence;
 
@@ -35,12 +36,13 @@ pub struct RedisPersister {
 impl RedisPersister {
     pub fn new(url: &str) -> Result<RedisPersister, EdgeError> {
         let client = Client::open(url)?;
-
+        info!("[REDIS Persister]: Configured single node client {client:?}");
         Ok(Self {
             redis_client: Arc::new(RwLock::new(Single(client))),
         })
     }
     pub fn new_with_cluster(urls: Vec<String>) -> Result<RedisPersister, EdgeError> {
+        info!("[REDIS Persister]: Configuring cluster client against {urls:?}");
         let client = ClusterClient::new(urls)?;
         Ok(Self {
             redis_client: Arc::new(RwLock::new(Cluster(client))),
@@ -51,6 +53,7 @@ impl RedisPersister {
 #[async_trait]
 impl EdgePersistence for RedisPersister {
     async fn load_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
+        debug!("Loading tokens from persistence");
         let mut client = self.redis_client.write().await;
         let raw_tokens: String = match &mut *client {
             Single(c) => c.get(TOKENS_KEY)?,
@@ -64,6 +67,7 @@ impl EdgePersistence for RedisPersister {
     }
 
     async fn save_tokens(&self, tokens: Vec<EdgeToken>) -> EdgeResult<()> {
+        debug!("Saving {} tokens to persistence", tokens.len());
         let mut client = self.redis_client.write().await;
         let raw_tokens = serde_json::to_string(&tokens)?;
         match &mut *client {
@@ -77,6 +81,7 @@ impl EdgePersistence for RedisPersister {
     }
 
     async fn load_refresh_targets(&self) -> EdgeResult<Vec<TokenRefresh>> {
+        debug!("Loading refresh targets");
         let mut client = self.redis_client.write().await;
         let refresh_targets: String = match &mut *client {
             Single(client) => client.get(REFRESH_TARGETS_KEY)?,
@@ -91,6 +96,7 @@ impl EdgePersistence for RedisPersister {
     }
 
     async fn save_refresh_targets(&self, refresh_targets: Vec<TokenRefresh>) -> EdgeResult<()> {
+        debug!("Saving refresh targets: {}", refresh_targets.len());
         let mut client = self.redis_client.write().await;
         let refresh_targets = serde_json::to_string(&refresh_targets)?;
         match &mut *client {
@@ -100,10 +106,12 @@ impl EdgePersistence for RedisPersister {
                 conn.set(REFRESH_TARGETS_KEY, refresh_targets)?
             }
         };
+        debug!("Done saving refresh target");
         Ok(())
     }
 
     async fn load_features(&self) -> EdgeResult<HashMap<String, ClientFeatures>> {
+        debug!("Loading features from persistence");
         let mut client = self.redis_client.write().await;
         let raw_features: String = match &mut *client {
             Single(client) => client.get(FEATURES_KEY)?,
@@ -118,17 +126,20 @@ impl EdgePersistence for RedisPersister {
     }
 
     async fn save_features(&self, features: Vec<(String, ClientFeatures)>) -> EdgeResult<()> {
+        debug!("Saving {} features to persistence", features.len());
         let mut client = self.redis_client.write().await;
         let raw_features = serde_json::to_string(&features)?;
         match &mut *client {
             Single(client) => client
                 .set(FEATURES_KEY, raw_features)
-                .map_err(EdgeError::from),
+                .map_err(EdgeError::from)?,
             Cluster(cluster) => {
                 let mut conn = cluster.get_connection()?;
                 conn.set(FEATURES_KEY, raw_features)
-                    .map_err(EdgeError::from)
+                    .map_err(EdgeError::from)?
             }
-        }
+        };
+        debug!("Done saving to persistence");
+        Ok(())
     }
 }
