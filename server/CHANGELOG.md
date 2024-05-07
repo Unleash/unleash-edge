@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 19.1.0 (2024-05-07)
+
+### Chore
+
+ - <csr-id-f567cced381b2a8630a20684f24667f587130d78/> edge will now give a warning when failing to load from cache on startup
+
+### Bug Fixes
+
+ - <csr-id-dc5e88d9e703b5f07c84f22985909d2e1ab9781e/> remove feature refresher
+ - <csr-id-45552e7476cfee75a803a12b002295e267c29e9c/> prevent persistence from saving empty data sets
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 4 commits contributed to the release.
+ - 11 days passed between releases.
+ - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 4 unique issues were worked on: [#452](https://github.com/Unleash/unleash-edge/issues/452), [#453](https://github.com/Unleash/unleash-edge/issues/453), [#456](https://github.com/Unleash/unleash-edge/issues/456), [#457](https://github.com/Unleash/unleash-edge/issues/457)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#452](https://github.com/Unleash/unleash-edge/issues/452)**
+    - Prevent persistence from saving empty data sets ([`45552e7`](https://github.com/Unleash/unleash-edge/commit/45552e7476cfee75a803a12b002295e267c29e9c))
+ * **[#453](https://github.com/Unleash/unleash-edge/issues/453)**
+    - Feature/add redis cluster support ([`f104e58`](https://github.com/Unleash/unleash-edge/commit/f104e585c9caede57d9d2c0e907e870250052e10))
+ * **[#456](https://github.com/Unleash/unleash-edge/issues/456)**
+    - Edge will now give a warning when failing to load from cache on startup ([`f567cce`](https://github.com/Unleash/unleash-edge/commit/f567cced381b2a8630a20684f24667f587130d78))
+ * **[#457](https://github.com/Unleash/unleash-edge/issues/457)**
+    - Remove feature refresher ([`dc5e88d`](https://github.com/Unleash/unleash-edge/commit/dc5e88d9e703b5f07c84f22985909d2e1ab9781e))
+</details>
+
 ## 19.0.0 (2024-04-25)
 
 ### Bug Fixes
@@ -17,7 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 2 commits contributed to the release over the course of 29 calendar days.
+ - 3 commits contributed to the release over the course of 29 calendar days.
  - 42 days passed between releases.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#446](https://github.com/Unleash/unleash-edge/issues/446), [#449](https://github.com/Unleash/unleash-edge/issues/449)
@@ -32,6 +68,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Removed /edge/metrics and logic for posting to /edge/metrics ([`9590344`](https://github.com/Unleash/unleash-edge/commit/959034463da4a37ea24392a70882b89ad8f58029))
  * **[#449](https://github.com/Unleash/unleash-edge/issues/449)**
     - Bump unleash types so that impression data is correctly camelcased ([`550dd72`](https://github.com/Unleash/unleash-edge/commit/550dd720e56267c6cac37f77ecb942facdd3722a))
+ * **Uncategorized**
+    - Release unleash-edge v19.0.0 ([`d2921f6`](https://github.com/Unleash/unleash-edge/commit/d2921f6c56843e74cd3c2bd14c41f02f75807961))
 </details>
 
 ## 18.0.1 (2024-03-14)
@@ -78,9 +116,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
    The tests check:
    
    -    /api/frontend/features/:feature (/api/proxy/features/:feature uses the same impl under the hood, so I've not tested that explicitly. Happy to change that though.
--   GET /api/{frontend,proxy}(/all)?
--    POST /api/{frontend,proxy) (POST all features function takes an IncomingContext as a parameter, so I'm assuming the serialization here works; can of course add tests for that too)
--    That providing a string as the value of properties yields a 400
 
 ### Commit Statistics
 
@@ -110,7 +145,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 </details>
 
 <csr-unknown>
- update rust crate ulid to 1.1.2<csr-unknown/>
+GET /api/{frontend,proxy}(/all)?POST /api/{frontend,proxy) (POST all features function takes an IncomingContext as a parameter, so I’m assuming the serialization here works; can of course add tests for that too)That providing a string as the value of properties yields a 400<csr-unknown/>
 
 ## 18.0.0 (2024-02-29)
 
