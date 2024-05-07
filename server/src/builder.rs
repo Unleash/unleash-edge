@@ -48,13 +48,17 @@ fn build_caches() -> CacheContainer {
 
 async fn hydrate_from_persistent_storage(
     cache: CacheContainer,
-    feature_refresher: Arc<FeatureRefresher>,
     storage: Arc<dyn EdgePersistence>,
 ) {
     let (token_cache, features_cache, engine_cache) = cache;
-    let tokens = storage.load_tokens().await.unwrap_or_default();
-    let features = storage.load_features().await.unwrap_or_default();
-    let refresh_targets = storage.load_refresh_targets().await.unwrap_or_default();
+    let tokens = storage.load_tokens().await.unwrap_or_else(|error| {
+        warn!("Failed to load tokens from cache {error:?}");
+        vec![]
+    });
+    let features = storage.load_features().await.unwrap_or_else(|error| {
+        warn!("Failed to load features from cache {error:?}");
+        Default::default()
+    });
     for token in tokens {
         tracing::debug!("Hydrating tokens {token:?}");
         token_cache.insert(token.token.clone(), token);
@@ -70,13 +74,6 @@ async fn hydrate_from_persistent_storage(
             warn!("Failed to hydrate features for {key:?}: {warnings:?}");
         }
         engine_cache.insert(key.clone(), engine_state);
-    }
-
-    for target in refresh_targets {
-        tracing::debug!("Hydrating refresh target for {target:?}");
-        feature_refresher
-            .tokens_to_refresh
-            .insert(target.token.token.clone(), target);
     }
 }
 
@@ -134,8 +131,12 @@ async fn get_data_source(args: &EdgeArgs) -> Option<Arc<dyn EdgePersistence>> {
                 RedisPersister::new_with_cluster(urls).expect("Failed to connect to redis cluster")
             }),
         }
-        .unwrap_or_else(|| panic!("Could not build a redis persister from redis_args {:?}",
-                args.redis));
+        .unwrap_or_else(|| {
+            panic!(
+                "Could not build a redis persister from redis_args {:?}",
+                args.redis
+            )
+        });
         return Some(Arc::new(redis_persister));
     }
 
@@ -191,7 +192,6 @@ async fn build_edge(args: &EdgeArgs) -> EdgeResult<EdgeInfo> {
                 feature_cache.clone(),
                 engine_cache.clone(),
             ),
-            feature_refresher.clone(),
             persistence,
         )
         .await;

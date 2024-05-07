@@ -9,7 +9,7 @@ use tracing::{debug, info};
 use unleash_types::client_features::ClientFeatures;
 
 use crate::persistence::redis::RedisClientOptions::{Cluster, Single};
-use crate::types::{EdgeToken, TokenRefresh};
+use crate::types::EdgeToken;
 use crate::{error::EdgeError, types::EdgeResult};
 
 use super::EdgePersistence;
@@ -77,36 +77,6 @@ impl EdgePersistence for RedisPersister {
                 conn.set(TOKENS_KEY, raw_tokens)?
             }
         };
-        Ok(())
-    }
-
-    async fn load_refresh_targets(&self) -> EdgeResult<Vec<TokenRefresh>> {
-        debug!("Loading refresh targets");
-        let mut client = self.redis_client.write().await;
-        let refresh_targets: String = match &mut *client {
-            Single(client) => client.get(REFRESH_TARGETS_KEY)?,
-            Cluster(client) => {
-                let mut conn = client.get_connection()?;
-                conn.get(REFRESH_TARGETS_KEY)?
-            }
-        };
-        serde_json::from_str::<Vec<TokenRefresh>>(&refresh_targets).map_err(|_| {
-            EdgeError::TokenParseError("Failed to load refresh targets from redis".into())
-        })
-    }
-
-    async fn save_refresh_targets(&self, refresh_targets: Vec<TokenRefresh>) -> EdgeResult<()> {
-        debug!("Saving refresh targets: {}", refresh_targets.len());
-        let mut client = self.redis_client.write().await;
-        let refresh_targets = serde_json::to_string(&refresh_targets)?;
-        match &mut *client {
-            Single(client) => client.set(REFRESH_TARGETS_KEY, refresh_targets)?,
-            Cluster(client) => {
-                let mut conn = client.get_connection()?;
-                conn.set(REFRESH_TARGETS_KEY, refresh_targets)?
-            }
-        };
-        debug!("Done saving refresh target");
         Ok(())
     }
 
