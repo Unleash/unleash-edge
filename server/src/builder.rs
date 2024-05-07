@@ -1,16 +1,15 @@
+use std::fs::File;
+use std::io::{BufReader, Read};
+use std::str::FromStr;
+use std::sync::Arc;
+
 use chrono::Duration;
 use dashmap::DashMap;
 use reqwest::Url;
-use std::fs::File;
-use std::io::Read;
-use std::sync::Arc;
-use std::{io::BufReader, str::FromStr};
 use tracing::warn;
+use unleash_types::client_features::ClientFeatures;
+use unleash_yggdrasil::EngineState;
 
-use crate::offline::offline_hotload::{load_bootstrap, load_offline_engine_cache};
-use crate::persistence::file::FilePersister;
-use crate::persistence::redis::RedisPersister;
-use crate::persistence::EdgePersistence;
 use crate::{
     auth::token_validator::TokenValidator,
     cli::{CliArgs, EdgeArgs, EdgeMode, OfflineArgs},
@@ -18,8 +17,11 @@ use crate::{
     http::{feature_refresher::FeatureRefresher, unleash_client::UnleashClient},
     types::{EdgeResult, EdgeToken, TokenType},
 };
-use unleash_types::client_features::ClientFeatures;
-use unleash_yggdrasil::EngineState;
+use crate::cli::RedisMode;
+use crate::offline::offline_hotload::{load_bootstrap, load_offline_engine_cache};
+use crate::persistence::EdgePersistence;
+use crate::persistence::file::FilePersister;
+use crate::persistence::redis::RedisPersister;
 
 type CacheContainer = (
     Arc<DashMap<String, EdgeToken>>,
@@ -122,9 +124,23 @@ fn build_offline(offline_args: OfflineArgs) -> EdgeResult<CacheContainer> {
 }
 
 async fn get_data_source(args: &EdgeArgs) -> Option<Arc<dyn EdgePersistence>> {
-    if let Some(redis_url) = args.redis.clone().and_then(|r| r.to_url()) {
-        let redis_client = RedisPersister::new(&redis_url).expect("Failed to connect to Redis");
-        return Some(Arc::new(redis_client));
+    if let Some(redis_args) = args.redis.clone() {
+        let redis_persister = match redis_args.redis_mode {
+            RedisMode::Single => redis_args
+                .to_url()
+                .map(|url| RedisPersister::new(&url).expect("Failed to connect to redis")),
+            RedisMode::Cluster => redis_args.redis_url.map(|urls| {
+                RedisPersister::new_with_cluster(urls).expect("Failed to connect to redis cluster")
+            }),
+        }
+        .expect(
+            format!(
+                "Could not build a redis persister from redis_args {:?}",
+                args.redis
+            )
+            .as_str(),
+        );
+        return Some(Arc::new(redis_persister));
     }
 
     if let Some(backup_folder) = args.backup_folder.clone() {
