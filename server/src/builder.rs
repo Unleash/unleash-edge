@@ -134,13 +134,8 @@ async fn get_data_source(args: &EdgeArgs) -> Option<Arc<dyn EdgePersistence>> {
                 RedisPersister::new_with_cluster(urls).expect("Failed to connect to redis cluster")
             }),
         }
-        .expect(
-            format!(
-                "Could not build a redis persister from redis_args {:?}",
-                args.redis
-            )
-            .as_str(),
-        );
+        .unwrap_or_else(|| panic!("Could not build a redis persister from redis_args {:?}",
+                args.redis));
         return Some(Arc::new(redis_persister));
     }
 

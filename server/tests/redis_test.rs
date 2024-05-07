@@ -14,7 +14,7 @@ use unleash_edge::{
 };
 
 async fn setup_redis() -> (Client, String, ContainerAsync<Redis>) {
-    let node = Redis::default().start().await;
+    let node = Redis.start().await;
     let host_port = node.get_host_port_ipv4(6379).await;
     let url = format!("redis://127.0.0.1:{host_port}");
 
