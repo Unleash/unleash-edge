@@ -1,11 +1,12 @@
-use cidr::{Ipv4Cidr, Ipv6Cidr};
 use std::fmt::{Display, Formatter};
 use std::net::IpAddr;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use crate::error;
+use cidr::{Ipv4Cidr, Ipv6Cidr};
 use clap::{ArgGroup, Args, Parser, Subcommand, ValueEnum};
+
+use crate::error;
 
 #[derive(Subcommand, Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
@@ -42,10 +43,18 @@ impl Display for RedisScheme {
         }
     }
 }
+#[derive(Copy, Debug, Clone, Eq, PartialEq, PartialOrd, Ord, ValueEnum)]
+pub enum RedisMode {
+    Single,
+    Cluster,
+}
+
 #[derive(Args, Debug, Clone)]
 pub struct RedisArgs {
-    #[clap(long, env)]
-    pub redis_url: Option<String>,
+    #[clap(long, env, value_delimiter = ',')]
+    pub redis_url: Option<Vec<String>>,
+    #[clap(long, env, value_enum, default_value_t = RedisMode::Single)]
+    pub redis_mode: RedisMode,
     #[clap(long, env)]
     pub redis_password: Option<String>,
     #[clap(long, env)]
@@ -65,7 +74,7 @@ impl RedisArgs {
         self.redis_url
             .clone()
             .map(|url| {
-                reqwest::Url::parse(&url).unwrap_or_else(|_| panic!("Failed to create url from REDIS_URL: {}, REDIS_USERNAME: {} and REDIS_PASSWORD: {}", self.redis_url.clone().unwrap_or("NO_URL".into()), self.redis_username.clone().unwrap_or("NO_USERNAME_SET".into()), self.redis_password.is_some()))
+                reqwest::Url::parse(&url[0]).unwrap_or_else(|_| panic!("Failed to create url from REDIS_URL: {:?}, REDIS_USERNAME: {} and REDIS_PASSWORD: {}", self.redis_url.clone().unwrap_or(vec!["NO_URL".into()]), self.redis_username.clone().unwrap_or("NO_USERNAME_SET".into()), self.redis_password.is_some()))
             })
             .or_else(|| self.redis_host.clone().map(|host| {
                 reqwest::Url::parse(format!("{}://{}", self.redis_scheme, &host).as_str()).expect("Failed to parse hostname from REDIS_HOSTNAME or --redis-hostname parameters")
@@ -364,12 +373,12 @@ impl HttpServerArgs {
 
 #[cfg(test)]
 mod tests {
-
-    use crate::cli::{CliArgs, EdgeMode, NetworkAddr};
-    use crate::error;
     use clap::Parser;
     use tracing::info;
     use tracing_test::traced_test;
+
+    use crate::cli::{CliArgs, EdgeMode, NetworkAddr};
+    use crate::error;
 
     #[test]
     pub fn can_parse_multiple_client_headers() {
