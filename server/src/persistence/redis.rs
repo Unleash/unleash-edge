@@ -36,7 +36,8 @@ pub struct RedisPersister {
 impl RedisPersister {
     pub fn new(url: &str) -> Result<RedisPersister, EdgeError> {
         let client = Client::open(url)?;
-        info!("[REDIS Persister]: Configured single node client {client:?}");
+        let addr = client.get_connection_info().addr.clone();
+        info!("[REDIS Persister]: Configured single node client {addr:?}");
         Ok(Self {
             redis_client: Arc::new(RwLock::new(Single(client))),
         })

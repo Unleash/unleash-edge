@@ -122,7 +122,11 @@ fn build_offline(offline_args: OfflineArgs) -> EdgeResult<CacheContainer> {
 
 async fn get_data_source(args: &EdgeArgs) -> Option<Arc<dyn EdgePersistence>> {
     if let Some(redis_args) = args.redis.clone() {
-        debug!("Configuring Redis persistence {redis_args:?}");
+        let mut filtered_redis_args = redis_args.clone();
+        if filtered_redis_args.redis_password.is_some() {
+            filtered_redis_args.redis_password = Some("[redacted]".to_string());
+        }
+        debug!("Configuring Redis persistence {filtered_redis_args:?}");
         let redis_persister = match redis_args.redis_mode {
             RedisMode::Single => redis_args
                 .to_url()
