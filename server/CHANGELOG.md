@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 19.1.1 (2024-05-13)
 
+<csr-id-e3d0f03006a9ece743940af60796b574f772b1d3/>
+
 ### Chore
 
  - <csr-id-e3d0f03006a9ece743940af60796b574f772b1d3/> Prepare for release
@@ -24,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 3 commits contributed to the release.
+ - 4 commits contributed to the release.
  - 5 days passed between releases.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#413](https://github.com/Unleash/unleash-edge/issues/413), [#461](https://github.com/Unleash/unleash-edge/issues/461)
@@ -40,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#461](https://github.com/Unleash/unleash-edge/issues/461)**
     - Don't log redis password ([`06f2544`](https://github.com/Unleash/unleash-edge/commit/06f25443de217d138ee3fa2b34cbc0cdef5a967d))
  * **Uncategorized**
+    - Release unleash-edge v19.1.1 ([`6ec6f33`](https://github.com/Unleash/unleash-edge/commit/6ec6f33c907290d7903d2bab9d8174abc64f7460))
     - Prepare for release ([`e3d0f03`](https://github.com/Unleash/unleash-edge/commit/e3d0f03006a9ece743940af60796b574f772b1d3))
 </details>
 
