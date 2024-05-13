@@ -1,20 +1,20 @@
-use actix_web::http::StatusCode;
 use std::cmp::max;
-use tracing::{debug, error, info, trace, warn};
+use std::sync::Arc;
 
-use super::feature_refresher::FeatureRefresher;
-
-use crate::types::TokenRefresh;
-use crate::{
-    error::EdgeError,
-    metrics::client_metrics::{size_of_batch, MetricsCache},
-};
+use actix_web::http::StatusCode;
 use chrono::Duration;
 use dashmap::DashMap;
 use lazy_static::lazy_static;
-use prometheus::{register_int_gauge, register_int_gauge_vec, IntGauge, IntGaugeVec, Opts};
+use prometheus::{IntGauge, IntGaugeVec, Opts, register_int_gauge, register_int_gauge_vec};
+use tracing::{error, info, trace, warn};
 
-use std::sync::Arc;
+use crate::{
+    error::EdgeError,
+    metrics::client_metrics::{MetricsCache, size_of_batch},
+};
+use crate::types::TokenRefresh;
+
+use super::feature_refresher::FeatureRefresher;
 
 lazy_static! {
     pub static ref METRICS_UPSTREAM_HTTP_ERRORS: IntGaugeVec = register_int_gauge_vec!(
@@ -58,19 +58,10 @@ fn decide_where_to_post(
         .iter()
         .find(|t| t.token.environment == Some(environment.to_string()))
     {
-        if token_refresh.use_client_bulk_endpoint {
-            debug!("Sending metrics to client bulk endpoint");
-            METRICS_UPSTREAM_CLIENT_BULK
-                .with_label_values(&[environment])
-                .inc();
-            (true, token_refresh.token.token.clone())
-        } else {
-            info!("Your upstream is outdated. Please upgrade to at least Unleash version 5.9.0 (when ready) or Edge Version 17.0.0 (this one)");
-            METRICS_UPSTREAM_OUTDATED
-                .with_label_values(&[environment])
-                .inc();
-            (false, "".into())
-        }
+        METRICS_UPSTREAM_CLIENT_BULK
+            .with_label_values(&[environment])
+            .inc();
+        (true, token_refresh.token.token.clone())
     } else {
         (false, "".into())
     }
@@ -181,34 +172,10 @@ fn new_interval(send_interval: i64, failures: i64) -> Duration {
 #[cfg(test)]
 mod tests {
     use crate::http::background_send_metrics::new_interval;
-    use crate::types::{EdgeToken, TokenRefresh};
-    use dashmap::DashMap;
-    use std::sync::Arc;
 
     #[tokio::test]
     pub async fn new_interval_does_not_overflow() {
         let metrics = new_interval(300, 10);
         assert!(metrics.num_seconds() < 3305);
-    }
-
-    #[tokio::test]
-    pub async fn decides_correctly_whether_to_post_to_client_bulk_or_edge_bulk() {
-        let refreshing_tokens = Arc::new(DashMap::default());
-        let old_token = EdgeToken::validated_client_token("*:development.somesecret");
-        let mut old_endpoint_refresh = TokenRefresh::new(old_token.clone(), None);
-        old_endpoint_refresh.use_client_bulk_endpoint = false;
-        let new_token = EdgeToken::validated_client_token("*:production.someothersecret");
-        let mut new_endpoint_refresh = TokenRefresh::new(new_token.clone(), None);
-        new_endpoint_refresh.use_client_bulk_endpoint = true;
-        refreshing_tokens.insert(old_token.token.clone(), old_endpoint_refresh);
-        refreshing_tokens.insert(new_token.token.clone(), new_endpoint_refresh);
-        let (use_new_endpoint, token) =
-            super::decide_where_to_post(&"development".to_string(), refreshing_tokens.clone());
-        assert!(!use_new_endpoint);
-        assert_eq!(&token, "");
-        let (use_new_endpoint, other_token) =
-            super::decide_where_to_post(&"production".to_string(), refreshing_tokens.clone());
-        assert!(use_new_endpoint);
-        assert_eq!(other_token, new_token.token);
     }
 }

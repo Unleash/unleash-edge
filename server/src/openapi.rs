@@ -1,6 +1,6 @@
 use utoipa::{
-    openapi::security::{ApiKey, ApiKeyValue, SecurityScheme},
-    Modify, OpenApi,
+    Modify,
+    OpenApi, openapi::security::{ApiKey, ApiKeyValue, SecurityScheme},
 };
 
 #[derive(OpenApi)]
@@ -28,7 +28,6 @@ use utoipa::{
         crate::client_api::metrics,
         crate::client_api::get_feature,
         crate::edge_api::validate,
-        crate::edge_api::metrics
     ),
     components(schemas(
         unleash_types::frontend::FrontendResult,

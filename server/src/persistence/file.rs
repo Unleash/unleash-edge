@@ -1,16 +1,14 @@
-use async_trait::async_trait;
 use std::collections::HashMap;
 use std::path::Path;
 use std::{path::PathBuf, str::FromStr};
+
+use async_trait::async_trait;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
 use unleash_types::client_features::ClientFeatures;
 
 use crate::types::EdgeToken;
-use crate::{
-    error::EdgeError,
-    types::{EdgeResult, TokenRefresh},
-};
+use crate::{error::EdgeError, types::EdgeResult};
 
 use super::EdgePersistence;
 
@@ -144,59 +142,17 @@ impl EdgePersistence for FilePersister {
         .map_err(|_| EdgeError::PersistenceError("Could not serialize tokens to disc".to_string()))
         .map(|_| ())
     }
-
-    async fn load_refresh_targets(&self) -> EdgeResult<Vec<TokenRefresh>> {
-        let mut file = tokio::fs::File::open(self.refresh_target_path())
-            .await
-            .map_err(|_| {
-                EdgeError::PersistenceError(
-                    "Cannot load tokens from backup, opening backup file failed".to_string(),
-                )
-            })?;
-
-        let mut contents = vec![];
-
-        file.read_to_end(&mut contents).await.map_err(|_| {
-            EdgeError::PersistenceError(
-                "Cannot load tokens from backup, reading backup file failed".to_string(),
-            )
-        })?;
-        serde_json::from_slice(&contents).map_err(|_| {
-            EdgeError::PersistenceError(
-                "Cannot load tokens from backup, parsing backup file failed".to_string(),
-            )
-        })
-    }
-    async fn save_refresh_targets(&self, refresh_targets: Vec<TokenRefresh>) -> EdgeResult<()> {
-        let mut file = tokio::fs::File::create(self.refresh_target_path())
-            .await
-            .map_err(|_| {
-                EdgeError::PersistenceError(
-                    "Cannot write tokens to backup. Opening backup file for writing failed"
-                        .to_string(),
-                )
-            })?;
-
-        file.write_all(&serde_json::to_vec(&refresh_targets).map_err(|_| {
-            EdgeError::PersistenceError("Failed to serialize refresh tokens".to_string())
-        })?)
-        .await
-        .map_err(|_| EdgeError::PersistenceError("Could not serialize tokens to disc".to_string()))
-        .map(|_| ())
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use std::env::temp_dir;
 
-    use actix_web::http::header::EntityTag;
-    use chrono::Utc;
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
     use crate::persistence::file::FilePersister;
     use crate::persistence::EdgePersistence;
-    use crate::types::{EdgeToken, TokenRefresh, TokenType, TokenValidationStatus};
+    use crate::types::{EdgeToken, TokenType, TokenValidationStatus};
 
     #[tokio::test]
     async fn file_persister_can_save_and_load_features() {
@@ -238,49 +194,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn file_persister_can_save_and_load_refresh_targets() {
-        let persister = FilePersister::try_from(temp_dir().to_str().unwrap()).unwrap();
-        let tokens = vec![
-            TokenRefresh {
-                token: EdgeToken {
-                    token: "default:development:ajsdkajnsdlsan".into(),
-                    token_type: Some(TokenType::Client),
-                    environment: Some("development".into()),
-                    projects: vec!["default".into()],
-                    status: TokenValidationStatus::Validated,
-                },
-                etag: Some(EntityTag::new_weak("1234".into())),
-                next_refresh: None,
-                last_refreshed: Some(Utc::now()),
-                last_check: Some(Utc::now()),
-                failure_count: 0,
-                use_client_bulk_endpoint: false,
-            },
-            TokenRefresh {
-                token: EdgeToken {
-                    token: "otherthing:otherthing:aljjsdnasd".into(),
-                    ..EdgeToken::default()
-                },
-                etag: None,
-                next_refresh: None,
-                last_refreshed: None,
-                last_check: None,
-                failure_count: 0,
-                use_client_bulk_endpoint: false,
-            },
-        ];
-
-        persister
-            .save_refresh_targets(tokens.clone())
-            .await
-            .unwrap();
-
-        let reloaded = persister.load_refresh_targets().await.unwrap();
-
-        assert_eq!(reloaded, tokens);
-    }
-
-    #[tokio::test]
     async fn file_persister_can_save_and_load_tokens() {
         let persister = FilePersister::try_from(temp_dir().to_str().unwrap()).unwrap();
         let tokens = vec![
@@ -302,29 +215,5 @@ mod tests {
         let reloaded = persister.load_tokens().await.unwrap();
 
         assert_eq!(reloaded, tokens);
-    }
-
-    #[test]
-    fn can_read_token_refresh_without_use_client_bulk_field() {
-        let json = r#"{
-            "token": {
-                "token": "default:development:ajsdkajnsdlsan",
-                "token_type": "client",
-                "environment": "development",
-                "projects": [
-                    "default"
-                ],
-                "status": "Validated"
-            },
-            "etag": "W/\"1234\"",
-            "next_refresh": null,
-            "last_refreshed": "2021-03-09T13:00:00Z",
-            "last_check": "2021-03-09T13:00:00Z",
-            "failure_count": 0
-        }"#;
-
-        let token_refresh: TokenRefresh = serde_json::from_str(json).unwrap();
-
-        assert!(!token_refresh.use_client_bulk_endpoint);
     }
 }
