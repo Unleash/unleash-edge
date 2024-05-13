@@ -27,6 +27,9 @@ cp hooks/* .git/hooks/
  - `cargo test` - Run the tests
  - `cargo build` - Build a debug build. The executable will be available in ./target/debug/unleash-edge once successful
  - `cargo build --release` - Build a release build. The executable will be available in ./target/release/unleash-edge once successful. - If you want to run loadtesting, you should really build in release mode. 10-20x faster than the debug build
+ - `cargo run -- edge --markdown-help -u http://localhost:4242 > CLI.md` - Update the CLI.md file.
+ - `cargo run edge -h` - Start here to run edge mode locally.
+ - `cargo run offline -h` - Start here to run offline mode locally.
 
 ### Testing
 
