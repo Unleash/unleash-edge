@@ -5,7 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 19.1.1 (2024-05-13)
+
+### Chore
+
+ - <csr-id-e3d0f03006a9ece743940af60796b574f772b1d3/> Prepare for release
+
+### Documentation
+
+ - <csr-id-6f6083c417ecbbb398d9705e19f30920cadd3fce/> added note about making sure you're on the latest version of Edge and/or SDKs
+
+### New Features
+
+ - <csr-id-06f25443de217d138ee3fa2b34cbc0cdef5a967d/> don't log redis password
+   This removes passwords from the logs
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 3 commits contributed to the release.
+ - 5 days passed between releases.
+ - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 2 unique issues were worked on: [#413](https://github.com/Unleash/unleash-edge/issues/413), [#461](https://github.com/Unleash/unleash-edge/issues/461)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#413](https://github.com/Unleash/unleash-edge/issues/413)**
+    - Added note about making sure you're on the latest version of Edge and/or SDKs ([`6f6083c`](https://github.com/Unleash/unleash-edge/commit/6f6083c417ecbbb398d9705e19f30920cadd3fce))
+ * **[#461](https://github.com/Unleash/unleash-edge/issues/461)**
+    - Don't log redis password ([`06f2544`](https://github.com/Unleash/unleash-edge/commit/06f25443de217d138ee3fa2b34cbc0cdef5a967d))
+ * **Uncategorized**
+    - Prepare for release ([`e3d0f03`](https://github.com/Unleash/unleash-edge/commit/e3d0f03006a9ece743940af60796b574f772b1d3))
+</details>
+
 ## 19.1.0 (2024-05-07)
+
+<csr-id-f567cced381b2a8630a20684f24667f587130d78/>
 
 ### Chore
 
@@ -20,7 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 4 commits contributed to the release.
+ - 5 commits contributed to the release.
  - 11 days passed between releases.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 4 unique issues were worked on: [#452](https://github.com/Unleash/unleash-edge/issues/452), [#453](https://github.com/Unleash/unleash-edge/issues/453), [#456](https://github.com/Unleash/unleash-edge/issues/456), [#457](https://github.com/Unleash/unleash-edge/issues/457)
@@ -39,6 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Edge will now give a warning when failing to load from cache on startup ([`f567cce`](https://github.com/Unleash/unleash-edge/commit/f567cced381b2a8630a20684f24667f587130d78))
  * **[#457](https://github.com/Unleash/unleash-edge/issues/457)**
     - Remove feature refresher ([`dc5e88d`](https://github.com/Unleash/unleash-edge/commit/dc5e88d9e703b5f07c84f22985909d2e1ab9781e))
+ * **Uncategorized**
+    - Release unleash-edge v19.1.0 ([`e4eb23c`](https://github.com/Unleash/unleash-edge/commit/e4eb23c5a9ae17116a50bf8f257642fb6ca01eb4))
 </details>
 
 ## 19.0.0 (2024-04-25)
@@ -143,9 +185,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **Uncategorized**
     - Release unleash-edge v18.0.1 ([`aeadf8b`](https://github.com/Unleash/unleash-edge/commit/aeadf8bfb5424dd146f3a41f99c99a9aba5b92e0))
 </details>
-
-<csr-unknown>
-GET /api/{frontend,proxy}(/all)?POST /api/{frontend,proxy) (POST all features function takes an IncomingContext as a parameter, so I’m assuming the serialization here works; can of course add tests for that too)That providing a string as the value of properties yields a 400<csr-unknown/>
 
 ## 18.0.0 (2024-02-29)
 
