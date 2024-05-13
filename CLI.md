@@ -48,7 +48,7 @@ This document contains the help content for the `unleash-edge` command-line prog
   Default value: `3043`
 * `--instance-id <INSTANCE_ID>` — Instance id. Used for metrics reporting
 
-  Default value: `01HM6PSP4E643VY4D0F3XMAHBX`
+  Default value: `01HX9QXY3MNKKAMP7XRS6RG2Q4`
 * `-a`, `--app-name <APP_NAME>` — App name. Used for metrics reporting
 
   Default value: `unleash-edge`
@@ -114,7 +114,6 @@ Run in edge mode
 * `--pkcs12-identity-file <PKCS12_IDENTITY_FILE>` — Identity file in pkcs12 format. Typically this file has a pfx extension
 * `--pkcs12-passphrase <PKCS12_PASSPHRASE>` — Passphrase used to unlock the pkcs12 file
 * `--upstream-certificate-file <UPSTREAM_CERTIFICATE_FILE>` — Extra certificate passed to the client for building its trust chain. Needs to be in PEM format (crt or pem extensions usually are)
-* `--service-account-token <SERVICE_ACCOUNT_TOKEN>` — Service account token. Used to create client tokens if receiving a frontend token we don't have data for
 * `--upstream-request-timeout <UPSTREAM_REQUEST_TIMEOUT>` — Timeout for requests to the upstream server
 
   Default value: `5`
@@ -122,6 +121,12 @@ Run in edge mode
 
   Default value: `5`
 * `--redis-url <REDIS_URL>`
+* `--redis-mode <REDIS_MODE>`
+
+  Default value: `single`
+
+  Possible values: `single`, `cluster`
+
 * `--redis-password <REDIS_PASSWORD>`
 * `--redis-username <REDIS_USERNAME>`
 * `--redis-port <REDIS_PORT>`

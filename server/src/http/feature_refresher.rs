@@ -258,7 +258,7 @@ impl FeatureRefresher {
     /// Registers a token for refresh, the token will be discarded if it can be subsumed by another previously registered token
     pub async fn register_token_for_refresh(&self, token: EdgeToken, etag: Option<EntityTag>) {
         if !self.tokens_to_refresh.contains_key(&token.token) {
-            let _ = self
+            self
                 .unleash_client
                 .register_as_client(
                     token.token.clone(),
