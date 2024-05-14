@@ -6,7 +6,6 @@ use serde::Serialize;
 use serde_json::json;
 use tracing::debug;
 
-use crate::internal_backstage::EdgeStatus;
 use crate::types::{EdgeToken, Status, UnleashBadRequest};
 
 pub const TRUST_PROXY_PARSE_ERROR: &str =
