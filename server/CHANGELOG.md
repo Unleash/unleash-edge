@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 19.1.2 (2024-05-14)
+
+### Bug Fixes
+
+ - <csr-id-80d6798eb840ed0b7771f2e43a8bc151b7dbbfee/> Ready endpoint should return 503 if Edge is Not ready
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 1 commit contributed to the release.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 1 unique issue was worked on: [#462](https://github.com/Unleash/unleash-edge/issues/462)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#462](https://github.com/Unleash/unleash-edge/issues/462)**
+    - Ready endpoint should return 503 if Edge is Not ready ([`80d6798`](https://github.com/Unleash/unleash-edge/commit/80d6798eb840ed0b7771f2e43a8bc151b7dbbfee))
+</details>
+
 ## 19.1.1 (2024-05-13)
 
 <csr-id-e3d0f03006a9ece743940af60796b574f772b1d3/>
@@ -26,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 4 commits contributed to the release.
+ - 5 commits contributed to the release.
  - 5 days passed between releases.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#413](https://github.com/Unleash/unleash-edge/issues/413), [#461](https://github.com/Unleash/unleash-edge/issues/461)
@@ -42,6 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#461](https://github.com/Unleash/unleash-edge/issues/461)**
     - Don't log redis password ([`06f2544`](https://github.com/Unleash/unleash-edge/commit/06f25443de217d138ee3fa2b34cbc0cdef5a967d))
  * **Uncategorized**
+    - Release unleash-edge v19.1.1 ([`ee92711`](https://github.com/Unleash/unleash-edge/commit/ee927114f76f8d273fb42d00c5bf5447ce95b5f5))
     - Release unleash-edge v19.1.1 ([`6ec6f33`](https://github.com/Unleash/unleash-edge/commit/6ec6f33c907290d7903d2bab9d8174abc64f7460))
     - Prepare for release ([`e3d0f03`](https://github.com/Unleash/unleash-edge/commit/e3d0f03006a9ece743940af60796b574f772b1d3))
 </details>
