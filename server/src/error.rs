@@ -6,7 +6,8 @@ use serde::Serialize;
 use serde_json::json;
 use tracing::debug;
 
-use crate::types::{EdgeToken, UnleashBadRequest};
+use crate::internal_backstage::EdgeStatus;
+use crate::types::{EdgeToken, Status, UnleashBadRequest};
 
 pub const TRUST_PROXY_PARSE_ERROR: &str =
     "needs to be a valid ip address (ipv4 or ipv6) or a valid cidr (ipv4 or ipv6)";
@@ -109,6 +110,7 @@ pub enum EdgeError {
     JsonParseError(String),
     NoFeaturesFile,
     NoTokenProvider,
+    NotReady,
     ReadyCheckError(String),
     TlsError,
     TokenParseError(String),
@@ -200,6 +202,9 @@ impl Display for EdgeError {
             EdgeError::FrontendExpectedToBeHydrated(message) => {
                 write!(f, "{}", message)
             }
+            EdgeError::NotReady => {
+                write!(f, "Edge is not ready to serve requests")
+            }
         }
     }
 }
@@ -235,6 +240,7 @@ impl ResponseError for EdgeError {
             EdgeError::ClientHydrationFailed(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::ClientCacheError => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::FrontendExpectedToBeHydrated(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            EdgeError::NotReady => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
 
@@ -257,6 +263,12 @@ impl ResponseError for EdgeError {
                 HttpResponseBuilder::new(self.status_code()).json(json!({
                     "explanation": format!("Received a non 200 status code when trying to validate token upstream"),
                     "status_code": status_code.as_str()
+                }))
+            }
+            EdgeError::NotReady => {
+                HttpResponseBuilder::new(self.status_code()).json(json!({
+                    "error": "Edge is not ready to serve requests",
+                    "status": Status::NotReady
                 }))
             }
             _ => HttpResponseBuilder::new(self.status_code()).json(json!({
