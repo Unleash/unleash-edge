@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::auth::token_validator::TokenValidator;
+use crate::error::EdgeError;
 use crate::http::feature_refresher::FeatureRefresher;
 use crate::metrics::actix_web_metrics::PrometheusMetricsHandler;
 use crate::metrics::client_metrics::MetricsCache;
@@ -54,7 +55,7 @@ pub async fn ready(
     features_cache: web::Data<DashMap<String, ClientFeatures>>,
 ) -> EdgeJsonResult<EdgeStatus> {
     if features_cache.is_empty() {
-        Ok(Json(EdgeStatus::not_ready()))
+        Err(EdgeError::NotReady)
     } else {
         Ok(Json(EdgeStatus::ready()))
     }
@@ -199,7 +200,7 @@ mod tests {
             .insert_header(ContentType::json())
             .to_request();
         let resp = test::call_service(&app, req).await;
-        assert!(resp.status().is_success());
+        assert!(resp.status().is_server_error());
         let status: EdgeStatus = test::read_body_json(resp).await;
         assert_eq!(status.status, Status::NotReady);
     }
