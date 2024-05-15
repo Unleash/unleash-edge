@@ -200,6 +200,12 @@ pub struct OfflineArgs {
     /// Tokens that should be allowed to connect to Edge. Supports a comma separated list or multiple instances of the `--tokens` argument
     #[clap(short, long, env, value_delimiter = ',')]
     pub tokens: Vec<String>,
+    /// Client tokens that should be allowed to connect to Edge. Supports a comma separated list or multiple instances of the `--client-tokens` argument
+    #[clap(short, long, env, value_delimiter = ',')]
+    pub client_tokens: Vec<String>,
+    /// Frontend tokens that should be allowed to connect to Edge. Supports a comma separated list or multiple instances of the `--frontend-tokens` argument
+    #[clap(short, long, env, value_delimiter = ',')]
+    pub frontend_tokens: Vec<String>,
     /// The interval in seconds between reloading the bootstrap file. Disabled if unset or 0
     #[clap(short, long, env, default_value_t = 0)]
     pub reload_interval: u64,

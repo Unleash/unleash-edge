@@ -6,11 +6,12 @@ use std::sync::Arc;
 use chrono::Duration;
 use dashmap::DashMap;
 use reqwest::Url;
+use rustls::client;
 use tracing::{debug, warn};
 use unleash_types::client_features::ClientFeatures;
 use unleash_yggdrasil::EngineState;
 
-use crate::cli::RedisMode;
+use crate::cli::{self, RedisMode};
 use crate::offline::offline_hotload::{load_bootstrap, load_offline_engine_cache};
 use crate::persistence::file::FilePersister;
 use crate::persistence::redis::RedisPersister;
@@ -46,10 +47,7 @@ fn build_caches() -> CacheContainer {
     )
 }
 
-async fn hydrate_from_persistent_storage(
-    cache: CacheContainer,
-    storage: Arc<dyn EdgePersistence>,
-) {
+async fn hydrate_from_persistent_storage(cache: CacheContainer, storage: Arc<dyn EdgePersistence>) {
     let (token_cache, features_cache, engine_cache) = cache;
     let tokens = storage.load_tokens().await.unwrap_or_else(|error| {
         warn!("Failed to load tokens from cache {error:?}");
@@ -80,14 +78,36 @@ async fn hydrate_from_persistent_storage(
 pub(crate) fn build_offline_mode(
     client_features: ClientFeatures,
     tokens: Vec<String>,
+    client_tokens: Vec<String>,
+    frontend_tokens: Vec<String>,
 ) -> EdgeResult<CacheContainer> {
     let (token_cache, features_cache, engine_cache) = build_caches();
 
     let edge_tokens: Vec<EdgeToken> = tokens
         .iter()
         .map(|token| EdgeToken::from_str(token).unwrap_or_else(|_| EdgeToken::offline_token(token)))
+        .map(|mut token| {
+            token.token_type = Some(TokenType::Client);
+            token
+        })
         .collect();
 
+    let edge_client_tokens: Vec<EdgeToken> = client_tokens
+        .iter()
+        .map(|token| EdgeToken::from_str(token).unwrap_or_else(|_| EdgeToken::offline_token(token)))
+        .map(|mut token| {
+            token.token_type = Some(TokenType::Client);
+            token
+        })
+        .collect();
+    let edge_frontend_tokens: Vec<EdgeToken> = frontend_tokens
+        .iter()
+        .map(|token| EdgeToken::from_str(token).unwrap_or_else(|_| EdgeToken::offline_token(token)))
+        .map(|mut token| {
+            token.token_type = Some(TokenType::Frontend);
+            token
+        })
+        .collect();
     for edge_token in edge_tokens {
         token_cache.insert(edge_token.token.clone(), edge_token.clone());
 
@@ -97,6 +117,24 @@ pub(crate) fn build_offline_mode(
             engine_cache.clone(),
             client_features.clone(),
         );
+    }
+    for client_token in edge_client_tokens {
+        token_cache.insert(client_token.token.clone(), client_token.clone());
+        load_offline_engine_cache(
+            &client_token,
+            features_cache.clone(),
+            engine_cache.clone(),
+            client_features.clone(),
+        );
+    }
+    for frontend_token in edge_frontend_tokens {
+        token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
+        load_offline_engine_cache(
+            &frontend_token,
+            features_cache.clone(),
+            engine_cache.clone(),
+            client_features.clone(),
+        )
     }
     Ok((token_cache, features_cache, engine_cache))
 }
@@ -114,7 +152,12 @@ fn build_offline(offline_args: OfflineArgs) -> EdgeResult<CacheContainer> {
 
         let client_features = load_bootstrap(&bootstrap)?;
 
-        build_offline_mode(client_features, offline_args.tokens)
+        build_offline_mode(
+            client_features,
+            offline_args.tokens,
+            offline_args.client_tokens,
+            offline_args.frontend_tokens,
+        )
     } else {
         Err(EdgeError::NoFeaturesFile)
     }
