@@ -42,7 +42,7 @@ itertools = "0.12.1"
 lazy_static = "1.4.0"
 num_cpus = "1.16.0"
 opentelemetry = { version = "0.21.0", features = ["trace", "metrics"] }
-opentelemetry-prometheus = "0.14.1"
+opentelemetry-prometheus = "0.16.0"
 opentelemetry-semantic-conventions = "0.13.0"
 opentelemetry_sdk = { version = "0.21.2", features = [
     "metrics",
