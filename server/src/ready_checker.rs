@@ -1,9 +1,10 @@
+use reqwest::{ClientBuilder, Url};
+
 use crate::cli::ReadyCheckArgs;
 use crate::error::EdgeError;
 use crate::internal_backstage::EdgeStatus;
 use crate::tls::build_upstream_certificate;
 use crate::types::Status;
-use reqwest::{ClientBuilder, Url};
 
 fn build_ready_url(url: &Url) -> Url {
     let mut with_path = url.clone();
@@ -61,17 +62,21 @@ pub async fn check_ready(ready_check_args: ReadyCheckArgs) -> Result<(), EdgeErr
 
 #[cfg(test)]
 mod tests {
-    use crate::cli::ReadyCheckArgs;
-    use crate::internal_backstage::ready;
-    use crate::ready_checker::check_ready;
+    use std::str::FromStr;
+    use std::sync::Arc;
+
     use actix_http::HttpService;
     use actix_http_test::test_server;
     use actix_service::map_config;
+    use actix_web::{App, HttpResponse, web};
     use actix_web::dev::AppConfig;
-    use actix_web::{web, App, HttpResponse};
     use dashmap::DashMap;
-    use std::sync::Arc;
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
+
+    use crate::cli::ReadyCheckArgs;
+    use crate::internal_backstage::ready;
+    use crate::ready_checker::check_ready;
+    use crate::types::EdgeToken;
 
     #[tokio::test]
     pub async fn runs_ready_check() {
@@ -90,10 +95,16 @@ mod tests {
             features.clone(),
         );
         let client_features_arc = Arc::new(client_features);
+        let token_cache: DashMap<String, EdgeToken> = DashMap::default();
+        let token = EdgeToken::from_str("[]:fancyenvironment.somerandomsecretstring").unwrap();
+        token_cache.insert(token.token.clone(), token);
+        let token_cache_arc = Arc::new(token_cache);
+
         let srv = test_server(move || {
             HttpService::new(map_config(
                 App::new()
                     .app_data(web::Data::from(client_features_arc.clone()))
+                    .app_data(web::Data::from(token_cache_arc.clone()))
                     .service(web::scope("/internal-backstage").service(ready)),
                 |_| AppConfig::default(),
             ))
