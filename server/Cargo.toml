@@ -44,7 +44,7 @@ num_cpus = "1.16.0"
 opentelemetry = { version = "0.21.0", features = ["trace", "metrics"] }
 opentelemetry-prometheus = "0.14.1"
 opentelemetry-semantic-conventions = "0.13.0"
-opentelemetry_sdk = { version = "0.21.2", features = [
+opentelemetry_sdk = { version = "0.23.0", features = [
     "metrics",
     "serde",
     "serde_json",
