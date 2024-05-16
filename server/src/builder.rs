@@ -6,12 +6,11 @@ use std::sync::Arc;
 use chrono::Duration;
 use dashmap::DashMap;
 use reqwest::Url;
-use rustls::client;
 use tracing::{debug, warn};
 use unleash_types::client_features::ClientFeatures;
 use unleash_yggdrasil::EngineState;
 
-use crate::cli::{self, RedisMode};
+use crate::cli::{RedisMode};
 use crate::offline::offline_hotload::{load_bootstrap, load_offline_engine_cache};
 use crate::persistence::file::FilePersister;
 use crate::persistence::redis::RedisPersister;
