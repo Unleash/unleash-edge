@@ -115,7 +115,6 @@ pub enum EdgeError {
     TokenParseError(String),
     ContextParseError,
     TokenValidationError(StatusCode),
-    InvalidEdgeMode,
 }
 
 impl Error for EdgeError {}
@@ -205,9 +204,6 @@ impl Display for EdgeError {
             EdgeError::NotReady => {
                 write!(f, "Edge is not ready to serve requests")
             }
-            EdgeError::InvalidEdgeMode => {
-                write!(f, "Invalid edge mode")
-            }
         }
     }
 }
@@ -244,7 +240,6 @@ impl ResponseError for EdgeError {
             EdgeError::ClientCacheError => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::FrontendExpectedToBeHydrated(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::NotReady => StatusCode::SERVICE_UNAVAILABLE,
-            EdgeError::InvalidEdgeMode => StatusCode::BAD_REQUEST,
         }
     }
 
