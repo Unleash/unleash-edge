@@ -70,29 +70,25 @@ fn merge_segments_update(
         (None, None) => None,
     }
 }
-fn update_projects_from_feature_update(
+pub(crate) fn update_projects_from_feature_update(
     token: &EdgeToken,
     original: &[ClientFeature],
     updated: &[ClientFeature],
 ) -> Vec<ClientFeature> {
-    if updated.is_empty() {
-        vec![]
+    let projects_to_update = &token.projects;
+    if projects_to_update.contains(&"*".into()) {
+        updated.into()
     } else {
-        let projects_to_update = &token.projects;
-        if projects_to_update.contains(&"*".into()) {
-            updated.into()
-        } else {
-            let mut to_keep: Vec<ClientFeature> = original
-                .iter()
-                .filter(|toggle| {
-                    let p = toggle.project.clone().unwrap_or_else(|| "default".into());
-                    !projects_to_update.contains(&p)
-                })
-                .cloned()
-                .collect();
-            to_keep.extend(updated.iter().cloned());
-            to_keep
-        }
+        let mut to_keep: Vec<ClientFeature> = original
+            .iter()
+            .filter(|toggle| {
+                let p = toggle.project.clone().unwrap_or_else(|| "default".into());
+                !projects_to_update.contains(&p)
+            })
+            .cloned()
+            .collect();
+        to_keep.extend(updated.iter().cloned());
+        to_keep
     }
 }
 
@@ -258,8 +254,7 @@ impl FeatureRefresher {
     /// Registers a token for refresh, the token will be discarded if it can be subsumed by another previously registered token
     pub async fn register_token_for_refresh(&self, token: EdgeToken, etag: Option<EntityTag>) {
         if !self.tokens_to_refresh.contains_key(&token.token) {
-            self
-                .unleash_client
+            self.unleash_client
                 .register_as_client(
                     token.token.clone(),
                     client_application_from_token(
@@ -324,7 +319,7 @@ impl FeatureRefresher {
                 ClientFeaturesResponse::Updated(features, etag) => {
                     debug!("Got updated client features. Updating features with {etag:?}");
                     let key = cache_key(&refresh.token);
-                    self.update_last_refresh(&refresh.token, etag);
+                    self.update_last_refresh(&refresh.token, etag, features.features.len());
                     self.features_cache
                         .entry(key.clone())
                         .and_modify(|existing_data| {
@@ -416,10 +411,15 @@ impl FeatureRefresher {
             });
     }
 
-    pub fn update_last_refresh(&self, token: &EdgeToken, etag: Option<EntityTag>) {
+    pub fn update_last_refresh(
+        &self,
+        token: &EdgeToken,
+        etag: Option<EntityTag>,
+        feature_count: usize,
+    ) {
         self.tokens_to_refresh
             .alter(&token.token, |_k, old_refresh| {
-                old_refresh.successful_refresh(&self.refresh_interval, etag)
+                old_refresh.successful_refresh(&self.refresh_interval, etag, feature_count)
             });
     }
 }
@@ -790,6 +790,7 @@ mod tests {
             last_refreshed: None,
             last_check: None,
             failure_count: 0,
+            last_feature_count: 0,
         };
         let etag_and_last_refreshed_token =
             EdgeToken::try_from("projectb:development.etag_and_last_refreshed_token".to_string())
@@ -801,6 +802,7 @@ mod tests {
             last_refreshed: Some(Utc::now()),
             last_check: Some(Utc::now()),
             failure_count: 0,
+            last_feature_count: 0,
         };
         let etag_but_old_token =
             EdgeToken::try_from("projectb:development.etag_but_old_token".to_string()).unwrap();
@@ -813,6 +815,7 @@ mod tests {
             last_refreshed: Some(ten_seconds_ago),
             last_check: Some(ten_seconds_ago),
             failure_count: 0,
+            last_feature_count: 0,
         };
         feature_refresher.tokens_to_refresh.insert(
             etag_but_last_refreshed_ten_seconds_ago.token.token.clone(),
@@ -1199,6 +1202,7 @@ mod tests {
             last_refreshed: None,
             last_check: None,
             failure_count: 0,
+            last_feature_count: 0,
         };
 
         current_tokens.insert(wildcard_token.token, token_refresh);
@@ -1419,5 +1423,104 @@ mod tests {
         let updated = super::update_projects_from_feature_update(&edge_token, &features, &update);
         assert_eq!(updated.len(), 1);
         assert!(updated.iter().all(|f| f.project == Some("default".into())))
+    }
+
+    #[test]
+    pub fn token_with_access_to_different_project_than_exists_in_cache_should_never_delete_features_from_other_projects(
+    ) {
+        // Added after customer issue in May '24 when tokens unrelated to projects in cache with no actual features connected to them removed existing features in cache for unrelated projects
+        let features = vec![
+            ClientFeature {
+                name: "my.first.toggle.in.default".to_string(),
+                feature_type: Some("release".into()),
+                description: None,
+                created_at: None,
+                last_seen_at: None,
+                enabled: true,
+                stale: None,
+                impression_data: None,
+                project: Some("testproject".into()),
+                strategies: None,
+                variants: None,
+                dependencies: None,
+            },
+            ClientFeature {
+                name: "my.second.toggle.in.testproject".to_string(),
+                feature_type: Some("release".into()),
+                description: None,
+                created_at: None,
+                last_seen_at: None,
+                enabled: false,
+                stale: None,
+                impression_data: None,
+                project: Some("testproject".into()),
+                strategies: None,
+                variants: None,
+                dependencies: None,
+            },
+        ];
+        let empty_features = vec![];
+        let unrelated_token_to_existing_features = EdgeToken {
+            token: "someotherproject:dev.myextralongsecretstringwithfeatures".to_string(),
+            token_type: Some(TokenType::Client),
+            environment: Some("dev".into()),
+            projects: vec![String::from("someother")],
+            status: TokenValidationStatus::Validated,
+        };
+        let updated = super::update_projects_from_feature_update(
+            &unrelated_token_to_existing_features,
+            &features,
+            &empty_features,
+        );
+        assert_eq!(updated.len(), 2);
+    }
+    #[test]
+    pub fn token_with_access_to_both_a_different_project_than_exists_in_cache_and_the_cached_project_should_delete_features_from_both_projects(
+    ) {
+        // Added after customer issue in May '24 when tokens unrelated to projects in cache with no actual features connected to them removed existing features in cache for unrelated projects
+        let features = vec![
+            ClientFeature {
+                name: "my.first.toggle.in.default".to_string(),
+                feature_type: Some("release".into()),
+                description: None,
+                created_at: None,
+                last_seen_at: None,
+                enabled: true,
+                stale: None,
+                impression_data: None,
+                project: Some("testproject".into()),
+                strategies: None,
+                variants: None,
+                dependencies: None,
+            },
+            ClientFeature {
+                name: "my.second.toggle.in.testproject".to_string(),
+                feature_type: Some("release".into()),
+                description: None,
+                created_at: None,
+                last_seen_at: None,
+                enabled: false,
+                stale: None,
+                impression_data: None,
+                project: Some("testproject".into()),
+                strategies: None,
+                variants: None,
+                dependencies: None,
+            },
+        ];
+        let empty_features = vec![];
+        let token_with_access_to_both_empty_and_full_project = EdgeToken {
+            token: "[]:dev.myextralongsecretstringwithfeatures".to_string(),
+            token_type: Some(TokenType::Client),
+            environment: Some("dev".into()),
+            projects: vec![String::from("testproject"), String::from("someother")],
+            status: TokenValidationStatus::Validated,
+        };
+        let updated = super::update_projects_from_feature_update(
+            &token_with_access_to_both_empty_and_full_project,
+            &features,
+            &empty_features,
+        );
+        assert_eq!(updated.len(), 0);
     }
 }

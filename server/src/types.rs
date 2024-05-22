@@ -1,13 +1,13 @@
-use std::{
-    collections::HashMap,
-    hash::{Hash, Hasher},
-    str::FromStr,
-};
 use std::cmp::min;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::net::IpAddr;
 use std::sync::Arc;
+use std::{
+    collections::HashMap,
+    hash::{Hash, Hasher},
+    str::FromStr,
+};
 
 use actix_web::{http::header::EntityTag, web::Json};
 use async_trait::async_trait;
@@ -247,6 +247,7 @@ pub struct TokenRefresh {
     pub etag: Option<EntityTag>,
     pub next_refresh: Option<DateTime<Utc>>,
     pub last_refreshed: Option<DateTime<Utc>>,
+    pub last_feature_count: usize,
     pub last_check: Option<DateTime<Utc>>,
     pub failure_count: u32,
 }
@@ -275,6 +276,7 @@ impl TokenRefresh {
             last_check: None,
             next_refresh: None,
             failure_count: 0,
+            last_feature_count: 0,
         }
     }
 
@@ -307,7 +309,12 @@ impl TokenRefresh {
         }
     }
     /// We successfully talked to upstream. There were updates. Update next_refresh, last_refreshed and last_check, and decrement our failure count
-    pub fn successful_refresh(&self, refresh_interval: &Duration, etag: Option<EntityTag>) -> Self {
+    pub fn successful_refresh(
+        &self,
+        refresh_interval: &Duration,
+        etag: Option<EntityTag>,
+        feature_count: usize,
+    ) -> Self {
         let failure_count = if self.failure_count > 0 {
             self.failure_count - 1
         } else {
@@ -320,6 +327,7 @@ impl TokenRefresh {
             next_refresh: Some(next_refresh),
             last_refreshed: Some(now),
             last_check: Some(now),
+            last_feature_count: feature_count,
             etag,
             ..self.clone()
         }
@@ -468,6 +476,14 @@ pub struct TokenInfo {
     pub token_refreshes: Vec<TokenRefresh>,
     pub token_validation_status: Vec<EdgeToken>,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EdgeModeInfo {
+    pub upstream: String,
+}
+
+pub struct OfflineModeInfo {}
 
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 pub struct ClientMetric {
