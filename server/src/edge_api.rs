@@ -1,7 +1,7 @@
 use actix_web::{
-    HttpRequest,
     post,
     web::{self, Data, Json},
+    HttpRequest,
 };
 use dashmap::DashMap;
 use utoipa;
@@ -58,9 +58,9 @@ pub fn configure_edge_api(cfg: &mut web::ServiceConfig) {
 mod tests {
     use std::sync::Arc;
 
-    use actix_web::{App, test, web};
     use actix_web::http::header::ContentType;
     use actix_web::web::Json;
+    use actix_web::{test, web, App};
     use dashmap::DashMap;
 
     use crate::auth::token_validator::TokenValidator;

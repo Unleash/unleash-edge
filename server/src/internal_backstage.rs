@@ -68,6 +68,13 @@ pub async fn tokens(
     feature_refresher: web::Data<FeatureRefresher>,
     token_validator: web::Data<TokenValidator>,
 ) -> EdgeJsonResult<TokenInfo> {
+    Ok(Json(get_token_info(feature_refresher, token_validator)))
+}
+
+fn get_token_info(
+    feature_refresher: web::Data<FeatureRefresher>,
+    token_validator: web::Data<TokenValidator>,
+) -> TokenInfo {
     let refreshes: Vec<TokenRefresh> = feature_refresher
         .tokens_to_refresh
         .iter()
@@ -83,10 +90,10 @@ pub async fn tokens(
         .map(|e| e.value().clone())
         .map(|t| crate::tokens::anonymize_token(&t))
         .collect();
-    Ok(Json(TokenInfo {
+    TokenInfo {
         token_refreshes: refreshes,
         token_validation_status,
-    }))
+    }
 }
 
 #[get("/metricsbatch")]
@@ -139,10 +146,10 @@ mod tests {
     use std::str::FromStr;
     use std::sync::Arc;
 
-    use actix_web::{App, web};
     use actix_web::body::MessageBody;
     use actix_web::http::header::ContentType;
     use actix_web::test;
+    use actix_web::{web, App};
     use chrono::Duration;
     use dashmap::DashMap;
     use unleash_types::client_features::{ClientFeature, ClientFeatures};

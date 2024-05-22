@@ -7,25 +7,25 @@ use actix_web::http::header::EntityTag;
 use chrono::Duration;
 use chrono::Utc;
 use lazy_static::lazy_static;
-use prometheus::{HistogramVec, IntGaugeVec, Opts, register_histogram_vec, register_int_gauge_vec};
-use reqwest::{Client, header};
-use reqwest::{ClientBuilder, Identity, RequestBuilder, StatusCode, Url};
+use prometheus::{register_histogram_vec, register_int_gauge_vec, HistogramVec, IntGaugeVec, Opts};
 use reqwest::header::{HeaderMap, HeaderName};
+use reqwest::{header, Client};
+use reqwest::{ClientBuilder, Identity, RequestBuilder, StatusCode, Url};
 use serde::{Deserialize, Serialize};
 use tracing::{info, trace, warn};
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ClientApplication;
 
-use crate::{error::EdgeError, types::ClientFeaturesRequest};
 use crate::cli::ClientIdentity;
-use crate::error::{CertificateError, FeatureError};
 use crate::error::EdgeError::EdgeMetricsRequestError;
+use crate::error::{CertificateError, FeatureError};
 use crate::metrics::client_metrics::MetricsBatch;
 use crate::tls::build_upstream_certificate;
 use crate::types::{
     ClientFeaturesResponse, EdgeResult, EdgeToken, TokenValidationStatus, ValidateTokensRequest,
 };
 use crate::urls::UnleashUrls;
+use crate::{error::EdgeError, types::ClientFeaturesRequest};
 
 const UNLEASH_APPNAME_HEADER: &str = "UNLEASH-APPNAME";
 const UNLEASH_INSTANCE_ID_HEADER: &str = "UNLEASH-INSTANCEID";
@@ -497,13 +497,15 @@ mod tests {
     use actix_middleware_etag::Etag;
     use actix_service::map_config;
     use actix_web::{
-        App,
         dev::{AppConfig, ServiceRequest, ServiceResponse},
-        http::header::EntityTag, HttpResponse, web,
+        http::header::EntityTag,
+        web, App, HttpResponse,
     };
     use chrono::Duration;
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
+    use crate::cli::ClientIdentity;
+    use crate::http::unleash_client::new_reqwest_client;
     use crate::{
         cli::TlsOptions,
         middleware::as_async_middleware::as_async_middleware,
@@ -513,8 +515,6 @@ mod tests {
             ValidateTokensRequest,
         },
     };
-    use crate::cli::ClientIdentity;
-    use crate::http::unleash_client::new_reqwest_client;
 
     use super::{EdgeTokens, UnleashClient};
 

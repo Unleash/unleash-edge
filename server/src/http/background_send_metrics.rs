@@ -5,14 +5,14 @@ use actix_web::http::StatusCode;
 use chrono::Duration;
 use dashmap::DashMap;
 use lazy_static::lazy_static;
-use prometheus::{IntGauge, IntGaugeVec, Opts, register_int_gauge, register_int_gauge_vec};
+use prometheus::{register_int_gauge, register_int_gauge_vec, IntGauge, IntGaugeVec, Opts};
 use tracing::{error, info, trace, warn};
 
+use crate::types::TokenRefresh;
 use crate::{
     error::EdgeError,
-    metrics::client_metrics::{MetricsCache, size_of_batch},
+    metrics::client_metrics::{size_of_batch, MetricsCache},
 };
-use crate::types::TokenRefresh;
 
 use super::feature_refresher::FeatureRefresher;
 
