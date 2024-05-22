@@ -146,10 +146,10 @@ mod tests {
     use std::str::FromStr;
     use std::sync::Arc;
 
-    use actix_web::{App, web};
     use actix_web::body::MessageBody;
     use actix_web::http::header::ContentType;
     use actix_web::test;
+    use actix_web::{web, App};
     use chrono::Duration;
     use dashmap::DashMap;
     use unleash_types::client_features::{ClientFeature, ClientFeatures};

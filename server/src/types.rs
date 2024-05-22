@@ -1,13 +1,13 @@
-use std::cmp::min;
-use std::fmt;
-use std::fmt::{Debug, Display, Formatter};
-use std::net::IpAddr;
-use std::sync::Arc;
 use std::{
     collections::HashMap,
     hash::{Hash, Hasher},
     str::FromStr,
 };
+use std::cmp::min;
+use std::fmt;
+use std::fmt::{Debug, Display, Formatter};
+use std::net::IpAddr;
+use std::sync::Arc;
 
 use actix_web::{http::header::EntityTag, web::Json};
 use async_trait::async_trait;
@@ -247,7 +247,7 @@ pub struct TokenRefresh {
     pub etag: Option<EntityTag>,
     pub next_refresh: Option<DateTime<Utc>>,
     pub last_refreshed: Option<DateTime<Utc>>,
-    pub last_feature_count: usize,
+    pub last_feature_count: Option<usize>,
     pub last_check: Option<DateTime<Utc>>,
     pub failure_count: u32,
 }
@@ -276,7 +276,7 @@ impl TokenRefresh {
             last_check: None,
             next_refresh: None,
             failure_count: 0,
-            last_feature_count: 0,
+            last_feature_count: None,
         }
     }
 
@@ -327,7 +327,7 @@ impl TokenRefresh {
             next_refresh: Some(next_refresh),
             last_refreshed: Some(now),
             last_check: Some(now),
-            last_feature_count: feature_count,
+            last_feature_count: Some(feature_count),
             etag,
             ..self.clone()
         }

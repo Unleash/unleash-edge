@@ -1,27 +1,27 @@
-use std::{sync::Arc, time::Duration};
 use std::collections::HashSet;
+use std::{sync::Arc, time::Duration};
 
 use actix_web::http::header::EntityTag;
 use chrono::Utc;
 use dashmap::DashMap;
 use reqwest::StatusCode;
 use tracing::{debug, info, warn};
+use unleash_types::client_features::Segment;
+use unleash_types::client_metrics::ClientApplication;
 use unleash_types::{
     client_features::{ClientFeature, ClientFeatures},
     Deduplicate,
 };
-use unleash_types::client_features::Segment;
-use unleash_types::client_metrics::ClientApplication;
 use unleash_yggdrasil::EngineState;
 
+use crate::error::{EdgeError, FeatureError};
+use crate::filters::{filter_client_features, FeatureFilterSet};
+use crate::types::{build, EdgeResult, TokenType, TokenValidationStatus};
 use crate::{
     persistence::EdgePersistence,
     tokens::{cache_key, simplify},
     types::{ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenRefresh},
 };
-use crate::error::{EdgeError, FeatureError};
-use crate::filters::{FeatureFilterSet, filter_client_features};
-use crate::types::{build, EdgeResult, TokenType, TokenValidationStatus};
 
 use super::unleash_client::UnleashClient;
 
@@ -432,26 +432,26 @@ mod tests {
     use actix_http::HttpService;
     use actix_http_test::{test_server, TestServer};
     use actix_service::map_config;
-    use actix_web::{App, web};
     use actix_web::dev::AppConfig;
     use actix_web::http::header::EntityTag;
+    use actix_web::{web, App};
     use chrono::{Duration, Utc};
     use dashmap::DashMap;
     use reqwest::Url;
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
     use unleash_yggdrasil::EngineState;
 
+    use crate::filters::{project_filter, FeatureFilterSet};
+    use crate::tests::features_from_disk;
+    use crate::tokens::cache_key;
+    use crate::types::TokenValidationStatus::Validated;
+    use crate::types::{TokenType, TokenValidationStatus};
     use crate::{
         http::unleash_client::UnleashClient,
         types::{EdgeToken, TokenRefresh},
     };
-    use crate::filters::{FeatureFilterSet, project_filter};
-    use crate::tests::features_from_disk;
-    use crate::tokens::cache_key;
-    use crate::types::{TokenType, TokenValidationStatus};
-    use crate::types::TokenValidationStatus::Validated;
 
-    use super::{FeatureRefresher, frontend_token_is_covered_by_tokens};
+    use super::{frontend_token_is_covered_by_tokens, FeatureRefresher};
 
     impl PartialEq for TokenRefresh {
         fn eq(&self, other: &Self) -> bool {
@@ -790,7 +790,7 @@ mod tests {
             last_refreshed: None,
             last_check: None,
             failure_count: 0,
-            last_feature_count: 0,
+            last_feature_count: None,
         };
         let etag_and_last_refreshed_token =
             EdgeToken::try_from("projectb:development.etag_and_last_refreshed_token".to_string())
@@ -802,7 +802,7 @@ mod tests {
             last_refreshed: Some(Utc::now()),
             last_check: Some(Utc::now()),
             failure_count: 0,
-            last_feature_count: 0,
+            last_feature_count: None,
         };
         let etag_but_old_token =
             EdgeToken::try_from("projectb:development.etag_but_old_token".to_string()).unwrap();
@@ -815,7 +815,7 @@ mod tests {
             last_refreshed: Some(ten_seconds_ago),
             last_check: Some(ten_seconds_ago),
             failure_count: 0,
-            last_feature_count: 0,
+            last_feature_count: None,
         };
         feature_refresher.tokens_to_refresh.insert(
             etag_but_last_refreshed_ten_seconds_ago.token.token.clone(),
@@ -1202,7 +1202,7 @@ mod tests {
             last_refreshed: None,
             last_check: None,
             failure_count: 0,
-            last_feature_count: 0,
+            last_feature_count: None,
         };
 
         current_tokens.insert(wildcard_token.token, token_refresh);

@@ -46,10 +46,7 @@ fn build_caches() -> CacheContainer {
     )
 }
 
-async fn hydrate_from_persistent_storage(
-    cache: CacheContainer,
-    storage: Arc<dyn EdgePersistence>,
-) {
+async fn hydrate_from_persistent_storage(cache: CacheContainer, storage: Arc<dyn EdgePersistence>) {
     let (token_cache, features_cache, engine_cache) = cache;
     let tokens = storage.load_tokens().await.unwrap_or_else(|error| {
         warn!("Failed to load tokens from cache {error:?}");
