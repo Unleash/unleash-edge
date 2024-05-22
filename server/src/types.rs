@@ -478,14 +478,6 @@ pub struct TokenInfo {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct EdgeModeInfo {
-    pub upstream: String,
-}
-
-pub struct OfflineModeInfo {}
-
-#[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 pub struct ClientMetric {
     pub key: MetricsKey,
     pub bucket: ClientMetricsEnv,
