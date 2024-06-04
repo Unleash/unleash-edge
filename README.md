@@ -37,6 +37,12 @@ Edge and the Proxy and how to achieve similar behavior in Edge.
 
 ## Running Unleash Edge
 
+Edge provides a range of powerful ways in which you can run it. For a standard production configuration we recommend the following:
+
+- [Run in Edge mode](#edge): Edge mode connects to your upstream Unleash and syncs feature flags and tokens. This should be the default mode that you choose for most Edge configurations in production.
+- Start Edge with initialization tokens: Edge mode allows you to specify a set of tokens on startup that Edge will use to hydrate data ahead of time. This means that Edge will have the data it requires to respond to frontend API requests and client API requests will not need to hydrate data on demand. **If you are running Edge behind a load balancer and making use of the frontend API, setting startup tokens is necessary for predictable responses from Edge.**
+- Choose a appropriate scope for your initialization tokens: We recommend using one wildcard token per environment. This gives more predictability over the resources that Edge will use at runtime. If Edge needs to run in a sensitive context, starting Edge with tokens that are scoped to all the projects that downstream SDKs are expected to consume is okay.
+
 Unleash Edge is compiled to a single binary. You can configure it by passing in arguments or setting environment
 variables.
 
