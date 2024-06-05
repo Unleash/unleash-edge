@@ -335,6 +335,25 @@ mod tests {
     }
 
     #[test]
+    fn test_project_tokens() {
+        let df_projects: Vec<TokenRefresh> = vec![
+            test_token(Some("my secret"), Some("development"), vec!["df-web"]),
+            test_token(
+                Some("my other secret"),
+                Some("development"),
+                vec!["df-platform"],
+            ),
+        ]
+        .into_iter()
+        .map(|t| TokenRefresh::new(t, None))
+        .collect();
+        let actual: Vec<EdgeToken> = simplify(&df_projects)
+            .iter()
+            .map(|x| x.token.clone())
+            .collect();
+        assert_eq!(actual.len(), 2);
+    }
+    #[test]
     fn test_single_project_token_is_covered_by_wildcard() {
         let self_token = EdgeToken {
             projects: vec!["*".into()],

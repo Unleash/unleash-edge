@@ -247,6 +247,7 @@ pub struct TokenRefresh {
     pub etag: Option<EntityTag>,
     pub next_refresh: Option<DateTime<Utc>>,
     pub last_refreshed: Option<DateTime<Utc>>,
+    pub last_feature_count: Option<usize>,
     pub last_check: Option<DateTime<Utc>>,
     pub failure_count: u32,
 }
@@ -275,6 +276,7 @@ impl TokenRefresh {
             last_check: None,
             next_refresh: None,
             failure_count: 0,
+            last_feature_count: None,
         }
     }
 
@@ -307,7 +309,12 @@ impl TokenRefresh {
         }
     }
     /// We successfully talked to upstream. There were updates. Update next_refresh, last_refreshed and last_check, and decrement our failure count
-    pub fn successful_refresh(&self, refresh_interval: &Duration, etag: Option<EntityTag>) -> Self {
+    pub fn successful_refresh(
+        &self,
+        refresh_interval: &Duration,
+        etag: Option<EntityTag>,
+        feature_count: usize,
+    ) -> Self {
         let failure_count = if self.failure_count > 0 {
             self.failure_count - 1
         } else {
@@ -320,6 +327,7 @@ impl TokenRefresh {
             next_refresh: Some(next_refresh),
             last_refreshed: Some(now),
             last_check: Some(now),
+            last_feature_count: Some(feature_count),
             etag,
             ..self.clone()
         }

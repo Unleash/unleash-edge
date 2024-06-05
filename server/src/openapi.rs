@@ -1,6 +1,6 @@
 use utoipa::{
-    Modify,
-    OpenApi, openapi::security::{ApiKey, ApiKeyValue, SecurityScheme},
+    openapi::security::{ApiKey, ApiKeyValue, SecurityScheme},
+    Modify, OpenApi,
 };
 
 #[derive(OpenApi)]

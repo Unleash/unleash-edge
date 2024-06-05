@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 19.1.3 (2024-05-23)
+
+### Chore
+
+ - <csr-id-6ffe9a953fd1b9b868d4a9b62bdf2df45b5a901b/> Updated README for release
+
+### Bug Fixes
+
+ - <csr-id-6d434cfdd6127d1c5c83964b851466ee5936a5c8/> Only replace projects covered by token
+   * fix: Only replace projects covered by token
+   
+   Previously, if the update was empty, we assumed we needed to replace all
+   stored features. This is not the case. We only need to remove the
+   projects that are connected to the token we're using for the merge.
+   
+   In addition, debug output on `/internal-backstage/tokens` now includes how many features was received in
+   the update
+ - <csr-id-9abab18e9872442a9a565bc20f11466e27954ec0/> ready if no tokens and no features
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 3 commits contributed to the release over the course of 6 calendar days.
+ - 8 days passed between releases.
+ - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 2 unique issues were worked on: [#464](https://github.com/Unleash/unleash-edge/issues/464), [#466](https://github.com/Unleash/unleash-edge/issues/466)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#464](https://github.com/Unleash/unleash-edge/issues/464)**
+    - Ready if no tokens and no features ([`9abab18`](https://github.com/Unleash/unleash-edge/commit/9abab18e9872442a9a565bc20f11466e27954ec0))
+ * **[#466](https://github.com/Unleash/unleash-edge/issues/466)**
+    - Only replace projects covered by token ([`6d434cf`](https://github.com/Unleash/unleash-edge/commit/6d434cfdd6127d1c5c83964b851466ee5936a5c8))
+ * **Uncategorized**
+    - Updated README for release ([`6ffe9a9`](https://github.com/Unleash/unleash-edge/commit/6ffe9a953fd1b9b868d4a9b62bdf2df45b5a901b))
+</details>
+
 ## 19.1.2 (2024-05-14)
 
 ### Bug Fixes
@@ -15,7 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 1 commit contributed to the release.
+ - 2 commits contributed to the release.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#462](https://github.com/Unleash/unleash-edge/issues/462)
 
@@ -27,6 +69,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
  * **[#462](https://github.com/Unleash/unleash-edge/issues/462)**
     - Ready endpoint should return 503 if Edge is Not ready ([`80d6798`](https://github.com/Unleash/unleash-edge/commit/80d6798eb840ed0b7771f2e43a8bc151b7dbbfee))
+ * **Uncategorized**
+    - Release unleash-edge v19.1.2 ([`ef7d1db`](https://github.com/Unleash/unleash-edge/commit/ef7d1dbb200b75456dda122c0ba69fd3e8e31d8f))
 </details>
 
 ## 19.1.1 (2024-05-13)
