@@ -158,7 +158,7 @@ impl FeatureRefresher {
             engine_cache: Arc::new(Default::default()),
             refresh_interval: chrono::Duration::seconds(10),
             persistence: None,
-            open: Default::default(),
+            open: false,
         }
     }
 
