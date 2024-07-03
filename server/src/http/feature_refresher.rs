@@ -100,6 +100,7 @@ pub struct FeatureRefresher {
     pub engine_cache: Arc<DashMap<String, EngineState>>,
     pub refresh_interval: chrono::Duration,
     pub persistence: Option<Arc<dyn EdgePersistence>>,
+    pub open: bool,
 }
 
 impl Default for FeatureRefresher {
@@ -111,6 +112,7 @@ impl Default for FeatureRefresher {
             features_cache: Default::default(),
             engine_cache: Default::default(),
             persistence: None,
+            open: Default::default(),
         }
     }
 }
@@ -135,6 +137,7 @@ impl FeatureRefresher {
         engines: Arc<DashMap<String, EngineState>>,
         features_refresh_interval: chrono::Duration,
         persistence: Option<Arc<dyn EdgePersistence>>,
+        open: bool,
     ) -> Self {
         FeatureRefresher {
             unleash_client,
@@ -143,6 +146,7 @@ impl FeatureRefresher {
             engine_cache: engines,
             refresh_interval: features_refresh_interval,
             persistence,
+            open,
         }
     }
 
@@ -154,6 +158,7 @@ impl FeatureRefresher {
             engine_cache: Arc::new(Default::default()),
             refresh_interval: chrono::Duration::seconds(10),
             persistence: None,
+            open: Default::default(),
         }
     }
 
@@ -228,14 +233,19 @@ impl FeatureRefresher {
         match self.get_features_by_filter(&token, filters) {
             Some(features) if self.token_is_subsumed(&token) => Ok(features),
             _ => {
-                debug!("Had never seen this environment. Configuring fetcher");
-                self.register_and_hydrate_token(&token).await;
-                self.get_features_by_filter(&token, filters).ok_or_else(|| {
-                    EdgeError::ClientHydrationFailed(
-                        "Failed to get features by filter after registering and hydrating token (This is very likely an error in Edge. Please report this!)"
-                            .into(),
-                    )
-                })
+              if self.open {
+                  debug!("Open mode: Had never seen this environment. Configuring fetcher");
+                  self.register_and_hydrate_token(&token).await;
+                  self.get_features_by_filter(&token, filters).ok_or_else(|| {
+                      EdgeError::ClientHydrationFailed(
+                          "Failed to get features by filter after registering and hydrating token (This is very likely an error in Edge. Please report this!)"
+                              .into(),
+                      )
+                  })
+                } else {
+                    debug!("Closed mode: Token is not subsumed by any registered tokens. Returning error");
+                    Err(EdgeError::AuthorizationDenied("Edge is running in closed mode and the token is not subsumed by any registered tokens".into()))
+                }
             }
         }
     }
@@ -483,6 +493,7 @@ mod tests {
             engines_cache,
             duration,
             None,
+            false,
         );
         let token =
             EdgeToken::try_from("*:development.abcdefghijklmnopqrstuvwxyz".to_string()).unwrap();
@@ -515,6 +526,7 @@ mod tests {
             engines_cache,
             duration,
             None,
+            false,
         );
         let token1 =
             EdgeToken::try_from("*:development.abcdefghijklmnopqrstuvwxyz".to_string()).unwrap();
@@ -550,6 +562,7 @@ mod tests {
             engines_cache,
             duration,
             None,
+            false,
         );
         let project_a_token =
             EdgeToken::try_from("projecta:development.abcdefghijklmnopqrstuvwxyz".to_string())
@@ -593,6 +606,7 @@ mod tests {
             engines_cache,
             duration,
             None,
+            false,
         );
         let project_a_token =
             EdgeToken::try_from("projecta:development.abcdefghijklmnopqrstuvwxyz".to_string())
@@ -645,6 +659,7 @@ mod tests {
             engines_cache,
             duration,
             None,
+            false,
         );
         let project_a_token =
             EdgeToken::try_from("projecta:development.abcdefghijklmnopqrstuvwxyz".to_string())
@@ -702,6 +717,7 @@ mod tests {
             engines_cache,
             duration,
             None,
+            false,
         );
         let star_token =
             EdgeToken::try_from("*:development.abcdefghijklmnopqrstuvwxyz".to_string()).unwrap();
@@ -743,6 +759,7 @@ mod tests {
             engines_cache,
             duration,
             None,
+            false,
         );
         let project_a_token =
             EdgeToken::try_from("projecta:development.abcdefghijklmnopqrstuvwxyz".to_string())
@@ -779,6 +796,7 @@ mod tests {
             engines_cache,
             duration,
             None,
+            false,
         );
         let no_etag_due_for_refresh_token =
             EdgeToken::try_from("projecta:development.no_etag_due_for_refresh_token".to_string())
@@ -877,6 +895,7 @@ mod tests {
             engine_cache,
             Duration::seconds(60),
             None,
+            false,
         );
         let mut token = EdgeToken::try_from("*:development.secret123".to_string()).unwrap();
         token.status = Validated;
@@ -923,6 +942,7 @@ mod tests {
             engine_cache,
             Duration::milliseconds(1),
             None,
+            false,
         );
         feature_refresher
             .register_token_for_refresh(token, None)
@@ -1041,7 +1061,7 @@ mod tests {
     }
 
     #[tokio::test]
-    pub async fn fetching_two_projects_from_same_environment_should_get_features_for_both() {
+    pub async fn fetching_two_projects_from_same_environment_should_get_features_for_both_when_open_mode() {
         let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
             Arc::new(DashMap::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
@@ -1068,6 +1088,7 @@ mod tests {
         .await;
         let unleash_client = UnleashClient::new(server.url("/").as_str(), None).unwrap();
         let mut feature_refresher = FeatureRefresher::with_client(Arc::new(unleash_client));
+        feature_refresher.open = true;
         feature_refresher.refresh_interval = Duration::seconds(0);
         let dx_features = feature_refresher
             .features_for_filter(
@@ -1097,7 +1118,7 @@ mod tests {
     }
 
     #[tokio::test]
-    pub async fn should_get_data_for_multi_project_token_even_if_we_have_data_for_one_of_the_projects(
+    pub async fn should_get_data_for_multi_project_token_even_if_we_have_data_for_one_of_the_projects_when_open_mode(
     ) {
         let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
             Arc::new(DashMap::default());
@@ -1130,6 +1151,7 @@ mod tests {
         .await;
         let unleash_client = UnleashClient::new(server.url("/").as_str(), None).unwrap();
         let mut feature_refresher = FeatureRefresher::with_client(Arc::new(unleash_client));
+        feature_refresher.open = true;
         feature_refresher.refresh_interval = Duration::seconds(0);
         let dx_features = feature_refresher
             .features_for_filter(
@@ -1245,6 +1267,7 @@ mod tests {
             engine_cache: Arc::new(Default::default()),
             refresh_interval: chrono::Duration::seconds(0),
             persistence: None,
+            open: Default::default(),
         };
 
         let _ = feature_refresher

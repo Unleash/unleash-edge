@@ -174,6 +174,10 @@ pub struct EdgeArgs {
     /// Token header to use for both edge authorization and communication with the upstream server.
     #[clap(long, env, global = true, default_value = "Authorization")]
     pub token_header: TokenHeader,
+
+    /// If set to true, Edge starts in open mode. Open mode means that Edge will accept tokens outside of the scope of the startup tokens
+    #[clap(short, long, env, default_value_t = true)]
+    pub open: bool,
 }
 
 pub fn string_to_header_tuple(s: &str) -> Result<(String, String), String> {

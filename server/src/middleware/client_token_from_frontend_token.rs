@@ -87,6 +87,7 @@ mod tests {
             local_engine_cache.clone(),
             Duration::seconds(5),
             None,
+            false,
         ));
         test_server(move || {
             let config = serde_qs::actix::QsQueryConfig::default()

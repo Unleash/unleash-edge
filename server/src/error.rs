@@ -86,7 +86,7 @@ impl Display for CertificateError {
 
 #[derive(Debug)]
 pub enum EdgeError {
-    AuthorizationDenied,
+    AuthorizationDenied(String),
     AuthorizationPending,
     ClientBuildError(String),
     ClientCacheError,
@@ -127,7 +127,7 @@ impl Display for EdgeError {
             }
             EdgeError::TlsError => write!(f, "Could not configure TLS"),
             EdgeError::NoFeaturesFile => write!(f, "No features file located"),
-            EdgeError::AuthorizationDenied => write!(f, "Not allowed to access"),
+            EdgeError::AuthorizationDenied(msg) => write!(f, "{msg}"),
             EdgeError::NoTokenProvider => write!(f, "Could not get a TokenProvider"),
             EdgeError::TokenParseError(token) => write!(f, "Could not parse edge token: {token}"),
             EdgeError::PersistenceError(msg) => write!(f, "{msg}"),
@@ -214,7 +214,7 @@ impl ResponseError for EdgeError {
             EdgeError::InvalidBackupFile(_, _) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::TlsError => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::NoFeaturesFile => StatusCode::INTERNAL_SERVER_ERROR,
-            EdgeError::AuthorizationDenied => StatusCode::FORBIDDEN,
+            EdgeError::AuthorizationDenied(_) => StatusCode::FORBIDDEN,
             EdgeError::NoTokenProvider => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::TokenParseError(_) => StatusCode::FORBIDDEN,
             EdgeError::ClientBuildError(_) => StatusCode::INTERNAL_SERVER_ERROR,
