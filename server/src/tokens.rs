@@ -123,13 +123,13 @@ impl FromRequest for EdgeToken {
                 EdgeMode::Offline(_) => match value {
                     Some(v) => match v.to_str() {
                         Ok(value) => Ok(EdgeToken::offline_token(value)),
-                        Err(_) => Err(EdgeError::AuthorizationDenied("Not allowed to access".into())),
+                        Err(_) => Err(EdgeError::AuthorizationDenied),
                     },
-                    None => Err(EdgeError::AuthorizationDenied("Not allowed to access".into())),
+                    None => Err(EdgeError::AuthorizationDenied),
                 },
                 EdgeMode::Edge(_) => match value {
                     Some(v) => EdgeToken::try_from(v.clone()),
-                    None => Err(EdgeError::AuthorizationDenied("Not allowed to access".into())),
+                    None => Err(EdgeError::AuthorizationDenied),
                 },
                 _ => unreachable!(),
             };
@@ -137,7 +137,7 @@ impl FromRequest for EdgeToken {
         } else {
             let key = match value {
                 Some(v) => EdgeToken::try_from(v.clone()),
-                None => Err(EdgeError::AuthorizationDenied("Not allowed to access".into())),
+                None => Err(EdgeError::AuthorizationDenied),
             };
             ready(key)
         }
@@ -150,7 +150,7 @@ impl TryFrom<HeaderValue> for EdgeToken {
     fn try_from(value: HeaderValue) -> Result<Self, Self::Error> {
         value
             .to_str()
-            .map_err(|_| EdgeError::AuthorizationDenied("Not allowed to access".into()))
+            .map_err(|_| EdgeError::AuthorizationDenied)
             .and_then(EdgeToken::from_str)
     }
 }

@@ -69,7 +69,7 @@ async fn resolve_features(
     let validated_token = token_cache
         .get(&edge_token.token)
         .map(|e| e.value().clone())
-        .ok_or(EdgeError::AuthorizationDenied("Not allowed to access".into()))?;
+        .ok_or(EdgeError::AuthorizationDenied)?;
 
     let query_filters = filter_query.into_inner();
     let query = unleash_types::client_features::Query {
@@ -128,7 +128,7 @@ pub async fn get_feature(
     let validated_token = token_cache
         .get(&edge_token.token)
         .map(|e| e.value().clone())
-        .ok_or(EdgeError::AuthorizationDenied("Not allowed to access".into()))?;
+        .ok_or(EdgeError::AuthorizationDenied)?;
 
     let filter_set = FeatureFilterSet::from(Box::new(name_match_filter(feature_name.clone())))
         .with_filter(project_filter(&validated_token));

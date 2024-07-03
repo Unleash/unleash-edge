@@ -86,7 +86,7 @@ impl Display for CertificateError {
 
 #[derive(Debug)]
 pub enum EdgeError {
-    AuthorizationDenied(String),
+    AuthorizationDenied,
     AuthorizationPending,
     ClientBuildError(String),
     ClientCacheError,
@@ -105,6 +105,7 @@ pub enum EdgeError {
     EdgeTokenParseError,
     InvalidBackupFile(String, String),
     InvalidServerUrl(String),
+    InvalidTokenOnClosedMode,
     HealthCheckError(String),
     JsonParseError(String),
     NoFeaturesFile,
@@ -128,7 +129,7 @@ impl Display for EdgeError {
             }
             EdgeError::TlsError => write!(f, "Could not configure TLS"),
             EdgeError::NoFeaturesFile => write!(f, "No features file located"),
-            EdgeError::AuthorizationDenied(msg) => write!(f, "{msg}"),
+            EdgeError::AuthorizationDenied => write!(f, "Not allowed to access"),
             EdgeError::NoTokenProvider => write!(f, "Could not get a TokenProvider"),
             EdgeError::NoTokens(msg) => write!(f, "{msg}"),
             EdgeError::TokenParseError(token) => write!(f, "Could not parse edge token: {token}"),
@@ -206,6 +207,7 @@ impl Display for EdgeError {
             EdgeError::NotReady => {
                 write!(f, "Edge is not ready to serve requests")
             }
+            EdgeError::InvalidTokenOnClosedMode => write!(f, "Edge is running in closed mode and the token is not subsumed by any registered tokens"),
         }
     }
 }
@@ -216,7 +218,7 @@ impl ResponseError for EdgeError {
             EdgeError::InvalidBackupFile(_, _) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::TlsError => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::NoFeaturesFile => StatusCode::INTERNAL_SERVER_ERROR,
-            EdgeError::AuthorizationDenied(_) => StatusCode::FORBIDDEN,
+            EdgeError::AuthorizationDenied => StatusCode::FORBIDDEN,
             EdgeError::NoTokenProvider => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::NoTokens(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::TokenParseError(_) => StatusCode::FORBIDDEN,
@@ -243,6 +245,7 @@ impl ResponseError for EdgeError {
             EdgeError::ClientCacheError => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::FrontendExpectedToBeHydrated(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::NotReady => StatusCode::SERVICE_UNAVAILABLE,
+            EdgeError::InvalidTokenOnClosedMode => StatusCode::FORBIDDEN,
         }
     }
 

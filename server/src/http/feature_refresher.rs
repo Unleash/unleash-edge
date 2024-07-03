@@ -244,7 +244,7 @@ impl FeatureRefresher {
                   })
                 } else {
                     debug!("Closed mode: Token is not subsumed by any registered tokens. Returning error");
-                    Err(EdgeError::AuthorizationDenied("Edge is running in closed mode and the token is not subsumed by any registered tokens".into()))
+                    Err(EdgeError::InvalidTokenOnClosedMode)
                 }
             }
         }
