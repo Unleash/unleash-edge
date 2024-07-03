@@ -1005,12 +1005,10 @@ mod tests {
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let feature_refresher = Arc::new(FeatureRefresher {
             unleash_client: unleash_client.clone(),
-            tokens_to_refresh: Arc::new(Default::default()),
             features_cache: features_cache.clone(),
             engine_cache: engine_cache.clone(),
             refresh_interval: Duration::seconds(6000),
-            persistence: None,
-            open: false,
+            ..Default::default()
         });
         let token_validator = Arc::new(TokenValidator {
             unleash_client: unleash_client.clone(),
@@ -1128,14 +1126,14 @@ mod tests {
         let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
-        let feature_refresher = Arc::new(FeatureRefresher::new(
-            unleash_client.clone(),
-            features_cache.clone(),
-            engine_cache.clone(),
-            Duration::seconds(6000),
-            None,
-            true,
-        ));
+        let feature_refresher = Arc::new(FeatureRefresher {
+            unleash_client: unleash_client.clone(),
+            features_cache: features_cache.clone(),
+            engine_cache: engine_cache.clone(),
+            refresh_interval: Duration::seconds(6000),
+            open: true,
+            ..Default::default()
+        });
         let token_validator = Arc::new(TokenValidator {
             unleash_client: unleash_client.clone(),
             token_cache: token_cache.clone(),

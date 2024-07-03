@@ -153,12 +153,7 @@ impl FeatureRefresher {
     pub fn with_client(client: Arc<UnleashClient>) -> Self {
         Self {
             unleash_client: client,
-            tokens_to_refresh: Arc::new(Default::default()),
-            features_cache: Arc::new(Default::default()),
-            engine_cache: Arc::new(Default::default()),
-            refresh_interval: chrono::Duration::seconds(10),
-            persistence: None,
-            open: false,
+            ..Default::default()
         }
     }
 
@@ -484,17 +479,16 @@ mod tests {
             "Authorization".to_string(),
         );
         let features_cache = Arc::new(DashMap::default());
-        let engines_cache = Arc::new(DashMap::default());
+        let engine_cache = Arc::new(DashMap::default());
 
         let duration = Duration::seconds(5);
-        let feature_refresher = FeatureRefresher::new(
-            Arc::new(unleash_client),
+        let feature_refresher = FeatureRefresher {
+            unleash_client: Arc::new(unleash_client),
             features_cache,
-            engines_cache,
-            duration,
-            None,
-            false,
-        );
+            engine_cache,
+            refresh_interval: duration,
+            ..Default::default()
+        };
         let token =
             EdgeToken::try_from("*:development.abcdefghijklmnopqrstuvwxyz".to_string()).unwrap();
         feature_refresher
@@ -517,17 +511,16 @@ mod tests {
             "Authorization".to_string(),
         );
         let features_cache = Arc::new(DashMap::default());
-        let engines_cache = Arc::new(DashMap::default());
+        let engine_cache = Arc::new(DashMap::default());
 
         let duration = Duration::seconds(5);
-        let feature_refresher = FeatureRefresher::new(
-            Arc::new(unleash_client),
+        let feature_refresher = FeatureRefresher {
+            unleash_client: Arc::new(unleash_client),
             features_cache,
-            engines_cache,
-            duration,
-            None,
-            false,
-        );
+            engine_cache,
+            refresh_interval: duration,
+            ..Default::default()
+        };
         let token1 =
             EdgeToken::try_from("*:development.abcdefghijklmnopqrstuvwxyz".to_string()).unwrap();
         let token2 =
@@ -554,16 +547,15 @@ mod tests {
             "Authorization".to_string(),
         );
         let features_cache = Arc::new(DashMap::default());
-        let engines_cache = Arc::new(DashMap::default());
+        let engine_cache = Arc::new(DashMap::default());
         let duration = Duration::seconds(5);
-        let feature_refresher = FeatureRefresher::new(
-            Arc::new(unleash_client),
+        let feature_refresher = FeatureRefresher {
+            unleash_client: Arc::new(unleash_client),
             features_cache,
-            engines_cache,
-            duration,
-            None,
-            false,
-        );
+            engine_cache,
+            refresh_interval: duration,
+            ..Default::default()
+        };
         let project_a_token =
             EdgeToken::try_from("projecta:development.abcdefghijklmnopqrstuvwxyz".to_string())
                 .unwrap();
@@ -598,16 +590,15 @@ mod tests {
             "Authorization".to_string(),
         );
         let features_cache = Arc::new(DashMap::default());
-        let engines_cache = Arc::new(DashMap::default());
+        let engine_cache = Arc::new(DashMap::default());
         let duration = Duration::seconds(5);
-        let feature_refresher = FeatureRefresher::new(
-            Arc::new(unleash_client),
+        let feature_refresher = FeatureRefresher {
+            unleash_client: Arc::new(unleash_client),
             features_cache,
-            engines_cache,
-            duration,
-            None,
-            false,
-        );
+            engine_cache,
+            refresh_interval: duration,
+            ..Default::default()
+        };
         let project_a_token =
             EdgeToken::try_from("projecta:development.abcdefghijklmnopqrstuvwxyz".to_string())
                 .unwrap();
@@ -651,16 +642,15 @@ mod tests {
             "Authorization".to_string(),
         );
         let features_cache = Arc::new(DashMap::default());
-        let engines_cache = Arc::new(DashMap::default());
+        let engine_cache = Arc::new(DashMap::default());
         let duration = Duration::seconds(5);
-        let feature_refresher = FeatureRefresher::new(
-            Arc::new(unleash_client),
+        let feature_refresher = FeatureRefresher {
+            unleash_client: Arc::new(unleash_client),
             features_cache,
-            engines_cache,
-            duration,
-            None,
-            false,
-        );
+            engine_cache,
+            refresh_interval: duration,
+            ..Default::default()
+        };
         let project_a_token =
             EdgeToken::try_from("projecta:development.abcdefghijklmnopqrstuvwxyz".to_string())
                 .unwrap();
@@ -708,17 +698,16 @@ mod tests {
             "Authorization".to_string(),
         );
         let features_cache = Arc::new(DashMap::default());
-        let engines_cache = Arc::new(DashMap::default());
+        let engine_cache = Arc::new(DashMap::default());
 
         let duration = Duration::seconds(5);
-        let feature_refresher = FeatureRefresher::new(
-            Arc::new(unleash_client),
+        let feature_refresher = FeatureRefresher {
+            unleash_client: Arc::new(unleash_client),
             features_cache,
-            engines_cache,
-            duration,
-            None,
-            false,
-        );
+            engine_cache,
+            refresh_interval: duration,
+            ..Default::default()
+        };
         let star_token =
             EdgeToken::try_from("*:development.abcdefghijklmnopqrstuvwxyz".to_string()).unwrap();
         let project_a_token =
@@ -750,17 +739,16 @@ mod tests {
             "Authorization".to_string(),
         );
         let features_cache = Arc::new(DashMap::default());
-        let engines_cache = Arc::new(DashMap::default());
+        let engine_cache = Arc::new(DashMap::default());
 
         let duration = Duration::seconds(5);
-        let feature_refresher = FeatureRefresher::new(
-            Arc::new(unleash_client),
+        let feature_refresher = FeatureRefresher {
+            unleash_client: Arc::new(unleash_client),
             features_cache,
-            engines_cache,
-            duration,
-            None,
-            false,
-        );
+            engine_cache,
+            refresh_interval: duration,
+            ..Default::default()
+        };
         let project_a_token =
             EdgeToken::try_from("projecta:development.abcdefghijklmnopqrstuvwxyz".to_string())
                 .unwrap();
@@ -787,17 +775,16 @@ mod tests {
             "Authorization".to_string(),
         );
         let features_cache = Arc::new(DashMap::default());
-        let engines_cache = Arc::new(DashMap::default());
+        let engine_cache = Arc::new(DashMap::default());
 
         let duration = Duration::seconds(5);
-        let feature_refresher = FeatureRefresher::new(
-            Arc::new(unleash_client),
+        let feature_refresher = FeatureRefresher {
+            unleash_client: Arc::new(unleash_client),
             features_cache,
-            engines_cache,
-            duration,
-            None,
-            false,
-        );
+            engine_cache,
+            refresh_interval: duration,
+            ..Default::default()
+        };
         let no_etag_due_for_refresh_token =
             EdgeToken::try_from("projecta:development.no_etag_due_for_refresh_token".to_string())
                 .unwrap();
@@ -889,14 +876,13 @@ mod tests {
         let unleash_client = UnleashClient::new(server.url("/").as_str(), None).unwrap();
         let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
-        let feature_refresher = FeatureRefresher::new(
-            Arc::new(unleash_client),
+        let feature_refresher = FeatureRefresher {
+            unleash_client: Arc::new(unleash_client),
             features_cache,
             engine_cache,
-            Duration::seconds(60),
-            None,
-            false,
-        );
+            refresh_interval: Duration::seconds(60),
+            ..Default::default()
+        };
         let mut token = EdgeToken::try_from("*:development.secret123".to_string()).unwrap();
         token.status = Validated;
         token.token_type = Some(TokenType::Client);
@@ -936,14 +922,13 @@ mod tests {
         let unleash_client = UnleashClient::new(server.url("/").as_str(), None).unwrap();
         let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
-        let feature_refresher = FeatureRefresher::new(
-            Arc::new(unleash_client),
+        let feature_refresher = FeatureRefresher {
+            unleash_client: Arc::new(unleash_client),
             features_cache,
             engine_cache,
-            Duration::milliseconds(1),
-            None,
-            false,
-        );
+            refresh_interval: Duration::milliseconds(1),
+            ..Default::default()
+        };
         feature_refresher
             .register_token_for_refresh(token, None)
             .await;
@@ -1262,12 +1247,9 @@ mod tests {
         let unleash_client = UnleashClient::new(server.url("/").as_str(), None).unwrap();
         let feature_refresher = FeatureRefresher {
             unleash_client: Arc::new(unleash_client),
-            tokens_to_refresh: Arc::new(Default::default()),
             features_cache: features_cache.clone(),
-            engine_cache: Arc::new(Default::default()),
-            refresh_interval: chrono::Duration::seconds(0),
-            persistence: None,
-            open: false,
+            refresh_interval: Duration::seconds(0),
+            ..Default::default()
         };
 
         let _ = feature_refresher
