@@ -918,7 +918,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn calling_client_features_endpoint_with_new_token_hydrates_from_upstream_when_open() {
+    async fn calling_client_features_endpoint_with_new_token_hydrates_from_upstream_when_dynamic() {
         let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
             Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
@@ -949,7 +949,7 @@ mod tests {
             engine_cache: engine_cache.clone(),
             refresh_interval: Duration::seconds(6000),
             persistence: None,
-            open: true,
+            strict: false,
         });
         let token_validator = Arc::new(TokenValidator {
             unleash_client: unleash_client.clone(),
@@ -979,7 +979,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn calling_client_features_endpoint_with_new_token_does_not_hydrate_when_not_open() {
+    async fn calling_client_features_endpoint_with_new_token_does_not_hydrate_when_strict() {
         let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
             Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
@@ -1101,7 +1101,7 @@ mod tests {
         assert_eq!(result.status(), StatusCode::NOT_FOUND);
     }
     #[tokio::test]
-    pub async fn still_subsumes_tokens_after_moving_registration_to_initial_hydration_when_open_mode() {
+    pub async fn still_subsumes_tokens_after_moving_registration_to_initial_hydration_when_dynamic() {
         let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
             Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
@@ -1131,7 +1131,7 @@ mod tests {
             features_cache: features_cache.clone(),
             engine_cache: engine_cache.clone(),
             refresh_interval: Duration::seconds(6000),
-            open: true,
+            strict: false,
             ..Default::default()
         });
         let token_validator = Arc::new(TokenValidator {

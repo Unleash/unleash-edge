@@ -321,7 +321,7 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn returns_validated_tokens_when_open() {
+    async fn returns_validated_tokens_when_dynamic() {
         let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
             Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
@@ -347,12 +347,11 @@ mod tests {
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let feature_refresher = Arc::new(FeatureRefresher {
             unleash_client: unleash_client.clone(),
-            tokens_to_refresh: Arc::new(Default::default()),
             features_cache: features_cache.clone(),
             engine_cache: engine_cache.clone(),
             refresh_interval: Duration::seconds(6000),
-            persistence: None,
-            open: true,
+            strict: false,
+            ..Default::default()
         });
         let token_validator = Arc::new(TokenValidator {
             unleash_client: unleash_client.clone(),
@@ -394,7 +393,7 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn returns_validated_tokens_when_not_open() {
+    async fn returns_validated_tokens_when_strict() {
       let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
             Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());

@@ -155,8 +155,8 @@ async fn get_data_source(args: &EdgeArgs) -> Option<Arc<dyn EdgePersistence>> {
 }
 
 async fn build_edge(args: &EdgeArgs) -> EdgeResult<EdgeInfo> {
-    if !args.open && args.tokens.is_empty() {
-        return Err(EdgeError::NoTokens("No tokens provided. Tokens must be specified when running in closed mode".into()));
+    if args.strict && args.tokens.is_empty() {
+        return Err(EdgeError::NoTokens("No tokens provided. Tokens must be specified when running with strict behavior".into()));
     }
 
     let (token_cache, feature_cache, engine_cache) = build_caches();
@@ -191,7 +191,7 @@ async fn build_edge(args: &EdgeArgs) -> EdgeResult<EdgeInfo> {
         engine_cache.clone(),
         Duration::seconds(args.features_refresh_interval_seconds.try_into().unwrap()),
         persistence.clone(),
-        args.open,
+        args.strict,
     ));
     let _ = token_validator.register_tokens(args.tokens.clone()).await;
 
@@ -254,13 +254,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn should_fail_with_empty_tokens_when_closed_mode() {
+    async fn should_fail_with_empty_tokens_when_strict() {
         let args = EdgeArgs {
             upstream_url: Default::default(),
             backup_folder: None,
             metrics_interval_seconds: Default::default(),
             features_refresh_interval_seconds: Default::default(),
-            open: false,
+            strict: true,
             tokens: vec![],
             redis: None,
             client_identity: Default::default(),
@@ -278,6 +278,6 @@ mod tests {
         assert_eq!(result
           .err()
           .unwrap()
-          .to_string(), "No tokens provided. Tokens must be specified when running in closed mode");
+          .to_string(), "No tokens provided. Tokens must be specified when running with strict behavior");
     }
   }

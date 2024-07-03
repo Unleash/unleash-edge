@@ -100,7 +100,7 @@ pub struct FeatureRefresher {
     pub engine_cache: Arc<DashMap<String, EngineState>>,
     pub refresh_interval: chrono::Duration,
     pub persistence: Option<Arc<dyn EdgePersistence>>,
-    pub open: bool,
+    pub strict: bool,
 }
 
 impl Default for FeatureRefresher {
@@ -112,7 +112,7 @@ impl Default for FeatureRefresher {
             features_cache: Default::default(),
             engine_cache: Default::default(),
             persistence: None,
-            open: false,
+            strict: true,
         }
     }
 }
@@ -137,7 +137,7 @@ impl FeatureRefresher {
         engines: Arc<DashMap<String, EngineState>>,
         features_refresh_interval: chrono::Duration,
         persistence: Option<Arc<dyn EdgePersistence>>,
-        open: bool,
+        strict: bool,
     ) -> Self {
         FeatureRefresher {
             unleash_client,
@@ -146,7 +146,7 @@ impl FeatureRefresher {
             engine_cache: engines,
             refresh_interval: features_refresh_interval,
             persistence,
-            open,
+            strict,
         }
     }
 
@@ -228,19 +228,19 @@ impl FeatureRefresher {
         match self.get_features_by_filter(&token, filters) {
             Some(features) if self.token_is_subsumed(&token) => Ok(features),
             _ => {
-              if self.open {
-                  debug!("Open mode: Had never seen this environment. Configuring fetcher");
-                  self.register_and_hydrate_token(&token).await;
-                  self.get_features_by_filter(&token, filters).ok_or_else(|| {
-                      EdgeError::ClientHydrationFailed(
-                          "Failed to get features by filter after registering and hydrating token (This is very likely an error in Edge. Please report this!)"
-                              .into(),
-                      )
-                  })
-                } else {
-                    debug!("Closed mode: Token is not subsumed by any registered tokens. Returning error");
-                    Err(EdgeError::InvalidTokenOnClosedMode)
-                }
+              if self.strict {
+                debug!("Strict behavior: Token is not subsumed by any registered tokens. Returning error");
+                Err(EdgeError::InvalidTokenOnClosedMode)
+              } else {
+                debug!("Dynamic behavior: Had never seen this environment. Configuring fetcher");
+                self.register_and_hydrate_token(&token).await;
+                self.get_features_by_filter(&token, filters).ok_or_else(|| {
+                    EdgeError::ClientHydrationFailed(
+                        "Failed to get features by filter after registering and hydrating token (This is very likely an error in Edge. Please report this!)"
+                            .into(),
+                    )
+                })
+              }
             }
         }
     }
@@ -1046,7 +1046,7 @@ mod tests {
     }
 
     #[tokio::test]
-    pub async fn fetching_two_projects_from_same_environment_should_get_features_for_both_when_open_mode() {
+    pub async fn fetching_two_projects_from_same_environment_should_get_features_for_both_when_dynamic() {
         let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
             Arc::new(DashMap::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
@@ -1073,7 +1073,7 @@ mod tests {
         .await;
         let unleash_client = UnleashClient::new(server.url("/").as_str(), None).unwrap();
         let mut feature_refresher = FeatureRefresher::with_client(Arc::new(unleash_client));
-        feature_refresher.open = true;
+        feature_refresher.strict = false;
         feature_refresher.refresh_interval = Duration::seconds(0);
         let dx_features = feature_refresher
             .features_for_filter(
@@ -1103,7 +1103,7 @@ mod tests {
     }
 
     #[tokio::test]
-    pub async fn should_get_data_for_multi_project_token_even_if_we_have_data_for_one_of_the_projects_when_open_mode(
+    pub async fn should_get_data_for_multi_project_token_even_if_we_have_data_for_one_of_the_projects_when_dynamic(
     ) {
         let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
             Arc::new(DashMap::default());
@@ -1136,7 +1136,7 @@ mod tests {
         .await;
         let unleash_client = UnleashClient::new(server.url("/").as_str(), None).unwrap();
         let mut feature_refresher = FeatureRefresher::with_client(Arc::new(unleash_client));
-        feature_refresher.open = true;
+        feature_refresher.strict = false;
         feature_refresher.refresh_interval = Duration::seconds(0);
         let dx_features = feature_refresher
             .features_for_filter(
