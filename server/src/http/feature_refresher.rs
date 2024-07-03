@@ -112,7 +112,7 @@ impl Default for FeatureRefresher {
             features_cache: Default::default(),
             engine_cache: Default::default(),
             persistence: None,
-            open: Default::default(),
+            open: false,
         }
     }
 }
