@@ -99,6 +99,10 @@ pub(crate) fn build_offline_mode(
 }
 
 fn build_offline(offline_args: OfflineArgs) -> EdgeResult<CacheContainer> {
+    if offline_args.tokens.is_empty() {
+        return Err(EdgeError::NoTokens("No tokens provided. Tokens must be specified when running in offline mode".into()));
+    }
+
     if let Some(bootstrap) = offline_args.bootstrap_file {
         let file = File::open(bootstrap.clone()).map_err(|_| EdgeError::NoFeaturesFile)?;
 
@@ -151,6 +155,10 @@ async fn get_data_source(args: &EdgeArgs) -> Option<Arc<dyn EdgePersistence>> {
 }
 
 async fn build_edge(args: &EdgeArgs) -> EdgeResult<EdgeInfo> {
+    if !args.open && args.tokens.is_empty() {
+        return Err(EdgeError::NoTokens("No tokens provided. Tokens must be specified when running in closed mode".into()));
+    }
+
     let (token_cache, feature_cache, engine_cache) = build_caches();
 
     let persistence = get_data_source(args).await;
@@ -224,3 +232,52 @@ pub async fn build_caches_and_refreshers(args: CliArgs) -> EdgeResult<EdgeInfo> 
         _ => unreachable!(),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{builder::{build_edge, build_offline}, cli::{EdgeArgs, OfflineArgs, TokenHeader}};
+
+    #[test]
+    fn should_fail_with_empty_tokens_when_offline_mode() {
+        let args = OfflineArgs {
+            bootstrap_file: None,
+            tokens: vec![],
+            reload_interval: Default::default()
+        };
+
+        let result = build_offline(args);
+        assert!(result.is_err());
+        assert_eq!(result
+          .err()
+          .unwrap()
+          .to_string(), "No tokens provided. Tokens must be specified when running in offline mode");
+    }
+
+    #[tokio::test]
+    async fn should_fail_with_empty_tokens_when_closed_mode() {
+        let args = EdgeArgs {
+            upstream_url: Default::default(),
+            backup_folder: None,
+            metrics_interval_seconds: Default::default(),
+            features_refresh_interval_seconds: Default::default(),
+            open: false,
+            tokens: vec![],
+            redis: None,
+            client_identity: Default::default(),
+            skip_ssl_verification: false,
+            upstream_request_timeout: Default::default(),
+            upstream_socket_timeout: Default::default(),
+            custom_client_headers: Default::default(),
+            token_header: TokenHeader { token_header: "Authorization".into() },
+            upstream_certificate_file: Default::default(),
+            token_revalidation_interval_seconds: Default::default(),
+        };
+
+        let result = build_edge(&args).await;
+        assert!(result.is_err());
+        assert_eq!(result
+          .err()
+          .unwrap()
+          .to_string(), "No tokens provided. Tokens must be specified when running in closed mode");
+    }
+  }
