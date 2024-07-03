@@ -1267,7 +1267,7 @@ mod tests {
             engine_cache: Arc::new(Default::default()),
             refresh_interval: chrono::Duration::seconds(0),
             persistence: None,
-            open: Default::default(),
+            open: false,
         };
 
         let _ = feature_refresher
