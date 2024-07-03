@@ -176,7 +176,7 @@ pub struct EdgeArgs {
     pub token_header: TokenHeader,
 
     /// If set to true, Edge starts in open mode. Open mode means that Edge will accept tokens outside of the scope of the startup tokens
-    #[clap(short, long, env, default_value_t = true)]
+    #[clap(short, long, env, default_value_t = false)]
     pub open: bool,
 }
 
