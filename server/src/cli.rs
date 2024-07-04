@@ -178,6 +178,10 @@ pub struct EdgeArgs {
     /// If set to true, Edge starts with strict behavior. Strict behavior means that Edge will refuse tokens outside of the scope of the startup tokens
     #[clap(long, env, default_value_t = false)]
     pub strict: bool,
+
+    /// If set to true, Edge starts with dynamic behavior. Dynamic behavior means that Edge will accept tokens outside of the scope of the startup tokens
+    #[clap(long, env, default_value_t = false, conflicts_with = "strict")]
+    pub dynamic: bool,
 }
 
 pub fn string_to_header_tuple(s: &str) -> Result<(String, String), String> {

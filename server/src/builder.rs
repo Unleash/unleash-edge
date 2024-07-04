@@ -6,7 +6,7 @@ use std::sync::Arc;
 use chrono::Duration;
 use dashmap::DashMap;
 use reqwest::Url;
-use tracing::{debug, warn};
+use tracing::{debug, error, warn};
 use unleash_types::client_features::ClientFeatures;
 use unleash_yggdrasil::EngineState;
 
@@ -155,6 +155,13 @@ async fn get_data_source(args: &EdgeArgs) -> Option<Arc<dyn EdgePersistence>> {
 }
 
 async fn build_edge(args: &EdgeArgs) -> EdgeResult<EdgeInfo> {
+    if !args.strict {
+        if !args.dynamic {
+            error!("You should explicitly opt into either strict or dynamic behavior. Edge has defaulted to dynamic to preserve legacy behavior, however we recommend using strict from now on. Not explicitly opting into a behavior will return an error on startup in a future release");
+        }
+        warn!("Dynamic behavior has been deprecated and we plan to remove it in a future release. If you have a use case for it, please reach out to us");
+    }
+
     if args.strict && args.tokens.is_empty() {
         return Err(EdgeError::NoTokens("No tokens provided. Tokens must be specified when running with strict behavior".into()));
     }
@@ -261,6 +268,7 @@ mod tests {
             metrics_interval_seconds: Default::default(),
             features_refresh_interval_seconds: Default::default(),
             strict: true,
+            dynamic: false,
             tokens: vec![],
             redis: None,
             client_identity: Default::default(),
