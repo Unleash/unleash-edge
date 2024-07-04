@@ -40,7 +40,7 @@ Edge and the Proxy and how to achieve similar behavior in Edge.
 Running Edge in docker with recommended setup
 
 ```shell
-docker run -it -p 3063:3063 -e STRICT=true -e UPSTREAM_URL=<yourunleashinstance> unleashorg/unleash-edge:<mostrecentversion> edge
+docker run -it -p 3063:3063 -e STRICT=true -e TOKENS=<comma separated list of tokens edge should use to authenticate and poll upstream> -e UPSTREAM_URL=<yourunleashinstance> unleashorg/unleash-edge:<mostrecentversion> edge
 ```
 
 ## Deploying Unleash Edge
