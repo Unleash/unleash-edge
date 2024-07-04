@@ -75,7 +75,9 @@ Unleash Edge is distributed as a binary and as a docker image.
 If you have the [Rust toolchain](https://rustup.rs) installed you can build a binary for the platform you're running by
 cloning this repo and running `cargo build --release`. This will give you an `unleash-edge` binary in `./target/release`
 
-## Concepts (see [Concepts](./docs/concepts.md))
+## Concepts
+
+See our page on [Edge concepts](./docs/concepts.md)
 
 ## Metrics
 
