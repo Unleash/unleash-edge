@@ -99,7 +99,7 @@ minor and patch versions), could potentially break your implementation.
 
 ## Performance
 
-See [Benchmarking](./docs/benchmarking.md)
+See our page on [Edge benchmarking] [Benchmarking](./docs/benchmarking.md)
 
 ## Debugging
 
