@@ -37,7 +37,7 @@ Edge and the Proxy and how to achieve similar behavior in Edge.
 
 ## Quickstart
 
-Running Edge in docker with recommended setup
+Running Edge in Docker with our recommended setup:
 
 ```shell
 docker run -it -p 3063:3063 -e STRICT=true -e UPSTREAM_URL=<yourunleashinstance> unleashorg/unleash-edge:<mostrecentversion> edge
