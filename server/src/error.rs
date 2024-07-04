@@ -105,7 +105,7 @@ pub enum EdgeError {
     EdgeTokenParseError,
     InvalidBackupFile(String, String),
     InvalidServerUrl(String),
-    InvalidTokenOnClosedMode,
+    InvalidTokenWithStrictBehavior,
     HealthCheckError(String),
     JsonParseError(String),
     NoFeaturesFile,
@@ -207,7 +207,7 @@ impl Display for EdgeError {
             EdgeError::NotReady => {
                 write!(f, "Edge is not ready to serve requests")
             }
-            EdgeError::InvalidTokenOnClosedMode => write!(f, "Edge is running in closed mode and the token is not subsumed by any registered tokens"),
+            EdgeError::InvalidTokenWithStrictBehavior => write!(f, "Edge is running with strict behavior and the token is not subsumed by any registered tokens"),
         }
     }
 }
@@ -245,7 +245,7 @@ impl ResponseError for EdgeError {
             EdgeError::ClientCacheError => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::FrontendExpectedToBeHydrated(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::NotReady => StatusCode::SERVICE_UNAVAILABLE,
-            EdgeError::InvalidTokenOnClosedMode => StatusCode::FORBIDDEN,
+            EdgeError::InvalidTokenWithStrictBehavior => StatusCode::FORBIDDEN,
         }
     }
 

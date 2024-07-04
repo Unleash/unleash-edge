@@ -230,7 +230,7 @@ impl FeatureRefresher {
             _ => {
               if self.strict {
                 debug!("Strict behavior: Token is not subsumed by any registered tokens. Returning error");
-                Err(EdgeError::InvalidTokenOnClosedMode)
+                Err(EdgeError::InvalidTokenWithStrictBehavior)
               } else {
                 debug!("Dynamic behavior: Had never seen this environment. Configuring fetcher");
                 self.register_and_hydrate_token(&token).await;
