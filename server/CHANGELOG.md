@@ -5,7 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 19.2.0 (2024-07-04)
+
+### Chore
+
+ - <csr-id-b62143d5dcaf5b95d99726a4e69eaca8c82b44da/> add deprecation logs for dynamic behavior
+
+### Documentation
+
+ - <csr-id-847d1124d006724783511f1dce28808434ec650a/> Make README a quickstart and move concept/benchmarking/deploying to separate files
+   * docs: Split README into multiple sub-files to make main README easier to read
+   
+   * Update README in server subfolder
+   
+   * Remember to add tokens variable for passing in tokens to edge
+   
+   * Update README.md
+
+### New Features
+
+ - <csr-id-9f012016edc2319a36f58f6e132d069f14ceef18/> strict behavior
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 3 commits contributed to the release.
+ - 42 days passed between releases.
+ - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 3 unique issues were worked on: [#474](https://github.com/Unleash/unleash-edge/issues/474), [#475](https://github.com/Unleash/unleash-edge/issues/475), [#476](https://github.com/Unleash/unleash-edge/issues/476)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#474](https://github.com/Unleash/unleash-edge/issues/474)**
+    - Strict behavior ([`9f01201`](https://github.com/Unleash/unleash-edge/commit/9f012016edc2319a36f58f6e132d069f14ceef18))
+ * **[#475](https://github.com/Unleash/unleash-edge/issues/475)**
+    - Make README a quickstart and move concept/benchmarking/deploying to separate files ([`847d112`](https://github.com/Unleash/unleash-edge/commit/847d1124d006724783511f1dce28808434ec650a))
+ * **[#476](https://github.com/Unleash/unleash-edge/issues/476)**
+    - Add deprecation logs for dynamic behavior ([`b62143d`](https://github.com/Unleash/unleash-edge/commit/b62143d5dcaf5b95d99726a4e69eaca8c82b44da))
+</details>
+
 ## 19.1.3 (2024-05-23)
+
+<csr-id-6ffe9a953fd1b9b868d4a9b62bdf2df45b5a901b/>
 
 ### Chore
 
@@ -13,22 +59,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Bug Fixes
 
+<csr-id-9abab18e9872442a9a565bc20f11466e27954ec0/>
+
  - <csr-id-6d434cfdd6127d1c5c83964b851466ee5936a5c8/> Only replace projects covered by token
    * fix: Only replace projects covered by token
-   
-   Previously, if the update was empty, we assumed we needed to replace all
-   stored features. This is not the case. We only need to remove the
-   projects that are connected to the token we're using for the merge.
-   
-   In addition, debug output on `/internal-backstage/tokens` now includes how many features was received in
-   the update
- - <csr-id-9abab18e9872442a9a565bc20f11466e27954ec0/> ready if no tokens and no features
 
 ### Commit Statistics
 
 <csr-read-only-do-not-edit/>
 
- - 3 commits contributed to the release over the course of 6 calendar days.
+ - 4 commits contributed to the release over the course of 7 calendar days.
  - 8 days passed between releases.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#464](https://github.com/Unleash/unleash-edge/issues/464), [#466](https://github.com/Unleash/unleash-edge/issues/466)
@@ -44,8 +84,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#466](https://github.com/Unleash/unleash-edge/issues/466)**
     - Only replace projects covered by token ([`6d434cf`](https://github.com/Unleash/unleash-edge/commit/6d434cfdd6127d1c5c83964b851466ee5936a5c8))
  * **Uncategorized**
+    - Release unleash-edge v19.1.3 ([`fb689df`](https://github.com/Unleash/unleash-edge/commit/fb689dfe6a17acb9188fe705e4f81892827dfdf4))
     - Updated README for release ([`6ffe9a9`](https://github.com/Unleash/unleash-edge/commit/6ffe9a953fd1b9b868d4a9b62bdf2df45b5a901b))
 </details>
+
+<csr-unknown>
+Previously, if the update was empty, we assumed we needed to replace allstored features. This is not the case. We only need to remove theprojects that are connected to the token we’re using for the merge.In addition, debug output on /internal-backstage/tokens now includes how many features was received inthe update ready if no tokens and no features<csr-unknown/>
 
 ## 19.1.2 (2024-05-14)
 
