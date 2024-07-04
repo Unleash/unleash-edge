@@ -321,7 +321,7 @@ mod tests {
     }
 
     #[actix_web::test]
-    async fn returns_validated_tokens() {
+    async fn returns_validated_tokens_when_dynamic() {
         let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
             Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
@@ -347,11 +347,11 @@ mod tests {
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let feature_refresher = Arc::new(FeatureRefresher {
             unleash_client: unleash_client.clone(),
-            tokens_to_refresh: Arc::new(Default::default()),
             features_cache: features_cache.clone(),
             engine_cache: engine_cache.clone(),
             refresh_interval: Duration::seconds(6000),
-            persistence: None,
+            strict: false,
+            ..Default::default()
         });
         let token_validator = Arc::new(TokenValidator {
             unleash_client: unleash_client.clone(),
@@ -390,5 +390,68 @@ mod tests {
         let status: TokenInfo = test::read_body_json(token_res).await;
         assert_eq!(status.token_refreshes.len(), 1);
         assert_eq!(status.token_validation_status.len(), 1);
+    }
+
+    #[actix_web::test]
+    async fn returns_validated_tokens_when_strict() {
+      let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
+            Arc::new(DashMap::default());
+        let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
+        let server = upstream_server(
+            upstream_token_cache.clone(),
+            upstream_features_cache.clone(),
+            upstream_engine_cache.clone(),
+        )
+        .await;
+        let upstream_features = crate::tests::features_from_disk("../examples/hostedexample.json");
+        let mut upstream_known_token = EdgeToken::from_str("dx:development.secret123").unwrap();
+        upstream_known_token.status = TokenValidationStatus::Validated;
+        upstream_known_token.token_type = Some(TokenType::Client);
+        upstream_token_cache.insert(
+            upstream_known_token.token.clone(),
+            upstream_known_token.clone(),
+        );
+        upstream_features_cache.insert(cache_key(&upstream_known_token), upstream_features.clone());
+        let unleash_client = Arc::new(UnleashClient::new(server.url("/").as_str(), None).unwrap());
+        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
+        let feature_refresher = Arc::new(FeatureRefresher {
+            unleash_client: unleash_client.clone(),
+            features_cache: features_cache.clone(),
+            engine_cache: engine_cache.clone(),
+            refresh_interval: Duration::seconds(6000),
+            ..Default::default()
+        });
+        let token_validator = Arc::new(TokenValidator {
+            unleash_client: unleash_client.clone(),
+            token_cache: token_cache.clone(),
+            persistence: None,
+        });
+        let local_app = test::init_service(
+            App::new()
+                .app_data(web::Data::from(token_validator.clone()))
+                .app_data(web::Data::from(features_cache.clone()))
+                .app_data(web::Data::from(engine_cache.clone()))
+                .app_data(web::Data::from(token_cache.clone()))
+                .app_data(web::Data::from(feature_refresher.clone()))
+                .service(web::scope("/internal-backstage").service(super::tokens))
+                .service(
+                    web::scope("/api")
+                        .wrap(middleware::as_async_middleware::as_async_middleware(
+                            middleware::validate_token::validate_token,
+                        ))
+                        .configure(crate::client_api::configure_client_api),
+                ),
+        )
+        .await;
+        let client_request = test::TestRequest::get()
+            .uri("/api/client/features")
+            .insert_header(ContentType::json())
+            .insert_header(("Authorization", upstream_known_token.token.clone()))
+            .to_request();
+        let res = test::call_service(&local_app, client_request).await;
+        assert_eq!(res.status(), actix_http::StatusCode::FORBIDDEN);
     }
 }

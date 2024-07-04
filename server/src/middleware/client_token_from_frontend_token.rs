@@ -81,13 +81,13 @@ mod tests {
             token_cache: local_token_cache.clone(),
             persistence: None,
         });
-        let feature_refresher = Arc::new(FeatureRefresher::new(
-            unleash_client.clone(),
-            local_features_cache.clone(),
-            local_engine_cache.clone(),
-            Duration::seconds(5),
-            None,
-        ));
+        let feature_refresher = Arc::new(FeatureRefresher {
+            unleash_client: unleash_client.clone(),
+            features_cache: local_features_cache.clone(),
+            engine_cache: local_engine_cache.clone(),
+            refresh_interval: Duration::seconds(5),
+            ..Default::default()
+        });
         test_server(move || {
             let config = serde_qs::actix::QsQueryConfig::default()
                 .qs_config(serde_qs::Config::new(5, false));

@@ -918,7 +918,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn calling_client_features_endpoint_with_new_token_hydrates_from_upstream() {
+    async fn calling_client_features_endpoint_with_new_token_hydrates_from_upstream_when_dynamic() {
         let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
             Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
@@ -949,6 +949,7 @@ mod tests {
             engine_cache: engine_cache.clone(),
             refresh_interval: Duration::seconds(6000),
             persistence: None,
+            strict: false,
         });
         let token_validator = Arc::new(TokenValidator {
             unleash_client: unleash_client.clone(),
@@ -975,6 +976,65 @@ mod tests {
             .to_request();
         let res = test::call_service(&local_app, req).await;
         assert_eq!(res.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn calling_client_features_endpoint_with_new_token_does_not_hydrate_when_strict() {
+        let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
+            Arc::new(DashMap::default());
+        let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
+        let server = upstream_server(
+            upstream_token_cache.clone(),
+            upstream_features_cache.clone(),
+            upstream_engine_cache.clone(),
+        )
+        .await;
+        let upstream_features = features_from_disk("../examples/hostedexample.json");
+        let mut upstream_known_token = EdgeToken::from_str("dx:development.secret123").unwrap();
+        upstream_known_token.status = TokenValidationStatus::Validated;
+        upstream_known_token.token_type = Some(TokenType::Client);
+        upstream_token_cache.insert(
+            upstream_known_token.token.clone(),
+            upstream_known_token.clone(),
+        );
+        upstream_features_cache.insert(cache_key(&upstream_known_token), upstream_features.clone());
+        let unleash_client = Arc::new(UnleashClient::new(server.url("/").as_str(), None).unwrap());
+        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
+        let feature_refresher = Arc::new(FeatureRefresher {
+            unleash_client: unleash_client.clone(),
+            features_cache: features_cache.clone(),
+            engine_cache: engine_cache.clone(),
+            refresh_interval: Duration::seconds(6000),
+            ..Default::default()
+        });
+        let token_validator = Arc::new(TokenValidator {
+            unleash_client: unleash_client.clone(),
+            token_cache: token_cache.clone(),
+            persistence: None,
+        });
+        let local_app = test::init_service(
+            App::new()
+                .app_data(Data::from(token_validator.clone()))
+                .app_data(Data::from(features_cache.clone()))
+                .app_data(Data::from(engine_cache.clone()))
+                .app_data(Data::from(token_cache.clone()))
+                .app_data(Data::from(feature_refresher.clone()))
+                .wrap(middleware::as_async_middleware::as_async_middleware(
+                    middleware::validate_token::validate_token,
+                ))
+                .service(web::scope("/api").configure(configure_client_api)),
+        )
+        .await;
+        let req = test::TestRequest::get()
+            .uri("/api/client/features")
+            .insert_header(ContentType::json())
+            .insert_header(("Authorization", upstream_known_token.token.clone()))
+            .to_request();
+        let res = test::call_service(&local_app, req).await;
+        assert_eq!(res.status(), StatusCode::FORBIDDEN);
     }
 
     #[tokio::test]
@@ -1041,7 +1101,7 @@ mod tests {
         assert_eq!(result.status(), StatusCode::NOT_FOUND);
     }
     #[tokio::test]
-    pub async fn still_subsumes_tokens_after_moving_registration_to_initial_hydration() {
+    pub async fn still_subsumes_tokens_after_moving_registration_to_initial_hydration_when_dynamic() {
         let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
             Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
@@ -1066,13 +1126,14 @@ mod tests {
         let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
-        let feature_refresher = Arc::new(FeatureRefresher::new(
-            unleash_client.clone(),
-            features_cache.clone(),
-            engine_cache.clone(),
-            Duration::seconds(6000),
-            None,
-        ));
+        let feature_refresher = Arc::new(FeatureRefresher {
+            unleash_client: unleash_client.clone(),
+            features_cache: features_cache.clone(),
+            engine_cache: engine_cache.clone(),
+            refresh_interval: Duration::seconds(6000),
+            strict: false,
+            ..Default::default()
+        });
         let token_validator = Arc::new(TokenValidator {
             unleash_client: unleash_client.clone(),
             token_cache: token_cache.clone(),
