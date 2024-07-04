@@ -43,7 +43,7 @@ Running Edge in Docker with our recommended setup:
 docker run -it -p 3063:3063 -e STRICT=true -e UPSTREAM_URL=<yourunleashinstance> unleashorg/unleash-edge:<mostrecentversion> edge
 ```
 
-## Deploying Unleash Edge
+## Deploying
 
 See our page on [Deploying Edge](./docs/deploying.md)
 
