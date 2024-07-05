@@ -228,19 +228,21 @@ impl FeatureRefresher {
         match self.get_features_by_filter(&token, filters) {
             Some(features) if self.token_is_subsumed(&token) => Ok(features),
             _ => {
-              if self.strict {
-                debug!("Strict behavior: Token is not subsumed by any registered tokens. Returning error");
-                Err(EdgeError::InvalidTokenWithStrictBehavior)
-              } else {
-                debug!("Dynamic behavior: Had never seen this environment. Configuring fetcher");
-                self.register_and_hydrate_token(&token).await;
-                self.get_features_by_filter(&token, filters).ok_or_else(|| {
+                if self.strict {
+                    debug!("Strict behavior: Token is not subsumed by any registered tokens. Returning error");
+                    Err(EdgeError::InvalidTokenWithStrictBehavior)
+                } else {
+                    debug!(
+                        "Dynamic behavior: Had never seen this environment. Configuring fetcher"
+                    );
+                    self.register_and_hydrate_token(&token).await;
+                    self.get_features_by_filter(&token, filters).ok_or_else(|| {
                     EdgeError::ClientHydrationFailed(
                         "Failed to get features by filter after registering and hydrating token (This is very likely an error in Edge. Please report this!)"
                             .into(),
                     )
                 })
-              }
+                }
             }
         }
     }
@@ -1046,7 +1048,8 @@ mod tests {
     }
 
     #[tokio::test]
-    pub async fn fetching_two_projects_from_same_environment_should_get_features_for_both_when_dynamic() {
+    pub async fn fetching_two_projects_from_same_environment_should_get_features_for_both_when_dynamic(
+    ) {
         let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
             Arc::new(DashMap::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());

@@ -43,6 +43,40 @@ Running Edge in Docker with our recommended setup:
 docker run -it -p 3063:3063 -e STRICT=true -e UPSTREAM_URL=<yourunleashinstance> unleashorg/unleash-edge:<mostrecentversion> edge
 ```
 
+## Edge behaviors
+
+As of version 19.2.0, Unleash Edge now supports two behaviors when running in edge mode: **strict** and **dynamic**. We
+recommend adopting the new **strict** behavior, while **dynamic** remains as a legacy option that will be deprecated and
+removed in a future release.
+
+For legacy reasons, **dynamic** behavior is still the default. However, a warning will be logged at startup to indicate
+its deprecation.
+
+Please note that these behaviors are mutually exclusive.
+
+### Strict behavior
+
+If started with the `--strict` flag or the `STRICT` environment variable, Edge now starts with strict behavior and must
+be given tokens at startup.
+
+Edge will refuse requests from SDKs that have a wider or different access scope than the initial tokens. Specifically,
+this means incoming requests must have a token that exactly matches the environment and is bound to a project or
+projects specified in that token.
+
+E.g. If you start with one wildcard token with access to the development
+environment `*:development.<somelongrandomstring>` and your clients use various tokens with access to specific projects
+in the development environment, Edge will filter features to only grant access to the narrower scope.
+
+### Dynamic behavior
+
+With dynamic behavior, Edge behaves as it has since v1.0.0. Any new client tokens are validated against upstream and if
+found to be valid, a refresh job will be configured with the minimum set of tokens that are able to fetch all projects
+and environments Edge has seen. Set with `--dynamic` or the `DYNAMIC` environment variable. (19.2.0 / July 4th 2024):
+We're looking to deprecate this behavior. If you need this behavior, reach out to us on Slack, the final
+decision has not been made yet. In 19.2.0 this behavior is still the default, but Edge will log that you should make a
+choice between dynamic or strict behavior.
+When dynamic behavior is selected (by default or by choice), Edge will print a warning about the planned deprecation.
+
 ## Deploying
 
 See our page on [Deploying Edge](./docs/deploying.md)
@@ -121,7 +155,8 @@ See more about available logging and log levels at https://docs.rs/env_logger/la
 
 - Old Edge version. In order to guarantee metrics on newer Unleash versions, you will need to be using Edge v17.0.0 or
   newer
-- Old SDK clients. We've noticed that some clients, particularly early Python (1.x branch) as well as earlier .NET SDKs (we
+- Old SDK clients. We've noticed that some clients, particularly early Python (1.x branch) as well as earlier .NET
+  SDKs (we
   recommend you use 4.1.5 or newer) struggle to post metrics with the strict headers Edge requires.
 
 ## Development
