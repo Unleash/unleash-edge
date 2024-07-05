@@ -43,6 +43,36 @@ Running Edge in Docker with our recommended setup:
 docker run -it -p 3063:3063 -e STRICT=true -e UPSTREAM_URL=<yourunleashinstance> unleashorg/unleash-edge:<mostrecentversion> edge
 ```
 
+## Strict mode (Since 19.2.0)
+
+If started with the `--strict` flag or the `STRICT` environment variable, Edge now starts in strict mode and must be
+given
+tokens at startup.
+Edge will lock down access for new tokens that have a wider or different access scope than the tokens it was started
+with.
+
+E.g. if you start with one wildcard token with access to development `*:development.<somelongrandomstring` and later a
+client comes with a
+token accessing a different environment, say production `*:production.<somedifferentrandomstring>` Edge will return 403,
+because that would change the scope of access.
+
+Strict mode still allows using tokens (both frontend and client) with narrower access than what the tokens it was
+started with has.
+
+E.g. If you start with one wildcard token with access to the development
+environment `*:development.<somelongrandomstring>` and your clients use various tokens with access to specific projects
+in the development environment, Edge will filter features to only grant access to the narrower scope.
+
+## Dynamic mode
+
+In dynamic mode, Edge behaves as it has since v1.0.0, any new client tokens are validated against upstream and if found
+to be valid, a refresh job will be configured with the minimum set of tokens that are able to fetch all projects and
+environments Edge has seen. Set with `--dynamic` or the `DYNAMIC` environment variable. (19.2.0 / July 4th 2024): We're
+looking to deprecate this
+mode. If your company needs this mode, reach out to us on Slack, the final decision has not been made yet. In 19.2.0
+this mode is still the default, but Edge will log that you should make a choice between dynamic or strict mode. If you
+explicitly choose dynamic mode, Edge will warn about the planned deprecation.
+
 ## Deploying
 
 See our page on [Deploying Edge](./docs/deploying.md)
@@ -121,7 +151,8 @@ See more about available logging and log levels at https://docs.rs/env_logger/la
 
 - Old Edge version. In order to guarantee metrics on newer Unleash versions, you will need to be using Edge v17.0.0 or
   newer
-- Old SDK clients. We've noticed that some clients, particularly early Python (1.x branch) as well as earlier .NET SDKs (we
+- Old SDK clients. We've noticed that some clients, particularly early Python (1.x branch) as well as earlier .NET
+  SDKs (we
   recommend you use 4.1.5 or newer) struggle to post metrics with the strict headers Edge requires.
 
 ## Development

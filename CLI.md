@@ -48,7 +48,7 @@ This document contains the help content for the `unleash-edge` command-line prog
   Default value: `3043`
 * `--instance-id <INSTANCE_ID>` — Instance id. Used for metrics reporting
 
-  Default value: `01HX9QXY3MNKKAMP7XRS6RG2Q4`
+  Default value: `01J20TW2327N1JHE5XYHBE55KM`
 * `-a`, `--app-name <APP_NAME>` — App name. Used for metrics reporting
 
   Default value: `unleash-edge`
@@ -146,6 +146,18 @@ Run in edge mode
 * `--token-header <TOKEN_HEADER>` — Token header to use for both edge authorization and communication with the upstream server
 
   Default value: `Authorization`
+* `--strict` — If set to true, Edge starts with strict behavior. Strict behavior means that Edge will refuse tokens outside of the scope of the startup tokens
+
+  Default value: `false`
+
+  Possible values: `true`, `false`
+
+* `--dynamic` — If set to true, Edge starts with dynamic behavior. Dynamic behavior means that Edge will accept tokens outside of the scope of the startup tokens
+
+  Default value: `false`
+
+  Possible values: `true`, `false`
+
 
 
 
