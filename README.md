@@ -45,9 +45,12 @@ docker run -it -p 3063:3063 -e STRICT=true -e UPSTREAM_URL=<yourunleashinstance>
 
 ## Edge behaviors
 
-As of version 19.2.0, Unleash Edge now supports two behaviors when running in edge mode: **strict** and **dynamic**. We recommend adopting the new **strict** behavior, while **dynamic** remains as a legacy option that will be deprecated and removed in a future release.
+As of version 19.2.0, Unleash Edge now supports two behaviors when running in edge mode: **strict** and **dynamic**. We
+recommend adopting the new **strict** behavior, while **dynamic** remains as a legacy option that will be deprecated and
+removed in a future release.
 
-For legacy reasons, **dynamic** behavior is still the default. However, a warning will be logged at startup to indicate its deprecation.
+For legacy reasons, **dynamic** behavior is still the default. However, a warning will be logged at startup to indicate
+its deprecation.
 
 Please note that these behaviors are mutually exclusive.
 
@@ -82,7 +85,7 @@ looking to deprecate this
 behavior. If your company needs this behavior, reach out to us on Slack, the final decision has not been made yet. In
 19.2.0
 this behavior is still the default, but Edge will log that you should make a choice between dynamic or strict behavior.
-When dynamic behavior is selected Edge will print a warning about the planned deprecation.
+When dynamic behavior is selected (by default or by choice), Edge will print a warning about the planned deprecation.
 
 ## Deploying
 
