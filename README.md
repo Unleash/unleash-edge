@@ -72,7 +72,7 @@ in the development environment, Edge will filter features to only grant access t
 With dynamic behavior, Edge behaves as it has since v1.0.0. Any new client tokens are validated against upstream and if
 found to be valid, a refresh job will be configured with the minimum set of tokens that are able to fetch all projects
 and environments Edge has seen. Set with `--dynamic` or the `DYNAMIC` environment variable. (19.2.0 / July 4th 2024):
-We're looking to deprecate this behavior. If your company needs this behavior, reach out to us on Slack, the final
+We're looking to deprecate this behavior. If you need this behavior, reach out to us on Slack, the final
 decision has not been made yet. In 19.2.0 this behavior is still the default, but Edge will log that you should make a
 choice between dynamic or strict behavior.
 When dynamic behavior is selected (by default or by choice), Edge will print a warning about the planned deprecation.
