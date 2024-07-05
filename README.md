@@ -57,19 +57,11 @@ Please note that these behaviors are mutually exclusive.
 ### Strict behavior
 
 If started with the `--strict` flag or the `STRICT` environment variable, Edge now starts with strict behavior and must
-be
-given
-tokens at startup.
-Edge will lock down access for new tokens that have a wider or different access scope than the tokens it was started
-with.
+be given tokens at startup.
 
-E.g. if you start with one wildcard token with access to development `*:development.<somelongrandomstring` and later a
-client comes with a
-token accessing a different environment, say production `*:production.<somedifferentrandomstring>` Edge will return 403,
-because that would change the scope of access.
-
-Strict behavior still allows using tokens (both frontend and client) with narrower access than what the tokens it was
-started with has.
+Edge will refuse requests from SDKs that have a wider or different access scope than the initial tokens. Specifically,
+this means incoming requests must have a token that exactly matches the environment and is bound to a project or
+projects specified in that token.
 
 E.g. If you start with one wildcard token with access to the development
 environment `*:development.<somelongrandomstring>` and your clients use various tokens with access to specific projects
@@ -78,13 +70,11 @@ in the development environment, Edge will filter features to only grant access t
 ### Dynamic behavior
 
 With dynamic behavior, Edge behaves as it has since v1.0.0. Any new client tokens are validated against upstream and if
-found
-to be valid, a refresh job will be configured with the minimum set of tokens that are able to fetch all projects and
-environments Edge has seen. Set with `--dynamic` or the `DYNAMIC` environment variable. (19.2.0 / July 4th 2024): We're
-looking to deprecate this
-behavior. If your company needs this behavior, reach out to us on Slack, the final decision has not been made yet. In
-19.2.0
-this behavior is still the default, but Edge will log that you should make a choice between dynamic or strict behavior.
+found to be valid, a refresh job will be configured with the minimum set of tokens that are able to fetch all projects
+and environments Edge has seen. Set with `--dynamic` or the `DYNAMIC` environment variable. (19.2.0 / July 4th 2024):
+We're looking to deprecate this behavior. If your company needs this behavior, reach out to us on Slack, the final
+decision has not been made yet. In 19.2.0 this behavior is still the default, but Edge will log that you should make a
+choice between dynamic or strict behavior.
 When dynamic behavior is selected (by default or by choice), Edge will print a warning about the planned deprecation.
 
 ## Deploying
