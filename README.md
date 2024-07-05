@@ -74,7 +74,7 @@ in the development environment, Edge will filter features to only grant access t
 
 ### Dynamic behavior
 
-With dynamic behavior, Edge behaves as it has since v1.0.0, any new client tokens are validated against upstream and if
+With dynamic behavior, Edge behaves as it has since v1.0.0. Any new client tokens are validated against upstream and if
 found
 to be valid, a refresh job will be configured with the minimum set of tokens that are able to fetch all projects and
 environments Edge has seen. Set with `--dynamic` or the `DYNAMIC` environment variable. (19.2.0 / July 4th 2024): We're
