@@ -72,7 +72,7 @@ E.g. If you start with one wildcard token with access to the development
 environment `*:development.<somelongrandomstring>` and your clients use various tokens with access to specific projects
 in the development environment, Edge will filter features to only grant access to the narrower scope.
 
-## Dynamic behavior
+### Dynamic behavior
 
 With dynamic behavior, Edge behaves as it has since v1.0.0, any new client tokens are validated against upstream and if
 found
