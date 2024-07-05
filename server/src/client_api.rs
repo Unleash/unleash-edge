@@ -1101,7 +1101,8 @@ mod tests {
         assert_eq!(result.status(), StatusCode::NOT_FOUND);
     }
     #[tokio::test]
-    pub async fn still_subsumes_tokens_after_moving_registration_to_initial_hydration_when_dynamic() {
+    pub async fn still_subsumes_tokens_after_moving_registration_to_initial_hydration_when_dynamic()
+    {
         let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
             Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());

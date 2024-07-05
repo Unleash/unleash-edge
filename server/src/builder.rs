@@ -100,7 +100,9 @@ pub(crate) fn build_offline_mode(
 
 fn build_offline(offline_args: OfflineArgs) -> EdgeResult<CacheContainer> {
     if offline_args.tokens.is_empty() {
-        return Err(EdgeError::NoTokens("No tokens provided. Tokens must be specified when running in offline mode".into()));
+        return Err(EdgeError::NoTokens(
+            "No tokens provided. Tokens must be specified when running in offline mode".into(),
+        ));
     }
 
     if let Some(bootstrap) = offline_args.bootstrap_file {
@@ -163,7 +165,9 @@ async fn build_edge(args: &EdgeArgs) -> EdgeResult<EdgeInfo> {
     }
 
     if args.strict && args.tokens.is_empty() {
-        return Err(EdgeError::NoTokens("No tokens provided. Tokens must be specified when running with strict behavior".into()));
+        return Err(EdgeError::NoTokens(
+            "No tokens provided. Tokens must be specified when running with strict behavior".into(),
+        ));
     }
 
     let (token_cache, feature_cache, engine_cache) = build_caches();
@@ -242,22 +246,25 @@ pub async fn build_caches_and_refreshers(args: CliArgs) -> EdgeResult<EdgeInfo> 
 
 #[cfg(test)]
 mod tests {
-    use crate::{builder::{build_edge, build_offline}, cli::{EdgeArgs, OfflineArgs, TokenHeader}};
+    use crate::{
+        builder::{build_edge, build_offline},
+        cli::{EdgeArgs, OfflineArgs, TokenHeader},
+    };
 
     #[test]
     fn should_fail_with_empty_tokens_when_offline_mode() {
         let args = OfflineArgs {
             bootstrap_file: None,
             tokens: vec![],
-            reload_interval: Default::default()
+            reload_interval: Default::default(),
         };
 
         let result = build_offline(args);
         assert!(result.is_err());
-        assert_eq!(result
-          .err()
-          .unwrap()
-          .to_string(), "No tokens provided. Tokens must be specified when running in offline mode");
+        assert_eq!(
+            result.err().unwrap().to_string(),
+            "No tokens provided. Tokens must be specified when running in offline mode"
+        );
     }
 
     #[tokio::test]
@@ -276,16 +283,18 @@ mod tests {
             upstream_request_timeout: Default::default(),
             upstream_socket_timeout: Default::default(),
             custom_client_headers: Default::default(),
-            token_header: TokenHeader { token_header: "Authorization".into() },
+            token_header: TokenHeader {
+                token_header: "Authorization".into(),
+            },
             upstream_certificate_file: Default::default(),
             token_revalidation_interval_seconds: Default::default(),
         };
 
         let result = build_edge(&args).await;
         assert!(result.is_err());
-        assert_eq!(result
-          .err()
-          .unwrap()
-          .to_string(), "No tokens provided. Tokens must be specified when running with strict behavior");
+        assert_eq!(
+            result.err().unwrap().to_string(),
+            "No tokens provided. Tokens must be specified when running with strict behavior"
+        );
     }
-  }
+}

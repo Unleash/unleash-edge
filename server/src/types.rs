@@ -1,13 +1,13 @@
-use std::{
-    collections::HashMap,
-    hash::{Hash, Hasher},
-    str::FromStr,
-};
 use std::cmp::min;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::net::IpAddr;
 use std::sync::Arc;
+use std::{
+    collections::HashMap,
+    hash::{Hash, Hasher},
+    str::FromStr,
+};
 
 use actix_web::{http::header::EntityTag, web::Json};
 use async_trait::async_trait;

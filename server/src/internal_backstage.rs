@@ -394,7 +394,7 @@ mod tests {
 
     #[actix_web::test]
     async fn returns_validated_tokens_when_strict() {
-      let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
+        let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
             Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
