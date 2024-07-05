@@ -82,9 +82,7 @@ looking to deprecate this
 behavior. If your company needs this behavior, reach out to us on Slack, the final decision has not been made yet. In
 19.2.0
 this behavior is still the default, but Edge will log that you should make a choice between dynamic or strict behavior.
-If
-you
-explicitly choose dynamic behavior, Edge will warn about the planned deprecation.
+When dynamic behavior is selected Edge will print a warning about the planned deprecation.
 
 ## Deploying
 
