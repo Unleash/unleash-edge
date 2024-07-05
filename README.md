@@ -43,7 +43,15 @@ Running Edge in Docker with our recommended setup:
 docker run -it -p 3063:3063 -e STRICT=true -e UPSTREAM_URL=<yourunleashinstance> unleashorg/unleash-edge:<mostrecentversion> edge
 ```
 
-## Strict behavior (Since 19.2.0)
+## Edge behaviors
+
+As of version 19.2.0, Unleash Edge now supports two behaviors when running in edge mode: **strict** and **dynamic**. We recommend adopting the new **strict** behavior, while **dynamic** remains as a legacy option that will be deprecated and removed in a future release.
+
+For legacy reasons, **dynamic** behavior is still the default. However, a warning will be logged at startup to indicate its deprecation.
+
+Please note that these behaviors are mutually exclusive.
+
+### Strict behavior
 
 If started with the `--strict` flag or the `STRICT` environment variable, Edge now starts with strict behavior and must
 be
