@@ -131,11 +131,17 @@ async fn get_data_source(args: &EdgeArgs) -> Option<Arc<dyn EdgePersistence>> {
         }
         debug!("Configuring Redis persistence {filtered_redis_args:?}");
         let redis_persister = match redis_args.redis_mode {
-            RedisMode::Single => redis_args
-                .to_url()
-                .map(|url| RedisPersister::new(&url).expect("Failed to connect to redis")),
-            RedisMode::Cluster => redis_args.redis_url.map(|urls| {
-                RedisPersister::new_with_cluster(urls).expect("Failed to connect to redis cluster")
+            RedisMode::Single => redis_args.to_url().map(|url| {
+                RedisPersister::new(&url, redis_args.read_timeout(), redis_args.write_timeout())
+                    .expect("Failed to connect to redis")
+            }),
+            RedisMode::Cluster => redis_args.redis_url.clone().map(|urls| {
+                RedisPersister::new_with_cluster(
+                    urls,
+                    redis_args.read_timeout(),
+                    redis_args.write_timeout(),
+                )
+                .expect("Failed to connect to redis cluster")
             }),
         }
         .unwrap_or_else(|| {
