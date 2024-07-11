@@ -269,7 +269,7 @@ mod tests {
     use crate::http::unleash_client::UnleashClient;
     use crate::middleware;
     use crate::tests::{features_from_disk, upstream_server};
-    use actix_http::Request;
+    use actix_http::{Request, StatusCode};
     use actix_web::{
         http::header::ContentType,
         test,
@@ -278,7 +278,6 @@ mod tests {
     };
     use chrono::{DateTime, Duration, TimeZone, Utc};
     use maplit::hashmap;
-    use reqwest::StatusCode;
     use ulid::Ulid;
     use unleash_types::client_features::{
         ClientFeature, Constraint, Operator, Strategy, StrategyVariant,
@@ -578,7 +577,7 @@ mod tests {
         client_app.instance_id = Some("test_instance".into());
         let req = make_register_post_request(client_app.clone()).await;
         let res = test::call_service(&app, req).await;
-        assert_eq!(res.status(), StatusCode::ACCEPTED);
+        assert_eq!(res.status(), actix_http::StatusCode::ACCEPTED);
         assert_eq!(metrics_cache.applications.len(), 1);
         let application_key = ApplicationKey {
             app_name: client_app.app_name.clone(),
@@ -642,7 +641,10 @@ mod tests {
             .send()
             .await;
         assert!(status.is_ok());
-        assert_eq!(status.unwrap().status(), StatusCode::FORBIDDEN);
+        assert_eq!(
+            status.unwrap().status().as_u16(),
+            StatusCode::FORBIDDEN.as_u16()
+        );
         let client = UnleashClient::new(srv.url("/").as_str(), None).unwrap();
         let successful = client
             .send_bulk_metrics_to_client_endpoint(MetricsBatch::default(), &token.token)

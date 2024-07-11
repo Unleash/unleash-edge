@@ -15,7 +15,7 @@ pub const TRUST_PROXY_PARSE_ERROR: &str =
 pub enum FeatureError {
     AccessDenied,
     NotFound,
-    Retriable(StatusCode),
+    Retriable(reqwest::StatusCode),
 }
 
 #[derive(Debug, Serialize)]
@@ -100,7 +100,7 @@ pub enum EdgeError {
     FeatureNotFound(String),
     PersistenceError(String),
     EdgeMetricsError,
-    EdgeMetricsRequestError(StatusCode, Option<UnleashBadRequest>),
+    EdgeMetricsRequestError(reqwest::StatusCode, Option<UnleashBadRequest>),
     EdgeTokenError,
     EdgeTokenParseError,
     InvalidBackupFile(String, String),
@@ -116,7 +116,7 @@ pub enum EdgeError {
     TlsError,
     TokenParseError(String),
     ContextParseError,
-    TokenValidationError(StatusCode),
+    TokenValidationError(reqwest::StatusCode),
 }
 
 impl Error for EdgeError {}
@@ -238,7 +238,9 @@ impl ResponseError for EdgeError {
             EdgeError::ClientCertificateError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::FrontendNotYetHydrated(_) => StatusCode::NETWORK_AUTHENTICATION_REQUIRED,
             EdgeError::ContextParseError => StatusCode::BAD_REQUEST,
-            EdgeError::EdgeMetricsRequestError(status_code, _) => *status_code,
+            EdgeError::EdgeMetricsRequestError(status_code, _) => {
+                StatusCode::from_u16(status_code.as_u16()).unwrap()
+            }
             EdgeError::HealthCheckError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::ReadyCheckError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::ClientHydrationFailed(_) => StatusCode::INTERNAL_SERVER_ERROR,

@@ -481,7 +481,9 @@ impl UnleashClient {
                     self.urls.edge_validate_url.to_string(),
                     s
                 );
-                Err(EdgeError::TokenValidationError(s))
+                Err(EdgeError::TokenValidationError(
+                    reqwest::StatusCode::from_u16(s.as_u16()).unwrap(),
+                ))
             }
         }
     }
@@ -605,7 +607,7 @@ mod tests {
                     ),
                 |_| AppConfig::default(),
             ))
-            .rustls_0_22_with_config(server_config, tls_acceptor_config)
+            .rustls_0_23_with_config(server_config, tls_acceptor_config)
         })
         .await
     }
