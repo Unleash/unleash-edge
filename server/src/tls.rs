@@ -34,8 +34,7 @@ pub(crate) fn build_upstream_certificate(
 
 pub fn config(tls_config: TlsOptions) -> Result<ServerConfig, EdgeError> {
     let provider = rustls::crypto::ring::default_provider();
-    let _ =
-        CryptoProvider::install_default(provider).expect("Failed to setup default crypto provider");
+    CryptoProvider::install_default(provider).expect("Failed to setup default crypto provider");
     let mut cert_file = BufReader::new(
         File::open(
             tls_config
