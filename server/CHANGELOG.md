@@ -5,22 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 19.2.0 (2024-07-04)
+## 19.2.0 (2024-07-12)
+
+<csr-id-b62143d5dcaf5b95d99726a4e69eaca8c82b44da/>
 
 ### Chore
 
  - <csr-id-b62143d5dcaf5b95d99726a4e69eaca8c82b44da/> add deprecation logs for dynamic behavior
 
+### Bug Fixes
+
+ - <csr-id-b89841fa0e04c1e4033760e1f471f665fb09f1d2/> add timeout for redis read and write ops.
+   Previously, if you gave us a redis url that was valid, but used the
+   wrong protocol (so rediss when connecting to insecure, or redis when
+   connecting to secure), operations against Redis got stuck. This PR adds
+   a timeout setting (setting it to default of 2000 ms, but configurable).
+   
+   This does add time when url is completely invalid (i.e. there's nothing
+   listening), but it prevents the client from getting stuck indefinitely
+   if something answers, but redis can't get an answer.
+
+### Chore
+
+ - <csr-id-55d8bbf8f73c1b9aa1697e881e893a0609c8d940/> prepare for release
+
 ### Documentation
 
  - <csr-id-847d1124d006724783511f1dce28808434ec650a/> Make README a quickstart and move concept/benchmarking/deploying to separate files
    * docs: Split README into multiple sub-files to make main README easier to read
-   
-   * Update README in server subfolder
-   
-   * Remember to add tokens variable for passing in tokens to edge
-   
-   * Update README.md
+* Update README in server subfolder
+* Remember to add tokens variable for passing in tokens to edge
+* Update README.md
+ - <csr-id-4dc72f39adad96650516b02f8bfb3ad50fa39bab/> strict and dynamic mode
+   ---------
 
 ### New Features
 
@@ -30,10 +47,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 3 commits contributed to the release.
- - 42 days passed between releases.
+ - 3 commits contributed to the release over the course of 7 calendar days.
+ - 8 days passed between releases.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
- - 3 unique issues were worked on: [#474](https://github.com/Unleash/unleash-edge/issues/474), [#475](https://github.com/Unleash/unleash-edge/issues/475), [#476](https://github.com/Unleash/unleash-edge/issues/476)
+ - 2 unique issues were worked on: [#477](https://github.com/Unleash/unleash-edge/issues/477), [#478](https://github.com/Unleash/unleash-edge/issues/478)
 
 ### Commit Details
 
@@ -41,12 +58,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <details><summary>view details</summary>
 
- * **[#474](https://github.com/Unleash/unleash-edge/issues/474)**
-    - Strict behavior ([`9f01201`](https://github.com/Unleash/unleash-edge/commit/9f012016edc2319a36f58f6e132d069f14ceef18))
- * **[#475](https://github.com/Unleash/unleash-edge/issues/475)**
-    - Make README a quickstart and move concept/benchmarking/deploying to separate files ([`847d112`](https://github.com/Unleash/unleash-edge/commit/847d1124d006724783511f1dce28808434ec650a))
- * **[#476](https://github.com/Unleash/unleash-edge/issues/476)**
-    - Add deprecation logs for dynamic behavior ([`b62143d`](https://github.com/Unleash/unleash-edge/commit/b62143d5dcaf5b95d99726a4e69eaca8c82b44da))
+ * **[#477](https://github.com/Unleash/unleash-edge/issues/477)**
+    - Strict and dynamic mode ([`4dc72f3`](https://github.com/Unleash/unleash-edge/commit/4dc72f39adad96650516b02f8bfb3ad50fa39bab))
+ * **[#478](https://github.com/Unleash/unleash-edge/issues/478)**
+    - Add timeout for redis read and write ops. ([`b89841f`](https://github.com/Unleash/unleash-edge/commit/b89841fa0e04c1e4033760e1f471f665fb09f1d2))
+ * **Uncategorized**
+    - Prepare for release ([`55d8bbf`](https://github.com/Unleash/unleash-edge/commit/55d8bbf8f73c1b9aa1697e881e893a0609c8d940))
 </details>
 
 ## 19.1.3 (2024-05-23)
@@ -87,9 +104,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Release unleash-edge v19.1.3 ([`fb689df`](https://github.com/Unleash/unleash-edge/commit/fb689dfe6a17acb9188fe705e4f81892827dfdf4))
     - Updated README for release ([`6ffe9a9`](https://github.com/Unleash/unleash-edge/commit/6ffe9a953fd1b9b868d4a9b62bdf2df45b5a901b))
 </details>
-
-<csr-unknown>
-Previously, if the update was empty, we assumed we needed to replace allstored features. This is not the case. We only need to remove theprojects that are connected to the token we’re using for the merge.In addition, debug output on /internal-backstage/tokens now includes how many features was received inthe update ready if no tokens and no features<csr-unknown/>
 
 ## 19.1.2 (2024-05-14)
 
