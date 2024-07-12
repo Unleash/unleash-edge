@@ -32,10 +32,9 @@ This document contains the help content for the `unleash-edge` command-line prog
 * `-b`, `--base-path <BASE_PATH>` — Which base path should this server listen for HTTP traffic on
 
   Default value: ``
-* `-w`, `--workers <WORKERS>` — How many workers should be started to handle requests. Defaults to number of physical
-  cpus
+* `-w`, `--workers <WORKERS>` — How many workers should be started to handle requests. Defaults to number of physical cpus
 
-  Default value: `16`
+  Default value: `<physical_cpus>`
 * `--tls-enable` — Should we bind TLS
 
   Default value: `false`
@@ -44,8 +43,7 @@ This document contains the help content for the `unleash-edge` command-line prog
 
 * `--tls-server-key <TLS_SERVER_KEY>` — Server key to use for TLS - Needs to be a path to a file
 * `--tls-server-cert <TLS_SERVER_CERT>` — Server Cert to use for TLS - Needs to be a path to a file
-* `--tls-server-port <TLS_SERVER_PORT>` — Port to listen for https connection on (will use the interfaces already
-  defined)
+* `--tls-server-port <TLS_SERVER_PORT>` — Port to listen for https connection on (will use the interfaces already defined)
 
   Default value: `3043`
 * `--instance-id <INSTANCE_ID>` — Instance id. Used for metrics reporting
@@ -58,19 +56,12 @@ This document contains the help content for the `unleash-edge` command-line prog
 
   Possible values: `true`, `false`
 
-* `--trust-proxy` — By enabling the trust proxy option. Unleash Edge will have knowledge that it's sitting behind a
-  proxy and that the X-Forward-\* header fields may be trusted, which otherwise may be easily spoofed. Edge will use
-  this to populate its context's remoteAddress field If you need to only trust specific ips or CIDR, enable this flag
-  and then set `--proxy-trusted-servers`
+* `--trust-proxy` — By enabling the trust proxy option. Unleash Edge will have knowledge that it's sitting behind a proxy and that the X-Forward-\* header fields may be trusted, which otherwise may be easily spoofed. Edge will use this to populate its context's  remoteAddress field If you need to only trust specific ips or CIDR, enable this flag and then set `--proxy-trusted-servers`
 
   Possible values: `true`, `false`
 
-* `--proxy-trusted-servers <PROXY_TRUSTED_SERVERS>` — Tells Unleash Edge which servers to trust the X-Forwarded-For.
-  Accepts explicit Ip addresses or Cidrs (127.0.0.1/16). Accepts a comma separated list or multiple instances of the
-  flag. E.g `--proxy-trusted-servers "127.0.0.1,192.168.0.1"`
-  and `--proxy-trusted-servers 127.0.0.1 --proxy-trusted-servers 192.168.0.1` are equivalent
-* `--disable-all-endpoint` — Set this flag to true if you want to disable /api/proxy/all and /api/frontend/all Because
-  returning all toggles regardless of their state is a potential security vulnerability, these endpoints can be disabled
+* `--proxy-trusted-servers <PROXY_TRUSTED_SERVERS>` — Tells Unleash Edge which servers to trust the X-Forwarded-For. Accepts explicit Ip addresses or Cidrs (127.0.0.1/16). Accepts a comma separated list or multiple instances of the flag. E.g `--proxy-trusted-servers "127.0.0.1,192.168.0.1"` and `--proxy-trusted-servers 127.0.0.1 --proxy-trusted-servers 192.168.0.1` are equivalent
+* `--disable-all-endpoint` — Set this flag to true if you want to disable /api/proxy/all and /api/frontend/all Because returning all toggles regardless of their state is a potential security vulnerability, these endpoints can be disabled
 
   Default value: `false`
 
@@ -89,6 +80,8 @@ This document contains the help content for the `unleash-edge` command-line prog
 
   Default value: `Authorization`
 
+
+
 ## `unleash-edge edge`
 
 Run in edge mode
@@ -97,42 +90,30 @@ Run in edge mode
 
 ###### **Options:**
 
-* `-u`, `--upstream-url <UPSTREAM_URL>` — Where is your upstream URL. Remember, this is the URL to your instance,
-  without any trailing /api suffix
-* `-b`, `--backup-folder <BACKUP_FOLDER>` — A path to a local folder. Edge will write feature and token data to disk in
-  this folder and read this back after restart. Mutually exclusive with the --redis-url option
+* `-u`, `--upstream-url <UPSTREAM_URL>` — Where is your upstream URL. Remember, this is the URL to your instance, without any trailing /api suffix
+* `-b`, `--backup-folder <BACKUP_FOLDER>` — A path to a local folder. Edge will write feature and token data to disk in this folder and read this back after restart. Mutually exclusive with the --redis-url option
 * `-m`, `--metrics-interval-seconds <METRICS_INTERVAL_SECONDS>` — How often should we post metrics upstream?
 
   Default value: `60`
-* `-f`, `--features-refresh-interval-seconds <FEATURES_REFRESH_INTERVAL_SECONDS>` — How long between each refresh for a
-  token
+* `-f`, `--features-refresh-interval-seconds <FEATURES_REFRESH_INTERVAL_SECONDS>` — How long between each refresh for a token
 
   Default value: `10`
-* `--token-revalidation-interval-seconds <TOKEN_REVALIDATION_INTERVAL_SECONDS>` — How long between each revalidation of
-  a token
+* `--token-revalidation-interval-seconds <TOKEN_REVALIDATION_INTERVAL_SECONDS>` — How long between each revalidation of a token
 
   Default value: `3600`
-* `-t`, `--tokens <TOKENS>` — Get data for these client tokens at startup. Accepts comma-separated list of tokens. Hot
-  starts your feature cache
-* `-H`, `--custom-client-headers <CUSTOM_CLIENT_HEADERS>` — Expects curl header format (-H <HEADERNAME>: <HEADERVALUE>)
-  for instance `-H X-Api-Key: mysecretapikey`
-* `-s`, `--skip-ssl-verification` — If set to true, we will skip SSL verification when connecting to the upstream
-  Unleash server
+* `-t`, `--tokens <TOKENS>` — Get data for these client tokens at startup. Accepts comma-separated list of tokens. Hot starts your feature cache
+* `-H`, `--custom-client-headers <CUSTOM_CLIENT_HEADERS>` — Expects curl header format (-H <HEADERNAME>: <HEADERVALUE>) for instance `-H X-Api-Key: mysecretapikey`
+* `-s`, `--skip-ssl-verification` — If set to true, we will skip SSL verification when connecting to the upstream Unleash server
 
   Default value: `false`
 
   Possible values: `true`, `false`
 
-* `--pkcs8-client-certificate-file <PKCS8_CLIENT_CERTIFICATE_FILE>` — Client certificate chain in PEM encoded X509
-  format with the leaf certificate first. The certificate chain should contain any intermediate certificates that should
-  be sent to clients to allow them to build a chain to a trusted root
-* `--pkcs8-client-key-file <PKCS8_CLIENT_KEY_FILE>` — Client key is a PEM encoded PKCS#8 formatted private key for the
-  leaf certificate
-* `--pkcs12-identity-file <PKCS12_IDENTITY_FILE>` — Identity file in pkcs12 format. Typically this file has a pfx
-  extension
+* `--pkcs8-client-certificate-file <PKCS8_CLIENT_CERTIFICATE_FILE>` — Client certificate chain in PEM encoded X509 format with the leaf certificate first. The certificate chain should contain any intermediate certificates that should be sent to clients to allow them to build a chain to a trusted root
+* `--pkcs8-client-key-file <PKCS8_CLIENT_KEY_FILE>` — Client key is a PEM encoded PKCS#8 formatted private key for the leaf certificate
+* `--pkcs12-identity-file <PKCS12_IDENTITY_FILE>` — Identity file in pkcs12 format. Typically this file has a pfx extension
 * `--pkcs12-passphrase <PKCS12_PASSPHRASE>` — Passphrase used to unlock the pkcs12 file
-* `--upstream-certificate-file <UPSTREAM_CERTIFICATE_FILE>` — Extra certificate passed to the client for building its
-  trust chain. Needs to be in PEM format (crt or pem extensions usually are)
+* `--upstream-certificate-file <UPSTREAM_CERTIFICATE_FILE>` — Extra certificate passed to the client for building its trust chain. Needs to be in PEM format (crt or pem extensions usually are)
 * `--upstream-request-timeout <UPSTREAM_REQUEST_TIMEOUT>` — Timeout for requests to the upstream server
 
   Default value: `5`
@@ -162,23 +143,29 @@ Run in edge mode
 
   Possible values: `tcp`, `tls`, `redis`, `rediss`, `redis-unix`, `unix`
 
-* `--token-header <TOKEN_HEADER>` — Token header to use for both edge authorization and communication with the upstream
-  server
+* `--redis-read-connection-timeout-milliseconds <REDIS_READ_CONNECTION_TIMEOUT_MILLISECONDS>` — Timeout (in milliseconds) for waiting for a successful connection to redis, when restoring
+
+  Default value: `2000`
+* `--redis-write-connection-timeout-milliseconds <REDIS_WRITE_CONNECTION_TIMEOUT_MILLISECONDS>` — Timeout (in milliseconds) for waiting for a successful connection to redis when persisting
+
+  Default value: `2000`
+* `--token-header <TOKEN_HEADER>` — Token header to use for both edge authorization and communication with the upstream server
 
   Default value: `Authorization`
-* `--strict` — If set to true, Edge starts with strict behavior. Strict behavior means that Edge will refuse tokens
-  outside of the scope of the startup tokens
+* `--strict` — If set to true, Edge starts with strict behavior. Strict behavior means that Edge will refuse tokens outside the scope of the startup tokens
 
   Default value: `false`
 
   Possible values: `true`, `false`
 
-* `--dynamic` — If set to true, Edge starts with dynamic behavior. Dynamic behavior means that Edge will accept tokens
-  outside of the scope of the startup tokens
+* `--dynamic` — If set to true, Edge starts with dynamic behavior. Dynamic behavior means that Edge will accept tokens outside the scope of the startup tokens
 
   Default value: `false`
 
   Possible values: `true`, `false`
+
+
+
 
 ## `unleash-edge offline`
 
@@ -189,12 +176,12 @@ Run in offline mode
 ###### **Options:**
 
 * `-b`, `--bootstrap-file <BOOTSTRAP_FILE>` — The file to load our features from. This data will be loaded at startup
-* `-t`, `--tokens <TOKENS>` — Tokens that should be allowed to connect to Edge. Supports a comma separated list or
-  multiple instances of the `--tokens` argument
-* `-r`, `--reload-interval <RELOAD_INTERVAL>` — The interval in seconds between reloading the bootstrap file. Disabled
-  if unset or 0
+* `-t`, `--tokens <TOKENS>` — Tokens that should be allowed to connect to Edge. Supports a comma separated list or multiple instances of the `--tokens` argument
+* `-r`, `--reload-interval <RELOAD_INTERVAL>` — The interval in seconds between reloading the bootstrap file. Disabled if unset or 0
 
   Default value: `0`
+
+
 
 ## `unleash-edge health`
 
@@ -207,8 +194,9 @@ Perform a health check against a running edge instance
 * `-e`, `--edge-url <EDGE_URL>` — Where the instance you want to health check is running
 
   Default value: `http://localhost:3063`
-* `-c`, `--ca-certificate-file <CA_CERTIFICATE_FILE>` — If you're hosting Edge using a self-signed TLS certificate use
-  this to tell healthcheck about your CA
+* `-c`, `--ca-certificate-file <CA_CERTIFICATE_FILE>` — If you're hosting Edge using a self-signed TLS certificate use this to tell healthcheck about your CA
+
+
 
 ## `unleash-edge ready`
 
@@ -221,13 +209,14 @@ Perform a ready check against a running edge instance
 * `-e`, `--edge-url <EDGE_URL>` — Where the instance you want to health check is running
 
   Default value: `http://localhost:3063`
-* `-c`, `--ca-certificate-file <CA_CERTIFICATE_FILE>` — If you're hosting Edge using a self-signed TLS certificate use
-  this to tell the readychecker about your CA
+* `-c`, `--ca-certificate-file <CA_CERTIFICATE_FILE>` — If you're hosting Edge using a self-signed TLS certificate use this to tell the readychecker about your CA
+
+
 
 <hr/>
 
 <small><i>
-This document was generated automatically by
-<a href="https://crates.io/crates/clap-markdown"><code>clap-markdown</code></a>.
+    This document was generated automatically by
+    <a href="https://crates.io/crates/clap-markdown"><code>clap-markdown</code></a>.
 </i></small>
 
