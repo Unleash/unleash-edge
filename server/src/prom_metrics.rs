@@ -1,6 +1,6 @@
 use crate::cli::LogFormat;
 use opentelemetry::global;
-use opentelemetry_sdk::metrics::MeterProvider;
+use opentelemetry_sdk::metrics::SdkMeterProvider;
 use opentelemetry_semantic_conventions::resource::SERVICE_NAME;
 #[cfg(target_os = "linux")]
 use prometheus::process_collector::ProcessCollector;
@@ -57,7 +57,7 @@ fn instantiate_prometheus_metrics_handler(
         .with_registry(registry.clone())
         .build()
         .expect("Failed to setup prometheus");
-    let provider = MeterProvider::builder()
+    let provider = SdkMeterProvider::builder()
         .with_resource(resource)
         .with_reader(exporter)
         .build();

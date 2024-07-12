@@ -14,8 +14,11 @@ use unleash_edge::{
 const TEST_TIMEOUT: Duration = std::time::Duration::from_millis(1000);
 
 async fn setup_redis() -> (Client, String, ContainerAsync<Redis>) {
-    let node = Redis.start().await;
-    let host_port = node.get_host_port_ipv4(6379).await;
+    let node = Redis.start().await.expect("Failed to start redis");
+    let host_port = node
+        .get_host_port_ipv4(6379)
+        .await
+        .expect("Could not get port");
     let url = format!("redis://127.0.0.1:{host_port}");
 
     (Client::open(url.clone()).unwrap(), url, node)
