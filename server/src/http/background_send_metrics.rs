@@ -1,11 +1,11 @@
 use std::cmp::max;
 use std::sync::Arc;
 
-use actix_web::http::StatusCode;
 use chrono::Duration;
 use dashmap::DashMap;
 use lazy_static::lazy_static;
 use prometheus::{register_int_gauge, register_int_gauge_vec, IntGauge, IntGaugeVec, Opts};
+use reqwest::StatusCode;
 use tracing::{error, info, trace, warn};
 
 use crate::types::TokenRefresh;

@@ -1,3 +1,4 @@
+use rustls::crypto::CryptoProvider;
 use rustls::pki_types::PrivateKeyDer;
 use rustls::ServerConfig;
 use rustls_pemfile::{certs, pkcs8_private_keys};
@@ -32,7 +33,8 @@ pub(crate) fn build_upstream_certificate(
 }
 
 pub fn config(tls_config: TlsOptions) -> Result<ServerConfig, EdgeError> {
-    let config = ServerConfig::builder().with_no_client_auth();
+    let provider = rustls::crypto::ring::default_provider();
+    CryptoProvider::install_default(provider).expect("Failed to setup default crypto provider");
     let mut cert_file = BufReader::new(
         File::open(
             tls_config
@@ -50,7 +52,8 @@ pub fn config(tls_config: TlsOptions) -> Result<ServerConfig, EdgeError> {
     let mut keys: Vec<PrivateKeyDer> = pkcs8_private_keys(&mut key_file)
         .filter_map(|f| f.map(PrivateKeyDer::from).ok())
         .collect();
-    config
+    ServerConfig::builder()
+        .with_no_client_auth()
         .with_single_cert(cert_chain, keys.remove(0))
         .map_err(|_e| EdgeError::TlsError)
 }

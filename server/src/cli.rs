@@ -2,6 +2,7 @@ use std::fmt::{Display, Formatter};
 use std::net::IpAddr;
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::time::Duration;
 
 use cidr::{Ipv4Cidr, Ipv6Cidr};
 use clap::{ArgGroup, Args, Parser, Subcommand, ValueEnum};
@@ -67,6 +68,12 @@ pub struct RedisArgs {
     pub redis_secure: bool,
     #[clap(long, env, default_value_t = RedisScheme::Redis, value_enum)]
     pub redis_scheme: RedisScheme,
+    /// Timeout (in milliseconds) for waiting for a successful connection to redis, when restoring
+    #[clap(long, env, default_value_t = 2000)]
+    pub redis_read_connection_timeout_milliseconds: u64,
+    /// Timeout (in milliseconds) for waiting for a successful connection to redis when persisting
+    #[clap(long, env, default_value_t = 2000)]
+    pub redis_write_connection_timeout_milliseconds: u64,
 }
 
 impl RedisArgs {
@@ -96,6 +103,12 @@ impl RedisArgs {
                 }
                 base_url
         }).map(|f| f.to_string())
+    }
+    pub fn read_timeout(&self) -> std::time::Duration {
+        Duration::from_millis(self.redis_read_connection_timeout_milliseconds)
+    }
+    pub fn write_timeout(&self) -> std::time::Duration {
+        Duration::from_millis(self.redis_write_connection_timeout_milliseconds)
     }
 }
 #[derive(Args, Debug, Clone)]
@@ -174,6 +187,14 @@ pub struct EdgeArgs {
     /// Token header to use for both edge authorization and communication with the upstream server.
     #[clap(long, env, global = true, default_value = "Authorization")]
     pub token_header: TokenHeader,
+
+    /// If set to true, Edge starts with strict behavior. Strict behavior means that Edge will refuse tokens outside the scope of the startup tokens
+    #[clap(long, env, default_value_t = false)]
+    pub strict: bool,
+
+    /// If set to true, Edge starts with dynamic behavior. Dynamic behavior means that Edge will accept tokens outside the scope of the startup tokens
+    #[clap(long, env, default_value_t = false, conflicts_with = "strict")]
+    pub dynamic: bool,
 }
 
 pub fn string_to_header_tuple(s: &str) -> Result<(String, String), String> {

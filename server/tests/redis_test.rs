@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{str::FromStr, time::Duration};
 
 use redis::Client;
 use testcontainers::runners::AsyncRunner;
@@ -11,9 +11,14 @@ use unleash_edge::{
     types::{EdgeToken, TokenType},
 };
 
+const TEST_TIMEOUT: Duration = std::time::Duration::from_millis(1000);
+
 async fn setup_redis() -> (Client, String, ContainerAsync<Redis>) {
-    let node = Redis.start().await;
-    let host_port = node.get_host_port_ipv4(6379).await;
+    let node = Redis.start().await.expect("Failed to start redis");
+    let host_port = node
+        .get_host_port_ipv4(6379)
+        .await
+        .expect("Could not get port");
     let url = format!("redis://127.0.0.1:{host_port}");
 
     (Client::open(url.clone()).unwrap(), url, node)
@@ -22,7 +27,7 @@ async fn setup_redis() -> (Client, String, ContainerAsync<Redis>) {
 #[tokio::test]
 async fn redis_saves_and_restores_features_correctly() {
     let (_client, url, _node) = setup_redis().await;
-    let redis_persister = RedisPersister::new(&url).unwrap();
+    let redis_persister = RedisPersister::new(&url, TEST_TIMEOUT, TEST_TIMEOUT).unwrap();
 
     let features = ClientFeatures {
         features: vec![ClientFeature {
@@ -45,7 +50,7 @@ async fn redis_saves_and_restores_features_correctly() {
 #[tokio::test]
 async fn redis_saves_and_restores_edge_tokens_correctly() {
     let (_client, url, _node) = setup_redis().await;
-    let redis_persister = RedisPersister::new(&url).unwrap();
+    let redis_persister = RedisPersister::new(&url, TEST_TIMEOUT, TEST_TIMEOUT).unwrap();
     let mut project_specific_token =
         EdgeToken::from_str("someproject:development.abcdefghijklmnopqr").unwrap();
     project_specific_token.token_type = Some(TokenType::Client);

@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use redis::cluster::ClusterClient;
-use redis::{Client, Commands, RedisError};
+use redis::{AsyncCommands, Client, Commands, RedisError};
 use tokio::sync::RwLock;
 use tracing::{debug, info};
 use unleash_types::client_features::ClientFeatures;
@@ -30,23 +31,38 @@ enum RedisClientOptions {
 }
 
 pub struct RedisPersister {
+    read_timeout: Duration,
+    write_timeout: Duration,
     redis_client: Arc<RwLock<RedisClientOptions>>,
 }
-
 impl RedisPersister {
-    pub fn new(url: &str) -> Result<RedisPersister, EdgeError> {
+    pub fn new(
+        url: &str,
+        read_timeout: Duration,
+        write_timeout: Duration,
+    ) -> Result<RedisPersister, EdgeError> {
         let client = Client::open(url)?;
         let addr = client.get_connection_info().addr.clone();
         info!("[REDIS Persister]: Configured single node client {addr:?}");
         Ok(Self {
             redis_client: Arc::new(RwLock::new(Single(client))),
+            read_timeout,
+            write_timeout,
         })
     }
-    pub fn new_with_cluster(urls: Vec<String>) -> Result<RedisPersister, EdgeError> {
+    pub fn new_with_cluster(
+        urls: Vec<String>,
+        read_timeout: Duration,
+        write_timeout: Duration,
+    ) -> Result<RedisPersister, EdgeError> {
         info!("[REDIS Persister]: Configuring cluster client against {urls:?}");
-        let client = ClusterClient::new(urls)?;
+        let client = ClusterClient::builder(urls)
+            .connection_timeout(read_timeout)
+            .build()?;
         Ok(Self {
             redis_client: Arc::new(RwLock::new(Cluster(client))),
+            read_timeout,
+            write_timeout,
         })
     }
 }
@@ -57,7 +73,15 @@ impl EdgePersistence for RedisPersister {
         debug!("Loading tokens from persistence");
         let mut client = self.redis_client.write().await;
         let raw_tokens: String = match &mut *client {
-            Single(c) => c.get(TOKENS_KEY)?,
+            Single(c) => {
+                let mut conn = c
+                    .get_multiplexed_tokio_connection_with_response_timeouts(
+                        self.read_timeout,
+                        self.read_timeout,
+                    )
+                    .await?;
+                conn.get(TOKENS_KEY).await?
+            }
             Cluster(c) => {
                 let mut conn = c.get_connection()?;
                 conn.get(TOKENS_KEY)?
@@ -72,7 +96,15 @@ impl EdgePersistence for RedisPersister {
         let mut client = self.redis_client.write().await;
         let raw_tokens = serde_json::to_string(&tokens)?;
         match &mut *client {
-            RedisClientOptions::Single(c) => c.set(TOKENS_KEY, raw_tokens)?,
+            RedisClientOptions::Single(c) => {
+                let mut conn = c
+                    .get_multiplexed_tokio_connection_with_response_timeouts(
+                        self.write_timeout,
+                        self.write_timeout,
+                    )
+                    .await?;
+                conn.set(TOKENS_KEY, raw_tokens).await?;
+            }
             RedisClientOptions::Cluster(c) => {
                 let mut conn = c.get_connection()?;
                 conn.set(TOKENS_KEY, raw_tokens)?
@@ -85,7 +117,15 @@ impl EdgePersistence for RedisPersister {
         debug!("Loading features from persistence");
         let mut client = self.redis_client.write().await;
         let raw_features: String = match &mut *client {
-            Single(client) => client.get(FEATURES_KEY)?,
+            Single(client) => {
+                let mut conn = client
+                    .get_multiplexed_tokio_connection_with_response_timeouts(
+                        self.read_timeout,
+                        self.read_timeout,
+                    )
+                    .await?;
+                conn.get(FEATURES_KEY).await?
+            }
             Cluster(client) => {
                 let mut conn = client.get_connection()?;
                 conn.get(FEATURES_KEY)?
@@ -101,9 +141,17 @@ impl EdgePersistence for RedisPersister {
         let mut client = self.redis_client.write().await;
         let raw_features = serde_json::to_string(&features)?;
         match &mut *client {
-            Single(client) => client
-                .set(FEATURES_KEY, raw_features)
-                .map_err(EdgeError::from)?,
+            Single(client) => {
+                let mut conn = client
+                    .get_multiplexed_tokio_connection_with_response_timeouts(
+                        self.write_timeout,
+                        self.write_timeout,
+                    )
+                    .await?;
+                conn.set(FEATURES_KEY, raw_features)
+                    .await
+                    .map_err(EdgeError::from)?
+            }
             Cluster(cluster) => {
                 let mut conn = cluster.get_connection()?;
                 conn.set(FEATURES_KEY, raw_features)

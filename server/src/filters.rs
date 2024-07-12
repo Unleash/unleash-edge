@@ -92,7 +92,7 @@ mod tests {
             segments: None,
         };
 
-        let map = DashMap::default();
+        let map: DashMap<String, ClientFeatures> = DashMap::default();
         map.insert(feature_name.clone(), client_features.clone());
 
         let features = map.get(&feature_name).unwrap();
@@ -136,7 +136,7 @@ mod tests {
             segments: None,
         };
 
-        let map = DashMap::default();
+        let map: DashMap<String, ClientFeatures> = DashMap::default();
         let map_key = "some-key".to_string();
 
         map.insert(map_key.clone(), client_features);
@@ -171,7 +171,7 @@ mod tests {
             segments: None,
         };
 
-        let map = DashMap::default();
+        let map: DashMap<String, ClientFeatures> = DashMap::default();
         let map_key = "some-feature".to_string();
 
         map.insert(map_key.clone(), client_features);
@@ -223,7 +223,7 @@ mod tests {
             segments: None,
         };
 
-        let map = DashMap::default();
+        let map: DashMap<String, ClientFeatures> = DashMap::default();
         let map_key = "some-key".to_string();
 
         map.insert(map_key.clone(), client_features);

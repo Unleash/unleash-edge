@@ -6,9 +6,9 @@ use actix_web::Error;
 use futures::future::{ok, Ready};
 use futures::FutureExt as _;
 use futures_core::future::LocalBoxFuture;
-use opentelemetry::global;
 use opentelemetry::propagation::Extractor;
 use opentelemetry::trace::{FutureExt, SpanKind, Status, TraceContextExt, Tracer, TracerProvider};
+use opentelemetry::{global, KeyValue};
 use opentelemetry_semantic_conventions::trace::HTTP_RESPONSE_STATUS_CODE;
 use std::borrow::Cow;
 use std::rc::Rc;
@@ -80,12 +80,11 @@ where
 
     fn new_transform(&self, service: S) -> Self::Future {
         ok(RequestTracingMiddleware::new(
-            global::tracer_provider().versioned_tracer(
-                "unleash-edge",
-                Some(env!("CARGO_PKG_VERSION")),
-                Some("https://opentelemetry.io/schema/1.0.0"),
-                None,
-            ),
+            global::tracer_provider()
+                .tracer_builder("unleash-edge")
+                .with_version(env!("CARGO_PKG_VERSION"))
+                .with_schema_url("https://opentelemetry.io/schema/1.0.0")
+                .build(),
             service,
             self.route_formatter.clone(),
         ))
@@ -164,9 +163,10 @@ where
             .map(move |res| match res {
                 Ok(ok_res) => {
                     let span = cx.span();
-                    span.set_attribute(
-                        HTTP_RESPONSE_STATUS_CODE.i64(ok_res.status().as_u16() as i64),
-                    );
+                    span.set_attribute(KeyValue::new(
+                        HTTP_RESPONSE_STATUS_CODE,
+                        ok_res.status().as_u16() as i64,
+                    ));
                     if ok_res.status().is_server_error() {
                         span.set_status(Status::error(
                             ok_res
