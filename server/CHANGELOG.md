@@ -5,9 +5,57 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 19.2.0 (2024-07-12)
+## 19.2.1 (2024-07-12)
+
+### Chore
+
+ - <csr-id-55d8bbf8f73c1b9aa1697e881e893a0609c8d940/> prepare for release
+
+### Documentation
+
+ - <csr-id-4dc72f39adad96650516b02f8bfb3ad50fa39bab/> strict and dynamic mode
+   ---------
+
+### Bug Fixes
+
+ - <csr-id-b89841fa0e04c1e4033760e1f471f665fb09f1d2/> add timeout for redis read and write ops.
+   Previously, if you gave us a redis url that was valid, but used the
+   wrong protocol (so rediss when connecting to insecure, or redis when
+   connecting to secure), operations against Redis got stuck. This PR adds
+   a timeout setting (setting it to default of 2000 ms, but configurable).
+   
+   This does add time when url is completely invalid (i.e. there's nothing
+   listening), but it prevents the client from getting stuck indefinitely
+   if something answers, but redis can't get an answer.
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 4 commits contributed to the release over the course of 7 calendar days.
+ - 8 days passed between releases.
+ - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 2 unique issues were worked on: [#477](https://github.com/Unleash/unleash-edge/issues/477), [#478](https://github.com/Unleash/unleash-edge/issues/478)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#477](https://github.com/Unleash/unleash-edge/issues/477)**
+    - Strict and dynamic mode ([`4dc72f3`](https://github.com/Unleash/unleash-edge/commit/4dc72f39adad96650516b02f8bfb3ad50fa39bab))
+ * **[#478](https://github.com/Unleash/unleash-edge/issues/478)**
+    - Add timeout for redis read and write ops. ([`b89841f`](https://github.com/Unleash/unleash-edge/commit/b89841fa0e04c1e4033760e1f471f665fb09f1d2))
+ * **Uncategorized**
+    - Release unleash-edge v19.2.0 ([`6547d4c`](https://github.com/Unleash/unleash-edge/commit/6547d4c2c1cc005c6b1a9c0e6b767f3f19c85e02))
+    - Prepare for release ([`55d8bbf`](https://github.com/Unleash/unleash-edge/commit/55d8bbf8f73c1b9aa1697e881e893a0609c8d940))
+</details>
+
+## 19.2.0 (2024-07-04)
 
 <csr-id-b62143d5dcaf5b95d99726a4e69eaca8c82b44da/>
+<csr-id-55d8bbf8f73c1b9aa1697e881e893a0609c8d940/>
 
 ### Chore
 
@@ -47,10 +95,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 3 commits contributed to the release over the course of 7 calendar days.
- - 8 days passed between releases.
+ - 4 commits contributed to the release.
+ - 42 days passed between releases.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
- - 2 unique issues were worked on: [#477](https://github.com/Unleash/unleash-edge/issues/477), [#478](https://github.com/Unleash/unleash-edge/issues/478)
+ - 3 unique issues were worked on: [#474](https://github.com/Unleash/unleash-edge/issues/474), [#475](https://github.com/Unleash/unleash-edge/issues/475), [#476](https://github.com/Unleash/unleash-edge/issues/476)
 
 ### Commit Details
 
@@ -58,12 +106,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <details><summary>view details</summary>
 
- * **[#477](https://github.com/Unleash/unleash-edge/issues/477)**
-    - Strict and dynamic mode ([`4dc72f3`](https://github.com/Unleash/unleash-edge/commit/4dc72f39adad96650516b02f8bfb3ad50fa39bab))
- * **[#478](https://github.com/Unleash/unleash-edge/issues/478)**
-    - Add timeout for redis read and write ops. ([`b89841f`](https://github.com/Unleash/unleash-edge/commit/b89841fa0e04c1e4033760e1f471f665fb09f1d2))
+ * **[#474](https://github.com/Unleash/unleash-edge/issues/474)**
+    - Strict behavior ([`9f01201`](https://github.com/Unleash/unleash-edge/commit/9f012016edc2319a36f58f6e132d069f14ceef18))
+ * **[#475](https://github.com/Unleash/unleash-edge/issues/475)**
+    - Make README a quickstart and move concept/benchmarking/deploying to separate files ([`847d112`](https://github.com/Unleash/unleash-edge/commit/847d1124d006724783511f1dce28808434ec650a))
+ * **[#476](https://github.com/Unleash/unleash-edge/issues/476)**
+    - Add deprecation logs for dynamic behavior ([`b62143d`](https://github.com/Unleash/unleash-edge/commit/b62143d5dcaf5b95d99726a4e69eaca8c82b44da))
  * **Uncategorized**
-    - Prepare for release ([`55d8bbf`](https://github.com/Unleash/unleash-edge/commit/55d8bbf8f73c1b9aa1697e881e893a0609c8d940))
+    - Release unleash-edge v19.2.0 ([`855a89c`](https://github.com/Unleash/unleash-edge/commit/855a89c7441a73cb504f148e675ac2e0de0ea66e))
 </details>
 
 ## 19.1.3 (2024-05-23)
