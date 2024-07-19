@@ -284,7 +284,7 @@ pub struct CliArgs {
     pub instance_id: String,
 
     /// App name. Used for metrics reporting.
-    #[clap(short, long, env, default_value = "unleash-edge")]
+    #[clap(short, long, env, global = true, default_value = "unleash-edge")]
     pub app_name: String,
 
     #[arg(long, hide = true, global = true)]
