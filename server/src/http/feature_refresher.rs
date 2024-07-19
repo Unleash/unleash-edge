@@ -7,7 +7,7 @@ use dashmap::DashMap;
 use reqwest::StatusCode;
 use tracing::{debug, info, warn};
 use unleash_types::client_features::Segment;
-use unleash_types::client_metrics::ClientApplication;
+use unleash_types::client_metrics::{ClientApplication, MetricsMetadata};
 use unleash_types::{
     client_features::{ClientFeature, ClientFeatures},
     Deduplicate,
@@ -124,9 +124,14 @@ fn client_application_from_token(token: EdgeToken, refresh_interval: i64) -> Cli
         environment: token.environment,
         instance_id: None,
         interval: refresh_interval as u32,
-        sdk_version: Some(format!("unleash-edge:{}", build::PKG_VERSION)),
         started: Utc::now(),
         strategies: vec![],
+        metadata: MetricsMetadata {
+            platform_name: None,
+            platform_version: None,
+            sdk_version: Some(format!("unleash-edge:{}", build::PKG_VERSION)),
+            yggdrasil_version: None
+        }
     }
 }
 
