@@ -1,11 +1,12 @@
-use actix_web::dev::Payload;
-use actix_web::http::header::HeaderValue;
-use actix_web::web::Data;
-use actix_web::FromRequest;
-use actix_web::HttpRequest;
 use std::collections::HashSet;
 use std::future::{ready, Ready};
 use std::str::FromStr;
+
+use actix_web::dev::Payload;
+use actix_web::FromRequest;
+use actix_web::http::header::HeaderValue;
+use actix_web::HttpRequest;
+use actix_web::web::Data;
 
 use crate::cli::EdgeMode;
 use crate::cli::TokenHeader;
@@ -167,45 +168,13 @@ impl FromStr for EdgeToken {
     type Err = EdgeError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.contains(':') && s.contains('.') {
-            let token_parts: Vec<String> = s.split(':').take(2).map(|s| s.to_string()).collect();
-            let token_projects = if let Some(projects) = token_parts.first() {
-                if projects == "[]" {
-                    vec![]
-                } else {
-                    vec![projects.clone()]
-                }
-            } else {
-                return Err(EdgeError::TokenParseError(s.into()));
-            };
-            if let Some(env_and_key) = token_parts.get(1) {
-                let e_a_k: Vec<String> = env_and_key
-                    .split('.')
-                    .take(2)
-                    .map(|s| s.to_string())
-                    .collect();
-                if e_a_k.len() != 2 {
-                    return Err(EdgeError::TokenParseError(s.into()));
-                }
-                Ok(EdgeToken {
-                    environment: e_a_k.first().cloned(),
-                    projects: token_projects,
-                    token_type: None,
-                    token: s.into(),
-                    status: TokenValidationStatus::Unknown,
-                })
-            } else {
-                Err(EdgeError::TokenParseError(s.into()))
-            }
-        } else {
-            Err(EdgeError::TokenParseError(s.into()))
-        }
+        EdgeToken::from_trimmed_str(s.trim())
     }
 }
 
 impl EdgeToken {
     pub fn offline_token(s: &str) -> Self {
-        let mut token = EdgeToken::try_from(s.to_string())
+        let mut token = EdgeToken::try_from(s.trim().to_string())
             .ok()
             .unwrap_or_else(|| EdgeToken::no_project_or_environment(s));
         token.status = TokenValidationStatus::Validated;
@@ -214,11 +183,14 @@ impl EdgeToken {
 }
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
+    use ulid::Ulid;
+
     use crate::{
         tokens::simplify,
         types::{EdgeToken, TokenRefresh, TokenType},
     };
-    use ulid::Ulid;
 
     fn test_token(token: Option<&str>, env: Option<&str>, projects: Vec<&str>) -> EdgeToken {
         EdgeToken {
@@ -427,5 +399,24 @@ mod tests {
 
         let is_covered = self_token.same_environment_and_broader_or_equal_project_access(&fe_token);
         assert!(!is_covered);
+    }
+
+    #[test]
+    fn leading_or_trailing_whitespace_gets_trimmed_away_when_constructing_token() {
+        let some_token = "*:development.somesecretstring";
+        let some_token_with_leading_whitespace = "  *:development.somesecretstring";
+        let some_token_with_trailing_whitespace = "*:development.somesecretstring    ";
+        let some_token_with_leading_and_trailing_whitespace =
+            "    *:development.somesecretstring     ";
+        let token = EdgeToken::from_str(some_token).expect("Could not parse token");
+        let token1 =
+            EdgeToken::from_str(some_token_with_leading_whitespace).expect("Could not parse token");
+        let token2 = EdgeToken::from_str(some_token_with_trailing_whitespace)
+            .expect("Could not parse token");
+        let token3 = EdgeToken::from_str(some_token_with_leading_and_trailing_whitespace)
+            .expect("Could not parse token");
+        assert_eq!(token, token1);
+        assert_eq!(token1, token2);
+        assert_eq!(token2, token3);
     }
 }
