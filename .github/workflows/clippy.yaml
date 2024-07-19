@@ -36,5 +36,5 @@ jobs:
         run: cargo install clippy-sarif sarif-fmt
       - name: Run rust-clippy
         run: |
-          cargo clippy --all-features -D warnings
+          cargo clippy --all-features -- -D warnings
         continue-on-error: true
