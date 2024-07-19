@@ -283,7 +283,7 @@ mod tests {
         ClientFeature, Constraint, Operator, Strategy, StrategyVariant,
     };
     use unleash_types::client_metrics::{
-        ClientMetricsEnv, ConnectViaBuilder, MetricBucket, ToggleStats,
+        ClientMetricsEnv, ConnectViaBuilder, MetricBucket, MetricsMetadata, ToggleStats,
     };
     use unleash_yggdrasil::EngineState;
 
@@ -310,6 +310,12 @@ mod tests {
                     },
                 },
                 environment: Some("development".into()),
+                metadata: MetricsMetadata {
+                    platform_name: Some("test".into()),
+                    platform_version: Some("1.0".into()),
+                    sdk_version: Some("1.0".into()),
+                    yggdrasil_version: None,
+                },
             }))
             .to_request()
     }
@@ -329,9 +335,14 @@ mod tests {
                 environment: None,
                 instance_id: None,
                 interval: 10,
-                sdk_version: None,
                 started: Default::default(),
                 strategies: vec![],
+                metadata: MetricsMetadata {
+                    platform_name: None,
+                    platform_version: None,
+                    sdk_version: None,
+                    yggdrasil_version: None,
+                },
             }],
             metrics: vec![ClientMetricsEnv {
                 feature_name: "".to_string(),
@@ -341,6 +352,12 @@ mod tests {
                 yes: 0,
                 no: 0,
                 variants: Default::default(),
+                metadata: MetricsMetadata {
+                    platform_name: None,
+                    platform_version: None,
+                    sdk_version: None,
+                    yggdrasil_version: None,
+                },
             }],
         }))
         .to_request()
@@ -407,6 +424,12 @@ mod tests {
             yes: 1,
             no: 0,
             variants: HashMap::new(),
+            metadata: MetricsMetadata {
+                platform_name: None,
+                platform_version: None,
+                sdk_version: None,
+                yggdrasil_version: None
+            }
         };
 
         assert_eq!(found_metric.yes, expected.yes);

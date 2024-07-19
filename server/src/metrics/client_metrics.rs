@@ -141,6 +141,7 @@ pub(crate) fn register_client_metrics(
         edge_token
             .environment
             .unwrap_or_else(|| "development".into()),
+        metrics.metadata.clone(),
     );
 
     metrics_cache.sink_metrics(&metrics);
@@ -361,7 +362,9 @@ mod test {
     use std::collections::HashMap;
     use std::str::FromStr;
     use test_case::test_case;
-    use unleash_types::client_metrics::{ClientMetricsEnv, ConnectVia, ConnectViaBuilder};
+    use unleash_types::client_metrics::{
+        ClientMetricsEnv, ConnectVia, ConnectViaBuilder, MetricsMetadata,
+    };
 
     #[test]
     fn cache_aggregates_data_correctly() {
@@ -377,6 +380,12 @@ mod test {
             yes: 1,
             no: 0,
             variants: HashMap::new(),
+            metadata: MetricsMetadata {
+                platform_name: None,
+                platform_version: None,
+                sdk_version: None,
+                yggdrasil_version: None,
+            },
         };
 
         let metrics = vec![
@@ -410,6 +419,12 @@ mod test {
             yes: 2,
             no: 0,
             variants: HashMap::new(),
+            metadata: MetricsMetadata {
+                platform_name: None,
+                platform_version: None,
+                sdk_version: None,
+                yggdrasil_version: None,
+            },
         };
 
         assert_eq!(found_metric.yes, expected.yes);
@@ -436,6 +451,12 @@ mod test {
             yes: 1,
             no: 0,
             variants: HashMap::new(),
+            metadata: MetricsMetadata {
+                platform_name: None,
+                platform_version: None,
+                sdk_version: None,
+                yggdrasil_version: None,
+            },
         };
 
         let metrics = vec![
@@ -469,6 +490,12 @@ mod test {
             yes: 2,
             no: 0,
             variants: HashMap::new(),
+            metadata: MetricsMetadata {
+                platform_name: None,
+                platform_version: None,
+                sdk_version: None,
+                yggdrasil_version: None,
+            },
         };
 
         let new_metric = cache
@@ -489,6 +516,12 @@ mod test {
             yes: 1,
             no: 0,
             variants: HashMap::new(),
+            metadata: MetricsMetadata {
+                platform_name: None,
+                platform_version: None,
+                sdk_version: None,
+                yggdrasil_version: None,
+            },
         };
 
         assert_eq!(cache.metrics.len(), 2);
@@ -519,6 +552,12 @@ mod test {
             yes: 1,
             no: 0,
             variants: HashMap::new(),
+            metadata: MetricsMetadata {
+                platform_name: None,
+                platform_version: None,
+                sdk_version: None,
+                yggdrasil_version: None,
+            },
         };
 
         let metrics = vec![
@@ -542,9 +581,14 @@ mod test {
             environment: Some("development".into()),
             instance_id: Some("test".into()),
             interval: 60,
-            sdk_version: None,
             started: Default::default(),
             strategies: vec![],
+            metadata: MetricsMetadata {
+                platform_name: None,
+                platform_version: None,
+                sdk_version: None,
+                yggdrasil_version: None,
+            },
         };
         let connected_via_test_instance = client_application.connect_via("test", "instance");
         let connected_via_edge_as_well = connected_via_test_instance.connect_via("edge", "edgeid");
@@ -571,10 +615,10 @@ mod test {
     }
 
     #[test_case(10, 100, 1; "10 apps 100 toggles. Will not be split")]
-    #[test_case(1, 10000, 16; "1 app 10k toggles, will be split into 16 batches")]
-    #[test_case(1000, 1000, 4; "1000 apps 1000 toggles, will be split into 4 batches")]
-    #[test_case(500, 5000, 10; "500 apps 5000 toggles, will be split into 10 batches")]
-    #[test_case(5000, 1, 14; "5000 apps 1 metric will be split")]
+    #[test_case(1, 10000, 25; "1 app 10k toggles, will be split into 25 batches")]
+    #[test_case(1000, 1000, 7; "1000 apps 1000 toggles, will be split into 7 batches")]
+    #[test_case(500, 5000, 15; "500 apps 5000 toggles, will be split into 15 batches")]
+    #[test_case(5000, 1, 17; "5000 apps 1 metric will be split")]
     fn splits_successfully_into_sendable_chunks(apps: u64, toggles: u64, batch_count: usize) {
         let apps: Vec<ClientApplication> = (1..=apps)
             .map(|app_id| ClientApplication {
@@ -586,11 +630,16 @@ mod test {
                     app_name: "edge".into(),
                     instance_id: "some-instance-id".into(),
                 }]),
-                sdk_version: Some("some-test-sdk".into()),
                 started: DateTime::parse_from_rfc3339("1867-11-07T12:00:00Z")
                     .unwrap()
                     .with_timezone(&Utc),
                 strategies: vec![],
+                metadata: MetricsMetadata {
+                    platform_name: None,
+                    platform_version: None,
+                    sdk_version: Some("some-test-sdk".into()),
+                    yggdrasil_version: None,
+                },
             })
             .collect();
 
@@ -605,6 +654,12 @@ mod test {
                 yes: 1,
                 no: 1,
                 variants: HashMap::new(),
+                metadata: MetricsMetadata {
+                    platform_name: None,
+                    platform_version: None,
+                    sdk_version: None,
+                    yggdrasil_version: None,
+                },
             })
             .collect();
 
@@ -646,6 +701,12 @@ mod test {
             yes: 0,
             no: 0,
             variants: HashMap::new(),
+            metadata: MetricsMetadata {
+                platform_name: None,
+                platform_version: None,
+                sdk_version: None,
+                yggdrasil_version: None,
+            },
         };
 
         let metrics = vec![
@@ -684,6 +745,12 @@ mod test {
                     yes: 50,
                     no: 10,
                     variants: Default::default(),
+                    metadata: MetricsMetadata {
+                        platform_name: None,
+                        platform_version: None,
+                        sdk_version: None,
+                        yggdrasil_version: None,
+                    },
                 },
                 ClientMetricsEnv {
                     feature_name: "feature_two".to_string(),
@@ -693,6 +760,12 @@ mod test {
                     yes: 50,
                     no: 10,
                     variants: Default::default(),
+                    metadata: MetricsMetadata {
+                        platform_name: None,
+                        platform_version: None,
+                        sdk_version: None,
+                        yggdrasil_version: None,
+                    },
                 },
             ],
         };
@@ -716,6 +789,12 @@ mod test {
                 yes: 50,
                 no: 10,
                 variants: Default::default(),
+                metadata: MetricsMetadata {
+                    platform_name: None,
+                    platform_version: None,
+                    sdk_version: None,
+                    yggdrasil_version: None,
+                },
             },
             ClientMetricsEnv {
                 feature_name: "feature_two".to_string(),
@@ -725,6 +804,12 @@ mod test {
                 yes: 50,
                 no: 10,
                 variants: Default::default(),
+                metadata: MetricsMetadata {
+                    platform_name: None,
+                    platform_version: None,
+                    sdk_version: None,
+                    yggdrasil_version: None,
+                },
             },
         ];
         let cache = MetricsCache::default();
