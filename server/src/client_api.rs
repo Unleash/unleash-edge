@@ -975,6 +975,7 @@ mod tests {
             refresh_interval: Duration::seconds(6000),
             persistence: None,
             strict: false,
+            app_name: "test-app".into(),
         });
         let token_validator = Arc::new(TokenValidator {
             unleash_client: unleash_client.clone(),

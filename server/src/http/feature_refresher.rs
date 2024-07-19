@@ -101,6 +101,7 @@ pub struct FeatureRefresher {
     pub refresh_interval: chrono::Duration,
     pub persistence: Option<Arc<dyn EdgePersistence>>,
     pub strict: bool,
+    pub app_name: String,
 }
 
 impl Default for FeatureRefresher {
@@ -113,13 +114,18 @@ impl Default for FeatureRefresher {
             engine_cache: Default::default(),
             persistence: None,
             strict: true,
+            app_name: "unleash_edge".into(),
         }
     }
 }
 
-fn client_application_from_token(token: EdgeToken, refresh_interval: i64) -> ClientApplication {
+fn client_application_from_token_and_name(
+    token: EdgeToken,
+    refresh_interval: i64,
+    app_name: &str,
+) -> ClientApplication {
     ClientApplication {
-        app_name: "unleash_edge".into(),
+        app_name: app_name.into(),
         connect_via: None,
         environment: token.environment,
         instance_id: None,
@@ -143,6 +149,7 @@ impl FeatureRefresher {
         features_refresh_interval: chrono::Duration,
         persistence: Option<Arc<dyn EdgePersistence>>,
         strict: bool,
+        app_name: &str,
     ) -> Self {
         FeatureRefresher {
             unleash_client,
@@ -152,6 +159,7 @@ impl FeatureRefresher {
             refresh_interval: features_refresh_interval,
             persistence,
             strict,
+            app_name: app_name.into(),
         }
     }
 
@@ -269,9 +277,10 @@ impl FeatureRefresher {
             self.unleash_client
                 .register_as_client(
                     token.token.clone(),
-                    client_application_from_token(
+                    client_application_from_token_and_name(
                         token.clone(),
                         self.refresh_interval.num_seconds(),
+                        &self.app_name,
                     ),
                 )
                 .await
@@ -484,6 +493,7 @@ mod tests {
             Duration::seconds(5),
             Duration::seconds(5),
             "Authorization".to_string(),
+            "test-client".into(),
         );
         let features_cache = Arc::new(DashMap::default());
         let engine_cache = Arc::new(DashMap::default());
@@ -516,6 +526,7 @@ mod tests {
             Duration::seconds(5),
             Duration::seconds(5),
             "Authorization".to_string(),
+            "test-client".into(),
         );
         let features_cache = Arc::new(DashMap::default());
         let engine_cache = Arc::new(DashMap::default());
@@ -552,6 +563,7 @@ mod tests {
             Duration::seconds(5),
             Duration::seconds(5),
             "Authorization".to_string(),
+            "test-client".into(),
         );
         let features_cache = Arc::new(DashMap::default());
         let engine_cache = Arc::new(DashMap::default());
@@ -595,6 +607,7 @@ mod tests {
             Duration::seconds(5),
             Duration::seconds(5),
             "Authorization".to_string(),
+            "test-client".into(),
         );
         let features_cache = Arc::new(DashMap::default());
         let engine_cache = Arc::new(DashMap::default());
@@ -647,6 +660,7 @@ mod tests {
             Duration::seconds(5),
             Duration::seconds(5),
             "Authorization".to_string(),
+            "test-client".into(),
         );
         let features_cache = Arc::new(DashMap::default());
         let engine_cache = Arc::new(DashMap::default());
@@ -703,6 +717,7 @@ mod tests {
             Duration::seconds(5),
             Duration::seconds(5),
             "Authorization".to_string(),
+            "test-client".into(),
         );
         let features_cache = Arc::new(DashMap::default());
         let engine_cache = Arc::new(DashMap::default());
@@ -744,6 +759,7 @@ mod tests {
             Duration::seconds(5),
             Duration::seconds(5),
             "Authorization".to_string(),
+            "test-client".into(),
         );
         let features_cache = Arc::new(DashMap::default());
         let engine_cache = Arc::new(DashMap::default());
@@ -780,6 +796,7 @@ mod tests {
             Duration::seconds(5),
             Duration::seconds(5),
             "Authorization".to_string(),
+            "test-client".into(),
         );
         let features_cache = Arc::new(DashMap::default());
         let engine_cache = Arc::new(DashMap::default());
