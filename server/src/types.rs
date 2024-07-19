@@ -645,14 +645,14 @@ mod tests {
     fn context_conversion_properties_level_properties_take_precedence_over_top_level() {
         let context = Context {
             properties: Some(HashMap::from([(
-                "duplicated property".into(),
+                "probably_a_duplicated property".into(),
                 "lower".into(),
             )])),
             ..Default::default()
         };
 
         let extra_properties =
-            HashMap::from([(String::from("duplicated property"), String::from("upper"))]);
+            HashMap::from([(String::from("probably_a_duplicated property"), String::from("upper"))]);
 
         let incoming_context = IncomingContext {
             context: context.clone(),
@@ -663,7 +663,7 @@ mod tests {
         assert_eq!(
             converted.properties,
             Some(HashMap::from([(
-                "duplicated property".into(),
+                "probably_a_duplicated property".into(),
                 "lower".into()
             ),]))
         );
