@@ -210,6 +210,7 @@ async fn build_edge(args: &EdgeArgs, app_name: &str) -> EdgeResult<EdgeInfo> {
         Duration::seconds(args.features_refresh_interval_seconds.try_into().unwrap()),
         persistence.clone(),
         args.strict,
+        app_name,
     ));
     let _ = token_validator.register_tokens(args.tokens.clone()).await;
 
