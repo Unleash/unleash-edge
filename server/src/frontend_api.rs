@@ -487,7 +487,7 @@ pub fn evaluate_feature(
                 payload: r.variant.payload,
             },
             impression_data: r.impression_data,
-            impressionData: r.impression_data
+            impressionData: r.impression_data,
         })
         .ok_or_else(|| EdgeError::FeatureNotFound(feature_name.clone()))
 }
@@ -736,7 +736,7 @@ pub fn frontend_from_yggdrasil(
                 payload: resolved.variant.payload.clone(),
             },
             impression_data: resolved.impression_data,
-            impressionData: resolved.impression_data
+            impressionData: resolved.impression_data,
         })
         .collect::<Vec<EvaluatedToggle>>();
     FrontendResult { toggles }
@@ -1007,7 +1007,7 @@ mod tests {
                     payload: None,
                 },
                 impression_data: false,
-                impressionData: false
+                impressionData: false,
             }],
         };
 
@@ -1065,7 +1065,7 @@ mod tests {
                     payload: None,
                 },
                 impression_data: false,
-                impressionData: false
+                impressionData: false,
             }],
         };
 
@@ -1121,7 +1121,7 @@ mod tests {
                     payload: None,
                 },
                 impression_data: false,
-                impressionData: false
+                impressionData: false,
             }],
         };
 

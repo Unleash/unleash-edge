@@ -428,8 +428,8 @@ mod tests {
                 platform_name: None,
                 platform_version: None,
                 sdk_version: None,
-                yggdrasil_version: None
-            }
+                yggdrasil_version: None,
+            },
         };
 
         assert_eq!(found_metric.yes, expected.yes);

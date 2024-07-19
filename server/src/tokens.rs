@@ -3,10 +3,10 @@ use std::future::{ready, Ready};
 use std::str::FromStr;
 
 use actix_web::dev::Payload;
-use actix_web::FromRequest;
 use actix_web::http::header::HeaderValue;
-use actix_web::HttpRequest;
 use actix_web::web::Data;
+use actix_web::FromRequest;
+use actix_web::HttpRequest;
 
 use crate::cli::EdgeMode;
 use crate::cli::TokenHeader;
@@ -179,6 +179,41 @@ impl EdgeToken {
             .unwrap_or_else(|| EdgeToken::no_project_or_environment(s));
         token.status = TokenValidationStatus::Validated;
         token
+    }
+    pub fn from_trimmed_str(s: &str) -> Result<Self, EdgeError> {
+        if s.contains(':') && s.contains('.') {
+            let token_parts: Vec<String> = s.split(':').take(2).map(|s| s.to_string()).collect();
+            let token_projects = if let Some(projects) = token_parts.first() {
+                if projects == "[]" {
+                    vec![]
+                } else {
+                    vec![projects.clone()]
+                }
+            } else {
+                return Err(EdgeError::TokenParseError(s.into()));
+            };
+            if let Some(env_and_key) = token_parts.get(1) {
+                let e_a_k: Vec<String> = env_and_key
+                    .split('.')
+                    .take(2)
+                    .map(|s| s.to_string())
+                    .collect();
+                if e_a_k.len() != 2 {
+                    return Err(EdgeError::TokenParseError(s.into()));
+                }
+                Ok(EdgeToken {
+                    environment: e_a_k.first().cloned(),
+                    projects: token_projects,
+                    token_type: None,
+                    token: s.into(),
+                    status: TokenValidationStatus::Unknown,
+                })
+            } else {
+                Err(EdgeError::TokenParseError(s.into()))
+            }
+        } else {
+            Err(EdgeError::TokenParseError(s.into()))
+        }
     }
 }
 #[cfg(test)]

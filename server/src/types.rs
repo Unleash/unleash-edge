@@ -1,13 +1,13 @@
-use std::{
-    collections::HashMap,
-    hash::{Hash, Hasher},
-    str::FromStr,
-};
 use std::cmp::min;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::net::IpAddr;
 use std::sync::Arc;
+use std::{
+    collections::HashMap,
+    hash::{Hash, Hasher},
+    str::FromStr,
+};
 
 use actix_web::{http::header::EntityTag, web::Json};
 use async_trait::async_trait;
@@ -214,42 +214,6 @@ impl EdgeToken {
                 t
             })
             .unwrap()
-    }
-
-    pub fn from_trimmed_str(s: &str) -> Result<Self, EdgeError> {
-        if s.contains(':') && s.contains('.') {
-            let token_parts: Vec<String> = s.split(':').take(2).map(|s| s.to_string()).collect();
-            let token_projects = if let Some(projects) = token_parts.first() {
-                if projects == "[]" {
-                    vec![]
-                } else {
-                    vec![projects.clone()]
-                }
-            } else {
-                return Err(EdgeError::TokenParseError(s.into()));
-            };
-            if let Some(env_and_key) = token_parts.get(1) {
-                let e_a_k: Vec<String> = env_and_key
-                    .split('.')
-                    .take(2)
-                    .map(|s| s.to_string())
-                    .collect();
-                if e_a_k.len() != 2 {
-                    return Err(EdgeError::TokenParseError(s.into()));
-                }
-                Ok(EdgeToken {
-                    environment: e_a_k.first().cloned(),
-                    projects: token_projects,
-                    token_type: None,
-                    token: s.into(),
-                    status: TokenValidationStatus::Unknown,
-                })
-            } else {
-                Err(EdgeError::TokenParseError(s.into()))
-            }
-        } else {
-            Err(EdgeError::TokenParseError(s.into()))
-        }
     }
 }
 
