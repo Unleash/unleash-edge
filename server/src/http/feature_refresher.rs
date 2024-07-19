@@ -130,8 +130,8 @@ fn client_application_from_token(token: EdgeToken, refresh_interval: i64) -> Cli
             platform_name: None,
             platform_version: None,
             sdk_version: Some(format!("unleash-edge:{}", build::PKG_VERSION)),
-            yggdrasil_version: None
-        }
+            yggdrasil_version: None,
+        },
     }
 }
 
