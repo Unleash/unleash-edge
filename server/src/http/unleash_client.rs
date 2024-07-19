@@ -136,6 +136,7 @@ fn new_reqwest_client(
     upstream_certificate_file: Option<PathBuf>,
     connect_timeout: Duration,
     socket_timeout: Duration,
+    app_name: String,
 ) -> EdgeResult<Client> {
     build_identity(client_identity)
         .and_then(|builder| {
@@ -148,7 +149,8 @@ fn new_reqwest_client(
             let mut header_map = HeaderMap::new();
             header_map.insert(
                 UNLEASH_APPNAME_HEADER,
-                header::HeaderValue::from_static("unleash-edge"),
+                header::HeaderValue::from_str(app_name.as_str())
+                    .expect("Could not add app name as a header"),
             );
             header_map.insert(
                 UNLEASH_INSTANCE_ID_HEADER,
@@ -184,6 +186,7 @@ impl UnleashClient {
         connect_timeout: Duration,
         socket_timeout: Duration,
         token_header: String,
+        app_name: String,
     ) -> Self {
         Self {
             urls: UnleashUrls::from_base_url(server_url),
@@ -194,6 +197,7 @@ impl UnleashClient {
                 upstream_certificate_file,
                 connect_timeout,
                 socket_timeout,
+                app_name,
             )
             .unwrap(),
             custom_headers: Default::default(),
@@ -215,6 +219,7 @@ impl UnleashClient {
                 None,
                 Duration::seconds(5),
                 Duration::seconds(5),
+                "test-client".into(),
             )
             .unwrap(),
             custom_headers: Default::default(),
@@ -235,6 +240,7 @@ impl UnleashClient {
                 None,
                 Duration::seconds(5),
                 Duration::seconds(5),
+                "test-client".into(),
             )
             .unwrap(),
             custom_headers: Default::default(),
@@ -806,6 +812,7 @@ mod tests {
             None,
             Duration::seconds(5),
             Duration::seconds(5),
+            "test-client".into(),
         );
         assert!(client.is_ok());
     }
@@ -827,6 +834,7 @@ mod tests {
             None,
             Duration::seconds(5),
             Duration::seconds(5),
+            "test-client".into(),
         );
         assert!(client.is_err());
     }
@@ -848,6 +856,7 @@ mod tests {
             None,
             Duration::seconds(5),
             Duration::seconds(5),
+            "test-client".into(),
         );
         assert!(client.is_ok());
     }
