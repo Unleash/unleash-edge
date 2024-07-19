@@ -140,7 +140,7 @@ mod tests {
             Duration::seconds(5),
             Duration::seconds(5),
             "Authorization".to_string(),
-            "test-client".into()
+            "test-client".into(),
         );
         let local_features_cache: Arc<DashMap<String, ClientFeatures>> =
             Arc::new(DashMap::default());
