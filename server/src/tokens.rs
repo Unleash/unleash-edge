@@ -174,7 +174,7 @@ impl FromStr for EdgeToken {
 
 impl EdgeToken {
     pub fn offline_token(s: &str) -> Self {
-        let mut token = EdgeToken::try_from(s.trim().to_string())
+        let mut token = EdgeToken::try_from(s.to_string())
             .ok()
             .unwrap_or_else(|| EdgeToken::no_project_or_environment(s));
         token.status = TokenValidationStatus::Validated;
