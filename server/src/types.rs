@@ -444,6 +444,7 @@ impl Default for BuildInfo {
             package_major: build::PKG_VERSION_MAJOR.into(),
             package_minor: build::PKG_VERSION_MINOR.into(),
             package_patch: build::PKG_VERSION_PATCH.into(),
+            #[allow(clippy::const_is_empty)]
             package_version_pre: if build::PKG_VERSION_PRE.is_empty() {
                 None
             } else {
