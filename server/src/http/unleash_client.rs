@@ -129,7 +129,7 @@ fn build_identity(tls: Option<ClientIdentity>) -> EdgeResult<ClientBuilder> {
     )
 }
 
-fn new_reqwest_client(
+pub fn new_reqwest_client(
     instance_id: String,
     skip_ssl_verification: bool,
     client_identity: Option<ClientIdentity>,
@@ -180,26 +180,12 @@ pub struct EdgeTokens {
 impl UnleashClient {
     pub fn from_url(
         server_url: Url,
-        skip_ssl_verification: bool,
-        client_identity: Option<ClientIdentity>,
-        upstream_certificate_file: Option<PathBuf>,
-        connect_timeout: Duration,
-        socket_timeout: Duration,
         token_header: String,
-        app_name: String,
+        backing_client: Client,
     ) -> Self {
         Self {
             urls: UnleashUrls::from_base_url(server_url),
-            backing_client: new_reqwest_client(
-                "unleash_edge".into(),
-                skip_ssl_verification,
-                client_identity,
-                upstream_certificate_file,
-                connect_timeout,
-                socket_timeout,
-                app_name,
-            )
-            .unwrap(),
+            backing_client,
             custom_headers: Default::default(),
             token_header,
         }

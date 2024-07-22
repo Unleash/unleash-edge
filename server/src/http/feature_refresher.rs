@@ -463,6 +463,7 @@ mod tests {
     use unleash_yggdrasil::EngineState;
 
     use crate::filters::{project_filter, FeatureFilterSet};
+    use crate::http::unleash_client::new_reqwest_client;
     use crate::tests::features_from_disk;
     use crate::tokens::cache_key;
     use crate::types::TokenValidationStatus::Validated;
@@ -483,18 +484,28 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    pub async fn registering_token_for_refresh_works() {
-        let unleash_client = UnleashClient::from_url(
-            Url::parse("http://localhost:4242").unwrap(),
+    fn create_test_client() -> UnleashClient {
+        let http_client = new_reqwest_client(
+            "unleash_edge".into(),
             false,
             None,
             None,
             Duration::seconds(5),
             Duration::seconds(5),
-            "Authorization".to_string(),
             "test-client".into(),
-        );
+        )
+        .expect("Failed to create client");
+
+        UnleashClient::from_url(
+            Url::parse("http://localhost:4242").unwrap(),
+            "Authorization".to_string(),
+            http_client,
+        )
+    }
+
+    #[tokio::test]
+    pub async fn registering_token_for_refresh_works() {
+        let unleash_client = create_test_client();
         let features_cache = Arc::new(DashMap::default());
         let engine_cache = Arc::new(DashMap::default());
 
@@ -518,16 +529,7 @@ mod tests {
     #[tokio::test]
     pub async fn registering_multiple_tokens_with_same_environment_reduces_tokens_to_valid_minimal_set(
     ) {
-        let unleash_client = UnleashClient::from_url(
-            Url::parse("http://localhost:4242").unwrap(),
-            false,
-            None,
-            None,
-            Duration::seconds(5),
-            Duration::seconds(5),
-            "Authorization".to_string(),
-            "test-client".into(),
-        );
+        let unleash_client = create_test_client();
         let features_cache = Arc::new(DashMap::default());
         let engine_cache = Arc::new(DashMap::default());
 
@@ -555,16 +557,7 @@ mod tests {
 
     #[tokio::test]
     pub async fn registering_multiple_non_overlapping_tokens_will_keep_all() {
-        let unleash_client = UnleashClient::from_url(
-            Url::parse("http://localhost:4242").unwrap(),
-            false,
-            None,
-            None,
-            Duration::seconds(5),
-            Duration::seconds(5),
-            "Authorization".to_string(),
-            "test-client".into(),
-        );
+        let unleash_client = create_test_client();
         let features_cache = Arc::new(DashMap::default());
         let engine_cache = Arc::new(DashMap::default());
         let duration = Duration::seconds(5);
@@ -599,16 +592,7 @@ mod tests {
 
     #[tokio::test]
     pub async fn registering_wildcard_project_token_only_keeps_the_wildcard() {
-        let unleash_client = UnleashClient::from_url(
-            Url::parse("http://localhost:4242").unwrap(),
-            false,
-            None,
-            None,
-            Duration::seconds(5),
-            Duration::seconds(5),
-            "Authorization".to_string(),
-            "test-client".into(),
-        );
+        let unleash_client = create_test_client();
         let features_cache = Arc::new(DashMap::default());
         let engine_cache = Arc::new(DashMap::default());
         let duration = Duration::seconds(5);
@@ -652,16 +636,7 @@ mod tests {
 
     #[tokio::test]
     pub async fn registering_tokens_with_multiple_projects_overwrites_single_tokens() {
-        let unleash_client = UnleashClient::from_url(
-            Url::parse("http://localhost:4242").unwrap(),
-            false,
-            None,
-            None,
-            Duration::seconds(5),
-            Duration::seconds(5),
-            "Authorization".to_string(),
-            "test-client".into(),
-        );
+        let unleash_client = create_test_client();
         let features_cache = Arc::new(DashMap::default());
         let engine_cache = Arc::new(DashMap::default());
         let duration = Duration::seconds(5);
@@ -709,16 +684,7 @@ mod tests {
 
     #[tokio::test]
     pub async fn registering_a_token_that_is_already_subsumed_does_nothing() {
-        let unleash_client = UnleashClient::from_url(
-            Url::parse("http://localhost:4242").unwrap(),
-            false,
-            None,
-            None,
-            Duration::seconds(5),
-            Duration::seconds(5),
-            "Authorization".to_string(),
-            "test-client".into(),
-        );
+        let unleash_client = create_test_client();
         let features_cache = Arc::new(DashMap::default());
         let engine_cache = Arc::new(DashMap::default());
 
@@ -751,16 +717,7 @@ mod tests {
 
     #[tokio::test]
     pub async fn simplification_only_happens_in_same_environment() {
-        let unleash_client = UnleashClient::from_url(
-            Url::parse("http://localhost:4242").unwrap(),
-            false,
-            None,
-            None,
-            Duration::seconds(5),
-            Duration::seconds(5),
-            "Authorization".to_string(),
-            "test-client".into(),
-        );
+        let unleash_client = create_test_client();
         let features_cache = Arc::new(DashMap::default());
         let engine_cache = Arc::new(DashMap::default());
 
@@ -788,16 +745,7 @@ mod tests {
 
     #[tokio::test]
     pub async fn is_able_to_only_fetch_for_tokens_due_to_refresh() {
-        let unleash_client = UnleashClient::from_url(
-            Url::parse("http://localhost:4242").unwrap(),
-            false,
-            None,
-            None,
-            Duration::seconds(5),
-            Duration::seconds(5),
-            "Authorization".to_string(),
-            "test-client".into(),
-        );
+        let unleash_client = create_test_client();
         let features_cache = Arc::new(DashMap::default());
         let engine_cache = Arc::new(DashMap::default());
 
