@@ -5,7 +5,59 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 19.3.0 (2024-07-22)
+
+### Chore
+
+ - <csr-id-7854e28e68acbf1627f8d759b141af64f2709748/> prepare 19.3.0
+ - <csr-id-8e57fe3e04158269ae68df222ef6b704e33a5d5d/> make clippy warnings into failures
+
+### New Features
+
+ - <csr-id-9795c7c8acfbb963f45df4bba6a589f32544ee45/> upgrade types library, unfortunately this does two things - adds new optional metrics data and adds backwards compatability for impression_data
+
+### Bug Fixes
+
+ - <csr-id-c1a3acd59606e8553e8d46d3dca5bbc0f88a348e/> use app name as appname header
+ - <csr-id-528128709b0cfdcffc3677433ae14e103c17982b/> trim tokens when parsing
+   * fix: trim tokens when parsing
+
+### Other
+
+ - <csr-id-fa2f974b80b3b28032a484230047f88dbc05c078/> Dependency maintenance
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 6 commits contributed to the release over the course of 9 calendar days.
+ - 9 days passed between releases.
+ - 6 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 5 unique issues were worked on: [#479](https://github.com/Unleash/unleash-edge/issues/479), [#489](https://github.com/Unleash/unleash-edge/issues/489), [#490](https://github.com/Unleash/unleash-edge/issues/490), [#491](https://github.com/Unleash/unleash-edge/issues/491), [#492](https://github.com/Unleash/unleash-edge/issues/492)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#479](https://github.com/Unleash/unleash-edge/issues/479)**
+    - Dependency maintenance ([`fa2f974`](https://github.com/Unleash/unleash-edge/commit/fa2f974b80b3b28032a484230047f88dbc05c078))
+ * **[#489](https://github.com/Unleash/unleash-edge/issues/489)**
+    - Upgrade types library, unfortunately this does two things - adds new optional metrics data and adds backwards compatability for impression_data ([`9795c7c`](https://github.com/Unleash/unleash-edge/commit/9795c7c8acfbb963f45df4bba6a589f32544ee45))
+ * **[#490](https://github.com/Unleash/unleash-edge/issues/490)**
+    - Use app name as appname header ([`c1a3acd`](https://github.com/Unleash/unleash-edge/commit/c1a3acd59606e8553e8d46d3dca5bbc0f88a348e))
+ * **[#491](https://github.com/Unleash/unleash-edge/issues/491)**
+    - Make clippy warnings into failures ([`8e57fe3`](https://github.com/Unleash/unleash-edge/commit/8e57fe3e04158269ae68df222ef6b704e33a5d5d))
+ * **[#492](https://github.com/Unleash/unleash-edge/issues/492)**
+    - Trim tokens when parsing ([`5281287`](https://github.com/Unleash/unleash-edge/commit/528128709b0cfdcffc3677433ae14e103c17982b))
+ * **Uncategorized**
+    - Prepare 19.3.0 ([`7854e28`](https://github.com/Unleash/unleash-edge/commit/7854e28e68acbf1627f8d759b141af64f2709748))
+</details>
+
 ## 19.2.1 (2024-07-12)
+
+<csr-id-55d8bbf8f73c1b9aa1697e881e893a0609c8d940/>
 
 ### Chore
 
@@ -13,6 +65,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+ - <csr-id-4dc72f39adad96650516b02f8bfb3ad50fa39bab/> strict and dynamic mode
+   ---------
  - <csr-id-4dc72f39adad96650516b02f8bfb3ad50fa39bab/> strict and dynamic mode
    ---------
 
@@ -32,7 +86,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 4 commits contributed to the release over the course of 7 calendar days.
+ - 5 commits contributed to the release over the course of 7 calendar days.
  - 8 days passed between releases.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#477](https://github.com/Unleash/unleash-edge/issues/477), [#478](https://github.com/Unleash/unleash-edge/issues/478)
@@ -48,6 +102,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#478](https://github.com/Unleash/unleash-edge/issues/478)**
     - Add timeout for redis read and write ops. ([`b89841f`](https://github.com/Unleash/unleash-edge/commit/b89841fa0e04c1e4033760e1f471f665fb09f1d2))
  * **Uncategorized**
+    - Release unleash-edge v19.2.1 ([`1f6217b`](https://github.com/Unleash/unleash-edge/commit/1f6217bc4f4c741204de31c04fb328376ac2939b))
     - Release unleash-edge v19.2.0 ([`6547d4c`](https://github.com/Unleash/unleash-edge/commit/6547d4c2c1cc005c6b1a9c0e6b767f3f19c85e02))
     - Prepare for release ([`55d8bbf`](https://github.com/Unleash/unleash-edge/commit/55d8bbf8f73c1b9aa1697e881e893a0609c8d940))
 </details>
