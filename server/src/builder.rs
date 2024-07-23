@@ -11,6 +11,7 @@ use unleash_types::client_features::ClientFeatures;
 use unleash_yggdrasil::EngineState;
 
 use crate::cli::RedisMode;
+use crate::http::unleash_client::new_reqwest_client;
 use crate::offline::offline_hotload::{load_bootstrap, load_offline_engine_cache};
 use crate::persistence::file::FilePersister;
 use crate::persistence::redis::RedisPersister;
@@ -162,7 +163,7 @@ async fn get_data_source(args: &EdgeArgs) -> Option<Arc<dyn EdgePersistence>> {
     None
 }
 
-async fn build_edge(args: &EdgeArgs) -> EdgeResult<EdgeInfo> {
+async fn build_edge(args: &EdgeArgs, app_name: &str) -> EdgeResult<EdgeInfo> {
     if !args.strict {
         if !args.dynamic {
             error!("You should explicitly opt into either strict or dynamic behavior. Edge has defaulted to dynamic to preserve legacy behavior, however we recommend using strict from now on. Not explicitly opting into a behavior will return an error on startup in a future release");
@@ -180,17 +181,19 @@ async fn build_edge(args: &EdgeArgs) -> EdgeResult<EdgeInfo> {
 
     let persistence = get_data_source(args).await;
 
+    let http_client = new_reqwest_client(
+        "unleash_edge".into(),
+        args.skip_ssl_verification,
+        args.client_identity.clone(),
+        args.upstream_certificate_file.clone(),
+        Duration::seconds(args.upstream_request_timeout),
+        Duration::seconds(args.upstream_socket_timeout),
+        app_name.into(),
+    )?;
+
     let unleash_client = Url::parse(&args.upstream_url.clone())
         .map(|url| {
-            UnleashClient::from_url(
-                url,
-                args.skip_ssl_verification,
-                args.client_identity.clone(),
-                args.upstream_certificate_file.clone(),
-                Duration::seconds(args.upstream_request_timeout),
-                Duration::seconds(args.upstream_socket_timeout),
-                args.token_header.token_header.clone(),
-            )
+            UnleashClient::from_url(url, args.token_header.token_header.clone(), http_client)
         })
         .map(|c| c.with_custom_client_headers(args.custom_client_headers.clone()))
         .map(Arc::new)
@@ -209,6 +212,7 @@ async fn build_edge(args: &EdgeArgs) -> EdgeResult<EdgeInfo> {
         Duration::seconds(args.features_refresh_interval_seconds.try_into().unwrap()),
         persistence.clone(),
         args.strict,
+        app_name,
     ));
     let _ = token_validator.register_tokens(args.tokens.clone()).await;
 
@@ -245,7 +249,7 @@ pub async fn build_caches_and_refreshers(args: CliArgs) -> EdgeResult<EdgeInfo> 
         EdgeMode::Offline(offline_args) => {
             build_offline(offline_args).map(|cache| (cache, None, None, None))
         }
-        EdgeMode::Edge(edge_args) => build_edge(&edge_args).await,
+        EdgeMode::Edge(edge_args) => build_edge(&edge_args, &args.app_name).await,
         _ => unreachable!(),
     }
 }
@@ -296,7 +300,7 @@ mod tests {
             token_revalidation_interval_seconds: Default::default(),
         };
 
-        let result = build_edge(&args).await;
+        let result = build_edge(&args, "test-app").await;
         assert!(result.is_err());
         assert_eq!(
             result.err().unwrap().to_string(),

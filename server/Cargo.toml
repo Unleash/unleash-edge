@@ -12,7 +12,7 @@ homepage = "https://github.com/Unleash/unleash-edge"
 license = "MIT"
 name = "unleash-edge"
 repository = "https://github.com/Unleash/unleash-edge"
-version = "19.2.1"
+version = "19.3.0"
 
 [package.metadata.wix]
 upgrade-guid = "11E5D83A-3034-48BB-9A84-9F589EBD648C"
@@ -73,7 +73,7 @@ semver = "1.0.23"
 serde = { version = "1.0.204", features = ["derive"] }
 serde_json = "1.0.120"
 serde_qs = { version = "0.13.0", features = ["actix4", "tracing"] }
-shadow-rs = { version = "0.29.0" }
+shadow-rs = { version = "0.30.0" }
 tokio = { version = "1.38.0", features = [
     "macros",
     "rt-multi-thread",
@@ -83,8 +83,8 @@ tokio = { version = "1.38.0", features = [
 tracing = { version = "0.1.40", features = ["log"] }
 tracing-subscriber = { version = "0.3.18", features = ["json", "env-filter"] }
 ulid = "1.1.2"
-unleash-types = { version = "0.12", features = ["openapi", "hashes"] }
-unleash-yggdrasil = { version = "0.12.0" }
+unleash-types = { version = "0.13", features = ["openapi", "hashes"] }
+unleash-yggdrasil = { version = "0.13.0" }
 utoipa = { version = "4.2.3", features = ["actix_extras", "chrono"] }
 utoipa-swagger-ui = { version = "7.1.0", features = ["actix-web"] }
 [dev-dependencies]
@@ -100,4 +100,4 @@ testcontainers-modules = { version = "0.8.0", features = ["redis"] }
 tracing-test = "0.2.5"
 
 [build-dependencies]
-shadow-rs = "0.29.0"
+shadow-rs = "0.30.0"

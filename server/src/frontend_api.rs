@@ -487,6 +487,7 @@ pub fn evaluate_feature(
                 payload: r.variant.payload,
             },
             impression_data: r.impression_data,
+            impressionData: r.impression_data,
         })
         .ok_or_else(|| EdgeError::FeatureNotFound(feature_name.clone()))
 }
@@ -735,6 +736,7 @@ pub fn frontend_from_yggdrasil(
                 payload: resolved.variant.payload.clone(),
             },
             impression_data: resolved.impression_data,
+            impressionData: resolved.impression_data,
         })
         .collect::<Vec<EvaluatedToggle>>();
     FrontendResult { toggles }
@@ -792,7 +794,7 @@ mod tests {
     use std::str::FromStr;
     use std::sync::Arc;
     use tracing_test::traced_test;
-    use unleash_types::client_metrics::ClientMetricsEnv;
+    use unleash_types::client_metrics::{ClientMetricsEnv, MetricsMetadata};
     use unleash_types::{
         client_features::{ClientFeature, ClientFeatures, Constraint, Operator, Strategy},
         frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult},
@@ -1005,6 +1007,7 @@ mod tests {
                     payload: None,
                 },
                 impression_data: false,
+                impressionData: false,
             }],
         };
 
@@ -1062,6 +1065,7 @@ mod tests {
                     payload: None,
                 },
                 impression_data: false,
+                impressionData: false,
             }],
         };
 
@@ -1117,6 +1121,7 @@ mod tests {
                     payload: None,
                 },
                 impression_data: false,
+                impressionData: false,
             }],
         };
 
@@ -1192,6 +1197,12 @@ mod tests {
             yes: 1,
             no: 0,
             variants: HashMap::new(),
+            metadata: MetricsMetadata {
+                platform_name: None,
+                platform_version: None,
+                sdk_version: None,
+                yggdrasil_version: None,
+            },
         };
 
         assert_eq!(found_metric.yes, expected.yes);

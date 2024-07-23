@@ -7,7 +7,7 @@ use dashmap::DashMap;
 use reqwest::StatusCode;
 use tracing::{debug, info, warn};
 use unleash_types::client_features::Segment;
-use unleash_types::client_metrics::ClientApplication;
+use unleash_types::client_metrics::{ClientApplication, MetricsMetadata};
 use unleash_types::{
     client_features::{ClientFeature, ClientFeatures},
     Deduplicate,
@@ -101,6 +101,7 @@ pub struct FeatureRefresher {
     pub refresh_interval: chrono::Duration,
     pub persistence: Option<Arc<dyn EdgePersistence>>,
     pub strict: bool,
+    pub app_name: String,
 }
 
 impl Default for FeatureRefresher {
@@ -113,20 +114,30 @@ impl Default for FeatureRefresher {
             engine_cache: Default::default(),
             persistence: None,
             strict: true,
+            app_name: "unleash_edge".into(),
         }
     }
 }
 
-fn client_application_from_token(token: EdgeToken, refresh_interval: i64) -> ClientApplication {
+fn client_application_from_token_and_name(
+    token: EdgeToken,
+    refresh_interval: i64,
+    app_name: &str,
+) -> ClientApplication {
     ClientApplication {
-        app_name: "unleash_edge".into(),
+        app_name: app_name.into(),
         connect_via: None,
         environment: token.environment,
         instance_id: None,
         interval: refresh_interval as u32,
-        sdk_version: Some(format!("unleash-edge:{}", build::PKG_VERSION)),
         started: Utc::now(),
         strategies: vec![],
+        metadata: MetricsMetadata {
+            platform_name: None,
+            platform_version: None,
+            sdk_version: Some(format!("unleash-edge:{}", build::PKG_VERSION)),
+            yggdrasil_version: None,
+        },
     }
 }
 
@@ -138,6 +149,7 @@ impl FeatureRefresher {
         features_refresh_interval: chrono::Duration,
         persistence: Option<Arc<dyn EdgePersistence>>,
         strict: bool,
+        app_name: &str,
     ) -> Self {
         FeatureRefresher {
             unleash_client,
@@ -147,6 +159,7 @@ impl FeatureRefresher {
             refresh_interval: features_refresh_interval,
             persistence,
             strict,
+            app_name: app_name.into(),
         }
     }
 
@@ -264,9 +277,10 @@ impl FeatureRefresher {
             self.unleash_client
                 .register_as_client(
                     token.token.clone(),
-                    client_application_from_token(
+                    client_application_from_token_and_name(
                         token.clone(),
                         self.refresh_interval.num_seconds(),
+                        &self.app_name,
                     ),
                 )
                 .await
@@ -449,6 +463,7 @@ mod tests {
     use unleash_yggdrasil::EngineState;
 
     use crate::filters::{project_filter, FeatureFilterSet};
+    use crate::http::unleash_client::new_reqwest_client;
     use crate::tests::features_from_disk;
     use crate::tokens::cache_key;
     use crate::types::TokenValidationStatus::Validated;
@@ -469,17 +484,28 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    pub async fn registering_token_for_refresh_works() {
-        let unleash_client = UnleashClient::from_url(
-            Url::parse("http://localhost:4242").unwrap(),
+    fn create_test_client() -> UnleashClient {
+        let http_client = new_reqwest_client(
+            "unleash_edge".into(),
             false,
             None,
             None,
             Duration::seconds(5),
             Duration::seconds(5),
+            "test-client".into(),
+        )
+        .expect("Failed to create client");
+
+        UnleashClient::from_url(
+            Url::parse("http://localhost:4242").unwrap(),
             "Authorization".to_string(),
-        );
+            http_client,
+        )
+    }
+
+    #[tokio::test]
+    pub async fn registering_token_for_refresh_works() {
+        let unleash_client = create_test_client();
         let features_cache = Arc::new(DashMap::default());
         let engine_cache = Arc::new(DashMap::default());
 
@@ -503,15 +529,7 @@ mod tests {
     #[tokio::test]
     pub async fn registering_multiple_tokens_with_same_environment_reduces_tokens_to_valid_minimal_set(
     ) {
-        let unleash_client = UnleashClient::from_url(
-            Url::parse("http://localhost:4242").unwrap(),
-            false,
-            None,
-            None,
-            Duration::seconds(5),
-            Duration::seconds(5),
-            "Authorization".to_string(),
-        );
+        let unleash_client = create_test_client();
         let features_cache = Arc::new(DashMap::default());
         let engine_cache = Arc::new(DashMap::default());
 
@@ -539,15 +557,7 @@ mod tests {
 
     #[tokio::test]
     pub async fn registering_multiple_non_overlapping_tokens_will_keep_all() {
-        let unleash_client = UnleashClient::from_url(
-            Url::parse("http://localhost:4242").unwrap(),
-            false,
-            None,
-            None,
-            Duration::seconds(5),
-            Duration::seconds(5),
-            "Authorization".to_string(),
-        );
+        let unleash_client = create_test_client();
         let features_cache = Arc::new(DashMap::default());
         let engine_cache = Arc::new(DashMap::default());
         let duration = Duration::seconds(5);
@@ -582,15 +592,7 @@ mod tests {
 
     #[tokio::test]
     pub async fn registering_wildcard_project_token_only_keeps_the_wildcard() {
-        let unleash_client = UnleashClient::from_url(
-            Url::parse("http://localhost:4242").unwrap(),
-            false,
-            None,
-            None,
-            Duration::seconds(5),
-            Duration::seconds(5),
-            "Authorization".to_string(),
-        );
+        let unleash_client = create_test_client();
         let features_cache = Arc::new(DashMap::default());
         let engine_cache = Arc::new(DashMap::default());
         let duration = Duration::seconds(5);
@@ -634,15 +636,7 @@ mod tests {
 
     #[tokio::test]
     pub async fn registering_tokens_with_multiple_projects_overwrites_single_tokens() {
-        let unleash_client = UnleashClient::from_url(
-            Url::parse("http://localhost:4242").unwrap(),
-            false,
-            None,
-            None,
-            Duration::seconds(5),
-            Duration::seconds(5),
-            "Authorization".to_string(),
-        );
+        let unleash_client = create_test_client();
         let features_cache = Arc::new(DashMap::default());
         let engine_cache = Arc::new(DashMap::default());
         let duration = Duration::seconds(5);
@@ -690,15 +684,7 @@ mod tests {
 
     #[tokio::test]
     pub async fn registering_a_token_that_is_already_subsumed_does_nothing() {
-        let unleash_client = UnleashClient::from_url(
-            Url::parse("http://localhost:4242").unwrap(),
-            false,
-            None,
-            None,
-            Duration::seconds(5),
-            Duration::seconds(5),
-            "Authorization".to_string(),
-        );
+        let unleash_client = create_test_client();
         let features_cache = Arc::new(DashMap::default());
         let engine_cache = Arc::new(DashMap::default());
 
@@ -731,15 +717,7 @@ mod tests {
 
     #[tokio::test]
     pub async fn simplification_only_happens_in_same_environment() {
-        let unleash_client = UnleashClient::from_url(
-            Url::parse("http://localhost:4242").unwrap(),
-            false,
-            None,
-            None,
-            Duration::seconds(5),
-            Duration::seconds(5),
-            "Authorization".to_string(),
-        );
+        let unleash_client = create_test_client();
         let features_cache = Arc::new(DashMap::default());
         let engine_cache = Arc::new(DashMap::default());
 
@@ -767,15 +745,7 @@ mod tests {
 
     #[tokio::test]
     pub async fn is_able_to_only_fetch_for_tokens_due_to_refresh() {
-        let unleash_client = UnleashClient::from_url(
-            Url::parse("http://localhost:4242").unwrap(),
-            false,
-            None,
-            None,
-            Duration::seconds(5),
-            Duration::seconds(5),
-            "Authorization".to_string(),
-        );
+        let unleash_client = create_test_client();
         let features_cache = Arc::new(DashMap::default());
         let engine_cache = Arc::new(DashMap::default());
 

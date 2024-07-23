@@ -38,9 +38,6 @@ This document contains the help content for the `unleash-edge` command-line prog
 * `--tls-enable` — Should we bind TLS
 
   Default value: `false`
-
-  Possible values: `true`, `false`
-
 * `--tls-server-key <TLS_SERVER_KEY>` — Server key to use for TLS - Needs to be a path to a file
 * `--tls-server-cert <TLS_SERVER_CERT>` — Server Cert to use for TLS - Needs to be a path to a file
 * `--tls-server-port <TLS_SERVER_PORT>` — Port to listen for https connection on (will use the interfaces already defined)
@@ -48,25 +45,15 @@ This document contains the help content for the `unleash-edge` command-line prog
   Default value: `3043`
 * `--instance-id <INSTANCE_ID>` — Instance id. Used for metrics reporting
 
-  Default value: `<GENERATED_ULID>`
+  Default value: `<random ulid>`
 * `-a`, `--app-name <APP_NAME>` — App name. Used for metrics reporting
 
   Default value: `unleash-edge`
-* `--markdown-help`
-
-  Possible values: `true`, `false`
-
 * `--trust-proxy` — By enabling the trust proxy option. Unleash Edge will have knowledge that it's sitting behind a proxy and that the X-Forward-\* header fields may be trusted, which otherwise may be easily spoofed. Edge will use this to populate its context's  remoteAddress field If you need to only trust specific ips or CIDR, enable this flag and then set `--proxy-trusted-servers`
-
-  Possible values: `true`, `false`
-
 * `--proxy-trusted-servers <PROXY_TRUSTED_SERVERS>` — Tells Unleash Edge which servers to trust the X-Forwarded-For. Accepts explicit Ip addresses or Cidrs (127.0.0.1/16). Accepts a comma separated list or multiple instances of the flag. E.g `--proxy-trusted-servers "127.0.0.1,192.168.0.1"` and `--proxy-trusted-servers 127.0.0.1 --proxy-trusted-servers 192.168.0.1` are equivalent
 * `--disable-all-endpoint` — Set this flag to true if you want to disable /api/proxy/all and /api/frontend/all Because returning all toggles regardless of their state is a potential security vulnerability, these endpoints can be disabled
 
   Default value: `false`
-
-  Possible values: `true`, `false`
-
 * `--edge-request-timeout <EDGE_REQUEST_TIMEOUT>` — Timeout for requests to Edge
 
   Default value: `5`
@@ -106,9 +93,6 @@ Run in edge mode
 * `-s`, `--skip-ssl-verification` — If set to true, we will skip SSL verification when connecting to the upstream Unleash server
 
   Default value: `false`
-
-  Possible values: `true`, `false`
-
 * `--pkcs8-client-certificate-file <PKCS8_CLIENT_CERTIFICATE_FILE>` — Client certificate chain in PEM encoded X509 format with the leaf certificate first. The certificate chain should contain any intermediate certificates that should be sent to clients to allow them to build a chain to a trusted root
 * `--pkcs8-client-key-file <PKCS8_CLIENT_KEY_FILE>` — Client key is a PEM encoded PKCS#8 formatted private key for the leaf certificate
 * `--pkcs12-identity-file <PKCS12_IDENTITY_FILE>` — Identity file in pkcs12 format. Typically this file has a pfx extension
@@ -134,9 +118,6 @@ Run in edge mode
 * `--redis-secure`
 
   Default value: `false`
-
-  Possible values: `true`, `false`
-
 * `--redis-scheme <REDIS_SCHEME>`
 
   Default value: `redis`
@@ -155,15 +136,9 @@ Run in edge mode
 * `--strict` — If set to true, Edge starts with strict behavior. Strict behavior means that Edge will refuse tokens outside the scope of the startup tokens
 
   Default value: `false`
-
-  Possible values: `true`, `false`
-
 * `--dynamic` — If set to true, Edge starts with dynamic behavior. Dynamic behavior means that Edge will accept tokens outside the scope of the startup tokens
 
   Default value: `false`
-
-  Possible values: `true`, `false`
-
 
 
 
