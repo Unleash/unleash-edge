@@ -20,6 +20,9 @@ path-guid = "6F606A3B-C7E9-43EC-8B6E-91D7B74F80FC"
 license = false
 eula = false
 
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }
+
 [dependencies]
 actix-cors = "0.7.0"
 actix-http = "3.8.0"
