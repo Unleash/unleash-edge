@@ -153,9 +153,6 @@ where
         let span = self.tracer.build_with_context(builder, &parent_context);
         let cx = parent_context.with_span(span);
 
-        #[cfg(feature = "sync-middleware")]
-        let attachment = cx.clone().attach();
-
         let fut = self
             .service
             .call(req)
@@ -186,9 +183,6 @@ where
                     Err(err)
                 }
             });
-
-        #[cfg(feature = "sync-middleware")]
-        drop(attachment);
 
         Box::pin(fut)
     }
