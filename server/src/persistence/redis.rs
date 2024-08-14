@@ -87,8 +87,9 @@ impl EdgePersistence for RedisPersister {
                 conn.get(TOKENS_KEY)?
             }
         };
-        serde_json::from_str::<Vec<EdgeToken>>(&raw_tokens)
+        serde_json::from_str::<Option<Vec<EdgeToken>>>(&raw_tokens)
             .map_err(|_e| EdgeError::TokenParseError("Failed to load tokens from redis".into()))
+            .map(Option::unwrap_or_default)
     }
 
     async fn save_tokens(&self, tokens: Vec<EdgeToken>) -> EdgeResult<()> {
