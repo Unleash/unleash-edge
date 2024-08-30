@@ -11,7 +11,7 @@ use actix_web::{
 };
 use dashmap::DashMap;
 use serde_qs::actix::QsQuery;
-use tracing::{debug, info, instrument};
+use tracing::{debug, instrument};
 use unleash_types::client_features::Context;
 use unleash_types::client_metrics::{ClientApplication, ConnectVia};
 use unleash_types::{
@@ -452,7 +452,7 @@ pub fn evaluate_feature(
     engine_cache: Data<DashMap<String, EngineState>>,
     client_ip: Option<ClientIp>,
 ) -> EdgeResult<EvaluatedToggle> {
-    let context: Context = incoming_context.clone().into();
+    let context: Context = incoming_context.clone();
     let context_with_ip = if context.remote_address.is_none() {
         Context {
             remote_address: client_ip.map(|ip| ip.to_string()),
