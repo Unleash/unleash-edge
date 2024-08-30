@@ -53,6 +53,42 @@ impl From<IncomingContext> for Context {
     }
 }
 
+#[derive(Deserialize, Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PostContext {
+    pub context: Option<Context>,
+    pub properties: Option<HashMap<String, String>>,
+    #[serde(flatten)]
+    pub extra_properties: HashMap<String, String>,
+}
+
+impl From<PostContext> for Context {
+    fn from(input: PostContext) -> Self {
+        let props = if let Some(context_props) = input.context.and_then(|c| c.properties) {
+            let mut props = HashMap::new();
+            props.extend(context_props);
+            props.extend(input.extra_properties);
+            props.extend(input.properties.unwrap_or_default());
+            props
+        } else {
+            let mut props = HashMap::new();
+            props.extend(input.extra_properties);
+            props.extend(input.properties.unwrap_or_default());
+            props
+        };
+
+        Context {
+            properties: Some(props.clone()),
+            user_id: props.get("userId").cloned(),
+            session_id: props.get("sessionId").cloned(),
+            remote_address: props.get("remoteAddress").cloned(),
+            environment: props.get("environment").cloned(),
+            app_name: props.get("appName").cloned(),
+            current_time: props.get("currentTime").cloned(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum TokenType {
