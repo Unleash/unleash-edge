@@ -84,8 +84,12 @@ To run Edge in dynamic mode, use the `--dynamic` CLI argument or `DYNAMIC` envir
 
 Unleash Edge is distributed as a binary and as a Docker image.
 
-- **Binary**: Downloadable from our [Releases page](https://github.com/Unleash/unleash-edge/releases/latest). Available for Linux x86_64, Windows x86_64, Darwin (OS X) x86_64, and Darwin (OS X) aarch64 (M1/M2 Macs). If you have the [Rust toolchain](https://rustup.rs) installed, you can build a binary for the platform you're running by cloning this repository and running `cargo build --release`. The binary will be located in `./target/release`.
-- **Docker**: The Docker image is available on Docker Hub (`unleashorg/unleash-edge:<version>`) and GitHub Packages (`ghcr.io/unleash/unleash-edge:<version>`).
+- **Binary**:
+  - Downloadable from our [Releases page](https://github.com/Unleash/unleash-edge/releases/latest). Available for Linux x86_64, Windows x86_64, Darwin (OS X) x86_64, and Darwin (OS X) aarch64 (M1/M2 Macs).
+  - If you have the [Rust toolchain](https://rustup.rs) installed, you can build a binary for the platform you're running by cloning this repository and running `cargo build --release`. The binary will be located in `./target/release`.
+- **Docker**: The Docker image is available on:
+  -  Docker Hub: `unleashorg/unleash-edge:<version>`.
+  -  GitHub Packages: `ghcr.io/unleash/unleash-edge:<version>`.
 
 ## Running Unleash Edge
 
@@ -93,11 +97,15 @@ The `docker run` command supports the same [CLI arguments](/CLI.md) that are ava
 
 To run Edge in **edge** mode, use the tag `edge`. This is built from `HEAD` on each commit.
 
-`docker run -p 3063:3063 -e STRICT=true -e UPSTREAM_URL=<your_unleash_instance> -e TOKENS=<your_client_token> unleashorg/unleash-edge:<version> edge`
+```shell
+docker run -p 3063:3063 -e STRICT=true -e UPSTREAM_URL=<your_unleash_instance> -e TOKENS=<your_client_token> unleashorg/unleash-edge:<version> edge
+```
 
 To run Edge in **offline** mode, use the `offline` tag and provide a volume with your feature toggles file. An example is available inside the examples folder. 
 
-`docker run -v ./examples:/edge/data -p 3063:3063 -e BOOTSTRAP_FILE=/edge/data/features.json -e TOKENS=<your_client_token_1,your_client_token_2> unleashorg/unleash-edge:<version> offline`
+```shell
+docker run -v ./examples:/edge/data -p 3063:3063 -e BOOTSTRAP_FILE=/edge/data/features.json -e TOKENS=<your_client_token_1,your_client_token_2> unleashorg/unleash-edge:<version> offline
+```
 
 ## Metrics
 
