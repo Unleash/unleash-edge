@@ -8,157 +8,147 @@
 [![Coverage Status](https://coveralls.io/repos/github/Unleash/unleash-edge/badge.svg?branch=main)](https://coveralls.io/github/Unleash/unleash-edge?branch=main)
 ![downloads](https://img.shields.io/crates/d/unleash-edge.svg)
 
-> Warning: Unleash Edge requires Unleash v4.15.0 or higher
+- [Overview](#overview)
+- [Quickstart](#quickstart)
+- [Edge behaviors](#edge-behaviors)
+  - [Strict behavior](#strict-behavior)
+  - [Dynamic behavior](#dynamic-behavior)
+- [Getting Unleash Edge](#getting-unleash-edge)
+- [Running Unleash Edge](#running-unleash-edge)
+- [Metrics](#metrics)
+  - [Prometheus integration](#prometheus-integration)
+- [Compatibility](#compatibility)
+- [Debugging](#debugging)
+- [Additional resources](#additional-resources)
+  - [Edge concepts](#edge-concepts)
+  - [CLI](#cli)
+  - [Deploying Edge](#deploying-edge)
+  - [Migrating from Unleash Proxy](#migrating-from-unleash-proxy)
+  - [Performance benchmarking](#performance-benchmarking)
+  - [Contribution and development guide](#contribution-and-development-guide)
 
-Unleash Edge is the successor to the [Unleash Proxy](https://docs.getunleash.io/how-to/how-to-run-the-unleash-proxy).
 
-Unleash Edge sits between the Unleash API and your SDKs and provides a cached read-replica of your Unleash instance.
-This means you can scale up your Unleash instance to thousands of connected SDKs without increasing the number of
-requests you make to your Unleash instance.
+> Availability: Unleash v4.15+.
 
-Unleash Edge offers two important features:
+## Overview
 
-- **Performance**: Unleash Edge caches in memory and can run close to your end-users. A single instance can handle tens
-  to hundreds of thousands of requests per second.
-- **Resilience**: Unleash Edge is designed to survive restarts and operate properly even if you lose connection to your
-  Unleash server.
+Unleash Edge is a fast and lightweight proxy layer between your Unleash API and SDKs. It acts as a read replica of your Unleash instance and is designed to help you scale Unleash. It allows you to support thousands of connected SDKs without increasing the number of requests you make to your Unleash instance.
 
-Unleash Edge is built to help you scale Unleash.
+Edge supports both client-side and server-side SDKs and has multi-environment and project awareness. You can daisy-chain Edge instances to support more complex setups, such as multi-cloud deployments.
 
-* If you're looking for the easiest way to connect your client SDKs you can check out
-  our [Frontend API](https://docs.getunleash.io/reference/front-end-api).
-* If you're looking to learn how to scale your own feature flag system why not check out our recommendations for
-  building and scaling [feature flags](https://docs.getunleash.io/topics/feature-flags/feature-flag-best-practices)
+Key features:
 
-## Migrating to Edge from the Proxy
+- **Performance**: Edge uses in-memory caching and can run close to your end-users. A single instance can handle tens to hundreds of thousands of requests per second.
+- **Resilience**: Edge is designed to survive restarts and maintain functionality even if you lose connection to your Unleash server.
+- **Security**: Edge supports frontend applications without exposing sensitive data to end-users or to Unleash.
 
-For more info on migrating, check out the [migration guide](./migration-guide.md) that details the differences between
-Edge and the Proxy and how to achieve similar behavior in Edge.
+You can run Edge in two different modes: **edge** or **offline**. To learn about the different modes and other Edge concepts, visit [Concepts](./docs/concepts.md).
+
+Unleash Edge is the successor to Unleash Proxy. For help with migrating from Proxy to Edge, refer to the [migration guide](./migration-guide.md).
+  
+If you're looking for the simplest way to connect your client SDKs, explore our [Frontend API](https://docs.getunleash.io/reference/front-end-api). For additional recommendations on scaling your feature flag system, see our [Best practices for building and scaling feature flags](https://docs.getunleash.io/topics/feature-flags/feature-flag-best-practices) guide.
 
 ## Quickstart
 
-Running Edge in Docker with our recommended setup:
+Our recommended approach is to bootstrap Edge with a client API token and upstream URL as command line arguments or container environment variables.
+
+To run Edge in Docker:
 
 ```shell
-docker run -it -p 3063:3063 -e STRICT=true -e UPSTREAM_URL=<yourunleashinstance> -e TOKENS=<yourclienttoken> unleashorg/unleash-edge:<mostrecentversion> edge
+docker run -it -p 3063:3063 -e STRICT=true -e UPSTREAM_URL=<your_unleash_instance> -e TOKENS=<your_client_token> unleashorg/unleash-edge:<mostrecentversion> edge
 ```
 
 ## Edge behaviors
 
-As of version 19.2.0, Unleash Edge now supports two behaviors when running in edge mode: **strict** and **dynamic**. We
-recommend adopting the new **strict** behavior, while **dynamic** remains as a legacy option that will be deprecated and
-removed in a future release.
+> Availability: Unleash Edge v19.2+
 
-For legacy reasons, **dynamic** behavior is still the default. However, a warning will be logged at startup to indicate
-its deprecation.
-
-Please note that these behaviors are mutually exclusive.
+Unleash Edge supports two behaviors when running in edge mode: **strict** and **dynamic**. We recommend using **strict** behavior, as **dynamic** is a legacy behavior. Behaviors are mutually exclusive.
 
 ### Strict behavior
 
-If started with the `--strict` flag or the `STRICT` environment variable, Edge now starts with strict behavior and must
-be given tokens at startup.
+When using strict behavior, Edge requires tokens at startup and refuses requests from SDKs that have a wider or different access scope than the initial tokens. Incoming requests must have a token that exactly matches the environment and projects specified in the initial tokens.
 
-Edge will refuse requests from SDKs that have a wider or different access scope than the initial tokens. Specifically,
-this means incoming requests must have a token that exactly matches the environment and is bound to a project or
-projects specified in that token.
+For example, if you start Edge with a wildcard token with access to the development environment (`*:development.<some_token_string>`) and your clients use various tokens with access to specific projects in the development environment, Edge filters features to only grant access to the narrower scope.
 
-E.g. If you start with one wildcard token with access to the development
-environment `*:development.<somelongrandomstring>` and your clients use various tokens with access to specific projects
-in the development environment, Edge will filter features to only grant access to the narrower scope.
+To run Edge in strict mode, use the `--strict` CLI argument or `STRICT` environment variable.
 
 ### Dynamic behavior
 
-With dynamic behavior, Edge behaves as it has since v1.0.0. Any new client tokens are validated against upstream and if
-found to be valid, a refresh job will be configured with the minimum set of tokens that are able to fetch all projects
-and environments Edge has seen. Set with `--dynamic` or the `DYNAMIC` environment variable. (19.2.0 / July 4th 2024):
-We're looking to deprecate this behavior. If you need this behavior, reach out to us on Slack, the final
-decision has not been made yet. In 19.2.0 this behavior is still the default, but Edge will log that you should make a
-choice between dynamic or strict behavior.
-When dynamic behavior is selected (by default or by choice), Edge will print a warning about the planned deprecation.
+> Legacy behavior, use strict instead.
 
-## Deploying
+When using dynamic behavior, Edge validates any new client tokens against upstream. If valid, it configures a refresh job with the minimum set of tokens needed to fetch all observed projects and environments.
 
-See our page on [Deploying Edge](./docs/deploying.md)
+To run Edge in dynamic mode, use the `--dynamic` CLI argument or `DYNAMIC` environment variable.
 
 ## Getting Unleash Edge
 
-Unleash Edge is distributed as a binary and as a docker image.
+Unleash Edge is distributed as a binary and as a Docker image.
 
-### Binary
+- **Binary**: Downloadable from our [Releases page](https://github.com/Unleash/unleash-edge/releases/latest). Available for Linux x86_64, Windows x86_64, Darwin (OS X) x86_64, and Darwin (OS X) aarch64 (M1/M2 Macs). If you have the [Rust toolchain](https://rustup.rs) installed, you can build a binary for the platform you're running by cloning this repository and running `cargo build --release`. The binary will be located in `./target/release`.
+- **Docker**: The Docker image is available on Docker Hub (`unleashorg/unleash-edge:<version>`) and GitHub Packages (`ghcr.io/unleash/unleash-edge:<version>`).
 
-- The binary is downloadable from our [Releases page](https://github.com/Unleash/unleash-edge/releases/latest).
-- We're currently building for linux x86_64, windows x86_64, darwin (OS X) x86_64 and darwin (OS X) aarch64 (M1/M2 macs)
+## Running Unleash Edge
 
-### Docker
+The `docker run` command supports the same [CLI arguments](/CLI.md) that are available when running a binary.
 
-- The docker image gets uploaded to dockerhub and Github Package registry.
-- For dockerhub use the coordinates `unleashorg/unleash-edge:<version>`.
-- For Github package registry use the coordinates `ghpr.io/unleash/unleash-edge:<version>`
-- If you'd like to live on the edge (sic) you can use the tag `edge`. This is built from `HEAD` on each commit
-- When running the docker image, the same CLI arguments that's available when running the binary is available to
-  your `docker run` command. To start successfully you will need to decide which mode you're running in.
-    - If running in `edge` mode your command should be
-        - `docker run -p 3063:3063 -e UPSTREAM_URL=<YOUR_UNLEASH_INSTANCE> unleashorg/unleash-edge:<version> edge`
-    - If running in `offline` mode you will need to provide a volume containing your feature toggles file. An example is
-      available inside the examples folder. To use this, you can use the command
-        - `docker run -v ./examples:/edge/data -p 3063:3063 -e BOOTSTRAP_FILE=/edge/data/features.json -e TOKENS='my-secret-123,another-secret-789' unleashorg/unleash-edge:<version> offline`
+To run Edge in **edge** mode, use the tag `edge`. This is built from `HEAD` on each commit.
 
-### Cargo/Rust
+`docker run -p 3063:3063 -e STRICT=true -e UPSTREAM_URL=<your_unleash_instance> -e TOKENS=<your_client_token> unleashorg/unleash-edge:<version> edge`
 
-If you have the [Rust toolchain](https://rustup.rs) installed you can build a binary for the platform you're running by
-cloning this repo and running `cargo build --release`. This will give you an `unleash-edge` binary in `./target/release`
+To run Edge in **offline** mode, use the `offline` tag and provide a volume with your feature toggles file. An example is available inside the examples folder. 
 
-## Concepts
-
-See our page on [Edge concepts](./docs/concepts.md)
+`docker run -v ./examples:/edge/data -p 3063:3063 -e BOOTSTRAP_FILE=/edge/data/features.json -e TOKENS=<your_client_token_1,your_client_token_2> unleashorg/unleash-edge:<version> offline`
 
 ## Metrics
 
-**❗ Note:** For Edge to correctly register SDK usage metrics, your Unleash instance must be v5.9.0 or newer.
-**! Note:** If you're daisy chaining you will need at least Edge 17.0.0 upstream of any Edge 19.0.0 to preserve metrics.
+> Availability: Unleash v5.9+. For daisy-chaining, ensure Edge v17+ is upstream of any Edge v19+ to preserve metrics.
 
-Since Edge is designed to avoid overloading its upstream, Edge gathers and accumulates usage metrics from SDKs for a set
-interval (METRICS_INTERVAL_SECONDS) before posting a batch upstream.
-This reduces load on Unleash instances down to a single call every interval, instead of every single client posting to
-Unleash for updating metrics.
-Unleash instances running on versions older than 4.22 are not able to handle the batch format posted by Edge, which
-means you won't see any metrics from clients connected to an Edge instance until you're able to update to 4.22 or newer.
+Edge is designed to minimize load on its upstream by batching SDK usage metrics. Metrics are gathered over a set interval (`METRICS_INTERVAL_SECONDS`) and sent upstream in a single batch.
+
+Unleash versions older than 4.22 cannot process these metrics, so an update is required to see metrics from clients connected to Edge.
+
+### Prometheus integration
+
+To monitor the health and performance of your Edge instances, you can consume Prometheus metrics at:
+
+`http://<your-edge-url>/internal-backstage/metrics`
 
 ## Compatibility
 
-Unleash Edge adheres to Semantic Versioning (SemVer) on the API and CLI layers. If you're using Unleash Edge as a
-library in your projects, be cautious, internal codebase changes, which might occur in any version release (including
-minor and patch versions), could potentially break your implementation.
-
-## Performance
-
-See our page on [Edge benchmarking] [Benchmarking](./docs/benchmarking.md)
+Unleash Edge adheres to Semantic Versioning (SemVer) on the API and CLI layers. If you're using Unleash Edge as a library in your projects, note that internal changes could affect your implementation, even in minor or patch versions.
 
 ## Debugging
 
-You can adjust the `RUST_LOG` environment variable to see more verbose log output. For example, in order to get logs
-originating directly from Edge but not its dependencies, you can raise the default log level from `error` to `warning`
-and set Edge to `debug`, like this:
+To enable verbose logging, adjust the `RUST_LOG` environment variable. For example, to see logs originating directly from Edge but not its dependencies, you can raise the default log level from `error` to `warning` and set Edge to `debug`, like this:
 
 ```sh
 RUST_LOG="warn,unleash_edge=debug" ./unleash-edge #<command>
 ```
 
-See more about available logging and log levels at https://docs.rs/env_logger/latest/env_logger/#enabling-logging
+See more about available logging and log levels [here](https://docs.rs/env_logger/latest/env_logger/#enabling-logging).
 
-## Troubleshooting
+## Additional resources
 
-### Missing metrics in upstream server
+### Edge concepts
 
-#### Possible reasons
+To learn more about Unleash Edge, see the [Concepts](./docs/concepts.md) documentation.
 
-- Old Edge version. In order to guarantee metrics on newer Unleash versions, you will need to be using Edge v17.0.0 or
-  newer
-- Old SDK clients. We've noticed that some clients, particularly early Python (1.x branch) as well as earlier .NET
-  SDKs (we
-  recommend you use 4.1.5 or newer) struggle to post metrics with the strict headers Edge requires.
+### CLI
 
-## Development
+For a list of available command-line arguments, see [CLI](/CLI.md).
 
-See our [Contributors guide](./CONTRIBUTING.md) as well as our [development-guide](./development-guide.md)
+### Deploying Edge
+
+For deployment instructions, see our [Deploying Edge](./docs/deploying.md) guide.
+
+### Migrating from Unleash Proxy
+
+To migrate from the Unleash Proxy to Unleash Edge, refer to the [migration guide](./migration-guide.md).
+
+### Performance benchmarking
+
+For performance benchmarking, see our [Benchmarking](./docs/benchmarking.md) page.
+
+### Contribution and development guide
+
+See our [Contributors guide](./CONTRIBUTING.md) as well as our [development-guide](./development-guide.md).
