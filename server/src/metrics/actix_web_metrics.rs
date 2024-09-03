@@ -4,7 +4,7 @@ use actix_web::dev::ServiceRequest;
 use actix_web::http::{header, Method, StatusCode, Version};
 use futures::{future, FutureExt};
 use futures_core::future::LocalBoxFuture;
-use opentelemetry::metrics::{Histogram, Meter, MeterProvider, MetricsError, Unit, UpDownCounter};
+use opentelemetry::metrics::{Histogram, Meter, MeterProvider, MetricsError, UpDownCounter};
 use opentelemetry::{global, Key, KeyValue, Value};
 use opentelemetry_semantic_conventions::trace::{
     CLIENT_ADDRESS, HTTP_REQUEST_METHOD, HTTP_RESPONSE_STATUS_CODE, HTTP_ROUTE,
@@ -191,19 +191,19 @@ impl Metrics {
         let http_server_duration = meter
             .f64_histogram(HTTP_SERVER_DURATION)
             .with_description("HTTP inbound request duration per route")
-            .with_unit(Unit::new("ms"))
+            .with_unit("ms")
             .init();
 
         let http_server_request_size = meter
             .u64_histogram(HTTP_SERVER_REQUEST_SIZE)
             .with_description("Measures the size of HTTP request messages (compressed).")
-            .with_unit(Unit::new("By"))
+            .with_unit("By")
             .init();
 
         let http_server_response_size = meter
             .u64_histogram(HTTP_SERVER_RESPONSE_SIZE)
             .with_description("Measures the size of HTTP request messages (compressed).")
-            .with_unit(Unit::new("By"))
+            .with_unit("By")
             .init();
 
         Metrics {
