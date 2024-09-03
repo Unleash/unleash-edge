@@ -518,6 +518,7 @@ mod tests {
     use std::collections::HashMap;
     use std::str::FromStr;
 
+    use serde_json::json;
     use test_case::test_case;
     use tracing::warn;
     use unleash_types::client_features::Context;
@@ -525,6 +526,8 @@ mod tests {
     use crate::error::EdgeError::EdgeTokenParseError;
     use crate::http::unleash_client::EdgeTokens;
     use crate::types::{EdgeResult, EdgeToken, IncomingContext};
+
+    use super::PostContext;
 
     fn test_str(token: &str) -> EdgeToken {
         EdgeToken::from_str(
@@ -710,5 +713,98 @@ mod tests {
 
         let converted: Context = incoming_context.into();
         assert_eq!(converted.properties, None);
+    }
+
+    #[test]
+    fn completely_flat_json_parses_to_a_context() {
+        let json = json!(
+            {
+                "userId": "7",
+                "flat": "endsUpInProps",
+                "invalidProperty": "alsoEndsUpInProps"
+            }
+        );
+
+        let post_context: PostContext = serde_json::from_value(json).unwrap();
+        let parsed_context: Context = post_context.into();
+
+        assert_eq!(parsed_context.user_id, Some("7".into()));
+        assert_eq!(
+            parsed_context.properties,
+            Some(HashMap::from([
+                ("flat".into(), "endsUpInProps".into()),
+                ("invalidProperty".into(), "alsoEndsUpInProps".into())
+            ]))
+        );
+    }
+
+    #[test]
+    fn post_context_root_level_properties_are_ignored_if_context_property_is_set() {
+        let json = json!(
+            {
+                "context": {
+                    "userId":"7",
+                },
+                "invalidProperty": "thisNeverGoesAnywhere",
+                "anotherInvalidProperty": "alsoGoesNoWhere"
+            }
+        );
+
+        let post_context: PostContext = serde_json::from_value(json).unwrap();
+        let parsed_context: Context = post_context.into();
+        assert_eq!(parsed_context.properties, None);
+
+        assert_eq!(parsed_context.user_id, Some("7".into()));
+    }
+
+    #[test]
+    fn post_context_properties_are_taken_from_nested_context_object_but_root_levels_are_ignored() {
+        let json = json!(
+            {
+                "context": {
+                    "userId":"7",
+                    "properties": {
+                        "nested": "nestedValue"
+                    }
+                },
+                "invalidProperty": "thisNeverGoesAnywhere"
+            }
+        );
+
+        let post_context: PostContext = serde_json::from_value(json).unwrap();
+        let parsed_context: Context = post_context.into();
+        assert_eq!(
+            parsed_context.properties,
+            Some(HashMap::from([("nested".into(), "nestedValue".into()),]))
+        );
+
+        assert_eq!(parsed_context.user_id, Some("7".into()));
+    }
+
+    #[test]
+    fn post_context_properties_are_taken_from_nested_context_object_but_custom_properties_on_context_are_ignored(
+    ) {
+        let json = json!(
+            {
+                "context": {
+                    "userId":"7",
+                    "howDidYouGetHere": "I dunno bro",
+                    "properties": {
+                        "nested": "nestedValue"
+                    }
+                },
+                "flat": "endsUpInProps",
+                "invalidProperty": "thisNeverGoesAnywhere"
+            }
+        );
+
+        let post_context: PostContext = serde_json::from_value(json).unwrap();
+        let parsed_context: Context = post_context.into();
+        assert_eq!(
+            parsed_context.properties,
+            Some(HashMap::from([("nested".into(), "nestedValue".into()),]))
+        );
+
+        assert_eq!(parsed_context.user_id, Some("7".into()));
     }
 }
