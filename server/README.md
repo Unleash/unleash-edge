@@ -3,7 +3,7 @@
 [![crates.io](https://img.shields.io/crates/v/unleash-edge?label=latest)](https://crates.io/crates/unleash-edge)
 [![Documentation](https://docs.rs/unleash-edge/badge.svg?version=latest)](https://docs.rs/unleash-edge/latest)
 ![MIT licensed](https://img.shields.io/crates/l/unleash-edge.svg)
-[![Dependency Status](https://deps.rs/crate/unleash-edge/19.3.0/status.svg)](https://deps.rs/crate/unleash-edge/19.3.0)
+[![Dependency Status](https://deps.rs/crate/unleash-edge/19.3.1/status.svg)](https://deps.rs/crate/unleash-edge/19.3.1)
 [![CI](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml/badge.svg)](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml)
 [![Coverage Status](https://coveralls.io/repos/github/Unleash/unleash-edge/badge.svg?branch=main)](https://coveralls.io/github/Unleash/unleash-edge?branch=main)
 ![downloads](https://img.shields.io/crates/d/unleash-edge.svg)
@@ -45,7 +45,7 @@ Key features:
 You can run Edge in two different modes: **edge** or **offline**. To learn about the different modes and other Edge concepts, visit [Concepts](./docs/concepts.md).
 
 Unleash Edge is the successor to Unleash Proxy. For help with migrating from Proxy to Edge, refer to the [migration guide](./migration-guide.md).
-  
+
 If you're looking for the simplest way to connect your client SDKs, explore our [Frontend API](https://docs.getunleash.io/reference/front-end-api). For additional recommendations on scaling your feature flag system, see our [Best practices for building and scaling feature flags](https://docs.getunleash.io/topics/feature-flags/feature-flag-best-practices) guide.
 
 ## Quickstart
@@ -101,7 +101,7 @@ To run Edge in **edge** mode, use the tag `edge`. This is built from `HEAD` on e
 docker run -p 3063:3063 -e STRICT=true -e UPSTREAM_URL=<your_unleash_instance> -e TOKENS=<your_client_token> unleashorg/unleash-edge:<version> edge
 ```
 
-To run Edge in **offline** mode, use the `offline` tag and provide a volume with your feature toggles file. An example is available inside the examples folder. 
+To run Edge in **offline** mode, use the `offline` tag and provide a volume with your feature toggles file. An example is available inside the examples folder.
 
 ```shell
 docker run -v ./examples:/edge/data -p 3063:3063 -e BOOTSTRAP_FILE=/edge/data/features.json -e TOKENS=<your_client_token_1,your_client_token_2> unleashorg/unleash-edge:<version> offline
