@@ -178,11 +178,7 @@ pub struct EdgeTokens {
 }
 
 impl UnleashClient {
-    pub fn from_url(
-        server_url: Url,
-        token_header: String,
-        backing_client: Client,
-    ) -> Self {
+    pub fn from_url(server_url: Url, token_header: String, backing_client: Client) -> Self {
         Self {
             urls: UnleashUrls::from_base_url(server_url),
             backing_client,
