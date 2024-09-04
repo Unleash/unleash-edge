@@ -95,13 +95,13 @@ Unleash Edge is distributed as a binary and as a Docker image.
 
 The `docker run` command supports the same [CLI arguments](/CLI.md) that are available when running a binary.
 
-To run Edge in **edge** mode, use the tag `edge`. This is built from `HEAD` on each commit.
+To run Edge in **edge** mode, use the command `edge`. This is built from `HEAD` on each commit.
 
 ```shell
 docker run -p 3063:3063 -e STRICT=true -e UPSTREAM_URL=<your_unleash_instance> -e TOKENS=<your_client_token> unleashorg/unleash-edge:<version> edge
 ```
 
-To run Edge in **offline** mode, use the `offline` tag and provide a volume with your feature toggles file. An example is available inside the examples folder.
+To run Edge in **offline** mode, use the command `offline` and provide a volume with your feature toggles file. An example is available inside the examples folder.
 
 ```shell
 docker run -v ./examples:/edge/data -p 3063:3063 -e BOOTSTRAP_FILE=/edge/data/features.json -e TOKENS=<your_client_token_1,your_client_token_2> unleashorg/unleash-edge:<version> offline
