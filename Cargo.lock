@@ -676,9 +676,9 @@ checksum = "98cc8fbded0c607b7ba9dd60cd98df59af97e84d24e49c8557331cfc26d301ce"
 
 [[package]]
 name = "clone_dyn_types"
-version = "0.22.0"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "396d5af7ca5b1762b777271537d3b3d1465701e46b1c049233f53752f724c68d"
+checksum = "3f4f0e34968641cc21b39c159b7d07e8c0f573cbc0ef9cd59e452fe6774c0579"
 
 [[package]]
 name = "colorchoice"
@@ -1586,9 +1586,9 @@ checksum = "06d198e9919d9822d5f7083ba8530e04de87841eaf21ead9af8f2304efd57c89"
 
 [[package]]
 name = "iter_tools"
-version = "0.20.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c78d89aa55b46d56926696af54fc5810bd4329d8cf2b5fdf2e224b8d96aabd69"
+checksum = "27812bb0a056539d62930a899759af39dfab17ac73a17d5caf58365762657891"
 dependencies = [
  "clone_dyn_types",
  "itertools 0.11.0",
