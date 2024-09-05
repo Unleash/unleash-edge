@@ -130,7 +130,7 @@ async fn main() -> Result<(), anyhow::Error> {
         let config = tls::config(http_args.clone().tls)
             .expect("Was expecting to succeed in configuring TLS");
         server
-            .bind_rustls_0_22(http_args.https_server_tuple(), config)?
+            .bind_rustls_0_23(http_args.https_server_tuple(), config)?
             .bind(http_args.http_server_tuple())
     } else {
         server.bind(http_args.http_server_tuple())

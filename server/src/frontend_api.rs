@@ -21,7 +21,7 @@ use unleash_types::{
 use unleash_yggdrasil::{EngineState, ResolvedToggle};
 
 use crate::error::EdgeError::ContextParseError;
-use crate::types::{ClientIp, IncomingContext};
+use crate::types::{ClientIp, IncomingContext, PostContext};
 use crate::{
     error::{EdgeError, FrontendHydrationMissing},
     metrics::client_metrics::MetricsCache,
@@ -103,7 +103,7 @@ async fn post_proxy_all_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: Json<IncomingContext>,
+    context: Json<PostContext>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
     post_all_features(
@@ -184,7 +184,7 @@ async fn post_frontend_all_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: Json<IncomingContext>,
+    context: Json<PostContext>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
     post_all_features(
@@ -200,10 +200,10 @@ fn post_all_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: Json<IncomingContext>,
+    incoming_context: Json<PostContext>,
     client_ip: Option<&ClientIp>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let context: Context = context.into_inner().into();
+    let context: Context = incoming_context.into_inner().into();
     let context_with_ip = if context.remote_address.is_none() {
         Context {
             remote_address: client_ip.map(|ip| ip.to_string()),
@@ -343,7 +343,7 @@ async fn post_proxy_enabled_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: Json<IncomingContext>,
+    context: Json<PostContext>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
     let client_ip = req.extensions().get::<ClientIp>().cloned();
@@ -367,7 +367,7 @@ async fn post_frontend_enabled_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: Json<IncomingContext>,
+    context: Json<PostContext>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
     let client_ip = req.extensions().get::<ClientIp>().cloned();
@@ -392,7 +392,7 @@ security(
 pub async fn post_frontend_evaluate_single_feature(
     edge_token: EdgeToken,
     feature_name: Path<String>,
-    context: Json<IncomingContext>,
+    context: Json<PostContext>,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
     req: HttpRequest,
@@ -400,7 +400,7 @@ pub async fn post_frontend_evaluate_single_feature(
     evaluate_feature(
         edge_token,
         feature_name.into_inner(),
-        &context.into_inner(),
+        &context.into_inner().into(),
         token_cache,
         engine_cache,
         req.extensions().get::<ClientIp>().cloned(),
@@ -436,7 +436,7 @@ pub async fn get_frontend_evaluate_single_feature(
     evaluate_feature(
         edge_token,
         feature_name.into_inner(),
-        &context.into_inner(),
+        &context.into_inner().into(),
         token_cache,
         engine_cache,
         req.extensions().get::<ClientIp>().cloned(),
@@ -447,12 +447,12 @@ pub async fn get_frontend_evaluate_single_feature(
 pub fn evaluate_feature(
     edge_token: EdgeToken,
     feature_name: String,
-    incoming_context: &IncomingContext,
+    incoming_context: &Context,
     token_cache: Data<DashMap<String, EdgeToken>>,
     engine_cache: Data<DashMap<String, EngineState>>,
     client_ip: Option<ClientIp>,
 ) -> EdgeResult<EvaluatedToggle> {
-    let context: Context = incoming_context.clone().into();
+    let context: Context = incoming_context.clone();
     let context_with_ip = if context.remote_address.is_none() {
         Context {
             remote_address: client_ip.map(|ip| ip.to_string()),
@@ -487,6 +487,7 @@ pub fn evaluate_feature(
                 payload: r.variant.payload,
             },
             impression_data: r.impression_data,
+            impressionData: r.impression_data,
         })
         .ok_or_else(|| EdgeError::FeatureNotFound(feature_name.clone()))
 }
@@ -495,7 +496,7 @@ async fn post_enabled_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: Json<IncomingContext>,
+    context: Json<PostContext>,
     client_ip: Option<ClientIp>,
 ) -> EdgeJsonResult<FrontendResult> {
     let context: Context = context.into_inner().into();
@@ -735,6 +736,7 @@ pub fn frontend_from_yggdrasil(
                 payload: resolved.variant.payload.clone(),
             },
             impression_data: resolved.impression_data,
+            impressionData: resolved.impression_data,
         })
         .collect::<Vec<EvaluatedToggle>>();
     FrontendResult { toggles }
@@ -792,7 +794,7 @@ mod tests {
     use std::str::FromStr;
     use std::sync::Arc;
     use tracing_test::traced_test;
-    use unleash_types::client_metrics::ClientMetricsEnv;
+    use unleash_types::client_metrics::{ClientMetricsEnv, MetricsMetadata};
     use unleash_types::{
         client_features::{ClientFeature, ClientFeatures, Constraint, Operator, Strategy},
         frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult},
@@ -1009,6 +1011,7 @@ mod tests {
                     payload: None,
                 },
                 impression_data: false,
+                impressionData: false,
             }],
         };
 
@@ -1068,6 +1071,7 @@ mod tests {
                     payload: None,
                 },
                 impression_data: false,
+                impressionData: false,
             }],
         };
 
@@ -1125,6 +1129,7 @@ mod tests {
                     payload: None,
                 },
                 impression_data: false,
+                impressionData: false,
             }],
         };
 
@@ -1202,6 +1207,12 @@ mod tests {
             yes: 1,
             no: 0,
             variants: HashMap::new(),
+            metadata: MetricsMetadata {
+                platform_name: None,
+                platform_version: None,
+                sdk_version: None,
+                yggdrasil_version: None,
+            },
         };
 
         assert_eq!(found_metric.yes, expected.yes);
@@ -1567,7 +1578,8 @@ mod tests {
             .insert_header(("Authorization", auth_key.clone()))
             .set_json(json!({ "properties": {"companyId": "bricks"}}))
             .to_request();
-        let result: FrontendResult = test::call_and_read_body_json(&app, req).await;
+        let result: FrontendResult = test::try_call_and_read_body_json(&app, req).await.expect("Failed to call endpoint");
+        tracing::info!("{result:?}");
         assert_eq!(result.toggles.len(), 1);
     }
 

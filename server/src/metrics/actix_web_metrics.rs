@@ -4,12 +4,12 @@ use actix_web::dev::ServiceRequest;
 use actix_web::http::{header, Method, StatusCode, Version};
 use futures::{future, FutureExt};
 use futures_core::future::LocalBoxFuture;
-use opentelemetry::metrics::{Histogram, Meter, MeterProvider, MetricsError, Unit, UpDownCounter};
+use opentelemetry::metrics::{Histogram, Meter, MeterProvider, MetricsError, UpDownCounter};
 use opentelemetry::{global, Key, KeyValue, Value};
 use opentelemetry_semantic_conventions::trace::{
-    CLIENT_ADDRESS, CLIENT_SOCKET_ADDRESS, HTTP_REQUEST_METHOD, HTTP_RESPONSE_STATUS_CODE,
-    HTTP_ROUTE, NETWORK_PROTOCOL_NAME, NETWORK_PROTOCOL_VERSION, SERVER_ADDRESS, SERVER_PORT,
-    URL_PATH, URL_SCHEME, USER_AGENT_ORIGINAL,
+    CLIENT_ADDRESS, HTTP_REQUEST_METHOD, HTTP_RESPONSE_STATUS_CODE, HTTP_ROUTE,
+    NETWORK_PROTOCOL_NAME, NETWORK_PROTOCOL_VERSION, SERVER_ADDRESS, SERVER_PORT, URL_PATH,
+    URL_SCHEME, USER_AGENT_ORIGINAL,
 };
 use prometheus::{Encoder, TextEncoder};
 use std::sync::Arc;
@@ -70,7 +70,7 @@ pub(crate) fn trace_attributes_from_request(
         http_method_str(req.method()),
     ));
     attributes.push(KeyValue::new::<Key, String>(
-        NETWORK_PROTOCOL_NAME,
+        NETWORK_PROTOCOL_NAME.into(),
         "http".into(),
     ));
     attributes.push(KeyValue::new(
@@ -78,11 +78,11 @@ pub(crate) fn trace_attributes_from_request(
         http_version(req.version()),
     ));
     attributes.push(KeyValue::new::<Key, String>(
-        CLIENT_ADDRESS,
+        CLIENT_ADDRESS.into(),
         conn_info.host().to_string(),
     ));
     attributes.push(KeyValue::new::<Key, String>(
-        HTTP_ROUTE,
+        HTTP_ROUTE.into(),
         http_route.to_owned(),
     ));
     attributes.push(KeyValue::new(URL_SCHEME, http_scheme(conn_info.scheme())));
@@ -90,7 +90,7 @@ pub(crate) fn trace_attributes_from_request(
     let server_name = req.app_config().host();
     if server_name != conn_info.host() {
         attributes.push(KeyValue::new::<Key, String>(
-            SERVER_ADDRESS,
+            SERVER_ADDRESS.into(),
             server_name.to_string(),
         ));
     }
@@ -101,39 +101,27 @@ pub(crate) fn trace_attributes_from_request(
         .and_then(|port| port.parse::<i64>().ok())
     {
         if port != 80 && port != 443 {
-            attributes.push(KeyValue::new::<Key, i64>(SERVER_PORT, port));
+            attributes.push(KeyValue::new(SERVER_PORT, port));
         }
     }
     if let Some(path) = req.uri().path_and_query() {
-        attributes.push(KeyValue::new::<Key, String>(
-            URL_PATH,
-            path.as_str().to_string(),
-        ));
+        attributes.push(KeyValue::new(URL_PATH, path.as_str().to_string()));
     }
     if let Some(user_agent) = req
         .headers()
         .get(header::USER_AGENT)
         .and_then(|s| s.to_str().ok())
     {
-        attributes.push(KeyValue::new::<Key, String>(
-            USER_AGENT_ORIGINAL,
-            user_agent.to_string(),
-        ));
+        attributes.push(KeyValue::new(USER_AGENT_ORIGINAL, user_agent.to_string()));
     }
     let remote_addr = conn_info.realip_remote_addr();
     if let Some(remote) = remote_addr {
-        attributes.push(KeyValue::new::<Key, String>(
-            CLIENT_ADDRESS,
-            remote.to_string(),
-        ));
+        attributes.push(KeyValue::new(CLIENT_ADDRESS, remote.to_string()));
     }
     if let Some(peer_addr) = req.peer_addr().map(|socket| socket.ip().to_string()) {
         if Some(peer_addr.as_str()) != remote_addr {
             // Client is going through a proxy
-            attributes.push(KeyValue::new::<Key, String>(
-                CLIENT_SOCKET_ADDRESS,
-                peer_addr,
-            ));
+            attributes.push(KeyValue::new(CLIENT_ADDRESS, peer_addr));
         }
     }
 
@@ -144,8 +132,6 @@ pub(super) fn metrics_attributes_from_request(
     req: &ServiceRequest,
     http_target: &str,
 ) -> Vec<KeyValue> {
-    use opentelemetry_semantic_conventions::trace::SERVER_SOCKET_ADDRESS;
-
     let conn_info = req.connection_info();
 
     let mut attributes = Vec::with_capacity(11);
@@ -158,28 +144,28 @@ pub(super) fn metrics_attributes_from_request(
         NETWORK_PROTOCOL_VERSION,
         http_version(req.version()),
     ));
-    attributes.push(SERVER_SOCKET_ADDRESS.string(conn_info.host().to_string()));
-    attributes.push(URL_PATH.string(http_target.to_owned()));
+    attributes.push(KeyValue::new(SERVER_ADDRESS, conn_info.host().to_string()));
+    attributes.push(KeyValue::new(URL_PATH, http_target.to_owned()));
     attributes.push(KeyValue::new(URL_SCHEME, http_scheme(conn_info.scheme())));
 
     let server_name = req.app_config().host();
     if server_name != conn_info.host() {
-        attributes.push(SERVER_ADDRESS.string(server_name.to_string()));
+        attributes.push(KeyValue::new(SERVER_ADDRESS, server_name.to_string()));
     }
     if let Some(port) = conn_info
         .host()
         .split_terminator(':')
         .nth(1)
-        .and_then(|port| port.parse().ok())
+        .and_then(|port| port.parse::<i64>().ok())
     {
-        attributes.push(SERVER_PORT.i64(port))
+        attributes.push(KeyValue::new(SERVER_PORT, port))
     }
 
     let remote_addr = conn_info.realip_remote_addr();
     if let Some(peer_addr) = req.peer_addr().map(|socket| socket.ip().to_string()) {
         if Some(peer_addr.as_str()) != remote_addr {
             // Client is going through a proxy
-            attributes.push(CLIENT_SOCKET_ADDRESS.string(peer_addr))
+            attributes.push(KeyValue::new(CLIENT_ADDRESS, peer_addr))
         }
     }
 
@@ -205,19 +191,19 @@ impl Metrics {
         let http_server_duration = meter
             .f64_histogram(HTTP_SERVER_DURATION)
             .with_description("HTTP inbound request duration per route")
-            .with_unit(Unit::new("ms"))
+            .with_unit("ms")
             .init();
 
         let http_server_request_size = meter
             .u64_histogram(HTTP_SERVER_REQUEST_SIZE)
             .with_description("Measures the size of HTTP request messages (compressed).")
-            .with_unit(Unit::new("By"))
+            .with_unit("By")
             .init();
 
         let http_server_response_size = meter
             .u64_histogram(HTTP_SERVER_RESPONSE_SIZE)
             .with_description("Measures the size of HTTP request messages (compressed).")
-            .with_unit(Unit::new("By"))
+            .with_unit("By")
             .init();
 
         Metrics {
@@ -373,7 +359,7 @@ where
             }
             .as_u16() as i64;
 
-            attributes.push(HTTP_RESPONSE_STATUS_CODE.i64(status_code));
+            attributes.push(KeyValue::new(HTTP_RESPONSE_STATUS_CODE, status_code));
 
             let response_size = res
                 .as_ref()

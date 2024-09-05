@@ -6,11 +6,12 @@ use std::sync::Arc;
 use chrono::Duration;
 use dashmap::DashMap;
 use reqwest::Url;
-use tracing::{debug, warn};
+use tracing::{debug, error, warn};
 use unleash_types::client_features::ClientFeatures;
 use unleash_yggdrasil::EngineState;
 
-use crate::cli::{RedisMode};
+use crate::cli::RedisMode;
+use crate::http::unleash_client::new_reqwest_client;
 use crate::offline::offline_hotload::{load_bootstrap, load_offline_engine_cache};
 use crate::persistence::file::FilePersister;
 use crate::persistence::redis::RedisPersister;
@@ -139,6 +140,12 @@ pub(crate) fn build_offline_mode(
 }
 
 fn build_offline(offline_args: OfflineArgs) -> EdgeResult<CacheContainer> {
+    if offline_args.tokens.is_empty() {
+        return Err(EdgeError::NoTokens(
+            "No tokens provided. Tokens must be specified when running in offline mode".into(),
+        ));
+    }
+
     if let Some(bootstrap) = offline_args.bootstrap_file {
         let file = File::open(bootstrap.clone()).map_err(|_| EdgeError::NoFeaturesFile)?;
 
@@ -170,11 +177,17 @@ async fn get_data_source(args: &EdgeArgs) -> Option<Arc<dyn EdgePersistence>> {
         }
         debug!("Configuring Redis persistence {filtered_redis_args:?}");
         let redis_persister = match redis_args.redis_mode {
-            RedisMode::Single => redis_args
-                .to_url()
-                .map(|url| RedisPersister::new(&url).expect("Failed to connect to redis")),
-            RedisMode::Cluster => redis_args.redis_url.map(|urls| {
-                RedisPersister::new_with_cluster(urls).expect("Failed to connect to redis cluster")
+            RedisMode::Single => redis_args.to_url().map(|url| {
+                RedisPersister::new(&url, redis_args.read_timeout(), redis_args.write_timeout())
+                    .expect("Failed to connect to redis")
+            }),
+            RedisMode::Cluster => redis_args.redis_url.clone().map(|urls| {
+                RedisPersister::new_with_cluster(
+                    urls,
+                    redis_args.read_timeout(),
+                    redis_args.write_timeout(),
+                )
+                .expect("Failed to connect to redis cluster")
             }),
         }
         .unwrap_or_else(|| {
@@ -195,22 +208,37 @@ async fn get_data_source(args: &EdgeArgs) -> Option<Arc<dyn EdgePersistence>> {
     None
 }
 
-async fn build_edge(args: &EdgeArgs) -> EdgeResult<EdgeInfo> {
+async fn build_edge(args: &EdgeArgs, app_name: &str) -> EdgeResult<EdgeInfo> {
+    if !args.strict {
+        if !args.dynamic {
+            error!("You should explicitly opt into either strict or dynamic behavior. Edge has defaulted to dynamic to preserve legacy behavior, however we recommend using strict from now on. Not explicitly opting into a behavior will return an error on startup in a future release");
+        }
+        warn!("Dynamic behavior has been deprecated and we plan to remove it in a future release. If you have a use case for it, please reach out to us");
+    }
+
+    if args.strict && args.tokens.is_empty() {
+        return Err(EdgeError::NoTokens(
+            "No tokens provided. Tokens must be specified when running with strict behavior".into(),
+        ));
+    }
+
     let (token_cache, feature_cache, engine_cache) = build_caches();
 
     let persistence = get_data_source(args).await;
 
+    let http_client = new_reqwest_client(
+        "unleash_edge".into(),
+        args.skip_ssl_verification,
+        args.client_identity.clone(),
+        args.upstream_certificate_file.clone(),
+        Duration::seconds(args.upstream_request_timeout),
+        Duration::seconds(args.upstream_socket_timeout),
+        app_name.into(),
+    )?;
+
     let unleash_client = Url::parse(&args.upstream_url.clone())
         .map(|url| {
-            UnleashClient::from_url(
-                url,
-                args.skip_ssl_verification,
-                args.client_identity.clone(),
-                args.upstream_certificate_file.clone(),
-                Duration::seconds(args.upstream_request_timeout),
-                Duration::seconds(args.upstream_socket_timeout),
-                args.token_header.token_header.clone(),
-            )
+            UnleashClient::from_url(url, args.token_header.token_header.clone(), http_client)
         })
         .map(|c| c.with_custom_client_headers(args.custom_client_headers.clone()))
         .map(Arc::new)
@@ -228,6 +256,8 @@ async fn build_edge(args: &EdgeArgs) -> EdgeResult<EdgeInfo> {
         engine_cache.clone(),
         Duration::seconds(args.features_refresh_interval_seconds.try_into().unwrap()),
         persistence.clone(),
+        args.strict,
+        app_name,
     ));
     let _ = token_validator.register_tokens(args.tokens.clone()).await;
 
@@ -264,7 +294,62 @@ pub async fn build_caches_and_refreshers(args: CliArgs) -> EdgeResult<EdgeInfo> 
         EdgeMode::Offline(offline_args) => {
             build_offline(offline_args).map(|cache| (cache, None, None, None))
         }
-        EdgeMode::Edge(edge_args) => build_edge(&edge_args).await,
+        EdgeMode::Edge(edge_args) => build_edge(&edge_args, &args.app_name).await,
         _ => unreachable!(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        builder::{build_edge, build_offline},
+        cli::{EdgeArgs, OfflineArgs, TokenHeader},
+    };
+
+    #[test]
+    fn should_fail_with_empty_tokens_when_offline_mode() {
+        let args = OfflineArgs {
+            bootstrap_file: None,
+            tokens: vec![],
+            reload_interval: Default::default(),
+        };
+
+        let result = build_offline(args);
+        assert!(result.is_err());
+        assert_eq!(
+            result.err().unwrap().to_string(),
+            "No tokens provided. Tokens must be specified when running in offline mode"
+        );
+    }
+
+    #[tokio::test]
+    async fn should_fail_with_empty_tokens_when_strict() {
+        let args = EdgeArgs {
+            upstream_url: Default::default(),
+            backup_folder: None,
+            metrics_interval_seconds: Default::default(),
+            features_refresh_interval_seconds: Default::default(),
+            strict: true,
+            dynamic: false,
+            tokens: vec![],
+            redis: None,
+            client_identity: Default::default(),
+            skip_ssl_verification: false,
+            upstream_request_timeout: Default::default(),
+            upstream_socket_timeout: Default::default(),
+            custom_client_headers: Default::default(),
+            token_header: TokenHeader {
+                token_header: "Authorization".into(),
+            },
+            upstream_certificate_file: Default::default(),
+            token_revalidation_interval_seconds: Default::default(),
+        };
+
+        let result = build_edge(&args, "test-app").await;
+        assert!(result.is_err());
+        assert_eq!(
+            result.err().unwrap().to_string(),
+            "No tokens provided. Tokens must be specified when running with strict behavior"
+        );
     }
 }

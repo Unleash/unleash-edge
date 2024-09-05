@@ -66,7 +66,7 @@ mod tests {
 
     use crate::auth::token_validator::TokenValidator;
     use crate::http::feature_refresher::FeatureRefresher;
-    use crate::http::unleash_client::UnleashClient;
+    use crate::http::unleash_client::{new_reqwest_client, UnleashClient};
     use crate::tests::upstream_server;
     use crate::types::{EdgeToken, TokenType, TokenValidationStatus};
 
@@ -81,13 +81,13 @@ mod tests {
             token_cache: local_token_cache.clone(),
             persistence: None,
         });
-        let feature_refresher = Arc::new(FeatureRefresher::new(
-            unleash_client.clone(),
-            local_features_cache.clone(),
-            local_engine_cache.clone(),
-            Duration::seconds(5),
-            None,
-        ));
+        let feature_refresher = Arc::new(FeatureRefresher {
+            unleash_client: unleash_client.clone(),
+            features_cache: local_features_cache.clone(),
+            engine_cache: local_engine_cache.clone(),
+            refresh_interval: Duration::seconds(5),
+            ..Default::default()
+        });
         test_server(move || {
             let config = serde_qs::actix::QsQueryConfig::default()
                 .qs_config(serde_qs::Config::new(5, false));
@@ -132,14 +132,22 @@ mod tests {
             upstream_engine_cache.clone(),
         )
         .await;
-        let unleash_client = UnleashClient::from_url(
-            Url::parse(&upstream_server.url("/")).unwrap(),
+
+        let http_client = new_reqwest_client(
+            "unleash_edge".into(),
             false,
             None,
             None,
             Duration::seconds(5),
             Duration::seconds(5),
-            "Authorization".to_string(),
+            "test-client".into(),
+        )
+        .expect("Failed to create client");
+
+        let unleash_client = UnleashClient::from_url(
+            Url::parse(&upstream_server.url("/")).unwrap(),
+            "test-client".into(),
+            http_client,
         );
         let local_features_cache: Arc<DashMap<String, ClientFeatures>> =
             Arc::new(DashMap::default());

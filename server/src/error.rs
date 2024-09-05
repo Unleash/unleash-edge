@@ -15,7 +15,7 @@ pub const TRUST_PROXY_PARSE_ERROR: &str =
 pub enum FeatureError {
     AccessDenied,
     NotFound,
-    Retriable(StatusCode),
+    Retriable(reqwest::StatusCode),
 }
 
 #[derive(Debug, Serialize)]
@@ -100,21 +100,23 @@ pub enum EdgeError {
     FeatureNotFound(String),
     PersistenceError(String),
     EdgeMetricsError,
-    EdgeMetricsRequestError(StatusCode, Option<UnleashBadRequest>),
+    EdgeMetricsRequestError(reqwest::StatusCode, Option<UnleashBadRequest>),
     EdgeTokenError,
     EdgeTokenParseError,
     InvalidBackupFile(String, String),
     InvalidServerUrl(String),
+    InvalidTokenWithStrictBehavior,
     HealthCheckError(String),
     JsonParseError(String),
     NoFeaturesFile,
     NoTokenProvider,
+    NoTokens(String),
     NotReady,
     ReadyCheckError(String),
     TlsError,
     TokenParseError(String),
     ContextParseError,
-    TokenValidationError(StatusCode),
+    TokenValidationError(reqwest::StatusCode),
 }
 
 impl Error for EdgeError {}
@@ -129,6 +131,7 @@ impl Display for EdgeError {
             EdgeError::NoFeaturesFile => write!(f, "No features file located"),
             EdgeError::AuthorizationDenied => write!(f, "Not allowed to access"),
             EdgeError::NoTokenProvider => write!(f, "Could not get a TokenProvider"),
+            EdgeError::NoTokens(msg) => write!(f, "{msg}"),
             EdgeError::TokenParseError(token) => write!(f, "Could not parse edge token: {token}"),
             EdgeError::PersistenceError(msg) => write!(f, "{msg}"),
             EdgeError::JsonParseError(msg) => write!(f, "{msg}"),
@@ -204,6 +207,7 @@ impl Display for EdgeError {
             EdgeError::NotReady => {
                 write!(f, "Edge is not ready to serve requests")
             }
+            EdgeError::InvalidTokenWithStrictBehavior => write!(f, "Edge is running with strict behavior and the token is not subsumed by any registered tokens"),
         }
     }
 }
@@ -216,6 +220,7 @@ impl ResponseError for EdgeError {
             EdgeError::NoFeaturesFile => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::AuthorizationDenied => StatusCode::FORBIDDEN,
             EdgeError::NoTokenProvider => StatusCode::INTERNAL_SERVER_ERROR,
+            EdgeError::NoTokens(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::TokenParseError(_) => StatusCode::FORBIDDEN,
             EdgeError::ClientBuildError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::ClientFeaturesParseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
@@ -233,13 +238,16 @@ impl ResponseError for EdgeError {
             EdgeError::ClientCertificateError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::FrontendNotYetHydrated(_) => StatusCode::NETWORK_AUTHENTICATION_REQUIRED,
             EdgeError::ContextParseError => StatusCode::BAD_REQUEST,
-            EdgeError::EdgeMetricsRequestError(status_code, _) => *status_code,
+            EdgeError::EdgeMetricsRequestError(status_code, _) => {
+                StatusCode::from_u16(status_code.as_u16()).unwrap()
+            }
             EdgeError::HealthCheckError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::ReadyCheckError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::ClientHydrationFailed(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::ClientCacheError => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::FrontendExpectedToBeHydrated(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::NotReady => StatusCode::SERVICE_UNAVAILABLE,
+            EdgeError::InvalidTokenWithStrictBehavior => StatusCode::FORBIDDEN,
         }
     }
 

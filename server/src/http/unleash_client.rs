@@ -129,13 +129,14 @@ fn build_identity(tls: Option<ClientIdentity>) -> EdgeResult<ClientBuilder> {
     )
 }
 
-fn new_reqwest_client(
+pub fn new_reqwest_client(
     instance_id: String,
     skip_ssl_verification: bool,
     client_identity: Option<ClientIdentity>,
     upstream_certificate_file: Option<PathBuf>,
     connect_timeout: Duration,
     socket_timeout: Duration,
+    app_name: String,
 ) -> EdgeResult<Client> {
     build_identity(client_identity)
         .and_then(|builder| {
@@ -148,7 +149,8 @@ fn new_reqwest_client(
             let mut header_map = HeaderMap::new();
             header_map.insert(
                 UNLEASH_APPNAME_HEADER,
-                header::HeaderValue::from_static("unleash-edge"),
+                header::HeaderValue::from_str(app_name.as_str())
+                    .expect("Could not add app name as a header"),
             );
             header_map.insert(
                 UNLEASH_INSTANCE_ID_HEADER,
@@ -178,24 +180,12 @@ pub struct EdgeTokens {
 impl UnleashClient {
     pub fn from_url(
         server_url: Url,
-        skip_ssl_verification: bool,
-        client_identity: Option<ClientIdentity>,
-        upstream_certificate_file: Option<PathBuf>,
-        connect_timeout: Duration,
-        socket_timeout: Duration,
         token_header: String,
+        backing_client: Client,
     ) -> Self {
         Self {
             urls: UnleashUrls::from_base_url(server_url),
-            backing_client: new_reqwest_client(
-                "unleash_edge".into(),
-                skip_ssl_verification,
-                client_identity,
-                upstream_certificate_file,
-                connect_timeout,
-                socket_timeout,
-            )
-            .unwrap(),
+            backing_client,
             custom_headers: Default::default(),
             token_header,
         }
@@ -215,6 +205,7 @@ impl UnleashClient {
                 None,
                 Duration::seconds(5),
                 Duration::seconds(5),
+                "test-client".into(),
             )
             .unwrap(),
             custom_headers: Default::default(),
@@ -235,6 +226,7 @@ impl UnleashClient {
                 None,
                 Duration::seconds(5),
                 Duration::seconds(5),
+                "test-client".into(),
             )
             .unwrap(),
             custom_headers: Default::default(),
@@ -481,7 +473,9 @@ impl UnleashClient {
                     self.urls.edge_validate_url.to_string(),
                     s
                 );
-                Err(EdgeError::TokenValidationError(s))
+                Err(EdgeError::TokenValidationError(
+                    reqwest::StatusCode::from_u16(s.as_u16()).unwrap(),
+                ))
             }
         }
     }
@@ -605,7 +599,7 @@ mod tests {
                     ),
                 |_| AppConfig::default(),
             ))
-            .rustls_0_22_with_config(server_config, tls_acceptor_config)
+            .rustls_0_23_with_config(server_config, tls_acceptor_config)
         })
         .await
     }
@@ -804,6 +798,7 @@ mod tests {
             None,
             Duration::seconds(5),
             Duration::seconds(5),
+            "test-client".into(),
         );
         assert!(client.is_ok());
     }
@@ -825,6 +820,7 @@ mod tests {
             None,
             Duration::seconds(5),
             Duration::seconds(5),
+            "test-client".into(),
         );
         assert!(client.is_err());
     }
@@ -846,6 +842,7 @@ mod tests {
             None,
             Duration::seconds(5),
             Duration::seconds(5),
+            "test-client".into(),
         );
         assert!(client.is_ok());
     }
