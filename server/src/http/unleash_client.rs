@@ -431,6 +431,13 @@ impl UnleashClient {
         &self,
         request: ValidateTokensRequest,
     ) -> EdgeResult<Vec<EdgeToken>> {
+        let check_api_suffix = || {
+            let base_url = self.urls.base_url.to_string();
+            if base_url.ends_with("/api") || base_url.ends_with("/api/") {
+                info!("Try passing the instance URL without '/api'.");
+            }
+        };
+
         let result = self
             .backing_client
             .post(self.urls.edge_validate_url.to_string())
@@ -440,6 +447,7 @@ impl UnleashClient {
             .await
             .map_err(|e| {
                 info!("Failed to validate tokens: [{e:?}]");
+                check_api_suffix();
                 EdgeError::EdgeTokenError
             })?;
         match result.status() {
@@ -473,6 +481,7 @@ impl UnleashClient {
                     self.urls.edge_validate_url.to_string(),
                     s
                 );
+                check_api_suffix();
                 Err(EdgeError::TokenValidationError(
                     reqwest::StatusCode::from_u16(s.as_u16()).unwrap(),
                 ))
