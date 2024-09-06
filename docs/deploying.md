@@ -1,5 +1,9 @@
 # Deploying
 
+## Security considerations
+
+Anything under /internal-backstage should be protected from public access as it exposes internal state of unleash-edge.
+
 ## Running Unleash Edge
 
 Edge provides a range of powerful ways in which you can run it. For a standard production configuration we recommend the
