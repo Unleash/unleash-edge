@@ -75,9 +75,11 @@ jobs:
           file: Dockerfile.chef
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
+          name: ${{ steps.meta.outputs.images }}
+          push: true
           cache-from: type=gha,scope=${{ github.repository }}-${{ github.ref_name }}-${{ matrix.platform }}
           cache-to: type=gha,scope=${{ github.repository }}-${{ github.ref_name }}-${{ matrix.platform }},mode=max
-          outputs: type=image,name=${{ github.repository }},push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,push-by-digest=true,name-canonical=true
       - name: Export digest
         run: |
           mkdir -p /tmp/digests
