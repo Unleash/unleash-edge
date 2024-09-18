@@ -1,0 +1,41 @@
+FROM --platform=$BUILDPLATFORM rust:latest AS chef
+WORKDIR /app
+
+# Install cargo-chef CLI
+RUN cargo install cargo-chef
+
+# Step 2: Prepare dependency caching
+FROM chef AS planner
+COPY . .
+# Create a recipe file for the dependencies
+RUN cargo chef prepare --recipe-path recipe.json
+
+# Step 3: Cache dependencies
+FROM chef AS cacher
+COPY --from=planner /app/recipe.json recipe.json
+
+# Install system deps
+RUN apt-get update && apt-get install -y libssl-dev pkg-config
+
+# Build the deps, cache the output
+RUN cargo chef cook --release --recipe-path recipe.json
+
+# Step 4: Build the application
+FROM chef AS builder
+
+# Copy the cached dependencies
+COPY --from=cacher /app/target target
+COPY --from=cacher /usr/local/cargo /usr/local/cargo
+# Copy the project source code
+COPY . .
+
+# Build the application
+RUN cargo build --release
+
+# Step 5: Final image from distroless
+FROM gcr.io/distroless/cc-debian12 AS final
+WORKDIR /app
+
+COPY --from=builder /app/target/release/unleash-edge /app/unleash-edge
+
+ENTRYPOINT ["/app/unleash-edge"]
