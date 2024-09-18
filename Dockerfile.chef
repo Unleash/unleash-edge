@@ -33,7 +33,7 @@ COPY . .
 RUN cargo build --release
 
 # Step 5: Final image from distroless
-FROM gcr.io/distroless/cc-debian12 AS final
+FROM --platform=$BUILDPLATFORM gcr.io/distroless/cc-debian12 AS final
 WORKDIR /app
 
 COPY --from=builder /app/target/release/unleash-edge /app/unleash-edge
