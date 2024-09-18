@@ -50,9 +50,8 @@ jobs:
         with:
           images: |
             unleashorg/unleash-edge
-            ${{ steps.login-ecr-public.outputs.registry }}/unleashorg/unleash-edge
           tags: |
-            type=edge
+            type=raw,value=chef
 
       # Step 5: Build and push Docker image for multiple platforms (Don't actually push yet)
       - name: Build and push Docker image
@@ -61,7 +60,7 @@ jobs:
           context: .
           file: ./Dockerfile.chef
           platforms: linux/amd64,linux/arm64 # Add any platforms you need
-          push: false
+          push: true
           labels: ${{ steps.meta.outputs.labels }}
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=gha
