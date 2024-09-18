@@ -35,7 +35,8 @@ jobs:
         with:
           images: |
             unleashorg/unleash-edge
-          tags: raw=chef
+          tags: |
+            type=raw,value=chef
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       # Step 2: Set up Docker Buildx
