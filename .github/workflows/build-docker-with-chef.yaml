@@ -3,7 +3,12 @@ name: Build and Push Docker Image (Chef)
 on:
   push:
     branches:
-      - main # You can trigger this on other events or branches if needed
+      - main
+    paths:
+      - "**/*.rs"
+      - "**/*.toml"
+      - "**/*.lock"
+      - ".github/workflows/build-docker-with-chef.yaml"
   workflow_dispatch:
 
 env:
