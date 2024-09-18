@@ -312,6 +312,8 @@ mod tests {
             bootstrap_file: None,
             tokens: vec![],
             reload_interval: Default::default(),
+            client_tokens: vec![],
+            frontend_tokens: vec![],
         };
 
         let result = build_offline(args);
