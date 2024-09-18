@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use iter_tools::Itertools;
 use lazy_static::lazy_static;
-use prometheus::{register_histogram, Histogram};
+use prometheus::{register_histogram, register_int_counter_vec, Histogram, IntCounterVec};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -23,6 +23,12 @@ lazy_static! {
         "metrics_size_in_bytes",
         "Size of metrics when posting",
         vec![1000.0, 10000.0, 20000.0, 50000.0, 75000.0, 100000.0, 250000.0, 500000.0, 1000000.0]
+    )
+    .unwrap();
+    pub static ref FEATURE_TOGGLE_USAGE_TOTAL: IntCounterVec = register_int_counter_vec!(
+        "feature_toggle_usage_total",
+        "Number of times a feature flag has been used",
+        &["appName", "toggle", "active"]
     )
     .unwrap();
 }
@@ -329,6 +335,12 @@ impl MetricsCache {
     pub fn sink_metrics(&self, metrics: &[ClientMetricsEnv]) {
         debug!("Sinking {} metrics", metrics.len());
         for metric in metrics.iter() {
+            FEATURE_TOGGLE_USAGE_TOTAL
+                .with_label_values(&[&metric.app_name, &metric.feature_name, "true"])
+                .inc_by(metric.yes as u64);
+            FEATURE_TOGGLE_USAGE_TOTAL
+                .with_label_values(&[&metric.app_name, &metric.feature_name, "false"])
+                .inc_by(metric.no as u64);
             self.metrics
                 .entry(MetricsKey {
                     app_name: metric.app_name.clone(),
