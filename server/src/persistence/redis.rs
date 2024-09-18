@@ -103,7 +103,8 @@ impl EdgePersistence for RedisPersister {
                         self.write_timeout,
                     )
                     .await?;
-                conn.set(TOKENS_KEY, raw_tokens).await?;
+                let res: Result<(), RedisError> = conn.set(TOKENS_KEY, raw_tokens).await;
+                res?;
             }
             RedisClientOptions::Cluster(c) => {
                 let mut conn = c.get_connection()?;
@@ -154,8 +155,10 @@ impl EdgePersistence for RedisPersister {
             }
             Cluster(cluster) => {
                 let mut conn = cluster.get_connection()?;
-                conn.set(FEATURES_KEY, raw_features)
-                    .map_err(EdgeError::from)?
+                let res: Result<(), EdgeError> = conn
+                    .set(FEATURES_KEY, raw_features)
+                    .map_err(EdgeError::from);
+                res?;
             }
         };
         debug!("Done saving to persistence");

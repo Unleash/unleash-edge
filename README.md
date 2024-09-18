@@ -127,6 +127,13 @@ Unleash Edge adheres to Semantic Versioning (SemVer) on the API and CLI layers. 
 
 ## Debugging
 
+You can view the internal state of Edge at:
+
+- `http://<your-edge-url>/internal-backstage/tokens`: Displays the tokens known to Edge.
+- `http://<your-edge-url>/internal-backstage/features`: Shows the current state of features.
+
+Note: The `/internal-backstage/*` endpoints should not be publicly accessible.
+
 To enable verbose logging, adjust the `RUST_LOG` environment variable. For example, to see logs originating directly from Edge but not its dependencies, you can raise the default log level from `error` to `warning` and set Edge to `debug`, like this:
 
 ```sh
