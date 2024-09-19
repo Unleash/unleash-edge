@@ -9,6 +9,7 @@ on:
       - "**/*.toml"
       - "**/*.lock"
       - ".github/workflows/build-docker-with-chef.yaml"
+      - "Dockerfile.chef"
   workflow_dispatch:
 
 env:
