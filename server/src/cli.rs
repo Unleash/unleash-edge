@@ -219,6 +219,7 @@ pub struct OfflineArgs {
     #[clap(short, long, env)]
     pub bootstrap_file: Option<PathBuf>,
     /// Tokens that should be allowed to connect to Edge. Supports a comma separated list or multiple instances of the `--tokens` argument
+    /// (v19.4.0) deprecated "Please use --client-tokens | CLIENT_TOKENS instead"
     #[clap(short, long, env, value_delimiter = ',')]
     pub tokens: Vec<String>,
     /// Client tokens that should be allowed to connect to Edge. Supports a comma separated list or multiple instances of the `--client-tokens` argument
