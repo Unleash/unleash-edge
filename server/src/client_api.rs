@@ -928,6 +928,8 @@ mod tests {
                 .app_data(Data::new(crate::cli::EdgeMode::Offline(OfflineArgs {
                     bootstrap_file: Some(PathBuf::from("../examples/features.json")),
                     tokens: vec!["secret_123".into()],
+                    client_tokens: vec![],
+                    frontend_tokens: vec![],
                     reload_interval: 0,
                 })))
                 .service(web::scope("/api/client").service(get_features)),
