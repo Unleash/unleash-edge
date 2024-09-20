@@ -107,12 +107,15 @@ To run Edge in **offline** mode, use the command `offline` and provide a volume 
 docker run -v ./examples:/edge/data -p 3063:3063 -e BOOTSTRAP_FILE=/edge/data/features.json -e TOKENS=<your_client_token_1,your_client_token_2> unleashorg/unleash-edge:<version> offline
 ```
 
-### Since Edge 19.4.0
+### Client and Frontend tokens in Offline Mode (Availability: Unleash Edge v19.4+)
 
-Offline mode now supports multiple token types. You can provide client tokens in the `TOKENS` environment variable as before or use the new `CLIENT_TOKENS` environment variable. In addition we've added support for frontend tokens. You can add these using the new `FRONTEND_TOKENS` environment variable.
+Offline mode supports multiple token types. [Unleash tokens](https://docs.getunleash.io/reference/api-tokens-and-client-keys)
 
-This means edge in offline mode can now be used as a terminal upstream for other Edges in Edge mode, because the validate endpoint now knows whether a token is a client or frontend token.
+You can provide [client tokens](https://docs.getunleash.io/reference/api-tokens-and-client-keys#client-tokens) in the `CLIENT_TOKENS` or `TOKENS` environment variables (or with --client-tokens | --tokens CLI flags).
 
+You can provide [frontend tokens](https://docs.getunleash.io/reference/api-tokens-and-client-keys#front-end-tokens) in the `FRONTEND_TOKENS` environment variable (or with the --frontend-tokens CLI flag)
+
+When doing this, Edge in offline mode will be able to validate tokens and tell daisy chained Edges the type of token calling the validate endpoint.
 
 ## Metrics
 
