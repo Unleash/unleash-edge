@@ -925,6 +925,8 @@ mod tests {
                 "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7"
                     .to_string(),
             ],
+            vec![],
+            vec![],
         )
         .unwrap();
 
@@ -975,6 +977,8 @@ mod tests {
                 "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7"
                     .to_string(),
             ],
+            vec![],
+            vec![],
         )
         .unwrap();
         let app = test::init_service(
@@ -1023,6 +1027,8 @@ mod tests {
                 "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7"
                     .to_string(),
             ],
+            vec![],
+            vec![],
         )
         .unwrap();
         let app = test::init_service(
@@ -1081,6 +1087,8 @@ mod tests {
                 "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7"
                     .to_string(),
             ],
+            vec![],
+            vec![],
         )
         .unwrap();
         let app = test::init_service(
@@ -1137,6 +1145,8 @@ mod tests {
                 "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7"
                     .to_string(),
             ],
+            vec![],
+            vec![],
         )
         .unwrap();
 
@@ -1248,8 +1258,13 @@ mod tests {
     #[tokio::test]
     async fn when_running_in_offline_mode_with_proxy_key_should_not_filter_features() {
         let client_features = client_features_with_constraint_requiring_user_id_of_seven();
-        let (token_cache, feature_cache, engine_cache) =
-            build_offline_mode(client_features.clone(), vec!["secret-123".to_string()]).unwrap();
+        let (token_cache, feature_cache, engine_cache) = build_offline_mode(
+            client_features.clone(),
+            vec!["secret-123".to_string()],
+            vec![],
+            vec![],
+        )
+        .unwrap();
         let app = test::init_service(
             App::new()
                 .app_data(Data::from(token_cache))
@@ -1259,6 +1274,8 @@ mod tests {
                     bootstrap_file: None,
                     tokens: vec!["secret-123".into()],
                     reload_interval: 0,
+                    client_tokens: vec![],
+                    frontend_tokens: vec![],
                 })))
                 .service(web::scope("/api/frontend").service(super::get_frontend_all_features)),
         )
@@ -1280,6 +1297,8 @@ mod tests {
         let (token_cache, feature_cache, engine_cache) = build_offline_mode(
             client_features.clone(),
             vec!["dx:development.secret123".to_string()],
+            vec![],
+            vec![],
         )
         .unwrap();
         let app = test::init_service(
@@ -1368,6 +1387,8 @@ mod tests {
         let (token_cache, feature_cache, engine_cache) = build_offline_mode(
             client_features,
             vec!["dx:development.secret123".to_string()],
+            vec![],
+            vec![],
         )
         .unwrap();
         let app = test::init_service(
@@ -1397,6 +1418,8 @@ mod tests {
         let (token_cache, feature_cache, engine_cache) = build_offline_mode(
             client_features.clone(),
             vec!["dx:development.secret123".to_string()],
+            vec![],
+            vec![],
         )
         .unwrap();
         let app = test::init_service(
@@ -1425,6 +1448,8 @@ mod tests {
         let (token_cache, feature_cache, engine_cache) = build_offline_mode(
             client_features_with_constraint_requiring_test_property_to_be_42(),
             vec!["*:development.secret123".to_string()],
+            vec![],
+            vec![],
         )
         .unwrap();
         let app = test::init_service(
@@ -1453,6 +1478,8 @@ mod tests {
         let (token_cache, feature_cache, engine_cache) = build_offline_mode(
             client_features.clone(),
             vec!["dx:development.secret123".to_string()],
+            vec![],
+            vec![],
         )
         .unwrap();
         let app = test::init_service(
@@ -1484,6 +1511,8 @@ mod tests {
         let (token_cache, feature_cache, engine_cache) = build_offline_mode(
             client_features_with_custom_context_field.clone(),
             vec![auth_key.clone()],
+            vec![],
+            vec![],
         )
         .unwrap();
         let config =
@@ -1524,6 +1553,8 @@ mod tests {
         let (token_cache, feature_cache, engine_cache) = build_offline_mode(
             client_features_with_custom_context_field.clone(),
             vec![auth_key.clone()],
+            vec![],
+            vec![],
         )
         .unwrap();
         let trust_proxy = TrustProxy {
@@ -1561,6 +1592,8 @@ mod tests {
         let (token_cache, feature_cache, engine_cache) = build_offline_mode(
             client_features_with_custom_context_field.clone(),
             vec![auth_key.clone()],
+            vec![],
+            vec![],
         )
         .unwrap();
         let trust_proxy = TrustProxy {
@@ -1599,6 +1632,8 @@ mod tests {
         let (token_cache, feature_cache, engine_cache) = build_offline_mode(
             client_features_with_custom_context_field.clone(),
             vec![auth_key.clone()],
+            vec![],
+            vec![],
         )
         .unwrap();
         let app = test::init_service(

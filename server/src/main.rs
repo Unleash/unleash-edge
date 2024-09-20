@@ -214,7 +214,7 @@ async fn clean_shutdown(
         ])
         .await;
         if res.iter().all(|save| save.is_ok()) {
-            tracing::info!("Successfully persisted data");
+            tracing::info!("Successfully persisted data to storage backend");
         } else {
             res.iter()
                 .filter(|save| save.is_err())
