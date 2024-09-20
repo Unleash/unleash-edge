@@ -3,7 +3,7 @@
 [![crates.io](https://img.shields.io/crates/v/unleash-edge?label=latest)](https://crates.io/crates/unleash-edge)
 [![Documentation](https://docs.rs/unleash-edge/badge.svg?version=latest)](https://docs.rs/unleash-edge/latest)
 ![MIT licensed](https://img.shields.io/crates/l/unleash-edge.svg)
-[![Dependency Status](https://deps.rs/crate/unleash-edge/19.3.1/status.svg)](https://deps.rs/crate/unleash-edge/19.3.1)
+[![Dependency Status](https://deps.rs/crate/unleash-edge/19.4.0/status.svg)](https://deps.rs/crate/unleash-edge/19.4.0)
 [![CI](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml/badge.svg)](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml)
 [![Coverage Status](https://coveralls.io/repos/github/Unleash/unleash-edge/badge.svg?branch=main)](https://coveralls.io/github/Unleash/unleash-edge?branch=main)
 ![downloads](https://img.shields.io/crates/d/unleash-edge.svg)
@@ -126,6 +126,13 @@ To monitor the health and performance of your Edge instances, you can consume Pr
 Unleash Edge adheres to Semantic Versioning (SemVer) on the API and CLI layers. If you're using Unleash Edge as a library in your projects, note that internal changes could affect your implementation, even in minor or patch versions.
 
 ## Debugging
+
+You can view the internal state of Edge at:
+
+- `http://<your-edge-url>/internal-backstage/tokens`: Displays the tokens known to Edge.
+- `http://<your-edge-url>/internal-backstage/features`: Shows the current state of features.
+
+Note: The `/internal-backstage/*` endpoints should not be publicly accessible.
 
 To enable verbose logging, adjust the `RUST_LOG` environment variable. For example, to see logs originating directly from Edge but not its dependencies, you can raise the default log level from `error` to `warning` and set Edge to `debug`, like this:
 
