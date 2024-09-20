@@ -5,7 +5,73 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 19.4.0 (2024-09-20)
+
+### Chore
+
+ - <csr-id-12e84fe75cfa6b35900f1b54daad134148c68bf5/> update dependency link in README
+ - <csr-id-9e3d251ce4d653ad6437a7688512ba129af3a6e3/> dependency maintenance
+ - <csr-id-87ca98f8d16702a5c9c82927008b91f909974894/> update log message
+ - <csr-id-715e8e96eec0f62d1a95f9b8d7dc7ec374748a2d/> Upgrade to actix 4.9, tokio 1.40, opentelemetry 0.24
+   * chore: bump to actix 4.9 and upgrade packages
+   
+   * chore: Upgrade Opentelemetry to 0.24
+
+### New Features
+
+ - <csr-id-b48604c13c6733a1ce38ff29843391b4866a5506/> added support for client and frontend tokens to offline mode.
+   * feat: added support for client and frontend tokens to offline mode. Assume tokens passed in --tokens are client tokens
+   
+   * clean up tests to use the new interface
+   
+   * fix: Added client and frontend tokens to constructor
+   
+   * Updated CLI docs
+ - <csr-id-00aabbef3061e9f92144d454f31bac8f41764770/> added feature_toggle_usage_total counter
+ - <csr-id-10d3854daa473cb32c4536e0776900717c9f765b/> verbose error for instance urls with api suffix
+
+### Bug Fixes
+
+ - <csr-id-797fc490dd7dc605a3f65c57a13dad5aac6bad63/> Update to explicitly type RedisError.
+   Work around for Rust 2024 implementing Never type (!)
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 9 commits contributed to the release.
+ - 8 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 7 unique issues were worked on: [#465](https://github.com/Unleash/unleash-edge/issues/465), [#512](https://github.com/Unleash/unleash-edge/issues/512), [#513](https://github.com/Unleash/unleash-edge/issues/513), [#520](https://github.com/Unleash/unleash-edge/issues/520), [#531](https://github.com/Unleash/unleash-edge/issues/531), [#532](https://github.com/Unleash/unleash-edge/issues/532), [#535](https://github.com/Unleash/unleash-edge/issues/535)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#465](https://github.com/Unleash/unleash-edge/issues/465)**
+    - Added support for client and frontend tokens to offline mode. ([`b48604c`](https://github.com/Unleash/unleash-edge/commit/b48604c13c6733a1ce38ff29843391b4866a5506))
+ * **[#512](https://github.com/Unleash/unleash-edge/issues/512)**
+    - Update instruction to refer to docker command not tag ([`113d1ef`](https://github.com/Unleash/unleash-edge/commit/113d1ef7e8627df1e8c3f836c1f09d32092e748c))
+ * **[#513](https://github.com/Unleash/unleash-edge/issues/513)**
+    - Upgrade to actix 4.9, tokio 1.40, opentelemetry 0.24 ([`715e8e9`](https://github.com/Unleash/unleash-edge/commit/715e8e96eec0f62d1a95f9b8d7dc7ec374748a2d))
+ * **[#520](https://github.com/Unleash/unleash-edge/issues/520)**
+    - Verbose error for instance urls with api suffix ([`10d3854`](https://github.com/Unleash/unleash-edge/commit/10d3854daa473cb32c4536e0776900717c9f765b))
+ * **[#531](https://github.com/Unleash/unleash-edge/issues/531)**
+    - Update to explicitly type RedisError. ([`797fc49`](https://github.com/Unleash/unleash-edge/commit/797fc490dd7dc605a3f65c57a13dad5aac6bad63))
+ * **[#532](https://github.com/Unleash/unleash-edge/issues/532)**
+    - Added feature_toggle_usage_total counter ([`00aabbe`](https://github.com/Unleash/unleash-edge/commit/00aabbef3061e9f92144d454f31bac8f41764770))
+ * **[#535](https://github.com/Unleash/unleash-edge/issues/535)**
+    - Dependency maintenance ([`9e3d251`](https://github.com/Unleash/unleash-edge/commit/9e3d251ce4d653ad6437a7688512ba129af3a6e3))
+ * **Uncategorized**
+    - Update dependency link in README ([`12e84fe`](https://github.com/Unleash/unleash-edge/commit/12e84fe75cfa6b35900f1b54daad134148c68bf5))
+    - Update log message ([`87ca98f`](https://github.com/Unleash/unleash-edge/commit/87ca98f8d16702a5c9c82927008b91f909974894))
+</details>
+
 ## 19.3.1 (2024-09-03)
+
+<csr-id-933659b0461b8a53cb89caf0984963918fe82b04/>
+<csr-id-2caf90d454442b96acb3e3fb8a667cd8a12bb371/>
 
 ### Chore
 
@@ -20,21 +86,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - <csr-id-fb6de0945201fbb55b01c122722882188b4ff464/> update dependency pointer to planned release
  - <csr-id-249ef1fd64d8b2934c1af742f91cd222cede787b/> Restructure readme
    * Add prometheus endpoint
-   * Reformat binary list
-   * Add code formatting for shell commands
+* Reformat binary list
+* Add code formatting for shell commands
 
 ### Bug Fixes
 
  - <csr-id-20d270c183ec3bf8b13ca8926425f67935406b2a/> added PostContext handling properties and context as nested variants
    * chore: add some test cases to cement behavior
-   
-   ---------
 
 ### Commit Statistics
 
 <csr-read-only-do-not-edit/>
 
- - 5 commits contributed to the release.
+ - 6 commits contributed to the release.
  - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 3 unique issues were worked on: [#494](https://github.com/Unleash/unleash-edge/issues/494), [#507](https://github.com/Unleash/unleash-edge/issues/507), [#510](https://github.com/Unleash/unleash-edge/issues/510)
 
@@ -51,6 +115,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#510](https://github.com/Unleash/unleash-edge/issues/510)**
     - Added PostContext handling properties and context as nested variants ([`20d270c`](https://github.com/Unleash/unleash-edge/commit/20d270c183ec3bf8b13ca8926425f67935406b2a))
  * **Uncategorized**
+    - Release unleash-edge v19.3.1 ([`3c04133`](https://github.com/Unleash/unleash-edge/commit/3c04133543242f262db480c57de07e12ee99b8cd))
     - Update dependency pointer to planned release ([`fb6de09`](https://github.com/Unleash/unleash-edge/commit/fb6de0945201fbb55b01c122722882188b4ff464))
     - Restructure readme ([`249ef1f`](https://github.com/Unleash/unleash-edge/commit/249ef1fd64d8b2934c1af742f91cd222cede787b))
 </details>
@@ -119,6 +184,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+ - <csr-id-4dc72f39adad96650516b02f8bfb3ad50fa39bab/> strict and dynamic mode
+   ---------
  - <csr-id-4dc72f39adad96650516b02f8bfb3ad50fa39bab/> strict and dynamic mode
    ---------
  - <csr-id-4dc72f39adad96650516b02f8bfb3ad50fa39bab/> strict and dynamic mode
