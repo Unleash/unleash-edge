@@ -30,7 +30,7 @@ actix-middleware-etag = "0.4.2"
 actix-service = "2.0.2"
 actix-web = { version = "4.9.0", features = ["rustls-0_23", "compress-zstd"] }
 ahash = "0.8.11"
-anyhow = "1.0.86"
+anyhow = "1.0.89"
 async-trait = "0.1.82"
 chrono = { version = "0.4.38", features = ["serde"] }
 cidr = "0.2.3"
@@ -39,7 +39,7 @@ clap-markdown = "0.1.4"
 dashmap = "6.0.1"
 futures = "0.3.30"
 futures-core = "0.3.30"
-iter_tools = "0.20.0"
+iter_tools = "0.21.0"
 itertools = "0.13.0"
 lazy_static = "1.4.0"
 num_cpus = "1.16.0"
@@ -55,7 +55,7 @@ opentelemetry_sdk = { version = "0.24.0", features = [
 prometheus = { version = "0.13.4", features = ["process"] }
 prometheus-static-metric = "0.5.1"
 rand = "0.8.5"
-redis = { version = "0.26.1", features = [
+redis = { version = "0.27.0", features = [
     "tokio-comp",
     "tokio-rustls-comp",
     "cluster",
@@ -65,7 +65,7 @@ reqwest = { version = "0.12.7", default-features = false, features = [
     "rustls-tls",
     "native-tls",
 ] }
-rustls = { version = "0.23.12", default-features = false, features = [
+rustls = { version = "0.23.13", default-features = false, features = [
     "logging",
     "ring",
     "std",
@@ -73,10 +73,10 @@ rustls = { version = "0.23.12", default-features = false, features = [
 rustls-pemfile = "2.1.2"
 rustls-pki-types = "1.8.0"
 semver = "1.0.23"
-serde = { version = "1.0.209", features = ["derive"] }
-serde_json = "1.0.127"
+serde = { version = "1.0.210", features = ["derive"] }
+serde_json = "1.0.128"
 serde_qs = { version = "0.13.0", features = ["actix4", "tracing"] }
-shadow-rs = { version = "0.33.0" }
+shadow-rs = { version = "0.35.0" }
 tokio = { version = "1.40.0", features = [
     "macros",
     "rt-multi-thread",
@@ -87,7 +87,7 @@ tracing = { version = "0.1.40", features = ["log"] }
 tracing-subscriber = { version = "0.3.18", features = ["json", "env-filter"] }
 ulid = "1.1.2"
 unleash-types = { version = "0.13", features = ["openapi", "hashes"] }
-unleash-yggdrasil = { version = "0.13.0" }
+unleash-yggdrasil = { version = "0.13.2" }
 utoipa = { version = "4.2.3", features = ["actix_extras", "chrono"] }
 utoipa-swagger-ui = { version = "7.1.0", features = ["actix-web"] }
 [dev-dependencies]
@@ -103,4 +103,4 @@ testcontainers-modules = { version = "0.10.0", features = ["redis"] }
 tracing-test = "0.2.5"
 
 [build-dependencies]
-shadow-rs = "0.33.0"
+shadow-rs = "0.35.0"
