@@ -140,7 +140,7 @@ pub(crate) fn build_offline_mode(
 }
 
 fn build_offline(offline_args: OfflineArgs) -> EdgeResult<CacheContainer> {
-    if offline_args.tokens.is_empty() {
+    if offline_args.tokens.is_empty() && offline_args.client_tokens.is_empty() {
         return Err(EdgeError::NoTokens(
             "No tokens provided. Tokens must be specified when running in offline mode".into(),
         ));
