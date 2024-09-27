@@ -120,14 +120,13 @@ mod tests {
             segments: None,
             query: None,
         };
+        let creds = Credentials::new(Some("test"), Some("test"), None, None, None).unwrap();
 
         //hopefully we don't care, this should just work with localstack
-        let creds =
-            Credentials::from_sts("test", "test", "test").expect("Cannot create creds for test");
         let persister =
             S3Persister::new(bucket_name, region, creds).expect("Can't create persister");
 
-        let tokens = vec![EdgeToken::from_str("*.default:abcdedfu").unwrap()];
+        let tokens = vec![EdgeToken::from_str("eg:development.secret321").unwrap()];
         persister
             .save_tokens(tokens.clone())
             .await
