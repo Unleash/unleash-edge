@@ -65,6 +65,7 @@ reqwest = { version = "0.12.7", default-features = false, features = [
     "rustls-tls",
     "native-tls",
 ] }
+rust-s3 = "0.35.1"
 rustls = { version = "0.23.13", default-features = false, features = [
     "logging",
     "ring",
@@ -98,8 +99,8 @@ env_logger = "0.11.5"
 maplit = "1.0.2"
 rand = "0.8.5"
 test-case = "3.3.1"
-testcontainers = "0.22.0"
-testcontainers-modules = { version = "0.10.0", features = ["redis"] }
+testcontainers = "0.23.1"
+testcontainers-modules = { version = "0.11.1", features = ["redis", "localstack"] }
 tracing-test = "0.2.5"
 
 [build-dependencies]
