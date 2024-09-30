@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
-use aws_config::SdkConfig;
 use unleash_types::client_features::ClientFeatures;
 
 use super::EdgePersistence;
@@ -10,21 +9,23 @@ use crate::{
     types::{EdgeResult, EdgeToken},
 };
 use aws_sdk_s3::{
+    self as s3,
+    error::SdkError,
+    operation::{get_object::GetObjectError, put_object::PutObjectError},
     primitives::{ByteStream, SdkBody},
-    Client, Config, Error,
 };
 
 pub const FEATURES_KEY: &str = "/unleash-features.json";
 pub const TOKENS_KEY: &str = "/unleash-tokens.json";
 
 pub struct S3Persister {
-    client: Client,
+    client: s3::Client,
     bucket: String,
 }
 
 impl S3Persister {
-    pub fn new_with_config(bucket_name: &str, config: &SdkConfig) -> Self {
-        let client = Client::new(config);
+    pub fn new_with_config(bucket_name: &str, config: s3::config::Config) -> Self {
+        let client = s3::Client::from_conf(config);
         Self {
             client,
             bucket: bucket_name.to_string(),
@@ -32,10 +33,48 @@ impl S3Persister {
     }
     pub async fn new_from_env(bucket_name: &str) -> Self {
         let shared_config = aws_config::load_from_env().await;
-        let client = Client::new(&shared_config);
+        let client = s3::Client::new(&shared_config);
         Self {
             client,
             bucket: bucket_name.to_string(),
+        }
+    }
+}
+
+impl From<SdkError<GetObjectError>> for EdgeError {
+    fn from(err: SdkError<GetObjectError>) -> Self {
+        EdgeError::PersistenceError(format!("failed to get object {}", err.to_string()))
+    }
+}
+
+impl From<SdkError<PutObjectError>> for EdgeError {
+    fn from(err: SdkError<PutObjectError>) -> Self {
+        EdgeError::PersistenceError(format!("failed to put object {}", err.to_string()))
+    }
+}
+
+impl S3Persister {
+    async fn create_bucket_if_not_exists(&self) -> EdgeResult<()> {
+        match self
+            .client
+            .create_bucket()
+            .bucket(&self.bucket)
+            .send()
+            .await
+        {
+            Ok(_) => Ok(()),
+            Err(err) => {
+                if err.to_string().contains("BucketAlreadyOwnedByYou")
+                    || err.to_string().contains("BucketAlreadyExists")
+                {
+                    Ok(())
+                } else {
+                    Err(EdgeError::PersistenceError(format!(
+                        "Failed to create bucket: {}",
+                        err.to_string()
+                    )))
+                }
+            }
         }
     }
 }
@@ -50,19 +89,18 @@ impl EdgePersistence for S3Persister {
             .key(TOKENS_KEY)
             .response_content_type("application/json")
             .send()
-            .await
-            .map_err(|err| {
-                EdgeError::PersistenceError(format!("Failed to load tokens: {}", err))
-            })?;
+            .await?;
         let data = response.body.collect().await.expect("Failed data");
         serde_json::from_slice(&data.to_vec())
             .map_err(|_| EdgeError::PersistenceError("Failed to deserialize tokens".to_string()))
     }
 
     async fn save_tokens(&self, tokens: Vec<EdgeToken>) -> EdgeResult<()> {
+        self.create_bucket_if_not_exists().await?;
         let body_data = serde_json::to_vec(&tokens)
-            .map_err(|_| EdgeError::PersistenceError("Failed to serialize tokens".to_string()))?;
-        let byte_stream = ByteStream::new(SdkBody::from(body_data));
+            .map_err(|_| EdgeError::PersistenceError("Failed to serialize tokens".to_string()))
+            .map(SdkBody::from)?;
+        let byte_stream = aws_sdk_s3::primitives::ByteStream::new(body_data);
         self.client
             .put_object()
             .bucket(self.bucket.clone())
@@ -71,11 +109,14 @@ impl EdgePersistence for S3Persister {
             .send()
             .await
             .map(|_| ())
-            .map_err(|err| EdgeError::PersistenceError(err.to_string()))
+            .map_err(|err| {
+                dbg!(err);
+                EdgeError::PersistenceError("Failed to save tokens".to_string())
+            })
     }
 
     async fn load_features(&self) -> EdgeResult<HashMap<String, ClientFeatures>> {
-        let response = self
+        let query = self
             .client
             .get_object()
             .bucket(self.bucket.clone())
@@ -84,26 +125,54 @@ impl EdgePersistence for S3Persister {
             .send()
             .await
             .map_err(|err| {
-                EdgeError::PersistenceError(format!("Failed to load features: {}", err))
-            })?;
-        let data = response.body.collect().await.expect("Failed data");
-        serde_json::from_slice(&data.to_vec())
-            .map_err(|_| EdgeError::PersistenceError("Failed to deserialize features".to_string()))
+                if err.to_string().contains("NoSuchKey") {
+                    return EdgeError::PersistenceError("No features found".to_string());
+                }
+                dbg!(err);
+                EdgeError::PersistenceError("Failed to load features".to_string())
+            });
+        match query {
+            Ok(response) => {
+                let data = response.body.collect().await.expect("Failed data");
+                let deser: Vec<(String, ClientFeatures)> = serde_json::from_slice(&data.to_vec())
+                    .map_err(|_| {
+                    EdgeError::PersistenceError("Failed to deserialize features".to_string())
+                })?;
+                Ok(deser
+                    .iter()
+                    .cloned()
+                    .collect::<HashMap<String, ClientFeatures>>())
+            }
+            Err(e) => {
+                eprintln!("Err Arg, failed to read features");
+                dbg!(e);
+                Ok(HashMap::new())
+            }
+        }
     }
 
     async fn save_features(&self, features: Vec<(String, ClientFeatures)>) -> EdgeResult<()> {
+        self.create_bucket_if_not_exists().await?;
         let body_data = serde_json::to_vec(&features)
-            .map_err(|_| EdgeError::PersistenceError("Failed to serialize tokens".to_string()))?;
+            .map_err(|_| EdgeError::PersistenceError("Failed to serialize features".to_string()))?;
         let byte_stream = ByteStream::new(SdkBody::from(body_data));
-        self.client
+        match self
+            .client
             .put_object()
             .bucket(self.bucket.clone())
             .key(FEATURES_KEY)
             .body(byte_stream)
             .send()
             .await
-            .map(|_| ())
-            .map_err(|err| EdgeError::PersistenceError(err.to_string()))
+        {
+            Ok(_) => Ok(()),
+            Err(s3_err) => {
+                dbg!(s3_err);
+                Err(EdgeError::PersistenceError(
+                    "Failed to save features".to_string(),
+                ))
+            }
+        }
     }
 }
 
@@ -113,9 +182,9 @@ mod tests {
 
     use super::*;
     use aws_config::Region;
-    use aws_config::SdkConfig;
+    use aws_sdk_s3 as s3;
+    use aws_sdk_s3::config::Credentials;
     use aws_sdk_s3::config::SharedCredentialsProvider;
-    use aws_sdk_s3::{config::Credentials, Config};
     use testcontainers::{runners::AsyncRunner, ImageExt};
     use testcontainers_modules::localstack::LocalStack;
     use unleash_types::client_features::ClientFeature;
@@ -150,20 +219,18 @@ mod tests {
             segments: None,
             query: None,
         };
-        let config = SdkConfig::builder()
+        let config = s3::config::Config::builder()
             .region(Region::new("us-east-1"))
             .endpoint_url(format!("http://{}:{}", local_stack_ip, local_stack_port))
             .credentials_provider(SharedCredentialsProvider::new(Credentials::for_tests()))
+            .force_path_style(true)
             .build();
 
         //hopefully we don't care, this should just work with localstack
-        let persister = S3Persister::new_with_config(bucket_name, &config);
+        let persister = S3Persister::new_with_config(bucket_name, config);
 
         let tokens = vec![EdgeToken::from_str("eg:development.secret321").unwrap()];
-        persister
-            .save_tokens(tokens.clone())
-            .await
-            .expect("Failed to save tokens");
+        persister.save_tokens(tokens.clone()).await.unwrap();
 
         let loaded_tokens = persister
             .load_tokens()
@@ -185,5 +252,34 @@ mod tests {
             features.into_iter().collect::<HashMap<_, _>>(),
             loaded_features
         );
+    }
+    #[tokio::test]
+    async fn read_s3() {
+        let localstack = LocalStack::default()
+            .with_env_var("SERVICES", "s3")
+            .start()
+            .await
+            .expect("Failed to start localstack");
+
+        let bucket_name = "test-bucket";
+        let local_stack_ip = localstack.get_host().await.expect("Could not get host");
+        let local_stack_port = localstack
+            .get_host_port_ipv4(4566)
+            .await
+            .expect("Could not get port");
+
+        let creds = s3::config::Credentials::new("fake", "fake", None, None, "test");
+        let config = aws_sdk_s3::config::Builder::default()
+            .behavior_version_latest()
+            .region(Region::new("us-east-1"))
+            .credentials_provider(creds)
+            .endpoint_url(format!("http://{}:{}", local_stack_ip, local_stack_port))
+            .force_path_style(true)
+            .build();
+
+        //hopefully we don't care, this should just work with localstack
+        let persister = S3Persister::new_with_config(bucket_name, config);
+        persister.create_bucket_if_not_exists().await.unwrap();
+        persister.load_features().await.unwrap();
     }
 }
