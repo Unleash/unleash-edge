@@ -15,6 +15,7 @@ use crate::http::unleash_client::new_reqwest_client;
 use crate::offline::offline_hotload::{load_bootstrap, load_offline_engine_cache};
 use crate::persistence::file::FilePersister;
 use crate::persistence::redis::RedisPersister;
+use crate::persistence::s3::S3Persister;
 use crate::persistence::EdgePersistence;
 use crate::{
     auth::token_validator::TokenValidator,
@@ -199,6 +200,17 @@ async fn get_data_source(args: &EdgeArgs) -> Option<Arc<dyn EdgePersistence>> {
         return Some(Arc::new(redis_persister));
     }
 
+    if let Some(s3_args) = args.s3.clone() {
+        let s3_persister = S3Persister::new_from_env(
+            &s3_args
+                .s3_bucket_name
+                .clone()
+                .expect("Clap is confused, there's no bucket name"),
+        )
+        .await;
+        return Some(Arc::new(s3_persister));
+    }
+
     if let Some(backup_folder) = args.backup_folder.clone() {
         debug!("Configuring file persistence {backup_folder:?}");
         let backup_client = FilePersister::new(&backup_folder);
@@ -335,6 +347,7 @@ mod tests {
             dynamic: false,
             tokens: vec![],
             redis: None,
+            s3: None,
             client_identity: Default::default(),
             skip_ssl_verification: false,
             upstream_request_timeout: Default::default(),
