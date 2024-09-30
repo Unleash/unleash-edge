@@ -1,11 +1,10 @@
 use std::{str::FromStr, time::Duration};
 
 use redis::Client;
-use testcontainers::runners::AsyncRunner;
-use testcontainers::ContainerAsync;
-use testcontainers_modules::redis::Redis;
+use testcontainers_modules::redis::RedisStack;
 use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
+use testcontainers::{runners::AsyncRunner, ContainerAsync};
 use unleash_edge::{
     persistence::{redis::RedisPersister, EdgePersistence},
     types::{EdgeToken, TokenType},
@@ -13,8 +12,11 @@ use unleash_edge::{
 
 const TEST_TIMEOUT: Duration = std::time::Duration::from_millis(1000);
 
-async fn setup_redis() -> (Client, String, ContainerAsync<Redis>) {
-    let node = Redis.start().await.expect("Failed to start redis");
+async fn setup_redis() -> (Client, String, ContainerAsync<RedisStack>) {
+    let node = RedisStack::default()
+        .start()
+        .await
+        .expect("Failed to start redis");
     let host_port = node
         .get_host_port_ipv4(6379)
         .await

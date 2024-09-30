@@ -9,6 +9,7 @@ use crate::types::{EdgeResult, EdgeToken, TokenValidationStatus};
 
 pub mod file;
 pub mod redis;
+pub mod s3;
 
 #[async_trait]
 pub trait EdgePersistence: Send + Sync {

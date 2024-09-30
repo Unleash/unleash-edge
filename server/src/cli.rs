@@ -44,6 +44,14 @@ impl Display for RedisScheme {
         }
     }
 }
+
+#[derive(Args, Debug, Clone)]
+pub struct S3Args {
+    /// Bucket name to use for storing feature and token data
+    #[clap(long, env)]
+    pub s3_bucket_name: Option<String>,
+}
+
 #[derive(Copy, Debug, Clone, Eq, PartialEq, PartialOrd, Ord, ValueEnum)]
 pub enum RedisMode {
     Single,
@@ -131,7 +139,7 @@ pub struct ClientIdentity {
 #[derive(Args, Debug, Clone)]
 #[command(group(
     ArgGroup::new("data-provider")
-        .args(["redis_url", "backup_folder"]),
+        .args(["redis_url", "backup_folder", "s3_bucket_name"]),
 ))]
 pub struct EdgeArgs {
     /// Where is your upstream URL. Remember, this is the URL to your instance, without any trailing /api suffix
@@ -180,9 +188,13 @@ pub struct EdgeArgs {
     #[clap(long, env, default_value_t = 5)]
     pub upstream_socket_timeout: i64,
 
-    /// A URL pointing to a running Redis instance. Edge will use this instance to persist feature and token data and read this back after restart. Mutually exclusive with the --backup-folder option
+    /// A URL pointing to a running Redis instance. Edge will use this instance to persist feature and token data and read this back after restart. Mutually exclusive with the --backup-folder and --s3-bucket options
     #[clap(flatten)]
     pub redis: Option<RedisArgs>,
+
+    /// Configuration for S3 storage. Edge will use this instance to persist feature and token data and read this back after restart. Mutually exclusive with the --redis-url and --backup-folder options
+    #[clap(flatten)]
+    pub s3: Option<S3Args>,
 
     /// Token header to use for both edge authorization and communication with the upstream server.
     #[clap(long, env, global = true, default_value = "Authorization")]
