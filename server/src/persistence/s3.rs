@@ -43,13 +43,13 @@ impl S3Persister {
 
 impl From<SdkError<GetObjectError>> for EdgeError {
     fn from(err: SdkError<GetObjectError>) -> Self {
-        EdgeError::PersistenceError(format!("failed to get object {}", err.to_string()))
+        EdgeError::PersistenceError(format!("failed to get object {}", err))
     }
 }
 
 impl From<SdkError<PutObjectError>> for EdgeError {
     fn from(err: SdkError<PutObjectError>) -> Self {
-        EdgeError::PersistenceError(format!("failed to put object {}", err.to_string()))
+        EdgeError::PersistenceError(format!("failed to put object {}", err))
     }
 }
 
@@ -71,7 +71,7 @@ impl S3Persister {
                 } else {
                     Err(EdgeError::PersistenceError(format!(
                         "Failed to create bucket: {}",
-                        err.to_string()
+                        err
                     )))
                 }
             }
