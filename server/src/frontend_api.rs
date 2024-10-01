@@ -11,7 +11,7 @@ use actix_web::{
 };
 use dashmap::DashMap;
 use serde_qs::actix::QsQuery;
-use tracing::{debug, instrument};
+use tracing::debug;
 use unleash_types::client_features::Context;
 use unleash_types::client_metrics::{ClientApplication, ConnectVia};
 use unleash_types::{
@@ -241,7 +241,6 @@ security(
 )
 )]
 #[get("")]
-#[instrument(skip(edge_token, req, engine_cache, token_cache, context))]
 async fn get_enabled_proxy(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
@@ -271,7 +270,6 @@ security(
 )
 )]
 #[get("")]
-#[instrument(skip(edge_token, req, engine_cache, token_cache, context))]
 async fn get_enabled_frontend(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
@@ -1578,7 +1576,9 @@ mod tests {
             .insert_header(("Authorization", auth_key.clone()))
             .set_json(json!({ "properties": {"companyId": "bricks"}}))
             .to_request();
-        let result: FrontendResult = test::try_call_and_read_body_json(&app, req).await.expect("Failed to call endpoint");
+        let result: FrontendResult = test::try_call_and_read_body_json(&app, req)
+            .await
+            .expect("Failed to call endpoint");
         tracing::info!("{result:?}");
         assert_eq!(result.toggles.len(), 1);
     }
