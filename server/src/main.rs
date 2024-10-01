@@ -15,7 +15,6 @@ use utoipa_swagger_ui::SwaggerUi;
 use unleash_edge::builder::build_caches_and_refreshers;
 use unleash_edge::cli::{CliArgs, EdgeMode};
 use unleash_edge::metrics::client_metrics::MetricsCache;
-use unleash_edge::middleware::request_tracing::RequestTracing;
 use unleash_edge::offline::offline_hotload;
 use unleash_edge::persistence::{persist_data, EdgePersistence};
 use unleash_edge::types::{EdgeToken, TokenValidationStatus};
@@ -106,7 +105,6 @@ async fn main() -> Result<(), anyhow::Error> {
                 .wrap(actix_web::middleware::Compress::default())
                 .wrap(actix_web::middleware::NormalizePath::default())
                 .wrap(cors_middleware)
-                .wrap(RequestTracing::new())
                 .wrap(request_metrics.clone())
                 .wrap(Logger::default())
                 .service(web::scope("/internal-backstage").configure(|service_cfg| {

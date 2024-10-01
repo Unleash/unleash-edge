@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use dashmap::DashMap;
-use tracing::{instrument, trace};
+use tracing::trace;
 use unleash_types::Upsert;
 
 use crate::http::feature_refresher::FeatureRefresher;
@@ -100,7 +100,6 @@ impl TokenValidator {
         }
     }
 
-    #[instrument(skip(self))]
     pub async fn schedule_validation_of_known_tokens(&self, validation_interval_seconds: u64) {
         let sleep_duration = tokio::time::Duration::from_secs(validation_interval_seconds);
         loop {
@@ -112,7 +111,6 @@ impl TokenValidator {
         }
     }
 
-    #[instrument(skip(self, tokens, refresher))]
     pub async fn schedule_revalidation_of_startup_tokens(
         &self,
         tokens: Vec<String>,
