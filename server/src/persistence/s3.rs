@@ -109,7 +109,7 @@ impl EdgePersistence for S3Persister {
             .send()
             .await
             .map(|_| ())
-            .map_err(|err| EdgeError::PersistenceError("Failed to save tokens".to_string()))
+            .map_err(|_err| EdgeError::PersistenceError("Failed to save tokens".to_string()))
     }
 
     async fn load_features(&self) -> EdgeResult<HashMap<String, ClientFeatures>> {
@@ -139,7 +139,7 @@ impl EdgePersistence for S3Persister {
                     .cloned()
                     .collect::<HashMap<String, ClientFeatures>>())
             }
-            Err(e) => Ok(HashMap::new()),
+            Err(_e) => Ok(HashMap::new()),
         }
     }
 
