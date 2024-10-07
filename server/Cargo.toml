@@ -12,7 +12,7 @@ homepage = "https://github.com/Unleash/unleash-edge"
 license = "MIT"
 name = "unleash-edge"
 repository = "https://github.com/Unleash/unleash-edge"
-version = "19.4.1"
+version = "19.5.0"
 
 [package.metadata.wix]
 upgrade-guid = "11E5D83A-3034-48BB-9A84-9F589EBD648C"
@@ -31,12 +31,12 @@ actix-service = "2.0.2"
 actix-web = { version = "4.9.0", features = ["rustls-0_23", "compress-zstd"] }
 ahash = "0.8.11"
 anyhow = "1.0.89"
-async-trait = "0.1.82"
-aws-config = { version = "1.5.6", features = ["behavior-version-latest"] }
-aws-sdk-s3 = { version = "1.51.0", features = ["behavior-version-latest"] }
+async-trait = "0.1.83"
+aws-config = { version = "1.5.7", features = ["behavior-version-latest"] }
+aws-sdk-s3 = { version = "1.53.0", features = ["behavior-version-latest"] }
 chrono = { version = "0.4.38", features = ["serde"] }
-cidr = "0.2.3"
-clap = { version = "4.5.16", features = ["derive", "env"] }
+cidr = "0.3.0"
+clap = { version = "4.5.19", features = ["derive", "env"] }
 clap-markdown = "0.1.4"
 dashmap = "6.0.1"
 futures = "0.3.30"
@@ -62,7 +62,7 @@ redis = { version = "0.27.0", features = [
     "tokio-rustls-comp",
     "cluster",
 ] }
-reqwest = { version = "0.12.7", default-features = false, features = [
+reqwest = { version = "0.12.8", default-features = false, features = [
     "json",
     "rustls-tls",
     "native-tls",
@@ -72,8 +72,8 @@ rustls = { version = "0.23.13", default-features = false, features = [
     "ring",
     "std",
 ] }
-rustls-pemfile = "2.1.2"
-rustls-pki-types = "1.8.0"
+rustls-pemfile = "2.2.0"
+rustls-pki-types = "1.9.0"
 semver = "1.0.23"
 serde = { version = "1.0.210", features = ["derive"] }
 serde_json = "1.0.128"
@@ -101,7 +101,7 @@ maplit = "1.0.2"
 rand = "0.8.5"
 test-case = "3.3.1"
 testcontainers = "0.23.1"
-testcontainers-modules = { version = "0.11.1", features = [
+testcontainers-modules = { version = "0.11.2", features = [
     "redis",
     "localstack",
 ] }

@@ -109,10 +109,7 @@ impl EdgePersistence for S3Persister {
             .send()
             .await
             .map(|_| ())
-            .map_err(|err| {
-                dbg!(err);
-                EdgeError::PersistenceError("Failed to save tokens".to_string())
-            })
+            .map_err(|_err| EdgeError::PersistenceError("Failed to save tokens".to_string()))
     }
 
     async fn load_features(&self) -> EdgeResult<HashMap<String, ClientFeatures>> {
@@ -128,7 +125,6 @@ impl EdgePersistence for S3Persister {
                 if err.to_string().contains("NoSuchKey") {
                     return EdgeError::PersistenceError("No features found".to_string());
                 }
-                dbg!(err);
                 EdgeError::PersistenceError("Failed to load features".to_string())
             });
         match query {
@@ -143,11 +139,7 @@ impl EdgePersistence for S3Persister {
                     .cloned()
                     .collect::<HashMap<String, ClientFeatures>>())
             }
-            Err(e) => {
-                eprintln!("Err Arg, failed to read features");
-                dbg!(e);
-                Ok(HashMap::new())
-            }
+            Err(_e) => Ok(HashMap::new()),
         }
     }
 
@@ -166,12 +158,9 @@ impl EdgePersistence for S3Persister {
             .await
         {
             Ok(_) => Ok(()),
-            Err(s3_err) => {
-                dbg!(s3_err);
-                Err(EdgeError::PersistenceError(
-                    "Failed to save features".to_string(),
-                ))
-            }
+            Err(_s3_err) => Err(EdgeError::PersistenceError(
+                "Failed to save features".to_string(),
+            )),
         }
     }
 }

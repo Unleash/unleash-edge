@@ -5,7 +5,57 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 19.5.0 (2024-10-04)
+
+### Chore
+
+ - <csr-id-01bf9b64febe6c2a79602e1ecf13e253cef148ca/> Prepare 19.5.0 release
+ - <csr-id-57188289db39c200d5bbc2f1dc8319f0fe2a2f13/> Remove unnecessary dbg! macros
+ - <csr-id-548f7e045aa47adad317587b17c852baae1e17c9/> bump cargo dependencies
+
+### Documentation
+
+ - <csr-id-19048e36476943b9f58bbe375f7d5f90c3f6091b/> Add client-tokens and frontend-tokens chapter to offline mode
+   * Update server/readme
+   
+   ---------
+
+### New Features
+
+ - <csr-id-1522e296a2cb81892718d4f778c4fa89c7776b41/> s3 persister
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 5 commits contributed to the release.
+ - 12 days passed between releases.
+ - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 2 unique issues were worked on: [#536](https://github.com/Unleash/unleash-edge/issues/536), [#542](https://github.com/Unleash/unleash-edge/issues/542)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#536](https://github.com/Unleash/unleash-edge/issues/536)**
+    - Add client-tokens and frontend-tokens chapter to offline mode ([`19048e3`](https://github.com/Unleash/unleash-edge/commit/19048e36476943b9f58bbe375f7d5f90c3f6091b))
+ * **[#542](https://github.com/Unleash/unleash-edge/issues/542)**
+    - S3 persister ([`1522e29`](https://github.com/Unleash/unleash-edge/commit/1522e296a2cb81892718d4f778c4fa89c7776b41))
+ * **Uncategorized**
+    - Prepare 19.5.0 release ([`01bf9b6`](https://github.com/Unleash/unleash-edge/commit/01bf9b64febe6c2a79602e1ecf13e253cef148ca))
+    - Remove unnecessary dbg! macros ([`5718828`](https://github.com/Unleash/unleash-edge/commit/57188289db39c200d5bbc2f1dc8319f0fe2a2f13))
+    - Bump cargo dependencies ([`548f7e0`](https://github.com/Unleash/unleash-edge/commit/548f7e045aa47adad317587b17c852baae1e17c9))
+</details>
+
 ## 19.4.1 (2024-09-21)
+
+<csr-id-3db59d68ea0d5942099b9c7ca154d4e6489be338/>
+<csr-id-12e84fe75cfa6b35900f1b54daad134148c68bf5/>
+<csr-id-9e3d251ce4d653ad6437a7688512ba129af3a6e3/>
+<csr-id-87ca98f8d16702a5c9c82927008b91f909974894/>
+<csr-id-715e8e96eec0f62d1a95f9b8d7dc7ec374748a2d/>
 
 ### Chore
 
@@ -20,16 +70,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### New Features
 
+<csr-id-00aabbef3061e9f92144d454f31bac8f41764770/>
+<csr-id-10d3854daa473cb32c4536e0776900717c9f765b/>
+
  - <csr-id-b48604c13c6733a1ce38ff29843391b4866a5506/> added support for client and frontend tokens to offline mode.
    * feat: added support for client and frontend tokens to offline mode. Assume tokens passed in --tokens are client tokens
-   
-   * clean up tests to use the new interface
-   
-   * fix: Added client and frontend tokens to constructor
-   
-   * Updated CLI docs
- - <csr-id-00aabbef3061e9f92144d454f31bac8f41764770/> added feature_toggle_usage_total counter
- - <csr-id-10d3854daa473cb32c4536e0776900717c9f765b/> verbose error for instance urls with api suffix
+* clean up tests to use the new interface
+* fix: Added client and frontend tokens to constructor
+* Updated CLI docs
 
 ### Bug Fixes
 
@@ -41,7 +89,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 12 commits contributed to the release.
+ - 13 commits contributed to the release.
  - 18 days passed between releases.
  - 10 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 7 unique issues were worked on: [#465](https://github.com/Unleash/unleash-edge/issues/465), [#512](https://github.com/Unleash/unleash-edge/issues/512), [#513](https://github.com/Unleash/unleash-edge/issues/513), [#520](https://github.com/Unleash/unleash-edge/issues/520), [#531](https://github.com/Unleash/unleash-edge/issues/531), [#532](https://github.com/Unleash/unleash-edge/issues/532), [#535](https://github.com/Unleash/unleash-edge/issues/535)
@@ -67,12 +115,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#535](https://github.com/Unleash/unleash-edge/issues/535)**
     - Dependency maintenance ([`9e3d251`](https://github.com/Unleash/unleash-edge/commit/9e3d251ce4d653ad6437a7688512ba129af3a6e3))
  * **Uncategorized**
+    - Release unleash-edge v19.4.1 ([`51ac539`](https://github.com/Unleash/unleash-edge/commit/51ac5390b364daa7297354d336528a30963e244c))
     - Bump dependency status link ([`3db59d6`](https://github.com/Unleash/unleash-edge/commit/3db59d68ea0d5942099b9c7ca154d4e6489be338))
     - Allow offline mode to have either tokens or client-tokens set ([`429ae00`](https://github.com/Unleash/unleash-edge/commit/429ae00d3947b6158ad6cb5ddc9b4355946a9452))
     - Release unleash-edge v19.4.0 ([`6c85a6f`](https://github.com/Unleash/unleash-edge/commit/6c85a6f714d33a08dbc419cb1b7b1d6095b307ab))
     - Update dependency link in README ([`12e84fe`](https://github.com/Unleash/unleash-edge/commit/12e84fe75cfa6b35900f1b54daad134148c68bf5))
     - Update log message ([`87ca98f`](https://github.com/Unleash/unleash-edge/commit/87ca98f8d16702a5c9c82927008b91f909974894))
 </details>
+
+<csr-unknown>
+ added feature_toggle_usage_total counter verbose error for instance urls with api suffix<csr-unknown/>
 
 ## 19.4.0 (2024-09-20)
 
@@ -108,7 +160,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
    Work around for Rust 2024 implementing Never type (!)
 
 <csr-unknown>
+<csr-unknown>
  added feature_toggle_usage_total counter verbose error for instance urls with api suffix<csr-unknown/>
+<csr-unknown/>
 
 ## 19.3.1 (2024-09-03)
 
@@ -228,6 +282,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+ - <csr-id-4dc72f39adad96650516b02f8bfb3ad50fa39bab/> strict and dynamic mode
+   ---------
  - <csr-id-4dc72f39adad96650516b02f8bfb3ad50fa39bab/> strict and dynamic mode
    ---------
  - <csr-id-4dc72f39adad96650516b02f8bfb3ad50fa39bab/> strict and dynamic mode
