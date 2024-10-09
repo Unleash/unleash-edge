@@ -751,12 +751,12 @@ pub fn get_all_features(
     client_ip: Option<&ClientIp>,
 ) -> EdgeJsonResult<FrontendResult> {
     let context_with_ip = if context.remote_address.is_none() {
-        Context {
+        &Context {
             remote_address: client_ip.map(|ip| ip.to_string()),
             ..context.clone()
         }
     } else {
-        context.clone()
+        context
     };
     let token = token_cache
         .get(&edge_token.token)
@@ -766,7 +766,7 @@ pub fn get_all_features(
     let engine = engine_cache.get(&key).ok_or_else(|| {
         EdgeError::FrontendNotYetHydrated(FrontendHydrationMissing::from(&edge_token))
     })?;
-    let feature_results = engine.resolve_all(&context_with_ip, &None).ok_or_else(|| {
+    let feature_results = engine.resolve_all(context_with_ip, &None).ok_or_else(|| {
         EdgeError::FrontendExpectedToBeHydrated(
             "Feature cache has not been hydrated yet, but it was expected to be. This can be due to a race condition from calling edge before it's ready. This error might auto resolve as soon as edge is able to fetch from upstream".into(),
         )
