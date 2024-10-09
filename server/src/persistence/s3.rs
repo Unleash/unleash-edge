@@ -53,32 +53,6 @@ impl From<SdkError<PutObjectError>> for EdgeError {
     }
 }
 
-impl S3Persister {
-    async fn create_bucket_if_not_exists(&self) -> EdgeResult<()> {
-        match self
-            .client
-            .create_bucket()
-            .bucket(&self.bucket)
-            .send()
-            .await
-        {
-            Ok(_) => Ok(()),
-            Err(err) => {
-                if err.to_string().contains("BucketAlreadyOwnedByYou")
-                    || err.to_string().contains("BucketAlreadyExists")
-                {
-                    Ok(())
-                } else {
-                    Err(EdgeError::PersistenceError(format!(
-                        "Failed to create bucket: {}",
-                        err
-                    )))
-                }
-            }
-        }
-    }
-}
-
 #[async_trait]
 impl EdgePersistence for S3Persister {
     async fn load_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
@@ -96,7 +70,6 @@ impl EdgePersistence for S3Persister {
     }
 
     async fn save_tokens(&self, tokens: Vec<EdgeToken>) -> EdgeResult<()> {
-        self.create_bucket_if_not_exists().await?;
         let body_data = serde_json::to_vec(&tokens)
             .map_err(|_| EdgeError::PersistenceError("Failed to serialize tokens".to_string()))
             .map(SdkBody::from)?;
@@ -144,7 +117,6 @@ impl EdgePersistence for S3Persister {
     }
 
     async fn save_features(&self, features: Vec<(String, ClientFeatures)>) -> EdgeResult<()> {
-        self.create_bucket_if_not_exists().await?;
         let body_data = serde_json::to_vec(&features)
             .map_err(|_| EdgeError::PersistenceError("Failed to serialize features".to_string()))?;
         let byte_stream = ByteStream::new(SdkBody::from(body_data));
