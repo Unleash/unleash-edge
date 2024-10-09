@@ -34,5 +34,5 @@ EOT
 generate_buildinfo buildinfo.json
 script_echo "$(cat buildinfo.json)"
 
-curl -X POST -H "Content-Type: application/json" https://sandbox.getunleash.io/pipeline/build_info -d @buildinfo.json
+curl -X POST -H "Content-Type: application/json" https://platform.getunleash.io/pipeline/build_info -d @buildinfo.json
 
