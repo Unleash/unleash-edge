@@ -20,7 +20,6 @@ use unleash_types::{
 };
 use unleash_yggdrasil::{EngineState, ResolvedToggle};
 
-use crate::error::EdgeError::ContextParseError;
 use crate::types::{ClientIp, IncomingContext, PostContext};
 use crate::{
     error::{EdgeError, FrontendHydrationMissing},
@@ -48,13 +47,14 @@ pub async fn get_proxy_all_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
+    context: QsQuery<IncomingContext>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
     get_all_features(
         edge_token,
         engine_cache,
         token_cache,
-        req.query_string(),
+        &context.into_inner().into(),
         req.extensions().get::<ClientIp>(),
     )
 }
@@ -75,13 +75,14 @@ pub async fn get_frontend_all_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
+    context: QsQuery<IncomingContext>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
     get_all_features(
         edge_token,
         engine_cache,
         token_cache,
-        req.query_string(),
+        &context.into_inner().into(),
         req.extensions().get::<ClientIp>(),
     )
 }
@@ -746,20 +747,16 @@ pub fn get_all_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    query_string: &str,
+    context: &Context,
     client_ip: Option<&ClientIp>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let raw_context: IncomingContext = serde_qs::Config::new(0, false)
-        .deserialize_str(query_string)
-        .map_err(|_| ContextParseError)?;
-    let context: Context = raw_context.into();
     let context_with_ip = if context.remote_address.is_none() {
         Context {
             remote_address: client_ip.map(|ip| ip.to_string()),
-            ..context
+            ..context.clone()
         }
     } else {
-        context
+        context.clone()
     };
     let token = token_cache
         .get(&edge_token.token)
@@ -1578,7 +1575,9 @@ mod tests {
             .insert_header(("Authorization", auth_key.clone()))
             .set_json(json!({ "properties": {"companyId": "bricks"}}))
             .to_request();
-        let result: FrontendResult = test::try_call_and_read_body_json(&app, req).await.expect("Failed to call endpoint");
+        let result: FrontendResult = test::try_call_and_read_body_json(&app, req)
+            .await
+            .expect("Failed to call endpoint");
         tracing::info!("{result:?}");
         assert_eq!(result.toggles.len(), 1);
     }
@@ -1664,5 +1663,46 @@ mod tests {
             .to_request();
         let result = test::call_service(&app, proxy_req).await;
         assert_eq!(result.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn can_handle_custom_context_fields_on_all_endpoint() {
+        let client_features_with_custom_context_field =
+            crate::tests::features_from_disk("../examples/with_custom_constraint.json");
+        let auth_key = "default:development.secret123".to_string();
+        let (token_cache, feature_cache, engine_cache) = build_offline_mode(
+            client_features_with_custom_context_field.clone(),
+            vec![auth_key.clone()],
+            vec![],
+            vec![],
+        )
+        .unwrap();
+        let config =
+            serde_qs::actix::QsQueryConfig::default().qs_config(serde_qs::Config::new(5, false));
+        let app = test::init_service(
+            App::new()
+                .app_data(config)
+                .app_data(Data::from(token_cache))
+                .app_data(Data::from(feature_cache))
+                .app_data(Data::from(engine_cache))
+                .service(
+                    web::scope("/api").configure(|cfg| super::configure_frontend_api(cfg, false)),
+                ),
+        )
+        .await;
+        let req = test::TestRequest::get()
+            .uri("/api/frontend/all?properties[companyId]=bricks")
+            .insert_header(ContentType::json())
+            .insert_header(("Authorization", auth_key.clone()))
+            .to_request();
+        let feature_results: FrontendResult = test::call_and_read_body_json(&app, req).await;
+        assert!(feature_results.toggles.iter().any(|f| f.enabled));
+        let req = test::TestRequest::get()
+            .uri("/api/frontend?properties%5BcompanyId%5D=bricks")
+            .insert_header(ContentType::json())
+            .insert_header(("Authorization", auth_key.clone()))
+            .to_request();
+        let feature_results: FrontendResult = test::call_and_read_body_json(&app, req).await;
+        assert!(feature_results.toggles.iter().any(|f| f.enabled));
     }
 }
