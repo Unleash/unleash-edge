@@ -53,6 +53,14 @@ mod s3_tests {
             .force_path_style(true)
             .build();
 
+        let client = s3::Client::from_conf(config.clone());
+        client
+            .create_bucket()
+            .bucket(bucket_name)
+            .send()
+            .await
+            .expect("Failed to setup S3 bucket pre test run");
+
         //hopefully we don't care, this should just work with localstack
         let persister = S3Persister::new_with_config(bucket_name, config);
 
