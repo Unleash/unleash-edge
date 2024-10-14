@@ -136,6 +136,11 @@ pub struct ClientIdentity {
     pub pkcs12_passphrase: Option<String>,
 }
 
+pub enum PromAuth {
+    None,
+    Basic(String, String),
+}
+
 #[derive(Args, Debug, Clone)]
 #[command(group(
     ArgGroup::new("data-provider")
@@ -215,6 +220,15 @@ pub struct EdgeArgs {
     /// Sets the interval for prometheus push metrics, only relevant if `prometheus_push_gateway` is set. Defaults to 60 seconds
     #[clap(long, env, default_value_t = 60)]
     pub prometheus_push_interval: u64,
+
+    #[clap(long, env)]
+    pub prometheus_username: Option<String>,
+
+    #[clap(long, env)]
+    pub prometheus_password: Option<String>,
+
+    #[clap(long, env)]
+    pub prometheus_user_id: Option<String>,
 }
 
 pub fn string_to_header_tuple(s: &str) -> Result<(String, String), String> {

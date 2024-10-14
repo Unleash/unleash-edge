@@ -1,12 +1,17 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use actix_cors::Cors;
 use actix_middleware_etag::Etag;
 use actix_web::middleware::Logger;
 use actix_web::{web, App, HttpServer};
+use base64::Engine;
 use clap::Parser;
 use dashmap::DashMap;
 use futures::future::join_all;
+use prometheus::labels;
+use reqwest::header;
+use tracing::{error, info};
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ConnectVia;
 use utoipa::OpenApi;
@@ -70,6 +75,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let openapi = openapi::ApiDoc::openapi();
     let refresher_for_app_data = feature_refresher.clone();
+    let prom_registry_for_write = metrics_handler.registry.clone();
     let server = HttpServer::new(move || {
         let qs_config =
             serde_qs::actix::QsQueryConfig::default().qs_config(serde_qs::Config::new(5, false));
@@ -165,7 +171,7 @@ async fn main() -> Result<(), anyhow::Error> {
                 _ = validator.schedule_revalidation_of_startup_tokens(edge.tokens, lazy_feature_refresher) => {
                     tracing::info!("Token validator validation of startup tokens was unexpectedly shut down");
                 }
-                _ = push_prom(edge.prometheus_push_gateway, edge.prometheus_push_interval) => {
+                _ = push_prom(prom_registry_for_write, edge.prometheus_push_gateway, edge.prometheus_push_interval, edge.prometheus_username, edge.prometheus_password) => {
                     tracing::info!("Prometheus push unexpectedly shut down");
                 }
             }
@@ -193,26 +199,56 @@ async fn main() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-async fn push_prom(url: Option<String>, interval: u64) {
+async fn push_prom(
+    registry: prometheus::Registry,
+    url: Option<String>,
+    interval: u64,
+    username: Option<String>,
+    password: Option<String>,
+) {
     let sleep_duration = tokio::time::Duration::from_secs(interval);
+    let client = if let Some(uname) = username.clone() {
+        let mut headers = header::HeaderMap::new();
+        let mut value = header::HeaderValue::from_str(&format!(
+            "Basic {}",
+            base64::engine::general_purpose::STANDARD.encode(format!(
+                "{}:{}",
+                uname,
+                password.clone().unwrap_or_default()
+            ))
+        ))
+        .expect("Could not create header");
+        value.set_sensitive(true);
+        headers.insert(header::AUTHORIZATION, value);
+        reqwest::Client::builder()
+            .default_headers(headers)
+            .build()
+            .expect("Could not build client")
+    } else {
+        reqwest::Client::new()
+    };
     if let Some(address) = url {
         loop {
             tokio::select! {
                 _ = tokio::time::sleep(sleep_duration) => {
+
                     let encoder = prometheus::TextEncoder::new();
-                    let metric_families = prometheus::gather();
+                    let metric_families = registry.gather();
                     let mut buf = String::new();
                     encoder.encode_utf8(&metric_families[..], &mut buf).expect("Could not serialize metrics");
-                    let client = reqwest::Client::new();
+
+                    info!("Pushing {} bytes", buf.len());
                     match client.post(address.clone()).body(buf).send().await {
-                        Ok(_) => {
-                            tracing::info!("Successfully posted data")
+                        Ok(r) => {
+                            tracing::info!("Successfully posted data {r:?}");
+                            tracing::info!("{}", r.text().await.expect("Failed to get body"));
                         }
                         Err(e) => {
                             tracing::error!("Err, arg {e:?}")
                         }
                     }
                 }
+
             }
         }
     } else {
