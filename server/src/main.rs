@@ -165,6 +165,9 @@ async fn main() -> Result<(), anyhow::Error> {
                 _ = validator.schedule_revalidation_of_startup_tokens(edge.tokens, lazy_feature_refresher) => {
                     tracing::info!("Token validator validation of startup tokens was unexpectedly shut down");
                 }
+                _ = push_prom(edge.prometheus_push_gateway, edge.prometheus_push_interval) => {
+                    tracing::info!("Prometheus push unexpectedly shut down");
+                }
             }
         }
         cli::EdgeMode::Offline(offline_args) if offline_args.reload_interval > 0 => {
@@ -188,6 +191,38 @@ async fn main() -> Result<(), anyhow::Error> {
     };
 
     Ok(())
+}
+
+async fn push_prom(url: Option<String>, interval: u64) {
+    let sleep_duration = tokio::time::Duration::from_secs(interval);
+    if let Some(address) = url {
+        loop {
+            tokio::select! {
+                _ = tokio::time::sleep(sleep_duration) => {
+                    let encoder = prometheus::TextEncoder::new();
+                    let metric_families = prometheus::gather();
+                    let mut buf = String::new();
+                    encoder.encode_utf8(&metric_families[..], &mut buf).expect("Could not serialize metrics");
+                    let client = reqwest::Client::new();
+                    match client.post(address.clone()).body(buf).send().await {
+                        Ok(_) => {
+                            tracing::info!("Successfully posted data")
+                        }
+                        Err(e) => {
+                            tracing::error!("Err, arg {e:?}")
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        loop {
+            tokio::select! {
+                _ = tokio::time::sleep(sleep_duration) => {
+                }
+            }
+        }
+    }
 }
 
 #[cfg(not(tarpaulin_include))]

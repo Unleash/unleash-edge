@@ -207,6 +207,14 @@ pub struct EdgeArgs {
     /// If set to true, Edge starts with dynamic behavior. Dynamic behavior means that Edge will accept tokens outside the scope of the startup tokens
     #[clap(long, env, default_value_t = false, conflicts_with = "strict")]
     pub dynamic: bool,
+
+    /// Sets a push gateway url for prometheus metrics, if this is set, prometheus metrics will be automatically pushed
+    #[clap(long, env)]
+    pub prometheus_push_gateway: Option<String>,
+
+    /// Sets the interval for prometheus push metrics, only relevant if `prometheus_push_gateway` is set. Defaults to 60 seconds
+    #[clap(long, env, default_value_t = 60)]
+    pub prometheus_push_interval: u64,
 }
 
 pub fn string_to_header_tuple(s: &str) -> Result<(String, String), String> {
