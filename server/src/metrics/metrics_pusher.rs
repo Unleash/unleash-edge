@@ -61,18 +61,12 @@ async fn remote_write_prom(registry: prometheus::Registry, url: String, client: 
 
     match client.execute(http_request).await {
         Ok(r) => {
-            if r.status().is_success() {
-                tracing::info!(
-                    "Prometheus push successful with status: {} and text {}",
-                    r.status(),
-                    r.text().await.unwrap()
-                );
-            } else {
-                tracing::error!("Prometheus push failed with status: {}", r.status());
+            if !r.status().is_success() {
+                tracing::warn!("Prometheus push failed with status: {}", r.status());
             }
         }
         Err(e) => {
-            tracing::error!("Prometheus push failed with error: {}", e);
+            tracing::warn!("Prometheus push failed with error: {}", e);
         }
     }
 }
