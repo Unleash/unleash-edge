@@ -359,7 +359,10 @@ mod tests {
             upstream_certificate_file: Default::default(),
             token_revalidation_interval_seconds: Default::default(),
             prometheus_push_interval: 60,
-            prometheus_push_gateway: None,
+            prometheus_remote_write_url: None,
+            prometheus_user_id: None,
+            prometheus_password: None,
+            prometheus_username: None,
         };
 
         let result = build_edge(&args, "test-app").await;

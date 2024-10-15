@@ -213,11 +213,11 @@ pub struct EdgeArgs {
     #[clap(long, env, default_value_t = false, conflicts_with = "strict")]
     pub dynamic: bool,
 
-    /// Sets a push gateway url for prometheus metrics, if this is set, prometheus metrics will be automatically pushed
+    /// Sets a remote write url for prometheus metrics, if this is set, prometheus metrics will be written upstream
     #[clap(long, env)]
-    pub prometheus_push_gateway: Option<String>,
+    pub prometheus_remote_write_url: Option<String>,
 
-    /// Sets the interval for prometheus push metrics, only relevant if `prometheus_push_gateway` is set. Defaults to 60 seconds
+    /// Sets the interval for prometheus push metrics, only relevant if `prometheus_remote_write_url` is set. Defaults to 60 seconds
     #[clap(long, env, default_value_t = 60)]
     pub prometheus_push_interval: u64,
 
