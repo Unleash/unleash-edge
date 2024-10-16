@@ -10,13 +10,13 @@ use serde::{Deserialize, Serialize};
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ClientApplication;
 
-use crate::auth::token_validator::TokenValidator;
 use crate::error::EdgeError;
 use crate::http::feature_refresher::FeatureRefresher;
 use crate::metrics::actix_web_metrics::PrometheusMetricsHandler;
 use crate::metrics::client_metrics::MetricsCache;
 use crate::types::{BuildInfo, EdgeJsonResult, EdgeToken, TokenInfo, TokenRefresh};
 use crate::types::{ClientMetric, MetricsInfo, Status};
+use crate::{auth::token_validator::TokenValidator, cli::InternalBackstageArgs};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EdgeStatus {
@@ -131,14 +131,21 @@ pub async fn features(
 pub fn configure_internal_backstage(
     cfg: &mut web::ServiceConfig,
     metrics_handler: PrometheusMetricsHandler,
+    internal_backtage_args: InternalBackstageArgs,
 ) {
-    cfg.service(health)
-        .service(info)
-        .service(tokens)
-        .service(ready)
-        .service(metrics_batch)
-        .service(web::resource("/metrics").route(web::get().to(metrics_handler)))
-        .service(features);
+    cfg.service(health).service(info).service(ready);
+    if !internal_backtage_args.disable_tokens_endpoint {
+        cfg.service(tokens);
+    }
+    if !internal_backtage_args.disable_metrics_endpoint {
+        cfg.service(web::resource("/metrics").route(web::get().to(metrics_handler)));
+    }
+    if !internal_backtage_args.disable_metrics_batch_endpoint {
+        cfg.service(metrics_batch);
+    }
+    if !internal_backtage_args.disable_features_endpoint {
+        cfg.service(features);
+    }
 }
 
 #[cfg(test)]
