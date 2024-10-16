@@ -29,6 +29,8 @@ use unleash_edge::{internal_backstage, tls};
 #[cfg(not(tarpaulin_include))]
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {
+    use unleash_edge::metrics::metrics_pusher;
+
     let args = CliArgs::parse();
     let disable_all_endpoint = args.disable_all_endpoint;
     if args.markdown_help {
@@ -73,6 +75,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let openapi = openapi::ApiDoc::openapi();
     let refresher_for_app_data = feature_refresher.clone();
+    let prom_registry_for_write = metrics_handler.registry.clone();
     let server = HttpServer::new(move || {
         let qs_config =
             serde_qs::actix::QsQueryConfig::default().qs_config(serde_qs::Config::new(5, false));
@@ -167,6 +170,9 @@ async fn main() -> Result<(), anyhow::Error> {
                 }
                 _ = validator.schedule_revalidation_of_startup_tokens(edge.tokens, lazy_feature_refresher) => {
                     tracing::info!("Token validator validation of startup tokens was unexpectedly shut down");
+                }
+                _ = metrics_pusher::prometheus_remote_write(prom_registry_for_write, edge.prometheus_remote_write_url, edge.prometheus_push_interval, edge.prometheus_username, edge.prometheus_password) => {
+                    tracing::info!("Prometheus push unexpectedly shut down");
                 }
             }
         }
