@@ -12,8 +12,11 @@ use unleash_types::client_metrics::ConnectVia;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
+use tracing::info;
 use unleash_edge::builder::build_caches_and_refreshers;
 use unleash_edge::cli::{CliArgs, EdgeMode};
+use unleash_edge::http::background_send_metrics::send_metrics_one_shot;
+use unleash_edge::http::feature_refresher::FeatureRefresher;
 use unleash_edge::metrics::client_metrics::MetricsCache;
 use unleash_edge::middleware::request_tracing::RequestTracing;
 use unleash_edge::offline::offline_hotload;
@@ -147,7 +150,7 @@ async fn main() -> Result<(), anyhow::Error> {
             tokio::select! {
                 _ = server.run() => {
                     tracing::info!("Actix is shutting down. Persisting data");
-                    clean_shutdown(persistence.clone(), lazy_feature_cache.clone(), lazy_token_cache.clone()).await;
+                    clean_shutdown(persistence.clone(), lazy_feature_cache.clone(), lazy_token_cache.clone(), metrics_cache_clone.clone(), feature_refresher.clone()).await;
                     tracing::info!("Actix was shutdown properly");
                 },
                 _ = refresher.start_refresh_features_background_task() => {
@@ -180,7 +183,7 @@ async fn main() -> Result<(), anyhow::Error> {
         _ => tokio::select! {
             _ = server.run() => {
                 tracing::info!("Actix is shutting down. Persisting data");
-                clean_shutdown(persistence, lazy_feature_cache.clone(), lazy_token_cache.clone()).await;
+                clean_shutdown(persistence, lazy_feature_cache.clone(), lazy_token_cache.clone(), metrics_cache_clone.clone(), feature_refresher.clone()).await;
                 tracing::info!("Actix was shutdown properly");
 
             }
@@ -195,6 +198,8 @@ async fn clean_shutdown(
     persistence: Option<Arc<dyn EdgePersistence>>,
     feature_cache: Arc<DashMap<String, ClientFeatures>>,
     token_cache: Arc<DashMap<String, EdgeToken>>,
+    metrics_cache: Arc<MetricsCache>,
+    feature_refresher: Option<Arc<FeatureRefresher>>,
 ) {
     let tokens: Vec<EdgeToken> = token_cache
         .iter()
@@ -220,5 +225,9 @@ async fn clean_shutdown(
                 .filter(|save| save.is_err())
                 .for_each(|failed_save| tracing::error!("Failed backing up: {failed_save:?}"));
         }
+    }
+    if let Some(feature_refresher) = feature_refresher {
+        info!("Connected to an upstream, flushing last set of metrics");
+        send_metrics_one_shot(metrics_cache, feature_refresher).await;
     }
 }
