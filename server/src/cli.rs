@@ -136,6 +136,11 @@ pub struct ClientIdentity {
     pub pkcs12_passphrase: Option<String>,
 }
 
+pub enum PromAuth {
+    None,
+    Basic(String, String),
+}
+
 #[derive(Args, Debug, Clone)]
 #[command(group(
     ArgGroup::new("data-provider")
@@ -207,6 +212,23 @@ pub struct EdgeArgs {
     /// If set to true, Edge starts with dynamic behavior. Dynamic behavior means that Edge will accept tokens outside the scope of the startup tokens
     #[clap(long, env, default_value_t = false, conflicts_with = "strict")]
     pub dynamic: bool,
+
+    /// Sets a remote write url for prometheus metrics, if this is set, prometheus metrics will be written upstream
+    #[clap(long, env)]
+    pub prometheus_remote_write_url: Option<String>,
+
+    /// Sets the interval for prometheus push metrics, only relevant if `prometheus_remote_write_url` is set. Defaults to 60 seconds
+    #[clap(long, env, default_value_t = 60)]
+    pub prometheus_push_interval: u64,
+
+    #[clap(long, env)]
+    pub prometheus_username: Option<String>,
+
+    #[clap(long, env)]
+    pub prometheus_password: Option<String>,
+
+    #[clap(long, env)]
+    pub prometheus_user_id: Option<String>,
 }
 
 pub fn string_to_header_tuple(s: &str) -> Result<(String, String), String> {
