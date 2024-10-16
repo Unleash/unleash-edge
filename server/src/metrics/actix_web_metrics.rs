@@ -387,7 +387,7 @@ where
 
 #[derive(Clone, Debug)]
 pub struct PrometheusMetricsHandler {
-    registry: prometheus::Registry,
+    pub registry: prometheus::Registry,
 }
 
 impl PrometheusMetricsHandler {
