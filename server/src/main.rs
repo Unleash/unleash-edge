@@ -56,6 +56,8 @@ async fn main() -> Result<(), anyhow::Error> {
         app_name: args.clone().app_name,
         instance_id: args.clone().instance_id,
     };
+    let app_name = args.app_name.clone();
+    let internal_backstage_args = args.internal_backstage.clone();
     let (
         (token_cache, features_cache, engine_cache),
         token_validator,
@@ -114,6 +116,7 @@ async fn main() -> Result<(), anyhow::Error> {
                     internal_backstage::configure_internal_backstage(
                         service_cfg,
                         metrics_handler.clone(),
+                        internal_backstage_args.clone(),
                     )
                 }))
                 .service(
@@ -169,7 +172,7 @@ async fn main() -> Result<(), anyhow::Error> {
                 _ = validator.schedule_revalidation_of_startup_tokens(edge.tokens, lazy_feature_refresher) => {
                     tracing::info!("Token validator validation of startup tokens was unexpectedly shut down");
                 }
-                _ = metrics_pusher::prometheus_remote_write(prom_registry_for_write, edge.prometheus_remote_write_url, edge.prometheus_push_interval, edge.prometheus_username, edge.prometheus_password) => {
+                _ = metrics_pusher::prometheus_remote_write(prom_registry_for_write, edge.prometheus_remote_write_url, edge.prometheus_push_interval, edge.prometheus_username, edge.prometheus_password, app_name) => {
                     tracing::info!("Prometheus push unexpectedly shut down");
                 }
             }

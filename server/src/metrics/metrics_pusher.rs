@@ -1,6 +1,7 @@
 use base64::Engine;
 use prometheus_reqwest_remote_write::WriteRequest;
 use reqwest::{header, Client};
+use tracing::debug;
 
 fn get_http_client(username: Option<String>, password: Option<String>) -> Client {
     if let Some(uname) = username.clone() {
@@ -31,6 +32,7 @@ pub async fn prometheus_remote_write(
     interval: u64,
     username: Option<String>,
     password: Option<String>,
+    app_name: String,
 ) {
     let sleep_duration = tokio::time::Duration::from_secs(interval);
     let client = get_http_client(username, password);
@@ -38,7 +40,7 @@ pub async fn prometheus_remote_write(
         loop {
             tokio::select! {
                 _ = tokio::time::sleep(sleep_duration) => {
-                    remote_write_prom(registry.clone(), address.clone(), client.clone()).await;
+                    remote_write_prom(registry.clone(), address.clone(), client.clone(), app_name.clone()).await;
                 }
             }
         }
@@ -52,9 +54,17 @@ pub async fn prometheus_remote_write(
     }
 }
 
-async fn remote_write_prom(registry: prometheus::Registry, url: String, client: reqwest::Client) {
-    let write_request = WriteRequest::from_metric_families(registry.gather())
-        .expect("Could not format write request");
+async fn remote_write_prom(
+    registry: prometheus::Registry,
+    url: String,
+    client: reqwest::Client,
+    app_name: String,
+) {
+    let write_request = WriteRequest::from_metric_families(
+        registry.gather(),
+        Some(vec![("app_name".into(), app_name)]),
+    )
+    .expect("Could not format write request");
     let http_request = write_request
         .build_http_request(client.clone(), &url, "unleash_edge")
         .expect("Failed to build http request");
@@ -64,9 +74,10 @@ async fn remote_write_prom(registry: prometheus::Registry, url: String, client: 
             if !r.status().is_success() {
                 tracing::warn!("Prometheus push failed with status: {}", r.status());
             }
+            debug!("Prometheus push successful");
         }
         Err(e) => {
-            tracing::warn!("Prometheus push failed with error: {}", e);
+            tracing::warn!("Prometheus push failed with error: {:?}", e);
         }
     }
 }

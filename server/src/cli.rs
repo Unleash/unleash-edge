@@ -279,6 +279,30 @@ pub struct HealthCheckArgs {
 }
 
 #[derive(Args, Debug, Clone)]
+pub struct InternalBackstageArgs {
+    /// Disables /internal-backstage/metricsbatch endpoint
+    ///
+    /// This endpoint shows the current cached client metrics
+    #[clap(long, env, global = true)]
+    pub disable_metrics_batch_endpoint: bool,
+    /// Disables /internal-backstage/metrics endpoint
+    ///
+    /// Typically used for prometheus scraping metrics.
+    #[clap(long, env, global = true)]
+    pub disable_metrics_endpoint: bool,
+    /// Disables /internal-backstage/features endpoint
+    ///
+    /// Used to show current cached features across environments
+    #[clap(long, env, global = true)]
+    pub disable_features_endpoint: bool,
+    /// Disables /internal-backstage/tokens endpoint
+    ///
+    /// Used to show tokens used to refresh feature caches, but also tokens already validated/invalidated against upstream
+    #[clap(long, env, global = true)]
+    pub disable_tokens_endpoint: bool,
+}
+
+#[derive(Args, Debug, Clone)]
 pub struct TokenHeader {
     /// Token header to use for edge authorization.
     #[clap(long, env, global = true, default_value = "Authorization")]
@@ -350,6 +374,9 @@ pub struct CliArgs {
     /// token header to use for edge authorization.
     #[clap(long, env, global = true, default_value = "Authorization")]
     pub token_header: TokenHeader,
+
+    #[clap(flatten)]
+    pub internal_backstage: InternalBackstageArgs,
 }
 
 #[derive(Args, Debug, Clone)]
