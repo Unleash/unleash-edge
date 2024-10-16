@@ -2902,9 +2902,9 @@ dependencies = [
 
 [[package]]
 name = "prometheus-reqwest-remote-write"
-version = "0.1.1"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "048bf9b7b460e4ee902571219fee43afe4dc46a77f3beb095d53f36070fdf650"
+checksum = "c6da310719525cefd34f55a5ec472047b0e2d49d1c71281e7a5a85c14ff50a74"
 dependencies = [
  "prometheus",
  "prost",
