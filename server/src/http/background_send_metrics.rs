@@ -67,6 +67,37 @@ fn decide_where_to_post(
     }
 }
 
+pub async fn send_metrics_one_shot(
+    metrics_cache: Arc<MetricsCache>,
+    feature_refresher: Arc<FeatureRefresher>,
+) {
+    let envs = metrics_cache.get_metrics_by_environment();
+    for (env, batch) in envs.iter() {
+        let (use_new_endpoint, token) =
+            decide_where_to_post(env, feature_refresher.tokens_to_refresh.clone());
+        let batches = metrics_cache.get_appropriately_sized_env_batches(batch);
+        trace!("Posting {} batches for {env}", batches.len());
+        for batch in batches {
+            if !batch.applications.is_empty() || !batch.metrics.is_empty() {
+                let result = if use_new_endpoint {
+                    feature_refresher
+                        .unleash_client
+                        .send_bulk_metrics_to_client_endpoint(batch.clone(), &token)
+                        .await
+                } else {
+                    feature_refresher
+                        .unleash_client
+                        .send_batch_metrics(batch.clone())
+                        .await
+                };
+                if let Err(edge_error) = result {
+                    warn!("Shut down metrics flush failed with {edge_error:?}")
+                }
+            }
+        }
+    }
+}
+
 pub async fn send_metrics_task(
     metrics_cache: Arc<MetricsCache>,
     feature_refresher: Arc<FeatureRefresher>,
