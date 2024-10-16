@@ -4,7 +4,7 @@ use actix_web::{
     web::Data,
 };
 use dashmap::DashMap;
-use tracing::{debug, instrument};
+use tracing::debug;
 
 use crate::{
     http::feature_refresher::FeatureRefresher,
@@ -25,7 +25,6 @@ pub(crate) async fn create_client_token_for_fe_token(
     Ok(())
 }
 
-#[instrument(skip(req, srv, token))]
 pub async fn client_token_from_frontend_token(
     token: EdgeToken,
     req: ServiceRequest,
