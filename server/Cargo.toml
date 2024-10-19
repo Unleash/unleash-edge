@@ -90,7 +90,7 @@ tokio = { version = "1.40.0", features = [
 tracing = { version = "0.1.40", features = ["log"] }
 tracing-subscriber = { version = "0.3.18", features = ["json", "env-filter"] }
 ulid = "1.1.2"
-unleash-types = { version = "0.13", features = ["openapi", "hashes"] }
+unleash-types = { version = "0.14", features = ["openapi", "hashes"] }
 unleash-yggdrasil = { version = "0.13.2" }
 utoipa = { version = "4.2.3", features = ["actix_extras", "chrono"] }
 utoipa-swagger-ui = { version = "7.1.0", features = ["actix-web"] }
