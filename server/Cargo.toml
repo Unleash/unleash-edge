@@ -30,10 +30,10 @@ actix-middleware-etag = "0.4.2"
 actix-service = "2.0.2"
 actix-web = { version = "4.9.0", features = ["rustls-0_23", "compress-zstd"] }
 ahash = "0.8.11"
-anyhow = "1.0.89"
+anyhow = "1.0.90"
 async-trait = "0.1.83"
 aws-config = { version = "1.5.7", features = ["behavior-version-latest"] }
-aws-sdk-s3 = { version = "1.53.0", features = ["behavior-version-latest"] }
+aws-sdk-s3 = { version = "1.57.0", features = ["behavior-version-latest"] }
 base64 = "0.22.1"
 chrono = { version = "0.4.38", features = ["serde"] }
 cidr = "0.3.0"
@@ -59,7 +59,7 @@ prometheus = { version = "0.13.4", features = ["process"] }
 prometheus-reqwest-remote-write = { version = "0.2.1" }
 prometheus-static-metric = "0.5.1"
 rand = "0.8.5"
-redis = { version = "0.27.0", features = [
+redis = { version = "0.27.5", features = [
     "tokio-comp",
     "tokio-rustls-comp",
     "cluster",
@@ -69,7 +69,7 @@ reqwest = { version = "0.12.8", default-features = false, features = [
     "rustls-tls",
     "native-tls",
 ] }
-rustls = { version = "0.23.13", default-features = false, features = [
+rustls = { version = "0.23.15", default-features = false, features = [
     "logging",
     "ring",
     "std",
@@ -78,7 +78,7 @@ rustls-pemfile = "2.2.0"
 rustls-pki-types = "1.9.0"
 semver = "1.0.23"
 serde = { version = "1.0.210", features = ["derive"] }
-serde_json = "1.0.128"
+serde_json = "1.0.132"
 serde_qs = { version = "0.13.0", features = ["actix4", "tracing"] }
 shadow-rs = { version = "0.35.0" }
 tokio = { version = "1.40.0", features = [
@@ -90,10 +90,10 @@ tokio = { version = "1.40.0", features = [
 tracing = { version = "0.1.40", features = ["log"] }
 tracing-subscriber = { version = "0.3.18", features = ["json", "env-filter"] }
 ulid = "1.1.2"
-unleash-types = { version = "0.13", features = ["openapi", "hashes"] }
-unleash-yggdrasil = { version = "0.13.2" }
-utoipa = { version = "4.2.3", features = ["actix_extras", "chrono"] }
-utoipa-swagger-ui = { version = "7.1.0", features = ["actix-web"] }
+unleash-types = { version = "0.14", features = ["openapi", "hashes"] }
+unleash-yggdrasil = { version = "0.13.3" }
+utoipa = { version = "5", features = ["actix_extras", "chrono"] }
+utoipa-swagger-ui = { version = "8", features = ["actix-web"] }
 [dev-dependencies]
 actix-http = "3.9.0"
 actix-http-test = "3.2.0"
@@ -103,7 +103,7 @@ maplit = "1.0.2"
 rand = "0.8.5"
 test-case = "3.3.1"
 testcontainers = "0.23.1"
-testcontainers-modules = { version = "0.11.2", features = [
+testcontainers-modules = { version = "0.11.3", features = [
     "redis",
     "localstack",
 ] }

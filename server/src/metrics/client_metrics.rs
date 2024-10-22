@@ -14,6 +14,7 @@ use tracing::{debug, instrument};
 use unleash_types::client_metrics::{
     ClientApplication, ClientMetrics, ClientMetricsEnv, ConnectVia,
 };
+use utoipa::ToSchema;
 
 pub const UPSTREAM_MAX_BODY_SIZE: usize = 100 * 1024;
 pub const BATCH_BODY_SIZE: usize = 95 * 1024;
@@ -59,7 +60,7 @@ impl From<ClientMetricsEnv> for MetricsKey {
     }
 }
 
-#[derive(Debug, Clone, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, Eq, Deserialize, Serialize, ToSchema)]
 pub struct MetricsKey {
     pub app_name: String,
     pub feature_name: String,
