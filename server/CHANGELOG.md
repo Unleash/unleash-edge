@@ -5,7 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 19.6.1 (2024-10-23)
+
+### Chore
+
+ - <csr-id-95a466a028e776af54c0def1b01f2ba503752c87/> prepare for release
+ - <csr-id-dc6f169c06aea3505cac0872f50505bd1d70234d/> Utoipa 5, Yggdrasil 0.13.4
+   * chore(deps): Bump to utoipa 5
+   
+   * fix: update cargo-dist to 0.23
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release.
+ - 6 days passed between releases.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 1 unique issue was worked on: [#571](https://github.com/Unleash/unleash-edge/issues/571)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#571](https://github.com/Unleash/unleash-edge/issues/571)**
+    - Utoipa 5, Yggdrasil 0.13.4 ([`dc6f169`](https://github.com/Unleash/unleash-edge/commit/dc6f169c06aea3505cac0872f50505bd1d70234d))
+ * **Uncategorized**
+    - Prepare for release ([`95a466a`](https://github.com/Unleash/unleash-edge/commit/95a466a028e776af54c0def1b01f2ba503752c87))
+</details>
+
 ## 19.6.0 (2024-10-16)
+
+<csr-id-97eec07de4fbc9e39fb76c7a35cfc0d1ebdb87a5/>
+<csr-id-32680a77baad7d3c4696c2735d2883979093f7da/>
 
 ### Chore
 
@@ -19,10 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - <csr-id-acfb38b750afcd0c846612aba4c23ca972021fbf/> flush metrics on clean shutdown
  - <csr-id-3e1f60d1826f9a143642ccefbcab503e41a1e0db/> Support prometheus remote write protocol for metrics
    * fix: make sure to post correct registry to vm
-   
-   * feat: Add support for remote writing prometheus
-   
-   ---------
+* feat: Add support for remote writing prometheus
 
 ### Other
 
@@ -35,7 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 5 commits contributed to the release.
+ - 6 commits contributed to the release.
  - 6 days passed between releases.
  - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 4 unique issues were worked on: [#548](https://github.com/Unleash/unleash-edge/issues/548), [#563](https://github.com/Unleash/unleash-edge/issues/563), [#564](https://github.com/Unleash/unleash-edge/issues/564), [#565](https://github.com/Unleash/unleash-edge/issues/565)
@@ -55,6 +86,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#565](https://github.com/Unleash/unleash-edge/issues/565)**
     - Internal-backstage endpoints are disableable. ([`b1815f4`](https://github.com/Unleash/unleash-edge/commit/b1815f4e258a1c5acb2cb8d3684515c1248cd345))
  * **Uncategorized**
+    - Release unleash-edge v19.6.0 ([`03364f8`](https://github.com/Unleash/unleash-edge/commit/03364f859be4abef929dd61ab291d81df40549a8))
     - Prepare for release ([`97eec07`](https://github.com/Unleash/unleash-edge/commit/97eec07de4fbc9e39fb76c7a35cfc0d1ebdb87a5))
 </details>
 
@@ -248,7 +280,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-unknown>
 <csr-unknown>
 <csr-unknown>
+<csr-unknown>
  added feature_toggle_usage_total counter verbose error for instance urls with api suffix<csr-unknown/>
+<csr-unknown/>
 <csr-unknown/>
 <csr-unknown/>
 <csr-unknown/>
@@ -371,6 +405,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+ - <csr-id-4dc72f39adad96650516b02f8bfb3ad50fa39bab/> strict and dynamic mode
+   ---------
  - <csr-id-4dc72f39adad96650516b02f8bfb3ad50fa39bab/> strict and dynamic mode
    ---------
  - <csr-id-4dc72f39adad96650516b02f8bfb3ad50fa39bab/> strict and dynamic mode
