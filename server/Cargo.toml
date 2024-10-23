@@ -30,7 +30,7 @@ actix-middleware-etag = "0.4.2"
 actix-service = "2.0.2"
 actix-web = { version = "4.9.0", features = ["rustls-0_23", "compress-zstd"] }
 ahash = "0.8.11"
-anyhow = "1.0.90"
+anyhow = "1.0.91"
 async-trait = "0.1.83"
 aws-config = { version = "1.5.7", features = ["behavior-version-latest"] }
 aws-sdk-s3 = { version = "1.57.0", features = ["behavior-version-latest"] }
