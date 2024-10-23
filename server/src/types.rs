@@ -495,7 +495,7 @@ pub struct FeatureFilters {
     pub name_prefix: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct TokenInfo {
     pub token_refreshes: Vec<TokenRefresh>,
