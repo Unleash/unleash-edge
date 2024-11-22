@@ -928,7 +928,7 @@ dependencies = [
  "hyperlocal",
  "log",
  "pin-project-lite",
- "rustls 0.23.15",
+ "rustls 0.23.18",
  "rustls-native-certs 0.7.3",
  "rustls-pemfile 2.2.0",
  "rustls-pki-types",
@@ -1103,9 +1103,9 @@ checksum = "1462739cb27611015575c0c11df5df7601141071f07518d56fcc1be504cbec97"
 
 [[package]]
 name = "clone_dyn_types"
-version = "0.26.0"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c23e9c07455288757e5142aaeb0e999f9f34dd2d3c27c9b5f8e3f85f4cb1eda"
+checksum = "3f4f0e34968641cc21b39c159b7d07e8c0f573cbc0ef9cd59e452fe6774c0579"
 
 [[package]]
 name = "colorchoice"
@@ -2005,7 +2005,7 @@ dependencies = [
  "http 1.1.0",
  "hyper 1.5.0",
  "hyper-util",
- "rustls 0.23.15",
+ "rustls 0.23.18",
  "rustls-pki-types",
  "tokio",
  "tokio-rustls 0.26.0",
@@ -2159,9 +2159,9 @@ checksum = "7943c866cc5cd64cbc25b2e01621d07fa8eb2a1a23160ee81ce38704e97b8ecf"
 
 [[package]]
 name = "iter_tools"
-version = "0.24.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49a92afdf43693047a6079d379c88064970968bd6552a10f45c135a1c29e1094"
+checksum = "27812bb0a056539d62930a899759af39dfab17ac73a17d5caf58365762657891"
 dependencies = [
  "clone_dyn_types",
  "itertools 0.11.0",
@@ -2868,7 +2868,7 @@ dependencies = [
  "quinn-proto",
  "quinn-udp",
  "rustc-hash",
- "rustls 0.23.15",
+ "rustls 0.23.18",
  "socket2",
  "thiserror",
  "tokio",
@@ -2885,7 +2885,7 @@ dependencies = [
  "rand",
  "ring",
  "rustc-hash",
- "rustls 0.23.15",
+ "rustls 0.23.18",
  "slab",
  "thiserror",
  "tinyvec",
@@ -2961,7 +2961,7 @@ dependencies = [
  "percent-encoding",
  "pin-project-lite",
  "rand",
- "rustls 0.23.15",
+ "rustls 0.23.18",
  "rustls-native-certs 0.7.3",
  "rustls-pemfile 2.2.0",
  "rustls-pki-types",
@@ -3070,7 +3070,7 @@ dependencies = [
  "percent-encoding",
  "pin-project-lite",
  "quinn",
- "rustls 0.23.15",
+ "rustls 0.23.18",
  "rustls-pemfile 2.2.0",
  "rustls-pki-types",
  "serde",
@@ -3198,9 +3198,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.15"
+version = "0.23.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5fbb44d7acc4e873d613422379f69f237a1b141928c02f6bc6ccfddddc2d7993"
+checksum = "9c9cc1d47e243d655ace55ed38201c19ae02c148ae56412ab8750e8f0166ab7f"
 dependencies = [
  "log",
  "once_cell",
@@ -3902,7 +3902,7 @@ version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c7bc40d0e5a97695bb96e27995cd3a08538541b0a846f65bba7a359f36700d4"
 dependencies = [
- "rustls 0.23.15",
+ "rustls 0.23.18",
  "rustls-pki-types",
  "tokio",
 ]
@@ -4187,7 +4187,7 @@ dependencies = [
  "rand",
  "redis",
  "reqwest",
- "rustls 0.23.15",
+ "rustls 0.23.18",
  "rustls-pemfile 2.2.0",
  "rustls-pki-types",
  "semver",
@@ -4226,9 +4226,9 @@ dependencies = [
 
 [[package]]
 name = "unleash-yggdrasil"
-version = "0.14.0"
+version = "0.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c3e96d03aa2efa8deac6205bb7ca7f1912e0dfdc6a8edb63aa4df1c9eaa8012"
+checksum = "8446d97e37f6ecb4fdc7497c9dcfe0948dd4383787c829562a7ea5e4a88c0eb6"
 dependencies = [
  "chrono",
  "convert_case 0.6.0",
