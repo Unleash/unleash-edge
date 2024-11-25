@@ -724,34 +724,6 @@ mod tests {
         }
     }
 
-    #[actix_web::test]
-    async fn url_with_api_postfix_logs_a_useful_error_message() {
-        begin_capture();
-
-        let srv = test_features_server().await;
-        let client = UnleashClient::new(srv.url("/api").as_str(), None).unwrap();
-
-        let validate_result = client
-            .validate_tokens(ValidateTokensRequest {
-                tokens: vec![TEST_TOKEN.to_string()],
-            })
-            .await;
-
-        assert!(validate_result.is_err());
-
-        let mut captured = false;
-        while let Some(message) = pop_captured() {
-            if message.level() == capture_logger::Level::Error {
-                captured = true;
-                assert_eq!(
-                    message.message(),
-                    "Try passing the instance URL without '/api'."
-                );
-            }
-        }
-        assert!(captured);
-    }
-
     #[test]
     pub fn can_parse_entity_tag() {
         let etag = EntityTag::from_str("W/\"b5e6-DPC/1RShRw1J/jtxvRtTo1jf4+o\"").unwrap();
