@@ -472,7 +472,7 @@ impl UnleashClient {
                 TOKEN_VALIDATION_FAILURES
                     .with_label_values(&[result.status().as_str()])
                     .inc();
-                warn!(
+                error!(
                     "Failed to validate tokens. Requested url: [{}]. Got status: {:?}",
                     self.urls.edge_validate_url.to_string(),
                     s
