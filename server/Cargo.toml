@@ -98,6 +98,7 @@ utoipa-swagger-ui = { version = "8", features = ["actix-web"] }
 actix-http = "3.9.0"
 actix-http-test = "3.2.0"
 actix-service = "2.0.2"
+capture-logger = "0.1.1"
 env_logger = "0.11.5"
 maplit = "1.0.2"
 rand = "0.8.5"
