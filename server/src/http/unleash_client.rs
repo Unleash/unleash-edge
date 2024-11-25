@@ -12,6 +12,7 @@ use reqwest::header::{HeaderMap, HeaderName};
 use reqwest::{header, Client};
 use reqwest::{ClientBuilder, Identity, RequestBuilder, StatusCode, Url};
 use serde::{Deserialize, Serialize};
+use tracing::error;
 use tracing::{info, trace, warn};
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ClientApplication;
@@ -178,11 +179,7 @@ pub struct EdgeTokens {
 }
 
 impl UnleashClient {
-    pub fn from_url(
-        server_url: Url,
-        token_header: String,
-        backing_client: Client,
-    ) -> Self {
+    pub fn from_url(server_url: Url, token_header: String, backing_client: Client) -> Self {
         Self {
             urls: UnleashUrls::from_base_url(server_url),
             backing_client,
@@ -434,7 +431,7 @@ impl UnleashClient {
         let check_api_suffix = || {
             let base_url = self.urls.base_url.to_string();
             if base_url.ends_with("/api") || base_url.ends_with("/api/") {
-                info!("Try passing the instance URL without '/api'.");
+                error!("Try passing the instance URL without '/api'.");
             }
         };
 
@@ -447,7 +444,6 @@ impl UnleashClient {
             .await
             .map_err(|e| {
                 info!("Failed to validate tokens: [{e:?}]");
-                check_api_suffix();
                 EdgeError::EdgeTokenError
             })?;
         match result.status() {
@@ -504,6 +500,7 @@ mod tests {
         http::header::EntityTag,
         web, App, HttpResponse,
     };
+    use capture_logger::{begin_capture, pop_captured};
     use chrono::Duration;
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
@@ -576,6 +573,10 @@ mod tests {
                     .service(
                         web::resource("/edge/validate")
                             .route(web::post().to(return_validate_tokens)),
+                    )
+                    .service(
+                        web::resource("/api/edge/validate")
+                            .route(web::post().to(|| HttpResponse::Forbidden())),
                     ),
                 |_| AppConfig::default(),
             ))
@@ -721,6 +722,34 @@ mod tests {
                 panic!("Error validating token: {e}");
             }
         }
+    }
+
+    #[actix_web::test]
+    async fn url_with_api_postfix_logs_a_useful_error_message() {
+        begin_capture();
+
+        let srv = test_features_server().await;
+        let client = UnleashClient::new(srv.url("/api").as_str(), None).unwrap();
+
+        let validate_result = client
+            .validate_tokens(ValidateTokensRequest {
+                tokens: vec![TEST_TOKEN.to_string()],
+            })
+            .await;
+
+        assert!(validate_result.is_err());
+
+        let mut captured = false;
+        while let Some(message) = pop_captured() {
+            if message.level() == capture_logger::Level::Error {
+                captured = true;
+                assert_eq!(
+                    message.message(),
+                    "Try passing the instance URL without '/api'."
+                );
+            }
+        }
+        assert!(captured);
     }
 
     #[test]
