@@ -12,6 +12,7 @@ use reqwest::header::{HeaderMap, HeaderName};
 use reqwest::{header, Client};
 use reqwest::{ClientBuilder, Identity, RequestBuilder, StatusCode, Url};
 use serde::{Deserialize, Serialize};
+use tracing::error;
 use tracing::{info, trace, warn};
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ClientApplication;
@@ -178,11 +179,7 @@ pub struct EdgeTokens {
 }
 
 impl UnleashClient {
-    pub fn from_url(
-        server_url: Url,
-        token_header: String,
-        backing_client: Client,
-    ) -> Self {
+    pub fn from_url(server_url: Url, token_header: String, backing_client: Client) -> Self {
         Self {
             urls: UnleashUrls::from_base_url(server_url),
             backing_client,
@@ -434,7 +431,7 @@ impl UnleashClient {
         let check_api_suffix = || {
             let base_url = self.urls.base_url.to_string();
             if base_url.ends_with("/api") || base_url.ends_with("/api/") {
-                info!("Try passing the instance URL without '/api'.");
+                error!("Try passing the instance URL without '/api'.");
             }
         };
 
@@ -447,7 +444,6 @@ impl UnleashClient {
             .await
             .map_err(|e| {
                 info!("Failed to validate tokens: [{e:?}]");
-                check_api_suffix();
                 EdgeError::EdgeTokenError
             })?;
         match result.status() {
@@ -476,7 +472,7 @@ impl UnleashClient {
                 TOKEN_VALIDATION_FAILURES
                     .with_label_values(&[result.status().as_str()])
                     .inc();
-                warn!(
+                error!(
                     "Failed to validate tokens. Requested url: [{}]. Got status: {:?}",
                     self.urls.edge_validate_url.to_string(),
                     s
@@ -504,6 +500,7 @@ mod tests {
         http::header::EntityTag,
         web, App, HttpResponse,
     };
+    use capture_logger::{begin_capture, pop_captured};
     use chrono::Duration;
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
@@ -576,6 +573,10 @@ mod tests {
                     .service(
                         web::resource("/edge/validate")
                             .route(web::post().to(return_validate_tokens)),
+                    )
+                    .service(
+                        web::resource("/api/edge/validate")
+                            .route(web::post().to(|| HttpResponse::Forbidden())),
                     ),
                 |_| AppConfig::default(),
             ))

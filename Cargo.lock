@@ -1015,6 +1015,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "capture-logger"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "605a59c5054ce9e87cd329251bcc4c04579d5edbd206b1e4c45fbfe24b13ff82"
+dependencies = [
+ "log",
+]
+
+[[package]]
 name = "cc"
 version = "1.1.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4164,6 +4173,7 @@ dependencies = [
  "aws-config",
  "aws-sdk-s3",
  "base64 0.22.1",
+ "capture-logger",
  "chrono",
  "cidr",
  "clap",
