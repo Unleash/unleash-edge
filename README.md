@@ -55,7 +55,13 @@ Our recommended approach is to bootstrap Edge with a client API token and upstre
 To run Edge in Docker:
 
 ```shell
-docker run -it -p 3063:3063 -e STRICT=true -e UPSTREAM_URL=<your_unleash_instance> -e TOKENS=<your_client_token> unleashorg/unleash-edge:<mostrecentversion> edge
+docker run -it -p 3063:3063 -e STRICT=true -e UPSTREAM_URL=<your_unleash_instance> -e TOKENS=<your_client_token> unleashorg/unleash-edge:<version> edge
+```
+
+For example:
+
+```shell
+docker run -it -p 3063:3063 -e STRICT=true -e UPSTREAM_URL=https://app.unleash-hosted.com/testclient -e TOKENS='*:development.4a798ad11cde8c0e637ff19f3287683ebc21d23d607c641f2dd79daa54' unleashorg/unleash-edge:v19.6.2 edge
 ```
 
 ## Edge behaviors
