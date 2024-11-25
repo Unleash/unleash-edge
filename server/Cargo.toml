@@ -42,7 +42,7 @@ clap-markdown = "0.1.4"
 dashmap = "6.0.1"
 futures = "0.3.30"
 futures-core = "0.3.30"
-iter_tools = "0.24.0"
+iter_tools = "0.21.0"
 itertools = "0.13.0"
 lazy_static = "1.4.0"
 num_cpus = "1.16.0"
@@ -91,7 +91,7 @@ tracing = { version = "0.1.40", features = ["log"] }
 tracing-subscriber = { version = "0.3.18", features = ["json", "env-filter"] }
 ulid = "1.1.2"
 unleash-types = { version = "0.14", features = ["openapi", "hashes"] }
-unleash-yggdrasil = { version = "0.14.0" }
+unleash-yggdrasil = { version = "0.13.3" }
 utoipa = { version = "5", features = ["actix_extras", "chrono"] }
 utoipa-swagger-ui = { version = "8", features = ["actix-web"] }
 [dev-dependencies]
