@@ -166,10 +166,7 @@ async fn main() -> Result<(), anyhow::Error> {
         .client_request_timeout(std::time::Duration::from_secs(request_timeout));
 
     let es_client = eventsource_client::ClientBuilder::for_url("http://localhost:4242/streaming")?
-        .header(
-            "authorization",
-            "pmi2:development.2879322577f497c358ec706976ae3dd0311112fa0f146a20f8050d79",
-        )?
+        .header("authorization", "some-token")?
         .build();
 
     let mut stream = tail_events(es_client);
