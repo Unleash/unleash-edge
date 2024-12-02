@@ -171,7 +171,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let mut stream = tail_events(es_client);
 
-    tokio::spawn(async move { while let Some(_) = stream.try_next().await.unwrap() {} });
+    tokio::spawn(async move { while stream.try_next().await.unwrap().is_some() {} });
 
     match schedule_args.mode {
         cli::EdgeMode::Edge(edge) => {
