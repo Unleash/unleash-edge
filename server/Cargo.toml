@@ -40,6 +40,7 @@ cidr = "0.3.0"
 clap = { version = "4.5.19", features = ["derive", "env"] }
 clap-markdown = "0.1.4"
 dashmap = "6.0.1"
+eventsource-client = "0.13.0"
 futures = "0.3.30"
 futures-core = "0.3.30"
 iter_tools = "0.24.0"

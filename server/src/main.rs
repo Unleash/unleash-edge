@@ -7,6 +7,7 @@ use actix_web::{web, App, HttpServer};
 use clap::Parser;
 use dashmap::DashMap;
 use futures::future::join_all;
+use futures::{Stream, TryStreamExt};
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ConnectVia;
 use utoipa::OpenApi;
@@ -24,6 +25,23 @@ use unleash_edge::types::{EdgeToken, TokenValidationStatus};
 use unleash_edge::{cli, client_api, frontend_api, health_checker, openapi, ready_checker};
 use unleash_edge::{edge_api, prom_metrics};
 use unleash_edge::{internal_backstage, tls};
+
+fn tail_events(client: impl eventsource_client::Client) -> impl Stream<Item = Result<(), ()>> {
+    client
+        .stream()
+        .map_ok(|event| match event {
+            eventsource_client::SSE::Connected(connection) => {
+                println!("got connected: \nstatus={}", connection.response().status())
+            }
+            eventsource_client::SSE::Event(ev) => {
+                println!("got an event: {}\n{}", ev.event_type, ev.data)
+            }
+            eventsource_client::SSE::Comment(comment) => {
+                println!("got a comment: \n{}", comment)
+            }
+        })
+        .map_err(|err| eprintln!("error streaming events: {:?}", err))
+}
 
 #[cfg(not(tarpaulin_include))]
 #[actix_web::main]
@@ -146,6 +164,17 @@ async fn main() -> Result<(), anyhow::Error> {
         .workers(http_args.workers)
         .shutdown_timeout(5)
         .client_request_timeout(std::time::Duration::from_secs(request_timeout));
+
+    let es_client = eventsource_client::ClientBuilder::for_url("http://localhost:4242/streaming")?
+        .header(
+            "authorization",
+            "pmi2:development.2879322577f497c358ec706976ae3dd0311112fa0f146a20f8050d79",
+        )?
+        .build();
+
+    let mut stream = tail_events(es_client);
+
+    tokio::spawn(async move { while let Some(_) = stream.try_next().await.unwrap() {} });
 
     match schedule_args.mode {
         cli::EdgeMode::Edge(edge) => {
