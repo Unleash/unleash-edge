@@ -178,7 +178,7 @@ async fn main() -> Result<(), anyhow::Error> {
             let refresher_for_background = feature_refresher.clone().unwrap();
             tokio::spawn(async move {
                 refresher_for_background
-                    .start_refresh_features_background_task()
+                    .start_streaming_features_background_task()
                     .await;
             });
             let refresher = feature_refresher.clone().unwrap();
