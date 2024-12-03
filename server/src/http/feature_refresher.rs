@@ -309,7 +309,16 @@ impl FeatureRefresher {
 
             let es_client = match eventsource_client::ClientBuilder::for_url(&streaming_url) {
                 Ok(builder) => match builder.header("Authorization", &token.token) {
-                    Ok(builder) => builder.build(),
+                    Ok(builder) => builder
+                        .reconnect(
+                            eventsource_client::ReconnectOptions::reconnect(true)
+                                .retry_initial(true)
+                                .delay(Duration::from_secs(5))
+                                .delay_max(Duration::from_secs(30))
+                                .backoff_factor(2)
+                                .build(),
+                        )
+                        .build(),
                     Err(e) => {
                         warn!("Failed to add authorization header for streaming: {}", e);
                         continue;
