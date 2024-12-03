@@ -165,17 +165,24 @@ async fn main() -> Result<(), anyhow::Error> {
         .shutdown_timeout(5)
         .client_request_timeout(std::time::Duration::from_secs(request_timeout));
 
-    let es_client = eventsource_client::ClientBuilder::for_url("http://localhost:4242/streaming")?
-        .header("authorization", "some-token")?
-        .build();
+    // let es_client = eventsource_client::ClientBuilder::for_url("http://localhost:4242/streaming")?
+    //     .header("authorization", "some-token")?
+    //     .build();
 
-    let mut stream = tail_events(es_client);
+    // let mut stream = tail_events(es_client);
 
-    tokio::spawn(async move { while stream.try_next().await.unwrap().is_some() {} });
+    // tokio::spawn(async move { while stream.try_next().await.unwrap().is_some() {} });
 
     match schedule_args.mode {
         cli::EdgeMode::Edge(edge) => {
+            let refresher_for_background = feature_refresher.clone().unwrap();
+            tokio::spawn(async move {
+                refresher_for_background
+                    .start_refresh_features_background_task()
+                    .await;
+            });
             let refresher = feature_refresher.clone().unwrap();
+
             let validator = token_validator_schedule.clone().unwrap();
             tokio::select! {
                 _ = server.run() => {
@@ -183,9 +190,12 @@ async fn main() -> Result<(), anyhow::Error> {
                     clean_shutdown(persistence.clone(), lazy_feature_cache.clone(), lazy_token_cache.clone(), metrics_cache_clone.clone(), feature_refresher.clone()).await;
                     tracing::info!("Actix was shutdown properly");
                 },
-                _ = refresher.start_refresh_features_background_task() => {
-                    tracing::info!("Feature refresher unexpectedly shut down");
-                }
+                // _ = refresher.start_streaming_features_background_task() => {
+                //     tracing::info!("Streaming feature refresher unexpectedly shut down");
+                // }
+                // _ = refresher.start_refresh_features_background_task() => {
+                //     tracing::info!("Feature refresher unexpectedly shut down");
+                // }
                 _ = unleash_edge::http::background_send_metrics::send_metrics_task(metrics_cache_clone.clone(), refresher.clone(), edge.metrics_interval_seconds.try_into().unwrap()) => {
                     tracing::info!("Metrics poster unexpectedly shut down");
                 }

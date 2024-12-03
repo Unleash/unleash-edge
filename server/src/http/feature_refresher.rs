@@ -4,6 +4,8 @@ use std::{sync::Arc, time::Duration};
 use actix_web::http::header::EntityTag;
 use chrono::Utc;
 use dashmap::DashMap;
+use eventsource_client::Client;
+use futures::{Stream, TryStreamExt};
 use reqwest::StatusCode;
 use tracing::{debug, info, warn};
 use unleash_types::client_features::Segment;
@@ -296,6 +298,64 @@ impl FeatureRefresher {
                     .insert(refreshes.token.token.clone(), refreshes.clone());
             }
             self.tokens_to_refresh.retain(|key, _| keys.contains(key));
+        }
+    }
+
+    pub async fn start_streaming_features_background_task(&self) {
+        let refreshes = self.get_tokens_due_for_refresh();
+        for refresh in refreshes {
+            let token = refresh.token.clone();
+            // let client = self.unleash_client.clone();
+            // let base_url = client.base_url.clone();
+            let streaming_url = "http://localhost:4242/api/client/features/stream";
+
+            let es_client = match eventsource_client::ClientBuilder::for_url(&streaming_url) {
+                Ok(builder) => match builder.header("Authorization", &token.token) {
+                    Ok(builder) => builder.build(),
+                    Err(e) => {
+                        warn!("Failed to add authorization header for streaming: {}", e);
+                        continue;
+                    }
+                },
+                Err(e) => {
+                    warn!("Failed to create streaming client: {}", e);
+                    continue;
+                }
+            };
+
+            let refresher = self.clone();
+            tokio::spawn(async move {
+                let mut stream = es_client
+                    .stream()
+                    .map_ok(move |event| {
+                        let token = token.clone();
+                        let refresher = refresher.clone();
+                        async move {
+                            match event {
+                                eventsource_client::SSE::Event(_) => {
+                                    debug!("Got SSE event, refreshing features");
+                                    refresher
+                                        .refresh_single(TokenRefresh::new(token, None))
+                                        .await;
+                                }
+                                eventsource_client::SSE::Connected(_) => {
+                                    debug!("SSE Connected, performing initial refresh");
+                                    refresher
+                                        .refresh_single(TokenRefresh::new(token, None))
+                                        .await;
+                                }
+                                _ => {
+                                    debug!("Got a different SSE event {:#?}", event);
+                                }
+                            }
+                        }
+                    })
+                    .map_err(|e| warn!("Error in SSE stream: {:?}", e));
+
+                while let Ok(Some(handler)) = stream.try_next().await {
+                    handler.await;
+                }
+            });
         }
     }
 
