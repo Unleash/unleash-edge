@@ -5,7 +5,7 @@ use actix_web::http::header::EntityTag;
 use chrono::Utc;
 use dashmap::DashMap;
 use eventsource_client::Client;
-use futures::{Stream, TryStreamExt};
+use futures::TryStreamExt;
 use reqwest::StatusCode;
 use tracing::{debug, info, warn};
 use unleash_types::client_features::Segment;
@@ -305,7 +305,6 @@ impl FeatureRefresher {
         let refreshes = self.get_tokens_due_for_refresh();
         for refresh in refreshes {
             let token = refresh.token.clone();
-            println!("{}/client/streaming", self.unleash_client.urls.api_url);
             let streaming_url = format!("{}/client/streaming", self.unleash_client.urls.api_url);
 
             let es_client = match eventsource_client::ClientBuilder::for_url(&streaming_url) {
