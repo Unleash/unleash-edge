@@ -305,9 +305,8 @@ impl FeatureRefresher {
         let refreshes = self.get_tokens_due_for_refresh();
         for refresh in refreshes {
             let token = refresh.token.clone();
-            // let client = self.unleash_client.clone();
-            // let base_url = client.base_url.clone();
-            let streaming_url = "http://localhost:4242/api/client/streaming";
+            println!("{}/client/streaming", self.unleash_client.urls.api_url);
+            let streaming_url = format!("{}/client/streaming", self.unleash_client.urls.api_url);
 
             let es_client = match eventsource_client::ClientBuilder::for_url(&streaming_url) {
                 Ok(builder) => match builder.header("Authorization", &token.token) {
@@ -359,15 +358,15 @@ impl FeatureRefresher {
         }
     }
 
-    // pub async fn start_refresh_features_background_task(&self) {
-    //     loop {
-    //         tokio::select! {
-    //             _ = tokio::time::sleep(Duration::from_secs(5)) => {
-    //                 self.refresh_features().await;
-    //             }
-    //         }
-    //     }
-    // }
+    pub async fn start_refresh_features_background_task(&self) {
+        loop {
+            tokio::select! {
+                _ = tokio::time::sleep(Duration::from_secs(5)) => {
+                    self.refresh_features().await;
+                }
+            }
+        }
+    }
 
     pub async fn hydrate_new_tokens(&self) {
         let hydrations = self.get_tokens_never_refreshed();
