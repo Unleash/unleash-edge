@@ -53,11 +53,24 @@ pub async fn stream_features(
 
     actix_web::rt::spawn(async move {
         loop {
-            // let time = time::OffsetDateTime::now_utc();
-            let msg = sse::Data::new("server event").event("timestamp");
+            let data = resolve_features(
+                edge_token.clone(),
+                features_cache.clone(),
+                token_cache.clone(),
+                filter_query.clone(),
+                req.clone(),
+            )
+            .await;
 
-            if sender.send(msg.into()).await.is_err() {
-                tracing::warn!("client disconnected; could not send SSE message");
+            if let Ok(data) = data {
+                let msg = sse::Data::new_json(data).unwrap().event("update");
+
+                if sender.send(msg.into()).await.is_err() {
+                    tracing::warn!("client disconnected; could not send SSE message");
+                    break;
+                }
+            } else {
+                tracing::warn!("whoops; data is err");
                 break;
             }
 
