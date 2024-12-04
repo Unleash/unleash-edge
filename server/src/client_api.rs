@@ -36,6 +36,18 @@ pub async fn get_features(
 ) -> EdgeJsonResult<ClientFeatures> {
     resolve_features(edge_token, features_cache, token_cache, filter_query, req).await
 }
+
+#[get("/streaming")]
+pub async fn stream_features(
+    edge_token: EdgeToken,
+    features_cache: Data<DashMap<String, ClientFeatures>>,
+    token_cache: Data<DashMap<String, EdgeToken>>,
+    filter_query: Query<FeatureFilters>,
+    req: HttpRequest,
+) -> EdgeJsonResult<ClientFeatures> {
+    resolve_features(edge_token, features_cache, token_cache, filter_query, req).await
+}
+
 #[utoipa::path(
     context_path = "/api/client",
     params(FeatureFilters),
@@ -236,6 +248,7 @@ pub fn configure_client_api(cfg: &mut web::ServiceConfig) {
                 crate::middleware::validate_token::validate_token,
             ))
             .service(get_features)
+            .service(stream_features)
             .service(get_feature)
             .service(register)
             .service(metrics)
