@@ -343,8 +343,7 @@ impl FeatureRefresher {
                                     if event.event_type == "unleash-connected" =>
                                 {
                                     debug!(
-                                        "Connected to unleash! Here's the initial flag payload: {:#?}",
-                                        event.data
+                                        "Connected to unleash! I should populate my flag cache now.",
                                     );
                                     refresher
                                         .refresh_single(TokenRefresh::new(token, None))
@@ -354,25 +353,23 @@ impl FeatureRefresher {
                                     if event.event_type == "unleash-updated" =>
                                 {
                                     debug!(
-                                        "Got an unleash updated event. Here's the data: {:#?}",
-                                        event.data
+                                        "Got an unleash updated event. I should update my cache and notify listeners.",
                                     );
+
+
                                 }
                                 eventsource_client::SSE::Event(event) => {
                                     debug!(
-                                        "Got SSE event that wasn't updated, ignoring. event: {:#?}",
+                                        "Got an SSE event that I wasn't expecting: {:#?}",
                                         event
                                     );
                                 }
                                 eventsource_client::SSE::Connected(_) => {
                                     debug!("SSE Connectection established");
                                 }
-                                _ => {
-                                    debug!(
-                                        "Got a different SSE event (probably a comment): {:#?}",
-                                        sse
-                                    );
-                                }
+                                eventsource_client::SSE::Comment(_) => {
+                                    // purposefully left blank.
+                                },
                             }
                         }
                     })
