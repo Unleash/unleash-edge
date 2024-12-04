@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::error::EdgeError;
 use crate::filters::{
     filter_client_features, name_match_filter, name_prefix_filter, project_filter, FeatureFilterSet,
@@ -9,8 +11,10 @@ use crate::types::{
     self, BatchMetricsRequestBody, EdgeJsonResult, EdgeResult, EdgeToken, FeatureFilters,
 };
 use actix_web::web::{self, Data, Json, Query};
-use actix_web::{get, post, HttpRequest, HttpResponse};
+use actix_web::{get, post, HttpRequest, HttpResponse, Responder};
+use actix_web_lab::sse;
 use dashmap::DashMap;
+use tokio::time::sleep;
 use unleash_types::client_features::{ClientFeature, ClientFeatures};
 use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ConnectVia};
 
@@ -44,8 +48,24 @@ pub async fn stream_features(
     token_cache: Data<DashMap<String, EdgeToken>>,
     filter_query: Query<FeatureFilters>,
     req: HttpRequest,
-) -> EdgeJsonResult<ClientFeatures> {
-    resolve_features(edge_token, features_cache, token_cache, filter_query, req).await
+) -> impl Responder {
+    let (sender, receiver) = tokio::sync::mpsc::channel(2);
+
+    actix_web::rt::spawn(async move {
+        loop {
+            // let time = time::OffsetDateTime::now_utc();
+            let msg = sse::Data::new("server event").event("timestamp");
+
+            if sender.send(msg.into()).await.is_err() {
+                tracing::warn!("client disconnected; could not send SSE message");
+                break;
+            }
+
+            sleep(Duration::from_secs(10)).await;
+        }
+    });
+
+    sse::Sse::from_infallible_receiver(receiver).with_keep_alive(Duration::from_secs(3))
 }
 
 #[utoipa::path(
