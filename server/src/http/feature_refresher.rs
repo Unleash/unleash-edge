@@ -334,25 +334,44 @@ impl FeatureRefresher {
             tokio::spawn(async move {
                 let mut stream = es_client
                     .stream()
-                    .map_ok(move |event| {
+                    .map_ok(move |sse| {
                         let token = token.clone();
                         let refresher = refresher.clone();
                         async move {
-                            match event {
-                                eventsource_client::SSE::Event(_) => {
-                                    debug!("Got SSE event, refreshing features");
+                            match sse {
+                                eventsource_client::SSE::Event(event)
+                                    if event.event_type == "unleash-connected" =>
+                                {
+                                    debug!(
+                                        "Connected to unleash! Here's the initial flag payload: {:#?}",
+                                        event.data
+                                    );
                                     refresher
                                         .refresh_single(TokenRefresh::new(token, None))
                                         .await;
+                                }
+                                eventsource_client::SSE::Event(event)
+                                    if event.event_type == "unleash-updated" =>
+                                {
+                                    debug!(
+                                        "Got an unleash updated event. Here's the data: {:#?}",
+                                        event.data
+                                    );
+                                }
+                                eventsource_client::SSE::Event(event) => {
+                                    debug!(
+                                        "Got SSE event that wasn't updated, ignoring. event: {:#?}",
+                                        event
+                                    );
                                 }
                                 eventsource_client::SSE::Connected(_) => {
-                                    debug!("SSE Connected, performing initial refresh");
-                                    refresher
-                                        .refresh_single(TokenRefresh::new(token, None))
-                                        .await;
+                                    debug!("SSE Connectection established");
                                 }
                                 _ => {
-                                    debug!("Got a different SSE event {:#?}", event);
+                                    debug!(
+                                        "Got a different SSE event (probably a comment): {:#?}",
+                                        sse
+                                    );
                                 }
                             }
                         }
