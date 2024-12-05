@@ -353,9 +353,10 @@ impl FeatureRefresher {
                                     debug!(
                                         "Connected to unleash! I should populate my flag cache now.",
                                     );
-                                    refresher
-                                        .refresh_single(TokenRefresh::new(token, None))
-                                        .await;
+
+                                    let features: ClientFeatures =
+                                    serde_json::from_str(&event.data).unwrap();
+                                    refresher.handle_client_features_updated(TokenRefresh::new(token, None), features);
                                 }
                                 eventsource_client::SSE::Event(event)
                                     if event.event_type == "unleash-updated" =>
@@ -363,6 +364,11 @@ impl FeatureRefresher {
                                     debug!(
                                         "Got an unleash updated event. I should update my cache and notify listeners.",
                                     );
+
+                                    let features: ClientFeatures =
+                                    serde_json::from_str(&event.data).unwrap();
+                                    refresher.handle_client_features_updated(TokenRefresh::new(token, None), features);
+
                                     let data = Data::new_json(event.data).unwrap().event("unleash-updated");
                                     broadcaster.rebroadcast(actix_web_lab::sse::Event::Data(data)).await;
                                     // self.broadcaster.broadcast("got an update".clone).await;
@@ -412,6 +418,42 @@ impl FeatureRefresher {
         for refresh in refreshes {
             self.refresh_single(refresh).await;
         }
+    }
+
+    fn handle_client_features_updated(&self, refresh: TokenRefresh, features: ClientFeatures) {
+        debug!("Handling client features update.");
+        let key = cache_key(&refresh.token);
+        let etag = refresh.etag;
+        self.update_last_refresh(&refresh.token, etag, features.features.len());
+        self.features_cache
+            .entry(key.clone())
+            .and_modify(|existing_data| {
+                let updated_data = update_client_features(&refresh.token, existing_data, &features);
+                *existing_data = updated_data;
+            })
+            .or_insert_with(|| features.clone());
+        self.engine_cache
+                        .entry(key.clone())
+                        .and_modify(|engine| {
+                            if let Some(f) = self.features_cache.get(&key) {
+                                let mut new_state = EngineState::default();
+                                let warnings = new_state.take_state(f.clone());
+                                if let Some(warnings) = warnings {
+                                    warn!("The following toggle failed to compile and will be defaulted to off: {warnings:?}");
+                                };
+                                *engine = new_state;
+
+                            }
+                        })
+                        .or_insert_with(|| {
+                            let mut new_state = EngineState::default();
+
+                            let warnings = new_state.take_state(features);
+                            if let Some(warnings) = warnings {
+                                warn!("The following toggle failed to compile and will be defaulted to off: {warnings:?}");
+                            };
+                            new_state
+                        });
     }
 
     pub async fn refresh_single(&self, refresh: TokenRefresh) {
