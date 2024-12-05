@@ -369,6 +369,7 @@ impl FeatureRefresher {
                                     serde_json::from_str(&event.data).unwrap();
                                     refresher.handle_client_features_updated(TokenRefresh::new(token, None), features);
 
+
                                     let data = Data::new(event.data).event("unleash-updated");
                                     broadcaster.rebroadcast(actix_web_lab::sse::Event::Data(data)).await;
                                     // self.broadcaster.broadcast("got an update".clone).await;
@@ -420,6 +421,7 @@ impl FeatureRefresher {
         }
     }
 
+    // this is a copy of the handling in refresh_single.
     fn handle_client_features_updated(&self, refresh: TokenRefresh, features: ClientFeatures) {
         debug!("Handling client features update.");
         let key = cache_key(&refresh.token);

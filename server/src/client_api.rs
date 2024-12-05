@@ -12,6 +12,7 @@ use actix_web::web::{self, Data, Json, Query};
 use actix_web::{get, post, HttpRequest, HttpResponse, Responder};
 use aws_sdk_s3::config::endpoint::ResolveEndpoint;
 use dashmap::DashMap;
+use tracing_subscriber::filter;
 use unleash_types::client_features::{ClientFeature, ClientFeatures};
 use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ConnectVia};
 
@@ -45,17 +46,19 @@ pub async fn stream_features(
     token_cache: Data<DashMap<String, EdgeToken>>,
     filter_query: Query<FeatureFilters>,
     req: HttpRequest,
-) -> impl Responder {
-    let features = resolve_features(
-        edge_token,
+) -> EdgeResult<impl Responder> {
+    let (validated_token, filter_set, query) =
+        get_feature_filter(&edge_token, &token_cache, filter_query.clone())?;
+    let features = resolve_features_2(
+        query,
+        validated_token.clone(),
+        filter_set,
         features_cache,
-        token_cache,
-        filter_query,
         req.clone(),
     )
     .await;
     match (req.app_data::<Data<FeatureRefresher>>(), features) {
-        (Some(refresher), Ok(features)) => refresher.broadcaster.new_client(features).await,
+        (Some(refresher), Ok(features)) => Ok(refresher.broadcaster.new_client(features).await),
         _ => todo!(),
     }
 }
@@ -83,13 +86,15 @@ pub async fn post_features(
     resolve_features(edge_token, features_cache, token_cache, filter_query, req).await
 }
 
-async fn resolve_features(
-    edge_token: EdgeToken,
-    features_cache: Data<DashMap<String, ClientFeatures>>,
-    token_cache: Data<DashMap<String, EdgeToken>>,
+fn get_feature_filter(
+    edge_token: &EdgeToken,
+    token_cache: &Data<DashMap<String, EdgeToken>>,
     filter_query: Query<FeatureFilters>,
-    req: HttpRequest,
-) -> EdgeJsonResult<ClientFeatures> {
+) -> EdgeResult<(
+    EdgeToken,
+    FeatureFilterSet,
+    unleash_types::client_features::Query,
+)> {
     let validated_token = token_cache
         .get(&edge_token.token)
         .map(|e| e.value().clone())
@@ -110,6 +115,44 @@ async fn resolve_features(
         FeatureFilterSet::default()
     }
     .with_filter(project_filter(&validated_token));
+
+    Ok((validated_token, filter_set, query))
+}
+
+async fn resolve_features_2(
+    query: unleash_types::client_features::Query,
+    validated_token: EdgeToken,
+    filter_set: FeatureFilterSet,
+    features_cache: Data<DashMap<String, ClientFeatures>>,
+    req: HttpRequest,
+) -> EdgeJsonResult<ClientFeatures> {
+    let client_features = match req.app_data::<Data<FeatureRefresher>>() {
+        Some(refresher) => {
+            refresher
+                .features_for_filter(validated_token.clone(), &filter_set)
+                .await
+        }
+        None => features_cache
+            .get(&cache_key(&validated_token))
+            .map(|client_features| filter_client_features(&client_features, &filter_set))
+            .ok_or(EdgeError::ClientCacheError),
+    }?;
+
+    Ok(Json(ClientFeatures {
+        query: Some(query),
+        ..client_features
+    }))
+}
+
+async fn resolve_features(
+    edge_token: EdgeToken,
+    features_cache: Data<DashMap<String, ClientFeatures>>,
+    token_cache: Data<DashMap<String, EdgeToken>>,
+    filter_query: Query<FeatureFilters>,
+    req: HttpRequest,
+) -> EdgeJsonResult<ClientFeatures> {
+    let (validated_token, filter_set, query) =
+        get_feature_filter(&edge_token, &token_cache, filter_query.clone())?;
 
     let client_features = match req.app_data::<Data<FeatureRefresher>>() {
         Some(refresher) => {

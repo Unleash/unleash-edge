@@ -9,13 +9,23 @@ use futures_util::future;
 use parking_lot::Mutex;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
-use unleash_types::client_features::ClientFeatures;
+use unleash_types::client_features::{ClientFeatures, Query};
+
+use crate::{filters::FeatureFilterSet, types::EdgeToken};
 
 pub struct Broadcaster {
     inner: Mutex<BroadcasterInner>,
 }
 
-#[derive(Debug, Clone, Default)]
+// #[derive(Debug)]
+struct StreamClient {
+    stream: mpsc::Sender<sse::Event>,
+    token: EdgeToken,
+    filter_set: FeatureFilterSet,
+    query: Query,
+}
+
+#[derive(Debug, Default)]
 struct BroadcasterInner {
     clients: Vec<mpsc::Sender<sse::Event>>,
 }
@@ -68,6 +78,9 @@ impl Broadcaster {
     /// should take the current feature set as input and send it to the client.
     pub async fn new_client(
         &self,
+        // token: EdgeToken,
+        // filter_set: FeatureFilterSet,
+        // query: Query,
         features: Json<ClientFeatures>,
     ) -> Sse<InfallibleStream<ReceiverStream<sse::Event>>> {
         let (tx, rx) = mpsc::channel(10);
@@ -81,7 +94,12 @@ impl Broadcaster {
         .await
         .unwrap();
 
-        self.inner.lock().clients.push(tx);
+        self.inner.lock().clients.push(StreamClient {
+            stream: tx,
+            token,
+            filter_set,
+            query,
+        });
 
         Sse::from_infallible_receiver(rx)
         // we're already using remove_stale_clients to clean up disconnected
