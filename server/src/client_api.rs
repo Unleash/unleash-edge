@@ -55,7 +55,7 @@ pub async fn stream_features(
     )
     .await;
     match (req.app_data::<Data<FeatureRefresher>>(), features) {
-        (Some(refresher), Ok(features)) => refresher.broadcaster.new_client().await,
+        (Some(refresher), Ok(features)) => refresher.broadcaster.new_client(features).await,
         _ => todo!(),
     }
 }

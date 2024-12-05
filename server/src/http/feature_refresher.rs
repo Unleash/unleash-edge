@@ -369,7 +369,7 @@ impl FeatureRefresher {
                                     serde_json::from_str(&event.data).unwrap();
                                     refresher.handle_client_features_updated(TokenRefresh::new(token, None), features);
 
-                                    let data = Data::new_json(event.data).unwrap().event("unleash-updated");
+                                    let data = Data::new(event.data).event("unleash-updated");
                                     broadcaster.rebroadcast(actix_web_lab::sse::Event::Data(data)).await;
                                     // self.broadcaster.broadcast("got an update".clone).await;
                                 }

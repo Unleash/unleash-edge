@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use actix_web::rt::time::interval;
+use actix_web::{rt::time::interval, web::Json};
 use actix_web_lab::{
     sse::{self, Event, Sse},
     util::InfallibleStream,
@@ -9,6 +9,7 @@ use futures_util::future;
 use parking_lot::Mutex;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
+use unleash_types::client_features::ClientFeatures;
 
 pub struct Broadcaster {
     inner: Mutex<BroadcasterInner>,
@@ -65,12 +66,20 @@ impl Broadcaster {
 
     /// Registers client with broadcaster, returning an SSE response body.
     /// should take the current feature set as input and send it to the client.
-    pub async fn new_client(&self) -> Sse<InfallibleStream<ReceiverStream<sse::Event>>> {
+    pub async fn new_client(
+        &self,
+        features: Json<ClientFeatures>,
+    ) -> Sse<InfallibleStream<ReceiverStream<sse::Event>>> {
         let (tx, rx) = mpsc::channel(10);
 
-        tx.send(sse::Data::new("").event("unleash-connected").into())
-            .await
-            .unwrap();
+        tx.send(
+            sse::Data::new_json(features)
+                .unwrap()
+                .event("unleash-connected")
+                .into(),
+        )
+        .await
+        .unwrap();
 
         self.inner.lock().clients.push(tx);
 
