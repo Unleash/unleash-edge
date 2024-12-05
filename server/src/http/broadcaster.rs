@@ -83,7 +83,10 @@ impl Broadcaster {
 
         self.inner.lock().clients.push(tx);
 
-        Sse::from_infallible_receiver(rx).with_keep_alive(Duration::from_secs(30))
+        Sse::from_infallible_receiver(rx)
+        // we're already using remove_stale_clients to clean up disconnected
+        // clients and send heartbeats. we probably don't need this.
+        // .with_keep_alive(Duration::from_secs(30))
     }
 
     /// re-~roadcasts `data` to all clients.
