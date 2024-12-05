@@ -48,7 +48,7 @@ pub async fn stream_features(
     let (validated_token, filter_set, query) =
         get_feature_filter(&edge_token, &token_cache, filter_query.clone())?;
     let features = resolve_features_2(
-        query,
+        query.clone(),
         validated_token.clone(),
         filter_set,
         features_cache,
@@ -56,7 +56,15 @@ pub async fn stream_features(
     )
     .await;
     match (req.app_data::<Data<FeatureRefresher>>(), features) {
-        (Some(refresher), Ok(features)) => Ok(refresher.broadcaster.new_client(features).await),
+        (Some(refresher), Ok(features)) => Ok(refresher
+            .broadcaster
+            .new_client(
+                validated_token,
+                filter_query.clone(),
+                query.clone(),
+                features,
+            )
+            .await),
         _ => todo!(),
     }
 }
@@ -330,6 +338,7 @@ pub fn configure_experimental_post_features(
 mod tests {
 
     use crate::http::broadcaster::Broadcaster;
+    use crate::internal_backstage::features;
     use crate::metrics::client_metrics::{ApplicationKey, MetricsBatch, MetricsKey};
     use crate::types::{TokenType, TokenValidationStatus};
     use std::collections::HashMap;
@@ -1053,7 +1062,7 @@ mod tests {
             persistence: None,
             strict: false,
             app_name: "test-app".into(),
-            broadcaster: Broadcaster::create(),
+            broadcaster: Broadcaster::new(features_cache.clone()),
         });
         let token_validator = Arc::new(TokenValidator {
             unleash_client: unleash_client.clone(),

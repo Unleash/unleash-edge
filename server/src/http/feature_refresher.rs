@@ -120,7 +120,7 @@ impl Default for FeatureRefresher {
             persistence: None,
             strict: true,
             app_name: "unleash_edge".into(),
-            broadcaster: Broadcaster::create(),
+            broadcaster: Broadcaster::new(Default::default()),
         }
     }
 }
@@ -160,13 +160,13 @@ impl FeatureRefresher {
         FeatureRefresher {
             unleash_client,
             tokens_to_refresh: Arc::new(DashMap::default()),
-            features_cache: features,
+            features_cache: features.clone(),
             engine_cache: engines,
             refresh_interval: features_refresh_interval,
             persistence,
             strict,
             app_name: app_name.into(),
-            broadcaster: Broadcaster::create(),
+            broadcaster: Broadcaster::new(features.clone()),
         }
     }
 
@@ -378,8 +378,9 @@ impl FeatureRefresher {
                                     // feature set OR even just a "filter flags"
                                     // function. The broadcaster will take care
                                     // of filtering the flags per listener.
-                                    let data = Data::new(event.data).event("unleash-updated");
-                                    broadcaster.rebroadcast(actix_web_lab::sse::Event::Data(data)).await;
+                                    // let data = Data::new(event.data).event("unleash-updated");
+                                    // broadcaster.rebroadcast(actix_web_lab::sse::Event::Data(data)).await;
+                                    broadcaster.broadcast().await;
                                 }
                                 eventsource_client::SSE::Event(event) => {
                                     debug!(
