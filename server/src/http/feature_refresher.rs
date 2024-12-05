@@ -306,6 +306,7 @@ impl FeatureRefresher {
         }
     }
 
+    /// This is where we set up a listener per token.
     pub async fn start_streaming_features_background_task(&self) {
         let refreshes = self.get_tokens_due_for_refresh();
         for refresh in refreshes {
@@ -347,6 +348,7 @@ impl FeatureRefresher {
                         let broadcaster = broadcaster.clone();
                         async move {
                             match sse {
+                                // The first time we're connecting to Unleash. Just store the data.
                                 eventsource_client::SSE::Event(event)
                                     if event.event_type == "unleash-connected" =>
                                 {
@@ -354,10 +356,12 @@ impl FeatureRefresher {
                                         "Connected to unleash! I should populate my flag cache now.",
                                     );
 
+                                    // very rough handling of client features.
                                     let features: ClientFeatures =
                                     serde_json::from_str(&event.data).unwrap();
                                     refresher.handle_client_features_updated(TokenRefresh::new(token, None), features);
                                 }
+                                // Unleash has updated. This is where we send data to listeners.
                                 eventsource_client::SSE::Event(event)
                                     if event.event_type == "unleash-updated" =>
                                 {
@@ -365,14 +369,17 @@ impl FeatureRefresher {
                                         "Got an unleash updated event. I should update my cache and notify listeners.",
                                     );
 
+                                    // store the data locally
                                     let features: ClientFeatures =
                                     serde_json::from_str(&event.data).unwrap();
                                     refresher.handle_client_features_updated(TokenRefresh::new(token, None), features);
 
-
+                                    // send the data to the broadcaster. This should probably just send the new
+                                    // feature set OR even just a "filter flags"
+                                    // function. The broadcaster will take care
+                                    // of filtering the flags per listener.
                                     let data = Data::new(event.data).event("unleash-updated");
                                     broadcaster.rebroadcast(actix_web_lab::sse::Event::Data(data)).await;
-                                    // self.broadcaster.broadcast("got an update".clone).await;
                                 }
                                 eventsource_client::SSE::Event(event) => {
                                     debug!(
@@ -421,7 +428,7 @@ impl FeatureRefresher {
         }
     }
 
-    // this is a copy of the handling in refresh_single.
+    // this is a copy of the handling in refresh_single. Extracting just so we can handle the new flags in the same way without fetching them first.
     fn handle_client_features_updated(&self, refresh: TokenRefresh, features: ClientFeatures) {
         debug!("Handling client features update.");
         let key = cache_key(&refresh.token);

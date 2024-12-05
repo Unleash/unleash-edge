@@ -1,3 +1,4 @@
+/// copied from https://github.com/actix/examples/blob/master/server-sent-events/src/broadcast.rs
 use std::{sync::Arc, time::Duration};
 
 use actix_web::{rt::time::interval, web::Json};
@@ -17,7 +18,21 @@ pub struct Broadcaster {
     inner: Mutex<BroadcasterInner>,
 }
 
-// #[derive(Debug)]
+// this doesn't work because filter_set isn't clone. However, we can probably
+// find a way around that. For instance, we can create a hash map / dash map of
+// some client identifier to each filter set, so that we don't need to clone the
+// filter set.
+
+// I'd thought at first that we could map the token to the filter set, but I
+// think that might not be enough, as the filter set may also contain query
+// param information, which can vary between uses of the same token.
+
+// It might be that the easiest way is to create an ID per client and use that.
+// Then, when we drop clients, also drop their corresponding entries from the
+// map.
+
+// #[derive(Debug, Clone)]
+
 struct StreamClient {
     stream: mpsc::Sender<sse::Event>,
     token: EdgeToken,
@@ -75,7 +90,11 @@ impl Broadcaster {
     }
 
     /// Registers client with broadcaster, returning an SSE response body.
-    /// should take the current feature set as input and send it to the client.
+    /// The current impl takes the feature set as input and sends it to the client as a connected event.
+    ///
+    /// The commented-out arguments are what we'll need to store per client so
+    /// that we can properly filter / format the feature response when they get
+    /// updates later.
     pub async fn new_client(
         &self,
         // token: EdgeToken,
@@ -94,12 +113,7 @@ impl Broadcaster {
         .await
         .unwrap();
 
-        self.inner.lock().clients.push(StreamClient {
-            stream: tx,
-            token,
-            filter_set,
-            query,
-        });
+        self.inner.lock().clients.push(tx);
 
         Sse::from_infallible_receiver(rx)
         // we're already using remove_stale_clients to clean up disconnected
@@ -107,7 +121,12 @@ impl Broadcaster {
         // .with_keep_alive(Duration::from_secs(30))
     }
 
-    /// re-~roadcasts `data` to all clients.
+    /// broadcasts a pre-formatted `data` event to all clients.
+    ///
+    /// The final implementation will probably not use this. Instead, it will
+    /// probably use each client's filters to determine the features to send.
+    /// We'll need to pass in either the full set of features or a way to filter
+    /// them. Both might work.
     pub async fn rebroadcast(&self, data: Event) {
         let clients = self.inner.lock().clients.clone();
 
@@ -117,7 +136,10 @@ impl Broadcaster {
         // disconnected clients will get swept up by `remove_stale_clients`
         let _ = future::join_all(send_futures).await;
     }
+
     /// Broadcasts `msg` to all clients.
+    ///
+    /// This is the example implementation of the broadcast function. It's not used anywhere today.
     pub async fn broadcast(&self, msg: &str) {
         let clients = self.inner.lock().clients.clone();
 
