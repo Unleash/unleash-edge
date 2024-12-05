@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::{sync::Arc, time::Duration};
 
 use actix_web::http::header::EntityTag;
+use actix_web_lab::sse::Data;
 use chrono::Utc;
 use dashmap::DashMap;
 use eventsource_client::Client;
@@ -359,8 +360,9 @@ impl FeatureRefresher {
                                     debug!(
                                         "Got an unleash updated event. I should update my cache and notify listeners.",
                                     );
-
-
+                                    let data = Data::new_json(event.data).unwrap().event("unleash-updated");
+                                    // self.broadcaster.rebroadcast(actix_web_lab::sse::Event::Data(data)).await;
+                                    // self.broadcaster.broadcast("got an update".clone).await;
                                 }
                                 eventsource_client::SSE::Event(event) => {
                                     debug!(

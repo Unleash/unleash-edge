@@ -1,10 +1,3 @@
-use actix_web_lab::{
-    sse::{self, Sse},
-    util::InfallibleStream,
-};
-use std::time::Duration;
-use tokio_stream::wrappers::ReceiverStream;
-
 use crate::error::EdgeError;
 use crate::filters::{
     filter_client_features, name_match_filter, name_prefix_filter, project_filter, FeatureFilterSet,
@@ -18,7 +11,6 @@ use crate::types::{
 use actix_web::web::{self, Data, Json, Query};
 use actix_web::{get, post, HttpRequest, HttpResponse, Responder};
 use dashmap::DashMap;
-use tokio::time::sleep;
 use unleash_types::client_features::{ClientFeature, ClientFeatures};
 use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ConnectVia};
 
@@ -47,10 +39,10 @@ pub async fn get_features(
 
 #[get("/streaming")]
 pub async fn stream_features(
-    edge_token: EdgeToken,
-    features_cache: Data<DashMap<String, ClientFeatures>>,
-    token_cache: Data<DashMap<String, EdgeToken>>,
-    filter_query: Query<FeatureFilters>,
+    _edge_token: EdgeToken,
+    _features_cache: Data<DashMap<String, ClientFeatures>>,
+    _token_cache: Data<DashMap<String, EdgeToken>>,
+    _filter_query: Query<FeatureFilters>,
     req: HttpRequest,
 ) -> impl Responder {
     // .map(|refresher| refresher.broadcaster.new_client())

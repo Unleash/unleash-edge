@@ -77,6 +77,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let openapi = openapi::ApiDoc::openapi();
     let refresher_for_app_data = feature_refresher.clone();
     let prom_registry_for_write = metrics_handler.registry.clone();
+
     let server = HttpServer::new(move || {
         let qs_config =
             serde_qs::actix::QsQueryConfig::default().qs_config(serde_qs::Config::new(5, false));

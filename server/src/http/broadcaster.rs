@@ -1,16 +1,14 @@
 use std::{sync::Arc, time::Duration};
 
 use actix_web::rt::time::interval;
-use actix_web::web::Json;
 use actix_web_lab::{
-    sse::{self, Sse},
+    sse::{self, Event, Sse},
     util::InfallibleStream,
 };
 use futures_util::future;
 use parking_lot::Mutex;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
-use unleash_types::client_features::ClientFeatures;
 
 pub struct Broadcaster {
     inner: Mutex<BroadcasterInner>,
@@ -66,6 +64,7 @@ impl Broadcaster {
     }
 
     /// Registers client with broadcaster, returning an SSE response body.
+    /// should take the current feature set as input and send it to the client.
     pub async fn new_client(&self) -> Sse<InfallibleStream<ReceiverStream<sse::Event>>> {
         let (tx, rx) = mpsc::channel(10);
 
@@ -78,18 +77,16 @@ impl Broadcaster {
         Sse::from_infallible_receiver(rx).with_keep_alive(Duration::from_secs(30))
     }
 
-    // /// Broadcasts `data` to all clients.
-    // pub async fn broadcast(&self, data: &Json<ClientFeatures>) {
-    //     let clients = self.inner.lock().clients.clone();
+    /// re-~roadcasts `data` to all clients.
+    pub async fn rebroadcast(&self, data: Event) {
+        let clients = self.inner.lock().clients.clone();
 
-    //     let send_futures = clients
-    //         .iter()
-    //         .map(|client| client.send(sse::Data::new_json(data).unwrap().event("update")));
+        let send_futures = clients.iter().map(|client| client.send(data.clone()));
 
-    //     // try to send to all clients, ignoring failures
-    //     // disconnected clients will get swept up by `remove_stale_clients`
-    //     let _ = future::join_all(send_futures).await;
-    // }
+        // try to send to all clients, ignoring failures
+        // disconnected clients will get swept up by `remove_stale_clients`
+        let _ = future::join_all(send_futures).await;
+    }
     /// Broadcasts `msg` to all clients.
     pub async fn broadcast(&self, msg: &str) {
         let clients = self.inner.lock().clients.clone();
