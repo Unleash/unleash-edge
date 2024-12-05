@@ -1,4 +1,9 @@
+use actix_web_lab::{
+    sse::{self, Sse},
+    util::InfallibleStream,
+};
 use std::time::Duration;
+use tokio_stream::wrappers::ReceiverStream;
 
 use crate::error::EdgeError;
 use crate::filters::{
@@ -12,7 +17,6 @@ use crate::types::{
 };
 use actix_web::web::{self, Data, Json, Query};
 use actix_web::{get, post, HttpRequest, HttpResponse, Responder};
-use actix_web_lab::sse;
 use dashmap::DashMap;
 use tokio::time::sleep;
 use unleash_types::client_features::{ClientFeature, ClientFeatures};
@@ -49,36 +53,53 @@ pub async fn stream_features(
     filter_query: Query<FeatureFilters>,
     req: HttpRequest,
 ) -> impl Responder {
-    let (sender, receiver) = tokio::sync::mpsc::channel(2);
+    // .map(|refresher| refresher.broadcaster.new_client())
+    match req.app_data::<Data<FeatureRefresher>>() {
+        Some(refresher) => refresher.broadcaster.new_client().await,
 
-    actix_web::rt::spawn(async move {
-        loop {
-            let data = resolve_features(
-                edge_token.clone(),
-                features_cache.clone(),
-                token_cache.clone(),
-                filter_query.clone(),
-                req.clone(),
-            )
-            .await;
+        None => todo!(),
+    }
 
-            if let Ok(data) = data {
-                let msg = sse::Data::new_json(data).unwrap().event("update");
+    // let broadcaster = match req.app_data::<Data<FeatureRefresher>>() {
+    //     Some(refresher) => {
+    //         refresher.broadcaster.new_client().await
+    //     }
+    //     None => features_cache
+    //         .get(&cache_key(&validated_token))
+    //         .map(|client_features| filter_client_features(&client_features, &filter_set))
+    //         .ok_or(EdgeError::ClientCacheError),
+    // }?;
 
-                if sender.send(msg.into()).await.is_err() {
-                    tracing::warn!("client disconnected; could not send SSE message");
-                    break;
-                }
-            } else {
-                tracing::warn!("whoops; data is err");
-                break;
-            }
+    // let (sender, receiver) = tokio::sync::mpsc::channel(2);
 
-            sleep(Duration::from_secs(10)).await;
-        }
-    });
+    // actix_web::rt::spawn(async move {
+    //     loop {
+    //         let data = resolve_features(
+    //             edge_token.clone(),
+    //             features_cache.clone(),
+    //             token_cache.clone(),
+    //             filter_query.clone(),
+    //             req.clone(),
+    //         )
+    //         .await;
 
-    sse::Sse::from_infallible_receiver(receiver).with_keep_alive(Duration::from_secs(3))
+    //         if let Ok(data) = data {
+    //             let msg = sse::Data::new_json(data).unwrap().event("update");
+
+    //             if sender.send(msg.into()).await.is_err() {
+    //                 tracing::warn!("client disconnected; could not send SSE message");
+    //                 break;
+    //             }
+    //         } else {
+    //             tracing::warn!("whoops; data is err");
+    //             break;
+    //         }
+
+    //         sleep(Duration::from_secs(10)).await;
+    //     }
+    // });
+
+    // sse::Sse::from_infallible_receiver(receiver).with_keep_alive(Duration::from_secs(3))
 }
 
 #[utoipa::path(
