@@ -152,13 +152,6 @@ impl Broadcaster {
     ) -> Sse<InfallibleStream<ReceiverStream<sse::Event>>> {
         let (tx, rx) = mpsc::channel(10);
 
-        // let token_string = token.token.clone();
-        // let query_stuff = QueryStuff {
-        //     token: token.clone(),
-        //     filter_set: filter_set.clone(),
-        //     query: query.clone(),
-        // };
-
         self.inner
             .lock()
             .active_connections
@@ -174,11 +167,6 @@ impl Broadcaster {
                 token,
             });
 
-        // self.inner
-        //     .lock()
-        //     .filters
-        //     .insert(token_string.clone(), query_stuff);
-
         tx.send(
             sse::Data::new_json(features)
                 .unwrap()
@@ -187,11 +175,6 @@ impl Broadcaster {
         )
         .await
         .unwrap();
-
-        // self.inner.lock().clients.push(StreamClient {
-        //     stream: tx,
-        //     id: token_string,
-        // });
 
         Sse::from_infallible_receiver(rx)
         // we're already using remove_stale_clients to clean up disconnected
@@ -234,49 +217,26 @@ impl Broadcaster {
 
     /// Broadcast new features to all clients.
     pub async fn broadcast(&self) {
-        let clients = self.inner.lock().clients.clone();
         let active_connections = self.inner.lock().active_connections.clone();
 
-        let send_futures = Vec::new();
-        for (query, group) in active_connections {
+        let mut client_events = Vec::new();
+        for (_query, group) in active_connections {
             let filter_set =
                 Broadcaster::get_query_filters(group.filter_set.clone(), group.token.clone());
             let features = self
                 .features_cache
                 .get(&cache_key(&group.token))
                 .map(|client_features| filter_client_features(&client_features, &filter_set));
-            let event: Event = sse::Data::new_json(&features).unwrap().into();
+            let event: Event = sse::Data::new_json(&features).unwrap().event("unleash-updated").into();
 
             for client in group.clients {
-                send_futures.push(client.stream.send(event.clone()));
+                client_events.push((client, event.clone()));
             }
-            // let send_futures = group
-            //     .clients
-            //     .iter()
-            //     .map(|client| client.send(event.clone()));
         }
         // try to send to all clients, ignoring failures
         // disconnected clients will get swept up by `remove_stale_clients`
-        let _ = future::join_all(send_futures).await;
+        let send_events = client_events.iter().map(|(client, event)| client.send(event.clone()));
 
-        // let send_futures = clients.iter().map(|client| {
-        //     let binding = self.inner.lock();
-        //     let query_stuff = binding.filters.get(&client.id).unwrap();
-        //     let filter_set = Broadcaster::get_query_filters(
-        //         query_stuff.filter_set.clone(),
-        //         query_stuff.token.clone(),
-        //     );
-        //     let features = self
-        //         .features_cache
-        //         .get(&cache_key(&query_stuff.token))
-        //         .map(|client_features| filter_client_features(&client_features, &filter_set));
-        //     // let features = get_features_for_filter(query_stuff.token.clone(), &filter_set).unwrap();
-        //     let event = sse::Data::new_json(&features).unwrap().into();
-        //     client.stream.send(event)
-        // });
-
-        // // try to send to all clients, ignoring failures
-        // // disconnected clients will get swept up by `remove_stale_clients`
-        // let _ = future::join_all(send_futures).await;
+        let _ = future::join_all(send_events).await;
     }
 }
