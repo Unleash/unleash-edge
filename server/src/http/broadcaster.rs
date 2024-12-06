@@ -72,7 +72,7 @@ impl Broadcaster {
     /// Pings clients every 30 seconds to see if they are alive and remove them from the broadcast
     /// list if not.
     fn spawn_ping(this: Arc<Self>) {
-        actix_web::rt::spawn(async move {
+        tokio::spawn(async move {
             let mut interval = interval(Duration::from_secs(30));
 
             loop {
