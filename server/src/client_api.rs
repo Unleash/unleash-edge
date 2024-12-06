@@ -343,6 +343,7 @@ pub fn configure_experimental_post_features(
 #[cfg(test)]
 mod tests {
 
+    #[cfg(feature = "streaming")]
     use crate::http::broadcaster::Broadcaster;
     use crate::metrics::client_metrics::{ApplicationKey, MetricsBatch, MetricsKey};
     use crate::types::{TokenType, TokenValidationStatus};
@@ -1067,6 +1068,7 @@ mod tests {
             persistence: None,
             strict: false,
             app_name: "test-app".into(),
+            #[cfg(feature = "streaming")]
             broadcaster: Broadcaster::new(features_cache.clone()),
         });
         let token_validator = Arc::new(TokenValidator {
