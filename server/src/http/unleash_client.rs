@@ -500,7 +500,6 @@ mod tests {
         http::header::EntityTag,
         web, App, HttpResponse,
     };
-    use capture_logger::{begin_capture, pop_captured};
     use chrono::Duration;
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
