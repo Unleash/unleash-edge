@@ -4,7 +4,9 @@ use std::{sync::Arc, time::Duration};
 use actix_web::http::header::EntityTag;
 use chrono::Utc;
 use dashmap::DashMap;
+#[cfg(feature = "streaming")]
 use eventsource_client::Client;
+#[cfg(feature = "streaming")]
 use futures::TryStreamExt;
 use reqwest::StatusCode;
 use tracing::{debug, info, warn};
@@ -25,6 +27,7 @@ use crate::{
     types::{ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenRefresh},
 };
 
+#[cfg(feature = "streaming")]
 use super::broadcaster::Broadcaster;
 use super::unleash_client::UnleashClient;
 
@@ -105,6 +108,7 @@ pub struct FeatureRefresher {
     pub persistence: Option<Arc<dyn EdgePersistence>>,
     pub strict: bool,
     pub app_name: String,
+    #[cfg(feature = "streaming")]
     pub broadcaster: Arc<Broadcaster>,
 }
 
@@ -119,6 +123,7 @@ impl Default for FeatureRefresher {
             persistence: None,
             strict: true,
             app_name: "unleash_edge".into(),
+            #[cfg(feature = "streaming")]
             broadcaster: Broadcaster::new(Default::default()),
         }
     }
@@ -165,6 +170,7 @@ impl FeatureRefresher {
             persistence,
             strict,
             app_name: app_name.into(),
+            #[cfg(feature = "streaming")]
             broadcaster: Broadcaster::new(features.clone()),
         }
     }
@@ -306,6 +312,7 @@ impl FeatureRefresher {
     }
 
     /// This is where we set up a listener per token.
+    #[cfg(feature = "streaming")]
     pub async fn start_streaming_features_background_task(&self) -> anyhow::Result<()> {
         let refreshes = self.get_tokens_due_for_refresh();
         for refresh in refreshes {
@@ -419,6 +426,7 @@ impl FeatureRefresher {
     }
 
     // this is a copy of the handling in refresh_single. Extracting just so we can handle the new flags in the same way without fetching them first.
+    #[cfg(feature = "streaming")]
     fn handle_client_features_updated(&self, refresh: TokenRefresh, features: ClientFeatures) {
         debug!("Handling client features update.");
         let key = cache_key(&refresh.token);

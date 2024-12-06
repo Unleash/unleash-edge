@@ -14,6 +14,9 @@ name = "unleash-edge"
 repository = "https://github.com/Unleash/unleash-edge"
 version = "19.6.2"
 
+[features]
+streaming = []
+
 [package.metadata.wix]
 upgrade-guid = "11E5D83A-3034-48BB-9A84-9F589EBD648C"
 path-guid = "6F606A3B-C7E9-43EC-8B6E-91D7B74F80FC"

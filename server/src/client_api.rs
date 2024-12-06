@@ -9,7 +9,9 @@ use crate::types::{
     self, BatchMetricsRequestBody, EdgeJsonResult, EdgeResult, EdgeToken, FeatureFilters,
 };
 use actix_web::web::{self, Data, Json, Query};
-use actix_web::{get, post, HttpRequest, HttpResponse, Responder};
+#[cfg(feature = "streaming")]
+use actix_web::Responder;
+use actix_web::{get, post, HttpRequest, HttpResponse};
 use dashmap::DashMap;
 use unleash_types::client_features::{ClientFeature, ClientFeatures};
 use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ConnectVia};
@@ -37,6 +39,7 @@ pub async fn get_features(
     resolve_features(edge_token, features_cache, token_cache, filter_query, req).await
 }
 
+#[cfg(feature = "streaming")]
 #[get("/streaming")]
 pub async fn stream_features(
     edge_token: EdgeToken,
@@ -132,6 +135,7 @@ fn get_feature_filter(
 /// need to do the extraction work twice. The broadcaster shold be able to do
 /// something like the Some arm of the match here, except we'll know that we
 /// already have the refresher.
+#[cfg(feature = "streaming")]
 async fn resolve_features_2(
     query: unleash_types::client_features::Query,
     validated_token: EdgeToken,
@@ -311,18 +315,20 @@ pub async fn post_bulk_metrics(
     Ok(HttpResponse::Accepted().finish())
 }
 pub fn configure_client_api(cfg: &mut web::ServiceConfig) {
-    cfg.service(
-        web::scope("/client")
-            .wrap(crate::middleware::as_async_middleware::as_async_middleware(
-                crate::middleware::validate_token::validate_token,
-            ))
-            .service(get_features)
-            .service(stream_features)
-            .service(get_feature)
-            .service(register)
-            .service(metrics)
-            .service(post_bulk_metrics),
-    );
+    let client_scope = web::scope("/client")
+        .wrap(crate::middleware::as_async_middleware::as_async_middleware(
+            crate::middleware::validate_token::validate_token,
+        ))
+        .service(get_features)
+        .service(get_feature)
+        .service(register)
+        .service(metrics)
+        .service(post_bulk_metrics);
+
+    #[cfg(feature = "streaming")]
+    let client_scope = client_scope.service(stream_features);
+
+    cfg.service(client_scope);
 }
 
 pub fn configure_experimental_post_features(
