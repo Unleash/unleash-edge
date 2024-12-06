@@ -23,21 +23,26 @@ pub async fn start_hotload_loop(
     engine_cache: Arc<DashMap<std::string::String, EngineState>>,
     offline_args: OfflineArgs,
 ) {
-    let known_tokens = offline_args.tokens;
+    let mut known_tokens = offline_args.tokens;
+    known_tokens.extend(offline_args.client_tokens);
+    known_tokens.extend(offline_args.frontend_tokens);
     let bootstrap_path = offline_args.bootstrap_file;
 
     loop {
         tokio::select! {
             _ = tokio::time::sleep(Duration::from_secs(offline_args.reload_interval)) => {
                 let bootstrap = bootstrap_path.as_ref().map(|bootstrap_path|load_bootstrap(bootstrap_path));
+                tracing::info!("Reloading bootstrap file");
                 match bootstrap {
                     Some(Ok(bootstrap)) => {
+                        tracing::info!("Found bootstrap file");
                         let edge_tokens: Vec<EdgeToken> = known_tokens
                         .iter()
                         .map(|token| EdgeToken::from_str(token).unwrap_or_else(|_| EdgeToken::offline_token(token)))
                         .collect();
-
+                        tracing::info!("Edge tokens: {:?}", edge_tokens);
                         for edge_token in edge_tokens {
+                            tracing::info!("Refreshing for {edge_token:?}");
                             load_offline_engine_cache(&edge_token, features_cache.clone(), engine_cache.clone(), bootstrap.clone());
                         }
                     },

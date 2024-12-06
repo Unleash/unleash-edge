@@ -12,7 +12,7 @@ homepage = "https://github.com/Unleash/unleash-edge"
 license = "MIT"
 name = "unleash-edge"
 repository = "https://github.com/Unleash/unleash-edge"
-version = "19.6.2"
+version = "19.6.3"
 
 [features]
 streaming = []
