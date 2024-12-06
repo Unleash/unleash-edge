@@ -5,7 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 19.6.3 (2024-12-06)
+
+### Chore
+
+ - <csr-id-a2d612893c631fa5617a18bd72250125420f2ab2/> prepare for release
+
+### Documentation
+
+ - <csr-id-2462bd216c41c1c2eea3c6ee9d49d91314f10147/> add example docker command
+
+### Bug Fixes
+
+ - <csr-id-0dac00e039884bf74af98ab8ada171cd30e8eb6c/> bootstrap reload in offline mode.
+   After adding support for client and frontend tokens, we did not extend
+   the reloader to check the client and frontend token arrays. This PR extends
+   tokens with FE and Client tokens, to ensure that we refresh the data for
+   all our tokens.
+   
+   In addition we make /internal-backstage/tokens useful for offline mode
+   as well, to at least be able to see which tokens you added to Edge.
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 3 commits contributed to the release.
+ - 10 days passed between releases.
+ - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 2 unique issues were worked on: [#590](https://github.com/Unleash/unleash-edge/issues/590), [#595](https://github.com/Unleash/unleash-edge/issues/595)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#590](https://github.com/Unleash/unleash-edge/issues/590)**
+    - Add example docker command ([`2462bd2`](https://github.com/Unleash/unleash-edge/commit/2462bd216c41c1c2eea3c6ee9d49d91314f10147))
+ * **[#595](https://github.com/Unleash/unleash-edge/issues/595)**
+    - Bootstrap reload in offline mode. ([`0dac00e`](https://github.com/Unleash/unleash-edge/commit/0dac00e039884bf74af98ab8ada171cd30e8eb6c))
+ * **Uncategorized**
+    - Prepare for release ([`a2d6128`](https://github.com/Unleash/unleash-edge/commit/a2d612893c631fa5617a18bd72250125420f2ab2))
+</details>
+
 ## 19.6.2 (2024-11-25)
+
+<csr-id-7768c59d4fabc159845499cbf0e17e29098a799d/>
+<csr-id-f0df4270f6376e1e60051d7466b0ccba447bf4f3/>
+<csr-id-95a466a028e776af54c0def1b01f2ba503752c87/>
+<csr-id-dc6f169c06aea3505cac0872f50505bd1d70234d/>
 
 ### Chore
 
@@ -27,7 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 8 commits contributed to the release.
+ - 9 commits contributed to the release.
  - 40 days passed between releases.
  - 7 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 5 unique issues were worked on: [#571](https://github.com/Unleash/unleash-edge/issues/571), [#580](https://github.com/Unleash/unleash-edge/issues/580), [#581](https://github.com/Unleash/unleash-edge/issues/581), [#587](https://github.com/Unleash/unleash-edge/issues/587), [#588](https://github.com/Unleash/unleash-edge/issues/588)
@@ -49,6 +98,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#588](https://github.com/Unleash/unleash-edge/issues/588)**
     - Raise error message when failing to validate tokens and url has url postfix ([`f0df427`](https://github.com/Unleash/unleash-edge/commit/f0df4270f6376e1e60051d7466b0ccba447bf4f3))
  * **Uncategorized**
+    - Release unleash-edge v19.6.2 ([`2390370`](https://github.com/Unleash/unleash-edge/commit/23903704e2c542f8d0da1140d00603bc278d7d46))
     - Prepare for 19.6.2 patch release ([`7768c59`](https://github.com/Unleash/unleash-edge/commit/7768c59d4fabc159845499cbf0e17e29098a799d))
     - Release unleash-edge v19.6.1 ([`c6386db`](https://github.com/Unleash/unleash-edge/commit/c6386db28de59188e99576b3475f952d8ae59a79))
     - Prepare for release ([`95a466a`](https://github.com/Unleash/unleash-edge/commit/95a466a028e776af54c0def1b01f2ba503752c87))
@@ -313,7 +363,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-unknown>
 <csr-unknown>
 <csr-unknown>
+<csr-unknown>
  added feature_toggle_usage_total counter verbose error for instance urls with api suffix<csr-unknown/>
+<csr-unknown/>
 <csr-unknown/>
 <csr-unknown/>
 <csr-unknown/>
@@ -438,6 +490,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+ - <csr-id-4dc72f39adad96650516b02f8bfb3ad50fa39bab/> strict and dynamic mode
+   ---------
  - <csr-id-4dc72f39adad96650516b02f8bfb3ad50fa39bab/> strict and dynamic mode
    ---------
  - <csr-id-4dc72f39adad96650516b02f8bfb3ad50fa39bab/> strict and dynamic mode
