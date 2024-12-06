@@ -18,48 +18,15 @@ use dashmap::DashMap;
 use futures_util::future;
 use parking_lot::Mutex;
 use serde::Serialize;
-use tokio::{net::unix::pipe::Sender, sync::mpsc};
+use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use unleash_types::client_features::{ClientFeatures, Query as FlagQuery};
 
 use crate::{
-    cli,
     filters::{filter_client_features, name_prefix_filter, project_filter, FeatureFilterSet},
     tokens::cache_key,
-    types::{EdgeResult, EdgeToken, FeatureFilters},
+    types::{EdgeToken, FeatureFilters},
 };
-
-// this doesn't work because filter_set isn't clone. However, we can probably
-// find a way around that. For instance, we can create a hash map / dash map of
-// some client identifier to each filter set, so that we don't need to clone the
-// filter set.
-
-// I'd thought at first that we could map the token to the filter set, but I
-// think that might not be enough, as the filter set may also contain query
-// param information, which can vary between uses of the same token.
-
-// It might be that the easiest way is to create an ID per client and use that.
-// Then, when we drop clients, also drop their corresponding entries from the
-// map.
-
-#[derive(Debug, Clone)]
-
-struct StreamClient {
-    stream: mpsc::Sender<sse::Event>,
-    id: String,
-}
-
-struct QueryStuff {
-    token: EdgeToken,
-    filter_set: Query<FeatureFilters>,
-    query: FlagQuery,
-}
-
-impl std::fmt::Debug for QueryStuff {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "QueryStuff")
-    }
-}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 struct QueryWrapper {
@@ -82,8 +49,6 @@ struct ClientGroup {
 #[derive(Default)]
 struct BroadcasterInner {
     active_connections: HashMap<QueryWrapper, ClientGroup>,
-    clients: Vec<StreamClient>,
-    filters: HashMap<String, QueryStuff>,
 }
 
 pub struct Broadcaster {
@@ -119,22 +84,24 @@ impl Broadcaster {
 
     /// Removes all non-responsive clients from broadcast list.
     async fn remove_stale_clients(&self) {
-        let clients = self.inner.lock().clients.clone();
+        //let clients = self.inner.lock().clients.clone();
+        let active_connections = self.inner.lock().active_connections.clone();
 
-        let mut ok_clients = Vec::new();
+        for (_query, mut group) in active_connections {
+          let mut ok_clients = Vec::new();
 
-        for client in clients {
-            if client
-                .stream
-                .send(sse::Event::Comment("keep-alive".into()))
-                .await
-                .is_ok()
-            {
-                ok_clients.push(client.clone());
-            }
+          for client in group.clients {
+              if client
+                  .send(sse::Event::Comment("keep-alive".into()))
+                  .await
+                  .is_ok()
+              {
+                  ok_clients.push(client.clone());
+              }
+          }
+
+          group.clients = ok_clients;
         }
-
-        self.inner.lock().clients = ok_clients;
     }
 
     /// Registers client with broadcaster, returning an SSE response body.
@@ -180,24 +147,6 @@ impl Broadcaster {
         // we're already using remove_stale_clients to clean up disconnected
         // clients and send heartbeats. we probably don't need this.
         // .with_keep_alive(Duration::from_secs(30))
-    }
-
-    /// broadcasts a pre-formatted `data` event to all clients.
-    ///
-    /// The final implementation will probably not use this. Instead, it will
-    /// probably use each client's filters to determine the features to send.
-    /// We'll need to pass in either the full set of features or a way to filter
-    /// them. Both might work.
-    pub async fn rebroadcast(&self, data: Event) {
-        let clients = self.inner.lock().clients.clone();
-
-        let send_futures = clients
-            .iter()
-            .map(|client| client.stream.send(data.clone()));
-
-        // try to send to all clients, ignoring failures
-        // disconnected clients will get swept up by `remove_stale_clients`
-        let _ = future::join_all(send_futures).await;
     }
 
     fn get_query_filters(
