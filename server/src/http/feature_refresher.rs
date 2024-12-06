@@ -307,34 +307,23 @@ impl FeatureRefresher {
     }
 
     /// This is where we set up a listener per token.
-    pub async fn start_streaming_features_background_task(&self) {
+    pub async fn start_streaming_features_background_task(&self) -> Result<(), anyhow::Error> {
         let refreshes = self.get_tokens_due_for_refresh();
         for refresh in refreshes {
             let token = refresh.token.clone();
             let streaming_url = format!("{}/client/streaming", self.unleash_client.urls.api_url);
 
-            let es_client = match eventsource_client::ClientBuilder::for_url(&streaming_url) {
-                Ok(builder) => match builder.header("Authorization", &token.token) {
-                    Ok(builder) => builder
-                        .reconnect(
-                            eventsource_client::ReconnectOptions::reconnect(true)
-                                .retry_initial(true)
-                                .delay(Duration::from_secs(5))
-                                .delay_max(Duration::from_secs(30))
-                                .backoff_factor(2)
-                                .build(),
-                        )
+            let es_client = eventsource_client::ClientBuilder::for_url(&streaming_url)?
+                .header("Authorization", &token.token)?
+                .reconnect(
+                    eventsource_client::ReconnectOptions::reconnect(true)
+                        .retry_initial(true)
+                        .delay(Duration::from_secs(5))
+                        .delay_max(Duration::from_secs(30))
+                        .backoff_factor(2)
                         .build(),
-                    Err(e) => {
-                        warn!("Failed to add authorization header for streaming: {}", e);
-                        continue;
-                    }
-                },
-                Err(e) => {
-                    warn!("Failed to create streaming client: {}", e);
-                    continue;
-                }
-            };
+                )
+                .build();
 
             let refresher = self.clone();
             let broadcaster = self.broadcaster.clone();
@@ -404,6 +393,7 @@ impl FeatureRefresher {
                 }
             });
         }
+        Ok(())
     }
 
     pub async fn start_refresh_features_background_task(&self) {
