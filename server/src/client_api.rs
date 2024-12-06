@@ -338,7 +338,6 @@ pub fn configure_experimental_post_features(
 mod tests {
 
     use crate::http::broadcaster::Broadcaster;
-    use crate::internal_backstage::features;
     use crate::metrics::client_metrics::{ApplicationKey, MetricsBatch, MetricsKey};
     use crate::types::{TokenType, TokenValidationStatus};
     use std::collections::HashMap;

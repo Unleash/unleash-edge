@@ -84,7 +84,6 @@ impl Broadcaster {
 
     /// Removes all non-responsive clients from broadcast list.
     async fn remove_stale_clients(&self) {
-        //let clients = self.inner.lock().clients.clone();
         let active_connections = self.inner.lock().active_connections.clone();
 
         for (_query, mut group) in active_connections {

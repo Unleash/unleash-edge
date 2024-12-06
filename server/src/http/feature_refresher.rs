@@ -2,7 +2,6 @@ use std::collections::HashSet;
 use std::{sync::Arc, time::Duration};
 
 use actix_web::http::header::EntityTag;
-use actix_web_lab::sse::Data;
 use chrono::Utc;
 use dashmap::DashMap;
 use eventsource_client::Client;
