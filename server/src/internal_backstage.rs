@@ -65,10 +65,16 @@ pub async fn ready(
 
 #[get("/tokens")]
 pub async fn tokens(
-    feature_refresher: web::Data<FeatureRefresher>,
-    token_validator: web::Data<TokenValidator>,
+    token_cache: web::Data<DashMap<String, EdgeToken>>,
+    feature_refresher: Option<web::Data<FeatureRefresher>>,
+    token_validator: Option<web::Data<TokenValidator>>,
 ) -> EdgeJsonResult<TokenInfo> {
-    Ok(Json(get_token_info(feature_refresher, token_validator)))
+    match (feature_refresher, token_validator) {
+        (Some(feature_refresher), Some(token_validator)) => {
+            Ok(Json(get_token_info(feature_refresher, token_validator)))
+        }
+        _ => Ok(Json(get_offline_token_info(token_cache))),
+    }
 }
 
 fn get_token_info(
@@ -93,6 +99,18 @@ fn get_token_info(
     TokenInfo {
         token_refreshes: refreshes,
         token_validation_status,
+    }
+}
+
+fn get_offline_token_info(token_cache: web::Data<DashMap<String, EdgeToken>>) -> TokenInfo {
+    let edge_tokens: Vec<EdgeToken> = token_cache
+        .iter()
+        .map(|e| e.value().clone())
+        .map(|t| crate::tokens::anonymize_token(&t))
+        .collect();
+    TokenInfo {
+        token_refreshes: vec![],
+        token_validation_status: edge_tokens,
     }
 }
 
