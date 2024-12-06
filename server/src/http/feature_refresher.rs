@@ -307,7 +307,7 @@ impl FeatureRefresher {
     }
 
     /// This is where we set up a listener per token.
-    pub async fn start_streaming_features_background_task(&self) -> Result<(), anyhow::Error> {
+    pub async fn start_streaming_features_background_task(&self) -> anyhow::Result<()> {
         let refreshes = self.get_tokens_due_for_refresh();
         for refresh in refreshes {
             let token = refresh.token.clone();
@@ -326,7 +326,7 @@ impl FeatureRefresher {
                 .build();
 
             let refresher = self.clone();
-            let broadcaster = self.broadcaster.clone();
+            // let broadcaster = self.broadcaster.clone();
 
             tokio::spawn(async move {
                 let mut stream = es_client
@@ -334,7 +334,7 @@ impl FeatureRefresher {
                     .map_ok(move |sse| {
                         let token = token.clone();
                         let refresher = refresher.clone();
-                        let broadcaster = broadcaster.clone();
+                        // let broadcaster = broadcaster.clone();
                         async move {
                             match sse {
                                 // The first time we're connecting to Unleash. Just store the data.
@@ -369,7 +369,7 @@ impl FeatureRefresher {
                                     // of filtering the flags per listener.
                                     // let data = Data::new(event.data).event("unleash-updated");
                                     // broadcaster.rebroadcast(actix_web_lab::sse::Event::Data(data)).await;
-                                    broadcaster.broadcast().await;
+                                    refresher.broadcaster.broadcast().await;
                                 }
                                 eventsource_client::SSE::Event(event) => {
                                     debug!(
@@ -378,7 +378,7 @@ impl FeatureRefresher {
                                     );
                                 }
                                 eventsource_client::SSE::Connected(_) => {
-                                    debug!("SSE Connectection established");
+                                    debug!("SSE Connection established");
                                 }
                                 eventsource_client::SSE::Comment(_) => {
                                     // purposefully left blank.

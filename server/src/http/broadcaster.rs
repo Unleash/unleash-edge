@@ -1,5 +1,10 @@
 /// copied from https://github.com/actix/examples/blob/master/server-sent-events/src/broadcast.rs
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{
+    collections::HashMap,
+    hash::{Hash, Hasher},
+    sync::Arc,
+    time::Duration,
+};
 
 use actix_web::{
     rt::time::interval,
@@ -12,20 +17,17 @@ use actix_web_lab::{
 use dashmap::DashMap;
 use futures_util::future;
 use parking_lot::Mutex;
-use tokio::sync::mpsc;
+use serde::Serialize;
+use tokio::{net::unix::pipe::Sender, sync::mpsc};
 use tokio_stream::wrappers::ReceiverStream;
-use unleash_types::client_features::ClientFeatures;
+use unleash_types::client_features::{ClientFeatures, Query as FlagQuery};
 
 use crate::{
+    cli,
     filters::{filter_client_features, name_prefix_filter, project_filter, FeatureFilterSet},
     tokens::cache_key,
     types::{EdgeResult, EdgeToken, FeatureFilters},
 };
-
-pub struct Broadcaster {
-    inner: Mutex<BroadcasterInner>,
-    features_cache: Arc<DashMap<String, ClientFeatures>>,
-}
 
 // this doesn't work because filter_set isn't clone. However, we can probably
 // find a way around that. For instance, we can create a hash map / dash map of
@@ -50,7 +52,7 @@ struct StreamClient {
 struct QueryStuff {
     token: EdgeToken,
     filter_set: Query<FeatureFilters>,
-    query: unleash_types::client_features::Query,
+    query: FlagQuery,
 }
 
 impl std::fmt::Debug for QueryStuff {
@@ -59,10 +61,34 @@ impl std::fmt::Debug for QueryStuff {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+struct QueryWrapper {
+    query: FlagQuery,
+}
+
+impl Hash for QueryWrapper {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        serde_json::to_string(&self.query).unwrap().hash(state);
+    }
+}
+
+#[derive(Clone, Debug)]
+struct ClientGroup {
+    clients: Vec<mpsc::Sender<sse::Event>>,
+    filter_set: Query<FeatureFilters>,
+    token: EdgeToken,
+}
+
+#[derive(Default)]
 struct BroadcasterInner {
+    active_connections: HashMap<QueryWrapper, ClientGroup>,
     clients: Vec<StreamClient>,
     filters: HashMap<String, QueryStuff>,
+}
+
+pub struct Broadcaster {
+    inner: Mutex<BroadcasterInner>,
+    features_cache: Arc<DashMap<String, ClientFeatures>>,
 }
 
 impl Broadcaster {
@@ -117,7 +143,7 @@ impl Broadcaster {
     /// The commented-out arguments are what we'll need to store per client so
     /// that we can properly filter / format the feature response when they get
     /// updates later.
-    pub async fn new_client(
+    pub async fn connect(
         &self,
         token: EdgeToken,
         filter_set: Query<FeatureFilters>,
@@ -126,17 +152,32 @@ impl Broadcaster {
     ) -> Sse<InfallibleStream<ReceiverStream<sse::Event>>> {
         let (tx, rx) = mpsc::channel(10);
 
-        let token_string = token.token.clone();
-        let query_stuff = QueryStuff {
-            token,
-            filter_set,
-            query,
-        };
+        // let token_string = token.token.clone();
+        // let query_stuff = QueryStuff {
+        //     token: token.clone(),
+        //     filter_set: filter_set.clone(),
+        //     query: query.clone(),
+        // };
 
         self.inner
             .lock()
-            .filters
-            .insert(token_string.clone(), query_stuff);
+            .active_connections
+            .entry(QueryWrapper {
+                query: query.clone(),
+            })
+            .and_modify(|group| {
+                group.clients.push(tx.clone());
+            })
+            .or_insert(ClientGroup {
+                clients: vec![tx.clone()],
+                filter_set,
+                token,
+            });
+
+        // self.inner
+        //     .lock()
+        //     .filters
+        //     .insert(token_string.clone(), query_stuff);
 
         tx.send(
             sse::Data::new_json(features)
@@ -147,10 +188,10 @@ impl Broadcaster {
         .await
         .unwrap();
 
-        self.inner.lock().clients.push(StreamClient {
-            stream: tx,
-            id: token_string,
-        });
+        // self.inner.lock().clients.push(StreamClient {
+        //     stream: tx,
+        //     id: token_string,
+        // });
 
         Sse::from_infallible_receiver(rx)
         // we're already using remove_stale_clients to clean up disconnected
@@ -191,30 +232,51 @@ impl Broadcaster {
         filter_set
     }
 
-    /// Broadcasts `msg` to all clients.
-    ///
-    /// This is the example implementation of the broadcast function. It's not used anywhere today.
+    /// Broadcast new features to all clients.
     pub async fn broadcast(&self) {
         let clients = self.inner.lock().clients.clone();
+        let active_connections = self.inner.lock().active_connections.clone();
 
-        let send_futures = clients.iter().map(|client| {
-            let binding = self.inner.lock();
-            let query_stuff = binding.filters.get(&client.id).unwrap();
-            let filter_set = Broadcaster::get_query_filters(
-                query_stuff.filter_set.clone(),
-                query_stuff.token.clone(),
-            );
+        let send_futures = Vec::new();
+        for (query, group) in active_connections {
+            let filter_set =
+                Broadcaster::get_query_filters(group.filter_set.clone(), group.token.clone());
             let features = self
                 .features_cache
-                .get(&cache_key(&query_stuff.token))
+                .get(&cache_key(&group.token))
                 .map(|client_features| filter_client_features(&client_features, &filter_set));
-            // let features = get_features_for_filter(query_stuff.token.clone(), &filter_set).unwrap();
-            let event = sse::Data::new_json(&features).unwrap().into();
-            client.stream.send(event)
-        });
+            let event: Event = sse::Data::new_json(&features).unwrap().into();
 
+            for client in group.clients {
+                send_futures.push(client.stream.send(event.clone()));
+            }
+            // let send_futures = group
+            //     .clients
+            //     .iter()
+            //     .map(|client| client.send(event.clone()));
+        }
         // try to send to all clients, ignoring failures
         // disconnected clients will get swept up by `remove_stale_clients`
         let _ = future::join_all(send_futures).await;
+
+        // let send_futures = clients.iter().map(|client| {
+        //     let binding = self.inner.lock();
+        //     let query_stuff = binding.filters.get(&client.id).unwrap();
+        //     let filter_set = Broadcaster::get_query_filters(
+        //         query_stuff.filter_set.clone(),
+        //         query_stuff.token.clone(),
+        //     );
+        //     let features = self
+        //         .features_cache
+        //         .get(&cache_key(&query_stuff.token))
+        //         .map(|client_features| filter_client_features(&client_features, &filter_set));
+        //     // let features = get_features_for_filter(query_stuff.token.clone(), &filter_set).unwrap();
+        //     let event = sse::Data::new_json(&features).unwrap().into();
+        //     client.stream.send(event)
+        // });
+
+        // // try to send to all clients, ignoring failures
+        // // disconnected clients will get swept up by `remove_stale_clients`
+        // let _ = future::join_all(send_futures).await;
     }
 }

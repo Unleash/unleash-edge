@@ -58,7 +58,7 @@ pub async fn stream_features(
     match (req.app_data::<Data<FeatureRefresher>>(), features) {
         (Some(refresher), Ok(features)) => Ok(refresher
             .broadcaster
-            .new_client(
+            .connect(
                 validated_token,
                 filter_query.clone(),
                 query.clone(),
