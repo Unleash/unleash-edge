@@ -7,7 +7,6 @@ use actix_web::{
     HttpResponse,
 };
 use dashmap::DashMap;
-use tracing::trace;
 
 pub async fn validate_token(
     token: EdgeToken,

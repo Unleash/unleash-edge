@@ -327,10 +327,12 @@ mod tests {
             token_cache: Arc::new(DashMap::default()),
             persistence: None,
         };
+        let token_cache: DashMap<String, EdgeToken> = DashMap::default();
         let app = test::init_service(
             App::new()
                 .app_data(web::Data::new(feature_refresher))
                 .app_data(web::Data::new(token_validator))
+                .app_data(web::Data::new(token_cache))
                 .service(web::scope("/internal-backstage").service(super::tokens)),
         )
         .await;
