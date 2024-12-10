@@ -12,8 +12,8 @@ homepage = "https://github.com/Unleash/unleash-edge"
 license = "MIT"
 name = "unleash-edge"
 repository = "https://github.com/Unleash/unleash-edge"
-version = "19.6.1"
 rust-version = "1.81.0"
+version = "19.6.3"
 
 [package.metadata.wix]
 upgrade-guid = "11E5D83A-3034-48BB-9A84-9F589EBD648C"
@@ -99,6 +99,7 @@ utoipa-swagger-ui = { version = "8", features = ["actix-web"] }
 actix-http = "3.9.0"
 actix-http-test = "3.2.0"
 actix-service = "2.0.2"
+capture-logger = "0.1.1"
 env_logger = "0.11.5"
 maplit = "1.0.2"
 rand = "0.8.5"

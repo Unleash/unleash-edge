@@ -87,10 +87,6 @@ pub(crate) fn build_offline_mode(
     let edge_tokens: Vec<EdgeToken> = tokens
         .iter()
         .map(|token| EdgeToken::from_str(token).unwrap_or_else(|_| EdgeToken::offline_token(token)))
-        .map(|mut token| {
-            token.token_type = Some(TokenType::Client);
-            token
-        })
         .collect();
 
     let edge_client_tokens: Vec<EdgeToken> = client_tokens
@@ -285,6 +281,10 @@ async fn build_edge(args: &EdgeArgs, app_name: &str) -> EdgeResult<EdgeInfo> {
         .await;
     }
 
+    if args.strict && token_cache.is_empty() {
+        error!("You started Edge in strict mode, but Edge was not able to validate any of the tokens configured at startup");
+        return Err(EdgeError::NoTokens("No valid tokens was provided on startup. At least one valid token must be specified at startup when running in Strict mode".into()));
+    }
     for validated_token in token_cache
         .iter()
         .filter(|candidate| candidate.value().token_type == Some(TokenType::Client))
