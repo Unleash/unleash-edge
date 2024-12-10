@@ -4,8 +4,8 @@ use actix_web::dev::ServiceRequest;
 use actix_web::http::{Method, StatusCode, Version};
 use futures::{future, FutureExt};
 use futures_core::future::LocalBoxFuture;
-use opentelemetry::metrics::{Histogram, Meter, MeterProvider, MetricsError, UpDownCounter};
-use opentelemetry::{global, KeyValue, Value};
+use opentelemetry::metrics::{Histogram, Meter, MeterProvider, UpDownCounter};
+use opentelemetry::{KeyValue, Value};
 use opentelemetry_semantic_conventions::trace::{
     CLIENT_ADDRESS, HTTP_REQUEST_METHOD, HTTP_RESPONSE_STATUS_CODE, NETWORK_PROTOCOL_NAME,
     NETWORK_PROTOCOL_VERSION, SERVER_ADDRESS, SERVER_PORT, URL_PATH, URL_SCHEME,
@@ -115,25 +115,25 @@ impl Metrics {
         let http_server_active_requests = meter
             .i64_up_down_counter(HTTP_SERVER_ACTIVE_REQUESTS)
             .with_description("HTTP concurrent in-flight requests per route")
-            .init();
+            .build();
 
         let http_server_duration = meter
             .f64_histogram(HTTP_SERVER_DURATION)
             .with_description("HTTP inbound request duration per route")
             .with_unit("ms")
-            .init();
+            .build();
 
         let http_server_request_size = meter
             .u64_histogram(HTTP_SERVER_REQUEST_SIZE)
             .with_description("Measures the size of HTTP request messages (compressed).")
             .with_unit("By")
-            .init();
+            .build();
 
         let http_server_response_size = meter
             .u64_histogram(HTTP_SERVER_RESPONSE_SIZE)
             .with_description("Measures the size of HTTP request messages (compressed).")
             .with_unit("By")
-            .init();
+            .build();
 
         Metrics {
             http_server_active_requests,
@@ -174,9 +174,7 @@ impl RequestMetricsBuilder {
 
     /// Build the `RequestMetrics` middleware
     pub fn build(self) -> RequestMetrics {
-        let meter = self
-            .meter
-            .unwrap_or_else(|| get_versioned_meter(global::meter_provider()));
+        let meter = self.meter.unwrap();
 
         RequestMetrics {
             route_formatter: self.route_formatter,
@@ -187,12 +185,7 @@ impl RequestMetricsBuilder {
 
 /// construct meters for this crate
 fn get_versioned_meter(meter_provider: impl MeterProvider) -> Meter {
-    meter_provider.versioned_meter(
-        "unleash_edge",
-        Some(env!("CARGO_PKG_VERSION")),
-        Some(opentelemetry_semantic_conventions::SCHEMA_URL),
-        None,
-    )
+    meter_provider.meter("unleash_edge")
 }
 
 #[derive(Clone, Debug)]
@@ -331,10 +324,7 @@ impl PrometheusMetricsHandler {
         let encoder = TextEncoder::new();
         let metric_families = self.registry.gather();
         let mut buf = Vec::new();
-        if let Err(err) = encoder.encode(&metric_families[..], &mut buf) {
-            global::handle_error(MetricsError::Other(err.to_string()));
-        }
-
+        let _ = encoder.encode(&metric_families[..], &mut buf);
         String::from_utf8(buf).unwrap_or_default()
     }
 }
