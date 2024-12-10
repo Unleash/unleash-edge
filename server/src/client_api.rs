@@ -9,6 +9,8 @@ use crate::types::{
     self, BatchMetricsRequestBody, EdgeJsonResult, EdgeResult, EdgeToken, FeatureFilters,
 };
 use actix_web::web::{self, Data, Json, Query};
+#[cfg(feature = "streaming")]
+use actix_web::Responder;
 use actix_web::{get, post, HttpRequest, HttpResponse};
 use dashmap::DashMap;
 use unleash_types::client_features::{ClientFeature, ClientFeatures};
@@ -36,6 +38,40 @@ pub async fn get_features(
 ) -> EdgeJsonResult<ClientFeatures> {
     resolve_features(edge_token, features_cache, token_cache, filter_query, req).await
 }
+
+#[cfg(feature = "streaming")]
+#[get("/streaming")]
+pub async fn stream_features(
+    edge_token: EdgeToken,
+    features_cache: Data<DashMap<String, ClientFeatures>>,
+    token_cache: Data<DashMap<String, EdgeToken>>,
+    filter_query: Query<FeatureFilters>,
+    req: HttpRequest,
+) -> EdgeResult<impl Responder> {
+    let (validated_token, filter_set, query) =
+        get_feature_filter(&edge_token, &token_cache, filter_query.clone())?;
+    let features = resolve_features_2(
+        query.clone(),
+        validated_token.clone(),
+        filter_set,
+        features_cache,
+        req.clone(),
+    )
+    .await;
+    match (req.app_data::<Data<FeatureRefresher>>(), features) {
+        (Some(refresher), Ok(features)) => Ok(refresher
+            .broadcaster
+            .connect(
+                validated_token,
+                filter_query.clone(),
+                query.clone(),
+                features,
+            )
+            .await),
+        _ => todo!(),
+    }
+}
+
 #[utoipa::path(
     context_path = "/api/client",
     params(FeatureFilters),
@@ -59,13 +95,18 @@ pub async fn post_features(
     resolve_features(edge_token, features_cache, token_cache, filter_query, req).await
 }
 
-async fn resolve_features(
-    edge_token: EdgeToken,
-    features_cache: Data<DashMap<String, ClientFeatures>>,
-    token_cache: Data<DashMap<String, EdgeToken>>,
+/// this was extracted from resolve_features because it gives us the necessary
+/// values to filter flags and construct client feature responses later. It's a
+/// standalone function and can be moved to a different file if necessary.
+fn get_feature_filter(
+    edge_token: &EdgeToken,
+    token_cache: &Data<DashMap<String, EdgeToken>>,
     filter_query: Query<FeatureFilters>,
-    req: HttpRequest,
-) -> EdgeJsonResult<ClientFeatures> {
+) -> EdgeResult<(
+    EdgeToken,
+    FeatureFilterSet,
+    unleash_types::client_features::Query,
+)> {
     let validated_token = token_cache
         .get(&edge_token.token)
         .map(|e| e.value().clone())
@@ -86,6 +127,50 @@ async fn resolve_features(
         FeatureFilterSet::default()
     }
     .with_filter(project_filter(&validated_token));
+
+    Ok((validated_token, filter_set, query))
+}
+
+/// This is the second half of resolve_features. The idea was that you don't
+/// need to do the extraction work twice. The broadcaster shold be able to do
+/// something like the Some arm of the match here, except we'll know that we
+/// already have the refresher.
+#[cfg(feature = "streaming")]
+async fn resolve_features_2(
+    query: unleash_types::client_features::Query,
+    validated_token: EdgeToken,
+    filter_set: FeatureFilterSet,
+    features_cache: Data<DashMap<String, ClientFeatures>>,
+    req: HttpRequest,
+) -> EdgeJsonResult<ClientFeatures> {
+    let client_features = match req.app_data::<Data<FeatureRefresher>>() {
+        Some(refresher) => {
+            refresher
+                .features_for_filter(validated_token.clone(), &filter_set)
+                .await
+        }
+        None => features_cache
+            .get(&cache_key(&validated_token))
+            .map(|client_features| filter_client_features(&client_features, &filter_set))
+            .ok_or(EdgeError::ClientCacheError),
+    }?;
+
+    Ok(Json(ClientFeatures {
+        query: Some(query),
+        ..client_features
+    }))
+}
+
+/// This is the same as it always was, except I extracted bits of it.
+async fn resolve_features(
+    edge_token: EdgeToken,
+    features_cache: Data<DashMap<String, ClientFeatures>>,
+    token_cache: Data<DashMap<String, EdgeToken>>,
+    filter_query: Query<FeatureFilters>,
+    req: HttpRequest,
+) -> EdgeJsonResult<ClientFeatures> {
+    let (validated_token, filter_set, query) =
+        get_feature_filter(&edge_token, &token_cache, filter_query.clone())?;
 
     let client_features = match req.app_data::<Data<FeatureRefresher>>() {
         Some(refresher) => {
@@ -230,17 +315,20 @@ pub async fn post_bulk_metrics(
     Ok(HttpResponse::Accepted().finish())
 }
 pub fn configure_client_api(cfg: &mut web::ServiceConfig) {
-    cfg.service(
-        web::scope("/client")
-            .wrap(crate::middleware::as_async_middleware::as_async_middleware(
-                crate::middleware::validate_token::validate_token,
-            ))
-            .service(get_features)
-            .service(get_feature)
-            .service(register)
-            .service(metrics)
-            .service(post_bulk_metrics),
-    );
+    let client_scope = web::scope("/client")
+        .wrap(crate::middleware::as_async_middleware::as_async_middleware(
+            crate::middleware::validate_token::validate_token,
+        ))
+        .service(get_features)
+        .service(get_feature)
+        .service(register)
+        .service(metrics)
+        .service(post_bulk_metrics);
+
+    #[cfg(feature = "streaming")]
+    let client_scope = client_scope.service(stream_features);
+
+    cfg.service(client_scope);
 }
 
 pub fn configure_experimental_post_features(
@@ -255,6 +343,8 @@ pub fn configure_experimental_post_features(
 #[cfg(test)]
 mod tests {
 
+    #[cfg(feature = "streaming")]
+    use crate::http::broadcaster::Broadcaster;
     use crate::metrics::client_metrics::{ApplicationKey, MetricsBatch, MetricsKey};
     use crate::types::{TokenType, TokenValidationStatus};
     use std::collections::HashMap;
@@ -978,6 +1068,8 @@ mod tests {
             persistence: None,
             strict: false,
             app_name: "test-app".into(),
+            #[cfg(feature = "streaming")]
+            broadcaster: Broadcaster::new(features_cache.clone()),
         });
         let token_validator = Arc::new(TokenValidator {
             unleash_client: unleash_client.clone(),

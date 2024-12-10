@@ -4,6 +4,10 @@ use std::{sync::Arc, time::Duration};
 use actix_web::http::header::EntityTag;
 use chrono::Utc;
 use dashmap::DashMap;
+#[cfg(feature = "streaming")]
+use eventsource_client::Client;
+#[cfg(feature = "streaming")]
+use futures::TryStreamExt;
 use reqwest::StatusCode;
 use tracing::{debug, info, warn};
 use unleash_types::client_features::Segment;
@@ -23,6 +27,8 @@ use crate::{
     types::{ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenRefresh},
 };
 
+#[cfg(feature = "streaming")]
+use super::broadcaster::Broadcaster;
 use super::unleash_client::UnleashClient;
 
 fn frontend_token_is_covered_by_tokens(
@@ -102,6 +108,8 @@ pub struct FeatureRefresher {
     pub persistence: Option<Arc<dyn EdgePersistence>>,
     pub strict: bool,
     pub app_name: String,
+    #[cfg(feature = "streaming")]
+    pub broadcaster: Arc<Broadcaster>,
 }
 
 impl Default for FeatureRefresher {
@@ -115,6 +123,8 @@ impl Default for FeatureRefresher {
             persistence: None,
             strict: true,
             app_name: "unleash_edge".into(),
+            #[cfg(feature = "streaming")]
+            broadcaster: Broadcaster::new(Default::default()),
         }
     }
 }
@@ -154,12 +164,14 @@ impl FeatureRefresher {
         FeatureRefresher {
             unleash_client,
             tokens_to_refresh: Arc::new(DashMap::default()),
-            features_cache: features,
+            features_cache: features.clone(),
             engine_cache: engines,
             refresh_interval: features_refresh_interval,
             persistence,
             strict,
             app_name: app_name.into(),
+            #[cfg(feature = "streaming")]
+            broadcaster: Broadcaster::new(features.clone()),
         }
     }
 
@@ -299,6 +311,97 @@ impl FeatureRefresher {
         }
     }
 
+    /// This is where we set up a listener per token.
+    #[cfg(feature = "streaming")]
+    pub async fn start_streaming_features_background_task(&self) -> anyhow::Result<()> {
+        let refreshes = self.get_tokens_due_for_refresh();
+        for refresh in refreshes {
+            let token = refresh.token.clone();
+            let streaming_url = format!("{}/client/streaming", self.unleash_client.urls.api_url);
+
+            let es_client = eventsource_client::ClientBuilder::for_url(&streaming_url)?
+                .header("Authorization", &token.token)?
+                .reconnect(
+                    eventsource_client::ReconnectOptions::reconnect(true)
+                        .retry_initial(true)
+                        .delay(Duration::from_secs(5))
+                        .delay_max(Duration::from_secs(30))
+                        .backoff_factor(2)
+                        .build(),
+                )
+                .build();
+
+            let refresher = self.clone();
+            // let broadcaster = self.broadcaster.clone();
+
+            tokio::spawn(async move {
+                let mut stream = es_client
+                    .stream()
+                    .map_ok(move |sse| {
+                        let token = token.clone();
+                        let refresher = refresher.clone();
+                        // let broadcaster = broadcaster.clone();
+                        async move {
+                            match sse {
+                                // The first time we're connecting to Unleash. Just store the data.
+                                eventsource_client::SSE::Event(event)
+                                    if event.event_type == "unleash-connected" =>
+                                {
+                                    debug!(
+                                        "Connected to unleash! I should populate my flag cache now.",
+                                    );
+
+                                    // very rough handling of client features.
+                                    let features: ClientFeatures =
+                                    serde_json::from_str(&event.data).unwrap();
+                                    refresher.handle_client_features_updated(TokenRefresh::new(token, None), features);
+                                }
+                                // Unleash has updated. This is where we send data to listeners.
+                                eventsource_client::SSE::Event(event)
+                                    if event.event_type == "unleash-updated" =>
+                                {
+                                    debug!(
+                                        "Got an unleash updated event. I should update my cache and notify listeners.",
+                                    );
+
+                                    // store the data locally
+                                    let features: ClientFeatures =
+                                    serde_json::from_str(&event.data).unwrap();
+                                    refresher.handle_client_features_updated(TokenRefresh::new(token, None), features);
+
+                                    // send the data to the broadcaster. This should probably just send the new
+                                    // feature set OR even just a "filter flags"
+                                    // function. The broadcaster will take care
+                                    // of filtering the flags per listener.
+                                    // let data = Data::new(event.data).event("unleash-updated");
+                                    // broadcaster.rebroadcast(actix_web_lab::sse::Event::Data(data)).await;
+                                    refresher.broadcaster.broadcast().await;
+                                }
+                                eventsource_client::SSE::Event(event) => {
+                                    debug!(
+                                        "Got an SSE event that I wasn't expecting: {:#?}",
+                                        event
+                                    );
+                                }
+                                eventsource_client::SSE::Connected(_) => {
+                                    debug!("SSE Connection established");
+                                }
+                                eventsource_client::SSE::Comment(_) => {
+                                    // purposefully left blank.
+                                },
+                            }
+                        }
+                    })
+                    .map_err(|e| warn!("Error in SSE stream: {:?}", e));
+
+                while let Ok(Some(handler)) = stream.try_next().await {
+                    handler.await;
+                }
+            });
+        }
+        Ok(())
+    }
+
     pub async fn start_refresh_features_background_task(&self) {
         loop {
             tokio::select! {
@@ -320,6 +423,44 @@ impl FeatureRefresher {
         for refresh in refreshes {
             self.refresh_single(refresh).await;
         }
+    }
+
+    // this is a copy of the handling in refresh_single. Extracting just so we can handle the new flags in the same way without fetching them first.
+    #[cfg(feature = "streaming")]
+    fn handle_client_features_updated(&self, refresh: TokenRefresh, features: ClientFeatures) {
+        debug!("Handling client features update.");
+        let key = cache_key(&refresh.token);
+        let etag = refresh.etag;
+        self.update_last_refresh(&refresh.token, etag, features.features.len());
+        self.features_cache
+            .entry(key.clone())
+            .and_modify(|existing_data| {
+                let updated_data = update_client_features(&refresh.token, existing_data, &features);
+                *existing_data = updated_data;
+            })
+            .or_insert_with(|| features.clone());
+        self.engine_cache
+                        .entry(key.clone())
+                        .and_modify(|engine| {
+                            if let Some(f) = self.features_cache.get(&key) {
+                                let mut new_state = EngineState::default();
+                                let warnings = new_state.take_state(f.clone());
+                                if let Some(warnings) = warnings {
+                                    warn!("The following toggle failed to compile and will be defaulted to off: {warnings:?}");
+                                };
+                                *engine = new_state;
+
+                            }
+                        })
+                        .or_insert_with(|| {
+                            let mut new_state = EngineState::default();
+
+                            let warnings = new_state.take_state(features);
+                            if let Some(warnings) = warnings {
+                                warn!("The following toggle failed to compile and will be defaulted to off: {warnings:?}");
+                            };
+                            new_state
+                        });
     }
 
     pub async fn refresh_single(&self, refresh: TokenRefresh) {
