@@ -355,7 +355,7 @@ impl FeatureRefresher {
                                     // very rough handling of client features.
                                     let features: ClientFeatures =
                                     serde_json::from_str(&event.data).unwrap();
-                                    refresher.handle_client_features_updated(TokenRefresh::new(token, None), features);
+                                    refresher.handle_client_features_updated(&token, features, None).await;
                                 }
                                 // Unleash has updated. This is where we send data to listeners.
                                 eventsource_client::SSE::Event(event)
@@ -368,15 +368,7 @@ impl FeatureRefresher {
                                     // store the data locally
                                     let features: ClientFeatures =
                                     serde_json::from_str(&event.data).unwrap();
-                                    refresher.handle_client_features_updated(TokenRefresh::new(token, None), features);
-
-                                    // send the data to the broadcaster. This should probably just send the new
-                                    // feature set OR even just a "filter flags"
-                                    // function. The broadcaster will take care
-                                    // of filtering the flags per listener.
-                                    // let data = Data::new(event.data).event("unleash-updated");
-                                    // broadcaster.rebroadcast(actix_web_lab::sse::Event::Data(data)).await;
-                                    refresher.broadcaster.broadcast().await;
+                                    refresher.handle_client_features_updated(&token, features, None).await;
                                 }
                                 eventsource_client::SSE::Event(event) => {
                                     info!(
@@ -426,17 +418,19 @@ impl FeatureRefresher {
         }
     }
 
-    // this is a copy of the handling in refresh_single. Extracting just so we can handle the new flags in the same way without fetching them first.
-    #[cfg(feature = "streaming")]
-    fn handle_client_features_updated(&self, refresh: TokenRefresh, features: ClientFeatures) {
-        debug!("Handling client features update.");
-        let key = cache_key(&refresh.token);
-        let etag = refresh.etag;
-        self.update_last_refresh(&refresh.token, etag, features.features.len());
+    async fn handle_client_features_updated(
+        &self,
+        refresh_token: &EdgeToken,
+        features: ClientFeatures,
+        etag: Option<EntityTag>,
+    ) {
+        debug!("Got updated client features. Updating features with {etag:?}");
+        let key = cache_key(refresh_token);
+        self.update_last_refresh(refresh_token, etag, features.features.len());
         self.features_cache
             .entry(key.clone())
             .and_modify(|existing_data| {
-                let updated_data = update_client_features(&refresh.token, existing_data, &features);
+                let updated_data = update_client_features(refresh_token, existing_data, &features);
                 *existing_data = updated_data;
             })
             .or_insert_with(|| features.clone());
@@ -462,6 +456,9 @@ impl FeatureRefresher {
                             };
                             new_state
                         });
+
+        #[cfg(feature = "streaming")]
+        self.broadcaster.broadcast().await;
     }
 
     pub async fn refresh_single(&self, refresh: TokenRefresh) {
@@ -480,39 +477,8 @@ impl FeatureRefresher {
                     self.update_last_check(&refresh.token.clone());
                 }
                 ClientFeaturesResponse::Updated(features, etag) => {
-                    debug!("Got updated client features. Updating features with {etag:?}");
-                    let key = cache_key(&refresh.token);
-                    self.update_last_refresh(&refresh.token, etag, features.features.len());
-                    self.features_cache
-                        .entry(key.clone())
-                        .and_modify(|existing_data| {
-                            let updated_data =
-                                update_client_features(&refresh.token, existing_data, &features);
-                            *existing_data = updated_data;
-                        })
-                        .or_insert_with(|| features.clone());
-                    self.engine_cache
-                        .entry(key.clone())
-                        .and_modify(|engine| {
-                            if let Some(f) = self.features_cache.get(&key) {
-                                let mut new_state = EngineState::default();
-                                let warnings = new_state.take_state(f.clone());
-                                if let Some(warnings) = warnings {
-                                    warn!("The following toggle failed to compile and will be defaulted to off: {warnings:?}");
-                                };
-                                *engine = new_state;
-
-                            }
-                        })
-                        .or_insert_with(|| {
-                            let mut new_state = EngineState::default();
-
-                            let warnings = new_state.take_state(features);
-                            if let Some(warnings) = warnings {
-                                warn!("The following toggle failed to compile and will be defaulted to off: {warnings:?}");
-                            };
-                            new_state
-                        });
+                    self.handle_client_features_updated(&refresh.token, features, etag)
+                        .await
                 }
             },
             Err(e) => {
