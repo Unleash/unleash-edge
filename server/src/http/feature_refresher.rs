@@ -344,31 +344,33 @@ impl FeatureRefresher {
                         let refresher = refresher.clone();
                         async move {
                             match sse {
-                                // The first time we're connecting to Unleash. Just store the data.
+                                // The first time we're connecting to Unleash.
                                 eventsource_client::SSE::Event(event)
                                     if event.event_type == "unleash-connected" =>
                                 {
                                     debug!(
-                                        "Connected to unleash! I should populate my flag cache now.",
+                                        "Connected to unleash! Populating my flag cache now.",
                                     );
 
-                                    // very rough handling of client features.
-                                    let features: ClientFeatures =
-                                    serde_json::from_str(&event.data).unwrap();
-                                    refresher.handle_client_features_updated(&token, features, None).await;
+                                    match serde_json::from_str(&event.data) {
+                                        Ok(features) => { refresher.handle_client_features_updated(&token, features, None).await; }
+                                        Err(_) => { warn!("Could not parse features response to internal representation");
+                                        }
+                                    }
                                 }
-                                // Unleash has updated. This is where we send data to listeners.
+                                // Unleash has updated features for us.
                                 eventsource_client::SSE::Event(event)
                                     if event.event_type == "unleash-updated" =>
                                 {
                                     debug!(
-                                        "Got an unleash updated event. I should update my cache and notify listeners.",
+                                        "Got an unleash updated event. Updating cache.",
                                     );
 
-                                    // store the data locally
-                                    let features: ClientFeatures =
-                                    serde_json::from_str(&event.data).unwrap();
-                                    refresher.handle_client_features_updated(&token, features, None).await;
+                                    match serde_json::from_str(&event.data) {
+                                        Ok(features) => { refresher.handle_client_features_updated(&token, features, None).await; }
+                                        Err(_) => { warn!("Could not parse features response to internal representation");
+                                        }
+                                    }
                                 }
                                 eventsource_client::SSE::Event(event) => {
                                     info!(
