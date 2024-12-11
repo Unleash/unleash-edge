@@ -45,14 +45,8 @@ struct ClientGroup {
     token: EdgeToken,
 }
 
-#[derive(Default)]
-struct BroadcasterInner {
-    active_connections: HashMap<QueryWrapper, ClientGroup>,
-}
-
 pub struct Broadcaster {
     active_connections: DashMap<QueryWrapper, ClientGroup>,
-    // inner: Mutex<BroadcasterInner>,
     features_cache: Arc<DashMap<String, ClientFeatures>>,
 }
 
@@ -60,7 +54,6 @@ impl Broadcaster {
     /// Constructs new broadcaster and spawns ping loop.
     pub fn new(features: Arc<DashMap<String, ClientFeatures>>) -> Arc<Self> {
         let this = Arc::new(Broadcaster {
-            // inner: Mutex::new(BroadcasterInner::default()),
             active_connections: DashMap::new(),
             features_cache: features,
         });
@@ -85,10 +78,7 @@ impl Broadcaster {
 
     /// Removes all non-responsive clients from broadcast list.
     async fn remove_stale_clients(&self) {
-        // let active_connections = self.inner.lock().active_connections.clone();
-
         for mut group in self.active_connections.iter_mut() {
-            // let (_query, &mut group) = entry.pair();
             let mut ok_clients = Vec::new();
 
             for client in &group.clients {
@@ -146,9 +136,6 @@ impl Broadcaster {
         .unwrap();
 
         Sse::from_infallible_receiver(rx)
-        // we're already using remove_stale_clients to clean up disconnected
-        // clients and send heartbeats. we probably don't need this.
-        // .with_keep_alive(Duration::from_secs(30))
     }
 
     fn get_query_filters(
