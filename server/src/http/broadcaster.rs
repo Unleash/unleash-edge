@@ -16,7 +16,6 @@ use actix_web_lab::{
 };
 use dashmap::DashMap;
 use futures_util::future;
-use parking_lot::Mutex;
 use serde::Serialize;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
@@ -52,7 +51,8 @@ struct BroadcasterInner {
 }
 
 pub struct Broadcaster {
-    inner: Mutex<BroadcasterInner>,
+    active_connections: DashMap<QueryWrapper, ClientGroup>,
+    // inner: Mutex<BroadcasterInner>,
     features_cache: Arc<DashMap<String, ClientFeatures>>,
 }
 
@@ -60,7 +60,8 @@ impl Broadcaster {
     /// Constructs new broadcaster and spawns ping loop.
     pub fn new(features: Arc<DashMap<String, ClientFeatures>>) -> Arc<Self> {
         let this = Arc::new(Broadcaster {
-            inner: Mutex::new(BroadcasterInner::default()),
+            // inner: Mutex::new(BroadcasterInner::default()),
+            active_connections: DashMap::new(),
             features_cache: features,
         });
 
@@ -84,22 +85,26 @@ impl Broadcaster {
 
     /// Removes all non-responsive clients from broadcast list.
     async fn remove_stale_clients(&self) {
-        let active_connections = self.inner.lock().active_connections.clone();
+        // let active_connections = self.inner.lock().active_connections.clone();
 
-        for (_query, mut group) in active_connections {
-          let mut ok_clients = Vec::new();
+        for mut group in self.active_connections.iter_mut() {
+            // let (_query, &mut group) = entry.pair();
+            let mut ok_clients = Vec::new();
 
-          for client in group.clients {
-              if client
-                  .send(sse::Event::Comment("keep-alive".into()))
-                  .await
-                  .is_ok()
-              {
-                  ok_clients.push(client.clone());
-              }
-          }
+            for client in &group.clients {
+                if client
+                    .send(sse::Event::Comment("keep-alive".into()))
+                    .await
+                    .is_ok()
+                {
+                    ok_clients.push(client.clone());
+                }
+            }
 
-          group.clients = ok_clients;
+            // validate tokens here?
+            // ok_clients.iter().filter(|client| client.token_is_valid())
+
+            group.clients = ok_clients;
         }
     }
 
@@ -118,9 +123,7 @@ impl Broadcaster {
     ) -> Sse<InfallibleStream<ReceiverStream<sse::Event>>> {
         let (tx, rx) = mpsc::channel(10);
 
-        self.inner
-            .lock()
-            .active_connections
+        self.active_connections
             .entry(QueryWrapper {
                 query: query.clone(),
             })
@@ -165,25 +168,29 @@ impl Broadcaster {
 
     /// Broadcast new features to all clients.
     pub async fn broadcast(&self) {
-        let active_connections = self.inner.lock().active_connections.clone();
-
         let mut client_events = Vec::new();
-        for (_query, group) in active_connections {
+        for entry in self.active_connections.iter() {
+            let (_query, group) = entry.pair();
             let filter_set =
                 Broadcaster::get_query_filters(group.filter_set.clone(), group.token.clone());
             let features = self
                 .features_cache
                 .get(&cache_key(&group.token))
                 .map(|client_features| filter_client_features(&client_features, &filter_set));
-            let event: Event = sse::Data::new_json(&features).unwrap().event("unleash-updated").into();
+            let event: Event = sse::Data::new_json(&features)
+                .unwrap()
+                .event("unleash-updated")
+                .into();
 
-            for client in group.clients {
-                client_events.push((client, event.clone()));
+            for client in &group.clients {
+                client_events.push((client.clone(), event.clone()));
             }
         }
         // try to send to all clients, ignoring failures
         // disconnected clients will get swept up by `remove_stale_clients`
-        let send_events = client_events.iter().map(|(client, event)| client.send(event.clone()));
+        let send_events = client_events
+            .iter()
+            .map(|(client, event)| client.send(event.clone()));
 
         let _ = future::join_all(send_events).await;
     }
