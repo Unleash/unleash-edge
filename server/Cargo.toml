@@ -61,7 +61,6 @@ opentelemetry_sdk = { version = "0.24.0", features = [
     "serde_json",
     "logs",
 ] }
-parking_lot = "0.12.3"
 prometheus = { version = "0.13.4", features = ["process"] }
 prometheus-reqwest-remote-write = { version = "0.2.1" }
 prometheus-static-metric = "0.5.1"

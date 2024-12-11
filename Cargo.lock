@@ -4372,7 +4372,6 @@ dependencies = [
  "opentelemetry-prometheus",
  "opentelemetry-semantic-conventions",
  "opentelemetry_sdk",
- "parking_lot",
  "prometheus",
  "prometheus-reqwest-remote-write",
  "prometheus-static-metric",
