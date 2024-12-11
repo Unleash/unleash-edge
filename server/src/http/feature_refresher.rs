@@ -378,7 +378,7 @@ impl FeatureRefresher {
                                     refresher.broadcaster.broadcast().await;
                                 }
                                 eventsource_client::SSE::Event(event) => {
-                                    debug!(
+                                    info!(
                                         "Got an SSE event that I wasn't expecting: {:#?}",
                                         event
                                     );
