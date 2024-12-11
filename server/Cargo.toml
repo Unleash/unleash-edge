@@ -12,6 +12,7 @@ homepage = "https://github.com/Unleash/unleash-edge"
 license = "MIT"
 name = "unleash-edge"
 repository = "https://github.com/Unleash/unleash-edge"
+rust-version = "1.81.0"
 version = "19.6.3"
 
 [features]
@@ -51,10 +52,10 @@ iter_tools = "0.24.0"
 itertools = "0.13.0"
 lazy_static = "1.4.0"
 num_cpus = "1.16.0"
-opentelemetry = { version = "0.24.0", features = ["trace", "metrics"] }
-opentelemetry-prometheus = "0.17.0"
-opentelemetry-semantic-conventions = "0.16.0"
-opentelemetry_sdk = { version = "0.24.0", features = [
+opentelemetry = { version = "0.27.0", features = ["trace", "metrics"] }
+opentelemetry-prometheus = "0.27.0"
+opentelemetry-semantic-conventions = "0.27.0"
+opentelemetry_sdk = { version = "0.27.0", features = [
     "metrics",
     "serde",
     "serde_json",
@@ -64,17 +65,17 @@ prometheus = { version = "0.13.4", features = ["process"] }
 prometheus-reqwest-remote-write = { version = "0.2.1" }
 prometheus-static-metric = "0.5.1"
 rand = "0.8.5"
-redis = { version = "0.27.5", features = [
+redis = { version = "0.27.6", features = [
     "tokio-comp",
     "tokio-rustls-comp",
     "cluster",
 ] }
-reqwest = { version = "0.12.8", default-features = false, features = [
+reqwest = { version = "0.12.9", default-features = false, features = [
     "json",
     "rustls-tls",
     "native-tls",
 ] }
-rustls = { version = "0.23.15", default-features = false, features = [
+rustls = { version = "0.23.18", default-features = false, features = [
     "logging",
     "ring",
     "std",
@@ -85,8 +86,8 @@ semver = "1.0.23"
 serde = { version = "1.0.213", features = ["derive"] }
 serde_json = "1.0.132"
 serde_qs = { version = "0.13.0", features = ["actix4", "tracing"] }
-shadow-rs = { version = "0.35.0" }
-tokio = { version = "1.41.0", features = [
+shadow-rs = { version = "0.36.0" }
+tokio = { version = "1.42.0", features = [
     "macros",
     "rt-multi-thread",
     "tracing",
@@ -117,4 +118,4 @@ testcontainers-modules = { version = "0.11.3", features = [
 tracing-test = "0.2.5"
 
 [build-dependencies]
-shadow-rs = "0.35.0"
+shadow-rs = "0.36.0"
