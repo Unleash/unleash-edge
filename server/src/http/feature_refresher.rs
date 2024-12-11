@@ -314,12 +314,15 @@ impl FeatureRefresher {
     /// This is where we set up a listener per token.
     #[cfg(feature = "streaming")]
     pub async fn start_streaming_features_background_task(&self) -> anyhow::Result<()> {
+        use anyhow::Context;
+
         let refreshes = self.get_tokens_due_for_refresh();
         for refresh in refreshes {
             let token = refresh.token.clone();
-            let streaming_url = format!("{}/client/streaming", self.unleash_client.urls.api_url);
+            let streaming_url = self.unleash_client.urls.client_features_stream_url.as_str();
 
-            let es_client = eventsource_client::ClientBuilder::for_url(&streaming_url)?
+            let es_client = eventsource_client::ClientBuilder::for_url(streaming_url)
+                .context("Failed to create EventSource client for streaming")?
                 .header("Authorization", &token.token)?
                 .reconnect(
                     eventsource_client::ReconnectOptions::reconnect(true)
@@ -332,7 +335,6 @@ impl FeatureRefresher {
                 .build();
 
             let refresher = self.clone();
-            // let broadcaster = self.broadcaster.clone();
 
             tokio::spawn(async move {
                 let mut stream = es_client
@@ -340,7 +342,6 @@ impl FeatureRefresher {
                     .map_ok(move |sse| {
                         let token = token.clone();
                         let refresher = refresher.clone();
-                        // let broadcaster = broadcaster.clone();
                         async move {
                             match sse {
                                 // The first time we're connecting to Unleash. Just store the data.
