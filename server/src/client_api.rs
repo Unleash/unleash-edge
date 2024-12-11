@@ -47,7 +47,7 @@ pub async fn stream_features(
     filter_query: Query<FeatureFilters>,
     req: HttpRequest,
 ) -> EdgeResult<impl Responder> {
-    let (validated_token, filter_set, query) =
+    let (validated_token, _filter_set, query) =
         get_feature_filter(&edge_token, &token_cache, filter_query.clone())?;
     match req.app_data::<Data<FeatureRefresher>>() {
         Some(refresher) => {
@@ -83,9 +83,6 @@ pub async fn post_features(
     resolve_features(edge_token, features_cache, token_cache, filter_query, req).await
 }
 
-/// this was extracted from resolve_features because it gives us the necessary
-/// values to filter flags and construct client feature responses later. It's a
-/// standalone function and can be moved to a different file if necessary.
 fn get_feature_filter(
     edge_token: &EdgeToken,
     token_cache: &Data<DashMap<String, EdgeToken>>,
@@ -117,36 +114,6 @@ fn get_feature_filter(
     .with_filter(project_filter(&validated_token));
 
     Ok((validated_token, filter_set, query))
-}
-
-/// This is the second half of resolve_features. The idea was that you don't
-/// need to do the extraction work twice. The broadcaster shold be able to do
-/// something like the Some arm of the match here, except we'll know that we
-/// already have the refresher.
-#[cfg(feature = "streaming")]
-async fn resolve_features_2(
-    query: unleash_types::client_features::Query,
-    validated_token: EdgeToken,
-    filter_set: FeatureFilterSet,
-    features_cache: Data<DashMap<String, ClientFeatures>>,
-    req: HttpRequest,
-) -> EdgeJsonResult<ClientFeatures> {
-    let client_features = match req.app_data::<Data<FeatureRefresher>>() {
-        Some(refresher) => {
-            refresher
-                .features_for_filter(validated_token.clone(), &filter_set)
-                .await
-        }
-        None => features_cache
-            .get(&cache_key(&validated_token))
-            .map(|client_features| filter_client_features(&client_features, &filter_set))
-            .ok_or(EdgeError::ClientCacheError),
-    }?;
-
-    Ok(Json(ClientFeatures {
-        query: Some(query),
-        ..client_features
-    }))
 }
 
 /// This is the same as it always was, except I extracted bits of it.

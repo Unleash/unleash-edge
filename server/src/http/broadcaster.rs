@@ -120,7 +120,7 @@ impl Broadcaster {
                 .event("unleash-connected")
                 .into(),
         )
-        .await;
+        .await?;
 
         self.active_connections
             .entry(QueryWrapper { query })
