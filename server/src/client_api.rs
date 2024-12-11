@@ -59,16 +59,18 @@ pub async fn stream_features(
     )
     .await;
     match (req.app_data::<Data<FeatureRefresher>>(), features) {
-        (Some(refresher), Ok(features)) => Ok(refresher
-            .broadcaster
-            .connect(
-                validated_token,
-                filter_query.clone(),
-                query.clone(),
-                features,
-            )
-            .await),
-        _ => todo!(),
+        (Some(refresher), Ok(features)) => {
+            refresher
+                .broadcaster
+                .connect(
+                    validated_token,
+                    filter_query.clone(),
+                    query.clone(),
+                    features,
+                )
+                .await
+        }
+        _ => Err(EdgeError::ClientCacheError),
     }
 }
 

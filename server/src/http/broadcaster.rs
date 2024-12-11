@@ -1,6 +1,5 @@
 /// copied from https://github.com/actix/examples/blob/master/server-sent-events/src/broadcast.rs
 use std::{
-    collections::HashMap,
     hash::{Hash, Hasher},
     sync::Arc,
     time::Duration,
@@ -24,7 +23,7 @@ use unleash_types::client_features::{ClientFeatures, Query as FlagQuery};
 use crate::{
     filters::{filter_client_features, name_prefix_filter, project_filter, FeatureFilterSet},
     tokens::cache_key,
-    types::{EdgeToken, FeatureFilters},
+    types::{EdgeResult, EdgeToken, FeatureFilters},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -110,7 +109,7 @@ impl Broadcaster {
         filter_set: Query<FeatureFilters>,
         query: unleash_types::client_features::Query,
         features: Json<ClientFeatures>,
-    ) -> Sse<InfallibleStream<ReceiverStream<sse::Event>>> {
+    ) -> EdgeResult<Sse<InfallibleStream<ReceiverStream<sse::Event>>>> {
         let (tx, rx) = mpsc::channel(10);
 
         self.active_connections
@@ -135,7 +134,7 @@ impl Broadcaster {
         .await
         .unwrap();
 
-        Sse::from_infallible_receiver(rx)
+        Ok(Sse::from_infallible_receiver(rx))
     }
 
     fn get_query_filters(
