@@ -5,7 +5,7 @@ use actix_web::http::{Method, StatusCode, Version};
 use futures::{future, FutureExt};
 use futures_core::future::LocalBoxFuture;
 use opentelemetry::metrics::{Histogram, Meter, MeterProvider, UpDownCounter};
-use opentelemetry::{KeyValue, Value};
+use opentelemetry::{InstrumentationScope, KeyValue, Value};
 use opentelemetry_semantic_conventions::trace::{
     CLIENT_ADDRESS, HTTP_REQUEST_METHOD, HTTP_RESPONSE_STATUS_CODE, NETWORK_PROTOCOL_NAME,
     NETWORK_PROTOCOL_VERSION, SERVER_ADDRESS, SERVER_PORT, URL_PATH, URL_SCHEME,
@@ -185,7 +185,12 @@ impl RequestMetricsBuilder {
 
 /// construct meters for this crate
 fn get_versioned_meter(meter_provider: impl MeterProvider) -> Meter {
-    meter_provider.meter("unleash_edge")
+    meter_provider.meter_with_scope(
+        InstrumentationScope::builder("unleash_edge")
+            .with_version(env!("CARGO_PKG_VERSION"))
+            .with_schema_url(opentelemetry_semantic_conventions::SCHEMA_URL)
+            .build(),
+    )
 }
 
 #[derive(Clone, Debug)]
