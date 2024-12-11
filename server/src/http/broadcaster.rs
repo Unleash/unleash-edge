@@ -126,13 +126,11 @@ impl Broadcaster {
             });
 
         tx.send(
-            sse::Data::new_json(features)
-                .unwrap()
+            sse::Data::new_json(features)?
                 .event("unleash-connected")
                 .into(),
         )
-        .await
-        .unwrap();
+        .await?;
 
         Ok(Sse::from_infallible_receiver(rx))
     }
