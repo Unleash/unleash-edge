@@ -354,7 +354,7 @@ impl FeatureRefresher {
 
                                     match serde_json::from_str(&event.data) {
                                         Ok(features) => { refresher.handle_client_features_updated(&token, features, None).await; }
-                                        Err(_) => { warn!("Could not parse features response to internal representation");
+                                        Err(e) => { warn!("Could not parse features response to internal representation: {e:?}");
                                         }
                                     }
                                 }
@@ -368,7 +368,7 @@ impl FeatureRefresher {
 
                                     match serde_json::from_str(&event.data) {
                                         Ok(features) => { refresher.handle_client_features_updated(&token, features, None).await; }
-                                        Err(_) => { warn!("Could not parse features response to internal representation");
+                                        Err(e) => { warn!("Could not parse features response to internal representation: {e:?}");
                                         }
                                     }
                                 }
