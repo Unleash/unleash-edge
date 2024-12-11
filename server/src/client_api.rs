@@ -116,7 +116,6 @@ fn get_feature_filter(
     Ok((validated_token, filter_set, query))
 }
 
-/// This is the same as it always was, except I extracted bits of it.
 async fn resolve_features(
     edge_token: EdgeToken,
     features_cache: Data<DashMap<String, ClientFeatures>>,
