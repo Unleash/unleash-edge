@@ -43,31 +43,17 @@ pub async fn get_features(
 #[get("/streaming")]
 pub async fn stream_features(
     edge_token: EdgeToken,
-    features_cache: Data<DashMap<String, ClientFeatures>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
     filter_query: Query<FeatureFilters>,
     req: HttpRequest,
 ) -> EdgeResult<impl Responder> {
     let (validated_token, filter_set, query) =
         get_feature_filter(&edge_token, &token_cache, filter_query.clone())?;
-    let features = resolve_features_2(
-        query.clone(),
-        validated_token.clone(),
-        filter_set,
-        features_cache,
-        req.clone(),
-    )
-    .await;
-    match (req.app_data::<Data<FeatureRefresher>>(), features) {
-        (Some(refresher), Ok(features)) => {
+    match req.app_data::<Data<FeatureRefresher>>() {
+        Some(refresher) => {
             refresher
                 .broadcaster
-                .connect(
-                    validated_token,
-                    filter_query.clone(),
-                    query.clone(),
-                    features,
-                )
+                .connect(validated_token, filter_query, query)
                 .await
         }
         _ => Err(EdgeError::ClientCacheError),

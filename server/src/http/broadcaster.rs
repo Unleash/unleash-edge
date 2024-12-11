@@ -23,7 +23,7 @@ use unleash_types::client_features::{ClientFeatures, Query as FlagQuery};
 use crate::{
     filters::{filter_client_features, name_prefix_filter, project_filter, FeatureFilterSet},
     tokens::cache_key,
-    types::{EdgeResult, EdgeToken, FeatureFilters},
+    types::{EdgeJsonResult, EdgeResult, EdgeToken, FeatureFilters},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -108,14 +108,22 @@ impl Broadcaster {
         token: EdgeToken,
         filter_set: Query<FeatureFilters>,
         query: unleash_types::client_features::Query,
-        features: Json<ClientFeatures>,
     ) -> EdgeResult<Sse<InfallibleStream<ReceiverStream<sse::Event>>>> {
         let (tx, rx) = mpsc::channel(10);
 
+        let features = &self
+            .resolve_features(&token, filter_set.clone(), query.clone())
+            .await?;
+
+        tx.send(
+            sse::Data::new_json(features)?
+                .event("unleash-connected")
+                .into(),
+        )
+        .await;
+
         self.active_connections
-            .entry(QueryWrapper {
-                query: query.clone(),
-            })
+            .entry(QueryWrapper { query })
             .and_modify(|group| {
                 group.clients.push(tx.clone());
             })
@@ -125,19 +133,12 @@ impl Broadcaster {
                 token,
             });
 
-        tx.send(
-            sse::Data::new_json(features)?
-                .event("unleash-connected")
-                .into(),
-        )
-        .await?;
-
         Ok(Sse::from_infallible_receiver(rx))
     }
 
     fn get_query_filters(
         filter_query: Query<FeatureFilters>,
-        token: EdgeToken,
+        token: &EdgeToken,
     ) -> FeatureFilterSet {
         let query_filters = filter_query.into_inner();
 
@@ -146,8 +147,34 @@ impl Broadcaster {
         } else {
             FeatureFilterSet::default()
         }
-        .with_filter(project_filter(&token));
+        .with_filter(project_filter(token));
         filter_set
+    }
+
+    async fn resolve_features(
+        &self,
+        validated_token: &EdgeToken,
+        filter_set: Query<FeatureFilters>,
+        query: FlagQuery,
+    ) -> EdgeJsonResult<ClientFeatures> {
+        let filter_set = Broadcaster::get_query_filters(filter_set.clone(), validated_token);
+
+        let features = self
+            .features_cache
+            .get(&cache_key(validated_token))
+            .map(|client_features| filter_client_features(&client_features, &filter_set));
+
+        match features {
+            Some(features) => Ok(Json(ClientFeatures {
+                query: Some(query),
+                ..features
+            })),
+            // Note: this is a simplification for now, using the following assumptions:
+            // 1. We'll only allow streaming in strict mode
+            // 2. We'll check whether the token is subsumed *before* trying to add it to the broadcaster
+            // If both of these are true, then we should never hit this case (if Thomas's understanding is correct).
+            None => todo!(),
+        }
     }
 
     /// Broadcast new features to all clients.
@@ -155,8 +182,7 @@ impl Broadcaster {
         let mut client_events = Vec::new();
         for entry in self.active_connections.iter() {
             let (_query, group) = entry.pair();
-            let filter_set =
-                Broadcaster::get_query_filters(group.filter_set.clone(), group.token.clone());
+            let filter_set = Broadcaster::get_query_filters(group.filter_set.clone(), &group.token);
             let features = self
                 .features_cache
                 .get(&cache_key(&group.token))
