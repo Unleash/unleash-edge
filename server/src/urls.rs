@@ -52,8 +52,8 @@ impl UnleashUrls {
             .unwrap()
             .push("features");
         #[cfg(feature = "streaming")]
-        let client_features_stream_url = client_api_url.clone();
-        client_features_url
+        let mut client_features_stream_url = client_api_url.clone();
+        client_features_stream_url
             .path_segments_mut()
             .unwrap()
             .push("streaming");
