@@ -14,7 +14,7 @@ use actix_web_lab::{
     util::InfallibleStream,
 };
 use dashmap::DashMap;
-use futures_util::future;
+use futures::future;
 use serde::Serialize;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;

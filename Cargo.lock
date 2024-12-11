@@ -4362,7 +4362,6 @@ dependencies = [
  "eventsource-client",
  "futures",
  "futures-core",
- "futures-util",
  "iter_tools",
  "itertools 0.13.0",
  "lazy_static",
