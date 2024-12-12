@@ -15,6 +15,9 @@ repository = "https://github.com/Unleash/unleash-edge"
 rust-version = "1.81.0"
 version = "19.6.3"
 
+[features]
+streaming = ["actix-web-lab", "eventsource-client", "tokio-stream"]
+
 [package.metadata.wix]
 upgrade-guid = "11E5D83A-3034-48BB-9A84-9F589EBD648C"
 path-guid = "6F606A3B-C7E9-43EC-8B6E-91D7B74F80FC"
@@ -30,6 +33,7 @@ actix-http = "3.9.0"
 actix-middleware-etag = "0.4.2"
 actix-service = "2.0.2"
 actix-web = { version = "4.9.0", features = ["rustls-0_23", "compress-zstd"] }
+actix-web-lab = { version = "0.23.0", optional = true }
 ahash = "0.8.11"
 anyhow = "1.0.91"
 async-trait = "0.1.83"
@@ -41,6 +45,7 @@ cidr = "0.3.0"
 clap = { version = "4.5.19", features = ["derive", "env"] }
 clap-markdown = "0.1.4"
 dashmap = "6.0.1"
+eventsource-client = { version = "0.13.0", optional = true }
 futures = "0.3.30"
 futures-core = "0.3.30"
 iter_tools = "0.24.0"
@@ -88,6 +93,7 @@ tokio = { version = "1.42.0", features = [
     "tracing",
     "fs",
 ] }
+tokio-stream = { version = "0.1.16", optional = true }
 tracing = { version = "0.1.40", features = ["log"] }
 tracing-subscriber = { version = "0.3.18", features = ["json", "env-filter"] }
 ulid = "1.1.2"

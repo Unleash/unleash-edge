@@ -4,6 +4,10 @@ use std::{sync::Arc, time::Duration};
 use actix_web::http::header::EntityTag;
 use chrono::Utc;
 use dashmap::DashMap;
+#[cfg(feature = "streaming")]
+use eventsource_client::Client;
+#[cfg(feature = "streaming")]
+use futures::TryStreamExt;
 use reqwest::StatusCode;
 use tracing::{debug, info, warn};
 use unleash_types::client_features::Segment;
@@ -23,6 +27,8 @@ use crate::{
     types::{ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenRefresh},
 };
 
+#[cfg(feature = "streaming")]
+use super::broadcaster::Broadcaster;
 use super::unleash_client::UnleashClient;
 
 fn frontend_token_is_covered_by_tokens(
@@ -102,6 +108,8 @@ pub struct FeatureRefresher {
     pub persistence: Option<Arc<dyn EdgePersistence>>,
     pub strict: bool,
     pub app_name: String,
+    #[cfg(feature = "streaming")]
+    pub broadcaster: Arc<Broadcaster>,
 }
 
 impl Default for FeatureRefresher {
@@ -115,6 +123,8 @@ impl Default for FeatureRefresher {
             persistence: None,
             strict: true,
             app_name: "unleash_edge".into(),
+            #[cfg(feature = "streaming")]
+            broadcaster: Broadcaster::new(Default::default()),
         }
     }
 }
@@ -154,6 +164,8 @@ impl FeatureRefresher {
         FeatureRefresher {
             unleash_client,
             tokens_to_refresh: Arc::new(DashMap::default()),
+            #[cfg(feature = "streaming")]
+            broadcaster: Broadcaster::new(features.clone()),
             features_cache: features,
             engine_cache: engines,
             refresh_interval: features_refresh_interval,
@@ -299,6 +311,92 @@ impl FeatureRefresher {
         }
     }
 
+    /// This is where we set up a listener per token.
+    #[cfg(feature = "streaming")]
+    pub async fn start_streaming_features_background_task(&self) -> anyhow::Result<()> {
+        use anyhow::Context;
+
+        let refreshes = self.get_tokens_due_for_refresh();
+        for refresh in refreshes {
+            let token = refresh.token.clone();
+            let streaming_url = self.unleash_client.urls.client_features_stream_url.as_str();
+
+            let es_client = eventsource_client::ClientBuilder::for_url(streaming_url)
+                .context("Failed to create EventSource client for streaming")?
+                .header("Authorization", &token.token)?
+                .reconnect(
+                    eventsource_client::ReconnectOptions::reconnect(true)
+                        .retry_initial(true)
+                        .delay(Duration::from_secs(5))
+                        .delay_max(Duration::from_secs(30))
+                        .backoff_factor(2)
+                        .build(),
+                )
+                .build();
+
+            let refresher = self.clone();
+
+            tokio::spawn(async move {
+                let mut stream = es_client
+                    .stream()
+                    .map_ok(move |sse| {
+                        let token = token.clone();
+                        let refresher = refresher.clone();
+                        async move {
+                            match sse {
+                                // The first time we're connecting to Unleash.
+                                eventsource_client::SSE::Event(event)
+                                    if event.event_type == "unleash-connected" =>
+                                {
+                                    debug!(
+                                        "Connected to unleash! Populating my flag cache now.",
+                                    );
+
+                                    match serde_json::from_str(&event.data) {
+                                        Ok(features) => { refresher.handle_client_features_updated(&token, features, None).await; }
+                                        Err(e) => { warn!("Could not parse features response to internal representation: {e:?}");
+                                        }
+                                    }
+                                }
+                                // Unleash has updated features for us.
+                                eventsource_client::SSE::Event(event)
+                                    if event.event_type == "unleash-updated" =>
+                                {
+                                    debug!(
+                                        "Got an unleash updated event. Updating cache.",
+                                    );
+
+                                    match serde_json::from_str(&event.data) {
+                                        Ok(features) => { refresher.handle_client_features_updated(&token, features, None).await; }
+                                        Err(e) => { warn!("Could not parse features response to internal representation: {e:?}");
+                                        }
+                                    }
+                                }
+                                eventsource_client::SSE::Event(event) => {
+                                    info!(
+                                        "Got an SSE event that I wasn't expecting: {:#?}",
+                                        event
+                                    );
+                                }
+                                eventsource_client::SSE::Connected(_) => {
+                                    debug!("SSE Connection established");
+                                }
+                                eventsource_client::SSE::Comment(_) => {
+                                    // purposefully left blank.
+                                },
+                            }
+                        }
+                    })
+                    .map_err(|e| warn!("Error in SSE stream: {:?}", e));
+
+                while let Ok(Some(handler)) = stream.try_next().await {
+                    handler.await;
+                }
+            });
+        }
+        Ok(())
+    }
+
     pub async fn start_refresh_features_background_task(&self) {
         loop {
             tokio::select! {
@@ -322,34 +420,23 @@ impl FeatureRefresher {
         }
     }
 
-    pub async fn refresh_single(&self, refresh: TokenRefresh) {
-        let features_result = self
-            .unleash_client
-            .get_client_features(ClientFeaturesRequest {
-                api_key: refresh.token.token.clone(),
-                etag: refresh.etag,
+    async fn handle_client_features_updated(
+        &self,
+        refresh_token: &EdgeToken,
+        features: ClientFeatures,
+        etag: Option<EntityTag>,
+    ) {
+        debug!("Got updated client features. Updating features with {etag:?}");
+        let key = cache_key(refresh_token);
+        self.update_last_refresh(refresh_token, etag, features.features.len());
+        self.features_cache
+            .entry(key.clone())
+            .and_modify(|existing_data| {
+                let updated_data = update_client_features(refresh_token, existing_data, &features);
+                *existing_data = updated_data;
             })
-            .await;
-
-        match features_result {
-            Ok(feature_response) => match feature_response {
-                ClientFeaturesResponse::NoUpdate(tag) => {
-                    debug!("No update needed. Will update last check time with {tag}");
-                    self.update_last_check(&refresh.token.clone());
-                }
-                ClientFeaturesResponse::Updated(features, etag) => {
-                    debug!("Got updated client features. Updating features with {etag:?}");
-                    let key = cache_key(&refresh.token);
-                    self.update_last_refresh(&refresh.token, etag, features.features.len());
-                    self.features_cache
-                        .entry(key.clone())
-                        .and_modify(|existing_data| {
-                            let updated_data =
-                                update_client_features(&refresh.token, existing_data, &features);
-                            *existing_data = updated_data;
-                        })
-                        .or_insert_with(|| features.clone());
-                    self.engine_cache
+            .or_insert_with(|| features.clone());
+        self.engine_cache
                         .entry(key.clone())
                         .and_modify(|engine| {
                             if let Some(f) = self.features_cache.get(&key) {
@@ -371,6 +458,29 @@ impl FeatureRefresher {
                             };
                             new_state
                         });
+
+        #[cfg(feature = "streaming")]
+        self.broadcaster.broadcast().await;
+    }
+
+    pub async fn refresh_single(&self, refresh: TokenRefresh) {
+        let features_result = self
+            .unleash_client
+            .get_client_features(ClientFeaturesRequest {
+                api_key: refresh.token.token.clone(),
+                etag: refresh.etag,
+            })
+            .await;
+
+        match features_result {
+            Ok(feature_response) => match feature_response {
+                ClientFeaturesResponse::NoUpdate(tag) => {
+                    debug!("No update needed. Will update last check time with {tag}");
+                    self.update_last_check(&refresh.token.clone());
+                }
+                ClientFeaturesResponse::Updated(features, etag) => {
+                    self.handle_client_features_updated(&refresh.token, features, etag)
+                        .await
                 }
             },
             Err(e) => {
