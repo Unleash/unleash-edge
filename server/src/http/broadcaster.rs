@@ -182,7 +182,7 @@ impl Broadcaster {
             let event_data = self
                 .resolve_features(&group.token, group.filter_set.clone(), query.query.clone())
                 .await
-                .and_then(|features| sse::Data::new_json(features).map_err(|e| e.into()));
+                .and_then(|features| sse::Data::new_json(&features).map_err(|e| e.into()));
 
             match event_data {
                 Ok(sse_data) => {
