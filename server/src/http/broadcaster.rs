@@ -1,4 +1,3 @@
-/// copied from https://github.com/actix/examples/blob/master/server-sent-events/src/broadcast.rs
 use std::{
     hash::{Hash, Hasher},
     sync::Arc,
