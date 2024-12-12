@@ -164,14 +164,14 @@ impl FeatureRefresher {
         FeatureRefresher {
             unleash_client,
             tokens_to_refresh: Arc::new(DashMap::default()),
-            features_cache: features.clone(),
+            #[cfg(feature = "streaming")]
+            broadcaster: Broadcaster::new(features.clone()),
+            features_cache: features,
             engine_cache: engines,
             refresh_interval: features_refresh_interval,
             persistence,
             strict,
             app_name: app_name.into(),
-            #[cfg(feature = "streaming")]
-            broadcaster: Broadcaster::new(features.clone()),
         }
     }
 
