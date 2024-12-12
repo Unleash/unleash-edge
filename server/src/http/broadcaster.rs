@@ -179,20 +179,23 @@ impl Broadcaster {
         for entry in self.active_connections.iter() {
             let (query, group) = entry.pair();
 
-            let _ = self
+            let event_data = self
                 .resolve_features(&group.token, group.filter_set.clone(), query.query.clone())
                 .await
-                .and_then(|features| sse::Data::new_json(features).map_err(|e| e.into()))
-                .map(|sse_data| {
+                .and_then(|features| sse::Data::new_json(features).map_err(|e| e.into()));
+
+            match event_data {
+                Ok(sse_data) => {
                     let event: Event = sse_data.event("unleash-updated").into();
 
                     for client in &group.clients {
                         client_events.push((client.clone(), event.clone()));
                     }
-                })
-                .map_err(|e| {
+                }
+                Err(e) => {
                     warn!("Failed to broadcast features: {:?}", e);
-                });
+                }
+            }
         }
         // try to send to all clients, ignoring failures
         // disconnected clients will get swept up by `remove_stale_clients`
