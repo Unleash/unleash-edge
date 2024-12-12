@@ -20,6 +20,7 @@ use tokio_stream::wrappers::ReceiverStream;
 use unleash_types::client_features::{ClientFeatures, Query as FlagQuery};
 
 use crate::{
+    error::EdgeError,
     filters::{filter_client_features, name_prefix_filter, project_filter, FeatureFilterSet},
     tokens::cache_key,
     types::{EdgeJsonResult, EdgeResult, EdgeToken, FeatureFilters},
@@ -56,26 +57,26 @@ impl Broadcaster {
             features_cache: features,
         });
 
-        Broadcaster::spawn_ping(Arc::clone(&this));
+        Broadcaster::spawn_heartbeat(Arc::clone(&this));
 
         this
     }
 
     /// Pings clients every 30 seconds to see if they are alive and remove them from the broadcast
     /// list if not.
-    fn spawn_ping(this: Arc<Self>) {
+    fn spawn_heartbeat(this: Arc<Self>) {
         tokio::spawn(async move {
             let mut interval = interval(Duration::from_secs(30));
 
             loop {
                 interval.tick().await;
-                this.remove_stale_clients().await;
+                this.heartbeat().await;
             }
         });
     }
 
     /// Removes all non-responsive clients from broadcast list.
-    async fn remove_stale_clients(&self) {
+    async fn heartbeat(&self) {
         for mut group in self.active_connections.iter_mut() {
             let mut ok_clients = Vec::new();
 
@@ -97,11 +98,6 @@ impl Broadcaster {
     }
 
     /// Registers client with broadcaster, returning an SSE response body.
-    /// The current impl takes the feature set as input and sends it to the client as a connected event.
-    ///
-    /// The commented-out arguments are what we'll need to store per client so
-    /// that we can properly filter / format the feature response when they get
-    /// updates later.
     pub async fn connect(
         &self,
         token: EdgeToken,
@@ -172,7 +168,7 @@ impl Broadcaster {
             // 1. We'll only allow streaming in strict mode
             // 2. We'll check whether the token is subsumed *before* trying to add it to the broadcaster
             // If both of these are true, then we should never hit this case (if Thomas's understanding is correct).
-            None => todo!(),
+            None => Err(EdgeError::ClientCacheError),
         }
     }
 
@@ -182,6 +178,7 @@ impl Broadcaster {
         for entry in self.active_connections.iter() {
             let (_query, group) = entry.pair();
             let filter_set = Broadcaster::get_query_filters(group.filter_set.clone(), &group.token);
+
             let features = self
                 .features_cache
                 .get(&cache_key(&group.token))
