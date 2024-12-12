@@ -17,6 +17,7 @@ use futures::future;
 use serde::Serialize;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
+use tracing::warn;
 use unleash_types::client_features::{ClientFeatures, Query as FlagQuery};
 
 use crate::{
@@ -176,21 +177,22 @@ impl Broadcaster {
     pub async fn broadcast(&self) {
         let mut client_events = Vec::new();
         for entry in self.active_connections.iter() {
-            let (_query, group) = entry.pair();
-            let filter_set = Broadcaster::get_query_filters(group.filter_set.clone(), &group.token);
+            let (query, group) = entry.pair();
 
-            let features = self
-                .features_cache
-                .get(&cache_key(&group.token))
-                .map(|client_features| filter_client_features(&client_features, &filter_set));
-            let event: Event = sse::Data::new_json(&features)
-                .unwrap()
-                .event("unleash-updated")
-                .into();
+            let _ = self
+                .resolve_features(&group.token, group.filter_set.clone(), query.query.clone())
+                .await
+                .and_then(|features| sse::Data::new_json(features).map_err(|e| e.into()))
+                .map(|sse_data| {
+                    let event: Event = sse_data.event("unleash-updated").into();
 
-            for client in &group.clients {
-                client_events.push((client.clone(), event.clone()));
-            }
+                    for client in &group.clients {
+                        client_events.push((client.clone(), event.clone()));
+                    }
+                })
+                .map_err(|e| {
+                    warn!("Failed to broadcast features: {:?}", e);
+                });
         }
         // try to send to all clients, ignoring failures
         // disconnected clients will get swept up by `remove_stale_clients`
