@@ -34,14 +34,11 @@ pub mod tests {
     use std::path::PathBuf;
     use std::sync::Arc;
 
-    use crate::client_api::configure_client_api;
-    use crate::middleware;
     use actix_http::HttpService;
     use actix_http_test::{test_server, TestServer};
     use actix_service::map_config;
-    use actix_web::dev::{AppConfig, Url};
-    use actix_web::web::Data;
-    use actix_web::{test, web, App};
+    use actix_web::dev::AppConfig;
+    use actix_web::{web, App};
     use chrono::Duration;
     use dashmap::DashMap;
     use unleash_types::client_features::ClientFeatures;
@@ -49,7 +46,7 @@ pub mod tests {
     use unleash_yggdrasil::EngineState;
 
     use crate::auth::token_validator::TokenValidator;
-    use crate::http::broadcaster::{self, Broadcaster};
+    use crate::http::broadcaster::Broadcaster;
     use crate::http::feature_refresher::FeatureRefresher;
     use crate::http::unleash_client::UnleashClient;
     use crate::metrics::client_metrics::MetricsCache;
