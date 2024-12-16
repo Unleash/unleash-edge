@@ -9,8 +9,6 @@ use std::{
     str::FromStr,
     sync::{Arc, Mutex},
 };
-use tokio::sync::mpsc;
-use tracing::event;
 use unleash_edge::{
     http::{
         broadcaster::Broadcaster, feature_refresher::FeatureRefresher,
@@ -55,68 +53,77 @@ async fn test_streaming() {
         features_from_disk("../examples/features.json"),
     );
 
-    // println!("upstream.features_cache: {:?}", unleash_features_cache);
-
+    println!("Upstream server started at: {}", unleash_server.url("/"));
     let edge = edge_server(&unleash_server.url("/"), upstream_known_token.clone()).await;
+
+    // connect to edge, await connected event
+    // (might need to make the client an arc)
+    // after receiving the connected event, insert new features and broadcast
+    // await new features event
+    // presumably, the stream will receive events, regardless of whether we're watching or not
 
     let es_client = eventsource_client::ClientBuilder::for_url(&edge.url("/api/client/streaming"))
         .unwrap()
         .header("Authorization", &upstream_known_token.token)
         .unwrap()
         .build();
-    let num_events_to_collect = 3;
+
     let events = Arc::new(Mutex::new(Vec::new()));
-    let events_clone = events.clone();
 
-    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-
-    let handle = tokio::spawn(async move {
-        let _ = es_client
-            .stream()
-            .take(4)
-            .try_for_each(|sse| {
-                let events_clone = events.clone();
-                async move {
-                    // match sse {}
-                    events_clone.lock().unwrap().push(sse);
-                    Ok(())
+    // Wait for the "connected" event
+    println!("Attempting to connect to stream...");
+    let mut stream = es_client.stream();
+    println!("Stream created, waiting for events...");
+    while let Some(result) = stream.next().await {
+        match result {
+            Ok(event) => {
+                println!("Received event: {:?}", event);
+                match event {
+                    eventsource_client::SSE::Event(event)
+                        if event.event_type == "unleash-connected" =>
+                    {
+                        println!("🚀Connected to edge server\n\n");
+                        break;
+                    }
+                    _ => {
+                        // println!("\n\nOther connection event: {:?}", event);
+                    }
                 }
-            })
-            .await
-            .expect("Stream processing failed");
-    });
-
-    let handle2 = tokio::spawn(async move {
-        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-
-        println!("Inserting new features");
-        unleash_features_cache.insert(
-            cache_key(&upstream_known_token),
-            features_from_disk("../examples/hostedexample.json"),
-        );
-
-        unleash_broadcaster.broadcast().await;
-    });
-
-    let _ = tokio::join!(handle, handle2);
-    // let _ = future::join_all(iter::once(handle, handle2)).await;
-    // handle.await.unwrap();
-
-    // unleash_features_cache.insert(
-    //     cache_key(&upstream_known_token),
-    //     features_from_disk("../examples/hostedexample.json"),
-    // );
-
-    // unleash_broadcaster.broadcast().await;
-
-    // println!()
-
-    // Now we can inspect the collected events
-    let collected_events = events_clone.lock().unwrap();
-    println!("Collected events: {:?}", collected_events.len());
-    for (i, event) in collected_events.iter().enumerate() {
-        println!("Event {}: {:?}", i, event);
+            }
+            Err(e) => {
+                println!("Error receiving event: {:?}", e);
+            }
+        }
     }
+
+    // // Update features and broadcast
+    println!("🦴Updating features!");
+    unleash_features_cache.insert(
+        cache_key(&upstream_known_token),
+        features_from_disk("../examples/hostedexample.json"),
+    );
+    unleash_broadcaster.broadcast().await;
+
+    // Wait for the "updated" event
+    while let Some(Ok(event)) = stream.next().await {
+        match event {
+            eventsource_client::SSE::Event(event) if event.event_type == "unleash-updated" => {
+                println!("👨‍🚀Received features update");
+                events.lock().unwrap().push(event);
+                break;
+            }
+            _ => {
+                // println!("Event: {:?}", event);
+            }
+        }
+    }
+
+    // // Print collected events
+    let collected_events = events.lock().unwrap();
+    // println!("Collected events: {:?}", collected_events.len());
+    // for (i, event) in collected_events.iter().enumerate() {
+    //     println!("Event {}: {:?}", i, event);
+    // }
 }
 
 use actix_http::HttpService;
