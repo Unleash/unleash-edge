@@ -125,7 +125,6 @@ mod tests {
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         upstream_token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
-        crate::http::broadcaster::Broadcaster::new(upstream_features_cache.clone());
         let upstream_server = upstream_server(
             upstream_token_cache.clone(),
             upstream_features_cache.clone(),

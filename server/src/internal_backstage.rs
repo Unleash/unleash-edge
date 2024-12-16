@@ -312,7 +312,6 @@ mod tests {
             Arc::new(DashMap::default()),
             Arc::new(DashMap::default()),
             Arc::new(DashMap::default()),
-            Broadcaster::new(Arc::new(DashMap::default())),
         )
         .await;
         let unleash_client =
@@ -354,12 +353,10 @@ mod tests {
             Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
-        let broadcaster = Broadcaster::new(upstream_features_cache.clone());
         let server = upstream_server(
             upstream_token_cache.clone(),
             upstream_features_cache.clone(),
             upstream_engine_cache.clone(),
-            broadcaster.clone(),
         )
         .await;
         let upstream_features = crate::tests::features_from_disk("../examples/hostedexample.json");
