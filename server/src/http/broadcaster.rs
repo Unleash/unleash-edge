@@ -206,5 +206,3 @@ impl Broadcaster {
         let _ = future::join_all(send_events).await;
     }
 }
-
-// e2e test? -> test module in the test folder (makes it a separate compilation unit; will increase test compliation time)

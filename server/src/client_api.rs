@@ -690,12 +690,10 @@ mod tests {
         let upstream_features_cache = Arc::new(DashMap::default());
         let upstream_engine_cache = Arc::new(DashMap::default());
         upstream_token_cache.insert(token.token.clone(), token.clone());
-        let broadcaster = Broadcaster::new(upstream_features_cache.clone());
         let srv = upstream_server(
             upstream_token_cache,
             upstream_features_cache,
             upstream_engine_cache,
-            broadcaster.clone(),
         )
         .await;
         let req = reqwest::Client::new();
@@ -731,12 +729,10 @@ mod tests {
         let upstream_features_cache = Arc::new(DashMap::default());
         let upstream_engine_cache = Arc::new(DashMap::default());
         upstream_token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
-        let broadcaster = Broadcaster::new(upstream_features_cache.clone());
         let srv = upstream_server(
             upstream_token_cache,
             upstream_features_cache,
             upstream_engine_cache,
-            broadcaster.clone(),
         )
         .await;
         let client = UnleashClient::new(srv.url("/").as_str(), None).unwrap();
@@ -999,12 +995,10 @@ mod tests {
             Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
-        let broadcaster = Broadcaster::new(upstream_features_cache.clone());
         let server = upstream_server(
             upstream_token_cache.clone(),
             upstream_features_cache.clone(),
             upstream_engine_cache.clone(),
-            broadcaster.clone(),
         )
         .await;
         let upstream_features = features_from_disk("../examples/hostedexample.json");
@@ -1065,12 +1059,10 @@ mod tests {
             Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
-        let broadcaster = Broadcaster::new(upstream_features_cache.clone());
         let server = upstream_server(
             upstream_token_cache.clone(),
             upstream_features_cache.clone(),
             upstream_engine_cache.clone(),
-            broadcaster.clone(),
         )
         .await;
         let upstream_features = features_from_disk("../examples/hostedexample.json");
@@ -1190,12 +1182,10 @@ mod tests {
             Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
-        let broadcaster = Broadcaster::new(upstream_features_cache.clone());
         let server = upstream_server(
             upstream_token_cache.clone(),
             upstream_features_cache.clone(),
             upstream_engine_cache.clone(),
-            broadcaster.clone(),
         )
         .await;
         let upstream_features = features_from_disk("../examples/hostedexample.json");
