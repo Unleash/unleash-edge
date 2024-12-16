@@ -39,16 +39,12 @@ mod tests {
     use actix_service::map_config;
     use actix_web::dev::AppConfig;
     use actix_web::{web, App};
-    use chrono::Duration;
     use dashmap::DashMap;
     use unleash_types::client_features::ClientFeatures;
     use unleash_types::client_metrics::ConnectVia;
     use unleash_yggdrasil::EngineState;
 
     use crate::auth::token_validator::TokenValidator;
-    use crate::http::broadcaster::Broadcaster;
-    use crate::http::feature_refresher::FeatureRefresher;
-    use crate::http::unleash_client::UnleashClient;
     use crate::metrics::client_metrics::MetricsCache;
     use crate::types::EdgeToken;
 
