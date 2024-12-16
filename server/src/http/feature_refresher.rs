@@ -10,15 +10,12 @@ use eventsource_client::Client;
 use futures::TryStreamExt;
 use reqwest::StatusCode;
 use tracing::{debug, info, warn};
-use unleash_types::client_features::Segment;
+use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::{ClientApplication, MetricsMetadata};
-use unleash_types::{
-    client_features::{ClientFeature, ClientFeatures},
-    Deduplicate,
-};
 use unleash_yggdrasil::EngineState;
 
 use crate::error::{EdgeError, FeatureError};
+use crate::feature_cache::FeatureCache;
 use crate::filters::{filter_client_features, FeatureFilterSet};
 use crate::types::{build, EdgeResult, TokenType, TokenValidationStatus};
 use crate::{
@@ -42,67 +39,11 @@ fn frontend_token_is_covered_by_tokens(
     })
 }
 
-fn update_client_features(
-    token: &EdgeToken,
-    old: &ClientFeatures,
-    update: &ClientFeatures,
-) -> ClientFeatures {
-    let mut updated_features =
-        update_projects_from_feature_update(token, &old.features, &update.features);
-    updated_features.sort();
-    let segments = merge_segments_update(old.segments.clone(), update.segments.clone());
-    ClientFeatures {
-        version: old.version.max(update.version),
-        features: updated_features,
-        segments: segments.map(|mut s| {
-            s.sort();
-            s
-        }),
-        query: old.query.clone().or(update.query.clone()),
-    }
-}
-
-fn merge_segments_update(
-    segments: Option<Vec<Segment>>,
-    updated_segments: Option<Vec<Segment>>,
-) -> Option<Vec<Segment>> {
-    match (segments, updated_segments) {
-        (Some(s), Some(mut o)) => {
-            o.extend(s);
-            Some(o.deduplicate())
-        }
-        (Some(s), None) => Some(s),
-        (None, Some(o)) => Some(o),
-        (None, None) => None,
-    }
-}
-pub(crate) fn update_projects_from_feature_update(
-    token: &EdgeToken,
-    original: &[ClientFeature],
-    updated: &[ClientFeature],
-) -> Vec<ClientFeature> {
-    let projects_to_update = &token.projects;
-    if projects_to_update.contains(&"*".into()) {
-        updated.into()
-    } else {
-        let mut to_keep: Vec<ClientFeature> = original
-            .iter()
-            .filter(|toggle| {
-                let p = toggle.project.clone().unwrap_or_else(|| "default".into());
-                !projects_to_update.contains(&p)
-            })
-            .cloned()
-            .collect();
-        to_keep.extend(updated.iter().cloned());
-        to_keep
-    }
-}
-
 #[derive(Clone)]
 pub struct FeatureRefresher {
     pub unleash_client: Arc<UnleashClient>,
     pub tokens_to_refresh: Arc<DashMap<String, TokenRefresh>>,
-    pub features_cache: Arc<DashMap<String, ClientFeatures>>,
+    pub features_cache: Arc<FeatureCache>,
     pub engine_cache: Arc<DashMap<String, EngineState>>,
     pub refresh_interval: chrono::Duration,
     pub persistence: Option<Arc<dyn EdgePersistence>>,
@@ -118,7 +59,7 @@ impl Default for FeatureRefresher {
             refresh_interval: chrono::Duration::seconds(10),
             unleash_client: Default::default(),
             tokens_to_refresh: Arc::new(DashMap::default()),
-            features_cache: Default::default(),
+            features_cache: Arc::new(Default::default()),
             engine_cache: Default::default(),
             persistence: None,
             strict: true,
@@ -154,7 +95,7 @@ fn client_application_from_token_and_name(
 impl FeatureRefresher {
     pub fn new(
         unleash_client: Arc<UnleashClient>,
-        features: Arc<DashMap<String, ClientFeatures>>,
+        features_cache: Arc<FeatureCache>,
         engines: Arc<DashMap<String, EngineState>>,
         features_refresh_interval: chrono::Duration,
         persistence: Option<Arc<dyn EdgePersistence>>,
@@ -164,9 +105,7 @@ impl FeatureRefresher {
         FeatureRefresher {
             unleash_client,
             tokens_to_refresh: Arc::new(DashMap::default()),
-            #[cfg(feature = "streaming")]
-            broadcaster: Broadcaster::new(features.clone()),
-            features_cache: features,
+            features_cache,
             engine_cache: engines,
             refresh_interval: features_refresh_interval,
             persistence,
@@ -430,12 +369,7 @@ impl FeatureRefresher {
         let key = cache_key(refresh_token);
         self.update_last_refresh(refresh_token, etag, features.features.len());
         self.features_cache
-            .entry(key.clone())
-            .and_modify(|existing_data| {
-                let updated_data = update_client_features(refresh_token, existing_data, &features);
-                *existing_data = updated_data;
-            })
-            .or_insert_with(|| features.clone());
+            .modify(key.clone(), refresh_token, features.clone());
         self.engine_cache
                         .entry(key.clone())
                         .and_modify(|engine| {
@@ -458,9 +392,6 @@ impl FeatureRefresher {
                             };
                             new_state
                         });
-
-        #[cfg(feature = "streaming")]
-        self.broadcaster.broadcast().await;
     }
 
     pub async fn refresh_single(&self, refresh: TokenRefresh) {

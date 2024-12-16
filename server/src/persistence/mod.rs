@@ -1,11 +1,11 @@
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
+use crate::feature_cache::FeatureCache;
+use crate::types::{EdgeResult, EdgeToken, TokenValidationStatus};
 use async_trait::async_trait;
 use dashmap::DashMap;
 use tracing::{debug, warn};
 use unleash_types::client_features::ClientFeatures;
-
-use crate::types::{EdgeResult, EdgeToken, TokenValidationStatus};
 
 pub mod file;
 pub mod redis;
@@ -23,7 +23,7 @@ pub trait EdgePersistence: Send + Sync {
 pub async fn persist_data(
     persistence: Option<Arc<dyn EdgePersistence>>,
     token_cache: Arc<DashMap<String, EdgeToken>>,
-    features_cache: Arc<DashMap<String, ClientFeatures>>,
+    features_cache: Arc<FeatureCache>,
 ) {
     loop {
         tokio::select! {
@@ -31,7 +31,7 @@ pub async fn persist_data(
                 if let Some(persister) = persistence.clone() {
 
                     save_known_tokens(&token_cache, &persister).await;
-                    save_features(&features_cache, &persister).await;
+                    save_features(&features_cache.features, &persister).await;
                 } else {
                     debug!("No persistence configured, skipping persistence");
                 }
@@ -64,7 +64,7 @@ async fn save_known_tokens(
 }
 
 async fn save_features(
-    features_cache: &Arc<DashMap<String, ClientFeatures>>,
+    features_cache: &DashMap<String, ClientFeatures>,
     persister: &Arc<dyn EdgePersistence>,
 ) {
     if !features_cache.is_empty() {

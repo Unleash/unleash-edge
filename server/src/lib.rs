@@ -7,6 +7,7 @@ pub mod client_api;
 pub mod edge_api;
 #[cfg(not(tarpaulin_include))]
 pub mod error;
+pub mod feature_cache;
 pub mod filters;
 pub mod frontend_api;
 pub mod health_checker;
@@ -20,7 +21,6 @@ pub mod openapi;
 pub mod persistence;
 #[cfg(not(tarpaulin_include))]
 pub mod prom_metrics;
-
 pub mod ready_checker;
 #[cfg(not(tarpaulin_include))]
 pub mod tls;

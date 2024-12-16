@@ -44,6 +44,14 @@ async fn main() -> Result<(), anyhow::Error> {
     if let EdgeMode::Ready(args) = args.mode {
         return ready_checker::check_ready(args).await.map_err(|e| e.into());
     }
+    let (client_feature_update_tx, _) = tokio::sync::broadcast::channel::<String>(16);
+    let mut thomas_chris_sub = client_feature_update_tx.subscribe();
+    tokio::spawn(async move {
+        loop {
+            let message = thomas_chris_sub.recv().await.unwrap();
+            println!("Message: {message}");
+        }
+    });
     let schedule_args = args.clone();
     let mode_arg = args.clone().mode;
     let http_args = args.clone().http;
@@ -63,7 +71,9 @@ async fn main() -> Result<(), anyhow::Error> {
         token_validator,
         feature_refresher,
         persistence,
-    ) = build_caches_and_refreshers(args).await.unwrap();
+    ) = build_caches_and_refreshers(args, client_feature_update_tx.clone())
+        .await
+        .unwrap();
 
     let token_validator_schedule = token_validator.clone();
     let lazy_feature_cache = features_cache.clone();
@@ -167,7 +177,7 @@ async fn main() -> Result<(), anyhow::Error> {
                 tokio::select! {
                     _ = server.run() => {
                         tracing::info!("Actix is shutting down. Persisting data");
-                        clean_shutdown(persistence.clone(), lazy_feature_cache.clone(), lazy_token_cache.clone(), metrics_cache_clone.clone(), feature_refresher.clone()).await;
+                        clean_shutdown(persistence.clone(), lazy_feature_cache.features.clone(), lazy_token_cache.clone(), metrics_cache_clone.clone(), feature_refresher.clone()).await;
                         tracing::info!("Actix was shutdown properly");
                     },
                     _ = unleash_edge::http::background_send_metrics::send_metrics_task(metrics_cache_clone.clone(), refresher.clone(), edge.metrics_interval_seconds.try_into().unwrap()) => {
@@ -190,7 +200,7 @@ async fn main() -> Result<(), anyhow::Error> {
                 tokio::select! {
                     _ = server.run() => {
                         tracing::info!("Actix is shutting down. Persisting data");
-                        clean_shutdown(persistence.clone(), lazy_feature_cache.clone(), lazy_token_cache.clone(), metrics_cache_clone.clone(), feature_refresher.clone()).await;
+                        clean_shutdown(persistence.clone(), lazy_feature_cache.features.clone(), lazy_token_cache.clone(), metrics_cache_clone.clone(), feature_refresher.clone()).await;
                         tracing::info!("Actix was shutdown properly");
                     },
                     _ = refresher.start_refresh_features_background_task() => {
@@ -227,7 +237,7 @@ async fn main() -> Result<(), anyhow::Error> {
         _ => tokio::select! {
             _ = server.run() => {
                 tracing::info!("Actix is shutting down. Persisting data");
-                clean_shutdown(persistence, lazy_feature_cache.clone(), lazy_token_cache.clone(), metrics_cache_clone.clone(), feature_refresher.clone()).await;
+                clean_shutdown(persistence, lazy_feature_cache.features.clone(), lazy_token_cache.clone(), metrics_cache_clone.clone(), feature_refresher.clone()).await;
                 tracing::info!("Actix was shutdown properly");
 
             }
@@ -240,7 +250,7 @@ async fn main() -> Result<(), anyhow::Error> {
 #[cfg(not(tarpaulin_include))]
 async fn clean_shutdown(
     persistence: Option<Arc<dyn EdgePersistence>>,
-    feature_cache: Arc<DashMap<String, ClientFeatures>>,
+    feature_cache: DashMap<String, ClientFeatures>,
     token_cache: Arc<DashMap<String, EdgeToken>>,
     metrics_cache: Arc<MetricsCache>,
     feature_refresher: Option<Arc<FeatureRefresher>>,
