@@ -10,13 +10,13 @@ use serde::{Deserialize, Serialize};
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ClientApplication;
 
-use crate::error::EdgeError;
 use crate::http::feature_refresher::FeatureRefresher;
 use crate::metrics::actix_web_metrics::PrometheusMetricsHandler;
 use crate::metrics::client_metrics::MetricsCache;
 use crate::types::{BuildInfo, EdgeJsonResult, EdgeToken, TokenInfo, TokenRefresh};
 use crate::types::{ClientMetric, MetricsInfo, Status};
 use crate::{auth::token_validator::TokenValidator, cli::InternalBackstageArgs};
+use crate::{error::EdgeError, feature_cache::FeatureCache};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EdgeStatus {
@@ -54,9 +54,9 @@ pub async fn info() -> EdgeJsonResult<BuildInfo> {
 #[get("/ready")]
 pub async fn ready(
     token_cache: web::Data<DashMap<String, EdgeToken>>,
-    features_cache: web::Data<DashMap<String, ClientFeatures>>,
+    features_cache: web::Data<FeatureCache>,
 ) -> EdgeJsonResult<EdgeStatus> {
-    if !token_cache.is_empty() && features_cache.is_empty() {
+    if !token_cache.is_empty() && features_cache.features.is_empty() {
         Err(EdgeError::NotReady)
     } else {
         Ok(Json(EdgeStatus::ready()))
@@ -137,9 +137,10 @@ pub async fn metrics_batch(metrics_cache: web::Data<MetricsCache>) -> EdgeJsonRe
 
 #[get("/features")]
 pub async fn features(
-    features_cache: web::Data<DashMap<String, ClientFeatures>>,
+    features_cache: web::Data<FeatureCache>,
 ) -> EdgeJsonResult<HashMap<String, ClientFeatures>> {
     let features = features_cache
+        .features
         .iter()
         .map(|e| (e.key().clone(), e.value().clone()))
         .collect();

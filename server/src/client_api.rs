@@ -1,4 +1,5 @@
 use crate::error::EdgeError;
+use crate::feature_cache::FeatureCache;
 use crate::filters::{
     filter_client_features, name_match_filter, name_prefix_filter, project_filter, FeatureFilterSet,
 };
@@ -31,7 +32,7 @@ use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ConnectVia
 #[get("/features")]
 pub async fn get_features(
     edge_token: EdgeToken,
-    features_cache: Data<DashMap<String, ClientFeatures>>,
+    features_cache: Data<FeatureCache>,
     token_cache: Data<DashMap<String, EdgeToken>>,
     filter_query: Query<FeatureFilters>,
     req: HttpRequest,
@@ -76,7 +77,7 @@ pub async fn stream_features(
 #[post("/features")]
 pub async fn post_features(
     edge_token: EdgeToken,
-    features_cache: Data<DashMap<String, ClientFeatures>>,
+    features_cache: Data<FeatureCache>,
     token_cache: Data<DashMap<String, EdgeToken>>,
     filter_query: Query<FeatureFilters>,
     req: HttpRequest,
@@ -119,7 +120,7 @@ fn get_feature_filter(
 
 async fn resolve_features(
     edge_token: EdgeToken,
-    features_cache: Data<DashMap<String, ClientFeatures>>,
+    features_cache: Data<FeatureCache>,
     token_cache: Data<DashMap<String, EdgeToken>>,
     filter_query: Query<FeatureFilters>,
     req: HttpRequest,
@@ -160,7 +161,7 @@ async fn resolve_features(
 #[get("/features/{feature_name}")]
 pub async fn get_feature(
     edge_token: EdgeToken,
-    features_cache: Data<DashMap<String, ClientFeatures>>,
+    features_cache: Data<FeatureCache>,
     token_cache: Data<DashMap<String, EdgeToken>>,
     feature_name: web::Path<String>,
     req: HttpRequest,

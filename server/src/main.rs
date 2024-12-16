@@ -44,14 +44,6 @@ async fn main() -> Result<(), anyhow::Error> {
     if let EdgeMode::Ready(args) = args.mode {
         return ready_checker::check_ready(args).await.map_err(|e| e.into());
     }
-    let (client_feature_update_tx, _) = tokio::sync::broadcast::channel::<String>(16);
-    let mut thomas_chris_sub = client_feature_update_tx.subscribe();
-    tokio::spawn(async move {
-        loop {
-            let message = thomas_chris_sub.recv().await.unwrap();
-            println!("Message: {message}");
-        }
-    });
     let schedule_args = args.clone();
     let mode_arg = args.clone().mode;
     let http_args = args.clone().http;
@@ -71,9 +63,7 @@ async fn main() -> Result<(), anyhow::Error> {
         token_validator,
         feature_refresher,
         persistence,
-    ) = build_caches_and_refreshers(args, client_feature_update_tx.clone())
-        .await
-        .unwrap();
+    ) = build_caches_and_refreshers(args).await.unwrap();
 
     let token_validator_schedule = token_validator.clone();
     let lazy_feature_cache = features_cache.clone();
@@ -167,6 +157,14 @@ async fn main() -> Result<(), anyhow::Error> {
                     let _ = refresher_for_background
                         .start_streaming_features_background_task()
                         .await;
+                });
+            }
+            if let Some(mut rx) = lazy_feature_cache.subscribe() {
+                tokio::spawn(async move {
+                    loop {
+                        let msg = rx.recv().await.unwrap();
+                        println!("{msg:?}");
+                    }
                 });
             }
             let refresher = feature_refresher.clone().unwrap();

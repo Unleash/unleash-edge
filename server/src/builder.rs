@@ -6,7 +6,6 @@ use std::sync::Arc;
 use chrono::Duration;
 use dashmap::DashMap;
 use reqwest::Url;
-use tokio::sync::broadcast;
 use tracing::{debug, error, warn};
 use unleash_types::client_features::ClientFeatures;
 use unleash_yggdrasil::EngineState;
@@ -39,13 +38,13 @@ type EdgeInfo = (
     Option<Arc<dyn EdgePersistence>>,
 );
 
-fn build_caches(feature_update_sender: broadcast::Sender<String>) -> CacheContainer {
+fn build_caches() -> CacheContainer {
     let token_cache: DashMap<String, EdgeToken> = DashMap::default();
     let features_cache: DashMap<String, ClientFeatures> = DashMap::default();
     let engine_cache: DashMap<String, EngineState> = DashMap::default();
     (
         Arc::new(token_cache),
-        Arc::new(FeatureCache::new(features_cache, feature_update_sender)),
+        Arc::new(FeatureCache::new(features_cache)),
         Arc::new(engine_cache),
     )
 }
@@ -83,9 +82,8 @@ pub(crate) fn build_offline_mode(
     tokens: Vec<String>,
     client_tokens: Vec<String>,
     frontend_tokens: Vec<String>,
-    feature_update_sender: broadcast::Sender<String>,
 ) -> EdgeResult<CacheContainer> {
-    let (token_cache, features_cache, engine_cache) = build_caches(feature_update_sender);
+    let (token_cache, features_cache, engine_cache) = build_caches();
 
     let edge_tokens: Vec<EdgeToken> = tokens
         .iter()
@@ -139,10 +137,7 @@ pub(crate) fn build_offline_mode(
     Ok((token_cache, features_cache, engine_cache))
 }
 
-fn build_offline(
-    offline_args: OfflineArgs,
-    features_update_sender: broadcast::Sender<String>,
-) -> EdgeResult<CacheContainer> {
+fn build_offline(offline_args: OfflineArgs) -> EdgeResult<CacheContainer> {
     if offline_args.tokens.is_empty() && offline_args.client_tokens.is_empty() {
         return Err(EdgeError::NoTokens(
             "No tokens provided. Tokens must be specified when running in offline mode".into(),
@@ -166,7 +161,6 @@ fn build_offline(
             offline_args.tokens,
             offline_args.client_tokens,
             offline_args.frontend_tokens,
-            features_update_sender,
         )
     } else {
         Err(EdgeError::NoFeaturesFile)
@@ -223,11 +217,7 @@ async fn get_data_source(args: &EdgeArgs) -> Option<Arc<dyn EdgePersistence>> {
     None
 }
 
-async fn build_edge(
-    args: &EdgeArgs,
-    app_name: &str,
-    feature_update_sender: broadcast::Sender<String>,
-) -> EdgeResult<EdgeInfo> {
+async fn build_edge(args: &EdgeArgs, app_name: &str) -> EdgeResult<EdgeInfo> {
     if !args.strict {
         if !args.dynamic {
             error!("You should explicitly opt into either strict or dynamic behavior. Edge has defaulted to dynamic to preserve legacy behavior, however we recommend using strict from now on. Not explicitly opting into a behavior will return an error on startup in a future release");
@@ -241,7 +231,7 @@ async fn build_edge(
         ));
     }
 
-    let (token_cache, feature_cache, engine_cache) = build_caches(feature_update_sender);
+    let (token_cache, feature_cache, engine_cache) = build_caches();
 
     let persistence = get_data_source(args).await;
 
@@ -312,16 +302,12 @@ async fn build_edge(
     ))
 }
 
-pub async fn build_caches_and_refreshers(
-    args: CliArgs,
-    feature_update_sender: broadcast::Sender<String>,
-) -> EdgeResult<EdgeInfo> {
+pub async fn build_caches_and_refreshers(args: CliArgs) -> EdgeResult<EdgeInfo> {
     match args.mode {
-        EdgeMode::Offline(offline_args) => build_offline(offline_args, feature_update_sender)
-            .map(|cache| (cache, None, None, None)),
-        EdgeMode::Edge(edge_args) => {
-            build_edge(&edge_args, &args.app_name, feature_update_sender).await
+        EdgeMode::Offline(offline_args) => {
+            build_offline(offline_args).map(|cache| (cache, None, None, None))
         }
+        EdgeMode::Edge(edge_args) => build_edge(&edge_args, &args.app_name).await,
         _ => unreachable!(),
     }
 }

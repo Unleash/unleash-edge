@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use dashmap::DashMap;
 use tokio::sync::broadcast;
 use unleash_types::{
@@ -9,42 +7,50 @@ use unleash_types::{
 
 use crate::types::EdgeToken;
 
+#[derive(Debug, Clone)]
+pub enum UpdateType {
+    Full(String),
+    Update(String),
+    Deletion,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct FeatureCache {
     pub features: DashMap<String, ClientFeatures>,
-    pub update_sender: Option<broadcast::Sender<String>>,
+    pub update_sender: Option<broadcast::Sender<UpdateType>>,
 }
 
 impl FeatureCache {
-    pub fn new(
-        features: DashMap<String, ClientFeatures>,
-        update_sender: broadcast::Sender<String>,
-    ) -> Self {
+    pub fn new(features: DashMap<String, ClientFeatures>) -> Self {
+        let (tx, _rx) = tokio::sync::broadcast::channel::<UpdateType>(16);
         Self {
             features,
-            update_sender: Some(update_sender),
+            update_sender: Some(tx),
         }
     }
 
+    pub fn subscribe(&self) -> Option<broadcast::Receiver<UpdateType>> {
+        self.update_sender.clone().map(|up| up.subscribe())
+    }
     pub fn get(&self, key: &str) -> Option<dashmap::mapref::one::Ref<'_, String, ClientFeatures>> {
         self.features.get(key)
     }
 
     pub fn insert(&self, key: String, features: ClientFeatures) -> Option<ClientFeatures> {
         let v = self.features.insert(key.clone(), features);
-        self.send(key);
+        self.send_full_update(key);
         v
     }
 
-    pub fn send(&self, cache_key: String) {
+    pub fn send_full_update(&self, cache_key: String) {
         if let Some(sender) = self.update_sender.clone() {
-            let _ = sender.send(cache_key);
+            let _ = sender.send(UpdateType::Full(cache_key));
         }
     }
 
     pub fn remove(&self, key: &str) -> Option<(String, ClientFeatures)> {
         let v = self.features.remove(key);
-        self.send(key.to_string());
+        self.send_full_update(key.to_string());
         v
     }
 
@@ -56,7 +62,7 @@ impl FeatureCache {
                 *existing_features = updated;
             })
             .or_insert(features);
-        self.send(key);
+        self.send_full_update(key);
     }
 }
 
