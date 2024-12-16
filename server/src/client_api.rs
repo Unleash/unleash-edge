@@ -47,12 +47,13 @@ pub async fn stream_features(
     filter_query: Query<FeatureFilters>,
     req: HttpRequest,
 ) -> EdgeResult<impl Responder> {
+    use crate::http::broadcaster::Broadcaster;
+
     let (validated_token, _filter_set, query) =
         get_feature_filter(&edge_token, &token_cache, filter_query.clone())?;
-    match req.app_data::<Data<FeatureRefresher>>() {
-        Some(refresher) => {
-            refresher
-                .broadcaster
+    match req.app_data::<Data<Broadcaster>>() {
+        Some(broadcaster) => {
+            broadcaster
                 .connect(validated_token, filter_query, query)
                 .await
         }
