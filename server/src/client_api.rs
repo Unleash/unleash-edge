@@ -49,20 +49,15 @@ pub async fn stream_features(
 ) -> EdgeResult<impl Responder> {
     use crate::http::broadcaster::Broadcaster;
 
-    println!("{req:?}");
     let (validated_token, _filter_set, query) =
         get_feature_filter(&edge_token, &token_cache, filter_query.clone())?;
-    println!("validated token!");
     match req.app_data::<Data<Broadcaster>>() {
         Some(broadcaster) => {
             broadcaster
                 .connect(validated_token, filter_query, query)
                 .await
         }
-        _ => {
-            println!("No broadcaster found");
-            Err(EdgeError::ClientCacheError)
-        }
+        _ => Err(EdgeError::ClientCacheError),
     }
 }
 
@@ -1374,7 +1369,6 @@ mod tests {
         let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let token_header = TokenHeader::from_str("NeedsToBeTested").unwrap();
-        println!("token_header: {:?}", token_header);
         let app = test::init_service(
             App::new()
                 .app_data(Data::from(features_cache.clone()))
