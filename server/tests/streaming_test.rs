@@ -48,8 +48,10 @@ async fn test_streaming() {
         upstream_known_token.clone(),
     );
 
-    let initial_features = features_from_disk("../examples/features.json");
-    unleash_features_cache.insert(cache_key(&upstream_known_token), initial_features.clone());
+    unleash_features_cache.insert(
+        cache_key(&upstream_known_token),
+        features_from_disk("../examples/features.json"),
+    );
 
     println!("Upstream server started at: {}", unleash_server.url("/"));
     let edge = edge_server(&unleash_server.url("/"), upstream_known_token.clone()).await;
@@ -60,45 +62,32 @@ async fn test_streaming() {
         .unwrap()
         .build();
 
-    let events = Arc::new(Mutex::new(Vec::new()));
+    let initial_features = ClientFeatures {
+        features: vec![],
+        version: 2,
+        segments: None,
+        query: Some(Query {
+            tags: None,
+            projects: Some(vec!["dx".into()]),
+            name_prefix: None,
+            environment: Some("development".into()),
+            inline_segment_constraints: Some(false),
+        }),
+    };
 
-    // Wait for the "connected" event
-    println!("Attempting to connect to stream...");
     let mut stream = es_client.stream();
-    println!("Stream created, waiting for events...");
-    while let Some(result) = stream.next().await {
-        match result {
-            Ok(event) => {
-                println!("Received event: {:?}", event);
-                match event {
-                    eventsource_client::SSE::Event(event)
-                        if event.event_type == "unleash-connected" =>
-                    {
-                        println!("🚀Connected to edge server\n\n");
-                        assert_eq!(
-                            serde_json::from_str::<ClientFeatures>(&event.data).unwrap(),
-                            ClientFeatures {
-                                features: vec![],
-                                version: 2,
-                                segments: None,
-                                query: Some(Query {
-                                    tags: None,
-                                    projects: Some(vec!["dx".into()]),
-                                    name_prefix: None,
-                                    environment: Some("development".into()),
-                                    inline_segment_constraints: Some(false)
-                                }),
-                            }
-                        );
-                        break;
-                    }
-                    _ => {
-                        // println!("\n\nOther connection event: {:?}", event);
-                    }
-                }
+    while let Some(Ok(event)) = stream.next().await {
+        match event {
+            eventsource_client::SSE::Event(event) if event.event_type == "unleash-connected" => {
+                println!("🚀Connected to edge server\n\n");
+                assert_eq!(
+                    serde_json::from_str::<ClientFeatures>(&event.data).unwrap(),
+                    initial_features
+                );
+                break;
             }
-            Err(e) => {
-                println!("Error receiving event: {:?}", e);
+            _ => {
+                // ignore other events
             }
         }
     }
@@ -116,21 +105,18 @@ async fn test_streaming() {
         match event {
             eventsource_client::SSE::Event(event) if event.event_type == "unleash-updated" => {
                 println!("👨‍🚀Received features update");
-                events.lock().unwrap().push(event);
+                // events.lock().unwrap().push(event);
+                let update = serde_json::from_str::<ClientFeatures>(&event.data).unwrap();
+                assert_eq!(initial_features.query, update.query);
+                assert_eq!(initial_features.version, update.version);
+                assert!(initial_features.features != update.features);
                 break;
             }
             _ => {
-                // println!("Event: {:?}", event);
+                // ignore other events
             }
         }
     }
-
-    // // Print collected events
-    // let collected_events = events.lock().unwrap();
-    // println!("Collected events: {:?}", collected_events.len());
-    // for (i, event) in collected_events.iter().enumerate() {
-    //     println!("Event {}: {:?}", i, event);
-    // }
 }
 
 use actix_http::HttpService;
