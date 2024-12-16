@@ -17,7 +17,7 @@ use unleash_edge::{
     tokens::cache_key,
     types::{EdgeToken, TokenType, TokenValidationStatus},
 };
-use unleash_types::client_features::ClientFeatures;
+use unleash_types::client_features::{ClientFeatures, Query};
 
 pub fn features_from_disk(path: &str) -> ClientFeatures {
     let path = PathBuf::from(path);
@@ -48,19 +48,11 @@ async fn test_streaming() {
         upstream_known_token.clone(),
     );
 
-    unleash_features_cache.insert(
-        cache_key(&upstream_known_token),
-        features_from_disk("../examples/features.json"),
-    );
+    let initial_features = features_from_disk("../examples/features.json");
+    unleash_features_cache.insert(cache_key(&upstream_known_token), initial_features.clone());
 
     println!("Upstream server started at: {}", unleash_server.url("/"));
     let edge = edge_server(&unleash_server.url("/"), upstream_known_token.clone()).await;
-
-    // connect to edge, await connected event
-    // (might need to make the client an arc)
-    // after receiving the connected event, insert new features and broadcast
-    // await new features event
-    // presumably, the stream will receive events, regardless of whether we're watching or not
 
     let es_client = eventsource_client::ClientBuilder::for_url(&edge.url("/api/client/streaming"))
         .unwrap()
@@ -83,6 +75,21 @@ async fn test_streaming() {
                         if event.event_type == "unleash-connected" =>
                     {
                         println!("🚀Connected to edge server\n\n");
+                        assert_eq!(
+                            serde_json::from_str::<ClientFeatures>(&event.data).unwrap(),
+                            ClientFeatures {
+                                features: vec![],
+                                version: 2,
+                                segments: None,
+                                query: Some(Query {
+                                    tags: None,
+                                    projects: Some(vec!["dx".into()]),
+                                    name_prefix: None,
+                                    environment: Some("development".into()),
+                                    inline_segment_constraints: Some(false)
+                                }),
+                            }
+                        );
                         break;
                     }
                     _ => {
@@ -119,7 +126,7 @@ async fn test_streaming() {
     }
 
     // // Print collected events
-    let collected_events = events.lock().unwrap();
+    // let collected_events = events.lock().unwrap();
     // println!("Collected events: {:?}", collected_events.len());
     // for (i, event) in collected_events.iter().enumerate() {
     //     println!("Event {}: {:?}", i, event);
