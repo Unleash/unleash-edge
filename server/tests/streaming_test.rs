@@ -104,8 +104,8 @@ async fn test_streaming() {
 
     tokio::time::timeout(std::time::Duration::from_secs(2), async {
         loop {
-            match stream.next().await {
-                Some(Ok(event)) => match event {
+            if let Some(Ok(event)) = stream.next().await {
+                match event {
                     eventsource_client::SSE::Event(event)
                         if event.event_type == "unleash-updated" =>
                     {
@@ -119,9 +119,7 @@ async fn test_streaming() {
                         // panic!("Unexpected event: {:?}", event);
                         // ignore other events
                     }
-                },
-                Some(Err(e)) => println!("Got an error, ignoring, {e:?}"),
-                None => println!("Stream ended"),
+                }
             }
         }
     })
