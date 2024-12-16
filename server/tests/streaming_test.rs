@@ -1,14 +1,8 @@
 use dashmap::DashMap;
 use eventsource_client::Client;
-use futures::{future, StreamExt, TryStreamExt};
+use futures::StreamExt;
 use reqwest::Url;
-use std::{
-    fs,
-    io::BufReader,
-    path::PathBuf,
-    str::FromStr,
-    sync::{Arc, Mutex},
-};
+use std::{fs, io::BufReader, path::PathBuf, str::FromStr, sync::Arc};
 use unleash_edge::{
     http::{
         broadcaster::Broadcaster, feature_refresher::FeatureRefresher,
@@ -53,7 +47,6 @@ async fn test_streaming() {
         features_from_disk("../examples/features.json"),
     );
 
-    println!("Upstream server started at: {}", unleash_server.url("/"));
     let edge = edge_server(&unleash_server.url("/"), upstream_known_token.clone()).await;
 
     let es_client = eventsource_client::ClientBuilder::for_url(&edge.url("/api/client/streaming"))
@@ -79,7 +72,6 @@ async fn test_streaming() {
     while let Some(Ok(event)) = stream.next().await {
         match event {
             eventsource_client::SSE::Event(event) if event.event_type == "unleash-connected" => {
-                println!("🚀Connected to edge server\n\n");
                 assert_eq!(
                     serde_json::from_str::<ClientFeatures>(&event.data).unwrap(),
                     initial_features
@@ -92,20 +84,15 @@ async fn test_streaming() {
         }
     }
 
-    // // Update features and broadcast
-    println!("🦴Updating features!");
     unleash_features_cache.insert(
         cache_key(&upstream_known_token),
         features_from_disk("../examples/hostedexample.json"),
     );
     unleash_broadcaster.broadcast().await;
 
-    // Wait for the "updated" event
     while let Some(Ok(event)) = stream.next().await {
         match event {
             eventsource_client::SSE::Event(event) if event.event_type == "unleash-updated" => {
-                println!("👨‍🚀Received features update");
-                // events.lock().unwrap().push(event);
                 let update = serde_json::from_str::<ClientFeatures>(&event.data).unwrap();
                 assert_eq!(initial_features.query, update.query);
                 assert_eq!(initial_features.version, update.version);
