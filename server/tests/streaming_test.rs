@@ -90,20 +90,24 @@ async fn test_streaming() {
     );
     unleash_broadcaster.broadcast().await;
 
-    while let Some(Ok(event)) = stream.next().await {
-        match event {
-            eventsource_client::SSE::Event(event) if event.event_type == "unleash-updated" => {
-                let update = serde_json::from_str::<ClientFeatures>(&event.data).unwrap();
-                assert_eq!(initial_features.query, update.query);
-                assert_eq!(initial_features.version, update.version);
-                assert!(initial_features.features != update.features);
-                break;
-            }
-            _ => {
-                // ignore other events
+    tokio::time::timeout(std::time::Duration::from_secs(1), async {
+        while let Some(Ok(event)) = stream.next().await {
+            match event {
+                eventsource_client::SSE::Event(event) if event.event_type == "unleash-updated" => {
+                    let update = serde_json::from_str::<ClientFeatures>(&event.data).unwrap();
+                    assert_eq!(initial_features.query, update.query);
+                    assert_eq!(initial_features.version, update.version);
+                    assert!(initial_features.features != update.features);
+                    break;
+                }
+                _ => {
+                    // ignore other events
+                }
             }
         }
-    }
+    })
+    .await
+    .expect("Test timed out waiting for update event");
 }
 
 use actix_http::HttpService;
