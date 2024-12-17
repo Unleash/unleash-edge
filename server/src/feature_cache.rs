@@ -14,10 +14,10 @@ pub enum UpdateType {
     Deletion,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct FeatureCache {
     pub features: DashMap<String, ClientFeatures>,
-    pub update_sender: Option<broadcast::Sender<UpdateType>>,
+    pub update_sender: broadcast::Sender<UpdateType>,
 }
 
 impl FeatureCache {
@@ -25,12 +25,12 @@ impl FeatureCache {
         let (tx, _rx) = tokio::sync::broadcast::channel::<UpdateType>(16);
         Self {
             features,
-            update_sender: Some(tx),
+            update_sender: tx,
         }
     }
 
-    pub fn subscribe(&self) -> Option<broadcast::Receiver<UpdateType>> {
-        self.update_sender.clone().map(|up| up.subscribe())
+    pub fn subscribe(&self) -> broadcast::Receiver<UpdateType> {
+        self.update_sender.subscribe()
     }
     pub fn get(&self, key: &str) -> Option<dashmap::mapref::one::Ref<'_, String, ClientFeatures>> {
         self.features.get(key)
@@ -43,9 +43,7 @@ impl FeatureCache {
     }
 
     pub fn send_full_update(&self, cache_key: String) {
-        if let Some(sender) = self.update_sender.clone() {
-            let _ = sender.send(UpdateType::Full(cache_key));
-        }
+        let _ = self.update_sender.send(UpdateType::Full(cache_key));
     }
 
     pub fn remove(&self, key: &str) -> Option<(String, ClientFeatures)> {
@@ -63,6 +61,12 @@ impl FeatureCache {
             })
             .or_insert(features);
         self.send_full_update(key);
+    }
+}
+
+impl Default for FeatureCache {
+    fn default() -> Self {
+        FeatureCache::new(DashMap::default())
     }
 }
 
