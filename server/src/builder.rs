@@ -11,6 +11,7 @@ use unleash_types::client_features::ClientFeatures;
 use unleash_yggdrasil::EngineState;
 
 use crate::cli::RedisMode;
+use crate::feature_cache::FeatureCache;
 use crate::http::unleash_client::new_reqwest_client;
 use crate::offline::offline_hotload::{load_bootstrap, load_offline_engine_cache};
 use crate::persistence::file::FilePersister;
@@ -27,7 +28,7 @@ use crate::{
 
 type CacheContainer = (
     Arc<DashMap<String, EdgeToken>>,
-    Arc<DashMap<String, ClientFeatures>>,
+    Arc<FeatureCache>,
     Arc<DashMap<String, EngineState>>,
 );
 type EdgeInfo = (
@@ -43,7 +44,7 @@ fn build_caches() -> CacheContainer {
     let engine_cache: DashMap<String, EngineState> = DashMap::default();
     (
         Arc::new(token_cache),
-        Arc::new(features_cache),
+        Arc::new(FeatureCache::new(features_cache)),
         Arc::new(engine_cache),
     )
 }

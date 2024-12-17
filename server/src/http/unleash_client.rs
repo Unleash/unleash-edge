@@ -575,7 +575,7 @@ mod tests {
                     )
                     .service(
                         web::resource("/api/edge/validate")
-                            .route(web::post().to(|| HttpResponse::Forbidden())),
+                            .route(web::post().to(HttpResponse::Forbidden)),
                     ),
                 |_| AppConfig::default(),
             ))
