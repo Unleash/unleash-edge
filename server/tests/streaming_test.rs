@@ -26,7 +26,7 @@ pub fn features_from_disk(path: &str) -> ClientFeatures {
 
 #[actix_web::test]
 async fn test_streaming() {
-    let unleash_features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
+    let unleash_features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::new(DashMap::default()));
     let unleash_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
     let unleash_broadcaster = Broadcaster::new(unleash_features_cache.clone());
 
@@ -122,7 +122,6 @@ async fn test_streaming() {
         cache_key(&upstream_known_token),
         features_from_disk("../examples/hostedexample.json"),
     );
-    unleash_broadcaster.broadcast().await;
 
     if let Err(_) = tokio::time::timeout(std::time::Duration::from_secs(2), async {
         loop {
