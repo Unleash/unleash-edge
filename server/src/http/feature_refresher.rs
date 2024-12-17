@@ -24,8 +24,6 @@ use crate::{
     types::{ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenRefresh},
 };
 
-#[cfg(feature = "streaming")]
-use super::broadcaster::Broadcaster;
 use super::unleash_client::UnleashClient;
 
 fn frontend_token_is_covered_by_tokens(
@@ -49,8 +47,6 @@ pub struct FeatureRefresher {
     pub persistence: Option<Arc<dyn EdgePersistence>>,
     pub strict: bool,
     pub app_name: String,
-    #[cfg(feature = "streaming")]
-    pub broadcaster: Arc<Broadcaster>,
 }
 
 impl Default for FeatureRefresher {
@@ -64,8 +60,6 @@ impl Default for FeatureRefresher {
             persistence: None,
             strict: true,
             app_name: "unleash_edge".into(),
-            #[cfg(feature = "streaming")]
-            broadcaster: Broadcaster::new(Default::default()),
         }
     }
 }
