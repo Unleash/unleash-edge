@@ -331,10 +331,16 @@ impl FeatureRefresher {
     }
 
     pub async fn start_refresh_features_background_task(&self) {
-        loop {
-            tokio::select! {
-                _ = tokio::time::sleep(Duration::from_secs(5)) => {
-                    self.refresh_features().await;
+        if cfg!(feature = "streaming") {
+            loop {
+                tokio::time::sleep(Duration::from_secs(3600)).await;
+            }
+        } else {
+            loop {
+                tokio::select! {
+                    _ = tokio::time::sleep(Duration::from_secs(5)) => {
+                        self.refresh_features().await;
+                    }
                 }
             }
         }

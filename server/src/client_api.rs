@@ -299,8 +299,6 @@ pub fn configure_experimental_post_features(
 #[cfg(test)]
 mod tests {
 
-    #[cfg(feature = "streaming")]
-    use crate::http::broadcaster::Broadcaster;
     use crate::metrics::client_metrics::{ApplicationKey, MetricsBatch, MetricsKey};
     use crate::types::{TokenType, TokenValidationStatus};
     use std::collections::HashMap;
