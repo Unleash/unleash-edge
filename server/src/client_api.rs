@@ -3,6 +3,7 @@ use crate::feature_cache::FeatureCache;
 use crate::filters::{
     filter_client_features, name_match_filter, name_prefix_filter, project_filter, FeatureFilterSet,
 };
+use crate::http::broadcaster::Broadcaster;
 use crate::http::feature_refresher::FeatureRefresher;
 use crate::metrics::client_metrics::MetricsCache;
 use crate::tokens::cache_key;
@@ -10,7 +11,6 @@ use crate::types::{
     self, BatchMetricsRequestBody, EdgeJsonResult, EdgeResult, EdgeToken, FeatureFilters,
 };
 use actix_web::web::{self, Data, Json, Query};
-#[cfg(feature = "streaming")]
 use actix_web::Responder;
 use actix_web::{get, post, HttpRequest, HttpResponse};
 use dashmap::DashMap;
@@ -40,7 +40,6 @@ pub async fn get_features(
     resolve_features(edge_token, features_cache, token_cache, filter_query, req).await
 }
 
-#[cfg(feature = "streaming")]
 #[get("/streaming")]
 pub async fn stream_features(
     edge_token: EdgeToken,
@@ -48,8 +47,6 @@ pub async fn stream_features(
     filter_query: Query<FeatureFilters>,
     req: HttpRequest,
 ) -> EdgeResult<impl Responder> {
-    use crate::http::broadcaster::Broadcaster;
-
     let (validated_token, _filter_set, query) =
         get_feature_filter(&edge_token, &token_cache, filter_query.clone())?;
     match req.app_data::<Data<Broadcaster>>() {
@@ -279,10 +276,8 @@ pub fn configure_client_api(cfg: &mut web::ServiceConfig) {
         .service(get_feature)
         .service(register)
         .service(metrics)
-        .service(post_bulk_metrics);
-
-    #[cfg(feature = "streaming")]
-    let client_scope = client_scope.service(stream_features);
+        .service(post_bulk_metrics)
+        .service(stream_features);
 
     cfg.service(client_scope);
 }
@@ -1020,6 +1015,7 @@ mod tests {
             refresh_interval: Duration::seconds(6000),
             persistence: None,
             strict: false,
+            streaming: false,
             app_name: "test-app".into(),
         });
         let token_validator = Arc::new(TokenValidator {

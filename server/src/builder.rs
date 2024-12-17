@@ -266,6 +266,7 @@ async fn build_edge(args: &EdgeArgs, app_name: &str) -> EdgeResult<EdgeInfo> {
         Duration::seconds(args.features_refresh_interval_seconds.try_into().unwrap()),
         persistence.clone(),
         args.strict,
+        args.streaming,
         app_name,
     ));
     let _ = token_validator.register_tokens(args.tokens.clone()).await;
@@ -364,6 +365,7 @@ mod tests {
             prometheus_user_id: None,
             prometheus_password: None,
             prometheus_username: None,
+            streaming: false,
         };
 
         let result = build_edge(&args, "test-app").await;

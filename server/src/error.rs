@@ -2,11 +2,9 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use actix_web::{http::StatusCode, HttpResponseBuilder, ResponseError};
-#[cfg(feature = "streaming")]
 use actix_web_lab::sse::Event;
 use serde::Serialize;
 use serde_json::json;
-#[cfg(feature = "streaming")]
 use tokio::sync::mpsc::error::SendError;
 use tracing::debug;
 
@@ -295,7 +293,6 @@ impl From<serde_json::Error> for EdgeError {
     }
 }
 
-#[cfg(feature = "streaming")]
 impl From<SendError<Event>> for EdgeError {
     // todo: create better enum representation. use this is placeholder
     fn from(_value: SendError<Event>) -> Self {

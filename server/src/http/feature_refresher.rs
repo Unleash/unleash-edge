@@ -4,9 +4,7 @@ use std::{sync::Arc, time::Duration};
 use actix_web::http::header::EntityTag;
 use chrono::Utc;
 use dashmap::DashMap;
-#[cfg(feature = "streaming")]
 use eventsource_client::Client;
-#[cfg(feature = "streaming")]
 use futures::TryStreamExt;
 use reqwest::StatusCode;
 use tracing::{debug, info, warn};
@@ -46,6 +44,7 @@ pub struct FeatureRefresher {
     pub refresh_interval: chrono::Duration,
     pub persistence: Option<Arc<dyn EdgePersistence>>,
     pub strict: bool,
+    pub streaming: bool,
     pub app_name: String,
 }
 
@@ -59,6 +58,7 @@ impl Default for FeatureRefresher {
             engine_cache: Default::default(),
             persistence: None,
             strict: true,
+            streaming: false,
             app_name: "unleash_edge".into(),
         }
     }
@@ -94,6 +94,7 @@ impl FeatureRefresher {
         features_refresh_interval: chrono::Duration,
         persistence: Option<Arc<dyn EdgePersistence>>,
         strict: bool,
+        streaming: bool,
         app_name: &str,
     ) -> Self {
         FeatureRefresher {
@@ -104,6 +105,7 @@ impl FeatureRefresher {
             refresh_interval: features_refresh_interval,
             persistence,
             strict,
+            streaming,
             app_name: app_name.into(),
         }
     }
@@ -245,7 +247,6 @@ impl FeatureRefresher {
     }
 
     /// This is where we set up a listener per token.
-    #[cfg(feature = "streaming")]
     pub async fn start_streaming_features_background_task(&self) -> anyhow::Result<()> {
         use anyhow::Context;
 
@@ -331,7 +332,7 @@ impl FeatureRefresher {
     }
 
     pub async fn start_refresh_features_background_task(&self) {
-        if cfg!(feature = "streaming") {
+        if self.streaming {
             loop {
                 tokio::time::sleep(Duration::from_secs(3600)).await;
             }

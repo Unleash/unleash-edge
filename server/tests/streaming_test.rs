@@ -1,4 +1,3 @@
-#[cfg(feature = "streaming")]
 mod streaming_test {
     use dashmap::DashMap;
     use eventsource_client::Client;
@@ -59,6 +58,7 @@ mod streaming_test {
             .arg("--upstream-url")
             .arg(&unleash_server.url("/"))
             .arg("--strict")
+            .arg("--streaming")
             .arg("-t")
             .arg(&upstream_known_token.token)
             .stdout(Stdio::null()) // Suppress stdout
