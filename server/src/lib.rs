@@ -45,6 +45,7 @@ mod tests {
     use unleash_yggdrasil::EngineState;
 
     use crate::auth::token_validator::TokenValidator;
+    use crate::feature_cache::FeatureCache;
     use crate::metrics::client_metrics::MetricsCache;
     use crate::types::EdgeToken;
 
@@ -57,7 +58,7 @@ mod tests {
 
     pub async fn upstream_server(
         upstream_token_cache: Arc<DashMap<String, EdgeToken>>,
-        upstream_features_cache: Arc<DashMap<String, ClientFeatures>>,
+        upstream_features_cache: Arc<FeatureCache>,
         upstream_engine_cache: Arc<DashMap<String, EngineState>>,
     ) -> TestServer {
         let token_validator = Arc::new(TokenValidator {

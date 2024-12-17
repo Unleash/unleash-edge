@@ -494,7 +494,7 @@ mod tests {
     use chrono::{Duration, Utc};
     use dashmap::DashMap;
     use reqwest::Url;
-    use unleash_types::client_features::{ClientFeature, ClientFeatures};
+    use unleash_types::client_features::ClientFeature;
     use unleash_yggdrasil::EngineState;
 
     use crate::feature_cache::{update_projects_from_feature_update, FeatureCache};
@@ -566,7 +566,7 @@ mod tests {
     pub async fn registering_multiple_tokens_with_same_environment_reduces_tokens_to_valid_minimal_set(
     ) {
         let unleash_client = create_test_client();
-        let features_cache = Arc::new(DashMap::default());
+        let features_cache = Arc::new(FeatureCache::default());
         let engine_cache = Arc::new(DashMap::default());
 
         let duration = Duration::seconds(5);
@@ -594,7 +594,7 @@ mod tests {
     #[tokio::test]
     pub async fn registering_multiple_non_overlapping_tokens_will_keep_all() {
         let unleash_client = create_test_client();
-        let features_cache = Arc::new(DashMap::default());
+        let features_cache = Arc::new(FeatureCache::default());
         let engine_cache = Arc::new(DashMap::default());
         let duration = Duration::seconds(5);
         let feature_refresher = FeatureRefresher {
@@ -629,7 +629,7 @@ mod tests {
     #[tokio::test]
     pub async fn registering_wildcard_project_token_only_keeps_the_wildcard() {
         let unleash_client = create_test_client();
-        let features_cache = Arc::new(DashMap::default());
+        let features_cache = Arc::new(FeatureCache::default());
         let engine_cache = Arc::new(DashMap::default());
         let duration = Duration::seconds(5);
         let feature_refresher = FeatureRefresher {
@@ -673,7 +673,7 @@ mod tests {
     #[tokio::test]
     pub async fn registering_tokens_with_multiple_projects_overwrites_single_tokens() {
         let unleash_client = create_test_client();
-        let features_cache = Arc::new(DashMap::default());
+        let features_cache = Arc::new(FeatureCache::default());
         let engine_cache = Arc::new(DashMap::default());
         let duration = Duration::seconds(5);
         let feature_refresher = FeatureRefresher {
@@ -721,7 +721,7 @@ mod tests {
     #[tokio::test]
     pub async fn registering_a_token_that_is_already_subsumed_does_nothing() {
         let unleash_client = create_test_client();
-        let features_cache = Arc::new(DashMap::default());
+        let features_cache = Arc::new(FeatureCache::default());
         let engine_cache = Arc::new(DashMap::default());
 
         let duration = Duration::seconds(5);
@@ -754,7 +754,7 @@ mod tests {
     #[tokio::test]
     pub async fn simplification_only_happens_in_same_environment() {
         let unleash_client = create_test_client();
-        let features_cache = Arc::new(DashMap::default());
+        let features_cache = Arc::new(FeatureCache::default());
         let engine_cache = Arc::new(DashMap::default());
 
         let duration = Duration::seconds(5);
@@ -782,7 +782,7 @@ mod tests {
     #[tokio::test]
     pub async fn is_able_to_only_fetch_for_tokens_due_to_refresh() {
         let unleash_client = create_test_client();
-        let features_cache = Arc::new(DashMap::default());
+        let features_cache = Arc::new(FeatureCache::default());
         let engine_cache = Arc::new(DashMap::default());
 
         let duration = Duration::seconds(5);
@@ -853,7 +853,7 @@ mod tests {
 
     async fn client_api_test_server(
         upstream_token_cache: Arc<DashMap<String, EdgeToken>>,
-        upstream_features_cache: Arc<DashMap<String, ClientFeatures>>,
+        upstream_features_cache: Arc<FeatureCache>,
         upstream_engine_cache: Arc<DashMap<String, EngineState>>,
     ) -> TestServer {
         test_server(move || {
@@ -871,8 +871,7 @@ mod tests {
     }
     #[tokio::test]
     pub async fn getting_403_when_refreshing_features_will_remove_token() {
-        let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
-            Arc::new(DashMap::default());
+        let upstream_features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let server = client_api_test_server(
@@ -882,7 +881,7 @@ mod tests {
         )
         .await;
         let unleash_client = UnleashClient::new(server.url("/").as_str(), None).unwrap();
-        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let feature_refresher = FeatureRefresher {
             unleash_client: Arc::new(unleash_client),
@@ -911,8 +910,7 @@ mod tests {
         token.token_type = Some(TokenType::Client);
         let token_cache = DashMap::default();
         token_cache.insert(token.token.clone(), token.clone());
-        let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
-            Arc::new(DashMap::default());
+        let upstream_features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(token_cache);
         let example_features = features_from_disk("../examples/features.json");
@@ -928,7 +926,7 @@ mod tests {
         )
         .await;
         let unleash_client = UnleashClient::new(server.url("/").as_str(), None).unwrap();
-        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let feature_refresher = FeatureRefresher {
             unleash_client: Arc::new(unleash_client),
@@ -963,8 +961,7 @@ mod tests {
 
     #[tokio::test]
     pub async fn when_we_have_a_cache_and_token_gets_removed_caches_are_emptied() {
-        let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
-            Arc::new(DashMap::default());
+        let upstream_features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let token_cache_to_modify = upstream_token_cache.clone();
@@ -1005,8 +1002,7 @@ mod tests {
     #[tokio::test]
     pub async fn removing_one_of_multiple_keys_from_same_environment_does_not_remove_feature_and_engine_caches(
     ) {
-        let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
-            Arc::new(DashMap::default());
+        let upstream_features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let token_cache_to_modify = upstream_token_cache.clone();
@@ -1056,8 +1052,7 @@ mod tests {
     #[tokio::test]
     pub async fn fetching_two_projects_from_same_environment_should_get_features_for_both_when_dynamic(
     ) {
-        let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
-            Arc::new(DashMap::default());
+        let upstream_features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let mut dx_token = EdgeToken::try_from("dx:development.secret123".to_string()).unwrap();
@@ -1114,8 +1109,7 @@ mod tests {
     #[tokio::test]
     pub async fn should_get_data_for_multi_project_token_even_if_we_have_data_for_one_of_the_projects_when_dynamic(
     ) {
-        let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
-            Arc::new(DashMap::default());
+        let upstream_features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let mut dx_token = EdgeToken::from_str("dx:development.secret123").unwrap();
@@ -1232,8 +1226,7 @@ mod tests {
 
     #[tokio::test]
     async fn refetching_data_when_feature_is_archived_should_remove_archived_feature() {
-        let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
-            Arc::new(DashMap::default());
+        let upstream_features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let mut eg_token = EdgeToken::from_str("eg:development.devsecret").unwrap();
@@ -1252,7 +1245,7 @@ mod tests {
             upstream_engine_cache,
         )
         .await;
-        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let unleash_client = UnleashClient::new(server.url("/").as_str(), None).unwrap();
         let feature_refresher = FeatureRefresher {
             unleash_client: Arc::new(unleash_client),

@@ -29,6 +29,10 @@ impl FeatureCache {
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.features.len()
+    }
+
     pub fn subscribe(&self) -> broadcast::Receiver<UpdateType> {
         self.update_sender.subscribe()
     }

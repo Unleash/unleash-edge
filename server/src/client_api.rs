@@ -584,7 +584,7 @@ mod tests {
 
     #[tokio::test]
     async fn response_includes_variant_stickiness_for_strategy_variants() {
-        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let features_cache = Arc::new(FeatureCache::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let app = test::init_service(
             App::new()
@@ -688,7 +688,7 @@ mod tests {
         token.status = TokenValidationStatus::Validated;
         token.token_type = Some(TokenType::Client);
         let upstream_token_cache = Arc::new(DashMap::default());
-        let upstream_features_cache = Arc::new(DashMap::default());
+        let upstream_features_cache = Arc::new(FeatureCache::default());
         let upstream_engine_cache = Arc::new(DashMap::default());
         upstream_token_cache.insert(token.token.clone(), token.clone());
         let srv = upstream_server(
@@ -727,7 +727,7 @@ mod tests {
         frontend_token.status = TokenValidationStatus::Validated;
         frontend_token.token_type = Some(TokenType::Frontend);
         let upstream_token_cache = Arc::new(DashMap::default());
-        let upstream_features_cache = Arc::new(DashMap::default());
+        let upstream_features_cache = Arc::new(FeatureCache::default());
         let upstream_engine_cache = Arc::new(DashMap::default());
         upstream_token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
         let srv = upstream_server(
@@ -769,7 +769,7 @@ mod tests {
 
     #[tokio::test]
     async fn client_features_endpoint_correctly_returns_cached_features() {
-        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let features_cache = Arc::new(FeatureCache::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let app = test::init_service(
             App::new()
@@ -806,7 +806,7 @@ mod tests {
 
     #[tokio::test]
     async fn post_request_to_client_features_does_the_same_as_get_when_mounted() {
-        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let features_cache = Arc::new(FeatureCache::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let app = test::init_service(
             App::new()
@@ -856,7 +856,7 @@ mod tests {
 
     #[tokio::test]
     async fn client_features_endpoint_filters_on_project_access_in_token() {
-        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let features_cache = Arc::new(FeatureCache::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let app = test::init_service(
             App::new()
@@ -885,7 +885,7 @@ mod tests {
 
     #[tokio::test]
     async fn client_features_endpoint_filters_when_multiple_projects_in_token() {
-        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let features_cache = Arc::new(FeatureCache::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let app = test::init_service(
             App::new()
@@ -914,7 +914,7 @@ mod tests {
     #[tokio::test]
     async fn client_features_endpoint_filters_correctly_when_token_has_access_to_multiple_projects()
     {
-        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let features_cache = Arc::new(FeatureCache::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let app = test::init_service(
             App::new()
@@ -965,7 +965,7 @@ mod tests {
 
     #[tokio::test]
     async fn when_running_in_offline_mode_with_proxy_key_should_not_filter_features() {
-        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let features_cache = Arc::new(FeatureCache::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let app = test::init_service(
             App::new()
@@ -992,8 +992,7 @@ mod tests {
 
     #[tokio::test]
     async fn calling_client_features_endpoint_with_new_token_hydrates_from_upstream_when_dynamic() {
-        let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
-            Arc::new(DashMap::default());
+        let upstream_features_cache = Arc::new(FeatureCache::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let server = upstream_server(
@@ -1054,8 +1053,7 @@ mod tests {
 
     #[tokio::test]
     async fn calling_client_features_endpoint_with_new_token_does_not_hydrate_when_strict() {
-        let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
-            Arc::new(DashMap::default());
+        let upstream_features_cache = Arc::new(FeatureCache::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let server = upstream_server(
@@ -1074,7 +1072,7 @@ mod tests {
         );
         upstream_features_cache.insert(cache_key(&upstream_known_token), upstream_features.clone());
         let unleash_client = Arc::new(UnleashClient::new(server.url("/").as_str(), None).unwrap());
-        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let feature_refresher = Arc::new(FeatureRefresher {
@@ -1113,7 +1111,7 @@ mod tests {
 
     #[tokio::test]
     pub async fn gets_feature_by_name() {
-        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let features_cache = Arc::new(FeatureCache::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let features = features_from_disk("../examples/hostedexample.json");
@@ -1145,7 +1143,7 @@ mod tests {
 
     #[tokio::test]
     pub async fn token_with_no_access_to_named_feature_yields_404() {
-        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let features_cache = Arc::new(FeatureCache::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let features = features_from_disk("../examples/hostedexample.json");
@@ -1177,8 +1175,7 @@ mod tests {
     #[tokio::test]
     pub async fn still_subsumes_tokens_after_moving_registration_to_initial_hydration_when_dynamic()
     {
-        let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
-            Arc::new(DashMap::default());
+        let upstream_features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let server = upstream_server(
@@ -1198,7 +1195,7 @@ mod tests {
         upstream_token_cache.insert(upstream_eg_token.token.clone(), upstream_eg_token.clone());
         upstream_features_cache.insert(cache_key(&upstream_dx_token), upstream_features.clone());
         let unleash_client = Arc::new(UnleashClient::new(server.url("/").as_str(), None).unwrap());
-        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let feature_refresher = Arc::new(FeatureRefresher {
@@ -1247,7 +1244,7 @@ mod tests {
 
     #[tokio::test]
     pub async fn can_filter_features_list_by_name_prefix() {
-        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let features_cache = Arc::new(FeatureCache::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let features = features_from_disk("../examples/hostedexample.json");
@@ -1279,7 +1276,7 @@ mod tests {
 
     #[tokio::test]
     pub async fn only_gets_correct_feature_by_name() {
-        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let features_cache = Arc::new(FeatureCache::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let features = ClientFeatures {
@@ -1355,7 +1352,7 @@ mod tests {
 
     #[tokio::test]
     async fn client_features_endpoint_works_with_overridden_token_header() {
-        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let features_cache = Arc::new(FeatureCache::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let token_header = TokenHeader::from_str("NeedsToBeTested").unwrap();
         println!("token_header: {:?}", token_header);
