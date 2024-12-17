@@ -1012,7 +1012,7 @@ mod tests {
         );
         upstream_features_cache.insert(cache_key(&upstream_known_token), upstream_features.clone());
         let unleash_client = Arc::new(UnleashClient::new(server.url("/").as_str(), None).unwrap());
-        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let feature_refresher = Arc::new(FeatureRefresher {
@@ -1024,8 +1024,6 @@ mod tests {
             persistence: None,
             strict: false,
             app_name: "test-app".into(),
-            #[cfg(feature = "streaming")]
-            broadcaster: Broadcaster::new(features_cache.clone()),
         });
         let token_validator = Arc::new(TokenValidator {
             unleash_client: unleash_client.clone(),
