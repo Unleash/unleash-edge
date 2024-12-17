@@ -31,7 +31,7 @@ pub async fn persist_data(
                 if let Some(persister) = persistence.clone() {
 
                     save_known_tokens(&token_cache, &persister).await;
-                    save_features(&features_cache.features, &persister).await;
+                    save_features(&features_cache, &persister).await;
                 } else {
                     debug!("No persistence configured, skipping persistence");
                 }
@@ -63,10 +63,7 @@ async fn save_known_tokens(
     }
 }
 
-async fn save_features(
-    features_cache: &DashMap<String, ClientFeatures>,
-    persister: &Arc<dyn EdgePersistence>,
-) {
+async fn save_features(features_cache: &FeatureCache, persister: &Arc<dyn EdgePersistence>) {
     if !features_cache.is_empty() {
         match persister
             .save_features(
@@ -119,7 +116,7 @@ pub mod tests {
         let cache: DashMap<String, ClientFeatures> = DashMap::new();
         let persister = build_mock_persistence();
 
-        save_features(&Arc::new(cache), &persister.clone()).await;
+        save_features(&Arc::new(FeatureCache::new(cache)), &persister.clone()).await;
     }
 
     #[tokio::test]

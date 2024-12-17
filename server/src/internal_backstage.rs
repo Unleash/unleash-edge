@@ -56,7 +56,7 @@ pub async fn ready(
     token_cache: web::Data<DashMap<String, EdgeToken>>,
     features_cache: web::Data<FeatureCache>,
 ) -> EdgeJsonResult<EdgeStatus> {
-    if !token_cache.is_empty() && features_cache.features.is_empty() {
+    if !token_cache.is_empty() && features_cache.is_empty() {
         Err(EdgeError::NotReady)
     } else {
         Ok(Json(EdgeStatus::ready()))
@@ -140,7 +140,6 @@ pub async fn features(
     features_cache: web::Data<FeatureCache>,
 ) -> EdgeJsonResult<HashMap<String, ClientFeatures>> {
     let features = features_cache
-        .features
         .iter()
         .map(|e| (e.key().clone(), e.value().clone()))
         .collect();

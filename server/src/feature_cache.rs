@@ -16,8 +16,8 @@ pub enum UpdateType {
 
 #[derive(Debug, Clone)]
 pub struct FeatureCache {
-    pub features: DashMap<String, ClientFeatures>,
-    pub update_sender: broadcast::Sender<UpdateType>,
+    features: DashMap<String, ClientFeatures>,
+    update_sender: broadcast::Sender<UpdateType>,
 }
 
 impl FeatureCache {
@@ -61,6 +61,14 @@ impl FeatureCache {
             })
             .or_insert(features);
         self.send_full_update(key);
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.features.is_empty()
+    }
+
+    pub fn iter(&self) -> dashmap::iter::Iter<'_, String, ClientFeatures> {
+        self.features.iter()
     }
 }
 
