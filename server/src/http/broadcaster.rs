@@ -12,13 +12,12 @@ use actix_web_lab::{
     sse::{self, Event, Sse},
     util::InfallibleStream,
 };
-use aws_config::imds::Client;
 use dashmap::DashMap;
 use futures::future;
 use serde::Serialize;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
-use tracing::warn;
+use tracing::{debug, warn};
 use unleash_types::client_features::{ClientFeatures, Query as FlagQuery};
 
 use crate::{
@@ -60,17 +59,8 @@ impl Broadcaster {
             features_cache: features.clone(),
         });
 
-        if let Some(mut rx) = features.subscribe() {
-            let this = broadcaster.clone();
-            tokio::spawn(async move {
-                while let Ok(key) = rx.recv().await {
-                    println!("Received update for key: {:?}", key);
-                    this.broadcast().await;
-                }
-            });
-        }
-
-        Broadcaster::spawn_heartbeat(Arc::clone(&broadcaster));
+        Broadcaster::spawn_heartbeat(broadcaster.clone());
+        Broadcaster::spawn_feature_cache_subscriber(broadcaster.clone());
 
         broadcaster
     }
@@ -84,6 +74,16 @@ impl Broadcaster {
             loop {
                 interval.tick().await;
                 this.heartbeat().await;
+            }
+        });
+    }
+
+    fn spawn_feature_cache_subscriber(this: Arc<Self>) {
+        let mut rx = this.features_cache.subscribe();
+        tokio::spawn(async move {
+            while let Ok(key) = rx.recv().await {
+                debug!("Received update for key: {:?}", key);
+                this.broadcast().await;
             }
         });
     }
