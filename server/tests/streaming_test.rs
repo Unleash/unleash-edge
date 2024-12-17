@@ -51,7 +51,6 @@ async fn test_streaming() {
         features_from_disk("../examples/features.json"),
     );
 
-    // let edge = edge_server(&unleash_server.url("/"), upstream_known_token.clone()).await;
     let mut edge = Command::new("./../target/debug/unleash-edge")
         .arg("edge")
         .arg("--upstream-url")
@@ -59,24 +58,13 @@ async fn test_streaming() {
         .arg("--strict")
         .arg("-t")
         .arg(&upstream_known_token.token)
-        // .stdout(Stdio::null()) // Suppress stdout
-        // .stderr(Stdio::null()) // Suppress stderr
+        .stdout(Stdio::null()) // Suppress stdout
+        .stderr(Stdio::null()) // Suppress stderr
         .spawn()
         .expect("Failed to start the app");
 
     // Allow edge to establish a connection with upstream and populate the cache
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-
-    // let client = reqwest::Client::new();
-    // let resp = client
-    //     .get("http://localhost:3063/api/client/streaming")
-    //     .header("Authorization", &upstream_known_token.token)
-    //     .send()
-    //     .await
-    //     .expect("Failed to send request");
-
-    // println!("Response: {:?}", resp);
-    // Assert that the response status is 200 OK
 
     // let es_client = eventsource_client::ClientBuilder::for_url(&edge.url("/api/client/streaming"))
     let es_client =
@@ -151,7 +139,6 @@ async fn test_streaming() {
                         break;
                     }
                     _ => {
-                        // panic!("Unexpected event: {:?}", event);
                         // ignore other events
                     }
                 }
