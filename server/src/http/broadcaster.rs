@@ -12,6 +12,7 @@ use actix_web_lab::{
     sse::{self, Event, Sse},
     util::InfallibleStream,
 };
+use aws_config::imds::Client;
 use dashmap::DashMap;
 use futures::future;
 use serde::Serialize;
@@ -22,6 +23,7 @@ use unleash_types::client_features::{ClientFeatures, Query as FlagQuery};
 
 use crate::{
     error::EdgeError,
+    feature_cache::FeatureCache,
     filters::{filter_client_features, name_prefix_filter, project_filter, FeatureFilterSet},
     tokens::cache_key,
     types::{EdgeJsonResult, EdgeResult, EdgeToken, FeatureFilters},
@@ -47,20 +49,30 @@ struct ClientGroup {
 
 pub struct Broadcaster {
     active_connections: DashMap<QueryWrapper, ClientGroup>,
-    features_cache: Arc<DashMap<String, ClientFeatures>>,
+    features_cache: Arc<FeatureCache>,
 }
 
 impl Broadcaster {
     /// Constructs new broadcaster and spawns ping loop.
-    pub fn new(features: Arc<DashMap<String, ClientFeatures>>) -> Arc<Self> {
-        let this = Arc::new(Broadcaster {
+    pub fn new(features: Arc<FeatureCache>) -> Arc<Self> {
+        let broadcaster = Arc::new(Broadcaster {
             active_connections: DashMap::new(),
-            features_cache: features,
+            features_cache: features.clone(),
         });
 
-        Broadcaster::spawn_heartbeat(Arc::clone(&this));
+        if let Some(mut rx) = features.subscribe() {
+            let this = broadcaster.clone();
+            tokio::spawn(async move {
+                while let Ok(key) = rx.recv().await {
+                    println!("Received update for key: {:?}", key);
+                    this.broadcast().await;
+                }
+            });
+        }
 
-        this
+        Broadcaster::spawn_heartbeat(Arc::clone(&broadcaster));
+
+        broadcaster
     }
 
     /// Pings clients every 30 seconds to see if they are alive and remove them from the broadcast

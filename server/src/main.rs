@@ -28,6 +28,8 @@ use unleash_edge::{internal_backstage, tls};
 #[cfg(not(tarpaulin_include))]
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {
+    #[cfg(feature = "streaming")]
+    use unleash_edge::http::broadcaster::Broadcaster;
     use unleash_edge::metrics::metrics_pusher;
 
     let args = CliArgs::parse();
@@ -78,6 +80,9 @@ async fn main() -> Result<(), anyhow::Error> {
     let refresher_for_app_data = feature_refresher.clone();
     let prom_registry_for_write = metrics_handler.registry.clone();
 
+    #[cfg(feature = "streaming")]
+    let broadcaster = Broadcaster::new(features_cache.clone());
+
     let server = HttpServer::new(move || {
         let qs_config =
             serde_qs::actix::QsQueryConfig::default().qs_config(serde_qs::Config::new(5, false));
@@ -97,6 +102,10 @@ async fn main() -> Result<(), anyhow::Error> {
             .app_data(web::Data::from(token_cache.clone()))
             .app_data(web::Data::from(features_cache.clone()))
             .app_data(web::Data::from(engine_cache.clone()));
+
+        #[cfg(feature = "streaming")]
+        let mut app = app.app_data(web::Data::from(broadcaster.clone()));
+
         app = match token_validator.clone() {
             Some(v) => app.app_data(web::Data::from(v)),
             None => app,

@@ -1,13 +1,17 @@
 use dashmap::DashMap;
 use eventsource_client::Client;
 use futures::StreamExt;
-use reqwest::Url;
-use std::{fs, io::BufReader, path::PathBuf, str::FromStr, sync::Arc};
+use std::{
+    fs,
+    io::BufReader,
+    path::PathBuf,
+    process::{Command, Stdio},
+    str::FromStr,
+    sync::Arc,
+};
 use unleash_edge::{
-    http::{
-        broadcaster::Broadcaster, feature_refresher::FeatureRefresher,
-        unleash_client::UnleashClient,
-    },
+    feature_cache::FeatureCache,
+    http::broadcaster::Broadcaster,
     tokens::cache_key,
     types::{EdgeToken, TokenType, TokenValidationStatus},
 };
@@ -22,7 +26,7 @@ pub fn features_from_disk(path: &str) -> ClientFeatures {
 
 #[actix_web::test]
 async fn test_streaming() {
-    let unleash_features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+    let unleash_features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
     let unleash_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
     let unleash_broadcaster = Broadcaster::new(unleash_features_cache.clone());
 
@@ -47,16 +51,40 @@ async fn test_streaming() {
         features_from_disk("../examples/features.json"),
     );
 
-    let edge = edge_server(&unleash_server.url("/"), upstream_known_token.clone()).await;
+    // let edge = edge_server(&unleash_server.url("/"), upstream_known_token.clone()).await;
+    let mut edge = Command::new("./../target/debug/unleash-edge")
+        .arg("edge")
+        .arg("--upstream-url")
+        .arg(&unleash_server.url("/"))
+        .arg("--strict")
+        .arg("-t")
+        .arg(&upstream_known_token.token)
+        // .stdout(Stdio::null()) // Suppress stdout
+        // .stderr(Stdio::null()) // Suppress stderr
+        .spawn()
+        .expect("Failed to start the app");
 
     // Allow edge to establish a connection with upstream and populate the cache
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
-    let es_client = eventsource_client::ClientBuilder::for_url(&edge.url("/api/client/streaming"))
-        .unwrap()
-        .header("Authorization", &upstream_known_token.token)
-        .unwrap()
-        .build();
+    // let client = reqwest::Client::new();
+    // let resp = client
+    //     .get("http://localhost:3063/api/client/streaming")
+    //     .header("Authorization", &upstream_known_token.token)
+    //     .send()
+    //     .await
+    //     .expect("Failed to send request");
+
+    // println!("Response: {:?}", resp);
+    // Assert that the response status is 200 OK
+
+    // let es_client = eventsource_client::ClientBuilder::for_url(&edge.url("/api/client/streaming"))
+    let es_client =
+        eventsource_client::ClientBuilder::for_url("http://localhost:3063/api/client/streaming")
+            .unwrap()
+            .header("Authorization", &upstream_known_token.token)
+            .unwrap()
+            .build();
 
     let initial_features = ClientFeatures {
         features: vec![],
@@ -73,7 +101,7 @@ async fn test_streaming() {
 
     let mut stream = es_client.stream();
 
-    tokio::time::timeout(std::time::Duration::from_secs(2), async {
+    if let Err(_) = tokio::time::timeout(std::time::Duration::from_secs(2), async {
         loop {
             if let Some(Ok(event)) = stream.next().await {
                 match event {
@@ -84,6 +112,7 @@ async fn test_streaming() {
                             serde_json::from_str::<ClientFeatures>(&event.data).unwrap(),
                             initial_features
                         );
+                        println!("Connected event received; features match expected");
                         break;
                     }
                     _ => {
@@ -94,7 +123,12 @@ async fn test_streaming() {
         }
     })
     .await
-    .expect("Test timed out waiting for connected event");
+    {
+        // If the test times out, kill the app process and fail the test
+        edge.kill().expect("Failed to kill the app process");
+        edge.wait().expect("Failed to wait for the app process");
+        panic!("Test timed out waiting for connected event");
+    }
 
     unleash_features_cache.insert(
         cache_key(&upstream_known_token),
@@ -102,7 +136,7 @@ async fn test_streaming() {
     );
     unleash_broadcaster.broadcast().await;
 
-    tokio::time::timeout(std::time::Duration::from_secs(2), async {
+    if let Err(_) = tokio::time::timeout(std::time::Duration::from_secs(2), async {
         loop {
             if let Some(Ok(event)) = stream.next().await {
                 match event {
@@ -113,6 +147,7 @@ async fn test_streaming() {
                         assert_eq!(initial_features.query, update.query);
                         assert_eq!(initial_features.version, update.version);
                         assert_ne!(initial_features.features, update.features);
+                        println!("Updated event received; features match expected");
                         break;
                     }
                     _ => {
@@ -124,7 +159,15 @@ async fn test_streaming() {
         }
     })
     .await
-    .expect("Test timed out waiting for update event");
+    {
+        // If the test times out, kill the app process and fail the test
+        edge.kill().expect("Failed to kill the app process");
+        edge.wait().expect("Failed to wait for the app process");
+        panic!("Test timed out waiting for update event");
+    }
+
+    edge.kill().expect("Failed to kill the app process");
+    edge.wait().expect("Failed to wait for the app process");
 }
 
 use actix_http::HttpService;
@@ -132,96 +175,15 @@ use actix_http_test::{test_server, TestServer};
 use actix_service::map_config;
 use actix_web::dev::AppConfig;
 use actix_web::{web, App};
-use chrono::Duration;
 use unleash_types::client_metrics::ConnectVia;
 use unleash_yggdrasil::EngineState;
 
 use unleash_edge::auth::token_validator::TokenValidator;
-use unleash_edge::http::unleash_client::new_reqwest_client;
 use unleash_edge::metrics::client_metrics::MetricsCache;
 
-async fn edge_server(upstream_url: &str, token: EdgeToken) -> TestServer {
-    let unleash_client = Arc::new(UnleashClient::from_url(
-        Url::parse(upstream_url).unwrap(),
-        "Authorization".into(),
-        new_reqwest_client(
-            "something".into(),
-            false,
-            None,
-            None,
-            Duration::seconds(5),
-            Duration::seconds(5),
-            "test-client".into(),
-        )
-        .unwrap(),
-    ));
-
-    let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
-    let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
-    token_cache.insert(token.token.clone(), token.clone());
-    let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
-    let broadcaster = Broadcaster::new(features_cache.clone());
-    let feature_refresher = Arc::new(FeatureRefresher {
-        unleash_client: unleash_client.clone(),
-        features_cache: features_cache.clone(),
-        engine_cache: engine_cache.clone(),
-        refresh_interval: Duration::seconds(6000),
-        broadcaster: broadcaster.clone(),
-        ..Default::default()
-    });
-    let token_validator = Arc::new(TokenValidator {
-        unleash_client: unleash_client.clone(),
-        token_cache: token_cache.clone(),
-        persistence: None,
-    });
-    feature_refresher
-        .register_token_for_refresh(token.clone(), None)
-        .await;
-    let refresher_for_background = feature_refresher.clone();
-
-    let handle = tokio::spawn(async move {
-        let _ = refresher_for_background
-            .start_streaming_features_background_task()
-            .await;
-    });
-
-    handle.await.unwrap();
-    test_server(move || {
-        let config =
-            serde_qs::actix::QsQueryConfig::default().qs_config(serde_qs::Config::new(5, false));
-        let metrics_cache = MetricsCache::default();
-        let connect_via = ConnectVia {
-            app_name: "edge".into(),
-            instance_id: "testinstance".into(),
-        };
-        HttpService::new(map_config(
-            App::new()
-                .app_data(config)
-                .app_data(web::Data::from(token_validator.clone()))
-                .app_data(web::Data::from(features_cache.clone()))
-                .app_data(web::Data::from(broadcaster.clone()))
-                .app_data(web::Data::from(engine_cache.clone()))
-                .app_data(web::Data::from(token_cache.clone()))
-                .app_data(web::Data::new(metrics_cache))
-                .app_data(web::Data::new(connect_via))
-                .app_data(web::Data::from(feature_refresher.clone()))
-                .service(
-                    web::scope("/api")
-                        .configure(unleash_edge::client_api::configure_client_api)
-                        .configure(|cfg| {
-                            unleash_edge::frontend_api::configure_frontend_api(cfg, false)
-                        }),
-                )
-                .service(web::scope("/edge").configure(unleash_edge::edge_api::configure_edge_api)),
-            |_| AppConfig::default(),
-        ))
-        .tcp()
-    })
-    .await
-}
 async fn upstream_server(
     upstream_token_cache: Arc<DashMap<String, EdgeToken>>,
-    upstream_features_cache: Arc<DashMap<String, ClientFeatures>>,
+    upstream_features_cache: Arc<FeatureCache>,
     upstream_engine_cache: Arc<DashMap<String, EngineState>>,
     upstream_broadcaster: Arc<Broadcaster>,
 ) -> TestServer {
