@@ -86,27 +86,47 @@ fn client_application_from_token_and_name(
     }
 }
 
+pub struct FeatureRefreshConfig {
+    features_refresh_interval: chrono::Duration,
+    strict: bool,
+    streaming: bool,
+    app_name: String,
+}
+
+impl FeatureRefreshConfig {
+    pub fn new(
+        features_refresh_interval: chrono::Duration,
+        strict: bool,
+        streaming: bool,
+        app_name: String,
+    ) -> Self {
+        Self {
+            features_refresh_interval,
+            strict,
+            streaming,
+            app_name,
+        }
+    }
+}
+
 impl FeatureRefresher {
     pub fn new(
         unleash_client: Arc<UnleashClient>,
         features_cache: Arc<FeatureCache>,
         engines: Arc<DashMap<String, EngineState>>,
-        features_refresh_interval: chrono::Duration,
         persistence: Option<Arc<dyn EdgePersistence>>,
-        strict: bool,
-        streaming: bool,
-        app_name: &str,
+        config: FeatureRefreshConfig,
     ) -> Self {
         FeatureRefresher {
             unleash_client,
             tokens_to_refresh: Arc::new(DashMap::default()),
             features_cache,
             engine_cache: engines,
-            refresh_interval: features_refresh_interval,
+            refresh_interval: config.features_refresh_interval,
             persistence,
-            strict,
-            streaming,
-            app_name: app_name.into(),
+            strict: config.strict,
+            streaming: config.streaming,
+            app_name: config.app_name.into(),
         }
     }
 

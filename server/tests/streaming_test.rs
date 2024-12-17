@@ -56,7 +56,7 @@ mod streaming_test {
         let mut edge = Command::new("./../target/debug/unleash-edge")
             .arg("edge")
             .arg("--upstream-url")
-            .arg(&unleash_server.url("/"))
+            .arg(unleash_server.url("/"))
             .arg("--strict")
             .arg("--streaming")
             .arg("-t")
