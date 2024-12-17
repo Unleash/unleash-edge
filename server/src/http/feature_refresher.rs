@@ -497,6 +497,7 @@ mod tests {
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
     use unleash_yggdrasil::EngineState;
 
+    use crate::feature_cache::{update_projects_from_feature_update, FeatureCache};
     use crate::filters::{project_filter, FeatureFilterSet};
     use crate::http::unleash_client::new_reqwest_client;
     use crate::tests::features_from_disk;
@@ -541,7 +542,7 @@ mod tests {
     #[tokio::test]
     pub async fn registering_token_for_refresh_works() {
         let unleash_client = create_test_client();
-        let features_cache = Arc::new(DashMap::default());
+        let features_cache = Arc::new(FeatureCache::default());
         let engine_cache = Arc::new(DashMap::default());
 
         let duration = Duration::seconds(5);
@@ -1294,7 +1295,7 @@ mod tests {
         token.status = TokenValidationStatus::Validated;
         token.projects = vec![String::from("dx")];
 
-        let updated = super::update_projects_from_feature_update(&token, &features, &dx_data);
+        let updated = update_projects_from_feature_update(&token, &features, &dx_data);
         assert_ne!(
             features
                 .iter()
@@ -1340,7 +1341,7 @@ mod tests {
             projects: vec![String::from("dx"), String::from("eg")],
             status: TokenValidationStatus::Validated,
         };
-        let update = super::update_projects_from_feature_update(&edge_token, &features, &dx_data);
+        let update = update_projects_from_feature_update(&edge_token, &features, &dx_data);
         assert_eq!(features.len() - update.len(), 2); // We've removed two elements
     }
 
@@ -1360,7 +1361,7 @@ mod tests {
             .filter(|f| f.project == Some("eg".into()))
             .cloned()
             .collect();
-        let update = super::update_projects_from_feature_update(&edge_token, &features, &eg_data);
+        let update = update_projects_from_feature_update(&edge_token, &features, &eg_data);
         assert!(!update.iter().any(|p| p.project == Some(String::from("dx"))));
     }
     #[test]
@@ -1378,7 +1379,7 @@ mod tests {
             .filter(|f| f.project == Some("eg".into()))
             .cloned()
             .collect();
-        let update = super::update_projects_from_feature_update(&edge_token, &features, &eg_data);
+        let update = update_projects_from_feature_update(&edge_token, &features, &eg_data);
         assert_eq!(
             update
                 .iter()
@@ -1433,7 +1434,7 @@ mod tests {
             .filter(|t| t.project == Some("default".into()))
             .cloned()
             .collect();
-        let updated = super::update_projects_from_feature_update(&edge_token, &features, &update);
+        let updated = update_projects_from_feature_update(&edge_token, &features, &update);
         assert_eq!(updated.len(), 1);
         assert!(updated.iter().all(|f| f.project == Some("default".into())))
     }
@@ -1480,7 +1481,7 @@ mod tests {
             projects: vec![String::from("someother")],
             status: TokenValidationStatus::Validated,
         };
-        let updated = super::update_projects_from_feature_update(
+        let updated = update_projects_from_feature_update(
             &unrelated_token_to_existing_features,
             &features,
             &empty_features,
@@ -1529,7 +1530,7 @@ mod tests {
             projects: vec![String::from("testproject"), String::from("someother")],
             status: TokenValidationStatus::Validated,
         };
-        let updated = super::update_projects_from_feature_update(
+        let updated = update_projects_from_feature_update(
             &token_with_access_to_both_empty_and_full_project,
             &features,
             &empty_features,
