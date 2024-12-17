@@ -126,7 +126,7 @@ impl FeatureRefresher {
             persistence,
             strict: config.strict,
             streaming: config.streaming,
-            app_name: config.app_name.into(),
+            app_name: config.app_name,
         }
     }
 
