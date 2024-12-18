@@ -86,24 +86,28 @@ fn client_application_from_token_and_name(
     }
 }
 
+#[derive(Eq, PartialEq)]
+pub enum FeatureRefresherMode {
+    Dynamic,
+    Streaming,
+    Strict,
+}
+
 pub struct FeatureRefreshConfig {
     features_refresh_interval: chrono::Duration,
-    strict: bool,
-    streaming: bool,
+    mode: FeatureRefresherMode,
     app_name: String,
 }
 
 impl FeatureRefreshConfig {
     pub fn new(
         features_refresh_interval: chrono::Duration,
-        strict: bool,
-        streaming: bool,
+        mode: FeatureRefresherMode,
         app_name: String,
     ) -> Self {
         Self {
             features_refresh_interval,
-            strict,
-            streaming,
+            mode,
             app_name,
         }
     }
@@ -124,8 +128,8 @@ impl FeatureRefresher {
             engine_cache: engines,
             refresh_interval: config.features_refresh_interval,
             persistence,
-            strict: config.strict,
-            streaming: config.streaming,
+            strict: config.mode != FeatureRefresherMode::Dynamic,
+            streaming: config.mode == FeatureRefresherMode::Streaming,
             app_name: config.app_name,
         }
     }
