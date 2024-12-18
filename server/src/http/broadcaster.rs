@@ -181,7 +181,7 @@ impl Broadcaster {
             // 1. We'll only allow streaming in strict mode
             // 2. We'll check whether the token is subsumed *before* trying to add it to the broadcaster
             // If both of these are true, then we should never hit this case (if Thomas's understanding is correct).
-            None => Err(EdgeError::ClientCacheError),
+            None => Err(EdgeError::AuthorizationDenied),
         }
     }
 
