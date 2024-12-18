@@ -29,9 +29,7 @@ use unleash_edge::{internal_backstage, tls};
 #[cfg(not(tarpaulin_include))]
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {
-    #[cfg(feature = "streaming")]
-    use unleash_edge::http::broadcaster::Broadcaster;
-    use unleash_edge::metrics::metrics_pusher;
+    use unleash_edge::{http::broadcaster::Broadcaster, metrics::metrics_pusher};
 
     let args = CliArgs::parse();
     let disable_all_endpoint = args.disable_all_endpoint;
@@ -81,7 +79,6 @@ async fn main() -> Result<(), anyhow::Error> {
     let refresher_for_app_data = feature_refresher.clone();
     let prom_registry_for_write = metrics_handler.registry.clone();
 
-    #[cfg(feature = "streaming")]
     let broadcaster = Broadcaster::new(features_cache.clone());
 
     let server = HttpServer::new(move || {
@@ -102,12 +99,9 @@ async fn main() -> Result<(), anyhow::Error> {
             .app_data(web::Data::from(metrics_cache.clone()))
             .app_data(web::Data::from(token_cache.clone()))
             .app_data(web::Data::from(features_cache.clone()))
-            .app_data(web::Data::from(engine_cache.clone()));
+            .app_data(web::Data::from(engine_cache.clone()))
+            .app_data(web::Data::from(broadcaster.clone()));
 
-        #[cfg(feature = "streaming")]
-        {
-            app = app.app_data(web::Data::from(broadcaster.clone()));
-        }
         app = match token_validator.clone() {
             Some(v) => app.app_data(web::Data::from(v)),
             None => app,
@@ -161,15 +155,15 @@ async fn main() -> Result<(), anyhow::Error> {
 
     match schedule_args.mode {
         cli::EdgeMode::Edge(edge) => {
-            #[cfg(feature = "streaming")]
-            {
-                let refresher_for_background = feature_refresher.clone().unwrap();
+            let refresher_for_background = feature_refresher.clone().unwrap();
+            if edge.streaming {
                 tokio::spawn(async move {
                     let _ = refresher_for_background
                         .start_streaming_features_background_task()
                         .await;
                 });
             }
+
             let refresher = feature_refresher.clone().unwrap();
 
             let validator = token_validator_schedule.clone().unwrap();

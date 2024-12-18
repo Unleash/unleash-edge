@@ -1,4 +1,3 @@
-#[cfg(feature = "streaming")]
 mod streaming_test {
     use dashmap::DashMap;
     use eventsource_client::Client;
@@ -57,8 +56,9 @@ mod streaming_test {
         let mut edge = Command::new("./../target/debug/unleash-edge")
             .arg("edge")
             .arg("--upstream-url")
-            .arg(&unleash_server.url("/"))
+            .arg(unleash_server.url("/"))
             .arg("--strict")
+            .arg("--streaming")
             .arg("-t")
             .arg(&upstream_known_token.token)
             .stdout(Stdio::null()) // Suppress stdout
@@ -93,7 +93,7 @@ mod streaming_test {
 
         let mut stream = es_client.stream();
 
-        if let Err(_) = tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        if tokio::time::timeout(std::time::Duration::from_secs(2), async {
             loop {
                 if let Some(Ok(event)) = stream.next().await {
                     match event {
@@ -115,6 +115,7 @@ mod streaming_test {
             }
         })
         .await
+        .is_err()
         {
             // If the test times out, kill the app process and fail the test
             edge.kill().expect("Failed to kill the app process");
@@ -127,7 +128,7 @@ mod streaming_test {
             features_from_disk("../examples/hostedexample.json"),
         );
 
-        if let Err(_) = tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        if tokio::time::timeout(std::time::Duration::from_secs(2), async {
             loop {
                 if let Some(Ok(event)) = stream.next().await {
                     match event {
@@ -150,6 +151,7 @@ mod streaming_test {
             }
         })
         .await
+        .is_err()
         {
             // If the test times out, kill the app process and fail the test
             edge.kill().expect("Failed to kill the app process");

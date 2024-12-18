@@ -4,9 +4,7 @@ use std::{sync::Arc, time::Duration};
 use actix_web::http::header::EntityTag;
 use chrono::Utc;
 use dashmap::DashMap;
-#[cfg(feature = "streaming")]
 use eventsource_client::Client;
-#[cfg(feature = "streaming")]
 use futures::TryStreamExt;
 use reqwest::StatusCode;
 use tracing::{debug, info, warn};
@@ -46,6 +44,7 @@ pub struct FeatureRefresher {
     pub refresh_interval: chrono::Duration,
     pub persistence: Option<Arc<dyn EdgePersistence>>,
     pub strict: bool,
+    pub streaming: bool,
     pub app_name: String,
 }
 
@@ -59,6 +58,7 @@ impl Default for FeatureRefresher {
             engine_cache: Default::default(),
             persistence: None,
             strict: true,
+            streaming: false,
             app_name: "unleash_edge".into(),
         }
     }
@@ -86,25 +86,51 @@ fn client_application_from_token_and_name(
     }
 }
 
+#[derive(Eq, PartialEq)]
+pub enum FeatureRefresherMode {
+    Dynamic,
+    Streaming,
+    Strict,
+}
+
+pub struct FeatureRefreshConfig {
+    features_refresh_interval: chrono::Duration,
+    mode: FeatureRefresherMode,
+    app_name: String,
+}
+
+impl FeatureRefreshConfig {
+    pub fn new(
+        features_refresh_interval: chrono::Duration,
+        mode: FeatureRefresherMode,
+        app_name: String,
+    ) -> Self {
+        Self {
+            features_refresh_interval,
+            mode,
+            app_name,
+        }
+    }
+}
+
 impl FeatureRefresher {
     pub fn new(
         unleash_client: Arc<UnleashClient>,
         features_cache: Arc<FeatureCache>,
         engines: Arc<DashMap<String, EngineState>>,
-        features_refresh_interval: chrono::Duration,
         persistence: Option<Arc<dyn EdgePersistence>>,
-        strict: bool,
-        app_name: &str,
+        config: FeatureRefreshConfig,
     ) -> Self {
         FeatureRefresher {
             unleash_client,
             tokens_to_refresh: Arc::new(DashMap::default()),
             features_cache,
             engine_cache: engines,
-            refresh_interval: features_refresh_interval,
+            refresh_interval: config.features_refresh_interval,
             persistence,
-            strict,
-            app_name: app_name.into(),
+            strict: config.mode != FeatureRefresherMode::Dynamic,
+            streaming: config.mode == FeatureRefresherMode::Streaming,
+            app_name: config.app_name,
         }
     }
 
@@ -245,7 +271,6 @@ impl FeatureRefresher {
     }
 
     /// This is where we set up a listener per token.
-    #[cfg(feature = "streaming")]
     pub async fn start_streaming_features_background_task(&self) -> anyhow::Result<()> {
         use anyhow::Context;
 
@@ -331,7 +356,7 @@ impl FeatureRefresher {
     }
 
     pub async fn start_refresh_features_background_task(&self) {
-        if cfg!(feature = "streaming") {
+        if self.streaming {
             loop {
                 tokio::time::sleep(Duration::from_secs(3600)).await;
             }

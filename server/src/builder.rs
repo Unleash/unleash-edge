@@ -12,6 +12,7 @@ use unleash_yggdrasil::EngineState;
 
 use crate::cli::RedisMode;
 use crate::feature_cache::FeatureCache;
+use crate::http::feature_refresher::{FeatureRefreshConfig, FeatureRefresherMode};
 use crate::http::unleash_client::new_reqwest_client;
 use crate::offline::offline_hotload::{load_bootstrap, load_offline_engine_cache};
 use crate::persistence::file::FilePersister;
@@ -258,15 +259,22 @@ async fn build_edge(args: &EdgeArgs, app_name: &str) -> EdgeResult<EdgeInfo> {
         unleash_client: unleash_client.clone(),
         persistence: persistence.clone(),
     });
-
+    let refresher_mode = match (args.strict, args.streaming) {
+        (_, true) => FeatureRefresherMode::Streaming,
+        (true, _) => FeatureRefresherMode::Strict,
+        _ => FeatureRefresherMode::Dynamic,
+    };
+    let feature_config = FeatureRefreshConfig::new(
+        Duration::seconds(args.features_refresh_interval_seconds as i64),
+        refresher_mode,
+        app_name.to_string(),
+    );
     let feature_refresher = Arc::new(FeatureRefresher::new(
         unleash_client,
         feature_cache.clone(),
         engine_cache.clone(),
-        Duration::seconds(args.features_refresh_interval_seconds.try_into().unwrap()),
         persistence.clone(),
-        args.strict,
-        app_name,
+        feature_config,
     ));
     let _ = token_validator.register_tokens(args.tokens.clone()).await;
 
@@ -364,6 +372,7 @@ mod tests {
             prometheus_user_id: None,
             prometheus_password: None,
             prometheus_username: None,
+            streaming: false,
         };
 
         let result = build_edge(&args, "test-app").await;
