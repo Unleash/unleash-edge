@@ -83,7 +83,7 @@ semver = "1.0.23"
 serde = { version = "1.0.213", features = ["derive"] }
 serde_json = "1.0.132"
 serde_qs = { version = "0.13.0", features = ["actix4", "tracing"] }
-shadow-rs = { version = "0.36.0" }
+shadow-rs = { version = "0.37.0" }
 tokio = { version = "1.42.0", features = [
     "macros",
     "rt-multi-thread",
@@ -115,4 +115,4 @@ testcontainers-modules = { version = "0.11.3", features = [
 tracing-test = "0.2.5"
 
 [build-dependencies]
-shadow-rs = "0.36.0"
+shadow-rs = "0.37.0"
