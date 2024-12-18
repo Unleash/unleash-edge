@@ -14,7 +14,7 @@ use actix_web_lab::{
 };
 use dashmap::DashMap;
 use futures::future;
-use prometheus::{register_int_gauge, register_int_gauge_vec, IntGauge, IntGaugeVec};
+use prometheus::{register_int_gauge, IntGauge};
 use serde::Serialize;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
