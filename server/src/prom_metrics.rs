@@ -143,6 +143,11 @@ fn register_custom_metrics(registry: &prometheus::Registry) {
             crate::metrics::client_metrics::FEATURE_TOGGLE_USAGE_TOTAL.clone(),
         ))
         .unwrap();
+    registry
+        .register(Box::new(
+            crate::http::broadcaster::CONNECTED_STREAMING_CLIENTS.clone(),
+        ))
+        .unwrap();
 }
 
 #[cfg(test)]
