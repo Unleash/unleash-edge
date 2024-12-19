@@ -3,32 +3,10 @@
 [![crates.io](https://img.shields.io/crates/v/unleash-edge?label=latest)](https://crates.io/crates/unleash-edge)
 [![Documentation](https://docs.rs/unleash-edge/badge.svg?version=latest)](https://docs.rs/unleash-edge/latest)
 ![MIT licensed](https://img.shields.io/crates/l/unleash-edge.svg)
-[![Dependency Status](https://deps.rs/crate/unleash-edge/19.6.1/status.svg)](https://deps.rs/crate/unleash-edge/19.6.0)
+[![Dependency Status](https://deps.rs/crate/unleash-edge/19.6.3/status.svg)](https://deps.rs/crate/unleash-edge/19.6.3)
 [![CI](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml/badge.svg)](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml)
 [![Coverage Status](https://coveralls.io/repos/github/Unleash/unleash-edge/badge.svg?branch=main)](https://coveralls.io/github/Unleash/unleash-edge?branch=main)
 ![downloads](https://img.shields.io/crates/d/unleash-edge.svg)
-
-- [Overview](#overview)
-- [Quickstart](#quickstart)
-- [Edge behaviors](#edge-behaviors)
-  - [Strict behavior](#strict-behavior)
-  - [Dynamic behavior](#dynamic-behavior)
-- [Getting Unleash Edge](#getting-unleash-edge)
-- [Running Unleash Edge](#running-unleash-edge)
-- [Metrics](#metrics)
-  - [Prometheus integration](#prometheus-integration)
-- [Compatibility](#compatibility)
-- [Debugging](#debugging)
-- [Additional resources](#additional-resources)
-  - [Edge concepts](#edge-concepts)
-  - [CLI](#cli)
-  - [Deploying Edge](#deploying-edge)
-  - [Migrating from Unleash Proxy](#migrating-from-unleash-proxy)
-  - [Performance benchmarking](#performance-benchmarking)
-  - [Contribution and development guide](#contribution-and-development-guide)
-
-
-> Availability: Unleash v4.15+.
 
 ## Overview
 
@@ -55,8 +33,20 @@ Our recommended approach is to bootstrap Edge with a client API token and upstre
 To run Edge in Docker:
 
 ```shell
-docker run -it -p 3063:3063 -e STRICT=true -e UPSTREAM_URL=<your_unleash_instance> -e TOKENS=<your_client_token> unleashorg/unleash-edge:<mostrecentversion> edge
+docker run -it -p 3063:3063 -e STRICT=true -e UPSTREAM_URL=<your_unleash_instance> -e TOKENS=<your_client_token> unleashorg/unleash-edge:<version> edge
 ```
+
+For example:
+
+```shell
+docker run -it -p 3063:3063 -e STRICT=true -e UPSTREAM_URL=https://app.unleash-hosted.com/testclient -e TOKENS='*:development.4a798ad11cde8c0e637ff19f3287683ebc21d23d607c641f2dd79daa54' unleashorg/unleash-edge:v19.6.2 edge
+```
+
+## Versioning and availability
+
+Unleash Edge is versioned and released independently of [Unleash](https://github.com/Unleash/unleash). To use Unleash Edge, you need Unleash version 4.15 or later. We recommend using the latest versions of Unleash and Unleash Edge to ensure optimal performance and access to the latest features and security updates.
+
+Unleash Edge does not have full feature parity with Unleash. Some features, such as filtering feature flags by tags, is not supported.
 
 ## Edge behaviors
 

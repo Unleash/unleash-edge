@@ -15,6 +15,7 @@ use utoipa_swagger_ui::SwaggerUi;
 use tracing::info;
 use unleash_edge::builder::build_caches_and_refreshers;
 use unleash_edge::cli::{CliArgs, EdgeMode};
+use unleash_edge::feature_cache::FeatureCache;
 use unleash_edge::http::background_send_metrics::send_metrics_one_shot;
 use unleash_edge::http::feature_refresher::FeatureRefresher;
 use unleash_edge::metrics::client_metrics::MetricsCache;
@@ -28,7 +29,7 @@ use unleash_edge::{internal_backstage, tls};
 #[cfg(not(tarpaulin_include))]
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {
-    use unleash_edge::metrics::metrics_pusher;
+    use unleash_edge::{http::broadcaster::Broadcaster, metrics::metrics_pusher};
 
     let args = CliArgs::parse();
     let disable_all_endpoint = args.disable_all_endpoint;
@@ -77,6 +78,9 @@ async fn main() -> Result<(), anyhow::Error> {
     let openapi = openapi::ApiDoc::openapi();
     let refresher_for_app_data = feature_refresher.clone();
     let prom_registry_for_write = metrics_handler.registry.clone();
+
+    let broadcaster = Broadcaster::new(features_cache.clone());
+
     let server = HttpServer::new(move || {
         let qs_config =
             serde_qs::actix::QsQueryConfig::default().qs_config(serde_qs::Config::new(5, false));
@@ -95,7 +99,9 @@ async fn main() -> Result<(), anyhow::Error> {
             .app_data(web::Data::from(metrics_cache.clone()))
             .app_data(web::Data::from(token_cache.clone()))
             .app_data(web::Data::from(features_cache.clone()))
-            .app_data(web::Data::from(engine_cache.clone()));
+            .app_data(web::Data::from(engine_cache.clone()))
+            .app_data(web::Data::from(broadcaster.clone()));
+
         app = match token_validator.clone() {
             Some(v) => app.app_data(web::Data::from(v)),
             None => app,
@@ -149,8 +155,19 @@ async fn main() -> Result<(), anyhow::Error> {
 
     match schedule_args.mode {
         cli::EdgeMode::Edge(edge) => {
+            let refresher_for_background = feature_refresher.clone().unwrap();
+            if edge.streaming {
+                tokio::spawn(async move {
+                    let _ = refresher_for_background
+                        .start_streaming_features_background_task()
+                        .await;
+                });
+            }
+
             let refresher = feature_refresher.clone().unwrap();
+
             let validator = token_validator_schedule.clone().unwrap();
+
             tokio::select! {
                 _ = server.run() => {
                     tracing::info!("Actix is shutting down. Persisting data");
@@ -203,7 +220,7 @@ async fn main() -> Result<(), anyhow::Error> {
 #[cfg(not(tarpaulin_include))]
 async fn clean_shutdown(
     persistence: Option<Arc<dyn EdgePersistence>>,
-    feature_cache: Arc<DashMap<String, ClientFeatures>>,
+    feature_cache: Arc<FeatureCache>,
     token_cache: Arc<DashMap<String, EdgeToken>>,
     metrics_cache: Arc<MetricsCache>,
     feature_refresher: Option<Arc<FeatureRefresher>>,

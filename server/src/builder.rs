@@ -11,6 +11,8 @@ use unleash_types::client_features::ClientFeatures;
 use unleash_yggdrasil::EngineState;
 
 use crate::cli::RedisMode;
+use crate::feature_cache::FeatureCache;
+use crate::http::feature_refresher::{FeatureRefreshConfig, FeatureRefresherMode};
 use crate::http::unleash_client::new_reqwest_client;
 use crate::offline::offline_hotload::{load_bootstrap, load_offline_engine_cache};
 use crate::persistence::file::FilePersister;
@@ -27,7 +29,7 @@ use crate::{
 
 type CacheContainer = (
     Arc<DashMap<String, EdgeToken>>,
-    Arc<DashMap<String, ClientFeatures>>,
+    Arc<FeatureCache>,
     Arc<DashMap<String, EngineState>>,
 );
 type EdgeInfo = (
@@ -43,7 +45,7 @@ fn build_caches() -> CacheContainer {
     let engine_cache: DashMap<String, EngineState> = DashMap::default();
     (
         Arc::new(token_cache),
-        Arc::new(features_cache),
+        Arc::new(FeatureCache::new(features_cache)),
         Arc::new(engine_cache),
     )
 }
@@ -87,10 +89,6 @@ pub(crate) fn build_offline_mode(
     let edge_tokens: Vec<EdgeToken> = tokens
         .iter()
         .map(|token| EdgeToken::from_str(token).unwrap_or_else(|_| EdgeToken::offline_token(token)))
-        .map(|mut token| {
-            token.token_type = Some(TokenType::Client);
-            token
-        })
         .collect();
 
     let edge_client_tokens: Vec<EdgeToken> = client_tokens
@@ -261,15 +259,22 @@ async fn build_edge(args: &EdgeArgs, app_name: &str) -> EdgeResult<EdgeInfo> {
         unleash_client: unleash_client.clone(),
         persistence: persistence.clone(),
     });
-
+    let refresher_mode = match (args.strict, args.streaming) {
+        (_, true) => FeatureRefresherMode::Streaming,
+        (true, _) => FeatureRefresherMode::Strict,
+        _ => FeatureRefresherMode::Dynamic,
+    };
+    let feature_config = FeatureRefreshConfig::new(
+        Duration::seconds(args.features_refresh_interval_seconds as i64),
+        refresher_mode,
+        app_name.to_string(),
+    );
     let feature_refresher = Arc::new(FeatureRefresher::new(
         unleash_client,
         feature_cache.clone(),
         engine_cache.clone(),
-        Duration::seconds(args.features_refresh_interval_seconds.try_into().unwrap()),
         persistence.clone(),
-        args.strict,
-        app_name,
+        feature_config,
     ));
     let _ = token_validator.register_tokens(args.tokens.clone()).await;
 
@@ -285,6 +290,10 @@ async fn build_edge(args: &EdgeArgs, app_name: &str) -> EdgeResult<EdgeInfo> {
         .await;
     }
 
+    if args.strict && token_cache.is_empty() {
+        error!("You started Edge in strict mode, but Edge was not able to validate any of the tokens configured at startup");
+        return Err(EdgeError::NoTokens("No valid tokens was provided on startup. At least one valid token must be specified at startup when running in Strict mode".into()));
+    }
     for validated_token in token_cache
         .iter()
         .filter(|candidate| candidate.value().token_type == Some(TokenType::Client))
@@ -363,6 +372,7 @@ mod tests {
             prometheus_user_id: None,
             prometheus_password: None,
             prometheus_username: None,
+            streaming: false,
         };
 
         let result = build_edge(&args, "test-app").await;

@@ -7,14 +7,12 @@ use actix_web::{
     HttpResponse,
 };
 use dashmap::DashMap;
-use tracing::trace;
 
 pub async fn validate_token(
     token: EdgeToken,
     req: ServiceRequest,
     srv: crate::middleware::as_async_middleware::Next<impl MessageBody + 'static>,
 ) -> Result<ServiceResponse<impl MessageBody>, actix_web::Error> {
-    trace!("Validating req: {}", req.path());
     let maybe_validator = req.app_data::<Data<TokenValidator>>();
     let token_cache = req
         .app_data::<Data<DashMap<String, EdgeToken>>>()
@@ -27,10 +25,8 @@ pub async fn validate_token(
             let res = match known_token.status {
                 TokenValidationStatus::Validated => match known_token.token_type {
                     Some(TokenType::Frontend) => {
-                        trace!("Got FE token validated {:?}", known_token);
                         if req.path().contains("/api/frontend") || req.path().contains("/api/proxy")
                         {
-                            trace!("Was allowed to access");
                             srv.call(req).await?.map_into_left_body()
                         } else {
                             req.into_response(HttpResponse::Forbidden().finish())
@@ -38,7 +34,6 @@ pub async fn validate_token(
                         }
                     }
                     Some(TokenType::Client) => {
-                        trace!("Got Client token validated {:?}", known_token);
                         if req.path().contains("/api/client") {
                             srv.call(req).await?.map_into_left_body()
                         } else {
@@ -61,7 +56,33 @@ pub async fn validate_token(
         }
         None => {
             let res = match token_cache.get(&token.token) {
-                Some(_) => srv.call(req).await?.map_into_left_body(),
+                Some(t) => {
+                    let token = t.value();
+                    match token.token_type {
+                        Some(TokenType::Client) => {
+                            if req.path().contains("/api/client") {
+                                srv.call(req).await?.map_into_left_body()
+                            } else {
+                                req.into_response(HttpResponse::Forbidden().finish())
+                                    .map_into_right_body()
+                            }
+                        }
+                        Some(TokenType::Frontend) => {
+                            if req.path().contains("/api/frontend")
+                                || req.path().contains("/api/proxy")
+                            {
+                                srv.call(req).await?.map_into_left_body()
+                            } else {
+                                req.into_response(HttpResponse::Forbidden().finish())
+                                    .map_into_right_body()
+                            }
+                        }
+                        None => srv.call(req).await?.map_into_left_body(),
+                        _ => req
+                            .into_response(HttpResponse::Forbidden().finish())
+                            .map_into_right_body(),
+                    }
+                }
                 None => req
                     .into_response(HttpResponse::Forbidden().finish())
                     .map_into_right_body(),

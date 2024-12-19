@@ -10,13 +10,13 @@ use serde::{Deserialize, Serialize};
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ClientApplication;
 
-use crate::error::EdgeError;
 use crate::http::feature_refresher::FeatureRefresher;
 use crate::metrics::actix_web_metrics::PrometheusMetricsHandler;
 use crate::metrics::client_metrics::MetricsCache;
 use crate::types::{BuildInfo, EdgeJsonResult, EdgeToken, TokenInfo, TokenRefresh};
 use crate::types::{ClientMetric, MetricsInfo, Status};
 use crate::{auth::token_validator::TokenValidator, cli::InternalBackstageArgs};
+use crate::{error::EdgeError, feature_cache::FeatureCache};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EdgeStatus {
@@ -54,7 +54,7 @@ pub async fn info() -> EdgeJsonResult<BuildInfo> {
 #[get("/ready")]
 pub async fn ready(
     token_cache: web::Data<DashMap<String, EdgeToken>>,
-    features_cache: web::Data<DashMap<String, ClientFeatures>>,
+    features_cache: web::Data<FeatureCache>,
 ) -> EdgeJsonResult<EdgeStatus> {
     if !token_cache.is_empty() && features_cache.is_empty() {
         Err(EdgeError::NotReady)
@@ -65,10 +65,16 @@ pub async fn ready(
 
 #[get("/tokens")]
 pub async fn tokens(
-    feature_refresher: web::Data<FeatureRefresher>,
-    token_validator: web::Data<TokenValidator>,
+    token_cache: web::Data<DashMap<String, EdgeToken>>,
+    feature_refresher: Option<web::Data<FeatureRefresher>>,
+    token_validator: Option<web::Data<TokenValidator>>,
 ) -> EdgeJsonResult<TokenInfo> {
-    Ok(Json(get_token_info(feature_refresher, token_validator)))
+    match (feature_refresher, token_validator) {
+        (Some(feature_refresher), Some(token_validator)) => {
+            Ok(Json(get_token_info(feature_refresher, token_validator)))
+        }
+        _ => Ok(Json(get_offline_token_info(token_cache))),
+    }
 }
 
 fn get_token_info(
@@ -96,6 +102,18 @@ fn get_token_info(
     }
 }
 
+fn get_offline_token_info(token_cache: web::Data<DashMap<String, EdgeToken>>) -> TokenInfo {
+    let edge_tokens: Vec<EdgeToken> = token_cache
+        .iter()
+        .map(|e| e.value().clone())
+        .map(|t| crate::tokens::anonymize_token(&t))
+        .collect();
+    TokenInfo {
+        token_refreshes: vec![],
+        token_validation_status: edge_tokens,
+    }
+}
+
 #[get("/metricsbatch")]
 pub async fn metrics_batch(metrics_cache: web::Data<MetricsCache>) -> EdgeJsonResult<MetricsInfo> {
     let applications: Vec<ClientApplication> = metrics_cache
@@ -119,7 +137,7 @@ pub async fn metrics_batch(metrics_cache: web::Data<MetricsCache>) -> EdgeJsonRe
 
 #[get("/features")]
 pub async fn features(
-    features_cache: web::Data<DashMap<String, ClientFeatures>>,
+    features_cache: web::Data<FeatureCache>,
 ) -> EdgeJsonResult<HashMap<String, ClientFeatures>> {
     let features = features_cache
         .iter()
@@ -163,6 +181,7 @@ mod tests {
     use unleash_yggdrasil::EngineState;
 
     use crate::auth::token_validator::TokenValidator;
+    use crate::feature_cache::FeatureCache;
     use crate::http::feature_refresher::FeatureRefresher;
     use crate::http::unleash_client::UnleashClient;
     use crate::internal_backstage::EdgeStatus;
@@ -204,7 +223,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_ready_endpoint_with_tokens_without_toggles() {
-        let client_features: DashMap<String, ClientFeatures> = DashMap::default();
+        let client_features = FeatureCache::default();
         let client_features_arc = Arc::new(client_features);
         let token_cache: DashMap<String, EdgeToken> = DashMap::default();
         let token = EdgeToken::from_str("[]:fancyenvironment.somerandomsecretstring").unwrap();
@@ -238,7 +257,7 @@ mod tests {
             segments: None,
             version: 2,
         };
-        let client_features: DashMap<String, ClientFeatures> = DashMap::default();
+        let client_features = FeatureCache::default();
         client_features.insert(
             "testproject:testenvironment.testtoken".into(),
             features.clone(),
@@ -267,7 +286,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_ready_endpoint_without_tokens_and_toggles() {
-        let client_features: DashMap<String, ClientFeatures> = DashMap::default();
+        let client_features = FeatureCache::default();
         let client_features_arc = Arc::new(client_features);
         let token_cache: DashMap<String, EdgeToken> = DashMap::default();
         let token_cache_arc = Arc::new(token_cache);
@@ -292,7 +311,7 @@ mod tests {
     async fn if_no_tokens_has_been_received_returns_empty_lists() {
         let upstream_server = upstream_server(
             Arc::new(DashMap::default()),
-            Arc::new(DashMap::default()),
+            Arc::new(FeatureCache::default()),
             Arc::new(DashMap::default()),
         )
         .await;
@@ -309,10 +328,12 @@ mod tests {
             token_cache: Arc::new(DashMap::default()),
             persistence: None,
         };
+        let token_cache: DashMap<String, EdgeToken> = DashMap::default();
         let app = test::init_service(
             App::new()
                 .app_data(web::Data::new(feature_refresher))
                 .app_data(web::Data::new(token_validator))
+                .app_data(web::Data::new(token_cache))
                 .service(web::scope("/internal-backstage").service(super::tokens)),
         )
         .await;
@@ -329,8 +350,7 @@ mod tests {
 
     #[actix_web::test]
     async fn returns_validated_tokens_when_dynamic() {
-        let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
-            Arc::new(DashMap::default());
+        let upstream_features_cache = Arc::new(FeatureCache::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let server = upstream_server(
@@ -349,7 +369,7 @@ mod tests {
         );
         upstream_features_cache.insert(cache_key(&upstream_known_token), upstream_features.clone());
         let unleash_client = Arc::new(UnleashClient::new(server.url("/").as_str(), None).unwrap());
-        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let feature_refresher = Arc::new(FeatureRefresher {
@@ -401,8 +421,7 @@ mod tests {
 
     #[actix_web::test]
     async fn returns_validated_tokens_when_strict() {
-        let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
-            Arc::new(DashMap::default());
+        let upstream_features_cache = Arc::new(FeatureCache::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let server = upstream_server(
@@ -421,7 +440,7 @@ mod tests {
         );
         upstream_features_cache.insert(cache_key(&upstream_known_token), upstream_features.clone());
         let unleash_client = Arc::new(UnleashClient::new(server.url("/").as_str(), None).unwrap());
-        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let feature_refresher = Arc::new(FeatureRefresher {

@@ -74,6 +74,7 @@ mod tests {
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
     use crate::cli::ReadyCheckArgs;
+    use crate::feature_cache::FeatureCache;
     use crate::internal_backstage::ready;
     use crate::ready_checker::check_ready;
     use crate::types::EdgeToken;
@@ -89,7 +90,7 @@ mod tests {
             segments: None,
             version: 2,
         };
-        let client_features: DashMap<String, ClientFeatures> = DashMap::default();
+        let client_features: FeatureCache = FeatureCache::default();
         client_features.insert(
             "testproject:testenvironment.testtoken".into(),
             features.clone(),
