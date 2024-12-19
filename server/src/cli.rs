@@ -213,6 +213,10 @@ pub struct EdgeArgs {
     #[clap(long, env, default_value_t = false, conflicts_with = "strict")]
     pub dynamic: bool,
 
+    /// If set to true. Edge connects to upstream using streaming instead of polling. Requires strict mode
+    #[clap(long, env, default_value_t = false, requires = "strict")]
+    pub streaming: bool,
+
     /// Sets a remote write url for prometheus metrics, if this is set, prometheus metrics will be written upstream
     #[clap(long, env)]
     pub prometheus_remote_write_url: Option<String>,

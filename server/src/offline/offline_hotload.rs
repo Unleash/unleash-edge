@@ -16,10 +16,10 @@ use unleash_types::client_features::{
 };
 use unleash_yggdrasil::EngineState;
 
-use crate::{cli::OfflineArgs, error::EdgeError, types::EdgeToken};
+use crate::{cli::OfflineArgs, error::EdgeError, feature_cache::FeatureCache, types::EdgeToken};
 
 pub async fn start_hotload_loop(
-    features_cache: Arc<DashMap<std::string::String, ClientFeatures>>,
+    features_cache: Arc<FeatureCache>,
     engine_cache: Arc<DashMap<std::string::String, EngineState>>,
     offline_args: OfflineArgs,
 ) {
@@ -60,7 +60,7 @@ pub async fn start_hotload_loop(
 
 pub(crate) fn load_offline_engine_cache(
     edge_token: &EdgeToken,
-    features_cache: Arc<DashMap<String, ClientFeatures>>,
+    features_cache: Arc<FeatureCache>,
     engine_cache: Arc<DashMap<String, EngineState>>,
     client_features: ClientFeatures,
 ) {

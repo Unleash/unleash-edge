@@ -796,12 +796,12 @@ mod tests {
     };
     use unleash_yggdrasil::EngineState;
 
-    use crate::builder::build_offline_mode;
     use crate::cli::{EdgeMode, OfflineArgs, TrustProxy};
     use crate::metrics::client_metrics::MetricsCache;
     use crate::metrics::client_metrics::MetricsKey;
     use crate::middleware;
     use crate::types::{EdgeToken, TokenType, TokenValidationStatus};
+    use crate::{builder::build_offline_mode, feature_cache::FeatureCache};
 
     async fn make_test_request() -> Request {
         make_test_request_to("/api/proxy/client/metrics").await
@@ -1318,7 +1318,7 @@ mod tests {
     #[tokio::test]
     async fn frontend_token_without_matching_client_token_yields_511_when_trying_to_access_frontend_api(
     ) {
-        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let features_cache = Arc::new(FeatureCache::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let app = test::init_service(
@@ -1351,7 +1351,7 @@ mod tests {
 
     #[tokio::test]
     async fn invalid_token_is_refused_with_403() {
-        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let features_cache = Arc::new(FeatureCache::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let app = test::init_service(

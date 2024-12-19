@@ -60,10 +60,10 @@ mod tests {
     use chrono::Duration;
     use dashmap::DashMap;
     use reqwest::{StatusCode, Url};
-    use unleash_types::client_features::ClientFeatures;
     use unleash_yggdrasil::EngineState;
 
     use crate::auth::token_validator::TokenValidator;
+    use crate::feature_cache::FeatureCache;
     use crate::http::feature_refresher::FeatureRefresher;
     use crate::http::unleash_client::{new_reqwest_client, UnleashClient};
     use crate::tests::upstream_server;
@@ -72,7 +72,7 @@ mod tests {
     pub async fn local_server(
         unleash_client: Arc<UnleashClient>,
         local_token_cache: Arc<DashMap<String, EdgeToken>>,
-        local_features_cache: Arc<DashMap<String, ClientFeatures>>,
+        local_features_cache: Arc<FeatureCache>,
         local_engine_cache: Arc<DashMap<String, EngineState>>,
     ) -> TestServer {
         let token_validator = Arc::new(TokenValidator {
@@ -120,8 +120,7 @@ mod tests {
         let mut frontend_token = EdgeToken::from_str("*:development.frontendtoken").unwrap();
         frontend_token.status = TokenValidationStatus::Validated;
         frontend_token.token_type = Some(TokenType::Frontend);
-        let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
-            Arc::new(DashMap::default());
+        let upstream_features_cache = Arc::new(FeatureCache::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         upstream_token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
@@ -148,8 +147,7 @@ mod tests {
             "test-client".into(),
             http_client,
         );
-        let local_features_cache: Arc<DashMap<String, ClientFeatures>> =
-            Arc::new(DashMap::default());
+        let local_features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let local_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let local_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
 

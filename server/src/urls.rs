@@ -17,7 +17,6 @@ pub struct UnleashUrls {
     pub edge_validate_url: Url,
     pub edge_metrics_url: Url,
     pub new_api_token_url: Url,
-    #[cfg(feature = "streaming")]
     pub client_features_stream_url: Url,
 }
 
@@ -51,9 +50,7 @@ impl UnleashUrls {
             .path_segments_mut()
             .unwrap()
             .push("features");
-        #[cfg(feature = "streaming")]
         let mut client_features_stream_url = client_api_url.clone();
-        #[cfg(feature = "streaming")]
         client_features_stream_url
             .path_segments_mut()
             .unwrap()
@@ -109,7 +106,6 @@ impl UnleashUrls {
             edge_validate_url,
             edge_metrics_url,
             new_api_token_url,
-            #[cfg(feature = "streaming")]
             client_features_stream_url,
         }
     }

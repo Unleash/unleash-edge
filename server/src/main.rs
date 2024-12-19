@@ -15,6 +15,7 @@ use utoipa_swagger_ui::SwaggerUi;
 use tracing::info;
 use unleash_edge::builder::build_caches_and_refreshers;
 use unleash_edge::cli::{CliArgs, EdgeMode};
+use unleash_edge::feature_cache::FeatureCache;
 use unleash_edge::http::background_send_metrics::send_metrics_one_shot;
 use unleash_edge::http::feature_refresher::FeatureRefresher;
 use unleash_edge::metrics::client_metrics::MetricsCache;
@@ -28,7 +29,7 @@ use unleash_edge::{internal_backstage, tls};
 #[cfg(not(tarpaulin_include))]
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {
-    use unleash_edge::metrics::metrics_pusher;
+    use unleash_edge::{http::broadcaster::Broadcaster, metrics::metrics_pusher};
 
     let args = CliArgs::parse();
     let disable_all_endpoint = args.disable_all_endpoint;
@@ -78,6 +79,8 @@ async fn main() -> Result<(), anyhow::Error> {
     let refresher_for_app_data = feature_refresher.clone();
     let prom_registry_for_write = metrics_handler.registry.clone();
 
+    let broadcaster = Broadcaster::new(features_cache.clone());
+
     let server = HttpServer::new(move || {
         let qs_config =
             serde_qs::actix::QsQueryConfig::default().qs_config(serde_qs::Config::new(5, false));
@@ -96,7 +99,9 @@ async fn main() -> Result<(), anyhow::Error> {
             .app_data(web::Data::from(metrics_cache.clone()))
             .app_data(web::Data::from(token_cache.clone()))
             .app_data(web::Data::from(features_cache.clone()))
-            .app_data(web::Data::from(engine_cache.clone()));
+            .app_data(web::Data::from(engine_cache.clone()))
+            .app_data(web::Data::from(broadcaster.clone()));
+
         app = match token_validator.clone() {
             Some(v) => app.app_data(web::Data::from(v)),
             None => app,
@@ -150,67 +155,42 @@ async fn main() -> Result<(), anyhow::Error> {
 
     match schedule_args.mode {
         cli::EdgeMode::Edge(edge) => {
-            #[cfg(feature = "streaming")]
-            {
-                let refresher_for_background = feature_refresher.clone().unwrap();
+            let refresher_for_background = feature_refresher.clone().unwrap();
+            if edge.streaming {
                 tokio::spawn(async move {
                     let _ = refresher_for_background
                         .start_streaming_features_background_task()
                         .await;
                 });
             }
+
             let refresher = feature_refresher.clone().unwrap();
 
             let validator = token_validator_schedule.clone().unwrap();
 
-            if cfg!(feature = "streaming") {
-                tokio::select! {
-                    _ = server.run() => {
-                        tracing::info!("Actix is shutting down. Persisting data");
-                        clean_shutdown(persistence.clone(), lazy_feature_cache.clone(), lazy_token_cache.clone(), metrics_cache_clone.clone(), feature_refresher.clone()).await;
-                        tracing::info!("Actix was shutdown properly");
-                    },
-                    _ = unleash_edge::http::background_send_metrics::send_metrics_task(metrics_cache_clone.clone(), refresher.clone(), edge.metrics_interval_seconds.try_into().unwrap()) => {
-                        tracing::info!("Metrics poster unexpectedly shut down");
-                    }
-                    _ = persist_data(persistence.clone(), lazy_token_cache.clone(), lazy_feature_cache.clone()) => {
-                        tracing::info!("Persister was unexpectedly shut down");
-                    }
-                    _ = validator.schedule_validation_of_known_tokens(edge.token_revalidation_interval_seconds) => {
-                        tracing::info!("Token validator validation of known tokens was unexpectedly shut down");
-                    }
-                    _ = validator.schedule_revalidation_of_startup_tokens(edge.tokens, lazy_feature_refresher) => {
-                        tracing::info!("Token validator validation of startup tokens was unexpectedly shut down");
-                    }
-                    _ = metrics_pusher::prometheus_remote_write(prom_registry_for_write, edge.prometheus_remote_write_url, edge.prometheus_push_interval, edge.prometheus_username, edge.prometheus_password, app_name) => {
-                        tracing::info!("Prometheus push unexpectedly shut down");
-                    }
+            tokio::select! {
+                _ = server.run() => {
+                    tracing::info!("Actix is shutting down. Persisting data");
+                    clean_shutdown(persistence.clone(), lazy_feature_cache.clone(), lazy_token_cache.clone(), metrics_cache_clone.clone(), feature_refresher.clone()).await;
+                    tracing::info!("Actix was shutdown properly");
+                },
+                _ = refresher.start_refresh_features_background_task() => {
+                    tracing::info!("Feature refresher unexpectedly shut down");
                 }
-            } else {
-                tokio::select! {
-                    _ = server.run() => {
-                        tracing::info!("Actix is shutting down. Persisting data");
-                        clean_shutdown(persistence.clone(), lazy_feature_cache.clone(), lazy_token_cache.clone(), metrics_cache_clone.clone(), feature_refresher.clone()).await;
-                        tracing::info!("Actix was shutdown properly");
-                    },
-                    _ = refresher.start_refresh_features_background_task() => {
-                        tracing::info!("Feature refresher unexpectedly shut down");
-                    }
-                    _ = unleash_edge::http::background_send_metrics::send_metrics_task(metrics_cache_clone.clone(), refresher.clone(), edge.metrics_interval_seconds.try_into().unwrap()) => {
-                        tracing::info!("Metrics poster unexpectedly shut down");
-                    }
-                    _ = persist_data(persistence.clone(), lazy_token_cache.clone(), lazy_feature_cache.clone()) => {
-                        tracing::info!("Persister was unexpectedly shut down");
-                    }
-                    _ = validator.schedule_validation_of_known_tokens(edge.token_revalidation_interval_seconds) => {
-                        tracing::info!("Token validator validation of known tokens was unexpectedly shut down");
-                    }
-                    _ = validator.schedule_revalidation_of_startup_tokens(edge.tokens, lazy_feature_refresher) => {
-                        tracing::info!("Token validator validation of startup tokens was unexpectedly shut down");
-                    }
-                    _ = metrics_pusher::prometheus_remote_write(prom_registry_for_write, edge.prometheus_remote_write_url, edge.prometheus_push_interval, edge.prometheus_username, edge.prometheus_password, app_name) => {
-                        tracing::info!("Prometheus push unexpectedly shut down");
-                    }
+                _ = unleash_edge::http::background_send_metrics::send_metrics_task(metrics_cache_clone.clone(), refresher.clone(), edge.metrics_interval_seconds.try_into().unwrap()) => {
+                    tracing::info!("Metrics poster unexpectedly shut down");
+                }
+                _ = persist_data(persistence.clone(), lazy_token_cache.clone(), lazy_feature_cache.clone()) => {
+                    tracing::info!("Persister was unexpectedly shut down");
+                }
+                _ = validator.schedule_validation_of_known_tokens(edge.token_revalidation_interval_seconds) => {
+                    tracing::info!("Token validator validation of known tokens was unexpectedly shut down");
+                }
+                _ = validator.schedule_revalidation_of_startup_tokens(edge.tokens, lazy_feature_refresher) => {
+                    tracing::info!("Token validator validation of startup tokens was unexpectedly shut down");
+                }
+                _ = metrics_pusher::prometheus_remote_write(prom_registry_for_write, edge.prometheus_remote_write_url, edge.prometheus_push_interval, edge.prometheus_username, edge.prometheus_password, app_name) => {
+                    tracing::info!("Prometheus push unexpectedly shut down");
                 }
             }
         }
@@ -240,7 +220,7 @@ async fn main() -> Result<(), anyhow::Error> {
 #[cfg(not(tarpaulin_include))]
 async fn clean_shutdown(
     persistence: Option<Arc<dyn EdgePersistence>>,
-    feature_cache: Arc<DashMap<String, ClientFeatures>>,
+    feature_cache: Arc<FeatureCache>,
     token_cache: Arc<DashMap<String, EdgeToken>>,
     metrics_cache: Arc<MetricsCache>,
     feature_refresher: Option<Arc<FeatureRefresher>>,
