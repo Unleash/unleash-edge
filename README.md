@@ -8,28 +8,6 @@
 [![Coverage Status](https://coveralls.io/repos/github/Unleash/unleash-edge/badge.svg?branch=main)](https://coveralls.io/github/Unleash/unleash-edge?branch=main)
 ![downloads](https://img.shields.io/crates/d/unleash-edge.svg)
 
-- [Overview](#overview)
-- [Quickstart](#quickstart)
-- [Edge behaviors](#edge-behaviors)
-  - [Strict behavior](#strict-behavior)
-  - [Dynamic behavior](#dynamic-behavior)
-- [Getting Unleash Edge](#getting-unleash-edge)
-- [Running Unleash Edge](#running-unleash-edge)
-- [Metrics](#metrics)
-  - [Prometheus integration](#prometheus-integration)
-- [Compatibility](#compatibility)
-- [Debugging](#debugging)
-- [Additional resources](#additional-resources)
-  - [Edge concepts](#edge-concepts)
-  - [CLI](#cli)
-  - [Deploying Edge](#deploying-edge)
-  - [Migrating from Unleash Proxy](#migrating-from-unleash-proxy)
-  - [Performance benchmarking](#performance-benchmarking)
-  - [Contribution and development guide](#contribution-and-development-guide)
-
-
-> Availability: Unleash v4.15+.
-
 ## Overview
 
 Unleash Edge is a fast and lightweight proxy layer between your Unleash API and SDKs. It acts as a read replica of your Unleash instance and is designed to help you scale Unleash. It allows you to support thousands of connected SDKs without increasing the number of requests you make to your Unleash instance.
@@ -63,6 +41,12 @@ For example:
 ```shell
 docker run -it -p 3063:3063 -e STRICT=true -e UPSTREAM_URL=https://app.unleash-hosted.com/testclient -e TOKENS='*:development.4a798ad11cde8c0e637ff19f3287683ebc21d23d607c641f2dd79daa54' unleashorg/unleash-edge:v19.6.2 edge
 ```
+
+## Versioning and availability
+
+Unleash Edge is versioned and released independently of [Unleash](https://github.com/Unleash/unleash). To use Unleash Edge, you need Unleash version 4.15 or later. We recommend using the latest versions of Unleash and Unleash Edge to ensure optimal performance and access to the latest features and security updates.
+
+Unleash Edge does not have full feature parity with Unleash. Some features, such as filtering feature flags by tags, are not supported.
 
 ## Edge behaviors
 

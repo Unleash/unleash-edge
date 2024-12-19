@@ -43,20 +43,16 @@ pub async fn get_features(
 #[get("/streaming")]
 pub async fn stream_features(
     edge_token: EdgeToken,
+    broadcaster: Data<Broadcaster>,
     token_cache: Data<DashMap<String, EdgeToken>>,
     filter_query: Query<FeatureFilters>,
-    req: HttpRequest,
 ) -> EdgeResult<impl Responder> {
     let (validated_token, _filter_set, query) =
         get_feature_filter(&edge_token, &token_cache, filter_query.clone())?;
-    match req.app_data::<Data<Broadcaster>>() {
-        Some(broadcaster) => {
-            broadcaster
-                .connect(validated_token, filter_query, query)
-                .await
-        }
-        _ => Err(EdgeError::ClientCacheError),
-    }
+
+    broadcaster
+        .connect(validated_token, filter_query, query)
+        .await
 }
 
 #[utoipa::path(
