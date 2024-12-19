@@ -14,6 +14,7 @@ use actix_web_lab::{
 };
 use dashmap::DashMap;
 use futures::future;
+use prometheus::{register_int_gauge, IntGauge};
 use serde::Serialize;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
@@ -49,6 +50,14 @@ struct ClientGroup {
 pub struct Broadcaster {
     active_connections: DashMap<QueryWrapper, ClientGroup>,
     features_cache: Arc<FeatureCache>,
+}
+
+lazy_static::lazy_static! {
+    pub static ref CONNECTED_STREAMING_CLIENTS: IntGauge = register_int_gauge!(
+        "connected_streaming_clients",
+        "Number of connected streaming clients",
+    )
+    .unwrap();
 }
 
 impl Broadcaster {
@@ -90,6 +99,7 @@ impl Broadcaster {
 
     /// Removes all non-responsive clients from broadcast list.
     async fn heartbeat(&self) {
+        let mut active_connections = 0i64;
         for mut group in self.active_connections.iter_mut() {
             let mut ok_clients = Vec::new();
 
@@ -103,11 +113,10 @@ impl Broadcaster {
                 }
             }
 
-            // validate tokens here?
-            // ok_clients.iter().filter(|client| client.token_is_valid())
-
+            active_connections += ok_clients.len() as i64;
             group.clients = ok_clients;
         }
+        CONNECTED_STREAMING_CLIENTS.set(active_connections)
     }
 
     /// Registers client with broadcaster, returning an SSE response body.
@@ -140,7 +149,6 @@ impl Broadcaster {
                 filter_set,
                 token,
             });
-
         Ok(Sse::from_infallible_receiver(rx))
     }
 
