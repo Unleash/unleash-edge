@@ -290,7 +290,7 @@ impl FeatureRefresher {
                 .context("Failed to create EventSource client for streaming")?
                 .header("Authorization", &token.token)?
                 .header(UNLEASH_APPNAME_HEADER, &app_name)?
-                .header(UNLEASH_INSTANCE_ID_HEADER, "unleash_edge".into())?
+                .header(UNLEASH_INSTANCE_ID_HEADER, "unleash_edge")?
                 .header(
                     UNLEASH_CLIENT_SPEC_HEADER,
                     unleash_yggdrasil::SUPPORTED_SPEC_VERSION,
