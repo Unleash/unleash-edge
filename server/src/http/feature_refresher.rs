@@ -366,8 +366,16 @@ impl FeatureRefresher {
                     })
                     .map_err(|e| warn!("Error in SSE stream: {:?}", e));
 
-                while let Ok(Some(handler)) = stream.try_next().await {
-                    handler.await;
+                loop {
+                    match stream.try_next().await {
+                        Ok(Some(handler)) => handler.await,
+                        Ok(None) => {
+                            info!("SSE stream ended? Handler was None, anyway. Reconnecting.");
+                        }
+                        Err(e) => {
+                            info!("SSE stream error: {e:?}. Reconnecting");
+                        }
+                    }
                 }
             });
         }
