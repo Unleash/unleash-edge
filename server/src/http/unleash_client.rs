@@ -28,9 +28,9 @@ use crate::types::{
 use crate::urls::UnleashUrls;
 use crate::{error::EdgeError, types::ClientFeaturesRequest};
 
-const UNLEASH_APPNAME_HEADER: &str = "UNLEASH-APPNAME";
-const UNLEASH_INSTANCE_ID_HEADER: &str = "UNLEASH-INSTANCEID";
-const UNLEASH_CLIENT_SPEC_HEADER: &str = "Unleash-Client-Spec";
+use super::headers::UNLEASH_APPNAME_HEADER;
+use super::headers::UNLEASH_CLIENT_SPEC_HEADER;
+use super::headers::UNLEASH_INSTANCE_ID_HEADER;
 
 lazy_static! {
     pub static ref CLIENT_REGISTER_FAILURES: IntGaugeVec = register_int_gauge_vec!(

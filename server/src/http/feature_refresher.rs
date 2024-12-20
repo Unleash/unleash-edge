@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::collections::HashSet;
 use std::{sync::Arc, time::Duration};
 
@@ -15,6 +16,9 @@ use unleash_yggdrasil::EngineState;
 use crate::error::{EdgeError, FeatureError};
 use crate::feature_cache::FeatureCache;
 use crate::filters::{filter_client_features, FeatureFilterSet};
+use crate::http::headers::{
+    UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_INSTANCE_ID_HEADER,
+};
 use crate::types::{build, EdgeResult, TokenType, TokenValidationStatus};
 use crate::{
     persistence::EdgePersistence,
@@ -286,10 +290,10 @@ impl FeatureRefresher {
             let mut es_client_builder = eventsource_client::ClientBuilder::for_url(streaming_url)
                 .context("Failed to create EventSource client for streaming")?
                 .header("Authorization", &token.token)?
-                .header("UNLEASH-APPNAME", &app_name)?
-                .header("UNLEASH-INSTANCEID", "unleash_edge".into())?
+                .header(UNLEASH_APPNAME_HEADER, &app_name)?
+                .header(UNLEASH_INSTANCE_ID_HEADER, "unleash_edge".into())?
                 .header(
-                    "UNLEASH-CLIENT-SPEC",
+                    UNLEASH_CLIENT_SPEC_HEADER,
                     unleash_yggdrasil::SUPPORTED_SPEC_VERSION,
                 )?;
 
