@@ -20,6 +20,9 @@ use unleash_types::client_metrics::ClientApplication;
 use crate::cli::ClientIdentity;
 use crate::error::EdgeError::EdgeMetricsRequestError;
 use crate::error::{CertificateError, FeatureError};
+use crate::http::headers::{
+    UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_INSTANCE_ID_HEADER,
+};
 use crate::metrics::client_metrics::MetricsBatch;
 use crate::tls::build_upstream_certificate;
 use crate::types::{
@@ -27,10 +30,6 @@ use crate::types::{
 };
 use crate::urls::UnleashUrls;
 use crate::{error::EdgeError, types::ClientFeaturesRequest};
-
-use super::headers::UNLEASH_APPNAME_HEADER;
-use super::headers::UNLEASH_CLIENT_SPEC_HEADER;
-use super::headers::UNLEASH_INSTANCE_ID_HEADER;
 
 lazy_static! {
     pub static ref CLIENT_REGISTER_FAILURES: IntGaugeVec = register_int_gauge_vec!(
