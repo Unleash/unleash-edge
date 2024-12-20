@@ -274,7 +274,7 @@ impl FeatureRefresher {
     pub async fn start_streaming_features_background_task(
         &self,
         app_name: String,
-        // custom_headers: Vec<(String, String)>,
+        custom_headers: Vec<(String, String)>,
     ) -> anyhow::Result<()> {
         use anyhow::Context;
 
@@ -283,7 +283,7 @@ impl FeatureRefresher {
             let token = refresh.token.clone();
             let streaming_url = self.unleash_client.urls.client_features_stream_url.as_str();
 
-            let es_client_builder = eventsource_client::ClientBuilder::for_url(streaming_url)
+            let mut es_client_builder = eventsource_client::ClientBuilder::for_url(streaming_url)
                 .context("Failed to create EventSource client for streaming")?
                 .header("Authorization", &token.token)?
                 .header("UNLEASH-APPNAME", &app_name)?
@@ -293,9 +293,9 @@ impl FeatureRefresher {
                     unleash_yggdrasil::SUPPORTED_SPEC_VERSION,
                 )?;
 
-            // for (key, value) in custom_headers.clone() {
-            //     es_client_builder = es_client_builder.header(&key, &value)?;
-            // }
+            for (key, value) in custom_headers.clone() {
+                es_client_builder = es_client_builder.header(&key, &value)?;
+            }
 
             let es_client = es_client_builder
                 .reconnect(
