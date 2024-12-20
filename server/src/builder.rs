@@ -13,7 +13,7 @@ use unleash_yggdrasil::EngineState;
 use crate::cli::RedisMode;
 use crate::feature_cache::FeatureCache;
 use crate::http::feature_refresher::{FeatureRefreshConfig, FeatureRefresherMode};
-use crate::http::unleash_client::new_reqwest_client;
+use crate::http::unleash_client::{new_reqwest_client, ClientMetaInformation};
 use crate::offline::offline_hotload::{load_bootstrap, load_offline_engine_cache};
 use crate::persistence::file::FilePersister;
 use crate::persistence::redis::RedisPersister;
@@ -218,7 +218,10 @@ async fn get_data_source(args: &EdgeArgs) -> Option<Arc<dyn EdgePersistence>> {
     None
 }
 
-async fn build_edge(args: &EdgeArgs, app_name: &str, instance_id: &str) -> EdgeResult<EdgeInfo> {
+async fn build_edge(
+    args: &EdgeArgs,
+    client_meta_information: ClientMetaInformation,
+) -> EdgeResult<EdgeInfo> {
     if !args.strict {
         if !args.dynamic {
             error!("You should explicitly opt into either strict or dynamic behavior. Edge has defaulted to dynamic to preserve legacy behavior, however we recommend using strict from now on. Not explicitly opting into a behavior will return an error on startup in a future release");
@@ -237,13 +240,12 @@ async fn build_edge(args: &EdgeArgs, app_name: &str, instance_id: &str) -> EdgeR
     let persistence = get_data_source(args).await;
 
     let http_client = new_reqwest_client(
-        instance_id.to_string().clone(),
         args.skip_ssl_verification,
         args.client_identity.clone(),
         args.upstream_certificate_file.clone(),
         Duration::seconds(args.upstream_request_timeout),
         Duration::seconds(args.upstream_socket_timeout),
-        app_name.into(),
+        client_meta_information.clone(),
     )?;
 
     let unleash_client = Url::parse(&args.upstream_url.clone())
@@ -267,7 +269,7 @@ async fn build_edge(args: &EdgeArgs, app_name: &str, instance_id: &str) -> EdgeR
     let feature_config = FeatureRefreshConfig::new(
         Duration::seconds(args.features_refresh_interval_seconds as i64),
         refresher_mode,
-        app_name.to_string(),
+        client_meta_information,
     );
     let feature_refresher = Arc::new(FeatureRefresher::new(
         unleash_client,
@@ -316,7 +318,14 @@ pub async fn build_caches_and_refreshers(args: CliArgs) -> EdgeResult<EdgeInfo> 
             build_offline(offline_args).map(|cache| (cache, None, None, None))
         }
         EdgeMode::Edge(edge_args) => {
-            build_edge(&edge_args, &args.app_name, &args.instance_id).await
+            build_edge(
+                &edge_args,
+                ClientMetaInformation {
+                    app_name: args.app_name,
+                    instance_id: args.instance_id,
+                },
+            )
+            .await
         }
         _ => unreachable!(),
     }
@@ -327,6 +336,7 @@ mod tests {
     use crate::{
         builder::{build_edge, build_offline},
         cli::{EdgeArgs, OfflineArgs, TokenHeader},
+        http::unleash_client::ClientMetaInformation,
     };
 
     #[test]
@@ -377,7 +387,14 @@ mod tests {
             streaming: false,
         };
 
-        let result = build_edge(&args, "test-app", "test-instance-id").await;
+        let result = build_edge(
+            &args,
+            ClientMetaInformation {
+                app_name: "test-app".into(),
+                instance_id: "test-instance-id".into(),
+            },
+        )
+        .await;
         assert!(result.is_err());
         assert_eq!(
             result.err().unwrap().to_string(),

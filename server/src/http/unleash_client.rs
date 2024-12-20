@@ -73,6 +73,30 @@ lazy_static! {
     .unwrap();
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClientMetaInformation {
+    pub app_name: String,
+    pub instance_id: String,
+}
+
+impl Default for ClientMetaInformation {
+    fn default() -> Self {
+        Self {
+            app_name: "unleash-edge".into(),
+            instance_id: format!("unleash-edge@{}", ulid::Ulid::new().to_string()),
+        }
+    }
+}
+
+impl ClientMetaInformation {
+    pub fn test_config() -> Self {
+        Self {
+            app_name: "test-app-name".into(),
+            instance_id: "test-instance-id".into(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct UnleashClient {
     pub urls: UnleashUrls,
@@ -130,13 +154,12 @@ fn build_identity(tls: Option<ClientIdentity>) -> EdgeResult<ClientBuilder> {
 }
 
 pub fn new_reqwest_client(
-    instance_id: String,
     skip_ssl_verification: bool,
     client_identity: Option<ClientIdentity>,
     upstream_certificate_file: Option<PathBuf>,
     connect_timeout: Duration,
     socket_timeout: Duration,
-    app_name: String,
+    client_meta_information: ClientMetaInformation,
 ) -> EdgeResult<Client> {
     build_identity(client_identity)
         .and_then(|builder| {
@@ -149,12 +172,12 @@ pub fn new_reqwest_client(
             let mut header_map = HeaderMap::new();
             header_map.insert(
                 UNLEASH_APPNAME_HEADER,
-                header::HeaderValue::from_str(app_name.as_str())
+                header::HeaderValue::from_str(&client_meta_information.app_name)
                     .expect("Could not add app name as a header"),
             );
             header_map.insert(
                 UNLEASH_INSTANCE_ID_HEADER,
-                header::HeaderValue::from_bytes(instance_id.as_bytes()).unwrap(),
+                header::HeaderValue::from_str(&client_meta_information.instance_id).unwrap(),
             );
             header_map.insert(
                 UNLEASH_CLIENT_SPEC_HEADER,
@@ -195,13 +218,15 @@ impl UnleashClient {
         Ok(Self {
             urls: UnleashUrls::from_str(server_url)?,
             backing_client: new_reqwest_client(
-                instance_id,
                 false,
                 None,
                 None,
                 Duration::seconds(5),
                 Duration::seconds(5),
-                "test-client".into(),
+                ClientMetaInformation {
+                    instance_id,
+                    app_name: "test-client".into(),
+                },
             )
             .unwrap(),
             custom_headers: Default::default(),
@@ -211,18 +236,16 @@ impl UnleashClient {
 
     #[cfg(test)]
     pub fn new_insecure(server_url: &str) -> Result<Self, EdgeError> {
-        use ulid::Ulid;
 
         Ok(Self {
             urls: UnleashUrls::from_str(server_url)?,
             backing_client: new_reqwest_client(
-                Ulid::new().to_string(),
                 true,
                 None,
                 None,
                 Duration::seconds(5),
                 Duration::seconds(5),
-                "test-client".into(),
+                ClientMetaInformation::test_config(),
             )
             .unwrap(),
             custom_headers: Default::default(),
@@ -514,7 +537,7 @@ mod tests {
         },
     };
 
-    use super::{EdgeTokens, UnleashClient};
+    use super::{EdgeTokens, UnleashClient, ClientMetaInformation};
 
     impl ClientFeaturesRequest {
         pub(crate) fn new(api_key: String, etag: Option<String>) -> Self {
@@ -801,13 +824,15 @@ mod tests {
             pkcs12_passphrase: Some(passphrase.into()),
         };
         let client = new_reqwest_client(
-            "test_pkcs12".into(),
             false,
             Some(identity),
             None,
             Duration::seconds(5),
             Duration::seconds(5),
-            "test-client".into(),
+            ClientMetaInformation {
+                app_name: "test-client".into(),
+                instance_id: "test-pkcs12".into(),
+            },
         );
         assert!(client.is_ok());
     }
@@ -823,13 +848,15 @@ mod tests {
             pkcs12_passphrase: Some(passphrase.into()),
         };
         let client = new_reqwest_client(
-            "test_pkcs12".into(),
             false,
             Some(identity),
             None,
             Duration::seconds(5),
             Duration::seconds(5),
-            "test-client".into(),
+            ClientMetaInformation {
+                app_name: "test-client".into(),
+                instance_id: "test-pkcs12".into(),
+            },
         );
         assert!(client.is_err());
     }
@@ -845,13 +872,15 @@ mod tests {
             pkcs12_passphrase: None,
         };
         let client = new_reqwest_client(
-            "test_pkcs8".into(),
             false,
             Some(identity),
             None,
             Duration::seconds(5),
             Duration::seconds(5),
-            "test-client".into(),
+            ClientMetaInformation {
+                app_name: "test-client".into(),
+                instance_id: "test-pkcs8".into(),
+            },
         );
         assert!(client.is_ok());
     }
