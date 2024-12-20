@@ -58,6 +58,7 @@ async fn main() -> Result<(), anyhow::Error> {
         instance_id: args.clone().instance_id,
     };
     let app_name = args.app_name.clone();
+    let instance_id = args.instance_id.clone();
     let custom_headers = match args.mode {
         cli::EdgeMode::Edge(ref edge) => edge.custom_client_headers.clone(),
         _ => vec![],
@@ -167,7 +168,11 @@ async fn main() -> Result<(), anyhow::Error> {
                 let custom_headers = custom_headers.clone();
                 tokio::spawn(async move {
                     let _ = refresher_for_background
-                        .start_streaming_features_background_task(app_name, custom_headers)
+                        .start_streaming_features_background_task(
+                            app_name,
+                            instance_id,
+                            custom_headers,
+                        )
                         .await;
                 });
             }

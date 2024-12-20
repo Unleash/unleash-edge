@@ -218,7 +218,7 @@ async fn get_data_source(args: &EdgeArgs) -> Option<Arc<dyn EdgePersistence>> {
     None
 }
 
-async fn build_edge(args: &EdgeArgs, app_name: &str) -> EdgeResult<EdgeInfo> {
+async fn build_edge(args: &EdgeArgs, app_name: &str, instance_id: &str) -> EdgeResult<EdgeInfo> {
     if !args.strict {
         if !args.dynamic {
             error!("You should explicitly opt into either strict or dynamic behavior. Edge has defaulted to dynamic to preserve legacy behavior, however we recommend using strict from now on. Not explicitly opting into a behavior will return an error on startup in a future release");
@@ -237,7 +237,7 @@ async fn build_edge(args: &EdgeArgs, app_name: &str) -> EdgeResult<EdgeInfo> {
     let persistence = get_data_source(args).await;
 
     let http_client = new_reqwest_client(
-        "unleash_edge".into(),
+        instance_id.to_string().clone(),
         args.skip_ssl_verification,
         args.client_identity.clone(),
         args.upstream_certificate_file.clone(),
@@ -315,7 +315,9 @@ pub async fn build_caches_and_refreshers(args: CliArgs) -> EdgeResult<EdgeInfo> 
         EdgeMode::Offline(offline_args) => {
             build_offline(offline_args).map(|cache| (cache, None, None, None))
         }
-        EdgeMode::Edge(edge_args) => build_edge(&edge_args, &args.app_name).await,
+        EdgeMode::Edge(edge_args) => {
+            build_edge(&edge_args, &args.app_name, &args.instance_id).await
+        }
         _ => unreachable!(),
     }
 }
@@ -375,7 +377,7 @@ mod tests {
             streaming: false,
         };
 
-        let result = build_edge(&args, "test-app").await;
+        let result = build_edge(&args, "test-app", "test-instance-id").await;
         assert!(result.is_err());
         assert_eq!(
             result.err().unwrap().to_string(),

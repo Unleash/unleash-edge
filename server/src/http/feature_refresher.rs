@@ -277,6 +277,7 @@ impl FeatureRefresher {
     pub async fn start_streaming_features_background_task(
         &self,
         app_name: String,
+        instance_id: String,
         custom_headers: Vec<(String, String)>,
     ) -> anyhow::Result<()> {
         use anyhow::Context;
@@ -290,7 +291,7 @@ impl FeatureRefresher {
                 .context("Failed to create EventSource client for streaming")?
                 .header("Authorization", &token.token)?
                 .header(UNLEASH_APPNAME_HEADER, &app_name)?
-                .header(UNLEASH_INSTANCE_ID_HEADER, "unleash_edge")?
+                .header(UNLEASH_INSTANCE_ID_HEADER, &instance_id)?
                 .header(
                     UNLEASH_CLIENT_SPEC_HEADER,
                     unleash_yggdrasil::SUPPORTED_SPEC_VERSION,
