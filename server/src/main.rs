@@ -157,9 +157,13 @@ async fn main() -> Result<(), anyhow::Error> {
         cli::EdgeMode::Edge(edge) => {
             let refresher_for_background = feature_refresher.clone().unwrap();
             if edge.streaming {
+                let app_name = app_name.clone();
                 tokio::spawn(async move {
                     let _ = refresher_for_background
-                        .start_streaming_features_background_task()
+                        .start_streaming_features_background_task(
+                            app_name,
+                            // args.custom_headers,
+                        )
                         .await;
                 });
             }

@@ -6,7 +6,7 @@ use chrono::Utc;
 use dashmap::DashMap;
 use eventsource_client::Client;
 use futures::TryStreamExt;
-use reqwest::{header, StatusCode};
+use reqwest::StatusCode;
 use tracing::{debug, info, warn};
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::{ClientApplication, MetricsMetadata};
@@ -273,8 +273,8 @@ impl FeatureRefresher {
     /// This is where we set up a listener per token.
     pub async fn start_streaming_features_background_task(
         &self,
-        app_name: &str,
-        custom_headers: Vec<(String, String)>,
+        app_name: String,
+        // custom_headers: Vec<(String, String)>,
     ) -> anyhow::Result<()> {
         use anyhow::Context;
 
@@ -283,21 +283,21 @@ impl FeatureRefresher {
             let token = refresh.token.clone();
             let streaming_url = self.unleash_client.urls.client_features_stream_url.as_str();
 
-            let es_client = eventsource_client::ClientBuilder::for_url(streaming_url)
+            let es_client_builder = eventsource_client::ClientBuilder::for_url(streaming_url)
                 .context("Failed to create EventSource client for streaming")?
                 .header("Authorization", &token.token)?
-                .header("UNLEASH-APPNAME", app_name.into())?
+                .header("UNLEASH-APPNAME", &app_name)?
                 .header("UNLEASH-INSTANCEID", "unleash_edge".into())?
                 .header(
                     "UNLEASH-CLIENT-SPEC",
                     unleash_yggdrasil::SUPPORTED_SPEC_VERSION,
                 )?;
 
-            for (key, value) in custom_headers {
-                es_client.header(&key, &value)?;
-            }
+            // for (key, value) in custom_headers.clone() {
+            //     es_client_builder = es_client_builder.header(&key, &value)?;
+            // }
 
-            es_client
+            let es_client = es_client_builder
                 .reconnect(
                     eventsource_client::ReconnectOptions::reconnect(true)
                         .retry_initial(true)
