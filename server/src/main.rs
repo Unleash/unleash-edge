@@ -164,10 +164,6 @@ async fn main() -> Result<(), anyhow::Error> {
             let refresher_for_background = feature_refresher.clone().unwrap();
             if edge.streaming {
                 let app_name = app_name.clone();
-                // let custom_headers = match args.mode {
-                //     cli::EdgeMode::Edge(edge) => edge.custom_client_headers,
-                //     _ => vec![],
-                // };
                 let custom_headers = custom_headers.clone();
                 tokio::spawn(async move {
                     let _ = refresher_for_background
