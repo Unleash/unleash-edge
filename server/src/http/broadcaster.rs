@@ -1,5 +1,5 @@
 use std::{
-    hash::{Hash, Hasher},
+    hash::{DefaultHasher, Hash, Hasher},
     sync::Arc,
     time::Duration,
 };
@@ -23,7 +23,7 @@ use unleash_types::client_features::{ClientFeatures, Query as FlagQuery};
 
 use crate::{
     error::EdgeError,
-    feature_cache::FeatureCache,
+    feature_cache::{FeatureCache, UpdateType},
     filters::{filter_client_features, name_prefix_filter, project_filter, FeatureFilterSet},
     tokens::cache_key,
     types::{EdgeJsonResult, EdgeResult, EdgeToken, FeatureFilters},
@@ -45,6 +45,7 @@ struct ClientGroup {
     clients: Vec<mpsc::Sender<sse::Event>>,
     filter_set: Query<FeatureFilters>,
     token: EdgeToken,
+    // last_hash: u64
 }
 
 pub struct Broadcaster {
@@ -92,6 +93,10 @@ impl Broadcaster {
         tokio::spawn(async move {
             while let Ok(key) = rx.recv().await {
                 debug!("Received update for key: {:?}", key);
+                // we can hand this off to an external system here to make it testable
+                // e.g.
+                // let env_groups = get_connections_for_env(&key);
+                // for env_group => get flags, compare hash; if updated, send updates
                 this.broadcast().await;
             }
         });
@@ -194,9 +199,12 @@ impl Broadcaster {
     }
 
     /// Broadcast new features to all clients.
-    pub async fn broadcast(&self) {
+    pub async fn broadcast(
+        &self,
+        // connections_to_update: &DashMap<QueryWrapper, ClientGroup>
+    ) {
         let mut client_events = Vec::new();
-        for entry in self.active_connections.iter() {
+        for entry in connections_to_update.iter() {
             let (query, group) = entry.pair();
 
             let event_data = self
@@ -224,5 +232,86 @@ impl Broadcaster {
             .map(|(client, event)| client.send(event.clone()));
 
         let _ = future::join_all(send_events).await;
+    }
+}
+
+// probably not worth taking this out of the broadcaster. It relies on resolving features etc, which is part of the broadcaster
+// async fn broadcast(active_connections: &DashMap<QueryWrapper, ClientGroup>) {
+//     let mut client_events = Vec::new();
+//     for entry in active_connections.iter() {
+//         let (query, group) = entry.pair();
+
+//         let event_data = self
+//             .resolve_features(&group.token, group.filter_set.clone(), query.query.clone())
+//             .await
+//             .and_then(|features| sse::Data::new_json(&features).map_err(|e| e.into()));
+
+//         match event_data {
+//             Ok(sse_data) => {
+//                 let event: Event = sse_data.event("unleash-updated").into();
+
+//                 for client in &group.clients {
+//                     client_events.push((client.clone(), event.clone()));
+//                 }
+//             }
+//             Err(e) => {
+//                 warn!("Failed to broadcast features: {:?}", e);
+//             }
+//         }
+//     }
+//     // try to send to all clients, ignoring failures
+//     // disconnected clients will get swept up by `remove_stale_clients`
+//     let send_events = client_events
+//         .iter()
+//         .map(|(client, event)| client.send(event.clone()));
+
+//     let _ = future::join_all(send_events).await;
+// }
+
+//
+// fn filter_client_groups(
+//     update_type: UpdateType,
+//     all_connections: &DashMap<QueryWrapper, ClientGroup>,
+// ) -> std::iter::Filter<
+//     dashmap::iter::Iter<'_, QueryWrapper, ClientGroup>,
+//     impl FnMut(&dashmap::mapref::multiple::RefMulti<'_, QueryWrapper, ClientGroup>) -> bool,
+// > {
+//     all_connections
+//         .iter()
+//         .filter(|entry| *entry.key)
+//     // match update_type {
+//     //     UpdateType::Full(environment) |
+//     //     UpdateType::Update(environment) => all_connections
+//     //         .iter()
+//     //         .filter(|entry| entry.value().token.project == key)
+
+//     // }
+// }
+
+#[cfg(test)]
+mod test {
+    use crate::feature_cache::FeatureCache;
+
+    use super::*;
+
+    #[test]
+    fn only_updates_clients_in_same_env() {
+        let feature_cache = FeatureCache::default();
+        let broadcaster = Broadcaster::new(Arc::from(feature_cache));
+
+        let client = broadcaster.connect(
+            EdgeToken {
+                project: "test".to_string(),
+                environment: "test".to_string(),
+            },
+            Query::from(FeatureFilters {
+                environment: Some("test".to_string()),
+                ..Default::default()
+            }),
+            FlagQuery::default(),
+        );
+
+        // update feature_cache
+        // observe that we are / are not getting updates
     }
 }
