@@ -50,9 +50,8 @@ pub async fn stream_features(
     let (validated_token, _filter_set, query) =
         get_feature_filter(&edge_token, &token_cache, filter_query.clone())?;
 
-    broadcaster
-        .connect(validated_token, filter_query, query)
-        .await
+    // so we really just need to validate the token here.
+    broadcaster.connect(validated_token, query).await
 }
 
 #[utoipa::path(

@@ -1,13 +1,10 @@
 use std::{
-    hash::{DefaultHasher, Hash, Hasher},
+    hash::{Hash, Hasher},
     sync::Arc,
     time::Duration,
 };
 
-use actix_web::{
-    rt::time::interval,
-    web::{Json, Query},
-};
+use actix_web::{rt::time::interval, web::Json};
 use actix_web_lab::{
     sse::{self, Event, Sse},
     util::InfallibleStream,
@@ -19,11 +16,11 @@ use serde::Serialize;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::{debug, warn};
-use unleash_types::client_features::{ClientFeatures, Query as FlagQuery};
+use unleash_types::client_features::{ClientFeatures, Query};
 
 use crate::{
     error::EdgeError,
-    feature_cache::{FeatureCache, UpdateType},
+    feature_cache::FeatureCache,
     filters::{filter_client_features, name_prefix_filter, project_filter, FeatureFilterSet},
     tokens::cache_key,
     types::{EdgeJsonResult, EdgeResult, EdgeToken, FeatureFilters},
@@ -31,7 +28,7 @@ use crate::{
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 struct QueryWrapper {
-    query: FlagQuery,
+    query: Query,
 }
 
 impl Hash for QueryWrapper {
@@ -43,7 +40,6 @@ impl Hash for QueryWrapper {
 #[derive(Clone, Debug)]
 struct ClientGroup {
     clients: Vec<mpsc::Sender<sse::Event>>,
-    filter_set: Query<FeatureFilters>,
     token: EdgeToken,
     // last_hash: u64
 }
@@ -128,14 +124,11 @@ impl Broadcaster {
     pub async fn connect(
         &self,
         token: EdgeToken,
-        filter_set: Query<FeatureFilters>,
         query: unleash_types::client_features::Query,
     ) -> EdgeResult<Sse<InfallibleStream<ReceiverStream<sse::Event>>>> {
         let (tx, rx) = mpsc::channel(10);
 
-        let features = &self
-            .resolve_features(&token, filter_set.clone(), query.clone())
-            .await?;
+        let features = &self.resolve_features(&token, query.clone()).await?;
 
         tx.send(
             sse::Data::new_json(features)?
@@ -151,20 +144,14 @@ impl Broadcaster {
             })
             .or_insert(ClientGroup {
                 clients: vec![tx.clone()],
-                filter_set,
                 token,
             });
         Ok(Sse::from_infallible_receiver(rx))
     }
 
-    fn get_query_filters(
-        filter_query: Query<FeatureFilters>,
-        token: &EdgeToken,
-    ) -> FeatureFilterSet {
-        let query_filters = filter_query.into_inner();
-
-        let filter_set = if let Some(name_prefix) = query_filters.name_prefix {
-            FeatureFilterSet::from(Box::new(name_prefix_filter(name_prefix)))
+    fn get_query_filters(query: &Query, token: &EdgeToken) -> FeatureFilterSet {
+        let filter_set = if let Some(name_prefix) = &query.name_prefix {
+            FeatureFilterSet::from(Box::new(name_prefix_filter(name_prefix.clone())))
         } else {
             FeatureFilterSet::default()
         }
@@ -175,10 +162,9 @@ impl Broadcaster {
     async fn resolve_features(
         &self,
         validated_token: &EdgeToken,
-        filter_set: Query<FeatureFilters>,
-        query: FlagQuery,
+        query: Query,
     ) -> EdgeJsonResult<ClientFeatures> {
-        let filter_set = Broadcaster::get_query_filters(filter_set.clone(), validated_token);
+        let filter_set = Broadcaster::get_query_filters(&query, validated_token);
 
         let features = self
             .features_cache
@@ -204,11 +190,11 @@ impl Broadcaster {
         // connections_to_update: &DashMap<QueryWrapper, ClientGroup>
     ) {
         let mut client_events = Vec::new();
-        for entry in connections_to_update.iter() {
+        for entry in self.active_connections.iter() {
             let (query, group) = entry.pair();
 
             let event_data = self
-                .resolve_features(&group.token, group.filter_set.clone(), query.query.clone())
+                .resolve_features(&group.token, query.query.clone())
                 .await
                 .and_then(|features| sse::Data::new_json(&features).map_err(|e| e.into()));
 
@@ -290,7 +276,10 @@ impl Broadcaster {
 
 #[cfg(test)]
 mod test {
-    use crate::feature_cache::FeatureCache;
+    use crate::{
+        feature_cache::FeatureCache,
+        types::{TokenType, TokenValidationStatus},
+    };
 
     use super::*;
 
@@ -301,14 +290,19 @@ mod test {
 
         let client = broadcaster.connect(
             EdgeToken {
-                project: "test".to_string(),
-                environment: "test".to_string(),
-            },
-            Query::from(FeatureFilters {
+                token: "test".to_string(),
+                projects: vec!["projectA".to_string()],
                 environment: Some("test".to_string()),
-                ..Default::default()
-            }),
-            FlagQuery::default(),
+                token_type: Some(TokenType::Client),
+                status: TokenValidationStatus::Validated,
+            },
+            Query {
+                tags: None,
+                name_prefix: None,
+                environment: Some("test".to_string()),
+                inline_segment_constraints: None,
+                projects: Some(vec!["projectA".to_string()]),
+            },
         );
 
         // update feature_cache
