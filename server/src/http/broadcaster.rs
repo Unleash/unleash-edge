@@ -109,10 +109,6 @@ impl Broadcaster {
         tokio::spawn(async move {
             while let Ok(key) = rx.recv().await {
                 debug!("Received update for key: {:?}", key);
-                // we can hand this off to an external system here to make it testable
-                // e.g.
-                // let env_groups = get_connections_for_env(&key);
-                // for env_group => get flags, compare hash; if updated, send updates
                 this.broadcast().await;
             }
         });
@@ -148,20 +144,19 @@ impl Broadcaster {
         token: EdgeToken,
         query: Query,
     ) -> EdgeResult<Sse<InfallibleStream<ReceiverStream<sse::Event>>>> {
-        let rx = self.create_connection(token, query).await?;
-        Ok(Sse::from_infallible_receiver(rx))
+        self.create_connection(StreamingQuery::from((&query, &token)), &token.token)
+            .await
+            .map(|rx| Sse::from_infallible_receiver(rx))
     }
 
     async fn create_connection(
         &self,
-        token: EdgeToken,
-        query: Query,
+        query: StreamingQuery,
+        token: &str,
     ) -> EdgeResult<mpsc::Receiver<sse::Event>> {
         let (tx, rx) = mpsc::channel(10);
 
-        let streaming_query = StreamingQuery::from((&query, &token));
-
-        let features = self.resolve_features(streaming_query.clone()).await?;
+        let features = self.resolve_features(query.clone()).await?;
         tx.send(
             sse::Data::new_json(&features)?
                 .event("unleash-connected")
@@ -170,16 +165,16 @@ impl Broadcaster {
         .await?;
 
         self.active_connections
-            .entry(streaming_query)
+            .entry(query)
             .and_modify(|group| {
                 group.clients.push(ClientData {
-                    token: token.token.clone(),
+                    token: token.into(),
                     sender: tx.clone(),
                 });
             })
             .or_insert(ClientGroup {
                 clients: vec![ClientData {
-                    token: token.token.clone(),
+                    token: token.into(),
                     sender: tx.clone(),
                 }],
             });
@@ -199,6 +194,11 @@ impl Broadcaster {
 
     async fn resolve_features(&self, query: StreamingQuery) -> EdgeJsonResult<ClientFeatures> {
         let filter_set = Broadcaster::get_query_filters(&query);
+
+        println!(
+            "Resolving features. The cache is {:#?}",
+            self.features_cache
+        );
 
         let features = self
             .features_cache
@@ -270,13 +270,9 @@ fn project_filter(projects: Vec<String>) -> FeatureFilter {
 #[cfg(test)]
 mod test {
     use tokio::time::timeout;
-    use tokio_stream::StreamExt;
+    use unleash_types::client_features::ClientFeature;
 
-    use crate::{
-        feature_cache::FeatureCache,
-        tests::features_from_disk,
-        types::{TokenType, TokenValidationStatus},
-    };
+    use crate::feature_cache::FeatureCache;
 
     use super::*;
 
@@ -286,33 +282,27 @@ mod test {
         let broadcaster = Broadcaster::new(feature_cache.clone());
 
         let env_with_updates = "production";
-
-        feature_cache.insert(
-            env_with_updates.into(),
-            ClientFeatures {
-                version: 0,
-                features: vec![],
-                query: None,
-                segments: None,
-            },
-        );
+        let env_without_updates = "development";
+        for env in &[env_with_updates, env_without_updates] {
+            feature_cache.insert(
+                env.to_string(),
+                ClientFeatures {
+                    version: 0,
+                    features: vec![],
+                    query: None,
+                    segments: None,
+                },
+            );
+        }
 
         let mut rx = broadcaster
             .create_connection(
-                EdgeToken {
-                    token: "test".to_string(),
-                    projects: vec!["dx".to_string()],
-                    environment: Some(env_with_updates.into()),
-                    token_type: Some(TokenType::Client),
-                    status: TokenValidationStatus::Validated,
-                },
-                Query {
-                    tags: None,
+                StreamingQuery {
                     name_prefix: None,
-                    environment: Some(env_with_updates.into()),
-                    inline_segment_constraints: None,
-                    projects: Some(vec!["dx".to_string()]),
+                    environment: env_with_updates.into(),
+                    projects: vec!["dx".to_string()],
                 },
+                "token",
             )
             .await
             .expect("Failed to connect");
@@ -323,17 +313,25 @@ mod test {
         }
 
         feature_cache.insert(
-            "development".to_string(),
-            features_from_disk("../examples/features.json"),
+            env_with_updates.to_string(),
+            ClientFeatures {
+                version: 0,
+                features: vec![ClientFeature {
+                    name: "flag-a".into(),
+                    project: Some("dx".into()),
+                    ..Default::default()
+                }],
+                segments: None,
+                query: None,
+            },
         );
-
-        let mut stream = ReceiverStream::new(rx);
 
         if tokio::time::timeout(std::time::Duration::from_secs(2), async {
             loop {
-                if let Some(event) = stream.next().await {
+                if let Some(event) = rx.recv().await {
                     match event {
-                        Event::Data(_) => {
+                        Event::Data(data) => {
+                            println!("Received {data:?}");
                             // the only kind of data events we send at the moment are unleash-updated events. So if we receive a data event, we've got the update.
                             break;
                         }
@@ -350,5 +348,38 @@ mod test {
             // If the test times out, kill the app process and fail the test
             panic!("Test timed out waiting for update event");
         }
+
+        feature_cache.insert(
+            env_without_updates.to_string(),
+            ClientFeatures {
+                version: 0,
+                features: vec![ClientFeature {
+                    name: "flag-b".into(),
+                    project: Some("dx".into()),
+                    ..Default::default()
+                }],
+                segments: None,
+                query: None,
+            },
+        );
+
+        let result = tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            loop {
+                if let Some(event) = rx.recv().await {
+                    match event {
+                        Event::Data(data) => {
+                            println!("Received {data:?}");
+                            panic!("Received an update for an env I'm not subscribed to!");
+                        }
+                        _ => {
+                            // ignore other events
+                        }
+                    }
+                }
+            }
+        })
+        .await;
+
+        assert!(result.is_err());
     }
 }
