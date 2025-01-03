@@ -15,7 +15,7 @@ use unleash_types::client_features::{ClientFeatures, Query};
 
 use crate::{
     error::EdgeError,
-    feature_cache::FeatureCache,
+    feature_cache::{FeatureCache, UpdateType},
     filters::{filter_client_features, name_prefix_filter, FeatureFilter, FeatureFilterSet},
     types::{EdgeJsonResult, EdgeResult, EdgeToken},
 };
@@ -109,7 +109,14 @@ impl Broadcaster {
         tokio::spawn(async move {
             while let Ok(key) = rx.recv().await {
                 debug!("Received update for key: {:?}", key);
-                this.broadcast().await;
+                match key {
+                    UpdateType::Full(env) | UpdateType::Update(env) => {
+                        this.broadcast(Some(env)).await;
+                    }
+                    UpdateType::Deletion => {
+                        this.broadcast(None).await;
+                    }
+                }
             }
         });
     }
@@ -221,10 +228,18 @@ impl Broadcaster {
     /// Broadcast new features to all clients.
     pub async fn broadcast(
         &self,
+        environment: Option<String>,
         // connections_to_update: &DashMap<QueryWrapper, ClientGroup>
     ) {
         let mut client_events = Vec::new();
-        for entry in self.active_connections.iter() {
+
+        for entry in self.active_connections.iter().filter(|entry| {
+            if let Some(env) = &environment {
+                entry.key().environment == *env
+            } else {
+                true
+            }
+        }) {
             let (query, group) = entry.pair();
 
             let event_data = self
