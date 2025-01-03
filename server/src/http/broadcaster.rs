@@ -23,7 +23,7 @@ use crate::{
     feature_cache::FeatureCache,
     filters::{filter_client_features, name_prefix_filter, project_filter, FeatureFilterSet},
     tokens::cache_key,
-    types::{EdgeJsonResult, EdgeResult, EdgeToken, FeatureFilters},
+    types::{EdgeJsonResult, EdgeResult, EdgeToken},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -120,18 +120,25 @@ impl Broadcaster {
         CONNECTED_STREAMING_CLIENTS.set(active_connections)
     }
 
-    /// Registers client with broadcaster, returning an SSE response body.
     pub async fn connect(
         &self,
         token: EdgeToken,
-        query: unleash_types::client_features::Query,
+        query: Query,
     ) -> EdgeResult<Sse<InfallibleStream<ReceiverStream<sse::Event>>>> {
+        let rx = self.create_connection(token, query).await?;
+        Ok(Sse::from_infallible_receiver(rx))
+    }
+
+    async fn create_connection(
+        &self,
+        token: EdgeToken,
+        query: Query,
+    ) -> EdgeResult<mpsc::Receiver<sse::Event>> {
         let (tx, rx) = mpsc::channel(10);
 
-        let features = &self.resolve_features(&token, query.clone()).await?;
-
+        let features = self.resolve_features(&token, query.clone()).await?;
         tx.send(
-            sse::Data::new_json(features)?
+            sse::Data::new_json(&features)?
                 .event("unleash-connected")
                 .into(),
         )
@@ -146,7 +153,8 @@ impl Broadcaster {
                 clients: vec![tx.clone()],
                 token,
             });
-        Ok(Sse::from_infallible_receiver(rx))
+
+        Ok(rx)
     }
 
     fn get_query_filters(query: &Query, token: &EdgeToken) -> FeatureFilterSet {
@@ -278,34 +286,103 @@ impl Broadcaster {
 mod test {
     use crate::{
         feature_cache::FeatureCache,
+        tests::features_from_disk,
         types::{TokenType, TokenValidationStatus},
     };
 
     use super::*;
 
-    #[test]
-    fn only_updates_clients_in_same_env() {
-        let feature_cache = FeatureCache::default();
-        let broadcaster = Broadcaster::new(Arc::from(feature_cache));
+    #[actix_web::test]
+    async fn only_updates_clients_in_same_env() {
+        let feature_cache = Arc::new(FeatureCache::default());
+        let broadcaster = Broadcaster::new(feature_cache.clone());
 
-        let client = broadcaster.connect(
-            EdgeToken {
-                token: "test".to_string(),
-                projects: vec!["projectA".to_string()],
-                environment: Some("test".to_string()),
-                token_type: Some(TokenType::Client),
-                status: TokenValidationStatus::Validated,
-            },
-            Query {
-                tags: None,
-                name_prefix: None,
-                environment: Some("test".to_string()),
-                inline_segment_constraints: None,
-                projects: Some(vec!["projectA".to_string()]),
+        let env_with_updates = "production";
+
+        // let env_without_updates = "development";
+        // for env in &[env_with_updates, env_without_updates] {
+        //     feature_cache.insert(
+        //         env.into(),
+        //         ClientFeatures {
+        //             version: 0,
+        //             features: vec![],
+        //             query: None,
+        //             segments: None,
+        //         },
+        //     );
+        // }
+
+        // prime the cache so that we can connect
+        feature_cache.insert(
+            env_with_updates.into(),
+            ClientFeatures {
+                version: 0,
+                features: vec![],
+                query: None,
+                segments: None,
             },
         );
 
-        // update feature_cache
-        // observe that we are / are not getting updates
+        let mut rx = broadcaster
+            .create_connection(
+                EdgeToken {
+                    token: "test".to_string(),
+                    projects: vec!["dx".to_string()],
+                    environment: Some(env_with_updates.into()),
+                    token_type: Some(TokenType::Client),
+                    status: TokenValidationStatus::Validated,
+                },
+                Query {
+                    tags: None,
+                    name_prefix: None,
+                    environment: Some(env_with_updates.into()),
+                    inline_segment_constraints: None,
+                    projects: Some(vec!["dx".to_string()]),
+                },
+            )
+            .await
+            .expect("Failed to connect");
+
+        // clear all events up until now
+        let _ = tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            while let Some(event) = rx.recv().await {
+                println!("discarding event: {:?}", event);
+            }
+        })
+        .await;
+
+        feature_cache.insert(
+            "development".to_string(),
+            features_from_disk("../examples/features.json"),
+        );
+
+        // rx.close();
+
+        if tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            while let Some(event) = rx.recv().await {
+                println!("rx event: {:?}", event);
+            }
+        })
+        .await
+        .is_err()
+        {
+            // If the test times out, kill the app process and fail the test
+            panic!("Test timed out waiting for connected event");
+        }
+
+        while let Some(event) = rx.recv().await {
+            println!("rx event: {:?}", event);
+        }
+
+        println!("End!")
+
+        // let mut events = Vec::new();
+        // let mut stream = ReceiverStream::new(rx);
+        // while let Some(event) = stream.next().await {
+        //     events.push(event);
+        // }
+        // println!("{:?}", events);
+
+        // what do I do here? how do I check events?
     }
 }
