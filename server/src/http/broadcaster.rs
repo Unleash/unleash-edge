@@ -284,6 +284,9 @@ impl Broadcaster {
 
 #[cfg(test)]
 mod test {
+    use tokio::time::timeout;
+    use tokio_stream::StreamExt;
+
     use crate::{
         feature_cache::FeatureCache,
         tests::features_from_disk,
@@ -299,20 +302,6 @@ mod test {
 
         let env_with_updates = "production";
 
-        // let env_without_updates = "development";
-        // for env in &[env_with_updates, env_without_updates] {
-        //     feature_cache.insert(
-        //         env.into(),
-        //         ClientFeatures {
-        //             version: 0,
-        //             features: vec![],
-        //             query: None,
-        //             segments: None,
-        //         },
-        //     );
-        // }
-
-        // prime the cache so that we can connect
         feature_cache.insert(
             env_with_updates.into(),
             ClientFeatures {
@@ -343,46 +332,38 @@ mod test {
             .await
             .expect("Failed to connect");
 
-        // clear all events up until now
-        let _ = tokio::time::timeout(std::time::Duration::from_secs(2), async {
-            while let Some(event) = rx.recv().await {
-                println!("discarding event: {:?}", event);
-            }
-        })
-        .await;
+        // Drain any initial events to start with a clean state
+        while let Ok(Some(event)) = timeout(Duration::from_secs(1), rx.recv()).await {
+            println!("Discarding initial event: {:?}", event);
+        }
 
         feature_cache.insert(
             "development".to_string(),
             features_from_disk("../examples/features.json"),
         );
 
-        // rx.close();
+        let mut stream = ReceiverStream::new(rx);
 
         if tokio::time::timeout(std::time::Duration::from_secs(2), async {
-            while let Some(event) = rx.recv().await {
-                println!("rx event: {:?}", event);
+            loop {
+                if let Some(event) = stream.next().await {
+                    match event {
+                        Event::Data(_) => {
+                            // the only kind of data events we send at the moment are unleash-updated events. So if we receive a data event, we've got the update.
+                            break;
+                        }
+                        _ => {
+                            // ignore other events
+                        }
+                    }
+                }
             }
         })
         .await
         .is_err()
         {
             // If the test times out, kill the app process and fail the test
-            panic!("Test timed out waiting for connected event");
+            panic!("Test timed out waiting for update event");
         }
-
-        while let Some(event) = rx.recv().await {
-            println!("rx event: {:?}", event);
-        }
-
-        println!("End!")
-
-        // let mut events = Vec::new();
-        // let mut stream = ReceiverStream::new(rx);
-        // while let Some(event) = stream.next().await {
-        //     events.push(event);
-        // }
-        // println!("{:?}", events);
-
-        // what do I do here? how do I check events?
     }
 }
