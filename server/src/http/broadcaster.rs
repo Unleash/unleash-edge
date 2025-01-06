@@ -153,7 +153,7 @@ impl Broadcaster {
     ) -> EdgeResult<Sse<InfallibleStream<ReceiverStream<sse::Event>>>> {
         self.create_connection(StreamingQuery::from((&query, &token)), &token.token)
             .await
-            .map(|rx| Sse::from_infallible_receiver(rx))
+            .map(Sse::from_infallible_receiver)
     }
 
     async fn create_connection(
