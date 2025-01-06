@@ -16,9 +16,8 @@ use unleash_types::client_features::{ClientFeatures, Query};
 use crate::{
     error::EdgeError,
     feature_cache::{FeatureCache, UpdateType},
-    filters::{filter_client_features, name_prefix_filter, project_filter, FeatureFilterSet},
-    tokens::cache_key,
-    types::{EdgeJsonResult, EdgeResult, EdgeToken, FeatureFilters},
+    filters::{filter_client_features, name_prefix_filter, FeatureFilterSet},
+    types::{EdgeJsonResult, EdgeResult, EdgeToken},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
