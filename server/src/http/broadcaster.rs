@@ -16,7 +16,9 @@ use unleash_types::client_features::{ClientFeatures, Query};
 use crate::{
     error::EdgeError,
     feature_cache::{FeatureCache, UpdateType},
-    filters::{filter_client_features, name_prefix_filter, FeatureFilter, FeatureFilterSet},
+    filters::{
+        filter_client_features, name_prefix_filter, project_filter_from_projects, FeatureFilterSet,
+    },
     types::{EdgeJsonResult, EdgeResult, EdgeToken},
 };
 
@@ -191,7 +193,7 @@ impl Broadcaster {
         } else {
             FeatureFilterSet::default()
         }
-        .with_filter(project_filter(query.projects.clone()));
+        .with_filter(project_filter_from_projects(query.projects.clone()));
         filter_set
     }
 
@@ -255,18 +257,6 @@ impl Broadcaster {
 
         let _ = future::join_all(send_events).await;
     }
-}
-
-fn project_filter(projects: Vec<String>) -> FeatureFilter {
-    Box::new(move |feature| {
-        if let Some(feature_project) = &feature.project {
-            projects.is_empty()
-                || projects.contains(&"*".to_string())
-                || projects.contains(feature_project)
-        } else {
-            false
-        }
-    })
 }
 
 #[cfg(test)]
