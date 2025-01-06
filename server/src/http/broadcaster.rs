@@ -125,17 +125,15 @@ impl Broadcaster {
         let mut active_connections = 0i64;
         for mut group in self.active_connections.iter_mut() {
             let mut ok_clients = Vec::new();
+            let clients = std::mem::take(&mut group.clients);
 
-            for ClientData { token, sender } in &group.clients {
+            for ClientData { token, sender } in clients {
                 if sender
                     .send(sse::Event::Comment("keep-alive".into()))
                     .await
                     .is_ok()
                 {
-                    ok_clients.push(ClientData {
-                        token: token.clone(),
-                        sender: sender.clone(),
-                    });
+                    ok_clients.push(ClientData { token, sender });
                 }
             }
 
