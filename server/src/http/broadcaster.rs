@@ -124,8 +124,8 @@ impl Broadcaster {
     async fn heartbeat(&self) {
         let mut active_connections = 0i64;
         for mut group in self.active_connections.iter_mut() {
-            let mut ok_clients = Vec::new();
             let clients = std::mem::take(&mut group.clients);
+            let ok_clients = &mut group.clients;
 
             for ClientData { token, sender } in clients {
                 if sender
@@ -138,7 +138,6 @@ impl Broadcaster {
             }
 
             active_connections += ok_clients.len() as i64;
-            group.clients = ok_clients;
         }
         CONNECTED_STREAMING_CLIENTS.set(active_connections)
     }
