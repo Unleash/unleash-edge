@@ -61,7 +61,6 @@ struct ClientData {
 #[derive(Clone, Debug)]
 struct ClientGroup {
     clients: Vec<ClientData>,
-    // last_hash: u64
 }
 
 pub struct Broadcaster {
@@ -221,11 +220,7 @@ impl Broadcaster {
     }
 
     /// Broadcast new features to all clients.
-    pub async fn broadcast(
-        &self,
-        environment: Option<String>,
-        // connections_to_update: &DashMap<QueryWrapper, ClientGroup>
-    ) {
+    pub async fn broadcast(&self, environment: Option<String>) {
         let mut client_events = Vec::new();
 
         for entry in self.active_connections.iter().filter(|entry| {
@@ -376,7 +371,7 @@ mod test {
             loop {
                 if let Some(event) = rx.recv().await {
                     match event {
-                        Event::Data(data) => {
+                        Event::Data(_) => {
                             panic!("Received an update for an env I'm not subscribed to!");
                         }
                         _ => {
