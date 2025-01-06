@@ -202,11 +202,6 @@ impl Broadcaster {
     async fn resolve_features(&self, query: StreamingQuery) -> EdgeJsonResult<ClientFeatures> {
         let filter_set = Broadcaster::get_query_filters(&query);
 
-        println!(
-            "Resolving features. The cache is {:#?}",
-            self.features_cache
-        );
-
         let features = self
             .features_cache
             .get(&query.environment)
@@ -323,8 +318,8 @@ mod test {
             .expect("Failed to connect");
 
         // Drain any initial events to start with a clean state
-        while let Ok(Some(event)) = timeout(Duration::from_secs(1), rx.recv()).await {
-            println!("Discarding initial event: {:?}", event);
+        while let Ok(Some(_)) = timeout(Duration::from_secs(1), rx.recv()).await {
+            // ignored
         }
 
         feature_cache.insert(
@@ -345,8 +340,7 @@ mod test {
             loop {
                 if let Some(event) = rx.recv().await {
                     match event {
-                        Event::Data(data) => {
-                            println!("Received {data:?}");
+                        Event::Data(_) => {
                             // the only kind of data events we send at the moment are unleash-updated events. So if we receive a data event, we've got the update.
                             break;
                         }
@@ -383,7 +377,6 @@ mod test {
                 if let Some(event) = rx.recv().await {
                     match event {
                         Event::Data(data) => {
-                            println!("Received {data:?}");
                             panic!("Received an update for an env I'm not subscribed to!");
                         }
                         _ => {
