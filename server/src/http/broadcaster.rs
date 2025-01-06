@@ -27,14 +27,14 @@ struct StreamingQuery {
     pub environment: String,
 }
 
-impl Into<Query> for StreamingQuery {
-    fn into(self) -> Query {
-        Query {
+impl From<StreamingQuery> for Query {
+    fn from(value: StreamingQuery) -> Self {
+        Self {
             tags: None,
-            name_prefix: self.name_prefix,
-            environment: Some(self.environment),
+            name_prefix: value.name_prefix,
+            environment: Some(value.environment),
             inline_segment_constraints: None,
-            projects: Some(self.projects),
+            projects: Some(value.projects),
         }
     }
 }
