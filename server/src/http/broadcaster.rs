@@ -33,7 +33,7 @@ impl From<StreamingQuery> for Query {
             tags: None,
             name_prefix: value.name_prefix,
             environment: Some(value.environment),
-            inline_segment_constraints: None,
+            inline_segment_constraints: Some(false),
             projects: Some(value.projects),
         }
     }
