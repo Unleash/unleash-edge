@@ -349,7 +349,6 @@ mod test {
         .await
         .is_err()
         {
-            // If the test times out, kill the app process and fail the test
             panic!("Test timed out waiting for update event");
         }
 
@@ -367,7 +366,7 @@ mod test {
             },
         );
 
-        let result = tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        let result = tokio::time::timeout(std::time::Duration::from_secs(1), async {
             loop {
                 if let Some(event) = rx.recv().await {
                     match event {
