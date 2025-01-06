@@ -126,20 +126,23 @@ impl Broadcaster {
     async fn heartbeat(&self) {
         let mut active_connections = 0i64;
         for mut group in self.active_connections.iter_mut() {
-            let clients = std::mem::take(&mut group.clients);
-            let ok_clients = &mut group.clients;
+            let mut ok_clients = Vec::new();
 
-            for ClientData { token, sender } in clients {
+            for ClientData { token, sender } in &group.clients {
                 if sender
                     .send(sse::Event::Comment("keep-alive".into()))
                     .await
                     .is_ok()
                 {
-                    ok_clients.push(ClientData { token, sender });
+                    ok_clients.push(ClientData {
+                        token: token.clone(),
+                        sender: sender.clone(),
+                    });
                 }
             }
 
             active_connections += ok_clients.len() as i64;
+            group.clients = ok_clients;
         }
         CONNECTED_STREAMING_CLIENTS.set(active_connections)
     }
