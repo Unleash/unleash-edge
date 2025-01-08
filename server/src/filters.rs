@@ -60,17 +60,20 @@ pub(crate) fn name_match_filter(name_prefix: String) -> FeatureFilter {
     Box::new(move |f| f.name.starts_with(&name_prefix))
 }
 
-pub(crate) fn project_filter(token: &EdgeToken) -> FeatureFilter {
-    let token = token.clone();
+pub(crate) fn project_filter_from_projects(projects: Vec<String>) -> FeatureFilter {
     Box::new(move |feature| {
         if let Some(feature_project) = &feature.project {
-            token.projects.is_empty()
-                || token.projects.contains(&"*".to_string())
-                || token.projects.contains(feature_project)
+            projects.is_empty()
+                || projects.contains(&"*".to_string())
+                || projects.contains(feature_project)
         } else {
             false
         }
     })
+}
+
+pub(crate) fn project_filter(token: &EdgeToken) -> FeatureFilter {
+    project_filter_from_projects(token.projects.clone())
 }
 
 #[cfg(test)]
