@@ -99,6 +99,7 @@ fn update_client_features(
             s
         }),
         query: old.query.clone().or(update.query.clone()),
+        meta: None,
     }
 }
 

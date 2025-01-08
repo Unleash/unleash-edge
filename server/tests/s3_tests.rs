@@ -45,6 +45,7 @@ mod s3_tests {
             ],
             segments: None,
             query: None,
+            meta: None,
         };
         let config = s3::config::Config::builder()
             .region(Region::new("us-east-1"))
