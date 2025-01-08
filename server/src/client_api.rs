@@ -299,7 +299,7 @@ mod tests {
 
     use crate::auth::token_validator::TokenValidator;
     use crate::cli::{OfflineArgs, TokenHeader};
-    use crate::http::unleash_client::UnleashClient;
+    use crate::http::unleash_client::{UnleashClient, ClientMetaInformation};
     use crate::middleware;
     use crate::tests::{features_from_disk, upstream_server};
     use actix_http::{Request, StatusCode};
@@ -1011,7 +1011,7 @@ mod tests {
             persistence: None,
             strict: false,
             streaming: false,
-            app_name: "test-app".into(),
+            client_meta_information: ClientMetaInformation::test_config(),
         });
         let token_validator = Arc::new(TokenValidator {
             unleash_client: unleash_client.clone(),
