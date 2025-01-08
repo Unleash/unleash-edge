@@ -14,7 +14,7 @@ use reqwest::{ClientBuilder, Identity, RequestBuilder, StatusCode, Url};
 use serde::{Deserialize, Serialize};
 use tracing::error;
 use tracing::{info, trace, warn};
-use unleash_types::client_features::ClientFeatures;
+use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta};
 use unleash_types::client_metrics::ClientApplication;
 
 use crate::cli::ClientIdentity;
@@ -26,7 +26,7 @@ use crate::http::headers::{
 use crate::metrics::client_metrics::MetricsBatch;
 use crate::tls::build_upstream_certificate;
 use crate::types::{
-    ClientFeaturesResponse, EdgeResult, EdgeToken, TokenValidationStatus, ValidateTokensRequest,
+    ClientFeaturesResponse, ClientFeaturesDeltaResponse, EdgeResult, EdgeToken, TokenValidationStatus, ValidateTokensRequest,
 };
 use crate::urls::UnleashUrls;
 use crate::{error::EdgeError, types::ClientFeaturesRequest};
@@ -43,6 +43,13 @@ lazy_static! {
     pub static ref CLIENT_FEATURE_FETCH: HistogramVec = register_histogram_vec!(
         "client_feature_fetch",
         "Timings for fetching features in milliseconds",
+        &["status_code"],
+        vec![1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0, 5000.0]
+    )
+    .unwrap();
+       pub static ref CLIENT_FEATURE_DELTA_FETCH: HistogramVec = register_histogram_vec!(
+        "client_feature_delta_fetch",
+        "Timings for fetching feature deltas in milliseconds",
         &["status_code"],
         vec![1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0, 5000.0]
     )
@@ -242,6 +249,18 @@ impl UnleashClient {
         }
     }
 
+    fn client_features_delta_req(&self, req: ClientFeaturesRequest) -> RequestBuilder {
+        let client_req = self
+            .backing_client
+            .get(self.urls.client_features_delta_url.to_string())
+            .headers(self.header_map(Some(req.api_key)));
+        if let Some(tag) = req.etag {
+            client_req.header(header::IF_NONE_MATCH, tag.to_string())
+        } else {
+            client_req
+        }
+    }
+
     fn header_map(&self, api_key: Option<String>) -> HeaderMap {
         let mut header_map = HeaderMap::new();
         let token_header: HeaderName = HeaderName::from_str(self.token_header.as_str()).unwrap();
@@ -354,6 +373,83 @@ impl UnleashClient {
             warn!(
                 "Failed to get features. Url: [{}]. Status code: [{}]",
                 self.urls.client_features_url.to_string(),
+                response.status().as_str()
+            );
+            Err(EdgeError::ClientFeaturesFetchError(FeatureError::NotFound))
+        } else {
+            CLIENT_FEATURE_FETCH_FAILURES
+                .with_label_values(&[response.status().as_str()])
+                .inc();
+            Err(EdgeError::ClientFeaturesFetchError(
+                FeatureError::Retriable(response.status()),
+            ))
+        }
+    }
+
+    pub async fn get_client_features_delta(
+        &self,
+        request: ClientFeaturesRequest,
+    ) -> EdgeResult<ClientFeaturesDeltaResponse> {
+        let start_time = Utc::now();
+        let response = self
+            .client_features_delta_req(request.clone())
+            .send()
+            .await
+            .map_err(|e| {
+                warn!("Failed to fetch. Due to [{e:?}] - Will retry");
+                match e.status() {
+                    Some(s) => EdgeError::ClientFeaturesFetchError(FeatureError::Retriable(s)),
+                    None => EdgeError::ClientFeaturesFetchError(FeatureError::NotFound),
+                }
+            })?;
+        let stop_time = Utc::now();
+        CLIENT_FEATURE_DELTA_FETCH
+            .with_label_values(&[&response.status().as_u16().to_string()])
+            .observe(
+                stop_time
+                    .signed_duration_since(start_time)
+                    .num_milliseconds() as f64,
+            );
+        if response.status() == StatusCode::NOT_MODIFIED {
+            Ok(ClientFeaturesDeltaResponse::NoUpdate(
+                request.etag.expect("Got NOT_MODIFIED without an ETag"),
+            ))
+        } else if response.status().is_success() {
+            let etag = response
+                .headers()
+                .get("ETag")
+                .or_else(|| response.headers().get("etag"))
+                .and_then(|etag| EntityTag::from_str(etag.to_str().unwrap()).ok());
+            let features = response.json::<ClientFeaturesDelta>().await.map_err(|e| {
+                warn!("Could not parse features response to internal representation");
+                EdgeError::ClientFeaturesParseError(e.to_string())
+            })?;
+            Ok(ClientFeaturesDeltaResponse::Updated(features, etag))
+        } else if response.status() == StatusCode::FORBIDDEN {
+            CLIENT_FEATURE_FETCH_FAILURES
+                .with_label_values(&[response.status().as_str()])
+                .inc();
+            Err(EdgeError::ClientFeaturesFetchError(
+                FeatureError::AccessDenied,
+            ))
+        } else if response.status() == StatusCode::UNAUTHORIZED {
+            CLIENT_FEATURE_FETCH_FAILURES
+                .with_label_values(&[response.status().as_str()])
+                .inc();
+            warn!(
+                "Failed to get features. Url: [{}]. Status code: [401]",
+                self.urls.client_features_delta_url.to_string()
+            );
+            Err(EdgeError::ClientFeaturesFetchError(
+                FeatureError::AccessDenied,
+            ))
+        } else if response.status() == StatusCode::NOT_FOUND {
+            CLIENT_FEATURE_FETCH_FAILURES
+                .with_label_values(&[response.status().as_str()])
+                .inc();
+            warn!(
+                "Failed to get features. Url: [{}]. Status code: [{}]",
+                self.urls.client_features_delta_url.to_string(),
                 response.status().as_str()
             );
             Err(EdgeError::ClientFeaturesFetchError(FeatureError::NotFound))

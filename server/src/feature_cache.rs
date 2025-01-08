@@ -4,7 +4,7 @@ use unleash_types::{
     client_features::{ClientFeature, ClientFeatures, Segment},
     Deduplicate,
 };
-
+use unleash_types::client_features::ClientFeaturesDelta;
 use crate::types::EdgeToken;
 
 #[derive(Debug, Clone)]
@@ -67,6 +67,41 @@ impl FeatureCache {
         self.send_full_update(key);
     }
 
+    pub fn apply_delta(&self, key: String, token: &EdgeToken, delta: ClientFeaturesDelta) {
+        let client_features = ClientFeatures {
+            version : 1,
+            features : delta.updated.clone(),
+            segments: delta.segments.clone(),
+            query: None,
+            meta: None,
+        };
+        self.features
+            .entry(key.clone())
+            .and_modify(|existing_features| {
+                let updated = update_client_features_delta(token, existing_features, &delta);  // TODO: is this replacing or merging the flags
+                *existing_features = updated;
+            })
+            .or_insert(client_features);
+        self.send_full_update(key);
+
+        // let mut current_state = self.compiled_state.take().unwrap_or_default();
+        // let segment_map = build_segment_map(&delta.segments);
+        // let mut warnings: Vec<EvalWarning> = vec![];
+        // for removed in delta.removed.clone() {
+        //     current_state.remove(&removed);
+        // }
+        // for update in delta.updated.clone() {
+        //     let updated_state = compile(&update, &segment_map, &mut warnings);
+        //     current_state.insert(update.name.clone(), updated_state);
+        // }
+        // self.compiled_state = Some(current_state);
+        // if warnings.is_empty() {
+        //     None
+        // } else {
+        //     Some(warnings)
+        // }
+    }
+
     pub fn is_empty(&self) -> bool {
         self.features.is_empty()
     }
@@ -100,6 +135,32 @@ fn update_client_features(
         }),
         query: old.query.clone().or(update.query.clone()),
         meta: old.meta.clone().or(update.meta.clone()),
+    }
+}
+
+fn update_client_features_delta(
+    token: &EdgeToken,
+    old: &ClientFeatures,
+    delta: &ClientFeaturesDelta,
+) -> ClientFeatures {
+    let mut updated_features =
+        update_projects_from_feature_update(token, &old.features, &delta.updated);
+
+    for removed_feature in &delta.removed {
+        updated_features.retain(|feature| feature.name != *removed_feature);
+    }
+    updated_features.sort();
+
+    let segments = merge_segments_update(old.segments.clone(), delta.segments.clone());
+    ClientFeatures {
+        version: 1,
+        features: updated_features,
+        segments: segments.map(|mut s| {
+            s.sort();
+            s
+        }),
+        query: None,
+        meta: None,
     }
 }
 

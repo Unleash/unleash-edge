@@ -8,7 +8,7 @@ use eventsource_client::Client;
 use futures::TryStreamExt;
 use reqwest::StatusCode;
 use tracing::{debug, info, warn};
-use unleash_types::client_features::ClientFeatures;
+use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta};
 use unleash_types::client_metrics::{ClientApplication, MetricsMetadata};
 use unleash_yggdrasil::EngineState;
 
@@ -18,7 +18,7 @@ use crate::filters::{filter_client_features, FeatureFilterSet};
 use crate::http::headers::{
     UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_INSTANCE_ID_HEADER,
 };
-use crate::types::{build, EdgeResult, TokenType, TokenValidationStatus};
+use crate::types::{build, ClientFeaturesDeltaResponse, EdgeResult, TokenType, TokenValidationStatus};
 use crate::{
     persistence::EdgePersistence,
     tokens::{cache_key, simplify},
@@ -48,6 +48,7 @@ pub struct FeatureRefresher {
     pub persistence: Option<Arc<dyn EdgePersistence>>,
     pub strict: bool,
     pub streaming: bool,
+    pub delta: bool,
     pub app_name: String,
 }
 
@@ -62,6 +63,7 @@ impl Default for FeatureRefresher {
             persistence: None,
             strict: true,
             streaming: false,
+            delta: false,
             app_name: "unleash_edge".into(),
         }
     }
@@ -99,6 +101,7 @@ pub enum FeatureRefresherMode {
 pub struct FeatureRefreshConfig {
     features_refresh_interval: chrono::Duration,
     mode: FeatureRefresherMode,
+    delta: bool,
     app_name: String,
 }
 
@@ -133,6 +136,7 @@ impl FeatureRefresher {
             persistence,
             strict: config.mode != FeatureRefresherMode::Dynamic,
             streaming: config.mode == FeatureRefresherMode::Streaming,
+            delta : config.delta,
             app_name: config.app_name,
         }
     }
@@ -401,13 +405,21 @@ impl FeatureRefresher {
     pub async fn hydrate_new_tokens(&self) {
         let hydrations = self.get_tokens_never_refreshed();
         for hydration in hydrations {
-            self.refresh_single(hydration).await;
+            if self.delta {
+                self.refresh_single_delta(hydration).await;
+            } else {
+                self.refresh_single(hydration).await;
+            }
         }
     }
     pub async fn refresh_features(&self) {
         let refreshes = self.get_tokens_due_for_refresh();
         for refresh in refreshes {
-            self.refresh_single(refresh).await;
+            if self.delta {
+                self.refresh_single_delta(refresh).await;
+            } else {
+                self.refresh_single(refresh).await;
+            }
         }
     }
 
@@ -446,6 +458,41 @@ impl FeatureRefresher {
                         });
     }
 
+    async fn handle_client_features_delta_updated(
+        &self,
+        refresh_token: &EdgeToken,
+        features: ClientFeaturesDelta,
+        etag: Option<EntityTag>,
+    ) {
+        debug!("Got updated client features delta. Updating features with {etag:?}");
+        let key = cache_key(refresh_token);
+        self.update_last_refresh(refresh_token, etag, features.updated.len()); /// TODO: why we need to set updated here
+        self.features_cache
+            .modify(key.clone(), refresh_token, features.clone());
+        self.engine_cache
+            .entry(key.clone())
+            .and_modify(|engine| {
+                if let Some(f) = self.features_cache.get(&key) {
+                    let mut new_state = EngineState::default();
+                    let warnings = new_state.take_state(f.clone());
+                    if let Some(warnings) = warnings {
+                        warn!("The following toggle failed to compile and will be defaulted to off: {warnings:?}");
+                    };
+                    *engine = new_state;
+
+                }
+            })
+            .or_insert_with(|| {
+                let mut new_state = EngineState::default();
+
+                let warnings = new_state.take_state(features);
+                if let Some(warnings) = warnings {
+                    warn!("The following toggle failed to compile and will be defaulted to off: {warnings:?}");
+                };
+                new_state
+            });
+    }
+
     pub async fn refresh_single(&self, refresh: TokenRefresh) {
         let features_result = self
             .unleash_client
@@ -462,6 +509,73 @@ impl FeatureRefresher {
                     self.update_last_check(&refresh.token.clone());
                 }
                 ClientFeaturesResponse::Updated(features, etag) => {
+                    self.handle_client_features_updated(&refresh.token, features, etag)
+                        .await
+                }
+            },
+            Err(e) => {
+                match e {
+                    EdgeError::ClientFeaturesFetchError(fe) => {
+                        match fe {
+                            FeatureError::Retriable(status_code) => match status_code {
+                                StatusCode::INTERNAL_SERVER_ERROR
+                                | StatusCode::BAD_GATEWAY
+                                | StatusCode::SERVICE_UNAVAILABLE
+                                | StatusCode::GATEWAY_TIMEOUT => {
+                                    info!("Upstream is having some problems, increasing my waiting period");
+                                    self.backoff(&refresh.token);
+                                }
+                                StatusCode::TOO_MANY_REQUESTS => {
+                                    info!("Got told that upstream is receiving too many requests");
+                                    self.backoff(&refresh.token);
+                                }
+                                _ => {
+                                    info!("Couldn't refresh features, but will retry next go")
+                                }
+                            },
+                            FeatureError::AccessDenied => {
+                                info!("Token used to fetch features was Forbidden, will remove from list of refresh tasks");
+                                self.tokens_to_refresh.remove(&refresh.token.token);
+                                if !self.tokens_to_refresh.iter().any(|e| {
+                                    e.value().token.environment == refresh.token.environment
+                                }) {
+                                    let cache_key = cache_key(&refresh.token);
+                                    // No tokens left that access the environment of our current refresh. Deleting client features and engine cache
+                                    self.features_cache.remove(&cache_key);
+                                    self.engine_cache.remove(&cache_key);
+                                }
+                            }
+                            FeatureError::NotFound => {
+                                info!("Had a bad URL when trying to fetch features. Increasing waiting period for the token before trying again");
+                                self.backoff(&refresh.token);
+                            }
+                        }
+                    }
+                    EdgeError::ClientCacheError => {
+                        info!("Couldn't refresh features, but will retry next go")
+                    }
+                    _ => info!("Couldn't refresh features: {e:?}. Will retry next pass"),
+                }
+            }
+        }
+    }
+
+    pub async fn refresh_single_delta(&self, refresh: TokenRefresh) {
+        let features_result = self
+            .unleash_client
+            .get_client_features_delta(ClientFeaturesRequest {
+                api_key: refresh.token.token.clone(),
+                etag: refresh.etag,
+            })
+            .await;
+
+        match features_result {
+            Ok(feature_response) => match feature_response {
+                ClientFeaturesDeltaResponse::NoUpdate(tag) => {
+                    debug!("No update needed. Will update last check time with {tag}");
+                    self.update_last_check(&refresh.token.clone());
+                }
+                ClientFeaturesDeltaResponse::Updated(features, etag) => {
                     self.handle_client_features_updated(&refresh.token, features, etag)
                         .await
                 }
