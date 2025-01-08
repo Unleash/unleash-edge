@@ -90,6 +90,7 @@ pub enum TokenType {
 }
 
 #[derive(Clone, Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum ClientFeaturesResponse {
     NoUpdate(EntityTag),
     Updated(ClientFeatures, Option<EntityTag>),
