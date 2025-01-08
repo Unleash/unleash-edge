@@ -108,7 +108,7 @@ maplit = "1.0.2"
 rand = "0.8.5"
 test-case = "3.3.1"
 testcontainers = "0.23.1"
-testcontainers-modules = { version = "0.11.3", features = [
+testcontainers-modules = { version = "0.11.5", features = [
     "redis",
     "localstack",
 ] }
