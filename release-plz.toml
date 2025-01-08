@@ -63,6 +63,9 @@ commit_preprocessors = [
     # Hyperlink commit links, with short commit hash as description.
     { pattern = "https://github.com/unleash/unleash-edge/commit/([a-f0-9]{7})[a-f0-9]*", replace = "commit # [${1}](${0})" },
 
+    # Linear issue references
+    { pattern = "\\(([0-9]-[0-9]+)\\)", replace = "Linear issue: [${1}](https://linear.app/unleash/issue/${1})"},
+
     # Hyperlink bare commit hashes like "abcd1234" in commit logs, with short commit hash as description.
     { pattern = "([ \\n])(([a-f0-9]{7})[a-f0-9]*)", replace = "${1}commit # [${3}](https://github.com/unleash/unleash-edge/commit/${2})" },
 ]
