@@ -566,6 +566,7 @@ mod tests {
             ],
             segments: None,
             query: None,
+            meta: None,
         }
     }
 
@@ -1301,6 +1302,7 @@ mod tests {
                 },
             ],
             segments: None,
+            meta: None,
         };
         let mut dx_token = EdgeToken::from_str("dx:development.secret123").unwrap();
         dx_token.status = TokenValidationStatus::Validated;

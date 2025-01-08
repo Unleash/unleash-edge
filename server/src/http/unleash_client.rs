@@ -543,6 +543,7 @@ mod tests {
             ],
             segments: None,
             query: None,
+            meta: None,
         }
     }
 

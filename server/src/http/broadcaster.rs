@@ -293,6 +293,7 @@ mod test {
                     features: vec![],
                     query: None,
                     segments: None,
+                    meta: None,
                 },
             );
         }
@@ -325,6 +326,7 @@ mod test {
                 }],
                 segments: None,
                 query: None,
+                meta: None,
             },
         );
 
@@ -360,6 +362,7 @@ mod test {
                 }],
                 segments: None,
                 query: None,
+                meta: None,
             },
         );
 

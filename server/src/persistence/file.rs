@@ -181,6 +181,7 @@ mod tests {
             version: 2,
             segments: None,
             query: None,
+            meta: None,
         };
 
         let formatted_data = vec![("some-environment".into(), client_features)];

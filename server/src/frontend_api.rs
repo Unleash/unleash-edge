@@ -857,6 +857,7 @@ mod tests {
             }],
             segments: None,
             query: None,
+            meta: None,
         }
     }
 
@@ -885,6 +886,7 @@ mod tests {
             }],
             segments: None,
             query: None,
+            meta: None,
         }
     }
 
@@ -908,6 +910,7 @@ mod tests {
             ],
             segments: None,
             query: None,
+            meta: None,
         }
     }
 
