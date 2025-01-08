@@ -125,8 +125,8 @@ mod tests {
 
     #[test_case("https://app.unleash-hosted.com/demo", "https://app.unleash-hosted.com/demo/api", "https://app.unleash-hosted.com/demo/api/client", "https://app.unleash-hosted.com/demo/api/client/features", "https://app.unleash-hosted.com/demo/api/client/delta" ; "No trailing slash, https protocol")]
     #[test_case("https://app.unleash-hosted.com/demo/", "https://app.unleash-hosted.com/demo/api", "https://app.unleash-hosted.com/demo/api/client", "https://app.unleash-hosted.com/demo/api/client/features", "https://app.unleash-hosted.com/demo/api/client/delta" ; "One trailing slash, https protocol")]
-    #[test_case("http://app.unleash-hosted.com/demo/", "http://app.unleash-hosted.com/demo/api", "http://app.unleash-hosted.com/demo/api/client", "http://app.unleash-hosted.com/demo/api/client/features", "https://app.unleash-hosted.com/demo/api/client/delta" ; "One trailing slash, http protocol")]
-    #[test_case("http://app.unleash-hosted.com/", "http://app.unleash-hosted.com/api", "http://app.unleash-hosted.com/api/client", "http://app.unleash-hosted.com/api/client/features", "https://app.unleash-hosted.com/demo/api/client/delta" ; "One trailing slash, no subpath, http protocol")]
+    #[test_case("http://app.unleash-hosted.com/demo/", "http://app.unleash-hosted.com/demo/api", "http://app.unleash-hosted.com/demo/api/client", "http://app.unleash-hosted.com/demo/api/client/features", "http://app.unleash-hosted.com/demo/api/client/delta" ; "One trailing slash, http protocol")]
+    #[test_case("http://app.unleash-hosted.com/", "http://app.unleash-hosted.com/api", "http://app.unleash-hosted.com/api/client", "http://app.unleash-hosted.com/api/client/features", "http://app.unleash-hosted.com/api/client/delta" ; "One trailing slash, no subpath, http protocol")]
     pub fn can_handle_base_urls(
         base_url: &str,
         api_url: &str,

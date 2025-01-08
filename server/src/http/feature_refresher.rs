@@ -110,11 +110,13 @@ impl FeatureRefreshConfig {
         features_refresh_interval: chrono::Duration,
         mode: FeatureRefresherMode,
         app_name: String,
+        delta: bool,
     ) -> Self {
         Self {
             features_refresh_interval,
             mode,
             app_name,
+            delta,
         }
     }
 }
@@ -461,31 +463,22 @@ impl FeatureRefresher {
     async fn handle_client_features_delta_updated(
         &self,
         refresh_token: &EdgeToken,
-        features: ClientFeaturesDelta,
+        delta: ClientFeaturesDelta,
         etag: Option<EntityTag>,
     ) {
         debug!("Got updated client features delta. Updating features with {etag:?}");
         let key = cache_key(refresh_token);
-        self.update_last_refresh(refresh_token, etag, features.updated.len()); /// TODO: why we need to set updated here
-        self.features_cache
-            .modify(key.clone(), refresh_token, features.clone());
+        self.features_cache.apply_delta(key.clone(), &delta);
+        self.update_last_refresh(refresh_token, etag, self.features_cache.get(&key).unwrap().features.len());
         self.engine_cache
             .entry(key.clone())
             .and_modify(|engine| {
-                if let Some(f) = self.features_cache.get(&key) {
-                    let mut new_state = EngineState::default();
-                    let warnings = new_state.take_state(f.clone());
-                    if let Some(warnings) = warnings {
-                        warn!("The following toggle failed to compile and will be defaulted to off: {warnings:?}");
-                    };
-                    *engine = new_state;
-
-                }
+                engine.take_delta(&delta);
             })
             .or_insert_with(|| {
                 let mut new_state = EngineState::default();
 
-                let warnings = new_state.take_state(features);
+                let warnings = new_state.take_delta(&delta);
                 if let Some(warnings) = warnings {
                     warn!("The following toggle failed to compile and will be defaulted to off: {warnings:?}");
                 };
@@ -570,13 +563,13 @@ impl FeatureRefresher {
             .await;
 
         match features_result {
-            Ok(feature_response) => match feature_response {
+            Ok(delta_response) => match delta_response {
                 ClientFeaturesDeltaResponse::NoUpdate(tag) => {
                     debug!("No update needed. Will update last check time with {tag}");
                     self.update_last_check(&refresh.token.clone());
                 }
                 ClientFeaturesDeltaResponse::Updated(features, etag) => {
-                    self.handle_client_features_updated(&refresh.token, features, etag)
+                    self.handle_client_features_delta_updated(&refresh.token, features, etag)
                         .await
                 }
             },

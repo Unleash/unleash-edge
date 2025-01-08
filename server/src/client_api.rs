@@ -1011,6 +1011,7 @@ mod tests {
             persistence: None,
             strict: false,
             streaming: false,
+            delta: false,
             app_name: "test-app".into(),
         });
         let token_validator = Arc::new(TokenValidator {

@@ -268,6 +268,7 @@ async fn build_edge(args: &EdgeArgs, app_name: &str) -> EdgeResult<EdgeInfo> {
         Duration::seconds(args.features_refresh_interval_seconds as i64),
         refresher_mode,
         app_name.to_string(),
+        args.delta,
     );
     let feature_refresher = Arc::new(FeatureRefresher::new(
         unleash_client,
@@ -373,6 +374,7 @@ mod tests {
             prometheus_password: None,
             prometheus_username: None,
             streaming: false,
+            delta: false,
         };
 
         let result = build_edge(&args, "test-app").await;
