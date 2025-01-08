@@ -276,8 +276,7 @@ impl FeatureRefresher {
     /// This is where we set up a listener per token.
     pub async fn start_streaming_features_background_task(
         &self,
-        app_name: String,
-        instance_id: String,
+        client_meta_information: ClientMetaInformation,
         custom_headers: Vec<(String, String)>,
     ) -> anyhow::Result<()> {
         use anyhow::Context;
@@ -290,8 +289,11 @@ impl FeatureRefresher {
             let mut es_client_builder = eventsource_client::ClientBuilder::for_url(streaming_url)
                 .context("Failed to create EventSource client for streaming")?
                 .header("Authorization", &token.token)?
-                .header(UNLEASH_APPNAME_HEADER, &app_name)?
-                .header(UNLEASH_INSTANCE_ID_HEADER, &instance_id)?
+                .header(UNLEASH_APPNAME_HEADER, &client_meta_information.app_name)?
+                .header(
+                    UNLEASH_INSTANCE_ID_HEADER,
+                    &client_meta_information.instance_id,
+                )?
                 .header(
                     UNLEASH_CLIENT_SPEC_HEADER,
                     unleash_yggdrasil::SUPPORTED_SPEC_VERSION,
