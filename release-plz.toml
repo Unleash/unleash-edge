@@ -44,13 +44,13 @@ commit_preprocessors = [
     { pattern = "foo", replace = "bar" },
 
     # Replace `<REPO>` in the template body with the repository URL
-    { pattern = '<REPO>', replace = "https://github.com/unleash/unleash-types-rs" },
+    { pattern = '<REPO>', replace = "https://github.com/unleash/unleash-edge" },
 
     # Replace multiple spaces with a single space.
     { pattern = "  +", replace = " " },
 
     # Replace the issue number with the link.
-    { pattern = "\\(#([0-9]+)\\)", replace = "([#${1}](https://github.com/unleash/unleash-types-rs/issues/${1}))" },
+    { pattern = "\\(#([0-9]+)\\)", replace = "([#${1}](https://github.com/unleash/unleash-edge/issues/${1}))" },
     # Remove prefix
     { pattern = 'Merged PR #[0-9]: (.*)', replace = "$1" },
 
@@ -58,13 +58,13 @@ commit_preprocessors = [
     { pattern = ' *(:\w+:|[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{200D}]) *', replace = "" },
 
     # Hyperlink PR references from merge commits.
-    { pattern = "Merge pull request #([0-9]+) from [^ ]+", replace = "PR # [${1}](https://github.com/unleash/unleash-types-rs/pull/${1}):" },
+    { pattern = "Merge pull request #([0-9]+) from [^ ]+", replace = "PR # [${1}](https://github.com/unleash/unleash-edge/pull/${1}):" },
 
     # Hyperlink commit links, with short commit hash as description.
-    { pattern = "https://github.com/unleash/unleash-types-rs/commit/([a-f0-9]{7})[a-f0-9]*", replace = "commit # [${1}](${0})" },
+    { pattern = "https://github.com/unleash/unleash-edge/commit/([a-f0-9]{7})[a-f0-9]*", replace = "commit # [${1}](${0})" },
 
     # Hyperlink bare commit hashes like "abcd1234" in commit logs, with short commit hash as description.
-    { pattern = "([ \\n])(([a-f0-9]{7})[a-f0-9]*)", replace = "${1}commit # [${3}](https://github.com/unleash/unleash-types-rs/commit/${2})" },
+    { pattern = "([ \\n])(([a-f0-9]{7})[a-f0-9]*)", replace = "${1}commit # [${3}](https://github.com/unleash/unleash-edge/commit/${2})" },
 ]
 
 body = """
