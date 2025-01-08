@@ -67,7 +67,7 @@ redis = { version = "0.27.6", features = [
     "tokio-rustls-comp",
     "cluster",
 ] }
-reqwest = { version = "0.12.9", default-features = false, features = [
+reqwest = { version = "0.12.12", default-features = false, features = [
     "json",
     "rustls-tls",
     "native-tls",
