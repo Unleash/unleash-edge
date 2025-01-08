@@ -48,7 +48,7 @@ pub(crate) fn filter_client_features(
         segments: feature_cache.segments.clone(),
         query: feature_cache.query.clone(),
         version: feature_cache.version,
-        meta: None,
+        meta: feature_cache.meta.clone(),
     }
 }
 
