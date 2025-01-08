@@ -48,6 +48,7 @@ pub(crate) fn filter_client_features(
         segments: feature_cache.segments.clone(),
         query: feature_cache.query.clone(),
         version: feature_cache.version,
+        meta: feature_cache.meta.clone(),
     }
 }
 
@@ -93,6 +94,7 @@ mod tests {
             }],
             query: None,
             segments: None,
+            meta: None,
         };
 
         let map: DashMap<String, ClientFeatures> = DashMap::default();
@@ -137,6 +139,7 @@ mod tests {
             ],
             query: None,
             segments: None,
+            meta: None,
         };
 
         let map: DashMap<String, ClientFeatures> = DashMap::default();
@@ -172,6 +175,7 @@ mod tests {
             ],
             query: None,
             segments: None,
+            meta: None,
         };
 
         let map: DashMap<String, ClientFeatures> = DashMap::default();
@@ -224,6 +228,7 @@ mod tests {
             ],
             query: None,
             segments: None,
+            meta: None,
         };
 
         let map: DashMap<String, ClientFeatures> = DashMap::default();

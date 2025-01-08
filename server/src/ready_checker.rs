@@ -89,6 +89,7 @@ mod tests {
             query: None,
             segments: None,
             version: 2,
+            meta: None,
         };
         let client_features: FeatureCache = FeatureCache::default();
         client_features.insert(

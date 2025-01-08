@@ -89,6 +89,7 @@ mod streaming_test {
                 environment: Some("development".into()),
                 inline_segment_constraints: Some(false),
             }),
+            meta: None,
         };
 
         let mut stream = es_client.stream();

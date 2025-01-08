@@ -39,6 +39,7 @@ async fn redis_saves_and_restores_features_correctly() {
         query: None,
         segments: None,
         version: 2,
+        meta: None,
     };
     let environment = "development";
     redis_persister

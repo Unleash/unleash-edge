@@ -119,6 +119,7 @@ fn make_simple_bootstrap(simple_bootstrap: HashMap<String, SimpleFeature>) -> Cl
         features,
         segments: None,
         query: None,
+        meta: None,
     }
 }
 
