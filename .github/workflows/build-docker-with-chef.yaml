@@ -87,8 +87,8 @@ jobs:
       - prepare-bake-file
     strategy:
       fail-fast: false
-    matrix:
-      platform: ${{ fromJson(needs.prepare.outputs.matrix) }}
+      matrix:
+        platform: ${{ fromJson(needs.prepare.outputs.matrix) }}
     steps:
       - name: Setup Platform pair
         run: |
