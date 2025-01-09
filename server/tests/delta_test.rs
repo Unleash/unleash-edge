@@ -11,7 +11,7 @@ mod delta_test {
     use std::sync::Arc;
     use unleash_edge::feature_cache::FeatureCache;
     use unleash_edge::http::feature_refresher::FeatureRefresher;
-    use unleash_edge::http::unleash_client::UnleashClient;
+    use unleash_edge::http::unleash_client::{ClientMetaInformation, UnleashClient};
     use unleash_edge::types::EdgeToken;
     use unleash_types::client_features::{
         ClientFeature, ClientFeatures, ClientFeaturesDelta, Constraint, Operator, Segment,
@@ -36,7 +36,7 @@ mod delta_test {
             strict: false,
             streaming: false,
             delta: true,
-            app_name: "test-app".into(),
+            client_meta_information:ClientMetaInformation::test_config(),
         });
         let features = ClientFeatures {
             version: 1,
