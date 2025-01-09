@@ -143,12 +143,10 @@ mod delta_test {
             HttpService::new(map_config(
                 App::new().service(web::resource("/api/client/delta").route(web::get().to(
                     |req: HttpRequest| {
-                        println!("Got delta request");
                         let etag_header = req
                             .headers()
                             .get(IF_NONE_MATCH)
                             .and_then(|h| h.to_str().ok());
-                        println!("Our etag header is {etag_header:?}");
                         return_client_features_delta(etag_header.map(|s| s.to_string()))
                     },
                 ))),
