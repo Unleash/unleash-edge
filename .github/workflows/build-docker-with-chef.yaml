@@ -67,6 +67,7 @@ jobs:
           tags: |
             type=match,pattern=unleash-edge-v(\d+\.\d+.\d+),group=1,prefix=v
             type=match,pattern=unleash-edge-v(\d+\.\d+).*,group=1,prefix=v
+            type=ref,event=pr
             type=edge
           labels: |
             org.containers.image.title=Unleash Edge
