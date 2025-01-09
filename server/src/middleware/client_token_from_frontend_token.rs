@@ -132,13 +132,12 @@ mod tests {
         .await;
 
         let http_client = new_reqwest_client(
-            "unleash_edge".into(),
             false,
             None,
             None,
             Duration::seconds(5),
             Duration::seconds(5),
-            "test-client".into(),
+            crate::http::unleash_client::ClientMetaInformation::test_config(),
         )
         .expect("Failed to create client");
 

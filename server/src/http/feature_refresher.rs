@@ -27,7 +27,7 @@ use crate::{
     types::{ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenRefresh},
 };
 
-use super::unleash_client::UnleashClient;
+use super::unleash_client::{ClientMetaInformation, UnleashClient};
 
 fn frontend_token_is_covered_by_tokens(
     frontend_token: &EdgeToken,
@@ -50,8 +50,8 @@ pub struct FeatureRefresher {
     pub persistence: Option<Arc<dyn EdgePersistence>>,
     pub strict: bool,
     pub streaming: bool,
+    pub client_meta_information: ClientMetaInformation,
     pub delta: bool,
-    pub app_name: String,
 }
 
 impl Default for FeatureRefresher {
@@ -65,8 +65,8 @@ impl Default for FeatureRefresher {
             persistence: None,
             strict: true,
             streaming: false,
+            client_meta_information: Default::default(),
             delta: false,
-            app_name: "unleash_edge".into(),
         }
     }
 }
@@ -74,13 +74,13 @@ impl Default for FeatureRefresher {
 fn client_application_from_token_and_name(
     token: EdgeToken,
     refresh_interval: i64,
-    app_name: &str,
+    client_meta_information: ClientMetaInformation,
 ) -> ClientApplication {
     ClientApplication {
-        app_name: app_name.into(),
+        app_name: client_meta_information.app_name,
         connect_via: None,
         environment: token.environment,
-        instance_id: None,
+        instance_id: Some(client_meta_information.instance_id),
         interval: refresh_interval as u32,
         started: Utc::now(),
         strategies: vec![],
@@ -103,21 +103,21 @@ pub enum FeatureRefresherMode {
 pub struct FeatureRefreshConfig {
     features_refresh_interval: chrono::Duration,
     mode: FeatureRefresherMode,
+    client_meta_information: ClientMetaInformation,
     delta: bool,
-    app_name: String,
 }
 
 impl FeatureRefreshConfig {
     pub fn new(
         features_refresh_interval: chrono::Duration,
         mode: FeatureRefresherMode,
-        app_name: String,
+        client_meta_information: ClientMetaInformation,
         delta: bool,
     ) -> Self {
         Self {
             features_refresh_interval,
             mode,
-            app_name,
+            client_meta_information,
             delta,
         }
     }
@@ -140,8 +140,8 @@ impl FeatureRefresher {
             persistence,
             strict: config.mode != FeatureRefresherMode::Dynamic,
             streaming: config.mode == FeatureRefresherMode::Streaming,
+            client_meta_information: config.client_meta_information,
             delta: config.delta,
-            app_name: config.app_name,
         }
     }
 
@@ -262,7 +262,7 @@ impl FeatureRefresher {
                     client_application_from_token_and_name(
                         token.clone(),
                         self.refresh_interval.num_seconds(),
-                        &self.app_name,
+                        self.client_meta_information.clone(),
                     ),
                 )
                 .await
@@ -284,7 +284,7 @@ impl FeatureRefresher {
     /// This is where we set up a listener per token.
     pub async fn start_streaming_features_background_task(
         &self,
-        app_name: String,
+        client_meta_information: ClientMetaInformation,
         custom_headers: Vec<(String, String)>,
     ) -> anyhow::Result<()> {
         use anyhow::Context;
@@ -297,8 +297,11 @@ impl FeatureRefresher {
             let mut es_client_builder = eventsource_client::ClientBuilder::for_url(streaming_url)
                 .context("Failed to create EventSource client for streaming")?
                 .header("Authorization", &token.token)?
-                .header(UNLEASH_APPNAME_HEADER, &app_name)?
-                .header(UNLEASH_INSTANCE_ID_HEADER, "unleash_edge")?
+                .header(UNLEASH_APPNAME_HEADER, &client_meta_information.app_name)?
+                .header(
+                    UNLEASH_INSTANCE_ID_HEADER,
+                    &client_meta_information.instance_id,
+                )?
                 .header(
                     UNLEASH_CLIENT_SPEC_HEADER,
                     unleash_yggdrasil::SUPPORTED_SPEC_VERSION,
@@ -669,7 +672,7 @@ mod tests {
 
     use crate::feature_cache::{update_projects_from_feature_update, FeatureCache};
     use crate::filters::{project_filter, FeatureFilterSet};
-    use crate::http::unleash_client::new_reqwest_client;
+    use crate::http::unleash_client::{new_reqwest_client, ClientMetaInformation};
     use crate::tests::features_from_disk;
     use crate::tokens::cache_key;
     use crate::types::TokenValidationStatus::Validated;
@@ -692,13 +695,12 @@ mod tests {
 
     fn create_test_client() -> UnleashClient {
         let http_client = new_reqwest_client(
-            "unleash_edge".into(),
             false,
             None,
             None,
             Duration::seconds(5),
             Duration::seconds(5),
-            "test-client".into(),
+            ClientMetaInformation::test_config(),
         )
         .expect("Failed to create client");
 

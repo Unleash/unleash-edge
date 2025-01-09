@@ -32,27 +32,27 @@ actix-service = "2.0.2"
 actix-web = { version = "4.9.0", features = ["rustls-0_23", "compress-zstd"] }
 actix-web-lab = { version = "0.23.0" }
 ahash = "0.8.11"
-anyhow = "1.0.94"
-async-trait = "0.1.83"
-aws-config = { version = "1.5.10", features = ["behavior-version-latest"] }
-aws-sdk-s3 = { version = "1.65.0", features = ["behavior-version-latest"] }
+anyhow = "1.0.95"
+async-trait = "0.1.85"
+aws-config = { version = "1.5.13", features = ["behavior-version-latest"] }
+aws-sdk-s3 = { version = "1.68.0", features = ["behavior-version-latest"] }
 base64 = "0.22.1"
 chrono = { version = "0.4.39", features = ["serde"] }
 cidr = "0.3.0"
 clap = { version = "4.5.24", features = ["derive", "env"] }
 clap-markdown = "0.1.4"
-dashmap = "6.0.1"
+dashmap = "6.1.0"
 eventsource-client = { version = "0.13.0" }
-futures = "0.3.30"
-futures-core = "0.3.30"
+futures = "0.3.31"
+futures-core = "0.3.31"
 iter_tools = "0.24.0"
-itertools = "0.13.0"
-lazy_static = "1.4.0"
+itertools = "0.14.0"
+lazy_static = "1.5.0"
 num_cpus = "1.16.0"
-opentelemetry = { version = "0.27.0", features = ["trace", "metrics"] }
+opentelemetry = { version = "0.27.1", features = ["trace", "metrics"] }
 opentelemetry-prometheus = "0.27.0"
 opentelemetry-semantic-conventions = "0.27.0"
-opentelemetry_sdk = { version = "0.27.0", features = [
+opentelemetry_sdk = { version = "0.27.1", features = [
     "metrics",
     "serde",
     "serde_json",
@@ -62,28 +62,28 @@ prometheus = { version = "0.13.4", features = ["process"] }
 prometheus-reqwest-remote-write = { version = "0.2.1" }
 prometheus-static-metric = "0.5.1"
 rand = "0.8.5"
-redis = { version = "0.27.6", features = [
+redis = { version = "0.28.0", features = [
     "tokio-comp",
     "tokio-rustls-comp",
     "cluster",
 ] }
-reqwest = { version = "0.12.9", default-features = false, features = [
+reqwest = { version = "0.12.12", default-features = false, features = [
     "json",
     "rustls-tls",
     "native-tls",
 ] }
-rustls = { version = "0.23.18", default-features = false, features = [
+rustls = { version = "0.23.20", default-features = false, features = [
     "logging",
     "ring",
     "std",
 ] }
 rustls-pemfile = "2.2.0"
-rustls-pki-types = "1.9.0"
-semver = "1.0.23"
-serde = { version = "1.0.213", features = ["derive"] }
-serde_json = "1.0.132"
+rustls-pki-types = "1.10.1"
+semver = "1.0.24"
+serde = { version = "1.0.217", features = ["derive"] }
+serde_json = "1.0.135"
 serde_qs = { version = "0.13.0", features = ["actix4", "tracing"] }
-shadow-rs = { version = "0.36.0" }
+shadow-rs = { version = "0.37.0" }
 tokio = { version = "1.42.0", features = [
     "macros",
     "rt-multi-thread",
@@ -91,9 +91,9 @@ tokio = { version = "1.42.0", features = [
     "fs",
 ] }
 tokio-stream = { version = "0.1.17" }
-tracing = { version = "0.1.40", features = ["log"] }
-tracing-subscriber = { version = "0.3.18", features = ["json", "env-filter"] }
-ulid = "1.1.2"
+tracing = { version = "0.1.41", features = ["log"] }
+tracing-subscriber = { version = "0.3.19", features = ["json", "env-filter"] }
+ulid = "1.1.3"
 unleash-types = { version = "0.15.3", features = ["openapi", "hashes"] }
 unleash-yggdrasil = { version = "0.14.5" }
 utoipa = { version = "5", features = ["actix_extras", "chrono"] }
@@ -103,16 +103,16 @@ actix-http = "3.9.0"
 actix-http-test = "3.2.0"
 actix-service = "2.0.2"
 capture-logger = "0.1.1"
-env_logger = "0.11.5"
+env_logger = "0.11.6"
 maplit = "1.0.2"
 rand = "0.8.5"
 test-case = "3.3.1"
 testcontainers = "0.23.1"
-testcontainers-modules = { version = "0.11.3", features = [
+testcontainers-modules = { version = "0.11.5", features = [
     "redis",
     "localstack",
 ] }
 tracing-test = "0.2.5"
 
 [build-dependencies]
-shadow-rs = "0.36.0"
+shadow-rs = "0.37.0"
