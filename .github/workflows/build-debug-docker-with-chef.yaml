@@ -1,4 +1,4 @@
-name: Build and Push Docker Image (Chef)
+name: Build and Push Debug Docker Image (Chef)
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
