@@ -65,7 +65,7 @@ mod tests {
     use crate::auth::token_validator::TokenValidator;
     use crate::feature_cache::FeatureCache;
     use crate::http::feature_refresher::FeatureRefresher;
-    use crate::http::unleash_client::{new_request_client, UnleashClient};
+    use crate::http::unleash_client::{new_reqwest_client, UnleashClient};
     use crate::tests::upstream_server;
     use crate::types::{EdgeToken, TokenType, TokenValidationStatus};
 
@@ -131,7 +131,7 @@ mod tests {
         )
         .await;
 
-        let http_client = new_request_client(
+        let http_client = new_reqwest_client(
             "unleash_edge".into(),
             false,
             None,
