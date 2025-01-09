@@ -24,6 +24,7 @@ on:
 env:
   DOCKERHUB_SLUG: unleashorg/unleash-edge
   GHCR_SLUG: ghcr.io/unleash/unleash-edge
+  ECR_SLUG: public.ecr.aws/unleashorg/unleash-edge
 
 permissions:
   id-token: write
@@ -45,17 +46,6 @@ jobs:
       - name: Show matrix
         run: |
           echo ${{ steps.platforms.outputs.matrix }}
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::726824350591:role/unleash-github-ecr-public-publish-role
-          role-session-name: edge-actions-push-to-ecr-public
-          aws-region: us-east-1
-      - name: Login to AWS ECR
-        id: login-ecr-public
-        uses: aws-actions/amazon-ecr-login@v2
-        with:
-          registry-type: public
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
@@ -63,7 +53,7 @@ jobs:
           images: |
             ${{ env.DOCKERHUB_SLUG }}
             ${{ env.GHCR_SLUG }}
-            ${{ steps.login-ecr-public.outputs.registry }}/unleashorg/unleash-edge
+            ${{ env.ECR_SLUG }}
           tags: |
             type=match,pattern=unleash-edge-v(\d+\.\d+.\d+),group=1,prefix=v
             type=match,pattern=unleash-edge-v(\d+\.\d+).*,group=1,prefix=v
@@ -122,6 +112,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
+        if: github.event_name != 'pull_request'
         with:
           role-to-assume: arn:aws:iam::726824350591:role/unleash-github-ecr-public-publish-role
           role-session-name: edge-actions-push-to-ecr-public
@@ -129,6 +120,7 @@ jobs:
       - name: Login to AWS ECR
         id: login-ecr-public
         uses: aws-actions/amazon-ecr-login@v2
+        if: github.event_name != 'pull_request'
         with:
           registry-type: public
       - name: Build and bake
@@ -144,7 +136,7 @@ jobs:
             *.platform=${{ matrix.platform }}
             *.cache-from=type=gha,scope=build-${{ env.PLATFORM_PAIR }}
             *.cache-to=type=gha,scope=build-${{ env.PLATFORM_PAIR }}
-            *.output=type=image,"name=${{ env.DOCKERHUB_SLUG }},${{ env.GHCR_SLUG }},${{ steps.login-ecr-public.outputs.registry }}/unleashorg/unleash-edge",push-by-digest=true,name-canonical=true,push=${{ github.event_name != 'pull_request' }}
+            *.output=type=image,"name=${{ env.DOCKERHUB_SLUG }},${{ env.GHCR_SLUG }},${{ env.ECR_SLUG }}",push-by-digest=true,name-canonical=true,push=${{ github.event_name != 'pull_request' }}
       - name: Export digests
         run: |
           mkdir -p /tmp/digests
@@ -206,8 +198,8 @@ jobs:
             $(printf '${{ env.DOCKERHUB_SLUG }}@sha256:%s ' *)
           docker buildx imagetools create $(jq -cr '.target."docker-metadata-action".tags | map(select(startswith("${{ env.GHCR_SLUG }}")) | "-t " + .) | join(" ")' /tmp/bake-meta.json) \
             $(printf '${{ env.GHCR_SLUG }}@sha256:%s ' *)
-          docker buildx imagetools create $(jq -cr '.target."docker-metadata-action".tags | map(select(startswith("${{ steps.login-ecr-public.outputs.registry }}")) | "-t " + .) | join(" ")' /tmp/bake-meta.json) \
-            $(printf '${{ steps.login-ecr-public.outputs.registry }}/unleashorg/unleash-edge }}@sha256:%s ' *)
+          docker buildx imagetools create $(jq -cr '.target."docker-metadata-action".tags | map(select(startswith("${{ env.ECR_SLUG }}")) | "-t " + .) | join(" ")' /tmp/bake-meta.json) \
+            $(printf '${{ env.ECR_SLUG }}@sha256:%s ' *)
       - name: Inspect image
         run: |
           tag=$(jq -r '.target."docker-metadata-action".args.DOCKER_META_VERSION' /tmp/bake-meta.json)
