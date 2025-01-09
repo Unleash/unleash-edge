@@ -217,7 +217,7 @@ pub struct EdgeArgs {
     #[clap(long, env, default_value_t = false, requires = "strict")]
     pub streaming: bool,
 
-    /// If set to true. Edge connects to upstream using delta polling instead of normal polling.
+    /// If set to true. Edge connects to upstream using delta polling instead of normal polling. This is experimental feature and might and change.
     #[clap(long, env, default_value_t = false, conflicts_with = "streaming")]
     pub delta: bool,
 

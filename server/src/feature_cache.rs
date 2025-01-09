@@ -69,7 +69,7 @@ impl FeatureCache {
 
     pub fn apply_delta(&self, key: String, delta: &ClientFeaturesDelta) {
         let client_features = ClientFeatures {
-            version : 1,
+            version : 2,
             features : delta.updated.clone(),
             segments: delta.segments.clone(),
             query: None,
