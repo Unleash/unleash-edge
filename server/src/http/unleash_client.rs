@@ -620,8 +620,6 @@ mod tests {
     };
     use chrono::Duration;
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
-
-    use super::{EdgeTokens, UnleashClient};
     use crate::cli::ClientIdentity;
     use crate::http::unleash_client::new_reqwest_client;
     use crate::{
