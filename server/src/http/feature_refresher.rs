@@ -1696,11 +1696,11 @@ mod tests {
         assert_eq!(updated.len(), 0);
     }
 
-    mod delta_tests {
-        use super::*;
-        #[test]
-        fn delta_works() {
-
-        }
-    }
+    // mod delta_tests {
+    //     use super::*;
+    //     #[test]
+    //     fn delta_works() {
+    //
+    //     }
+    // }
 }

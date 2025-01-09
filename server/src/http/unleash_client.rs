@@ -26,7 +26,8 @@ use crate::http::headers::{
 use crate::metrics::client_metrics::MetricsBatch;
 use crate::tls::build_upstream_certificate;
 use crate::types::{
-    ClientFeaturesResponse, ClientFeaturesDeltaResponse, EdgeResult, EdgeToken, TokenValidationStatus, ValidateTokensRequest,
+    ClientFeaturesDeltaResponse, ClientFeaturesResponse, EdgeResult, EdgeToken,
+    TokenValidationStatus, ValidateTokensRequest,
 };
 use crate::urls::UnleashUrls;
 use crate::{error::EdgeError, types::ClientFeaturesRequest};
@@ -47,7 +48,7 @@ lazy_static! {
         vec![1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0, 5000.0]
     )
     .unwrap();
-       pub static ref CLIENT_FEATURE_DELTA_FETCH: HistogramVec = register_histogram_vec!(
+    pub static ref CLIENT_FEATURE_DELTA_FETCH: HistogramVec = register_histogram_vec!(
         "client_feature_delta_fetch",
         "Timings for fetching feature deltas in milliseconds",
         &["status_code"],
@@ -194,7 +195,6 @@ impl UnleashClient {
         }
     }
 
-    #[cfg(test)]
     pub fn new(server_url: &str, instance_id_opt: Option<String>) -> Result<Self, EdgeError> {
         use ulid::Ulid;
 
@@ -598,6 +598,7 @@ mod tests {
     use chrono::Duration;
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
+    use super::{EdgeTokens, UnleashClient};
     use crate::cli::ClientIdentity;
     use crate::http::unleash_client::new_request_client;
     use crate::{
@@ -609,8 +610,6 @@ mod tests {
             ValidateTokensRequest,
         },
     };
-
-    use super::{EdgeTokens, UnleashClient};
 
     impl ClientFeaturesRequest {
         pub(crate) fn new(api_key: String, etag: Option<String>) -> Self {
