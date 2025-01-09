@@ -39,7 +39,7 @@ mod delta_test {
             client_meta_information:ClientMetaInformation::test_config(),
         });
         let features = ClientFeatures {
-            version: 1,
+            version: 2,
             features: vec![],
             segments: None,
             query: None,
