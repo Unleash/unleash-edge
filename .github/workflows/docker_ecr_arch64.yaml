@@ -20,21 +20,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Install rust
-        run: |
-          rustup set auto-self-update disable
-          rustup toolchain install stable --profile default
-          rustup show
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          prefix-key: "rust-v0-gnu"
-      - name: Install cross (cross compile)
-        run: |
-          cargo install cross
-      - name: Build release
-        run: |
-          cross build --release --target=aarch64-unknown-linux-gnu
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
