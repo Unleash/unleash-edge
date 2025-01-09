@@ -1693,7 +1693,7 @@ mod tests {
             token_type: Some(TokenType::Client),
             environment: Some("dev".into()),
             projects: vec![String::from("testproject"), String::from("someother")],
-            status: TokenValidationStatus::Validated,
+            status: Validated,
         };
         let updated = update_projects_from_feature_update(
             &token_with_access_to_both_empty_and_full_project,
@@ -1702,12 +1702,4 @@ mod tests {
         );
         assert_eq!(updated.len(), 0);
     }
-
-    // mod delta_tests {
-    //     use super::*;
-    //     #[test]
-    //     fn delta_works() {
-    //
-    //     }
-    // }
 }
