@@ -664,7 +664,7 @@ mod tests {
 
     use crate::feature_cache::{update_projects_from_feature_update, FeatureCache};
     use crate::filters::{project_filter, FeatureFilterSet};
-    use crate::http::unleash_client::new_reqwest_client;
+    use crate::http::unleash_client::new_request_client;
     use crate::tests::features_from_disk;
     use crate::tokens::cache_key;
     use crate::types::TokenValidationStatus::Validated;
@@ -686,7 +686,7 @@ mod tests {
     }
 
     fn create_test_client() -> UnleashClient {
-        let http_client = new_reqwest_client(
+        let http_client = new_request_client(
             "unleash_edge".into(),
             false,
             None,
@@ -1694,5 +1694,13 @@ mod tests {
             &empty_features,
         );
         assert_eq!(updated.len(), 0);
+    }
+
+    mod delta_tests {
+        use super::*;
+        #[test]
+        fn delta_works() {
+
+        }
     }
 }

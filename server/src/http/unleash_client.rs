@@ -136,7 +136,7 @@ fn build_identity(tls: Option<ClientIdentity>) -> EdgeResult<ClientBuilder> {
     )
 }
 
-pub fn new_reqwest_client(
+pub fn new_request_client(
     instance_id: String,
     skip_ssl_verification: bool,
     client_identity: Option<ClientIdentity>,
@@ -201,7 +201,7 @@ impl UnleashClient {
         let instance_id = instance_id_opt.unwrap_or_else(|| Ulid::new().to_string());
         Ok(Self {
             urls: UnleashUrls::from_str(server_url)?,
-            backing_client: new_reqwest_client(
+            backing_client: new_request_client(
                 instance_id,
                 false,
                 None,
@@ -222,7 +222,7 @@ impl UnleashClient {
 
         Ok(Self {
             urls: UnleashUrls::from_str(server_url)?,
-            backing_client: new_reqwest_client(
+            backing_client: new_request_client(
                 Ulid::new().to_string(),
                 true,
                 None,
@@ -599,7 +599,7 @@ mod tests {
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
     use crate::cli::ClientIdentity;
-    use crate::http::unleash_client::new_reqwest_client;
+    use crate::http::unleash_client::new_request_client;
     use crate::{
         cli::TlsOptions,
         middleware::as_async_middleware::as_async_middleware,
@@ -896,7 +896,7 @@ mod tests {
             pkcs12_identity_file: Some(PathBuf::from(pfx)),
             pkcs12_passphrase: Some(passphrase.into()),
         };
-        let client = new_reqwest_client(
+        let client = new_request_client(
             "test_pkcs12".into(),
             false,
             Some(identity),
@@ -918,7 +918,7 @@ mod tests {
             pkcs12_identity_file: Some(PathBuf::from(pfx)),
             pkcs12_passphrase: Some(passphrase.into()),
         };
-        let client = new_reqwest_client(
+        let client = new_request_client(
             "test_pkcs12".into(),
             false,
             Some(identity),
@@ -940,7 +940,7 @@ mod tests {
             pkcs12_identity_file: None,
             pkcs12_passphrase: None,
         };
-        let client = new_reqwest_client(
+        let client = new_request_client(
             "test_pkcs8".into(),
             false,
             Some(identity),

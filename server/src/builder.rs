@@ -13,7 +13,7 @@ use unleash_yggdrasil::EngineState;
 use crate::cli::RedisMode;
 use crate::feature_cache::FeatureCache;
 use crate::http::feature_refresher::{FeatureRefreshConfig, FeatureRefresherMode};
-use crate::http::unleash_client::new_reqwest_client;
+use crate::http::unleash_client::new_request_client;
 use crate::offline::offline_hotload::{load_bootstrap, load_offline_engine_cache};
 use crate::persistence::file::FilePersister;
 use crate::persistence::redis::RedisPersister;
@@ -236,7 +236,7 @@ async fn build_edge(args: &EdgeArgs, app_name: &str) -> EdgeResult<EdgeInfo> {
 
     let persistence = get_data_source(args).await;
 
-    let http_client = new_reqwest_client(
+    let http_client = new_request_client(
         "unleash_edge".into(),
         args.skip_ssl_verification,
         args.client_identity.clone(),
