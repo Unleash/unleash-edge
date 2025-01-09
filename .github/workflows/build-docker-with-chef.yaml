@@ -12,13 +12,13 @@ on:
       - "Dockerfile"
     tags:
       - unleash-edge-v[0-9]+.*
-    pull_request:
-      paths:
-        - "**/*.rs"
-        - "**/*.toml"
-        - "**/*.lock"
-        - ".github/workflows/build-docker-with-chef.yaml"
-        - "Dockerfile"
+  pull_request:
+    paths:
+      - "**/*.rs"
+      - "**/*.toml"
+      - "**/*.lock"
+      - ".github/workflows/build-docker-with-chef.yaml"
+      - "Dockerfile"
   workflow_dispatch:
 
 env:
