@@ -53,6 +53,11 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           labels: ${{ steps.meta.outputs.labels }}
           tags: ${{ steps.meta.outputs.tags }}
+          cache-from:
+            - "type=gha"
+          cache-to:
+            - "type=gha"
+
   notifypipeline:
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
