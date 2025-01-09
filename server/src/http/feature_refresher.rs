@@ -18,7 +18,9 @@ use crate::filters::{filter_client_features, FeatureFilterSet};
 use crate::http::headers::{
     UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_INSTANCE_ID_HEADER,
 };
-use crate::types::{build, ClientFeaturesDeltaResponse, EdgeResult, TokenType, TokenValidationStatus};
+use crate::types::{
+    build, ClientFeaturesDeltaResponse, EdgeResult, TokenType, TokenValidationStatus,
+};
 use crate::{
     persistence::EdgePersistence,
     tokens::{cache_key, simplify},
@@ -138,7 +140,7 @@ impl FeatureRefresher {
             persistence,
             strict: config.mode != FeatureRefresherMode::Dynamic,
             streaming: config.mode == FeatureRefresherMode::Streaming,
-            delta : config.delta,
+            delta: config.delta,
             app_name: config.app_name,
         }
     }
@@ -469,7 +471,11 @@ impl FeatureRefresher {
         debug!("Got updated client features delta. Updating features with {etag:?}");
         let key = cache_key(refresh_token);
         self.features_cache.apply_delta(key.clone(), &delta);
-        self.update_last_refresh(refresh_token, etag, self.features_cache.get(&key).unwrap().features.len());
+        self.update_last_refresh(
+            refresh_token,
+            etag,
+            self.features_cache.get(&key).unwrap().features.len(),
+        );
         self.engine_cache
             .entry(key.clone())
             .and_modify(|engine| {
@@ -561,7 +567,6 @@ impl FeatureRefresher {
                 etag: refresh.etag,
             })
             .await;
-
         match features_result {
             Ok(delta_response) => match delta_response {
                 ClientFeaturesDeltaResponse::NoUpdate(tag) => {
