@@ -29,6 +29,7 @@ permissions:
   id-token: write
   contents: read
   packages: write
+
 jobs:
   prepare-bake-file:
     runs-on: ubuntu-latest
@@ -88,7 +89,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: ${{ fromJson(needs.prepare.outputs.matrix) }}
+        platform: ${{ fromJson(needs.prepare-bake-file.outputs.matrix) }}
     steps:
       - name: Setup Platform pair
         run: |
