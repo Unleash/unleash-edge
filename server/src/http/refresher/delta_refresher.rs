@@ -16,7 +16,13 @@ impl FeatureRefresher {
         delta: ClientFeaturesDelta,
         etag: Option<EntityTag>,
     ) {
-        debug!("Got updated client features delta. Updating features with {etag:?}");
+        let updated_len = delta.updated.len();
+        let removed_len = delta.removed.len();
+
+        debug!(
+            "Got updated client features delta. Updating features with {etag:?}, updated {updated_len:?}, removed {removed_len:?}"
+        );
+
         let key = cache_key(refresh_token);
         self.features_cache.apply_delta(key.clone(), &delta);
         self.update_last_refresh(
