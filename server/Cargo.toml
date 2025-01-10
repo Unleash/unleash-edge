@@ -116,3 +116,6 @@ tracing-test = "0.2.5"
 
 [build-dependencies]
 shadow-rs = "0.37.0"
+
+[features]
+delta = []

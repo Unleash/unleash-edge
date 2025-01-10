@@ -8,7 +8,7 @@ use eventsource_client::Client;
 use futures::TryStreamExt;
 use reqwest::StatusCode;
 use tracing::{debug, info, warn};
-use unleash_types::client_features::ClientFeatures;
+use unleash_types::client_features::{ClientFeatures};
 use unleash_types::client_metrics::{ClientApplication, MetricsMetadata};
 use unleash_yggdrasil::EngineState;
 
@@ -18,14 +18,16 @@ use crate::filters::{filter_client_features, FeatureFilterSet};
 use crate::http::headers::{
     UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_INSTANCE_ID_HEADER,
 };
-use crate::types::{build, EdgeResult, TokenType, TokenValidationStatus};
+use crate::types::{
+    build, EdgeResult, TokenType, TokenValidationStatus,
+};
 use crate::{
     persistence::EdgePersistence,
     tokens::{cache_key, simplify},
     types::{ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenRefresh},
 };
 
-use super::unleash_client::{ClientMetaInformation, UnleashClient};
+use crate::http::unleash_client::{ClientMetaInformation, UnleashClient};
 
 fn frontend_token_is_covered_by_tokens(
     frontend_token: &EdgeToken,
@@ -49,6 +51,7 @@ pub struct FeatureRefresher {
     pub strict: bool,
     pub streaming: bool,
     pub client_meta_information: ClientMetaInformation,
+    pub delta: bool,
 }
 
 impl Default for FeatureRefresher {
@@ -63,6 +66,7 @@ impl Default for FeatureRefresher {
             strict: true,
             streaming: false,
             client_meta_information: Default::default(),
+            delta: false,
         }
     }
 }
@@ -100,6 +104,7 @@ pub struct FeatureRefreshConfig {
     features_refresh_interval: chrono::Duration,
     mode: FeatureRefresherMode,
     client_meta_information: ClientMetaInformation,
+    delta: bool,
 }
 
 impl FeatureRefreshConfig {
@@ -107,11 +112,13 @@ impl FeatureRefreshConfig {
         features_refresh_interval: chrono::Duration,
         mode: FeatureRefresherMode,
         client_meta_information: ClientMetaInformation,
+        delta: bool,
     ) -> Self {
         Self {
             features_refresh_interval,
             mode,
             client_meta_information,
+            delta,
         }
     }
 }
@@ -134,6 +141,7 @@ impl FeatureRefresher {
             strict: config.mode != FeatureRefresherMode::Dynamic,
             streaming: config.mode == FeatureRefresherMode::Streaming,
             client_meta_information: config.client_meta_information,
+            delta: config.delta,
         }
     }
 
@@ -404,13 +412,22 @@ impl FeatureRefresher {
     pub async fn hydrate_new_tokens(&self) {
         let hydrations = self.get_tokens_never_refreshed();
         for hydration in hydrations {
-            self.refresh_single(hydration).await;
+            if cfg!(feature = "delta") && self.delta {
+                self.refresh_single_delta(hydration).await;
+            } else {
+                self.refresh_single(hydration).await;
+            }
         }
     }
     pub async fn refresh_features(&self) {
         let refreshes = self.get_tokens_due_for_refresh();
         for refresh in refreshes {
-            self.refresh_single(refresh).await;
+            if cfg!(feature = "delta") && self.delta {
+                self.refresh_single_delta(refresh).await;
+            } else {
+                self.refresh_single(refresh).await;
+            }
+
         }
     }
 
@@ -448,7 +465,6 @@ impl FeatureRefresher {
                             new_state
                         });
     }
-
     pub async fn refresh_single(&self, refresh: TokenRefresh) {
         let features_result = self
             .unleash_client
@@ -1581,7 +1597,7 @@ mod tests {
             token_type: Some(TokenType::Client),
             environment: Some("dev".into()),
             projects: vec![String::from("testproject"), String::from("someother")],
-            status: TokenValidationStatus::Validated,
+            status: Validated,
         };
         let updated = update_projects_from_feature_update(
             &token_with_access_to_both_empty_and_full_project,

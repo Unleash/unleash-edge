@@ -15,7 +15,7 @@ use chrono::{DateTime, Duration, Utc};
 use dashmap::DashMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use shadow_rs::shadow;
-use unleash_types::client_features::ClientFeatures;
+use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta};
 use unleash_types::client_features::Context;
 use unleash_types::client_metrics::{ClientApplication, ClientMetricsEnv};
 use unleash_yggdrasil::EngineState;
@@ -94,6 +94,12 @@ pub enum TokenType {
 pub enum ClientFeaturesResponse {
     NoUpdate(EntityTag),
     Updated(ClientFeatures, Option<EntityTag>),
+}
+
+#[derive(Clone, Debug)]
+pub enum ClientFeaturesDeltaResponse {
+    NoUpdate(EntityTag),
+    Updated(ClientFeaturesDelta, Option<EntityTag>),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Default, Deserialize, utoipa::ToSchema)]
