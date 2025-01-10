@@ -1,6 +1,10 @@
 ---
 name: Run tests with coverage on code
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches:
@@ -11,10 +15,6 @@ on:
   pull_request:
     branches:
       - main
-    paths:
-      - "**.rs"
-      - "**.toml"
-
 jobs:
   tarpaulin:
     runs-on: ubuntu-latest

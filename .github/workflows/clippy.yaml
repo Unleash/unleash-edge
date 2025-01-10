@@ -1,19 +1,23 @@
 ---
 name: Clippy
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches:
       - main
     paths:
-      - '**.rs'
-      - '**.toml'
+      - "**.rs"
+      - "**.toml"
   pull_request:
     branches:
       - main
     paths:
-      - '**.rs'
-      - '**.toml'
+      - "**.rs"
+      - "**.toml"
 
 jobs:
   clippy:
@@ -37,4 +41,3 @@ jobs:
       - name: Run rust-clippy
         run: |
           cargo clippy --all-features -- -D warnings
-
