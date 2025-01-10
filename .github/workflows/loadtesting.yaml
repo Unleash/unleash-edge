@@ -1,5 +1,9 @@
 name: Load testing
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
 jobs:
@@ -16,7 +20,7 @@ jobs:
           - 3063
     steps:
       - name: Checkout
-        uses: actions/checkout@v4        
+        uses: actions/checkout@v4
       - name: Run K6 client/features benchmark
         uses: grafana/k6-action@v0.3.1
         with:

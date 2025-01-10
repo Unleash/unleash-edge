@@ -12,7 +12,7 @@ on:
       - "**/*.rs"
       - "**/*.toml"
       - "**/*.lock"
-      - ".github/workflows/build-docker-with-chef.yaml"
+      - ".github/workflows/build-debug-docker-with-chef.yaml"
       - "Dockerfile"
     tags:
       - unleash-edge-v[0-9]+.*
@@ -21,7 +21,7 @@ on:
       - "**/*.rs"
       - "**/*.toml"
       - "**/*.lock"
-      - ".github/workflows/build-docker-with-chef.yaml"
+      - ".github/workflows/build-debug-docker-with-chef.yaml"
       - "Dockerfile"
   workflow_dispatch:
 
