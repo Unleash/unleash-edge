@@ -375,6 +375,10 @@ pub struct CliArgs {
     #[clap(long, env, default_value_t = 5)]
     pub edge_request_timeout: u64,
 
+    /// Keepalive timeout for requests to Edge
+    #[clap(long, env, default_value_t = 5)]
+    pub edge_keepalive_timeout: u64,
+
     /// Which log format should Edge use
     #[clap(short, long, env, global = true, value_enum, default_value_t = LogFormat::Plain)]
     pub log_format: LogFormat,
