@@ -7,7 +7,7 @@ use dashmap::DashMap;
 use tracing::debug;
 
 use crate::{
-    http::feature_refresher::FeatureRefresher,
+    http::refresher::feature_refresher::FeatureRefresher,
     tokens,
     types::{EdgeResult, EdgeToken, TokenValidationStatus},
 };
@@ -64,7 +64,7 @@ mod tests {
 
     use crate::auth::token_validator::TokenValidator;
     use crate::feature_cache::FeatureCache;
-    use crate::http::feature_refresher::FeatureRefresher;
+    use crate::http::refresher::feature_refresher::FeatureRefresher;
     use crate::http::unleash_client::{new_reqwest_client, UnleashClient};
     use crate::tests::upstream_server;
     use crate::types::{EdgeToken, TokenType, TokenValidationStatus};

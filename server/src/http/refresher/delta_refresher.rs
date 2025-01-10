@@ -1,4 +1,116 @@
-mod delta_test {
+use actix_web::http::header::EntityTag;
+use reqwest::StatusCode;
+use tracing::{debug, info, warn};
+use unleash_types::client_features::{ClientFeaturesDelta};
+use unleash_yggdrasil::EngineState;
+
+use crate::error::{EdgeError, FeatureError};
+use crate::types::{ClientFeaturesDeltaResponse, ClientFeaturesRequest, EdgeToken, TokenRefresh};
+use crate::http::refresher::feature_refresher::FeatureRefresher;
+use crate::tokens::cache_key;
+
+impl FeatureRefresher {
+    async fn handle_client_features_delta_updated(
+        &self,
+        refresh_token: &EdgeToken,
+        delta: ClientFeaturesDelta,
+        etag: Option<EntityTag>,
+    ) {
+        debug!("Got updated client features delta. Updating features with {etag:?}");
+        let key = cache_key(refresh_token);
+        self.features_cache.apply_delta(key.clone(), &delta);
+        self.update_last_refresh(
+            refresh_token,
+            etag,
+            self.features_cache.get(&key).unwrap().features.len(),
+        );
+        self.engine_cache
+            .entry(key.clone())
+            .and_modify(|engine| {
+                engine.take_delta(&delta);
+            })
+            .or_insert_with(|| {
+                let mut new_state = EngineState::default();
+
+                let warnings = new_state.take_delta(&delta);
+                if let Some(warnings) = warnings {
+                    warn!("The following toggle failed to compile and will be defaulted to off: {warnings:?}");
+                };
+                new_state
+            });
+    }
+
+    pub async fn refresh_single_delta(&self, refresh: TokenRefresh) {
+        let features_result = self
+            .unleash_client
+            .get_client_features_delta(ClientFeaturesRequest {
+                api_key: refresh.token.token.clone(),
+                etag: refresh.etag,
+            })
+            .await;
+        match features_result {
+            Ok(delta_response) => match delta_response {
+                ClientFeaturesDeltaResponse::NoUpdate(tag) => {
+                    debug!("No update needed. Will update last check time with {tag}");
+                    self.update_last_check(&refresh.token.clone());
+                }
+                ClientFeaturesDeltaResponse::Updated(features, etag) => {
+                    self.handle_client_features_delta_updated(&refresh.token, features, etag)
+                        .await
+                }
+            },
+            Err(e) => {
+                match e {
+                    EdgeError::ClientFeaturesFetchError(fe) => {
+                        match fe {
+                            FeatureError::Retriable(status_code) => match status_code {
+                                StatusCode::INTERNAL_SERVER_ERROR
+                                | StatusCode::BAD_GATEWAY
+                                | StatusCode::SERVICE_UNAVAILABLE
+                                | StatusCode::GATEWAY_TIMEOUT => {
+                                    info!("Upstream is having some problems, increasing my waiting period");
+                                    self.backoff(&refresh.token);
+                                }
+                                StatusCode::TOO_MANY_REQUESTS => {
+                                    info!("Got told that upstream is receiving too many requests");
+                                    self.backoff(&refresh.token);
+                                }
+                                _ => {
+                                    info!("Couldn't refresh features, but will retry next go")
+                                }
+                            },
+                            FeatureError::AccessDenied => {
+                                info!("Token used to fetch features was Forbidden, will remove from list of refresh tasks");
+                                self.tokens_to_refresh.remove(&refresh.token.token);
+                                if !self.tokens_to_refresh.iter().any(|e| {
+                                    e.value().token.environment == refresh.token.environment
+                                }) {
+                                    let cache_key = cache_key(&refresh.token);
+                                    // No tokens left that access the environment of our current refresh. Deleting client features and engine cache
+                                    self.features_cache.remove(&cache_key);
+                                    self.engine_cache.remove(&cache_key);
+                                }
+                            }
+                            FeatureError::NotFound => {
+                                info!("Had a bad URL when trying to fetch features. Increasing waiting period for the token before trying again");
+                                self.backoff(&refresh.token);
+                            }
+                        }
+                    }
+                    EdgeError::ClientCacheError => {
+                        info!("Couldn't refresh features, but will retry next go")
+                    }
+                    _ => info!("Couldn't refresh features: {e:?}. Will retry next pass"),
+                }
+            }
+        }
+    }
+}
+
+
+// #[cfg(feature = "delta")]
+#[cfg(test)]
+mod tests {
     use actix_http::header::IF_NONE_MATCH;
     use actix_http::HttpService;
     use actix_http_test::{test_server, TestServer};
@@ -9,10 +121,10 @@ mod delta_test {
     use chrono::Duration;
     use dashmap::DashMap;
     use std::sync::Arc;
-    use unleash_edge::feature_cache::FeatureCache;
-    use unleash_edge::http::feature_refresher::FeatureRefresher;
-    use unleash_edge::http::unleash_client::{ClientMetaInformation, UnleashClient};
-    use unleash_edge::types::EdgeToken;
+    use crate::feature_cache::FeatureCache;
+    use crate::http::refresher::feature_refresher::FeatureRefresher;
+    use crate::http::unleash_client::{ClientMetaInformation, UnleashClient};
+    use crate::types::EdgeToken;
     use unleash_types::client_features::{
         ClientFeature, ClientFeatures, ClientFeaturesDelta, Constraint, Operator, Segment,
     };
@@ -152,8 +264,8 @@ mod delta_test {
                 ))),
                 |_| AppConfig::default(),
             ))
-            .tcp()
+                .tcp()
         })
-        .await
+            .await
     }
 }

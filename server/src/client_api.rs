@@ -4,7 +4,7 @@ use crate::filters::{
     filter_client_features, name_match_filter, name_prefix_filter, project_filter, FeatureFilterSet,
 };
 use crate::http::broadcaster::Broadcaster;
-use crate::http::feature_refresher::FeatureRefresher;
+use crate::http::refresher::feature_refresher::FeatureRefresher;
 use crate::metrics::client_metrics::MetricsCache;
 use crate::tokens::cache_key;
 use crate::types::{

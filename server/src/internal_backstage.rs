@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ClientApplication;
 
-use crate::http::feature_refresher::FeatureRefresher;
+use crate::http::refresher::feature_refresher::FeatureRefresher;
 use crate::metrics::actix_web_metrics::PrometheusMetricsHandler;
 use crate::metrics::client_metrics::MetricsCache;
 use crate::types::{BuildInfo, EdgeJsonResult, EdgeToken, TokenInfo, TokenRefresh};
@@ -182,7 +182,7 @@ mod tests {
 
     use crate::auth::token_validator::TokenValidator;
     use crate::feature_cache::FeatureCache;
-    use crate::http::feature_refresher::FeatureRefresher;
+    use crate::http::refresher::feature_refresher::FeatureRefresher;
     use crate::http::unleash_client::UnleashClient;
     use crate::internal_backstage::EdgeStatus;
     use crate::middleware;
