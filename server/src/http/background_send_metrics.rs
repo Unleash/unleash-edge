@@ -14,7 +14,7 @@ use crate::{
     metrics::client_metrics::{size_of_batch, MetricsCache},
 };
 
-use super::feature_refresher::FeatureRefresher;
+use super::refresher::feature_refresher::FeatureRefresher;
 
 lazy_static! {
     pub static ref METRICS_UPSTREAM_HTTP_ERRORS: IntGaugeVec = register_int_gauge_vec!(

@@ -4,7 +4,7 @@ use dashmap::DashMap;
 use tracing::trace;
 use unleash_types::Upsert;
 
-use crate::http::feature_refresher::FeatureRefresher;
+use crate::http::refresher::feature_refresher::FeatureRefresher;
 use crate::http::unleash_client::UnleashClient;
 use crate::persistence::EdgePersistence;
 use crate::types::{

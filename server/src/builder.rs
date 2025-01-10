@@ -12,7 +12,7 @@ use unleash_yggdrasil::EngineState;
 
 use crate::cli::RedisMode;
 use crate::feature_cache::FeatureCache;
-use crate::http::feature_refresher::{FeatureRefreshConfig, FeatureRefresherMode};
+use crate::http::refresher::feature_refresher::{FeatureRefreshConfig, FeatureRefresherMode};
 use crate::http::unleash_client::{new_reqwest_client, ClientMetaInformation};
 use crate::offline::offline_hotload::{load_bootstrap, load_offline_engine_cache};
 use crate::persistence::file::FilePersister;
@@ -23,7 +23,7 @@ use crate::{
     auth::token_validator::TokenValidator,
     cli::{CliArgs, EdgeArgs, EdgeMode, OfflineArgs},
     error::EdgeError,
-    http::{feature_refresher::FeatureRefresher, unleash_client::UnleashClient},
+    http::{refresher::feature_refresher::FeatureRefresher, unleash_client::UnleashClient},
     types::{EdgeResult, EdgeToken, TokenType},
 };
 
@@ -270,6 +270,7 @@ async fn build_edge(
         Duration::seconds(args.features_refresh_interval_seconds as i64),
         refresher_mode,
         client_meta_information,
+        args.delta,
     );
     let feature_refresher = Arc::new(FeatureRefresher::new(
         unleash_client,
@@ -385,6 +386,7 @@ mod tests {
             prometheus_password: None,
             prometheus_username: None,
             streaming: false,
+            delta: false,
         };
 
         let result = build_edge(

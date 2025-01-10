@@ -217,6 +217,10 @@ pub struct EdgeArgs {
     #[clap(long, env, default_value_t = false, requires = "strict")]
     pub streaming: bool,
 
+    /// If set to true. Edge connects to upstream using delta polling instead of normal polling. This is experimental feature and might and change.
+    #[clap(long, env, default_value_t = false, conflicts_with = "streaming")]
+    pub delta: bool,
+
     /// Sets a remote write url for prometheus metrics, if this is set, prometheus metrics will be written upstream
     #[clap(long, env)]
     pub prometheus_remote_write_url: Option<String>,
