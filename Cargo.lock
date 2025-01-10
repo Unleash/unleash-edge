@@ -4612,9 +4612,9 @@ dependencies = [
 
 [[package]]
 name = "unleash-yggdrasil"
-version = "0.14.3"
+version = "0.14.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e3e124cfc3c64ca53d499373f4c356c0576923065aeb6b03ebfdb03809ab207"
+checksum = "b92adb844a4723d5eed3fc757dccd37f03ac5eaeef59f2be4de5aa0962b223b8"
 dependencies = [
  "chrono",
  "convert_case 0.6.0",
