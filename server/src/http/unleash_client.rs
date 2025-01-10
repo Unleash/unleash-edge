@@ -773,7 +773,7 @@ mod tests {
     fn expected_etag(features: ClientFeatures) -> String {
         let hash = features.xx3_hash().unwrap();
         let len = serde_json::to_string(&features)
-            .map(|string| string.as_bytes().len())
+            .map(|string| string.len())
             .unwrap();
         format!("{len:x}-{hash}")
     }
