@@ -56,8 +56,8 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           labels: ${{ steps.meta.outputs.labels }}
           tags: ${{ steps.meta.outputs.tags }}
-          cache-from: "type=gha,scope=build-linux-arm64"
-          cache-to: "type=gha,scope=build-linux-arm64"
+          cache-from: "type=gha,scope=build-linux-arm64-ecr"
+          cache-to: "type=gha,scope=build-linux-arm64-ecr"
 
   notifypipeline:
     runs-on: ubuntu-latest
