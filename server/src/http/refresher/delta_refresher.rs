@@ -20,7 +20,7 @@ impl FeatureRefresher {
         let removed_len = delta.removed.len();
 
         debug!(
-            "Got updated client features delta. Updating features with {etag:?}, updated {updated_len:?}, removed {removed_len:?}"
+            "Got updated client features delta. Updating features with {etag:?}, updated {updated_len}, removed {removed_len}"
         );
 
         let key = cache_key(refresh_token);
