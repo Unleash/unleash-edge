@@ -53,6 +53,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let http_args = args.clone().http;
     let token_header = args.clone().token_header;
     let request_timeout = args.edge_request_timeout;
+    let keepalive_timeout = args.edge_keepalive_timeout;
     let trust_proxy = args.clone().trust_proxy;
     let base_path = http_args.base_path.clone();
     let (metrics_handler, request_metrics) = prom_metrics::instantiate(None, &args.log_format);
@@ -161,6 +162,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let server = server?
         .workers(http_args.workers)
         .shutdown_timeout(5)
+        .keep_alive(std::time::Duration::from_secs(keepalive_timeout))
         .client_request_timeout(std::time::Duration::from_secs(request_timeout));
 
     match schedule_args.mode {
