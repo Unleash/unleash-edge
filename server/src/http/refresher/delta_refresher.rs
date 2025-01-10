@@ -108,7 +108,7 @@ impl FeatureRefresher {
 }
 
 
-// #[cfg(feature = "delta")]
+#[cfg(feature = "delta")]
 #[cfg(test)]
 mod tests {
     use actix_http::header::IF_NONE_MATCH;
