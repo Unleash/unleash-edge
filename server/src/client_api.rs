@@ -1,3 +1,4 @@
+use crate::cli::EdgeMode;
 use crate::error::EdgeError;
 use crate::feature_cache::FeatureCache;
 use crate::filters::{
@@ -45,12 +46,20 @@ pub async fn stream_features(
     edge_token: EdgeToken,
     broadcaster: Data<Broadcaster>,
     token_cache: Data<DashMap<String, EdgeToken>>,
+    edge_mode: Data<EdgeMode>,
     filter_query: Query<FeatureFilters>,
 ) -> EdgeResult<impl Responder> {
-    let (validated_token, _filter_set, query) =
-        get_feature_filter(&edge_token, &token_cache, filter_query.clone())?;
+    match edge_mode.get_ref() {
+        EdgeMode::Edge(EdgeArgs {
+            streaming: true, ..
+        }) => {
+            let (validated_token, _filter_set, query) =
+                get_feature_filter(&edge_token, &token_cache, filter_query.clone())?;
 
-    broadcaster.connect(validated_token, query).await
+            broadcaster.connect(validated_token, query).await
+        }
+        _ => Err(EdgeError::FeatureStreamNotEnabled),
+    }
 }
 
 #[utoipa::path(
