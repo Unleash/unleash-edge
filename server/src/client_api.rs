@@ -1,4 +1,4 @@
-use crate::cli::EdgeMode;
+use crate::cli::{EdgeArgs, EdgeMode};
 use crate::error::EdgeError;
 use crate::feature_cache::FeatureCache;
 use crate::filters::{
@@ -58,7 +58,9 @@ pub async fn stream_features(
 
             broadcaster.connect(validated_token, query).await
         }
-        _ => Err(EdgeError::FeatureStreamNotEnabled),
+        _ => Err(EdgeError::Forbidden(
+            "This endpoint is only enabled in streaming mode".into(),
+        )),
     }
 }
 
@@ -308,7 +310,7 @@ mod tests {
 
     use crate::auth::token_validator::TokenValidator;
     use crate::cli::{OfflineArgs, TokenHeader};
-    use crate::http::unleash_client::{UnleashClient, ClientMetaInformation};
+    use crate::http::unleash_client::{ClientMetaInformation, UnleashClient};
     use crate::middleware;
     use crate::tests::{features_from_disk, upstream_server};
     use actix_http::{Request, StatusCode};
