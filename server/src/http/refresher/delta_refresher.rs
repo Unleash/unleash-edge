@@ -1,11 +1,15 @@
+use std::fs::File;
+use std::io::Write;
 use actix_web::http::header::EntityTag;
+use json_structural_diff::JsonDiff;
 use reqwest::StatusCode;
+use serde_json::Value;
 use tracing::{debug, info, warn};
 use unleash_types::client_features::{ClientFeaturesDelta};
 use unleash_yggdrasil::EngineState;
 
 use crate::error::{EdgeError, FeatureError};
-use crate::types::{ClientFeaturesDeltaResponse, ClientFeaturesRequest, EdgeToken, TokenRefresh};
+use crate::types::{ClientFeaturesDeltaResponse, ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenRefresh};
 use crate::http::refresher::feature_refresher::FeatureRefresher;
 use crate::tokens::cache_key;
 
@@ -47,14 +51,14 @@ impl FeatureRefresher {
     }
 
     pub async fn refresh_single_delta(&self, refresh: TokenRefresh) {
-        let features_result = self
+        let delta_result = self
             .unleash_client
             .get_client_features_delta(ClientFeaturesRequest {
                 api_key: refresh.token.token.clone(),
-                etag: refresh.etag,
+                etag: refresh.etag.clone(),
             })
             .await;
-        match features_result {
+        match delta_result {
             Ok(delta_response) => match delta_response {
                 ClientFeaturesDeltaResponse::NoUpdate(tag) => {
                     debug!("No update needed. Will update last check time with {tag}");
@@ -62,7 +66,8 @@ impl FeatureRefresher {
                 }
                 ClientFeaturesDeltaResponse::Updated(features, etag) => {
                     self.handle_client_features_delta_updated(&refresh.token, features, etag)
-                        .await
+                        .await;
+                    self.compare_delta_cache(&refresh).await;
                 }
             },
             Err(e) => {
@@ -107,6 +112,42 @@ impl FeatureRefresher {
                         info!("Couldn't refresh features, but will retry next go")
                     }
                     _ => info!("Couldn't refresh features: {e:?}. Will retry next pass"),
+                }
+            }
+        }
+    }
+
+    async fn compare_delta_cache(&self,
+                                 refresh: &TokenRefresh,
+    ) {
+        let features_result = self
+            .unleash_client
+            .get_client_features(ClientFeaturesRequest {
+                api_key: refresh.token.token.clone(),
+                etag: refresh.clone().etag,
+            })
+            .await;
+
+        let key = cache_key(&refresh.token);
+        if let Some(delta_features) = self.features_cache.get(&key).as_ref() {
+            if let Ok(ClientFeaturesResponse::Updated(features, _etag)) = features_result {
+                let d_features = &delta_features.features;
+                let o_features = features.features;
+
+                let delta_json = serde_json::to_value(&d_features).unwrap();
+                let old_json = serde_json::to_value(&o_features).unwrap();
+
+                let delta_json_len = delta_json.to_string().len();
+                let old_json_len = old_json.to_string().len();
+
+                if delta_json_len == old_json_len {
+                    println!("The JSON structures are identical.");
+                } else {
+                    debug!("Structural differences found:");
+                    debug!("Length of delta_json: {}", delta_json_len);
+                    debug!("Length of old_json: {}", old_json_len);
+                    let diff = JsonDiff::diff(&delta_json, &old_json, false);
+                    debug!("{:?}", diff.diff.unwrap());
                 }
             }
         }
