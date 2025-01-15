@@ -415,8 +415,8 @@ impl FeatureRefresher {
                 let c_features = &client_features.features;
                 let d_features = delta_features.updated;
 
-                let delta_json = serde_json::to_value(&d_features).unwrap();
-                let client_json = serde_json::to_value(&c_features).unwrap();
+                let delta_json = serde_json::to_value(d_features).unwrap();
+                let client_json = serde_json::to_value(c_features).unwrap();
 
                 let delta_json_len = delta_json.to_string().len();
                 let client_json_len = client_json.to_string().len();
