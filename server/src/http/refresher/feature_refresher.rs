@@ -346,9 +346,7 @@ impl FeatureRefresher {
                                     );
 
                                     match serde_json::from_str(&event.data) {
-                                        Ok(features) => {
-                                            refresher.handle_client_features_updated(&token, features, None).await;
-                                        }
+                                        Ok(features) => { refresher.handle_client_features_updated(&token, features, None).await; }
                                         Err(e) => { warn!("Could not parse features response to internal representation: {e:?}");
                                         }
                                     }
@@ -422,7 +420,7 @@ impl FeatureRefresher {
                 let client_json_len = client_json.to_string().len();
 
                 if delta_json_len == client_json_len {
-                    info!("The JSON structures are identical.");
+                    info!("The JSON structure lengths are identical.");
                 } else {
                     info!("Structural differences found:");
                     info!("Length of delta_json: {}", delta_json_len);
