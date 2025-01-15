@@ -388,6 +388,7 @@ mod tests {
             prometheus_username: None,
             streaming: false,
             delta: false,
+            delta_diff: false,
         };
 
         let result = build_edge(
