@@ -221,6 +221,10 @@ pub struct EdgeArgs {
     #[clap(long, env, default_value_t = false, requires = "strict")]
     pub delta: bool,
 
+    /// If set to true, it compares features payload with delta payload and logs diff. This is experimental feature and might and change. Requires strict mode
+    #[clap(long, env, default_value_t = false, requires = "strict")]
+    pub delta_diff: bool,
+
     /// Sets a remote write url for prometheus metrics, if this is set, prometheus metrics will be written upstream
     #[clap(long, env)]
     pub prometheus_remote_write_url: Option<String>,

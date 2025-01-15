@@ -52,6 +52,7 @@ pub struct FeatureRefresher {
     pub streaming: bool,
     pub client_meta_information: ClientMetaInformation,
     pub delta: bool,
+    pub delta_diff: bool,
 }
 
 impl Default for FeatureRefresher {
@@ -67,6 +68,7 @@ impl Default for FeatureRefresher {
             streaming: false,
             client_meta_information: Default::default(),
             delta: false,
+            delta_diff: false,
         }
     }
 }
@@ -105,6 +107,7 @@ pub struct FeatureRefreshConfig {
     mode: FeatureRefresherMode,
     client_meta_information: ClientMetaInformation,
     delta: bool,
+    delta_diff: bool,
 }
 
 impl FeatureRefreshConfig {
@@ -113,12 +116,14 @@ impl FeatureRefreshConfig {
         mode: FeatureRefresherMode,
         client_meta_information: ClientMetaInformation,
         delta: bool,
+        delta_diff: bool,
     ) -> Self {
         Self {
             features_refresh_interval,
             mode,
             client_meta_information,
             delta,
+            delta_diff
         }
     }
 }
@@ -142,6 +147,7 @@ impl FeatureRefresher {
             streaming: config.mode == FeatureRefresherMode::Streaming,
             client_meta_information: config.client_meta_information,
             delta: config.delta,
+            delta_diff: config.delta_diff,
         }
     }
 
