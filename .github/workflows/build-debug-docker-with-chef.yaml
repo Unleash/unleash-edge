@@ -114,6 +114,7 @@ jobs:
             ./docker-bake.hcl
             /tmp/bake-meta.json
           targets: image
+          source: .
           set: |
             *.tags=
             *.platform=${{ matrix.platform }}
