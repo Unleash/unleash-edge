@@ -189,6 +189,7 @@ mod streaming_test {
         });
 
         test_server(move || {
+            // the streaming endpoint doesn't work unless app data contains an EdgeMode::Edge with streaming: true
             let edge_mode = EdgeMode::Edge(EdgeArgs {
                 streaming: true,
                 upstream_url: "".into(),
