@@ -6,6 +6,7 @@ use chrono::Utc;
 use dashmap::DashMap;
 use eventsource_client::Client;
 use futures::TryStreamExt;
+use json_structural_diff::JsonDiff;
 use reqwest::StatusCode;
 use tracing::{debug, info, warn};
 use unleash_types::client_features::{ClientFeatures};
@@ -18,9 +19,7 @@ use crate::filters::{filter_client_features, FeatureFilterSet};
 use crate::http::headers::{
     UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_INSTANCE_ID_HEADER,
 };
-use crate::types::{
-    build, EdgeResult, TokenType, TokenValidationStatus,
-};
+use crate::types::{build, ClientFeaturesDeltaResponse, EdgeResult, TokenType, TokenValidationStatus};
 use crate::{
     persistence::EdgePersistence,
     tokens::{cache_key, simplify},
@@ -347,7 +346,9 @@ impl FeatureRefresher {
                                     );
 
                                     match serde_json::from_str(&event.data) {
-                                        Ok(features) => { refresher.handle_client_features_updated(&token, features, None).await; }
+                                        Ok(features) => {
+                                            refresher.handle_client_features_updated(&token, features, None).await;
+                                        }
                                         Err(e) => { warn!("Could not parse features response to internal representation: {e:?}");
                                         }
                                     }
@@ -397,6 +398,40 @@ impl FeatureRefresher {
             });
         }
         Ok(())
+    }
+
+    async fn compare_delta_cache(&self, refresh: &TokenRefresh) {
+        let delta_result = self
+            .unleash_client
+            .get_client_features_delta(ClientFeaturesRequest {
+                api_key: refresh.token.token.clone(),
+                etag: refresh.etag.clone(),
+            })
+            .await;
+
+        let key = cache_key(&refresh.token);
+        if let Some(client_features) = self.features_cache.get(&key).as_ref() {
+            if let Ok(ClientFeaturesDeltaResponse::Updated(delta_features, _etag)) = delta_result {
+                let c_features = &client_features.features;
+                let d_features = delta_features.updated;
+
+                let delta_json = serde_json::to_value(&d_features).unwrap();
+                let client_json = serde_json::to_value(&c_features).unwrap();
+
+                let delta_json_len = delta_json.to_string().len();
+                let client_json_len = client_json.to_string().len();
+
+                if delta_json_len == client_json_len {
+                    info!("The JSON structures are identical.");
+                } else {
+                    info!("Structural differences found:");
+                    info!("Length of delta_json: {}", delta_json_len);
+                    info!("Length of old_json: {}", client_json_len);
+                    let diff = JsonDiff::diff(&delta_json, &client_json, false);
+                    debug!("{:?}", diff.diff.unwrap());
+                }
+            }
+        }
     }
 
     pub async fn start_refresh_features_background_task(&self) {
@@ -476,7 +511,7 @@ impl FeatureRefresher {
             .unleash_client
             .get_client_features(ClientFeaturesRequest {
                 api_key: refresh.token.token.clone(),
-                etag: refresh.etag,
+                etag: refresh.etag.clone(),
             })
             .await;
 
@@ -488,7 +523,10 @@ impl FeatureRefresher {
                 }
                 ClientFeaturesResponse::Updated(features, etag) => {
                     self.handle_client_features_updated(&refresh.token, features, etag)
-                        .await
+                        .await;
+                    if cfg!(feature = "delta") && self.delta_diff {
+                        self.compare_delta_cache(&refresh).await;
+                    }
                 }
             },
             Err(e) => {

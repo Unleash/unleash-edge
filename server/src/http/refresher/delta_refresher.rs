@@ -1,5 +1,4 @@
 use actix_web::http::header::EntityTag;
-use json_structural_diff::JsonDiff;
 use reqwest::StatusCode;
 use tracing::{debug, info, warn};
 use unleash_types::client_features::ClientFeaturesDelta;
@@ -8,10 +7,7 @@ use unleash_yggdrasil::EngineState;
 use crate::error::{EdgeError, FeatureError};
 use crate::http::refresher::feature_refresher::FeatureRefresher;
 use crate::tokens::cache_key;
-use crate::types::{
-    ClientFeaturesDeltaResponse, ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken,
-    TokenRefresh,
-};
+use crate::types::{ClientFeaturesDeltaResponse, ClientFeaturesRequest, EdgeToken, TokenRefresh};
 
 impl FeatureRefresher {
     async fn handle_client_features_delta_updated(
@@ -67,7 +63,6 @@ impl FeatureRefresher {
                 ClientFeaturesDeltaResponse::Updated(features, etag) => {
                     self.handle_client_features_delta_updated(&refresh.token, features, etag)
                         .await;
-                    self.compare_delta_cache(&refresh).await;
                 }
             },
             Err(e) => {
@@ -116,40 +111,6 @@ impl FeatureRefresher {
             }
         }
     }
-
-    async fn compare_delta_cache(&self, refresh: &TokenRefresh) {
-        let features_result = self
-            .unleash_client
-            .get_client_features(ClientFeaturesRequest {
-                api_key: refresh.token.token.clone(),
-                etag: refresh.clone().etag,
-            })
-            .await;
-
-        let key = cache_key(&refresh.token);
-        if let Some(delta_features) = self.features_cache.get(&key).as_ref() {
-            if let Ok(ClientFeaturesResponse::Updated(features, _etag)) = features_result {
-                let d_features = &delta_features.features;
-                let o_features = features.features;
-
-                let delta_json = serde_json::to_value(&d_features).unwrap();
-                let old_json = serde_json::to_value(&o_features).unwrap();
-
-                let delta_json_len = delta_json.to_string().len();
-                let old_json_len = old_json.to_string().len();
-
-                if delta_json_len == old_json_len {
-                    info!("The JSON structures are identical.");
-                } else {
-                    info!("Structural differences found:");
-                    info!("Length of delta_json: {}", delta_json_len);
-                    info!("Length of old_json: {}", old_json_len);
-                    let diff = JsonDiff::diff(&delta_json, &old_json, false);
-                    debug!("{:?}", diff.diff.unwrap());
-                }
-            }
-        }
-    }
 }
 
 #[cfg(feature = "delta")]
@@ -192,6 +153,7 @@ mod tests {
             strict: false,
             streaming: false,
             delta: true,
+            delta_diff : false,
             client_meta_information: ClientMetaInformation::test_config(),
         });
         let features = ClientFeatures {
