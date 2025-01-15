@@ -1,13 +1,13 @@
 use actix_web::http::header::EntityTag;
 use reqwest::StatusCode;
 use tracing::{debug, info, warn};
-use unleash_types::client_features::ClientFeaturesDelta;
+use unleash_types::client_features::{ClientFeaturesDelta};
 use unleash_yggdrasil::EngineState;
 
 use crate::error::{EdgeError, FeatureError};
+use crate::types::{ClientFeaturesDeltaResponse, ClientFeaturesRequest, EdgeToken, TokenRefresh};
 use crate::http::refresher::feature_refresher::FeatureRefresher;
 use crate::tokens::cache_key;
-use crate::types::{ClientFeaturesDeltaResponse, ClientFeaturesRequest, EdgeToken, TokenRefresh};
 
 impl FeatureRefresher {
     async fn handle_client_features_delta_updated(
@@ -62,7 +62,7 @@ impl FeatureRefresher {
                 }
                 ClientFeaturesDeltaResponse::Updated(features, etag) => {
                     self.handle_client_features_delta_updated(&refresh.token, features, etag)
-                        .await;
+                        .await
                 }
             },
             Err(e) => {
@@ -113,13 +113,10 @@ impl FeatureRefresher {
     }
 }
 
+
 #[cfg(feature = "delta")]
 #[cfg(test)]
 mod tests {
-    use crate::feature_cache::FeatureCache;
-    use crate::http::refresher::feature_refresher::FeatureRefresher;
-    use crate::http::unleash_client::{ClientMetaInformation, UnleashClient};
-    use crate::types::EdgeToken;
     use actix_http::header::IF_NONE_MATCH;
     use actix_http::HttpService;
     use actix_http_test::{test_server, TestServer};
@@ -130,6 +127,10 @@ mod tests {
     use chrono::Duration;
     use dashmap::DashMap;
     use std::sync::Arc;
+    use crate::feature_cache::FeatureCache;
+    use crate::http::refresher::feature_refresher::FeatureRefresher;
+    use crate::http::unleash_client::{ClientMetaInformation, UnleashClient};
+    use crate::types::EdgeToken;
     use unleash_types::client_features::{
         ClientFeature, ClientFeatures, ClientFeaturesDelta, Constraint, Operator, Segment,
     };
@@ -270,8 +271,8 @@ mod tests {
                 ))),
                 |_| AppConfig::default(),
             ))
-            .tcp()
+                .tcp()
         })
-        .await
+            .await
     }
 }
