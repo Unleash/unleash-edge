@@ -11,6 +11,7 @@ mod streaming_test {
         sync::Arc,
     };
     use unleash_edge::{
+        cli::{EdgeArgs, EdgeMode, TokenHeader},
         feature_cache::FeatureCache,
         http::broadcaster::Broadcaster,
         tokens::cache_key,
@@ -188,6 +189,35 @@ mod streaming_test {
         });
 
         test_server(move || {
+            let edge_mode = EdgeMode::Edge(EdgeArgs {
+                streaming: true,
+                upstream_url: "".into(),
+                backup_folder: None,
+                metrics_interval_seconds: 60,
+                features_refresh_interval_seconds: 60,
+                token_revalidation_interval_seconds: 60,
+                tokens: vec!["".into()],
+                custom_client_headers: vec![],
+                skip_ssl_verification: false,
+                client_identity: None,
+                upstream_certificate_file: None,
+                upstream_request_timeout: 5,
+                upstream_socket_timeout: 5,
+                redis: None,
+                s3: None,
+                token_header: TokenHeader {
+                    token_header: "".into(),
+                },
+                strict: true,
+                dynamic: false,
+                delta: false,
+                prometheus_remote_write_url: None,
+                prometheus_push_interval: 60,
+                prometheus_username: None,
+                prometheus_password: None,
+                prometheus_user_id: None,
+            });
+
             let config = serde_qs::actix::QsQueryConfig::default()
                 .qs_config(serde_qs::Config::new(5, false));
             let metrics_cache = MetricsCache::default();
@@ -205,6 +235,7 @@ mod streaming_test {
                     .app_data(web::Data::from(upstream_token_cache.clone()))
                     .app_data(web::Data::new(metrics_cache))
                     .app_data(web::Data::new(connect_via))
+                    .app_data(web::Data::new(edge_mode))
                     .service(
                         web::scope("/api")
                             .configure(unleash_edge::client_api::configure_client_api)
