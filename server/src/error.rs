@@ -103,6 +103,7 @@ pub enum EdgeError {
     EdgeTokenError,
     EdgeTokenParseError,
     FeatureNotFound(String),
+    Forbidden(String),
     FrontendExpectedToBeHydrated(String),
     FrontendNotYetHydrated(FrontendHydrationMissing),
     HealthCheckError(String),
@@ -212,6 +213,7 @@ impl Display for EdgeError {
             }
             EdgeError::InvalidTokenWithStrictBehavior => write!(f, "Edge is running with strict behavior and the token is not subsumed by any registered tokens"),
             EdgeError::SseError(message) => write!(f, "{}", message),
+            EdgeError::Forbidden(reason) => write!(f, "{}", reason),
         }
     }
 }
@@ -253,6 +255,7 @@ impl ResponseError for EdgeError {
             EdgeError::NotReady => StatusCode::SERVICE_UNAVAILABLE,
             EdgeError::InvalidTokenWithStrictBehavior => StatusCode::FORBIDDEN,
             EdgeError::SseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            EdgeError::Forbidden(_) => StatusCode::FORBIDDEN,
         }
     }
 
