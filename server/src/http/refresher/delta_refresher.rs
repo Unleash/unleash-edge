@@ -1,17 +1,17 @@
-use std::fs::File;
-use std::io::Write;
 use actix_web::http::header::EntityTag;
 use json_structural_diff::JsonDiff;
 use reqwest::StatusCode;
-use serde_json::Value;
 use tracing::{debug, info, warn};
-use unleash_types::client_features::{ClientFeaturesDelta};
+use unleash_types::client_features::ClientFeaturesDelta;
 use unleash_yggdrasil::EngineState;
 
 use crate::error::{EdgeError, FeatureError};
-use crate::types::{ClientFeaturesDeltaResponse, ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenRefresh};
 use crate::http::refresher::feature_refresher::FeatureRefresher;
 use crate::tokens::cache_key;
+use crate::types::{
+    ClientFeaturesDeltaResponse, ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken,
+    TokenRefresh,
+};
 
 impl FeatureRefresher {
     async fn handle_client_features_delta_updated(
@@ -117,9 +117,7 @@ impl FeatureRefresher {
         }
     }
 
-    async fn compare_delta_cache(&self,
-                                 refresh: &TokenRefresh,
-    ) {
+    async fn compare_delta_cache(&self, refresh: &TokenRefresh) {
         let features_result = self
             .unleash_client
             .get_client_features(ClientFeaturesRequest {
@@ -141,11 +139,11 @@ impl FeatureRefresher {
                 let old_json_len = old_json.to_string().len();
 
                 if delta_json_len == old_json_len {
-                    println!("The JSON structures are identical.");
+                    info!("The JSON structures are identical.");
                 } else {
-                    debug!("Structural differences found:");
-                    debug!("Length of delta_json: {}", delta_json_len);
-                    debug!("Length of old_json: {}", old_json_len);
+                    info!("Structural differences found:");
+                    info!("Length of delta_json: {}", delta_json_len);
+                    info!("Length of old_json: {}", old_json_len);
                     let diff = JsonDiff::diff(&delta_json, &old_json, false);
                     debug!("{:?}", diff.diff.unwrap());
                 }
@@ -154,10 +152,13 @@ impl FeatureRefresher {
     }
 }
 
-
 #[cfg(feature = "delta")]
 #[cfg(test)]
 mod tests {
+    use crate::feature_cache::FeatureCache;
+    use crate::http::refresher::feature_refresher::FeatureRefresher;
+    use crate::http::unleash_client::{ClientMetaInformation, UnleashClient};
+    use crate::types::EdgeToken;
     use actix_http::header::IF_NONE_MATCH;
     use actix_http::HttpService;
     use actix_http_test::{test_server, TestServer};
@@ -168,10 +169,6 @@ mod tests {
     use chrono::Duration;
     use dashmap::DashMap;
     use std::sync::Arc;
-    use crate::feature_cache::FeatureCache;
-    use crate::http::refresher::feature_refresher::FeatureRefresher;
-    use crate::http::unleash_client::{ClientMetaInformation, UnleashClient};
-    use crate::types::EdgeToken;
     use unleash_types::client_features::{
         ClientFeature, ClientFeatures, ClientFeaturesDelta, Constraint, Operator, Segment,
     };
@@ -195,7 +192,7 @@ mod tests {
             strict: false,
             streaming: false,
             delta: true,
-            client_meta_information:ClientMetaInformation::test_config(),
+            client_meta_information: ClientMetaInformation::test_config(),
         });
         let features = ClientFeatures {
             version: 2,
@@ -311,8 +308,8 @@ mod tests {
                 ))),
                 |_| AppConfig::default(),
             ))
-                .tcp()
+            .tcp()
         })
-            .await
+        .await
     }
 }
