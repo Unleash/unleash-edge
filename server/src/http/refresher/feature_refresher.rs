@@ -451,7 +451,7 @@ impl FeatureRefresher {
     pub async fn hydrate_new_tokens(&self) {
         let hydrations = self.get_tokens_never_refreshed();
         for hydration in hydrations {
-            if cfg!(feature = "delta") && self.delta {
+            if self.delta {
                 self.refresh_single_delta(hydration).await;
             } else {
                 self.refresh_single(hydration).await;
@@ -461,7 +461,7 @@ impl FeatureRefresher {
     pub async fn refresh_features(&self) {
         let refreshes = self.get_tokens_due_for_refresh();
         for refresh in refreshes {
-            if cfg!(feature = "delta") && self.delta {
+            if self.delta {
                 self.refresh_single_delta(refresh).await;
             } else {
                 self.refresh_single(refresh).await;
@@ -522,7 +522,7 @@ impl FeatureRefresher {
                 ClientFeaturesResponse::Updated(features, etag) => {
                     self.handle_client_features_updated(&refresh.token, features, etag)
                         .await;
-                    if cfg!(feature = "delta") && self.delta_diff {
+                    if self.delta_diff {
                         self.compare_delta_cache(&refresh).await;
                     }
                 }
