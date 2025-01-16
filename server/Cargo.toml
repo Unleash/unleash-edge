@@ -34,7 +34,7 @@ actix-web-lab = { version = "0.23.0" }
 ahash = "0.8.11"
 anyhow = "1.0.95"
 async-trait = "0.1.85"
-aws-config = { version = "1.5.13", features = ["behavior-version-latest"] }
+aws-config = { version = "1.5.14", features = ["behavior-version-latest"] }
 aws-sdk-s3 = { version = "1.69.0", features = ["behavior-version-latest"] }
 base64 = "0.22.1"
 chrono = { version = "0.4.39", features = ["serde"] }
