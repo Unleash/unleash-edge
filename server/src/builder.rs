@@ -271,6 +271,7 @@ async fn build_edge(
         refresher_mode,
         client_meta_information,
         args.delta,
+        args.delta_diff
     );
     let feature_refresher = Arc::new(FeatureRefresher::new(
         unleash_client,
@@ -387,6 +388,7 @@ mod tests {
             prometheus_username: None,
             streaming: false,
             delta: false,
+            delta_diff: false,
         };
 
         let result = build_edge(

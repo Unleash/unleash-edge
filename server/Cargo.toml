@@ -47,6 +47,7 @@ futures = "0.3.31"
 futures-core = "0.3.31"
 iter_tools = "0.24.0"
 itertools = "0.14.0"
+json-structural-diff = "0.2.0"
 lazy_static = "1.5.0"
 num_cpus = "1.16.0"
 opentelemetry = { version = "0.27.1", features = ["trace", "metrics"] }
@@ -94,8 +95,8 @@ tokio-stream = { version = "0.1.17" }
 tracing = { version = "0.1.41", features = ["log"] }
 tracing-subscriber = { version = "0.3.19", features = ["json", "env-filter"] }
 ulid = "1.1.4"
-unleash-types = { version = "0.15.3", features = ["openapi", "hashes"] }
-unleash-yggdrasil = { version = "0.14.5" }
+unleash-types = { version = "0.15.4", features = ["openapi", "hashes"] }
+unleash-yggdrasil = { version = "0.14.6" }
 utoipa = { version = "5.3.1", features = ["actix_extras", "chrono"] }
 utoipa-swagger-ui = { version = "8.1.1", features = ["actix-web"] }
 [dev-dependencies]
