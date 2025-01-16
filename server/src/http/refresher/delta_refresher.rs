@@ -47,14 +47,14 @@ impl FeatureRefresher {
     }
 
     pub async fn refresh_single_delta(&self, refresh: TokenRefresh) {
-        let features_result = self
+        let delta_result = self
             .unleash_client
             .get_client_features_delta(ClientFeaturesRequest {
                 api_key: refresh.token.token.clone(),
                 etag: refresh.etag,
             })
             .await;
-        match features_result {
+        match delta_result {
             Ok(delta_response) => match delta_response {
                 ClientFeaturesDeltaResponse::NoUpdate(tag) => {
                     debug!("No update needed. Will update last check time with {tag}");
@@ -154,7 +154,8 @@ mod tests {
             strict: false,
             streaming: false,
             delta: true,
-            client_meta_information:ClientMetaInformation::test_config(),
+            delta_diff : false,
+            client_meta_information: ClientMetaInformation::test_config(),
         });
         let features = ClientFeatures {
             version: 2,

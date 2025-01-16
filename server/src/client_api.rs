@@ -1024,6 +1024,7 @@ mod tests {
             streaming: false,
             client_meta_information: ClientMetaInformation::test_config(),
             delta: false,
+            delta_diff: false,
         });
         let token_validator = Arc::new(TokenValidator {
             unleash_client: unleash_client.clone(),
