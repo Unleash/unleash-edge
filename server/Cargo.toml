@@ -38,7 +38,7 @@ aws-config = { version = "1.5.14", features = ["behavior-version-latest"] }
 aws-sdk-s3 = { version = "1.69.0", features = ["behavior-version-latest"] }
 base64 = "0.22.1"
 chrono = { version = "0.4.39", features = ["serde"] }
-cidr = "0.3.0"
+cidr = "0.3.1"
 clap = { version = "4.5.26", features = ["derive", "env"] }
 clap-markdown = "0.1.4"
 dashmap = "6.1.0"
