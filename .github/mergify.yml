@@ -19,3 +19,10 @@ pull_request_rules:
     actions:
       review:
         type: APPROVE
+  - name: Automatically approve Dependabot PRs that does not bump major
+    conditions:
+      - author=dependabot[bot]
+      - dependabot-update-type = version-update:semver-patch
+    actions:
+      review:
+        type: APPROVE
