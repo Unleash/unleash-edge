@@ -12,10 +12,17 @@ pull_request_rules:
       - -author=dependabot[bot]
     actions:
       update:
-  - name: Automatically approve Dependabot PRs that does not bump major
+  - name: Automatically approve Dependabot PRs bumping minor
     conditions:
       - author=dependabot[bot]
       - dependabot-update-type = version-update:semver-minor
+    actions:
+      review:
+        type: APPROVE
+  - name: Automatically approve Dependabot PRs bumping patch
+    conditions:
+      - author=dependabot[bot]
+      - dependabot-update-type = version-update:semver-patch
     actions:
       review:
         type: APPROVE
