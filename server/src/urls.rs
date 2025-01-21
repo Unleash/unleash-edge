@@ -10,6 +10,7 @@ pub struct UnleashUrls {
     pub api_url: Url,
     pub client_api_url: Url,
     pub client_features_url: Url,
+    pub client_features_delta_url: Url,
     pub client_register_app_url: Url,
     pub client_metrics_url: Url,
     pub client_bulk_metrics_url: Url,
@@ -17,6 +18,7 @@ pub struct UnleashUrls {
     pub edge_validate_url: Url,
     pub edge_metrics_url: Url,
     pub new_api_token_url: Url,
+    pub client_features_stream_url: Url,
 }
 
 impl FromStr for UnleashUrls {
@@ -49,6 +51,16 @@ impl UnleashUrls {
             .path_segments_mut()
             .unwrap()
             .push("features");
+        let mut client_features_delta_url = client_api_url.clone();
+        client_features_delta_url
+            .path_segments_mut()
+            .unwrap()
+            .push("delta");
+        let mut client_features_stream_url = client_api_url.clone();
+        client_features_stream_url
+            .path_segments_mut()
+            .unwrap()
+            .push("streaming");
         let mut client_register_app_url = client_api_url.clone();
         client_register_app_url
             .path_segments_mut()
@@ -93,6 +105,7 @@ impl UnleashUrls {
             api_url,
             client_api_url,
             client_features_url,
+            client_features_delta_url,
             client_register_app_url,
             client_bulk_metrics_url,
             client_metrics_url,
@@ -100,6 +113,7 @@ impl UnleashUrls {
             edge_validate_url,
             edge_metrics_url,
             new_api_token_url,
+            client_features_stream_url,
         }
     }
 }
@@ -109,19 +123,21 @@ mod tests {
     use super::*;
     use test_case::test_case;
 
-    #[test_case("https://app.unleash-hosted.com/demo", "https://app.unleash-hosted.com/demo/api", "https://app.unleash-hosted.com/demo/api/client", "https://app.unleash-hosted.com/demo/api/client/features" ; "No trailing slash, https protocol")]
-    #[test_case("https://app.unleash-hosted.com/demo/", "https://app.unleash-hosted.com/demo/api", "https://app.unleash-hosted.com/demo/api/client", "https://app.unleash-hosted.com/demo/api/client/features" ; "One trailing slash, https protocol")]
-    #[test_case("http://app.unleash-hosted.com/demo/", "http://app.unleash-hosted.com/demo/api", "http://app.unleash-hosted.com/demo/api/client", "http://app.unleash-hosted.com/demo/api/client/features" ; "One trailing slash, http protocol")]
-    #[test_case("http://app.unleash-hosted.com/", "http://app.unleash-hosted.com/api", "http://app.unleash-hosted.com/api/client", "http://app.unleash-hosted.com/api/client/features" ; "One trailing slash, no subpath, http protocol")]
+    #[test_case("https://app.unleash-hosted.com/demo", "https://app.unleash-hosted.com/demo/api", "https://app.unleash-hosted.com/demo/api/client", "https://app.unleash-hosted.com/demo/api/client/features", "https://app.unleash-hosted.com/demo/api/client/delta" ; "No trailing slash, https protocol")]
+    #[test_case("https://app.unleash-hosted.com/demo/", "https://app.unleash-hosted.com/demo/api", "https://app.unleash-hosted.com/demo/api/client", "https://app.unleash-hosted.com/demo/api/client/features", "https://app.unleash-hosted.com/demo/api/client/delta" ; "One trailing slash, https protocol")]
+    #[test_case("http://app.unleash-hosted.com/demo/", "http://app.unleash-hosted.com/demo/api", "http://app.unleash-hosted.com/demo/api/client", "http://app.unleash-hosted.com/demo/api/client/features", "http://app.unleash-hosted.com/demo/api/client/delta" ; "One trailing slash, http protocol")]
+    #[test_case("http://app.unleash-hosted.com/", "http://app.unleash-hosted.com/api", "http://app.unleash-hosted.com/api/client", "http://app.unleash-hosted.com/api/client/features", "http://app.unleash-hosted.com/api/client/delta" ; "One trailing slash, no subpath, http protocol")]
     pub fn can_handle_base_urls(
         base_url: &str,
         api_url: &str,
         client_url: &str,
         client_features_url: &str,
+        client_features_delta_url: &str,
     ) {
         let urls = UnleashUrls::from_str(base_url).unwrap();
         assert_eq!(urls.api_url.to_string(), api_url);
         assert_eq!(urls.client_api_url.to_string(), client_url);
         assert_eq!(urls.client_features_url.to_string(), client_features_url);
+        assert_eq!(urls.client_features_delta_url.to_string(), client_features_delta_url);
     }
 }

@@ -12,24 +12,25 @@ use reqwest::header::{HeaderMap, HeaderName};
 use reqwest::{header, Client};
 use reqwest::{ClientBuilder, Identity, RequestBuilder, StatusCode, Url};
 use serde::{Deserialize, Serialize};
+use tracing::error;
 use tracing::{info, trace, warn};
-use unleash_types::client_features::ClientFeatures;
+use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta};
 use unleash_types::client_metrics::ClientApplication;
 
 use crate::cli::ClientIdentity;
 use crate::error::EdgeError::EdgeMetricsRequestError;
 use crate::error::{CertificateError, FeatureError};
+use crate::http::headers::{
+    UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_INSTANCE_ID_HEADER,
+};
 use crate::metrics::client_metrics::MetricsBatch;
 use crate::tls::build_upstream_certificate;
 use crate::types::{
-    ClientFeaturesResponse, EdgeResult, EdgeToken, TokenValidationStatus, ValidateTokensRequest,
+    ClientFeaturesDeltaResponse, ClientFeaturesResponse, EdgeResult, EdgeToken,
+    TokenValidationStatus, ValidateTokensRequest,
 };
 use crate::urls::UnleashUrls;
 use crate::{error::EdgeError, types::ClientFeaturesRequest};
-
-const UNLEASH_APPNAME_HEADER: &str = "UNLEASH-APPNAME";
-const UNLEASH_INSTANCE_ID_HEADER: &str = "UNLEASH-INSTANCEID";
-const UNLEASH_CLIENT_SPEC_HEADER: &str = "Unleash-Client-Spec";
 
 lazy_static! {
     pub static ref CLIENT_REGISTER_FAILURES: IntGaugeVec = register_int_gauge_vec!(
@@ -43,6 +44,13 @@ lazy_static! {
     pub static ref CLIENT_FEATURE_FETCH: HistogramVec = register_histogram_vec!(
         "client_feature_fetch",
         "Timings for fetching features in milliseconds",
+        &["status_code"],
+        vec![1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0, 5000.0]
+    )
+    .unwrap();
+    pub static ref CLIENT_FEATURE_DELTA_FETCH: HistogramVec = register_histogram_vec!(
+        "client_feature_delta_fetch",
+        "Timings for fetching feature deltas in milliseconds",
         &["status_code"],
         vec![1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0, 5000.0]
     )
@@ -71,6 +79,30 @@ lazy_static! {
         &["server", "version"]
     )
     .unwrap();
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClientMetaInformation {
+    pub app_name: String,
+    pub instance_id: String,
+}
+
+impl Default for ClientMetaInformation {
+    fn default() -> Self {
+        Self {
+            app_name: "unleash-edge".into(),
+            instance_id: format!("unleash-edge@{}", ulid::Ulid::new().to_string()),
+        }
+    }
+}
+
+impl ClientMetaInformation {
+    pub fn test_config() -> Self {
+        Self {
+            app_name: "test-app-name".into(),
+            instance_id: "test-instance-id".into(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -130,13 +162,12 @@ fn build_identity(tls: Option<ClientIdentity>) -> EdgeResult<ClientBuilder> {
 }
 
 pub fn new_reqwest_client(
-    instance_id: String,
     skip_ssl_verification: bool,
     client_identity: Option<ClientIdentity>,
     upstream_certificate_file: Option<PathBuf>,
     connect_timeout: Duration,
     socket_timeout: Duration,
-    app_name: String,
+    client_meta_information: ClientMetaInformation,
 ) -> EdgeResult<Client> {
     build_identity(client_identity)
         .and_then(|builder| {
@@ -149,12 +180,12 @@ pub fn new_reqwest_client(
             let mut header_map = HeaderMap::new();
             header_map.insert(
                 UNLEASH_APPNAME_HEADER,
-                header::HeaderValue::from_str(app_name.as_str())
+                header::HeaderValue::from_str(&client_meta_information.app_name)
                     .expect("Could not add app name as a header"),
             );
             header_map.insert(
                 UNLEASH_INSTANCE_ID_HEADER,
-                header::HeaderValue::from_bytes(instance_id.as_bytes()).unwrap(),
+                header::HeaderValue::from_str(&client_meta_information.instance_id).unwrap(),
             );
             header_map.insert(
                 UNLEASH_CLIENT_SPEC_HEADER,
@@ -187,7 +218,6 @@ impl UnleashClient {
         }
     }
 
-    #[cfg(test)]
     pub fn new(server_url: &str, instance_id_opt: Option<String>) -> Result<Self, EdgeError> {
         use ulid::Ulid;
 
@@ -195,13 +225,15 @@ impl UnleashClient {
         Ok(Self {
             urls: UnleashUrls::from_str(server_url)?,
             backing_client: new_reqwest_client(
-                instance_id,
                 false,
                 None,
                 None,
                 Duration::seconds(5),
                 Duration::seconds(5),
-                "test-client".into(),
+                ClientMetaInformation {
+                    instance_id,
+                    app_name: "test-client".into(),
+                },
             )
             .unwrap(),
             custom_headers: Default::default(),
@@ -211,18 +243,16 @@ impl UnleashClient {
 
     #[cfg(test)]
     pub fn new_insecure(server_url: &str) -> Result<Self, EdgeError> {
-        use ulid::Ulid;
 
         Ok(Self {
             urls: UnleashUrls::from_str(server_url)?,
             backing_client: new_reqwest_client(
-                Ulid::new().to_string(),
                 true,
                 None,
                 None,
                 Duration::seconds(5),
                 Duration::seconds(5),
-                "test-client".into(),
+                ClientMetaInformation::test_config(),
             )
             .unwrap(),
             custom_headers: Default::default(),
@@ -234,6 +264,18 @@ impl UnleashClient {
         let client_req = self
             .backing_client
             .get(self.urls.client_features_url.to_string())
+            .headers(self.header_map(Some(req.api_key)));
+        if let Some(tag) = req.etag {
+            client_req.header(header::IF_NONE_MATCH, tag.to_string())
+        } else {
+            client_req
+        }
+    }
+
+    fn client_features_delta_req(&self, req: ClientFeaturesRequest) -> RequestBuilder {
+        let client_req = self
+            .backing_client
+            .get(self.urls.client_features_delta_url.to_string())
             .headers(self.header_map(Some(req.api_key)));
         if let Some(tag) = req.etag {
             client_req.header(header::IF_NONE_MATCH, tag.to_string())
@@ -367,6 +409,83 @@ impl UnleashClient {
         }
     }
 
+    pub async fn get_client_features_delta(
+        &self,
+        request: ClientFeaturesRequest,
+    ) -> EdgeResult<ClientFeaturesDeltaResponse> {
+        let start_time = Utc::now();
+        let response = self
+            .client_features_delta_req(request.clone())
+            .send()
+            .await
+            .map_err(|e| {
+                warn!("Failed to fetch. Due to [{e:?}] - Will retry");
+                match e.status() {
+                    Some(s) => EdgeError::ClientFeaturesFetchError(FeatureError::Retriable(s)),
+                    None => EdgeError::ClientFeaturesFetchError(FeatureError::NotFound),
+                }
+            })?;
+        let stop_time = Utc::now();
+        CLIENT_FEATURE_DELTA_FETCH
+            .with_label_values(&[&response.status().as_u16().to_string()])
+            .observe(
+                stop_time
+                    .signed_duration_since(start_time)
+                    .num_milliseconds() as f64,
+            );
+        if response.status() == StatusCode::NOT_MODIFIED {
+            Ok(ClientFeaturesDeltaResponse::NoUpdate(
+                request.etag.expect("Got NOT_MODIFIED without an ETag"),
+            ))
+        } else if response.status().is_success() {
+            let etag = response
+                .headers()
+                .get("ETag")
+                .or_else(|| response.headers().get("etag"))
+                .and_then(|etag| EntityTag::from_str(etag.to_str().unwrap()).ok());
+            let features = response.json::<ClientFeaturesDelta>().await.map_err(|e| {
+                warn!("Could not parse features response to internal representation");
+                EdgeError::ClientFeaturesParseError(e.to_string())
+            })?;
+            Ok(ClientFeaturesDeltaResponse::Updated(features, etag))
+        } else if response.status() == StatusCode::FORBIDDEN {
+            CLIENT_FEATURE_FETCH_FAILURES
+                .with_label_values(&[response.status().as_str()])
+                .inc();
+            Err(EdgeError::ClientFeaturesFetchError(
+                FeatureError::AccessDenied,
+            ))
+        } else if response.status() == StatusCode::UNAUTHORIZED {
+            CLIENT_FEATURE_FETCH_FAILURES
+                .with_label_values(&[response.status().as_str()])
+                .inc();
+            warn!(
+                "Failed to get features. Url: [{}]. Status code: [401]",
+                self.urls.client_features_delta_url.to_string()
+            );
+            Err(EdgeError::ClientFeaturesFetchError(
+                FeatureError::AccessDenied,
+            ))
+        } else if response.status() == StatusCode::NOT_FOUND {
+            CLIENT_FEATURE_FETCH_FAILURES
+                .with_label_values(&[response.status().as_str()])
+                .inc();
+            warn!(
+                "Failed to get features. Url: [{}]. Status code: [{}]",
+                self.urls.client_features_delta_url.to_string(),
+                response.status().as_str()
+            );
+            Err(EdgeError::ClientFeaturesFetchError(FeatureError::NotFound))
+        } else {
+            CLIENT_FEATURE_FETCH_FAILURES
+                .with_label_values(&[response.status().as_str()])
+                .inc();
+            Err(EdgeError::ClientFeaturesFetchError(
+                FeatureError::Retriable(response.status()),
+            ))
+        }
+    }
+
     pub async fn send_batch_metrics(&self, request: MetricsBatch) -> EdgeResult<()> {
         trace!("Sending metrics to old /edge/metrics endpoint");
         let result = self
@@ -427,6 +546,13 @@ impl UnleashClient {
         &self,
         request: ValidateTokensRequest,
     ) -> EdgeResult<Vec<EdgeToken>> {
+        let check_api_suffix = || {
+            let base_url = self.urls.base_url.to_string();
+            if base_url.ends_with("/api") || base_url.ends_with("/api/") {
+                error!("Try passing the instance URL without '/api'.");
+            }
+        };
+
         let result = self
             .backing_client
             .post(self.urls.edge_validate_url.to_string())
@@ -464,11 +590,12 @@ impl UnleashClient {
                 TOKEN_VALIDATION_FAILURES
                     .with_label_values(&[result.status().as_str()])
                     .inc();
-                warn!(
+                error!(
                     "Failed to validate tokens. Requested url: [{}]. Got status: {:?}",
                     self.urls.edge_validate_url.to_string(),
                     s
                 );
+                check_api_suffix();
                 Err(EdgeError::TokenValidationError(
                     reqwest::StatusCode::from_u16(s.as_u16()).unwrap(),
                 ))
@@ -493,7 +620,6 @@ mod tests {
     };
     use chrono::Duration;
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
-
     use crate::cli::ClientIdentity;
     use crate::http::unleash_client::new_reqwest_client;
     use crate::{
@@ -506,7 +632,7 @@ mod tests {
         },
     };
 
-    use super::{EdgeTokens, UnleashClient};
+    use super::{EdgeTokens, UnleashClient, ClientMetaInformation};
 
     impl ClientFeaturesRequest {
         pub(crate) fn new(api_key: String, etag: Option<String>) -> Self {
@@ -535,6 +661,7 @@ mod tests {
             ],
             segments: None,
             query: None,
+            meta: None,
         }
     }
 
@@ -563,6 +690,10 @@ mod tests {
                     .service(
                         web::resource("/edge/validate")
                             .route(web::post().to(return_validate_tokens)),
+                    )
+                    .service(
+                        web::resource("/api/edge/validate")
+                            .route(web::post().to(HttpResponse::Forbidden)),
                     ),
                 |_| AppConfig::default(),
             ))
@@ -642,7 +773,7 @@ mod tests {
     fn expected_etag(features: ClientFeatures) -> String {
         let hash = features.xx3_hash().unwrap();
         let len = serde_json::to_string(&features)
-            .map(|string| string.as_bytes().len())
+            .map(|string| string.len())
             .unwrap();
         format!("{len:x}-{hash}")
     }
@@ -788,13 +919,15 @@ mod tests {
             pkcs12_passphrase: Some(passphrase.into()),
         };
         let client = new_reqwest_client(
-            "test_pkcs12".into(),
             false,
             Some(identity),
             None,
             Duration::seconds(5),
             Duration::seconds(5),
-            "test-client".into(),
+            ClientMetaInformation {
+                app_name: "test-client".into(),
+                instance_id: "test-pkcs12".into(),
+            },
         );
         assert!(client.is_ok());
     }
@@ -810,13 +943,15 @@ mod tests {
             pkcs12_passphrase: Some(passphrase.into()),
         };
         let client = new_reqwest_client(
-            "test_pkcs12".into(),
             false,
             Some(identity),
             None,
             Duration::seconds(5),
             Duration::seconds(5),
-            "test-client".into(),
+            ClientMetaInformation {
+                app_name: "test-client".into(),
+                instance_id: "test-pkcs12".into(),
+            },
         );
         assert!(client.is_err());
     }
@@ -832,13 +967,15 @@ mod tests {
             pkcs12_passphrase: None,
         };
         let client = new_reqwest_client(
-            "test_pkcs8".into(),
             false,
             Some(identity),
             None,
             Duration::seconds(5),
             Duration::seconds(5),
-            "test-client".into(),
+            ClientMetaInformation {
+                app_name: "test-client".into(),
+                instance_id: "test-pkcs8".into(),
+            },
         );
         assert!(client.is_ok());
     }

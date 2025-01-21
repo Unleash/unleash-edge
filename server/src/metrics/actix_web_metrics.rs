@@ -1,15 +1,14 @@
 use actix_http::header::CONTENT_LENGTH;
 use actix_web::dev;
 use actix_web::dev::ServiceRequest;
-use actix_web::http::{header, Method, StatusCode, Version};
+use actix_web::http::{Method, StatusCode, Version};
 use futures::{future, FutureExt};
 use futures_core::future::LocalBoxFuture;
-use opentelemetry::metrics::{Histogram, Meter, MeterProvider, MetricsError, UpDownCounter};
-use opentelemetry::{global, Key, KeyValue, Value};
+use opentelemetry::metrics::{Histogram, Meter, MeterProvider, UpDownCounter};
+use opentelemetry::{InstrumentationScope, KeyValue, Value};
 use opentelemetry_semantic_conventions::trace::{
-    CLIENT_ADDRESS, HTTP_REQUEST_METHOD, HTTP_RESPONSE_STATUS_CODE, HTTP_ROUTE,
-    NETWORK_PROTOCOL_NAME, NETWORK_PROTOCOL_VERSION, SERVER_ADDRESS, SERVER_PORT, URL_PATH,
-    URL_SCHEME, USER_AGENT_ORIGINAL,
+    CLIENT_ADDRESS, HTTP_REQUEST_METHOD, HTTP_RESPONSE_STATUS_CODE, NETWORK_PROTOCOL_NAME,
+    NETWORK_PROTOCOL_VERSION, SERVER_ADDRESS, SERVER_PORT, URL_PATH, URL_SCHEME,
 };
 use prometheus::{Encoder, TextEncoder};
 use std::sync::Arc;
@@ -56,76 +55,6 @@ pub(super) fn http_scheme(scheme: &str) -> Value {
         "https" => "https".into(),
         other => other.to_string().into(),
     }
-}
-
-pub(crate) fn trace_attributes_from_request(
-    req: &ServiceRequest,
-    http_route: &str,
-) -> Vec<KeyValue> {
-    let conn_info = req.connection_info();
-
-    let mut attributes = Vec::with_capacity(11);
-    attributes.push(KeyValue::new(
-        HTTP_REQUEST_METHOD,
-        http_method_str(req.method()),
-    ));
-    attributes.push(KeyValue::new::<Key, String>(
-        NETWORK_PROTOCOL_NAME.into(),
-        "http".into(),
-    ));
-    attributes.push(KeyValue::new(
-        NETWORK_PROTOCOL_VERSION,
-        http_version(req.version()),
-    ));
-    attributes.push(KeyValue::new::<Key, String>(
-        CLIENT_ADDRESS.into(),
-        conn_info.host().to_string(),
-    ));
-    attributes.push(KeyValue::new::<Key, String>(
-        HTTP_ROUTE.into(),
-        http_route.to_owned(),
-    ));
-    attributes.push(KeyValue::new(URL_SCHEME, http_scheme(conn_info.scheme())));
-
-    let server_name = req.app_config().host();
-    if server_name != conn_info.host() {
-        attributes.push(KeyValue::new::<Key, String>(
-            SERVER_ADDRESS.into(),
-            server_name.to_string(),
-        ));
-    }
-    if let Some(port) = conn_info
-        .host()
-        .split_terminator(':')
-        .nth(1)
-        .and_then(|port| port.parse::<i64>().ok())
-    {
-        if port != 80 && port != 443 {
-            attributes.push(KeyValue::new(SERVER_PORT, port));
-        }
-    }
-    if let Some(path) = req.uri().path_and_query() {
-        attributes.push(KeyValue::new(URL_PATH, path.as_str().to_string()));
-    }
-    if let Some(user_agent) = req
-        .headers()
-        .get(header::USER_AGENT)
-        .and_then(|s| s.to_str().ok())
-    {
-        attributes.push(KeyValue::new(USER_AGENT_ORIGINAL, user_agent.to_string()));
-    }
-    let remote_addr = conn_info.realip_remote_addr();
-    if let Some(remote) = remote_addr {
-        attributes.push(KeyValue::new(CLIENT_ADDRESS, remote.to_string()));
-    }
-    if let Some(peer_addr) = req.peer_addr().map(|socket| socket.ip().to_string()) {
-        if Some(peer_addr.as_str()) != remote_addr {
-            // Client is going through a proxy
-            attributes.push(KeyValue::new(CLIENT_ADDRESS, peer_addr));
-        }
-    }
-
-    attributes
 }
 
 pub(super) fn metrics_attributes_from_request(
@@ -186,25 +115,25 @@ impl Metrics {
         let http_server_active_requests = meter
             .i64_up_down_counter(HTTP_SERVER_ACTIVE_REQUESTS)
             .with_description("HTTP concurrent in-flight requests per route")
-            .init();
+            .build();
 
         let http_server_duration = meter
             .f64_histogram(HTTP_SERVER_DURATION)
             .with_description("HTTP inbound request duration per route")
             .with_unit("ms")
-            .init();
+            .build();
 
         let http_server_request_size = meter
             .u64_histogram(HTTP_SERVER_REQUEST_SIZE)
             .with_description("Measures the size of HTTP request messages (compressed).")
             .with_unit("By")
-            .init();
+            .build();
 
         let http_server_response_size = meter
             .u64_histogram(HTTP_SERVER_RESPONSE_SIZE)
             .with_description("Measures the size of HTTP request messages (compressed).")
             .with_unit("By")
-            .init();
+            .build();
 
         Metrics {
             http_server_active_requests,
@@ -245,9 +174,7 @@ impl RequestMetricsBuilder {
 
     /// Build the `RequestMetrics` middleware
     pub fn build(self) -> RequestMetrics {
-        let meter = self
-            .meter
-            .unwrap_or_else(|| get_versioned_meter(global::meter_provider()));
+        let meter = self.meter.unwrap();
 
         RequestMetrics {
             route_formatter: self.route_formatter,
@@ -258,11 +185,11 @@ impl RequestMetricsBuilder {
 
 /// construct meters for this crate
 fn get_versioned_meter(meter_provider: impl MeterProvider) -> Meter {
-    meter_provider.versioned_meter(
-        "unleash_edge",
-        Some(env!("CARGO_PKG_VERSION")),
-        Some(opentelemetry_semantic_conventions::SCHEMA_URL),
-        None,
+    meter_provider.meter_with_scope(
+        InstrumentationScope::builder("unleash_edge")
+            .with_version(env!("CARGO_PKG_VERSION"))
+            .with_schema_url(opentelemetry_semantic_conventions::SCHEMA_URL)
+            .build(),
     )
 }
 
@@ -387,7 +314,7 @@ where
 
 #[derive(Clone, Debug)]
 pub struct PrometheusMetricsHandler {
-    registry: prometheus::Registry,
+    pub registry: prometheus::Registry,
 }
 
 impl PrometheusMetricsHandler {
@@ -402,10 +329,7 @@ impl PrometheusMetricsHandler {
         let encoder = TextEncoder::new();
         let metric_families = self.registry.gather();
         let mut buf = Vec::new();
-        if let Err(err) = encoder.encode(&metric_families[..], &mut buf) {
-            global::handle_error(MetricsError::Other(err.to_string()));
-        }
-
+        let _ = encoder.encode(&metric_families[..], &mut buf);
         String::from_utf8(buf).unwrap_or_default()
     }
 }

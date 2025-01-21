@@ -138,6 +138,16 @@ fn register_custom_metrics(registry: &prometheus::Registry) {
             crate::http::unleash_client::UPSTREAM_VERSION.clone(),
         ))
         .unwrap();
+    registry
+        .register(Box::new(
+            crate::metrics::client_metrics::FEATURE_TOGGLE_USAGE_TOTAL.clone(),
+        ))
+        .unwrap();
+    registry
+        .register(Box::new(
+            crate::http::broadcaster::CONNECTED_STREAMING_CLIENTS.clone(),
+        ))
+        .unwrap();
 }
 
 #[cfg(test)]

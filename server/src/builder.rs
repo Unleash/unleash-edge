@@ -11,22 +11,25 @@ use unleash_types::client_features::ClientFeatures;
 use unleash_yggdrasil::EngineState;
 
 use crate::cli::RedisMode;
-use crate::http::unleash_client::new_reqwest_client;
+use crate::feature_cache::FeatureCache;
+use crate::http::refresher::feature_refresher::{FeatureRefreshConfig, FeatureRefresherMode};
+use crate::http::unleash_client::{new_reqwest_client, ClientMetaInformation};
 use crate::offline::offline_hotload::{load_bootstrap, load_offline_engine_cache};
 use crate::persistence::file::FilePersister;
 use crate::persistence::redis::RedisPersister;
+use crate::persistence::s3::S3Persister;
 use crate::persistence::EdgePersistence;
 use crate::{
     auth::token_validator::TokenValidator,
     cli::{CliArgs, EdgeArgs, EdgeMode, OfflineArgs},
     error::EdgeError,
-    http::{feature_refresher::FeatureRefresher, unleash_client::UnleashClient},
+    http::{refresher::feature_refresher::FeatureRefresher, unleash_client::UnleashClient},
     types::{EdgeResult, EdgeToken, TokenType},
 };
 
 type CacheContainer = (
     Arc<DashMap<String, EdgeToken>>,
-    Arc<DashMap<String, ClientFeatures>>,
+    Arc<FeatureCache>,
     Arc<DashMap<String, EngineState>>,
 );
 type EdgeInfo = (
@@ -42,7 +45,7 @@ fn build_caches() -> CacheContainer {
     let engine_cache: DashMap<String, EngineState> = DashMap::default();
     (
         Arc::new(token_cache),
-        Arc::new(features_cache),
+        Arc::new(FeatureCache::new(features_cache)),
         Arc::new(engine_cache),
     )
 }
@@ -78,6 +81,8 @@ async fn hydrate_from_persistent_storage(cache: CacheContainer, storage: Arc<dyn
 pub(crate) fn build_offline_mode(
     client_features: ClientFeatures,
     tokens: Vec<String>,
+    client_tokens: Vec<String>,
+    frontend_tokens: Vec<String>,
 ) -> EdgeResult<CacheContainer> {
     let (token_cache, features_cache, engine_cache) = build_caches();
 
@@ -86,6 +91,22 @@ pub(crate) fn build_offline_mode(
         .map(|token| EdgeToken::from_str(token).unwrap_or_else(|_| EdgeToken::offline_token(token)))
         .collect();
 
+    let edge_client_tokens: Vec<EdgeToken> = client_tokens
+        .iter()
+        .map(|token| EdgeToken::from_str(token).unwrap_or_else(|_| EdgeToken::offline_token(token)))
+        .map(|mut token| {
+            token.token_type = Some(TokenType::Client);
+            token
+        })
+        .collect();
+    let edge_frontend_tokens: Vec<EdgeToken> = frontend_tokens
+        .iter()
+        .map(|token| EdgeToken::from_str(token).unwrap_or_else(|_| EdgeToken::offline_token(token)))
+        .map(|mut token| {
+            token.token_type = Some(TokenType::Frontend);
+            token
+        })
+        .collect();
     for edge_token in edge_tokens {
         token_cache.insert(edge_token.token.clone(), edge_token.clone());
 
@@ -96,11 +117,29 @@ pub(crate) fn build_offline_mode(
             client_features.clone(),
         );
     }
+    for client_token in edge_client_tokens {
+        token_cache.insert(client_token.token.clone(), client_token.clone());
+        load_offline_engine_cache(
+            &client_token,
+            features_cache.clone(),
+            engine_cache.clone(),
+            client_features.clone(),
+        );
+    }
+    for frontend_token in edge_frontend_tokens {
+        token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
+        load_offline_engine_cache(
+            &frontend_token,
+            features_cache.clone(),
+            engine_cache.clone(),
+            client_features.clone(),
+        )
+    }
     Ok((token_cache, features_cache, engine_cache))
 }
 
 fn build_offline(offline_args: OfflineArgs) -> EdgeResult<CacheContainer> {
-    if offline_args.tokens.is_empty() {
+    if offline_args.tokens.is_empty() && offline_args.client_tokens.is_empty() {
         return Err(EdgeError::NoTokens(
             "No tokens provided. Tokens must be specified when running in offline mode".into(),
         ));
@@ -118,7 +157,12 @@ fn build_offline(offline_args: OfflineArgs) -> EdgeResult<CacheContainer> {
 
         let client_features = load_bootstrap(&bootstrap)?;
 
-        build_offline_mode(client_features, offline_args.tokens)
+        build_offline_mode(
+            client_features,
+            offline_args.tokens,
+            offline_args.client_tokens,
+            offline_args.frontend_tokens,
+        )
     } else {
         Err(EdgeError::NoFeaturesFile)
     }
@@ -154,6 +198,17 @@ async fn get_data_source(args: &EdgeArgs) -> Option<Arc<dyn EdgePersistence>> {
         return Some(Arc::new(redis_persister));
     }
 
+    if let Some(s3_args) = args.s3.clone() {
+        let s3_persister = S3Persister::new_from_env(
+            &s3_args
+                .s3_bucket_name
+                .clone()
+                .expect("Clap is confused, there's no bucket name"),
+        )
+        .await;
+        return Some(Arc::new(s3_persister));
+    }
+
     if let Some(backup_folder) = args.backup_folder.clone() {
         debug!("Configuring file persistence {backup_folder:?}");
         let backup_client = FilePersister::new(&backup_folder);
@@ -163,7 +218,10 @@ async fn get_data_source(args: &EdgeArgs) -> Option<Arc<dyn EdgePersistence>> {
     None
 }
 
-async fn build_edge(args: &EdgeArgs, app_name: &str) -> EdgeResult<EdgeInfo> {
+async fn build_edge(
+    args: &EdgeArgs,
+    client_meta_information: ClientMetaInformation,
+) -> EdgeResult<EdgeInfo> {
     if !args.strict {
         if !args.dynamic {
             error!("You should explicitly opt into either strict or dynamic behavior. Edge has defaulted to dynamic to preserve legacy behavior, however we recommend using strict from now on. Not explicitly opting into a behavior will return an error on startup in a future release");
@@ -182,13 +240,12 @@ async fn build_edge(args: &EdgeArgs, app_name: &str) -> EdgeResult<EdgeInfo> {
     let persistence = get_data_source(args).await;
 
     let http_client = new_reqwest_client(
-        "unleash_edge".into(),
         args.skip_ssl_verification,
         args.client_identity.clone(),
         args.upstream_certificate_file.clone(),
         Duration::seconds(args.upstream_request_timeout),
         Duration::seconds(args.upstream_socket_timeout),
-        app_name.into(),
+        client_meta_information.clone(),
     )?;
 
     let unleash_client = Url::parse(&args.upstream_url.clone())
@@ -204,15 +261,24 @@ async fn build_edge(args: &EdgeArgs, app_name: &str) -> EdgeResult<EdgeInfo> {
         unleash_client: unleash_client.clone(),
         persistence: persistence.clone(),
     });
-
+    let refresher_mode = match (args.strict, args.streaming) {
+        (_, true) => FeatureRefresherMode::Streaming,
+        (true, _) => FeatureRefresherMode::Strict,
+        _ => FeatureRefresherMode::Dynamic,
+    };
+    let feature_config = FeatureRefreshConfig::new(
+        Duration::seconds(args.features_refresh_interval_seconds as i64),
+        refresher_mode,
+        client_meta_information,
+        args.delta,
+        args.delta_diff
+    );
     let feature_refresher = Arc::new(FeatureRefresher::new(
         unleash_client,
         feature_cache.clone(),
         engine_cache.clone(),
-        Duration::seconds(args.features_refresh_interval_seconds.try_into().unwrap()),
         persistence.clone(),
-        args.strict,
-        app_name,
+        feature_config,
     ));
     let _ = token_validator.register_tokens(args.tokens.clone()).await;
 
@@ -228,6 +294,10 @@ async fn build_edge(args: &EdgeArgs, app_name: &str) -> EdgeResult<EdgeInfo> {
         .await;
     }
 
+    if args.strict && token_cache.is_empty() {
+        error!("You started Edge in strict mode, but Edge was not able to validate any of the tokens configured at startup");
+        return Err(EdgeError::NoTokens("No valid tokens was provided on startup. At least one valid token must be specified at startup when running in Strict mode".into()));
+    }
     for validated_token in token_cache
         .iter()
         .filter(|candidate| candidate.value().token_type == Some(TokenType::Client))
@@ -249,7 +319,16 @@ pub async fn build_caches_and_refreshers(args: CliArgs) -> EdgeResult<EdgeInfo> 
         EdgeMode::Offline(offline_args) => {
             build_offline(offline_args).map(|cache| (cache, None, None, None))
         }
-        EdgeMode::Edge(edge_args) => build_edge(&edge_args, &args.app_name).await,
+        EdgeMode::Edge(edge_args) => {
+            build_edge(
+                &edge_args,
+                ClientMetaInformation {
+                    app_name: args.app_name,
+                    instance_id: args.instance_id,
+                },
+            )
+            .await
+        }
         _ => unreachable!(),
     }
 }
@@ -259,6 +338,7 @@ mod tests {
     use crate::{
         builder::{build_edge, build_offline},
         cli::{EdgeArgs, OfflineArgs, TokenHeader},
+        http::unleash_client::ClientMetaInformation,
     };
 
     #[test]
@@ -267,6 +347,8 @@ mod tests {
             bootstrap_file: None,
             tokens: vec![],
             reload_interval: Default::default(),
+            client_tokens: vec![],
+            frontend_tokens: vec![],
         };
 
         let result = build_offline(args);
@@ -288,6 +370,7 @@ mod tests {
             dynamic: false,
             tokens: vec![],
             redis: None,
+            s3: None,
             client_identity: Default::default(),
             skip_ssl_verification: false,
             upstream_request_timeout: Default::default(),
@@ -298,9 +381,24 @@ mod tests {
             },
             upstream_certificate_file: Default::default(),
             token_revalidation_interval_seconds: Default::default(),
+            prometheus_push_interval: 60,
+            prometheus_remote_write_url: None,
+            prometheus_user_id: None,
+            prometheus_password: None,
+            prometheus_username: None,
+            streaming: false,
+            delta: false,
+            delta_diff: false,
         };
 
-        let result = build_edge(&args, "test-app").await;
+        let result = build_edge(
+            &args,
+            ClientMetaInformation {
+                app_name: "test-app".into(),
+                instance_id: "test-instance-id".into(),
+            },
+        )
+        .await;
         assert!(result.is_err());
         assert_eq!(
             result.err().unwrap().to_string(),

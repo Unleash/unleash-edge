@@ -15,7 +15,7 @@ use chrono::{DateTime, Duration, Utc};
 use dashmap::DashMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use shadow_rs::shadow;
-use unleash_types::client_features::ClientFeatures;
+use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta};
 use unleash_types::client_features::Context;
 use unleash_types::client_metrics::{ClientApplication, ClientMetricsEnv};
 use unleash_yggdrasil::EngineState;
@@ -90,9 +90,16 @@ pub enum TokenType {
 }
 
 #[derive(Clone, Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum ClientFeaturesResponse {
     NoUpdate(EntityTag),
     Updated(ClientFeatures, Option<EntityTag>),
+}
+
+#[derive(Clone, Debug)]
+pub enum ClientFeaturesDeltaResponse {
+    NoUpdate(EntityTag),
+    Updated(ClientFeaturesDelta, Option<EntityTag>),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Default, Deserialize, utoipa::ToSchema)]
@@ -495,7 +502,7 @@ pub struct FeatureFilters {
     pub name_prefix: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct TokenInfo {
     pub token_refreshes: Vec<TokenRefresh>,

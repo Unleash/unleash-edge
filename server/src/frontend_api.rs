@@ -11,7 +11,7 @@ use actix_web::{
 };
 use dashmap::DashMap;
 use serde_qs::actix::QsQuery;
-use tracing::{debug, instrument};
+use tracing::debug;
 use unleash_types::client_features::Context;
 use unleash_types::client_metrics::{ClientApplication, ConnectVia};
 use unleash_types::{
@@ -20,7 +20,6 @@ use unleash_types::{
 };
 use unleash_yggdrasil::{EngineState, ResolvedToggle};
 
-use crate::error::EdgeError::ContextParseError;
 use crate::types::{ClientIp, IncomingContext, PostContext};
 use crate::{
     error::{EdgeError, FrontendHydrationMissing},
@@ -48,13 +47,14 @@ pub async fn get_proxy_all_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
+    context: QsQuery<IncomingContext>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
     get_all_features(
         edge_token,
         engine_cache,
         token_cache,
-        req.query_string(),
+        &context.into_inner().into(),
         req.extensions().get::<ClientIp>(),
     )
 }
@@ -75,13 +75,14 @@ pub async fn get_frontend_all_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
+    context: QsQuery<IncomingContext>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
     get_all_features(
         edge_token,
         engine_cache,
         token_cache,
-        req.query_string(),
+        &context.into_inner().into(),
         req.extensions().get::<ClientIp>(),
     )
 }
@@ -241,7 +242,6 @@ security(
 )
 )]
 #[get("")]
-#[instrument(skip(edge_token, req, engine_cache, token_cache, context))]
 async fn get_enabled_proxy(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
@@ -271,7 +271,6 @@ security(
 )
 )]
 #[get("")]
-#[instrument(skip(edge_token, req, engine_cache, token_cache, context))]
 async fn get_enabled_frontend(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
@@ -746,17 +745,13 @@ pub fn get_all_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    query_string: &str,
+    context: &Context,
     client_ip: Option<&ClientIp>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let raw_context: IncomingContext = serde_qs::Config::new(0, false)
-        .deserialize_str(query_string)
-        .map_err(|_| ContextParseError)?;
-    let context: Context = raw_context.into();
     let context_with_ip = if context.remote_address.is_none() {
-        Context {
+        &Context {
             remote_address: client_ip.map(|ip| ip.to_string()),
-            ..context
+            ..context.clone()
         }
     } else {
         context
@@ -769,7 +764,7 @@ pub fn get_all_features(
     let engine = engine_cache.get(&key).ok_or_else(|| {
         EdgeError::FrontendNotYetHydrated(FrontendHydrationMissing::from(&edge_token))
     })?;
-    let feature_results = engine.resolve_all(&context_with_ip, &None).ok_or_else(|| {
+    let feature_results = engine.resolve_all(context_with_ip, &None).ok_or_else(|| {
         EdgeError::FrontendExpectedToBeHydrated(
             "Feature cache has not been hydrated yet, but it was expected to be. This can be due to a race condition from calling edge before it's ready. This error might auto resolve as soon as edge is able to fetch from upstream".into(),
         )
@@ -801,12 +796,12 @@ mod tests {
     };
     use unleash_yggdrasil::EngineState;
 
-    use crate::builder::build_offline_mode;
     use crate::cli::{EdgeMode, OfflineArgs, TrustProxy};
     use crate::metrics::client_metrics::MetricsCache;
     use crate::metrics::client_metrics::MetricsKey;
     use crate::middleware;
     use crate::types::{EdgeToken, TokenType, TokenValidationStatus};
+    use crate::{builder::build_offline_mode, feature_cache::FeatureCache};
 
     async fn make_test_request() -> Request {
         make_test_request_to("/api/proxy/client/metrics").await
@@ -862,6 +857,7 @@ mod tests {
             }],
             segments: None,
             query: None,
+            meta: None,
         }
     }
 
@@ -890,6 +886,7 @@ mod tests {
             }],
             segments: None,
             query: None,
+            meta: None,
         }
     }
 
@@ -913,6 +910,7 @@ mod tests {
             ],
             segments: None,
             query: None,
+            meta: None,
         }
     }
 
@@ -925,6 +923,8 @@ mod tests {
                 "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7"
                     .to_string(),
             ],
+            vec![],
+            vec![],
         )
         .unwrap();
 
@@ -975,6 +975,8 @@ mod tests {
                 "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7"
                     .to_string(),
             ],
+            vec![],
+            vec![],
         )
         .unwrap();
         let app = test::init_service(
@@ -1023,6 +1025,8 @@ mod tests {
                 "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7"
                     .to_string(),
             ],
+            vec![],
+            vec![],
         )
         .unwrap();
         let app = test::init_service(
@@ -1081,6 +1085,8 @@ mod tests {
                 "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7"
                     .to_string(),
             ],
+            vec![],
+            vec![],
         )
         .unwrap();
         let app = test::init_service(
@@ -1137,6 +1143,8 @@ mod tests {
                 "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7"
                     .to_string(),
             ],
+            vec![],
+            vec![],
         )
         .unwrap();
 
@@ -1248,8 +1256,13 @@ mod tests {
     #[tokio::test]
     async fn when_running_in_offline_mode_with_proxy_key_should_not_filter_features() {
         let client_features = client_features_with_constraint_requiring_user_id_of_seven();
-        let (token_cache, feature_cache, engine_cache) =
-            build_offline_mode(client_features.clone(), vec!["secret-123".to_string()]).unwrap();
+        let (token_cache, feature_cache, engine_cache) = build_offline_mode(
+            client_features.clone(),
+            vec!["secret-123".to_string()],
+            vec![],
+            vec![],
+        )
+        .unwrap();
         let app = test::init_service(
             App::new()
                 .app_data(Data::from(token_cache))
@@ -1259,6 +1272,8 @@ mod tests {
                     bootstrap_file: None,
                     tokens: vec!["secret-123".into()],
                     reload_interval: 0,
+                    client_tokens: vec![],
+                    frontend_tokens: vec![],
                 })))
                 .service(web::scope("/api/frontend").service(super::get_frontend_all_features)),
         )
@@ -1280,6 +1295,8 @@ mod tests {
         let (token_cache, feature_cache, engine_cache) = build_offline_mode(
             client_features.clone(),
             vec!["dx:development.secret123".to_string()],
+            vec![],
+            vec![],
         )
         .unwrap();
         let app = test::init_service(
@@ -1304,7 +1321,7 @@ mod tests {
     #[tokio::test]
     async fn frontend_token_without_matching_client_token_yields_511_when_trying_to_access_frontend_api(
     ) {
-        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let features_cache = Arc::new(FeatureCache::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let app = test::init_service(
@@ -1337,7 +1354,7 @@ mod tests {
 
     #[tokio::test]
     async fn invalid_token_is_refused_with_403() {
-        let features_cache: Arc<DashMap<String, ClientFeatures>> = Arc::new(DashMap::default());
+        let features_cache = Arc::new(FeatureCache::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let app = test::init_service(
@@ -1368,6 +1385,8 @@ mod tests {
         let (token_cache, feature_cache, engine_cache) = build_offline_mode(
             client_features,
             vec!["dx:development.secret123".to_string()],
+            vec![],
+            vec![],
         )
         .unwrap();
         let app = test::init_service(
@@ -1397,6 +1416,8 @@ mod tests {
         let (token_cache, feature_cache, engine_cache) = build_offline_mode(
             client_features.clone(),
             vec!["dx:development.secret123".to_string()],
+            vec![],
+            vec![],
         )
         .unwrap();
         let app = test::init_service(
@@ -1425,6 +1446,8 @@ mod tests {
         let (token_cache, feature_cache, engine_cache) = build_offline_mode(
             client_features_with_constraint_requiring_test_property_to_be_42(),
             vec!["*:development.secret123".to_string()],
+            vec![],
+            vec![],
         )
         .unwrap();
         let app = test::init_service(
@@ -1453,6 +1476,8 @@ mod tests {
         let (token_cache, feature_cache, engine_cache) = build_offline_mode(
             client_features.clone(),
             vec!["dx:development.secret123".to_string()],
+            vec![],
+            vec![],
         )
         .unwrap();
         let app = test::init_service(
@@ -1484,6 +1509,8 @@ mod tests {
         let (token_cache, feature_cache, engine_cache) = build_offline_mode(
             client_features_with_custom_context_field.clone(),
             vec![auth_key.clone()],
+            vec![],
+            vec![],
         )
         .unwrap();
         let config =
@@ -1524,6 +1551,8 @@ mod tests {
         let (token_cache, feature_cache, engine_cache) = build_offline_mode(
             client_features_with_custom_context_field.clone(),
             vec![auth_key.clone()],
+            vec![],
+            vec![],
         )
         .unwrap();
         let trust_proxy = TrustProxy {
@@ -1563,6 +1592,8 @@ mod tests {
         let (token_cache, feature_cache, engine_cache) = build_offline_mode(
             client_features_with_custom_context_field.clone(),
             vec![auth_key.clone()],
+            vec![],
+            vec![],
         )
         .unwrap();
         let trust_proxy = TrustProxy {
@@ -1601,6 +1632,8 @@ mod tests {
         let (token_cache, feature_cache, engine_cache) = build_offline_mode(
             client_features_with_custom_context_field.clone(),
             vec![auth_key.clone()],
+            vec![],
+            vec![],
         )
         .unwrap();
         let app = test::init_service(
@@ -1631,5 +1664,46 @@ mod tests {
             .to_request();
         let result = test::call_service(&app, proxy_req).await;
         assert_eq!(result.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn can_handle_custom_context_fields_on_all_endpoint() {
+        let client_features_with_custom_context_field =
+            crate::tests::features_from_disk("../examples/with_custom_constraint.json");
+        let auth_key = "default:development.secret123".to_string();
+        let (token_cache, feature_cache, engine_cache) = build_offline_mode(
+            client_features_with_custom_context_field.clone(),
+            vec![auth_key.clone()],
+            vec![],
+            vec![],
+        )
+        .unwrap();
+        let config =
+            serde_qs::actix::QsQueryConfig::default().qs_config(serde_qs::Config::new(5, false));
+        let app = test::init_service(
+            App::new()
+                .app_data(config)
+                .app_data(Data::from(token_cache))
+                .app_data(Data::from(feature_cache))
+                .app_data(Data::from(engine_cache))
+                .service(
+                    web::scope("/api").configure(|cfg| super::configure_frontend_api(cfg, false)),
+                ),
+        )
+        .await;
+        let req = test::TestRequest::get()
+            .uri("/api/frontend/all?properties[companyId]=bricks")
+            .insert_header(ContentType::json())
+            .insert_header(("Authorization", auth_key.clone()))
+            .to_request();
+        let feature_results: FrontendResult = test::call_and_read_body_json(&app, req).await;
+        assert!(feature_results.toggles.iter().any(|f| f.enabled));
+        let req = test::TestRequest::get()
+            .uri("/api/frontend?properties%5BcompanyId%5D=bricks")
+            .insert_header(ContentType::json())
+            .insert_header(("Authorization", auth_key.clone()))
+            .to_request();
+        let feature_results: FrontendResult = test::call_and_read_body_json(&app, req).await;
+        assert!(feature_results.toggles.iter().any(|f| f.enabled));
     }
 }

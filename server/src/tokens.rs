@@ -74,7 +74,7 @@ fn clean_hash(hash: &str) -> String {
     )
 }
 
-pub(crate) fn cache_key(token: &EdgeToken) -> String {
+pub fn cache_key(token: &EdgeToken) -> String {
     token
         .environment
         .clone()

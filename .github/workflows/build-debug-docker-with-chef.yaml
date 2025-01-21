@@ -1,0 +1,170 @@
+name: Build and Push Debug Docker Image (Chef)
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "**/*.rs"
+      - "**/*.toml"
+      - "**/*.lock"
+      - ".github/workflows/build-debug-docker-with-chef.yaml"
+      - "Dockerfile"
+    tags:
+      - unleash-edge-v[0-9]+.*
+  pull_request:
+    paths:
+      - "**/*.rs"
+      - "**/*.toml"
+      - "**/*.lock"
+      - ".github/workflows/build-debug-docker-with-chef.yaml"
+      - "Dockerfile"
+  workflow_dispatch:
+
+env:
+  GHCR_SLUG: ghcr.io/unleash/unleash-edge-debug
+
+permissions:
+  id-token: write
+  contents: read
+  packages: write
+
+jobs:
+  prepare-bake-file:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.platforms.outputs.matrix }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Create matrix
+        id: platforms
+        run: |
+          echo "matrix=$(docker buildx bake image-all --print | jq -cr '.target."image-all".platforms')" >>${GITHUB_OUTPUT}
+      - name: Show matrix
+        run: |
+          echo ${{ steps.platforms.outputs.matrix }}
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.GHCR_SLUG }}
+          tags: |
+            type=match,pattern=unleash-edge-v(\d+\.\d+.\d+),group=1,prefix=v
+            type=match,pattern=unleash-edge-v(\d+\.\d+).*,group=1,prefix=v
+            type=ref,event=pr
+            type=edge
+          labels: |
+            org.containers.image.title=Unleash Edge
+            org.containers.image.vendor=Unleash
+      - name: Rename meta bake definition file
+        run: |
+          mv "${{ steps.meta.outputs.bake-file }}" "/tmp/bake-meta.json"
+      - name: Upload meta bake definition
+        uses: actions/upload-artifact@v4
+        with:
+          name: bake-meta
+          path: /tmp/bake-meta.json
+          if-no-files-found: error
+          retention-days: 1
+
+  build:
+    runs-on: ubuntu-latest
+    needs:
+      - prepare-bake-file
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ${{ fromJson(needs.prepare-bake-file.outputs.matrix) }}
+    steps:
+      - name: Setup Platform pair
+        run: |
+          platform=${{ matrix.platform }}
+          echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Download meta bake definition
+        uses: actions/download-artifact@v4
+        with:
+          name: bake-meta
+          path: /tmp
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Github Container registry
+        uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and bake
+        id: bake
+        uses: docker/bake-action@v6
+        with:
+          files: |
+            ./docker-bake.hcl
+            /tmp/bake-meta.json
+          targets: image
+          source: .
+          set: |
+            *.tags=
+            *.platform=${{ matrix.platform }}
+            *.cache-from=type=gha,scope=build-${{ env.PLATFORM_PAIR }}
+            *.cache-to=type=gha,scope=build-${{ env.PLATFORM_PAIR }}
+            *.output=type=image,"name=${{ env.GHCR_SLUG }}",push-by-digest=true,name-canonical=true,push=${{ github.event_name != 'pull_request' }}
+      - name: Export digests
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ fromJSON(steps.bake.outputs.metadata).image['containerimage.digest'] }}"
+          touch "/tmp/digests/${digest#sha256:}"
+      - name: Upload digests
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ env.PLATFORM_PAIR }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    needs:
+      - build
+    steps:
+      - name: Download meta bake definition
+        uses: actions/download-artifact@v4
+        with:
+          name: bake-meta
+          path: /tmp
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to Github Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create $(jq -cr '.target."docker-metadata-action".tags | map(select(startswith("${{ env.GHCR_SLUG }}")) | "-t " + .) | join(" ")' /tmp/bake-meta.json) \
+            $(printf '${{ env.GHCR_SLUG }}@sha256:%s ' *)
+      - name: Inspect image
+        run: |
+          tag=$(jq -r '.target."docker-metadata-action".args.DOCKER_META_VERSION' /tmp/bake-meta.json)
+          docker buildx imagetools inspect ${{ env.GHCR_SLUG }}:${tag}

@@ -12,10 +12,13 @@ use unleash_types::client_metrics::ConnectVia;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
+use tracing::info;
 use unleash_edge::builder::build_caches_and_refreshers;
 use unleash_edge::cli::{CliArgs, EdgeMode};
+use unleash_edge::feature_cache::FeatureCache;
+use unleash_edge::http::background_send_metrics::send_metrics_one_shot;
+use unleash_edge::http::refresher::feature_refresher::FeatureRefresher;
 use unleash_edge::metrics::client_metrics::MetricsCache;
-use unleash_edge::middleware::request_tracing::RequestTracing;
 use unleash_edge::offline::offline_hotload;
 use unleash_edge::persistence::{persist_data, EdgePersistence};
 use unleash_edge::types::{EdgeToken, TokenValidationStatus};
@@ -26,6 +29,11 @@ use unleash_edge::{internal_backstage, tls};
 #[cfg(not(tarpaulin_include))]
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {
+    use unleash_edge::{
+        http::{broadcaster::Broadcaster, unleash_client::ClientMetaInformation},
+        metrics::metrics_pusher,
+    };
+
     let args = CliArgs::parse();
     let disable_all_endpoint = args.disable_all_endpoint;
     if args.markdown_help {
@@ -45,6 +53,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let http_args = args.clone().http;
     let token_header = args.clone().token_header;
     let request_timeout = args.edge_request_timeout;
+    let keepalive_timeout = args.edge_keepalive_timeout;
     let trust_proxy = args.clone().trust_proxy;
     let base_path = http_args.base_path.clone();
     let (metrics_handler, request_metrics) = prom_metrics::instantiate(None, &args.log_format);
@@ -52,6 +61,15 @@ async fn main() -> Result<(), anyhow::Error> {
         app_name: args.clone().app_name,
         instance_id: args.clone().instance_id,
     };
+    let app_name = args.app_name.clone();
+    let instance_id = args.instance_id.clone();
+    let custom_headers = match args.mode {
+        cli::EdgeMode::Edge(ref edge) => edge.custom_client_headers.clone(),
+        _ => vec![],
+    };
+
+    let internal_backstage_args = args.internal_backstage.clone();
+
     let (
         (token_cache, features_cache, engine_cache),
         token_validator,
@@ -70,6 +88,10 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let openapi = openapi::ApiDoc::openapi();
     let refresher_for_app_data = feature_refresher.clone();
+    let prom_registry_for_write = metrics_handler.registry.clone();
+
+    let broadcaster = Broadcaster::new(features_cache.clone());
+
     let server = HttpServer::new(move || {
         let qs_config =
             serde_qs::actix::QsQueryConfig::default().qs_config(serde_qs::Config::new(5, false));
@@ -88,7 +110,9 @@ async fn main() -> Result<(), anyhow::Error> {
             .app_data(web::Data::from(metrics_cache.clone()))
             .app_data(web::Data::from(token_cache.clone()))
             .app_data(web::Data::from(features_cache.clone()))
-            .app_data(web::Data::from(engine_cache.clone()));
+            .app_data(web::Data::from(engine_cache.clone()))
+            .app_data(web::Data::from(broadcaster.clone()));
+
         app = match token_validator.clone() {
             Some(v) => app.app_data(web::Data::from(v)),
             None => app,
@@ -103,13 +127,13 @@ async fn main() -> Result<(), anyhow::Error> {
                 .wrap(actix_web::middleware::Compress::default())
                 .wrap(actix_web::middleware::NormalizePath::default())
                 .wrap(cors_middleware)
-                .wrap(RequestTracing::new())
                 .wrap(request_metrics.clone())
                 .wrap(Logger::default())
                 .service(web::scope("/internal-backstage").configure(|service_cfg| {
                     internal_backstage::configure_internal_backstage(
                         service_cfg,
                         metrics_handler.clone(),
+                        internal_backstage_args.clone(),
                     )
                 }))
                 .service(
@@ -138,16 +162,36 @@ async fn main() -> Result<(), anyhow::Error> {
     let server = server?
         .workers(http_args.workers)
         .shutdown_timeout(5)
+        .keep_alive(std::time::Duration::from_secs(keepalive_timeout))
         .client_request_timeout(std::time::Duration::from_secs(request_timeout));
 
     match schedule_args.mode {
         cli::EdgeMode::Edge(edge) => {
+            let refresher_for_background = feature_refresher.clone().unwrap();
+            if edge.streaming {
+                let app_name = app_name.clone();
+                let custom_headers = custom_headers.clone();
+                tokio::spawn(async move {
+                    let _ = refresher_for_background
+                        .start_streaming_features_background_task(
+                            ClientMetaInformation {
+                                app_name,
+                                instance_id,
+                            },
+                            custom_headers,
+                        )
+                        .await;
+                });
+            }
+
             let refresher = feature_refresher.clone().unwrap();
+
             let validator = token_validator_schedule.clone().unwrap();
+
             tokio::select! {
                 _ = server.run() => {
                     tracing::info!("Actix is shutting down. Persisting data");
-                    clean_shutdown(persistence.clone(), lazy_feature_cache.clone(), lazy_token_cache.clone()).await;
+                    clean_shutdown(persistence.clone(), lazy_feature_cache.clone(), lazy_token_cache.clone(), metrics_cache_clone.clone(), feature_refresher.clone()).await;
                     tracing::info!("Actix was shutdown properly");
                 },
                 _ = refresher.start_refresh_features_background_task() => {
@@ -165,6 +209,9 @@ async fn main() -> Result<(), anyhow::Error> {
                 _ = validator.schedule_revalidation_of_startup_tokens(edge.tokens, lazy_feature_refresher) => {
                     tracing::info!("Token validator validation of startup tokens was unexpectedly shut down");
                 }
+                _ = metrics_pusher::prometheus_remote_write(prom_registry_for_write, edge.prometheus_remote_write_url, edge.prometheus_push_interval, edge.prometheus_username, edge.prometheus_password, app_name) => {
+                    tracing::info!("Prometheus push unexpectedly shut down");
+                }
             }
         }
         cli::EdgeMode::Offline(offline_args) if offline_args.reload_interval > 0 => {
@@ -180,7 +227,7 @@ async fn main() -> Result<(), anyhow::Error> {
         _ => tokio::select! {
             _ = server.run() => {
                 tracing::info!("Actix is shutting down. Persisting data");
-                clean_shutdown(persistence, lazy_feature_cache.clone(), lazy_token_cache.clone()).await;
+                clean_shutdown(persistence, lazy_feature_cache.clone(), lazy_token_cache.clone(), metrics_cache_clone.clone(), feature_refresher.clone()).await;
                 tracing::info!("Actix was shutdown properly");
 
             }
@@ -193,8 +240,10 @@ async fn main() -> Result<(), anyhow::Error> {
 #[cfg(not(tarpaulin_include))]
 async fn clean_shutdown(
     persistence: Option<Arc<dyn EdgePersistence>>,
-    feature_cache: Arc<DashMap<String, ClientFeatures>>,
+    feature_cache: Arc<FeatureCache>,
     token_cache: Arc<DashMap<String, EdgeToken>>,
+    metrics_cache: Arc<MetricsCache>,
+    feature_refresher: Option<Arc<FeatureRefresher>>,
 ) {
     let tokens: Vec<EdgeToken> = token_cache
         .iter()
@@ -214,11 +263,15 @@ async fn clean_shutdown(
         ])
         .await;
         if res.iter().all(|save| save.is_ok()) {
-            tracing::info!("Successfully persisted data");
+            tracing::info!("Successfully persisted data to storage backend");
         } else {
             res.iter()
                 .filter(|save| save.is_err())
                 .for_each(|failed_save| tracing::error!("Failed backing up: {failed_save:?}"));
         }
+    }
+    if let Some(feature_refresher) = feature_refresher {
+        info!("Connected to an upstream, flushing last set of metrics");
+        send_metrics_one_shot(metrics_cache, feature_refresher).await;
     }
 }

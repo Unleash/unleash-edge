@@ -4,10 +4,10 @@ use actix_web::{
     web::Data,
 };
 use dashmap::DashMap;
-use tracing::{debug, instrument};
+use tracing::debug;
 
 use crate::{
-    http::feature_refresher::FeatureRefresher,
+    http::refresher::feature_refresher::FeatureRefresher,
     tokens,
     types::{EdgeResult, EdgeToken, TokenValidationStatus},
 };
@@ -25,7 +25,6 @@ pub(crate) async fn create_client_token_for_fe_token(
     Ok(())
 }
 
-#[instrument(skip(req, srv, token))]
 pub async fn client_token_from_frontend_token(
     token: EdgeToken,
     req: ServiceRequest,
@@ -61,11 +60,11 @@ mod tests {
     use chrono::Duration;
     use dashmap::DashMap;
     use reqwest::{StatusCode, Url};
-    use unleash_types::client_features::ClientFeatures;
     use unleash_yggdrasil::EngineState;
 
     use crate::auth::token_validator::TokenValidator;
-    use crate::http::feature_refresher::FeatureRefresher;
+    use crate::feature_cache::FeatureCache;
+    use crate::http::refresher::feature_refresher::FeatureRefresher;
     use crate::http::unleash_client::{new_reqwest_client, UnleashClient};
     use crate::tests::upstream_server;
     use crate::types::{EdgeToken, TokenType, TokenValidationStatus};
@@ -73,7 +72,7 @@ mod tests {
     pub async fn local_server(
         unleash_client: Arc<UnleashClient>,
         local_token_cache: Arc<DashMap<String, EdgeToken>>,
-        local_features_cache: Arc<DashMap<String, ClientFeatures>>,
+        local_features_cache: Arc<FeatureCache>,
         local_engine_cache: Arc<DashMap<String, EngineState>>,
     ) -> TestServer {
         let token_validator = Arc::new(TokenValidator {
@@ -121,8 +120,7 @@ mod tests {
         let mut frontend_token = EdgeToken::from_str("*:development.frontendtoken").unwrap();
         frontend_token.status = TokenValidationStatus::Validated;
         frontend_token.token_type = Some(TokenType::Frontend);
-        let upstream_features_cache: Arc<DashMap<String, ClientFeatures>> =
-            Arc::new(DashMap::default());
+        let upstream_features_cache = Arc::new(FeatureCache::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         upstream_token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
@@ -134,13 +132,12 @@ mod tests {
         .await;
 
         let http_client = new_reqwest_client(
-            "unleash_edge".into(),
             false,
             None,
             None,
             Duration::seconds(5),
             Duration::seconds(5),
-            "test-client".into(),
+            crate::http::unleash_client::ClientMetaInformation::test_config(),
         )
         .expect("Failed to create client");
 
@@ -149,8 +146,7 @@ mod tests {
             "test-client".into(),
             http_client,
         );
-        let local_features_cache: Arc<DashMap<String, ClientFeatures>> =
-            Arc::new(DashMap::default());
+        let local_features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let local_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let local_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
 

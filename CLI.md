@@ -66,6 +66,18 @@ This document contains the help content for the `unleash-edge` command-line prog
 * `--token-header <TOKEN_HEADER>` — token header to use for edge authorization
 
   Default value: `Authorization`
+* `--disable-metrics-batch-endpoint` — Disables /internal-backstage/metricsbatch endpoint
+
+   This endpoint shows the current cached client metrics
+* `--disable-metrics-endpoint` — Disables /internal-backstage/metrics endpoint
+
+   Typically used for prometheus scraping metrics.
+* `--disable-features-endpoint` — Disables /internal-backstage/features endpoint
+
+   Used to show current cached features across environments
+* `--disable-tokens-endpoint` — Disables /internal-backstage/tokens endpoint
+
+   Used to show tokens used to refresh feature caches, but also tokens already validated/invalidated against upstream
 
 
 
@@ -130,6 +142,7 @@ Run in edge mode
 * `--redis-write-connection-timeout-milliseconds <REDIS_WRITE_CONNECTION_TIMEOUT_MILLISECONDS>` — Timeout (in milliseconds) for waiting for a successful connection to redis when persisting
 
   Default value: `2000`
+* `--s3-bucket-name <S3_BUCKET_NAME>` — Bucket name to use for storing feature and token data
 * `--token-header <TOKEN_HEADER>` — Token header to use for both edge authorization and communication with the upstream server
 
   Default value: `Authorization`
@@ -139,6 +152,13 @@ Run in edge mode
 * `--dynamic` — If set to true, Edge starts with dynamic behavior. Dynamic behavior means that Edge will accept tokens outside the scope of the startup tokens
 
   Default value: `false`
+* `--prometheus-remote-write-url <PROMETHEUS_REMOTE_WRITE_URL>` — Sets a remote write url for prometheus metrics, if this is set, prometheus metrics will be written upstream
+* `--prometheus-push-interval <PROMETHEUS_PUSH_INTERVAL>` — Sets the interval for prometheus push metrics, only relevant if `prometheus_remote_write_url` is set. Defaults to 60 seconds
+
+  Default value: `60`
+* `--prometheus-username <PROMETHEUS_USERNAME>`
+* `--prometheus-password <PROMETHEUS_PASSWORD>`
+* `--prometheus-user-id <PROMETHEUS_USER_ID>`
 
 
 
@@ -151,7 +171,9 @@ Run in offline mode
 ###### **Options:**
 
 * `-b`, `--bootstrap-file <BOOTSTRAP_FILE>` — The file to load our features from. This data will be loaded at startup
-* `-t`, `--tokens <TOKENS>` — Tokens that should be allowed to connect to Edge. Supports a comma separated list or multiple instances of the `--tokens` argument
+* `-t`, `--tokens <TOKENS>` — Tokens that should be allowed to connect to Edge. Supports a comma separated list or multiple instances of the `--tokens` argument (v19.4.0) deprecated "Please use --client-tokens | CLIENT_TOKENS instead"
+* `-c`, `--client-tokens <CLIENT_TOKENS>` — Client tokens that should be allowed to connect to Edge. Supports a comma separated list or multiple instances of the `--client-tokens` argument
+* `-f`, `--frontend-tokens <FRONTEND_TOKENS>` — Frontend tokens that should be allowed to connect to Edge. Supports a comma separated list or multiple instances of the `--frontend-tokens` argument
 * `-r`, `--reload-interval <RELOAD_INTERVAL>` — The interval in seconds between reloading the bootstrap file. Disabled if unset or 0
 
   Default value: `0`

@@ -5,7 +5,377 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 19.6.3 (2024-12-06)
+
+### Chore
+
+ - <csr-id-a2d612893c631fa5617a18bd72250125420f2ab2/> prepare for release
+
+### Documentation
+
+ - <csr-id-2462bd216c41c1c2eea3c6ee9d49d91314f10147/> add example docker command
+
+### Bug Fixes
+
+ - <csr-id-0dac00e039884bf74af98ab8ada171cd30e8eb6c/> bootstrap reload in offline mode.
+   After adding support for client and frontend tokens, we did not extend
+   the reloader to check the client and frontend token arrays. This PR extends
+   tokens with FE and Client tokens, to ensure that we refresh the data for
+   all our tokens.
+   
+   In addition we make /internal-backstage/tokens useful for offline mode
+   as well, to at least be able to see which tokens you added to Edge.
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 3 commits contributed to the release.
+ - 10 days passed between releases.
+ - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 2 unique issues were worked on: [#590](https://github.com/Unleash/unleash-edge/issues/590), [#595](https://github.com/Unleash/unleash-edge/issues/595)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#590](https://github.com/Unleash/unleash-edge/issues/590)**
+    - Add example docker command ([`2462bd2`](https://github.com/Unleash/unleash-edge/commit/2462bd216c41c1c2eea3c6ee9d49d91314f10147))
+ * **[#595](https://github.com/Unleash/unleash-edge/issues/595)**
+    - Bootstrap reload in offline mode. ([`0dac00e`](https://github.com/Unleash/unleash-edge/commit/0dac00e039884bf74af98ab8ada171cd30e8eb6c))
+ * **Uncategorized**
+    - Prepare for release ([`a2d6128`](https://github.com/Unleash/unleash-edge/commit/a2d612893c631fa5617a18bd72250125420f2ab2))
+</details>
+
+## 19.6.2 (2024-11-25)
+
+<csr-id-7768c59d4fabc159845499cbf0e17e29098a799d/>
+<csr-id-f0df4270f6376e1e60051d7466b0ccba447bf4f3/>
+<csr-id-95a466a028e776af54c0def1b01f2ba503752c87/>
+<csr-id-dc6f169c06aea3505cac0872f50505bd1d70234d/>
+
+### Chore
+
+ - <csr-id-7768c59d4fabc159845499cbf0e17e29098a799d/> prepare for 19.6.2 patch release
+ - <csr-id-f0df4270f6376e1e60051d7466b0ccba447bf4f3/> raise error message when failing to validate tokens and url has url postfix
+ - <csr-id-95a466a028e776af54c0def1b01f2ba503752c87/> prepare for release
+ - <csr-id-dc6f169c06aea3505cac0872f50505bd1d70234d/> Utoipa 5, Yggdrasil 0.13.4
+   * chore(deps): Bump to utoipa 5
+   
+   * fix: update cargo-dist to 0.23
+
+### Bug Fixes
+
+ - <csr-id-92c85db30661720e09643895680b2a579de09791/> added error if no tokens are valid when starting in strict mode
+ - <csr-id-7ba15a9b5fdea7075483461867022d07a2d424c7/> update rust crate iter_tools to 0.24.0
+ - <csr-id-0efccf002ef2197e80edbc16a5b5d47cd43a6385/> update rust crate unleash-yggdrasil to 0.14.0
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 9 commits contributed to the release.
+ - 40 days passed between releases.
+ - 7 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 5 unique issues were worked on: [#571](https://github.com/Unleash/unleash-edge/issues/571), [#580](https://github.com/Unleash/unleash-edge/issues/580), [#581](https://github.com/Unleash/unleash-edge/issues/581), [#587](https://github.com/Unleash/unleash-edge/issues/587), [#588](https://github.com/Unleash/unleash-edge/issues/588)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#571](https://github.com/Unleash/unleash-edge/issues/571)**
+    - Utoipa 5, Yggdrasil 0.13.4 ([`dc6f169`](https://github.com/Unleash/unleash-edge/commit/dc6f169c06aea3505cac0872f50505bd1d70234d))
+ * **[#580](https://github.com/Unleash/unleash-edge/issues/580)**
+    - Update rust crate unleash-yggdrasil to 0.14.0 ([`0efccf0`](https://github.com/Unleash/unleash-edge/commit/0efccf002ef2197e80edbc16a5b5d47cd43a6385))
+ * **[#581](https://github.com/Unleash/unleash-edge/issues/581)**
+    - Update rust crate iter_tools to 0.24.0 ([`7ba15a9`](https://github.com/Unleash/unleash-edge/commit/7ba15a9b5fdea7075483461867022d07a2d424c7))
+ * **[#587](https://github.com/Unleash/unleash-edge/issues/587)**
+    - Added error if no tokens are valid when starting in strict mode ([`92c85db`](https://github.com/Unleash/unleash-edge/commit/92c85db30661720e09643895680b2a579de09791))
+ * **[#588](https://github.com/Unleash/unleash-edge/issues/588)**
+    - Raise error message when failing to validate tokens and url has url postfix ([`f0df427`](https://github.com/Unleash/unleash-edge/commit/f0df4270f6376e1e60051d7466b0ccba447bf4f3))
+ * **Uncategorized**
+    - Release unleash-edge v19.6.2 ([`2390370`](https://github.com/Unleash/unleash-edge/commit/23903704e2c542f8d0da1140d00603bc278d7d46))
+    - Prepare for 19.6.2 patch release ([`7768c59`](https://github.com/Unleash/unleash-edge/commit/7768c59d4fabc159845499cbf0e17e29098a799d))
+    - Release unleash-edge v19.6.1 ([`c6386db`](https://github.com/Unleash/unleash-edge/commit/c6386db28de59188e99576b3475f952d8ae59a79))
+    - Prepare for release ([`95a466a`](https://github.com/Unleash/unleash-edge/commit/95a466a028e776af54c0def1b01f2ba503752c87))
+</details>
+
+## 19.6.1 (2024-10-23)
+
+<csr-id-95a466a028e776af54c0def1b01f2ba503752c87/>
+<csr-id-dc6f169c06aea3505cac0872f50505bd1d70234d/>
+
+### Chore
+
+ - <csr-id-95a466a028e776af54c0def1b01f2ba503752c87/> prepare for release
+ - <csr-id-dc6f169c06aea3505cac0872f50505bd1d70234d/> Utoipa 5, Yggdrasil 0.13.4
+   * chore(deps): Bump to utoipa 5
+   
+   * fix: update cargo-dist to 0.23
+
+## 19.6.0 (2024-10-16)
+
+<csr-id-97eec07de4fbc9e39fb76c7a35cfc0d1ebdb87a5/>
+<csr-id-32680a77baad7d3c4696c2735d2883979093f7da/>
+
+### Chore
+
+ - <csr-id-97eec07de4fbc9e39fb76c7a35cfc0d1ebdb87a5/> prepare for release
+
+### New Features
+
+ - <csr-id-b1815f4e258a1c5acb2cb8d3684515c1248cd345/> internal-backstage endpoints are disableable.
+   Sensitive endpoint (tokens, features, metricsbatch, metrics) can now all
+   be turned off with separate flags
+ - <csr-id-acfb38b750afcd0c846612aba4c23ca972021fbf/> flush metrics on clean shutdown
+ - <csr-id-3e1f60d1826f9a143642ccefbcab503e41a1e0db/> Support prometheus remote write protocol for metrics
+   * fix: make sure to post correct registry to vm
+* feat: Add support for remote writing prometheus
+
+### Other
+
+ - <csr-id-32680a77baad7d3c4696c2735d2883979093f7da/> remove request tracing
+   Originally we wanted to support OpenTelemetry for tracing, but we no
+   longer support setting up an OTEL_COLLECTOR, so removing the request
+   tracer seems sensible
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 6 commits contributed to the release.
+ - 6 days passed between releases.
+ - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 4 unique issues were worked on: [#548](https://github.com/Unleash/unleash-edge/issues/548), [#563](https://github.com/Unleash/unleash-edge/issues/563), [#564](https://github.com/Unleash/unleash-edge/issues/564), [#565](https://github.com/Unleash/unleash-edge/issues/565)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#548](https://github.com/Unleash/unleash-edge/issues/548)**
+    - Remove request tracing ([`32680a7`](https://github.com/Unleash/unleash-edge/commit/32680a77baad7d3c4696c2735d2883979093f7da))
+ * **[#563](https://github.com/Unleash/unleash-edge/issues/563)**
+    - Support prometheus remote write protocol for metrics ([`3e1f60d`](https://github.com/Unleash/unleash-edge/commit/3e1f60d1826f9a143642ccefbcab503e41a1e0db))
+ * **[#564](https://github.com/Unleash/unleash-edge/issues/564)**
+    - Flush metrics on clean shutdown ([`acfb38b`](https://github.com/Unleash/unleash-edge/commit/acfb38b750afcd0c846612aba4c23ca972021fbf))
+ * **[#565](https://github.com/Unleash/unleash-edge/issues/565)**
+    - Internal-backstage endpoints are disableable. ([`b1815f4`](https://github.com/Unleash/unleash-edge/commit/b1815f4e258a1c5acb2cb8d3684515c1248cd345))
+ * **Uncategorized**
+    - Release unleash-edge v19.6.0 ([`03364f8`](https://github.com/Unleash/unleash-edge/commit/03364f859be4abef929dd61ab291d81df40549a8))
+    - Prepare for release ([`97eec07`](https://github.com/Unleash/unleash-edge/commit/97eec07de4fbc9e39fb76c7a35cfc0d1ebdb87a5))
+</details>
+
+## 19.5.1 (2024-10-09)
+
+### Bug Fixes
+
+ - <csr-id-560917b624b9c731cb2c4a1624562cda74ebf65c/> frontend all endpoints now accept context correctly
+ - <csr-id-5e380e3e1fefaf555ec40747726c40bded82cf75/> remove bucket creation in s3 persister
+ - <csr-id-69901782bd72e29b96d36beaaf46d4e2aa456127/> prefix unused vars
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 4 commits contributed to the release.
+ - 5 days passed between releases.
+ - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 2 unique issues were worked on: [#557](https://github.com/Unleash/unleash-edge/issues/557), [#558](https://github.com/Unleash/unleash-edge/issues/558)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#557](https://github.com/Unleash/unleash-edge/issues/557)**
+    - Remove bucket creation in s3 persister ([`5e380e3`](https://github.com/Unleash/unleash-edge/commit/5e380e3e1fefaf555ec40747726c40bded82cf75))
+ * **[#558](https://github.com/Unleash/unleash-edge/issues/558)**
+    - Frontend all endpoints now accept context correctly ([`560917b`](https://github.com/Unleash/unleash-edge/commit/560917b624b9c731cb2c4a1624562cda74ebf65c))
+ * **Uncategorized**
+    - Release unleash-edge v19.5.1 ([`90c9ae7`](https://github.com/Unleash/unleash-edge/commit/90c9ae7c8e4131f8d1b3ad481847db79cb43eaa7))
+    - Prefix unused vars ([`6990178`](https://github.com/Unleash/unleash-edge/commit/69901782bd72e29b96d36beaaf46d4e2aa456127))
+</details>
+
+## 19.5.0 (2024-10-04)
+
+<csr-id-01bf9b64febe6c2a79602e1ecf13e253cef148ca/>
+<csr-id-57188289db39c200d5bbc2f1dc8319f0fe2a2f13/>
+<csr-id-548f7e045aa47adad317587b17c852baae1e17c9/>
+
+### Chore
+
+ - <csr-id-01bf9b64febe6c2a79602e1ecf13e253cef148ca/> Prepare 19.5.0 release
+ - <csr-id-57188289db39c200d5bbc2f1dc8319f0fe2a2f13/> Remove unnecessary dbg! macros
+ - <csr-id-548f7e045aa47adad317587b17c852baae1e17c9/> bump cargo dependencies
+
+### Documentation
+
+ - <csr-id-19048e36476943b9f58bbe375f7d5f90c3f6091b/> Add client-tokens and frontend-tokens chapter to offline mode
+   * Update server/readme
+
+### New Features
+
+ - <csr-id-1522e296a2cb81892718d4f778c4fa89c7776b41/> s3 persister
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 6 commits contributed to the release.
+ - 12 days passed between releases.
+ - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 2 unique issues were worked on: [#536](https://github.com/Unleash/unleash-edge/issues/536), [#542](https://github.com/Unleash/unleash-edge/issues/542)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#536](https://github.com/Unleash/unleash-edge/issues/536)**
+    - Add client-tokens and frontend-tokens chapter to offline mode ([`19048e3`](https://github.com/Unleash/unleash-edge/commit/19048e36476943b9f58bbe375f7d5f90c3f6091b))
+ * **[#542](https://github.com/Unleash/unleash-edge/issues/542)**
+    - S3 persister ([`1522e29`](https://github.com/Unleash/unleash-edge/commit/1522e296a2cb81892718d4f778c4fa89c7776b41))
+ * **Uncategorized**
+    - Release unleash-edge v19.5.0 ([`a000fc0`](https://github.com/Unleash/unleash-edge/commit/a000fc02bb8381c4d3463bd930213bdffb191ad7))
+    - Prepare 19.5.0 release ([`01bf9b6`](https://github.com/Unleash/unleash-edge/commit/01bf9b64febe6c2a79602e1ecf13e253cef148ca))
+    - Remove unnecessary dbg! macros ([`5718828`](https://github.com/Unleash/unleash-edge/commit/57188289db39c200d5bbc2f1dc8319f0fe2a2f13))
+    - Bump cargo dependencies ([`548f7e0`](https://github.com/Unleash/unleash-edge/commit/548f7e045aa47adad317587b17c852baae1e17c9))
+</details>
+
+## 19.4.1 (2024-09-21)
+
+<csr-id-3db59d68ea0d5942099b9c7ca154d4e6489be338/>
+<csr-id-12e84fe75cfa6b35900f1b54daad134148c68bf5/>
+<csr-id-9e3d251ce4d653ad6437a7688512ba129af3a6e3/>
+<csr-id-87ca98f8d16702a5c9c82927008b91f909974894/>
+<csr-id-715e8e96eec0f62d1a95f9b8d7dc7ec374748a2d/>
+
+### Chore
+
+ - <csr-id-3db59d68ea0d5942099b9c7ca154d4e6489be338/> bump dependency status link
+ - <csr-id-12e84fe75cfa6b35900f1b54daad134148c68bf5/> update dependency link in README
+ - <csr-id-9e3d251ce4d653ad6437a7688512ba129af3a6e3/> dependency maintenance
+ - <csr-id-87ca98f8d16702a5c9c82927008b91f909974894/> update log message
+ - <csr-id-715e8e96eec0f62d1a95f9b8d7dc7ec374748a2d/> Upgrade to actix 4.9, tokio 1.40, opentelemetry 0.24
+   * chore: bump to actix 4.9 and upgrade packages
+   
+   * chore: Upgrade Opentelemetry to 0.24
+
+### New Features
+
+<csr-id-00aabbef3061e9f92144d454f31bac8f41764770/>
+<csr-id-10d3854daa473cb32c4536e0776900717c9f765b/>
+
+ - <csr-id-b48604c13c6733a1ce38ff29843391b4866a5506/> added support for client and frontend tokens to offline mode.
+   * feat: added support for client and frontend tokens to offline mode. Assume tokens passed in --tokens are client tokens
+* clean up tests to use the new interface
+* fix: Added client and frontend tokens to constructor
+* Updated CLI docs
+
+### Bug Fixes
+
+ - <csr-id-429ae00d3947b6158ad6cb5ddc9b4355946a9452/> allow offline mode to have either tokens or client-tokens set
+ - <csr-id-797fc490dd7dc605a3f65c57a13dad5aac6bad63/> Update to explicitly type RedisError.
+   Work around for Rust 2024 implementing Never type (!)
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 13 commits contributed to the release.
+ - 18 days passed between releases.
+ - 10 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 7 unique issues were worked on: [#465](https://github.com/Unleash/unleash-edge/issues/465), [#512](https://github.com/Unleash/unleash-edge/issues/512), [#513](https://github.com/Unleash/unleash-edge/issues/513), [#520](https://github.com/Unleash/unleash-edge/issues/520), [#531](https://github.com/Unleash/unleash-edge/issues/531), [#532](https://github.com/Unleash/unleash-edge/issues/532), [#535](https://github.com/Unleash/unleash-edge/issues/535)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#465](https://github.com/Unleash/unleash-edge/issues/465)**
+    - Added support for client and frontend tokens to offline mode. ([`b48604c`](https://github.com/Unleash/unleash-edge/commit/b48604c13c6733a1ce38ff29843391b4866a5506))
+ * **[#512](https://github.com/Unleash/unleash-edge/issues/512)**
+    - Update instruction to refer to docker command not tag ([`113d1ef`](https://github.com/Unleash/unleash-edge/commit/113d1ef7e8627df1e8c3f836c1f09d32092e748c))
+ * **[#513](https://github.com/Unleash/unleash-edge/issues/513)**
+    - Upgrade to actix 4.9, tokio 1.40, opentelemetry 0.24 ([`715e8e9`](https://github.com/Unleash/unleash-edge/commit/715e8e96eec0f62d1a95f9b8d7dc7ec374748a2d))
+ * **[#520](https://github.com/Unleash/unleash-edge/issues/520)**
+    - Verbose error for instance urls with api suffix ([`10d3854`](https://github.com/Unleash/unleash-edge/commit/10d3854daa473cb32c4536e0776900717c9f765b))
+ * **[#531](https://github.com/Unleash/unleash-edge/issues/531)**
+    - Update to explicitly type RedisError. ([`797fc49`](https://github.com/Unleash/unleash-edge/commit/797fc490dd7dc605a3f65c57a13dad5aac6bad63))
+ * **[#532](https://github.com/Unleash/unleash-edge/issues/532)**
+    - Added feature_toggle_usage_total counter ([`00aabbe`](https://github.com/Unleash/unleash-edge/commit/00aabbef3061e9f92144d454f31bac8f41764770))
+ * **[#535](https://github.com/Unleash/unleash-edge/issues/535)**
+    - Dependency maintenance ([`9e3d251`](https://github.com/Unleash/unleash-edge/commit/9e3d251ce4d653ad6437a7688512ba129af3a6e3))
+ * **Uncategorized**
+    - Release unleash-edge v19.4.1 ([`51ac539`](https://github.com/Unleash/unleash-edge/commit/51ac5390b364daa7297354d336528a30963e244c))
+    - Bump dependency status link ([`3db59d6`](https://github.com/Unleash/unleash-edge/commit/3db59d68ea0d5942099b9c7ca154d4e6489be338))
+    - Allow offline mode to have either tokens or client-tokens set ([`429ae00`](https://github.com/Unleash/unleash-edge/commit/429ae00d3947b6158ad6cb5ddc9b4355946a9452))
+    - Release unleash-edge v19.4.0 ([`6c85a6f`](https://github.com/Unleash/unleash-edge/commit/6c85a6f714d33a08dbc419cb1b7b1d6095b307ab))
+    - Update dependency link in README ([`12e84fe`](https://github.com/Unleash/unleash-edge/commit/12e84fe75cfa6b35900f1b54daad134148c68bf5))
+    - Update log message ([`87ca98f`](https://github.com/Unleash/unleash-edge/commit/87ca98f8d16702a5c9c82927008b91f909974894))
+</details>
+
+## 19.4.0 (2024-09-20)
+
+<csr-id-12e84fe75cfa6b35900f1b54daad134148c68bf5/>
+<csr-id-9e3d251ce4d653ad6437a7688512ba129af3a6e3/>
+<csr-id-87ca98f8d16702a5c9c82927008b91f909974894/>
+<csr-id-715e8e96eec0f62d1a95f9b8d7dc7ec374748a2d/>
+
+### Chore
+
+ - <csr-id-12e84fe75cfa6b35900f1b54daad134148c68bf5/> update dependency link in README
+ - <csr-id-9e3d251ce4d653ad6437a7688512ba129af3a6e3/> dependency maintenance
+ - <csr-id-87ca98f8d16702a5c9c82927008b91f909974894/> update log message
+ - <csr-id-715e8e96eec0f62d1a95f9b8d7dc7ec374748a2d/> Upgrade to actix 4.9, tokio 1.40, opentelemetry 0.24
+   * chore: bump to actix 4.9 and upgrade packages
+   
+   * chore: Upgrade Opentelemetry to 0.24
+
+### New Features
+
+<csr-id-00aabbef3061e9f92144d454f31bac8f41764770/>
+<csr-id-10d3854daa473cb32c4536e0776900717c9f765b/>
+
+ - <csr-id-b48604c13c6733a1ce38ff29843391b4866a5506/> added support for client and frontend tokens to offline mode.
+   * feat: added support for client and frontend tokens to offline mode. Assume tokens passed in --tokens are client tokens
+* clean up tests to use the new interface
+* fix: Added client and frontend tokens to constructor
+* Updated CLI docs
+
+### Bug Fixes
+
+ - <csr-id-797fc490dd7dc605a3f65c57a13dad5aac6bad63/> Update to explicitly type RedisError.
+   Work around for Rust 2024 implementing Never type (!)
+
+<csr-unknown>
+<csr-unknown>
+<csr-unknown>
+<csr-unknown>
+<csr-unknown>
+<csr-unknown>
+<csr-unknown>
+ added feature_toggle_usage_total counter verbose error for instance urls with api suffix<csr-unknown/>
+<csr-unknown/>
+<csr-unknown/>
+<csr-unknown/>
+<csr-unknown/>
+<csr-unknown/>
+<csr-unknown/>
+
 ## 19.3.1 (2024-09-03)
+
+<csr-id-933659b0461b8a53cb89caf0984963918fe82b04/>
+<csr-id-2caf90d454442b96acb3e3fb8a667cd8a12bb371/>
 
 ### Chore
 
@@ -20,21 +390,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - <csr-id-fb6de0945201fbb55b01c122722882188b4ff464/> update dependency pointer to planned release
  - <csr-id-249ef1fd64d8b2934c1af742f91cd222cede787b/> Restructure readme
    * Add prometheus endpoint
-   * Reformat binary list
-   * Add code formatting for shell commands
+* Reformat binary list
+* Add code formatting for shell commands
 
 ### Bug Fixes
 
  - <csr-id-20d270c183ec3bf8b13ca8926425f67935406b2a/> added PostContext handling properties and context as nested variants
    * chore: add some test cases to cement behavior
-   
-   ---------
 
 ### Commit Statistics
 
 <csr-read-only-do-not-edit/>
 
- - 5 commits contributed to the release.
+ - 6 commits contributed to the release.
+ - 43 days passed between releases.
  - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 3 unique issues were worked on: [#494](https://github.com/Unleash/unleash-edge/issues/494), [#507](https://github.com/Unleash/unleash-edge/issues/507), [#510](https://github.com/Unleash/unleash-edge/issues/510)
 
@@ -51,6 +420,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * **[#510](https://github.com/Unleash/unleash-edge/issues/510)**
     - Added PostContext handling properties and context as nested variants ([`20d270c`](https://github.com/Unleash/unleash-edge/commit/20d270c183ec3bf8b13ca8926425f67935406b2a))
  * **Uncategorized**
+    - Release unleash-edge v19.3.1 ([`3c04133`](https://github.com/Unleash/unleash-edge/commit/3c04133543242f262db480c57de07e12ee99b8cd))
     - Update dependency pointer to planned release ([`fb6de09`](https://github.com/Unleash/unleash-edge/commit/fb6de0945201fbb55b01c122722882188b4ff464))
     - Restructure readme ([`249ef1f`](https://github.com/Unleash/unleash-edge/commit/249ef1fd64d8b2934c1af742f91cd222cede787b))
 </details>
@@ -85,6 +455,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 7 commits contributed to the release.
+ - 9 days passed between releases.
  - 6 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 5 unique issues were worked on: [#479](https://github.com/Unleash/unleash-edge/issues/479), [#489](https://github.com/Unleash/unleash-edge/issues/489), [#490](https://github.com/Unleash/unleash-edge/issues/490), [#491](https://github.com/Unleash/unleash-edge/issues/491), [#492](https://github.com/Unleash/unleash-edge/issues/492)
 
@@ -125,6 +496,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
    ---------
  - <csr-id-4dc72f39adad96650516b02f8bfb3ad50fa39bab/> strict and dynamic mode
    ---------
+ - <csr-id-4dc72f39adad96650516b02f8bfb3ad50fa39bab/> strict and dynamic mode
+   ---------
+ - <csr-id-4dc72f39adad96650516b02f8bfb3ad50fa39bab/> strict and dynamic mode
+   ---------
+ - <csr-id-4dc72f39adad96650516b02f8bfb3ad50fa39bab/> strict and dynamic mode
+   ---------
+ - <csr-id-4dc72f39adad96650516b02f8bfb3ad50fa39bab/> strict and dynamic mode
+   ---------
+ - <csr-id-4dc72f39adad96650516b02f8bfb3ad50fa39bab/> strict and dynamic mode
+   ---------
+ - <csr-id-4dc72f39adad96650516b02f8bfb3ad50fa39bab/> strict and dynamic mode
+   ---------
+ - <csr-id-4dc72f39adad96650516b02f8bfb3ad50fa39bab/> strict and dynamic mode
+   ---------
+ - <csr-id-4dc72f39adad96650516b02f8bfb3ad50fa39bab/> strict and dynamic mode
+   ---------
 
 ### Bug Fixes
 
@@ -143,6 +530,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 5 commits contributed to the release.
+ - 8 days passed between releases.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#477](https://github.com/Unleash/unleash-edge/issues/477), [#478](https://github.com/Unleash/unleash-edge/issues/478)
 
@@ -206,6 +594,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 4 commits contributed to the release.
+ - 42 days passed between releases.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 3 unique issues were worked on: [#474](https://github.com/Unleash/unleash-edge/issues/474), [#475](https://github.com/Unleash/unleash-edge/issues/475), [#476](https://github.com/Unleash/unleash-edge/issues/476)
 
@@ -245,6 +634,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 4 commits contributed to the release.
+ - 8 days passed between releases.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#464](https://github.com/Unleash/unleash-edge/issues/464), [#466](https://github.com/Unleash/unleash-edge/issues/466)
 
@@ -311,6 +701,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 5 commits contributed to the release.
+ - 5 days passed between releases.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#413](https://github.com/Unleash/unleash-edge/issues/413), [#461](https://github.com/Unleash/unleash-edge/issues/461)
 
@@ -348,6 +739,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 5 commits contributed to the release.
+ - 11 days passed between releases.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 4 unique issues were worked on: [#452](https://github.com/Unleash/unleash-edge/issues/452), [#453](https://github.com/Unleash/unleash-edge/issues/453), [#456](https://github.com/Unleash/unleash-edge/issues/456), [#457](https://github.com/Unleash/unleash-edge/issues/457)
 
@@ -382,6 +774,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 3 commits contributed to the release.
+ - 42 days passed between releases.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#446](https://github.com/Unleash/unleash-edge/issues/446), [#449](https://github.com/Unleash/unleash-edge/issues/449)
 
@@ -449,6 +842,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 5 commits contributed to the release.
+ - 13 days passed between releases.
  - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 4 unique issues were worked on: [#428](https://github.com/Unleash/unleash-edge/issues/428), [#441](https://github.com/Unleash/unleash-edge/issues/441), [#443](https://github.com/Unleash/unleash-edge/issues/443), [#445](https://github.com/Unleash/unleash-edge/issues/445)
 
@@ -517,6 +911,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 14 commits contributed to the release.
+ - 36 days passed between releases.
  - 13 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 12 unique issues were worked on: [#405](https://github.com/Unleash/unleash-edge/issues/405), [#408](https://github.com/Unleash/unleash-edge/issues/408), [#409](https://github.com/Unleash/unleash-edge/issues/409), [#411](https://github.com/Unleash/unleash-edge/issues/411), [#414](https://github.com/Unleash/unleash-edge/issues/414), [#417](https://github.com/Unleash/unleash-edge/issues/417), [#420](https://github.com/Unleash/unleash-edge/issues/420), [#421](https://github.com/Unleash/unleash-edge/issues/421), [#422](https://github.com/Unleash/unleash-edge/issues/422), [#426](https://github.com/Unleash/unleash-edge/issues/426), [#435](https://github.com/Unleash/unleash-edge/issues/435), [#437](https://github.com/Unleash/unleash-edge/issues/437)
 
@@ -580,6 +975,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 6 commits contributed to the release.
+ - 8 days passed between releases.
  - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 4 unique issues were worked on: [#392](https://github.com/Unleash/unleash-edge/issues/392), [#395](https://github.com/Unleash/unleash-edge/issues/395), [#399](https://github.com/Unleash/unleash-edge/issues/399), [#403](https://github.com/Unleash/unleash-edge/issues/403)
 
@@ -653,6 +1049,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 26 commits contributed to the release.
+ - 26 days passed between releases.
  - 23 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 22 unique issues were worked on: [#356](https://github.com/Unleash/unleash-edge/issues/356), [#364](https://github.com/Unleash/unleash-edge/issues/364), [#368](https://github.com/Unleash/unleash-edge/issues/368), [#369](https://github.com/Unleash/unleash-edge/issues/369), [#372](https://github.com/Unleash/unleash-edge/issues/372), [#373](https://github.com/Unleash/unleash-edge/issues/373), [#374](https://github.com/Unleash/unleash-edge/issues/374), [#375](https://github.com/Unleash/unleash-edge/issues/375), [#376](https://github.com/Unleash/unleash-edge/issues/376), [#377](https://github.com/Unleash/unleash-edge/issues/377), [#378](https://github.com/Unleash/unleash-edge/issues/378), [#379](https://github.com/Unleash/unleash-edge/issues/379), [#380](https://github.com/Unleash/unleash-edge/issues/380), [#381](https://github.com/Unleash/unleash-edge/issues/381), [#382](https://github.com/Unleash/unleash-edge/issues/382), [#383](https://github.com/Unleash/unleash-edge/issues/383), [#384](https://github.com/Unleash/unleash-edge/issues/384), [#385](https://github.com/Unleash/unleash-edge/issues/385), [#386](https://github.com/Unleash/unleash-edge/issues/386), [#387](https://github.com/Unleash/unleash-edge/issues/387), [#388](https://github.com/Unleash/unleash-edge/issues/388), [#389](https://github.com/Unleash/unleash-edge/issues/389)
 
@@ -741,6 +1138,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 7 commits contributed to the release.
+ - 19 days passed between releases.
  - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 5 unique issues were worked on: [#345](https://github.com/Unleash/unleash-edge/issues/345), [#346](https://github.com/Unleash/unleash-edge/issues/346), [#360](https://github.com/Unleash/unleash-edge/issues/360), [#362](https://github.com/Unleash/unleash-edge/issues/362), [#363](https://github.com/Unleash/unleash-edge/issues/363)
 
@@ -795,6 +1193,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 7 commits contributed to the release.
+ - 6 days passed between releases.
  - 6 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 5 unique issues were worked on: [#339](https://github.com/Unleash/unleash-edge/issues/339), [#347](https://github.com/Unleash/unleash-edge/issues/347), [#350](https://github.com/Unleash/unleash-edge/issues/350), [#351](https://github.com/Unleash/unleash-edge/issues/351), [#354](https://github.com/Unleash/unleash-edge/issues/354)
 
@@ -857,6 +1256,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 2 commits contributed to the release.
+ - 9 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#342](https://github.com/Unleash/unleash-edge/issues/342)
 
@@ -883,6 +1283,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 2 commits contributed to the release.
+ - 4 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#337](https://github.com/Unleash/unleash-edge/issues/337)
 
@@ -910,6 +1311,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 2 commits contributed to the release.
+ - 7 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#330](https://github.com/Unleash/unleash-edge/issues/330)
 
@@ -988,6 +1390,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 3 commits contributed to the release.
+ - 1 day passed between releases.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#322](https://github.com/Unleash/unleash-edge/issues/322)
 
@@ -1033,6 +1436,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 9 commits contributed to the release.
+ - 14 days passed between releases.
  - 7 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 3 unique issues were worked on: [#292](https://github.com/Unleash/unleash-edge/issues/292), [#313](https://github.com/Unleash/unleash-edge/issues/313), [#319](https://github.com/Unleash/unleash-edge/issues/319)
 
@@ -1092,6 +1496,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 3 commits contributed to the release.
+ - 3 days passed between releases.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#304](https://github.com/Unleash/unleash-edge/issues/304), [#305](https://github.com/Unleash/unleash-edge/issues/305)
 
@@ -1122,6 +1527,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 2 commits contributed to the release.
+ - 1 day passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#302](https://github.com/Unleash/unleash-edge/issues/302)
 
@@ -1158,6 +1564,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 6 commits contributed to the release.
+ - 12 days passed between releases.
  - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 5 unique issues were worked on: [#189](https://github.com/Unleash/unleash-edge/issues/189), [#281](https://github.com/Unleash/unleash-edge/issues/281), [#287](https://github.com/Unleash/unleash-edge/issues/287), [#288](https://github.com/Unleash/unleash-edge/issues/288), [#300](https://github.com/Unleash/unleash-edge/issues/300)
 
@@ -1209,6 +1616,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 6 commits contributed to the release.
+ - 9 days passed between releases.
  - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 3 unique issues were worked on: [#254](https://github.com/Unleash/unleash-edge/issues/254), [#275](https://github.com/Unleash/unleash-edge/issues/275), [#283](https://github.com/Unleash/unleash-edge/issues/283)
 
@@ -1250,6 +1658,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 4 commits contributed to the release.
+ - 4 days passed between releases.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#267](https://github.com/Unleash/unleash-edge/issues/267), [#270](https://github.com/Unleash/unleash-edge/issues/270)
 
@@ -1341,6 +1750,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 6 commits contributed to the release.
+ - 5 days passed between releases.
  - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 5 unique issues were worked on: [#245](https://github.com/Unleash/unleash-edge/issues/245), [#250](https://github.com/Unleash/unleash-edge/issues/250), [#252](https://github.com/Unleash/unleash-edge/issues/252), [#253](https://github.com/Unleash/unleash-edge/issues/253), [#262](https://github.com/Unleash/unleash-edge/issues/262)
 
@@ -1379,6 +1789,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 3 commits contributed to the release.
+ - 15 days passed between releases.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#241](https://github.com/Unleash/unleash-edge/issues/241), [#242](https://github.com/Unleash/unleash-edge/issues/242)
 
@@ -1413,6 +1824,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 3 commits contributed to the release.
+ - 26 days passed between releases.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#237](https://github.com/Unleash/unleash-edge/issues/237), [#238](https://github.com/Unleash/unleash-edge/issues/238)
 
@@ -1445,6 +1857,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 3 commits contributed to the release.
+ - 14 days passed between releases.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#231](https://github.com/Unleash/unleash-edge/issues/231)
 
@@ -1478,6 +1891,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 3 commits contributed to the release.
+ - 14 days passed between releases.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#228](https://github.com/Unleash/unleash-edge/issues/228)
 
@@ -1517,6 +1931,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 6 commits contributed to the release.
+ - 5 days passed between releases.
  - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 3 unique issues were worked on: [#218](https://github.com/Unleash/unleash-edge/issues/218), [#220](https://github.com/Unleash/unleash-edge/issues/220), [#221](https://github.com/Unleash/unleash-edge/issues/221)
 
@@ -1551,6 +1966,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 2 commits contributed to the release.
+ - 10 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#215](https://github.com/Unleash/unleash-edge/issues/215)
 
@@ -1592,6 +2008,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 7 commits contributed to the release.
+ - 5 days passed between releases.
  - 6 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 3 unique issues were worked on: [#206](https://github.com/Unleash/unleash-edge/issues/206), [#208](https://github.com/Unleash/unleash-edge/issues/208), [#210](https://github.com/Unleash/unleash-edge/issues/210)
 
@@ -1643,6 +2060,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 8 commits contributed to the release.
+ - 5 days passed between releases.
  - 6 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 6 unique issues were worked on: [#194](https://github.com/Unleash/unleash-edge/issues/194), [#201](https://github.com/Unleash/unleash-edge/issues/201), [#202](https://github.com/Unleash/unleash-edge/issues/202), [#203](https://github.com/Unleash/unleash-edge/issues/203), [#204](https://github.com/Unleash/unleash-edge/issues/204), [#205](https://github.com/Unleash/unleash-edge/issues/205)
 
@@ -1680,6 +2098,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 2 commits contributed to the release.
+ - 2 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#197](https://github.com/Unleash/unleash-edge/issues/197)
 
@@ -1706,6 +2125,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 2 commits contributed to the release.
+ - 6 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#196](https://github.com/Unleash/unleash-edge/issues/196)
 
@@ -1737,6 +2157,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 2 commits contributed to the release.
+ - 5 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#191](https://github.com/Unleash/unleash-edge/issues/191)
 
@@ -1791,6 +2212,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 2 commits contributed to the release.
+ - 4 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#187](https://github.com/Unleash/unleash-edge/issues/187)
 
@@ -1821,6 +2243,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 3 commits contributed to the release.
+ - 1 day passed between releases.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#184](https://github.com/Unleash/unleash-edge/issues/184), [#185](https://github.com/Unleash/unleash-edge/issues/185)
 
@@ -1859,6 +2282,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 4 commits contributed to the release.
+ - 6 days passed between releases.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#171](https://github.com/Unleash/unleash-edge/issues/171), [#182](https://github.com/Unleash/unleash-edge/issues/182)
 
@@ -1892,6 +2316,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 3 commits contributed to the release.
+ - 2 days passed between releases.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#176](https://github.com/Unleash/unleash-edge/issues/176)
 
@@ -1931,6 +2356,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 3 commits contributed to the release.
+ - 11 days passed between releases.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#174](https://github.com/Unleash/unleash-edge/issues/174)
 
@@ -1964,6 +2390,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 4 commits contributed to the release.
+ - 1 day passed between releases.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#140](https://github.com/Unleash/unleash-edge/issues/140), [#164](https://github.com/Unleash/unleash-edge/issues/164)
 
@@ -1993,6 +2420,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 2 commits contributed to the release.
+ - 1 day passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#160](https://github.com/Unleash/unleash-edge/issues/160)
 
@@ -2019,6 +2447,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 2 commits contributed to the release.
+ - 2 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#157](https://github.com/Unleash/unleash-edge/issues/157)
 
@@ -2048,6 +2477,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 2 commits contributed to the release.
+ - 1 day passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#156](https://github.com/Unleash/unleash-edge/issues/156)
 
@@ -2096,6 +2526,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 7 commits contributed to the release.
+ - 1 day passed between releases.
  - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#151](https://github.com/Unleash/unleash-edge/issues/151), [#154](https://github.com/Unleash/unleash-edge/issues/154)
 
@@ -2137,6 +2568,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 5 commits contributed to the release.
+ - 13 days passed between releases.
  - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 3 unique issues were worked on: [#141](https://github.com/Unleash/unleash-edge/issues/141), [#147](https://github.com/Unleash/unleash-edge/issues/147), [#149](https://github.com/Unleash/unleash-edge/issues/149)
 
@@ -2225,6 +2657,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 6 commits contributed to the release.
+ - 5 days passed between releases.
  - 5 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 5 unique issues were worked on: [#117](https://github.com/Unleash/unleash-edge/issues/117), [#121](https://github.com/Unleash/unleash-edge/issues/121), [#122](https://github.com/Unleash/unleash-edge/issues/122), [#127](https://github.com/Unleash/unleash-edge/issues/127), [#135](https://github.com/Unleash/unleash-edge/issues/135)
 
@@ -2262,6 +2695,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 2 commits contributed to the release.
+ - 2 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#120](https://github.com/Unleash/unleash-edge/issues/120)
 
@@ -2313,6 +2747,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 7 commits contributed to the release.
+ - 4 days passed between releases.
  - 6 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 5 unique issues were worked on: [#110](https://github.com/Unleash/unleash-edge/issues/110), [#111](https://github.com/Unleash/unleash-edge/issues/111), [#112](https://github.com/Unleash/unleash-edge/issues/112), [#113](https://github.com/Unleash/unleash-edge/issues/113), [#116](https://github.com/Unleash/unleash-edge/issues/116)
 
@@ -2406,6 +2841,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 8 commits contributed to the release.
+ - 6 days passed between releases.
  - 7 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 7 unique issues were worked on: [#102](https://github.com/Unleash/unleash-edge/issues/102), [#103](https://github.com/Unleash/unleash-edge/issues/103), [#105](https://github.com/Unleash/unleash-edge/issues/105), [#106](https://github.com/Unleash/unleash-edge/issues/106), [#107](https://github.com/Unleash/unleash-edge/issues/107), [#108](https://github.com/Unleash/unleash-edge/issues/108), [#109](https://github.com/Unleash/unleash-edge/issues/109)
 
@@ -2591,6 +3027,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 4 commits contributed to the release.
+ - 6 days passed between releases.
  - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 1 unique issue was worked on: [#95](https://github.com/Unleash/unleash-edge/issues/95)
 
@@ -2643,6 +3080,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 11 commits contributed to the release.
+ - 4 days passed between releases.
  - 9 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 6 unique issues were worked on: [#76](https://github.com/Unleash/unleash-edge/issues/76), [#77](https://github.com/Unleash/unleash-edge/issues/77), [#78](https://github.com/Unleash/unleash-edge/issues/78), [#79](https://github.com/Unleash/unleash-edge/issues/79), [#81](https://github.com/Unleash/unleash-edge/issues/81), [#83](https://github.com/Unleash/unleash-edge/issues/83)
 
@@ -2687,6 +3125,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 3 commits contributed to the release.
+ - 1 day passed between releases.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 2 unique issues were worked on: [#74](https://github.com/Unleash/unleash-edge/issues/74), [#75](https://github.com/Unleash/unleash-edge/issues/75)
 
@@ -2728,6 +3167,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 8 commits contributed to the release.
+ - 8 days passed between releases.
  - 6 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 7 unique issues were worked on: [#63](https://github.com/Unleash/unleash-edge/issues/63), [#64](https://github.com/Unleash/unleash-edge/issues/64), [#65](https://github.com/Unleash/unleash-edge/issues/65), [#66](https://github.com/Unleash/unleash-edge/issues/66), [#67](https://github.com/Unleash/unleash-edge/issues/67), [#68](https://github.com/Unleash/unleash-edge/issues/68), [#72](https://github.com/Unleash/unleash-edge/issues/72)
 

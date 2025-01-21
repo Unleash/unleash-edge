@@ -1,29 +1,31 @@
 ---
 name: Run tests with coverage on code
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches:
       - main
     paths:
-      - '**.rs'
-      - '**.toml'
+      - "**.rs"
+      - "**.toml"
   pull_request:
     branches:
       - main
-    paths:
-      - '**.rs'
-      - '**.toml'
-
 jobs:
   tarpaulin:
     runs-on: ubuntu-latest
     name: Run test coverage using Tarpaulin
-    env: 
+    env:
       CARGO_TERM_COLOR: always
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Install rust
         run: |
           rustup set auto-self-update disable
@@ -37,4 +39,3 @@ jobs:
       - name: Run Tarpaulin (Reporting to coveralls)
         run: |
           cargo tarpaulin --all-features --coveralls ${{ secrets.COVERALLS_KEY }} --skip-clean
-        

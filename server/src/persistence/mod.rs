@@ -1,14 +1,15 @@
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
+use crate::feature_cache::FeatureCache;
+use crate::types::{EdgeResult, EdgeToken, TokenValidationStatus};
 use async_trait::async_trait;
 use dashmap::DashMap;
 use tracing::{debug, warn};
 use unleash_types::client_features::ClientFeatures;
 
-use crate::types::{EdgeResult, EdgeToken, TokenValidationStatus};
-
 pub mod file;
 pub mod redis;
+pub mod s3;
 
 #[async_trait]
 pub trait EdgePersistence: Send + Sync {
@@ -22,7 +23,7 @@ pub trait EdgePersistence: Send + Sync {
 pub async fn persist_data(
     persistence: Option<Arc<dyn EdgePersistence>>,
     token_cache: Arc<DashMap<String, EdgeToken>>,
-    features_cache: Arc<DashMap<String, ClientFeatures>>,
+    features_cache: Arc<FeatureCache>,
 ) {
     loop {
         tokio::select! {
@@ -62,10 +63,7 @@ async fn save_known_tokens(
     }
 }
 
-async fn save_features(
-    features_cache: &Arc<DashMap<String, ClientFeatures>>,
-    persister: &Arc<dyn EdgePersistence>,
-) {
+async fn save_features(features_cache: &FeatureCache, persister: &Arc<dyn EdgePersistence>) {
     if !features_cache.is_empty() {
         match persister
             .save_features(
@@ -118,7 +116,7 @@ pub mod tests {
         let cache: DashMap<String, ClientFeatures> = DashMap::new();
         let persister = build_mock_persistence();
 
-        save_features(&Arc::new(cache), &persister.clone()).await;
+        save_features(&Arc::new(FeatureCache::new(cache)), &persister.clone()).await;
     }
 
     #[tokio::test]

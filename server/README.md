@@ -3,32 +3,10 @@
 [![crates.io](https://img.shields.io/crates/v/unleash-edge?label=latest)](https://crates.io/crates/unleash-edge)
 [![Documentation](https://docs.rs/unleash-edge/badge.svg?version=latest)](https://docs.rs/unleash-edge/latest)
 ![MIT licensed](https://img.shields.io/crates/l/unleash-edge.svg)
-[![Dependency Status](https://deps.rs/crate/unleash-edge/19.3.1/status.svg)](https://deps.rs/crate/unleash-edge/19.3.1)
+[![Dependency Status](https://deps.rs/crate/unleash-edge/19.6.3/status.svg)](https://deps.rs/crate/unleash-edge/19.6.3)
 [![CI](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml/badge.svg)](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml)
 [![Coverage Status](https://coveralls.io/repos/github/Unleash/unleash-edge/badge.svg?branch=main)](https://coveralls.io/github/Unleash/unleash-edge?branch=main)
 ![downloads](https://img.shields.io/crates/d/unleash-edge.svg)
-
-- [Overview](#overview)
-- [Quickstart](#quickstart)
-- [Edge behaviors](#edge-behaviors)
-  - [Strict behavior](#strict-behavior)
-  - [Dynamic behavior](#dynamic-behavior)
-- [Getting Unleash Edge](#getting-unleash-edge)
-- [Running Unleash Edge](#running-unleash-edge)
-- [Metrics](#metrics)
-  - [Prometheus integration](#prometheus-integration)
-- [Compatibility](#compatibility)
-- [Debugging](#debugging)
-- [Additional resources](#additional-resources)
-  - [Edge concepts](#edge-concepts)
-  - [CLI](#cli)
-  - [Deploying Edge](#deploying-edge)
-  - [Migrating from Unleash Proxy](#migrating-from-unleash-proxy)
-  - [Performance benchmarking](#performance-benchmarking)
-  - [Contribution and development guide](#contribution-and-development-guide)
-
-
-> Availability: Unleash v4.15+.
 
 ## Overview
 
@@ -55,8 +33,20 @@ Our recommended approach is to bootstrap Edge with a client API token and upstre
 To run Edge in Docker:
 
 ```shell
-docker run -it -p 3063:3063 -e STRICT=true -e UPSTREAM_URL=<your_unleash_instance> -e TOKENS=<your_client_token> unleashorg/unleash-edge:<mostrecentversion> edge
+docker run -it -p 3063:3063 -e STRICT=true -e UPSTREAM_URL=<your_unleash_instance> -e TOKENS=<your_client_token> unleashorg/unleash-edge:<version> edge
 ```
+
+For example:
+
+```shell
+docker run -it -p 3063:3063 -e STRICT=true -e UPSTREAM_URL=https://app.unleash-hosted.com/testclient -e TOKENS='*:development.4a798ad11cde8c0e637ff19f3287683ebc21d23d607c641f2dd79daa54' unleashorg/unleash-edge:v19.6.2 edge
+```
+
+## Versioning and availability
+
+Unleash Edge is versioned and released independently of [Unleash](https://github.com/Unleash/unleash). To use Unleash Edge, you need Unleash version 4.15 or later. We recommend using the latest versions of Unleash and Unleash Edge to ensure optimal performance and access to the latest features and security updates.
+
+Unleash Edge does not have full feature parity with Unleash. Some features, such as filtering feature flags by tags, is not supported.
 
 ## Edge behaviors
 
@@ -107,6 +97,22 @@ To run Edge in **offline** mode, use the command `offline` and provide a volume 
 docker run -v ./examples:/edge/data -p 3063:3063 -e BOOTSTRAP_FILE=/edge/data/features.json -e TOKENS=<your_client_token_1,your_client_token_2> unleashorg/unleash-edge:<version> offline
 ```
 
+### Client and frontend tokens in offline mode
+
+> Availability: Unleash Edge v19.4+
+
+Offline mode supports multiple [token types](https://docs.getunleash.io/reference/api-tokens-and-client-keys).
+
+For [client tokens](https://docs.getunleash.io/reference/api-tokens-and-client-keys#client-tokens), use:
+- `CLIENT_TOKENS` or `TOKENS` environment variables
+- `--client-tokens` or `--tokens` CLI flags
+
+For [frontend tokens](https://docs.getunleash.io/reference/api-tokens-and-client-keys#front-end-tokens), use:
+- `FRONTEND_TOKENS` environment variable
+- `--frontend-tokens` CLI flag
+
+When configured this way, Edge in offline mode can validate tokens and tell daisy-chained Edges instances the type of token calling the validate endpoint.
+
 ## Metrics
 
 > Availability: Unleash v5.9+. For daisy-chaining, ensure Edge v17+ is upstream of any Edge v19+ to preserve metrics.
@@ -126,6 +132,13 @@ To monitor the health and performance of your Edge instances, you can consume Pr
 Unleash Edge adheres to Semantic Versioning (SemVer) on the API and CLI layers. If you're using Unleash Edge as a library in your projects, note that internal changes could affect your implementation, even in minor or patch versions.
 
 ## Debugging
+
+You can view the internal state of Edge at:
+
+- `http://<your-edge-url>/internal-backstage/tokens`: Displays the tokens known to Edge.
+- `http://<your-edge-url>/internal-backstage/features`: Shows the current state of features.
+
+Note: The `/internal-backstage/*` endpoints should not be publicly accessible.
 
 To enable verbose logging, adjust the `RUST_LOG` environment variable. For example, to see logs originating directly from Edge but not its dependencies, you can raise the default log level from `error` to `warning` and set Edge to `debug`, like this:
 

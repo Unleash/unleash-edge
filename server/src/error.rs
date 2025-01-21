@@ -2,8 +2,10 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use actix_web::{http::StatusCode, HttpResponseBuilder, ResponseError};
+use actix_web_lab::sse::Event;
 use serde::Serialize;
 use serde_json::json;
+use tokio::sync::mpsc::error::SendError;
 use tracing::debug;
 
 use crate::types::{EdgeToken, Status, UnleashBadRequest};
@@ -95,27 +97,29 @@ pub enum EdgeError {
     ClientFeaturesParseError(String),
     ClientHydrationFailed(String),
     ClientRegisterError,
-    FrontendNotYetHydrated(FrontendHydrationMissing),
-    FrontendExpectedToBeHydrated(String),
-    FeatureNotFound(String),
-    PersistenceError(String),
+    ContextParseError,
     EdgeMetricsError,
     EdgeMetricsRequestError(reqwest::StatusCode, Option<UnleashBadRequest>),
     EdgeTokenError,
     EdgeTokenParseError,
+    FeatureNotFound(String),
+    Forbidden(String),
+    FrontendExpectedToBeHydrated(String),
+    FrontendNotYetHydrated(FrontendHydrationMissing),
+    HealthCheckError(String),
     InvalidBackupFile(String, String),
     InvalidServerUrl(String),
     InvalidTokenWithStrictBehavior,
-    HealthCheckError(String),
     JsonParseError(String),
     NoFeaturesFile,
     NoTokenProvider,
     NoTokens(String),
     NotReady,
+    PersistenceError(String),
     ReadyCheckError(String),
+    SseError(String),
     TlsError,
     TokenParseError(String),
-    ContextParseError,
     TokenValidationError(reqwest::StatusCode),
 }
 
@@ -208,6 +212,8 @@ impl Display for EdgeError {
                 write!(f, "Edge is not ready to serve requests")
             }
             EdgeError::InvalidTokenWithStrictBehavior => write!(f, "Edge is running with strict behavior and the token is not subsumed by any registered tokens"),
+            EdgeError::SseError(message) => write!(f, "{}", message),
+            EdgeError::Forbidden(reason) => write!(f, "{}", reason),
         }
     }
 }
@@ -248,6 +254,8 @@ impl ResponseError for EdgeError {
             EdgeError::FrontendExpectedToBeHydrated(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::NotReady => StatusCode::SERVICE_UNAVAILABLE,
             EdgeError::InvalidTokenWithStrictBehavior => StatusCode::FORBIDDEN,
+            EdgeError::SseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            EdgeError::Forbidden(_) => StatusCode::FORBIDDEN,
         }
     }
 
@@ -288,6 +296,12 @@ impl ResponseError for EdgeError {
 impl From<serde_json::Error> for EdgeError {
     fn from(value: serde_json::Error) -> Self {
         EdgeError::JsonParseError(value.to_string())
+    }
+}
+
+impl From<SendError<Event>> for EdgeError {
+    fn from(value: SendError<Event>) -> Self {
+        EdgeError::SseError(value.to_string())
     }
 }
 

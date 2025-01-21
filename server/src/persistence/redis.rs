@@ -17,7 +17,6 @@ use super::EdgePersistence;
 
 pub const FEATURES_KEY: &str = "unleash-features";
 pub const TOKENS_KEY: &str = "unleash-tokens";
-pub const REFRESH_TARGETS_KEY: &str = "unleash-refresh-targets";
 
 impl From<RedisError> for EdgeError {
     fn from(err: RedisError) -> Self {

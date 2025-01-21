@@ -1,6 +1,8 @@
 ---
 name: Build docker image for aarch64 (ECR)
-
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 on:
   push:
     branches:
@@ -11,6 +13,8 @@ on:
       - ".github/workflows/docker_ecr_arch64.yaml"
     tags:
       - unleash-edge-v[0-9]+.*
+  workflow_dispatch:
+
 permissions:
   id-token: write
   contents: read
@@ -20,23 +24,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Install rust
-        run: |
-          rustup set auto-self-update disable
-          rustup toolchain install stable --profile default
-          rustup show
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          prefix-key: "rust-v0-gnu"
-      - name: Install cross (cross compile)
-        run: |
-          cargo install cross
-      - name: Build release
-        run: |
-          cross build --release --target=aarch64-unknown-linux-gnu
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
+        if: github.event_name != 'pull_request'
         with:
           role-to-assume: arn:aws:iam::726824350591:role/unleash-github-ecr-private-publish-role
           role-session-name: actions-push-to-ecr-private
@@ -44,6 +34,7 @@ jobs:
       - name: Login to ECR
         id: login-ecr-eu-north
         uses: aws-actions/amazon-ecr-login@v2
+        if: github.event_name != 'pull_request'
       - name: Setup docker buildx
         uses: docker/setup-buildx-action@v3
       - name: Docker meta configuration (set image and tag)
@@ -62,11 +53,15 @@ jobs:
         with:
           context: .
           platforms: linux/arm64
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
           labels: ${{ steps.meta.outputs.labels }}
           tags: ${{ steps.meta.outputs.tags }}
+          cache-from: "type=gha,scope=build-linux-arm64-ecr"
+          cache-to: "type=gha,scope=build-linux-arm64-ecr"
+
   notifypipeline:
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
     timeout-minutes: 5
     needs: docker
     steps:

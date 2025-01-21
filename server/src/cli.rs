@@ -44,6 +44,14 @@ impl Display for RedisScheme {
         }
     }
 }
+
+#[derive(Args, Debug, Clone)]
+pub struct S3Args {
+    /// Bucket name to use for storing feature and token data
+    #[clap(long, env)]
+    pub s3_bucket_name: Option<String>,
+}
+
 #[derive(Copy, Debug, Clone, Eq, PartialEq, PartialOrd, Ord, ValueEnum)]
 pub enum RedisMode {
     Single,
@@ -128,10 +136,15 @@ pub struct ClientIdentity {
     pub pkcs12_passphrase: Option<String>,
 }
 
+pub enum PromAuth {
+    None,
+    Basic(String, String),
+}
+
 #[derive(Args, Debug, Clone)]
 #[command(group(
     ArgGroup::new("data-provider")
-        .args(["redis_url", "backup_folder"]),
+        .args(["redis_url", "backup_folder", "s3_bucket_name"]),
 ))]
 pub struct EdgeArgs {
     /// Where is your upstream URL. Remember, this is the URL to your instance, without any trailing /api suffix
@@ -180,9 +193,13 @@ pub struct EdgeArgs {
     #[clap(long, env, default_value_t = 5)]
     pub upstream_socket_timeout: i64,
 
-    /// A URL pointing to a running Redis instance. Edge will use this instance to persist feature and token data and read this back after restart. Mutually exclusive with the --backup-folder option
+    /// A URL pointing to a running Redis instance. Edge will use this instance to persist feature and token data and read this back after restart. Mutually exclusive with the --backup-folder and --s3-bucket options
     #[clap(flatten)]
     pub redis: Option<RedisArgs>,
+
+    /// Configuration for S3 storage. Edge will use this instance to persist feature and token data and read this back after restart. Mutually exclusive with the --redis-url and --backup-folder options
+    #[clap(flatten)]
+    pub s3: Option<S3Args>,
 
     /// Token header to use for both edge authorization and communication with the upstream server.
     #[clap(long, env, global = true, default_value = "Authorization")]
@@ -195,6 +212,35 @@ pub struct EdgeArgs {
     /// If set to true, Edge starts with dynamic behavior. Dynamic behavior means that Edge will accept tokens outside the scope of the startup tokens
     #[clap(long, env, default_value_t = false, conflicts_with = "strict")]
     pub dynamic: bool,
+
+    /// If set to true, Edge connects to upstream using streaming instead of polling. Requires strict mode
+    #[clap(long, env, default_value_t = false, requires = "strict")]
+    pub streaming: bool,
+
+    /// If set to true, Edge connects to upstream using delta polling instead of normal polling. This is experimental feature and might and change. Requires strict mode
+    #[clap(long, env, default_value_t = false, requires = "strict")]
+    pub delta: bool,
+
+    /// If set to true, it compares features payload with delta payload and logs diff. This is experimental feature and might change.
+    #[clap(long, env, default_value_t = false, conflicts_with = "delta")]
+    pub delta_diff: bool,
+
+    /// Sets a remote write url for prometheus metrics, if this is set, prometheus metrics will be written upstream
+    #[clap(long, env)]
+    pub prometheus_remote_write_url: Option<String>,
+
+    /// Sets the interval for prometheus push metrics, only relevant if `prometheus_remote_write_url` is set. Defaults to 60 seconds
+    #[clap(long, env, default_value_t = 60)]
+    pub prometheus_push_interval: u64,
+
+    #[clap(long, env)]
+    pub prometheus_username: Option<String>,
+
+    #[clap(long, env)]
+    pub prometheus_password: Option<String>,
+
+    #[clap(long, env)]
+    pub prometheus_user_id: Option<String>,
 }
 
 pub fn string_to_header_tuple(s: &str) -> Result<(String, String), String> {
@@ -219,8 +265,15 @@ pub struct OfflineArgs {
     #[clap(short, long, env)]
     pub bootstrap_file: Option<PathBuf>,
     /// Tokens that should be allowed to connect to Edge. Supports a comma separated list or multiple instances of the `--tokens` argument
+    /// (v19.4.0) deprecated "Please use --client-tokens | CLIENT_TOKENS instead"
     #[clap(short, long, env, value_delimiter = ',')]
     pub tokens: Vec<String>,
+    /// Client tokens that should be allowed to connect to Edge. Supports a comma separated list or multiple instances of the `--client-tokens` argument
+    #[clap(short, long, env, value_delimiter = ',')]
+    pub client_tokens: Vec<String>,
+    /// Frontend tokens that should be allowed to connect to Edge. Supports a comma separated list or multiple instances of the `--frontend-tokens` argument
+    #[clap(short, long, env, value_delimiter = ',')]
+    pub frontend_tokens: Vec<String>,
     /// The interval in seconds between reloading the bootstrap file. Disabled if unset or 0
     #[clap(short, long, env, default_value_t = 0)]
     pub reload_interval: u64,
@@ -235,6 +288,30 @@ pub struct HealthCheckArgs {
     /// If you're hosting Edge using a self-signed TLS certificate use this to tell healthcheck about your CA
     #[clap(short, long, env)]
     pub ca_certificate_file: Option<PathBuf>,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct InternalBackstageArgs {
+    /// Disables /internal-backstage/metricsbatch endpoint
+    ///
+    /// This endpoint shows the current cached client metrics
+    #[clap(long, env, global = true)]
+    pub disable_metrics_batch_endpoint: bool,
+    /// Disables /internal-backstage/metrics endpoint
+    ///
+    /// Typically used for prometheus scraping metrics.
+    #[clap(long, env, global = true)]
+    pub disable_metrics_endpoint: bool,
+    /// Disables /internal-backstage/features endpoint
+    ///
+    /// Used to show current cached features across environments
+    #[clap(long, env, global = true)]
+    pub disable_features_endpoint: bool,
+    /// Disables /internal-backstage/tokens endpoint
+    ///
+    /// Used to show tokens used to refresh feature caches, but also tokens already validated/invalidated against upstream
+    #[clap(long, env, global = true)]
+    pub disable_tokens_endpoint: bool,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -280,7 +357,7 @@ pub struct CliArgs {
     pub mode: EdgeMode,
 
     /// Instance id. Used for metrics reporting.
-    #[clap(long, env, default_value_t = ulid::Ulid::new().to_string())]
+    #[clap(long, env, default_value_t = format!("unleash-edge@{}", ulid::Ulid::new()))]
     pub instance_id: String,
 
     /// App name. Used for metrics reporting.
@@ -302,6 +379,10 @@ pub struct CliArgs {
     #[clap(long, env, default_value_t = 5)]
     pub edge_request_timeout: u64,
 
+    /// Keepalive timeout for requests to Edge
+    #[clap(long, env, default_value_t = 5)]
+    pub edge_keepalive_timeout: u64,
+
     /// Which log format should Edge use
     #[clap(short, long, env, global = true, value_enum, default_value_t = LogFormat::Plain)]
     pub log_format: LogFormat,
@@ -309,6 +390,9 @@ pub struct CliArgs {
     /// token header to use for edge authorization.
     #[clap(long, env, global = true, default_value = "Authorization")]
     pub token_header: TokenHeader,
+
+    #[clap(flatten)]
+    pub internal_backstage: InternalBackstageArgs,
 }
 
 #[derive(Args, Debug, Clone)]
