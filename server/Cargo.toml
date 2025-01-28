@@ -34,8 +34,8 @@ actix-web-lab = { version = "0.23.0" }
 ahash = "0.8.11"
 anyhow = "1.0.95"
 async-trait = "0.1.85"
-aws-config = { version = "1.5.14", features = ["behavior-version-latest"] }
-aws-sdk-s3 = { version = "1.70.0", features = ["behavior-version-latest"] }
+aws-config = { version = "1.5.15", features = ["behavior-version-latest"] }
+aws-sdk-s3 = { version = "1.71.0", features = ["behavior-version-latest"] }
 base64 = "0.22.1"
 chrono = { version = "0.4.39", features = ["serde"] }
 cidr = "0.3.1"
@@ -62,8 +62,8 @@ opentelemetry_sdk = { version = "0.27.1", features = [
 prometheus = { version = "0.13.4", features = ["process"] }
 prometheus-reqwest-remote-write = { version = "0.2.1" }
 prometheus-static-metric = "0.5.1"
-rand = "0.8.5"
-redis = { version = "0.28.1", features = [
+rand = "0.9.0"
+redis = { version = "0.28.2", features = [
     "tokio-comp",
     "tokio-rustls-comp",
     "cluster",
@@ -79,7 +79,7 @@ rustls = { version = "0.23.21", default-features = false, features = [
     "std",
 ] }
 rustls-pemfile = "2.2.0"
-rustls-pki-types = "1.10.1"
+rustls-pki-types = "1.11.0"
 semver = "1.0.25"
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0.137"
@@ -106,10 +106,10 @@ actix-service = "2.0.2"
 capture-logger = "0.1.1"
 env_logger = "0.11.6"
 maplit = "1.0.2"
-rand = "0.8.5"
+rand = "0.9.0"
 test-case = "3.3.1"
 testcontainers = "0.23.1"
-testcontainers-modules = { version = "0.11.5", features = [
+testcontainers-modules = { version = "0.11.6", features = [
     "redis",
     "localstack",
 ] }
