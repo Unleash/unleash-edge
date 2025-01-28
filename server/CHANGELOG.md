@@ -5,6 +5,76 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [19.7.0](https://github.com/Unleash/unleash-edge/compare/v19.6.3...v19.7.0) - 2025-01-28
+
+### 🚀 Features
+- start logging diff comparing with delta (#666) (by @sjaanus) - #666
+- make delta aligned with streaming, support only strict (#659) (by @sjaanus) - #659
+- Make keep alive timeout configurable (still default to 5 seconds) (#650) (by @chriswk) - #650
+- delta api implementation (#626) (by @sjaanus) - #626
+- start using instance_id argument for instance_id header (#616) (by @chriswk) - #616
+- *(1-3220)* only push updates to listeners in the same environment (#620) (by @thomasheartman)
+- streaming now enabled/disabled with runtime flag (#605) (by @chriswk) - #605
+- broadcast updates (#604) (by @chriswk) - #604
+
+### 🐛 Bug Fixes
+- add meta to support new format (#622) (by @sjaanus) - #622
+- only instantiate a single broadcaster (by @thomasheartman)
+- feature-gate stream-url assignment (by @thomasheartman)
+- bump opentelemetry dependencies to 0.27 (#596) (by @chriswk) - #596
+
+### 💼 Other
+- added gauge for showing number of streaming clients connected (#609) (by @chriswk) - #609
+- sse client support (#592) (by @thomasheartman) - #592
+- set msrv for server package (#593) (by @chriswk) - #593
+
+### Dependency updates
+- bump rustls-pki-types from 1.10.1 to 1.11.0 (#692) (by @dependabot[bot]) - #692
+- bump testcontainers-modules from 0.11.5 to 0.11.6 (#690) (by @dependabot[bot]) - #690
+- bump rand from 0.8.5 to 0.9.0 (#691) (by @dependabot[bot]) - #691
+- bump redis from 0.28.1 to 0.28.2 (#688) (by @dependabot[bot]) - #688
+- bump aws-config from 1.5.14 to 1.5.15 (#685) (by @dependabot[bot]) - #685
+- bump aws-sdk-s3 from 1.70.0 to 1.71.0 (#684) (by @dependabot[bot]) - #684
+- bump shadow-rs from 0.37.0 to 0.38.0 (#683) (by @dependabot[bot]) - #683
+- bump aws-sdk-s3 from 1.69.0 to 1.70.0 (#682) (by @dependabot[bot]) - #682
+- bump clap from 4.5.26 to 4.5.27 (#680) (by @dependabot[bot]) - #680
+- bump semver from 1.0.24 to 1.0.25 (#677) (by @dependabot[bot]) - #677
+- bump cidr from 0.3.0 to 0.3.1 (#679) (by @dependabot[bot]) - #679
+- bump serde_json from 1.0.135 to 1.0.137 (#678) (by @dependabot[bot]) - #678
+- bump utoipa-swagger-ui from 8.1.1 to 9.0.0 (#675) (by @dependabot[bot]) - #675
+- bump aws-config from 1.5.13 to 1.5.14 (#669) (by @dependabot[bot]) - #669
+- bump aws-sdk-s3 from 1.68.0 to 1.69.0 (#668) (by @dependabot[bot]) - #668
+- bump rustls from 0.23.20 to 0.23.21 (#657) (by @dependabot[bot]) - #657
+- bump redis from 0.28.0 to 0.28.1 (#656) (by @dependabot[bot]) - #656
+- Clap, tokio, Utoipa (by @chriswk)
+- bump clap from 4.5.23 to 4.5.24 (#631) (by @dependabot[bot]) - #631
+
+### 🚜 Refactor
+- minor cleanup after #618 (#621) (by @thomasheartman) - #621
+- store less information per streaming client (#618) (by @thomasheartman) - #618
+
+### 📚 Documentation
+- notice about feature parity with unleash-server (#608) (by @gastonfournier) - #608
+
+### ⚙️ Miscellaneous Tasks
+- remove compiler flag for delta (#674) (by @sjaanus) - #674
+- *(1-3244)* only expose streaming endpoint if in streaming mode (#663) (by @thomasheartman)
+- add debug message for delta (#654) (by @sjaanus) - #654
+- *(clippy)* Clippy fix for unnecessary as_bytes() on a string (by @chriswk)
+- *(dep-update)* Bump libraries (#639) (by @chriswk)
+- *(1-3217)* run in a neverending loop (#615) (by @thomasheartman)
+- *(1-3216)* send the same headers in streaming as for polling (#613) (by @thomasheartman)
+- *(1-3211)* handle minor edge cases for errors (#612) (by @thomasheartman)
+- add basic streaming tests (#600) (by @thomasheartman) - #600
+
+### Contributors
+
+* @dependabot[bot]
+* @sjaanus
+* @thomasheartman
+* @chriswk
+* @gastonfournier
+
 ## 19.6.3 (2024-12-06)
 
 ### Chore
