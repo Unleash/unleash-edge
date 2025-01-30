@@ -403,7 +403,7 @@ impl FeatureRefresher {
             .unleash_client
             .get_client_features_delta(ClientFeaturesRequest {
                 api_key: refresh.token.token.clone(),
-                etag: refresh.etag.clone(),
+                etag: None,
             })
             .await;
 
