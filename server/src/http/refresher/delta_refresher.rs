@@ -32,12 +32,12 @@ impl FeatureRefresher {
         self.engine_cache
             .entry(key.clone())
             .and_modify(|engine| {
-                engine.take_delta(&delta);
+                engine.apply_delta(&delta);
             })
             .or_insert_with(|| {
                 let mut new_state = EngineState::default();
 
-                let warnings = new_state.take_delta(&delta);
+                let warnings = new_state.apply_delta(&delta);
                 if let Some(warnings) = warnings {
                     warn!("The following toggle failed to compile and will be defaulted to off: {warnings:?}");
                 };
@@ -152,15 +152,8 @@ mod tests {
             delta_diff : false,
             client_meta_information: ClientMetaInformation::test_config(),
         });
-        let features = ClientFeatures {
-            version: 2,
-            features: vec![],
-            segments: None,
-            query: None,
-            meta: None,
-        };
-        let initial_features = features.modify_and_copy(&revision(1));
-        let final_features = initial_features.modify_and_copy(&revision(2));
+        let mut delta_features = ClientFeatures::create_from_delta(&revision(1));
+        delta_features.apply_delta(&revision(2));
         let token =
             EdgeToken::try_from("*:development.abcdefghijklmnopqrstuvwxyz".to_string()).unwrap();
         feature_refresher
@@ -172,7 +165,7 @@ mod tests {
             .unwrap()
             .value()
             .clone();
-        assert_eq!(refreshed_features, initial_features);
+        assert_eq!(refreshed_features, delta_features);
 
         let token_refresh = feature_refresher
             .tokens_to_refresh
@@ -185,7 +178,7 @@ mod tests {
             .unwrap()
             .value()
             .clone();
-        assert_eq!(refreshed_features, final_features);
+        assert_eq!(refreshed_features, delta_features);
     }
 
     fn cache_key(token: &EdgeToken) -> String {
