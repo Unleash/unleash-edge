@@ -68,19 +68,12 @@ impl FeatureCache {
     }
 
     pub fn apply_delta(&self, key: String, delta: &ClientFeaturesDelta) {
-        let client_features = ClientFeatures {
-            version : 2,
-            features : delta.updated.clone(),
-            segments: delta.segments.clone(),
-            query: None,
-            meta: None,
-        };
         self.features
             .entry(key.clone())
             .and_modify(|existing_features| {
-                existing_features.modify_in_place(delta);
+                existing_features.apply_delta(delta);
             })
-            .or_insert(client_features);
+            .or_insert(ClientFeatures::create_from_delta(delta));
         self.send_full_update(key);
     }
 
