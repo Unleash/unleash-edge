@@ -153,7 +153,6 @@ mod tests {
             client_meta_information: ClientMetaInformation::test_config(),
         });
         let mut delta_features = ClientFeatures::create_from_delta(&revision(1));
-        delta_features.apply_delta(&revision(2));
         let token =
             EdgeToken::try_from("*:development.abcdefghijklmnopqrstuvwxyz".to_string()).unwrap();
         feature_refresher
@@ -178,6 +177,7 @@ mod tests {
             .unwrap()
             .value()
             .clone();
+        delta_features.apply_delta(&revision(2));
         assert_eq!(refreshed_features, delta_features);
     }
 
