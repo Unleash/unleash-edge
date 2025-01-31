@@ -9,7 +9,7 @@ use futures::TryStreamExt;
 use json_structural_diff::JsonDiff;
 use reqwest::StatusCode;
 use tracing::{debug, info, warn};
-use unleash_types::client_features::{ClientFeatures};
+use unleash_types::client_features::{ClientFeatures, DeltaEvent};
 use unleash_types::client_metrics::{ClientApplication, MetricsMetadata};
 use unleash_yggdrasil::EngineState;
 
@@ -403,7 +403,7 @@ impl FeatureRefresher {
             .unleash_client
             .get_client_features_delta(ClientFeaturesRequest {
                 api_key: refresh.token.token.clone(),
-                etag: refresh.etag.clone(),
+                etag: None,
             })
             .await;
 
@@ -411,7 +411,16 @@ impl FeatureRefresher {
         if let Some(client_features) = self.features_cache.get(&key).as_ref() {
             if let Ok(ClientFeaturesDeltaResponse::Updated(delta_features, _etag)) = delta_result {
                 let c_features = &client_features.features;
-                let d_features = delta_features.updated;
+                let d_features = delta_features
+                    .events
+                    .iter()
+                    .find_map(|event| {
+                        if let DeltaEvent::Hydration { features, .. } = event {
+                            Some(features)
+                        } else {
+                            None
+                        }
+                    });
 
                 let delta_json = serde_json::to_value(d_features).unwrap();
                 let client_json = serde_json::to_value(c_features).unwrap();
