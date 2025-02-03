@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
 
+use actix_cors::Cors;
 use cidr::{Ipv4Cidr, Ipv6Cidr};
 use clap::{ArgGroup, Args, Parser, Subcommand, ValueEnum};
 
@@ -411,6 +412,49 @@ pub struct TlsOptions {
     pub tls_server_port: u16,
 }
 
+pub fn parse_http_header(value: &str) -> Result<actix_web::http::header::Accept
+
+#[derive(Args, Debug, Clone)]
+pub struct CorsOptions {
+    #[clap(env, long, value_delimiter = ',')]
+    pub cors_origin: Option<Vec<String>>,
+    #[clap(env, long, value_delimiter = ',')]
+    pub cors_allowed_headers: Option<Vec<String>>,
+    #[clap(env, long, default_value_t = 172800)]
+    pub cors_max_age: u32,
+    #[clap(env, long, default_value = "ETag", value_delimiter = ',')]
+    pub cors_exposed_headers: Vec<String>,
+    #[clap(env, long, default_value = "GET,POST", value_delimiter = ',')]
+    pub cors_methods: Vec<String>,
+    #[clap(env, long, default_value_t = 204)]
+    pub cors_options_success_status: u16,
+    #[clap(env, long, default_value_t = false)]
+    pub cors_preflight_continue: bool,
+}
+
+impl CorsOptions {
+    pub fn middleware(&self) -> Cors {
+        let mut cors_middleware = Cors::default().max_age(self.cors_max_age)
+        .allowed_methods(self.cors_methods)
+        .expose_headers(self.cors_exposed_headers)
+        .allowed_methods(self.cors_methods);
+        if let Some(origins) = self.cors_origin.clone() {
+            for origin in origins {
+                cors_middleware = cors_middleware.allowed_origin(&origin);
+            } 
+            cors_middleware = cors_middleware.supports_credentials();
+        } else {
+            cors_middleware = cors_middleware.allow_any_origin().send_wildcard();
+        }
+        if let Some(allowed_headers) = self.cors_allowed_headers.clone() {
+            for header in allowed_headers {
+                cors_middleware = cors_middleware.allowed_header(header);
+            }
+        }
+        cors_middleware
+    }
+}
+
 #[derive(Args, Debug, Clone)]
 pub struct HttpServerArgs {
     /// Which port should this server listen for HTTP traffic on
@@ -430,6 +474,9 @@ pub struct HttpServerArgs {
 
     #[clap(flatten)]
     pub tls: TlsOptions,
+
+    #[clap(flatten)]
+    pub cors: CorsOptions,
 }
 
 #[derive(Debug, Clone)]
