@@ -5,6 +5,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use actix_cors::Cors;
+use actix_http::Method;
 use cidr::{Ipv4Cidr, Ipv6Cidr};
 use clap::{ArgGroup, Args, Parser, Subcommand, ValueEnum};
 
@@ -412,7 +413,9 @@ pub struct TlsOptions {
     pub tls_server_port: u16,
 }
 
-pub fn parse_http_header(value: &str) -> Result<actix_web::http::header::Accept
+pub fn parse_http_method(value: &str) -> Result<actix_http::Method, String> {
+    Method::from_bytes(value.as_bytes()).map_err(|f| format!("Failed to format method: {f:?}"))
+}
 
 #[derive(Args, Debug, Clone)]
 pub struct CorsOptions {
@@ -421,27 +424,24 @@ pub struct CorsOptions {
     #[clap(env, long, value_delimiter = ',')]
     pub cors_allowed_headers: Option<Vec<String>>,
     #[clap(env, long, default_value_t = 172800)]
-    pub cors_max_age: u32,
+    pub cors_max_age: usize,
     #[clap(env, long, default_value = "ETag", value_delimiter = ',')]
-    pub cors_exposed_headers: Vec<String>,
-    #[clap(env, long, default_value = "GET,POST", value_delimiter = ',')]
-    pub cors_methods: Vec<String>,
-    #[clap(env, long, default_value_t = 204)]
-    pub cors_options_success_status: u16,
-    #[clap(env, long, default_value_t = false)]
-    pub cors_preflight_continue: bool,
+    pub cors_exposed_headers: Option<Vec<String>>,
+    #[clap(env, long, value_delimiter = ',', value_parser = parse_http_method)]
+    pub cors_methods: Option<Vec<actix_http::Method>>,
 }
 
 impl CorsOptions {
     pub fn middleware(&self) -> Cors {
-        let mut cors_middleware = Cors::default().max_age(self.cors_max_age)
-        .allowed_methods(self.cors_methods)
-        .expose_headers(self.cors_exposed_headers)
-        .allowed_methods(self.cors_methods);
+        let mut cors_middleware = Cors::default()
+            .max_age(self.cors_max_age)
+            .allow_any_method()
+            .allow_any_header()
+            .expose_any_header();
         if let Some(origins) = self.cors_origin.clone() {
             for origin in origins {
                 cors_middleware = cors_middleware.allowed_origin(&origin);
-            } 
+            }
             cors_middleware = cors_middleware.supports_credentials();
         } else {
             cors_middleware = cors_middleware.allow_any_origin().send_wildcard();
@@ -450,6 +450,12 @@ impl CorsOptions {
             for header in allowed_headers {
                 cors_middleware = cors_middleware.allowed_header(header);
             }
+        }
+        if let Some(allowed_methods) = self.cors_methods.clone() {
+            cors_middleware = cors_middleware.allowed_methods(allowed_methods);
+        }
+        if let Some(exposed_headers) = self.cors_exposed_headers.clone() {
+            cors_middleware = cors_middleware.expose_headers(exposed_headers);
         }
         cors_middleware
     }
@@ -525,6 +531,7 @@ impl HttpServerArgs {
 
 #[cfg(test)]
 mod tests {
+    use actix_web::http;
     use clap::Parser;
     use tracing::info;
     use tracing_test::traced_test;
@@ -811,6 +818,42 @@ mod tests {
         } else {
             unreachable!()
         }
+    }
+
+    #[test]
+    pub fn cors_origin_can_be_set_via_cli() {
+        let args = vec![
+            "unleash-edge",
+            "--cors-origin",
+            "example.com",
+            "--cors-origin",
+            "otherexample.com",
+            "--cors-origin",
+            "one.com,two.com",
+            "edge",
+            "-u http://localhost:4242",
+        ];
+        let args = CliArgs::parse_from(args);
+        assert_eq!(args.http.cors.cors_origin.clone().unwrap().len(), 4);
+        let _middleware = args.http.cors.middleware();
+    }
+
+    #[test]
+    pub fn can_set_custom_cors_method() {
+        let args = vec![
+            "unleash-edge",
+            "--cors-methods",
+            "GET",
+            "--cors-methods",
+            "PATCH",
+            "edge",
+            "-u http://localhost:4242",
+        ];
+        let cli = CliArgs::parse_from(args);
+        assert_eq!(
+            cli.http.cors.cors_methods,
+            Some(vec![http::Method::GET, http::Method::PATCH])
+        );
     }
 
     #[test]
