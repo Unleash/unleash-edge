@@ -33,7 +33,7 @@ actix-web = { version = "4.9.0", features = ["rustls-0_23", "compress-zstd"] }
 actix-web-lab = { version = "0.23.0" }
 ahash = "0.8.11"
 anyhow = "1.0.95"
-async-trait = "0.1.85"
+async-trait = "0.1.86"
 aws-config = { version = "1.5.15", features = ["behavior-version-latest"] }
 aws-sdk-s3 = { version = "1.72.0", features = ["behavior-version-latest"] }
 base64 = "0.22.1"
