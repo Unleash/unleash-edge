@@ -437,7 +437,6 @@ impl CorsOptions {
             .max_age(self.cors_max_age)
             .allow_any_method()
             .allow_any_header()
-            .expose_any_header();
         if let Some(origins) = self.cors_origin.clone() {
             for origin in origins {
                 cors_middleware = cors_middleware.allowed_origin(&origin);
