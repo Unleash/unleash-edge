@@ -425,7 +425,7 @@ pub struct CorsOptions {
     pub cors_allowed_headers: Option<Vec<String>>,
     #[clap(env, long, default_value_t = 172800)]
     pub cors_max_age: usize,
-    #[clap(env, long, default_value = "ETag", value_delimiter = ',')]
+    #[clap(env, long, value_delimiter = ',')]
     pub cors_exposed_headers: Option<Vec<String>>,
     #[clap(env, long, value_delimiter = ',', value_parser = parse_http_method)]
     pub cors_methods: Option<Vec<actix_http::Method>>,
