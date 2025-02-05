@@ -148,6 +148,16 @@ fn register_custom_metrics(registry: &prometheus::Registry) {
             crate::http::broadcaster::CONNECTED_STREAMING_CLIENTS.clone(),
         ))
         .unwrap();
+    registry
+        .register(Box::new(
+            crate::http::unleash_client::METRICS_UPLOAD.clone(),
+        ))
+        .unwrap();
+    registry
+        .register(Box::new(
+            crate::http::unleash_client::INSTANCE_DATA_UPLOAD.clone(),
+        ))
+        .unwrap();
 }
 
 #[cfg(test)]
