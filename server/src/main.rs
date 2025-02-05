@@ -28,11 +28,12 @@ use unleash_edge::{internal_backstage, tls};
 #[cfg(not(tarpaulin_include))]
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {
+    use std::sync::RwLock;
+
     use unleash_edge::{
         http::{broadcaster::Broadcaster, unleash_client::ClientMetaInformation},
-        metrics::metrics_pusher,
+        metrics::{edge_metrics::EdgeInstanceData, metrics_pusher},
     };
-
     let args = CliArgs::parse();
     let disable_all_endpoint = args.disable_all_endpoint;
     if args.markdown_help {
@@ -62,6 +63,8 @@ async fn main() -> Result<(), anyhow::Error> {
         instance_id: args.clone().instance_id,
     };
     let app_name = args.app_name.clone();
+    let our_instance_data_for_app_context = Arc::new(EdgeInstanceData::new(&app_name));
+    let our_instance_data = our_instance_data_for_app_context.clone();
     let instance_id = args.instance_id.clone();
     let custom_headers = match args.mode {
         cli::EdgeMode::Edge(ref edge) => edge.custom_client_headers.clone(),
@@ -89,6 +92,9 @@ async fn main() -> Result<(), anyhow::Error> {
     let openapi = openapi::ApiDoc::openapi();
     let refresher_for_app_data = feature_refresher.clone();
     let prom_registry_for_write = metrics_handler.registry.clone();
+    let instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>> =
+        Arc::new(RwLock::new(Vec::new()));
+    let downstream_instance_data = instances_observed_for_app_context.clone();
 
     let broadcaster = Broadcaster::new(features_cache.clone());
 
@@ -108,7 +114,9 @@ async fn main() -> Result<(), anyhow::Error> {
             .app_data(web::Data::from(delta_cache.clone()))
             .app_data(web::Data::from(features_cache.clone()))
             .app_data(web::Data::from(engine_cache.clone()))
-            .app_data(web::Data::from(broadcaster.clone()));
+            .app_data(web::Data::from(broadcaster.clone()))
+            .app_data(web::Data::from(our_instance_data_for_app_context.clone()))
+            .app_data(web::Data::from(instances_observed_for_app_context.clone()));
 
         app = match token_validator.clone() {
             Some(v) => app.app_data(web::Data::from(v)),
@@ -220,8 +228,11 @@ async fn main() -> Result<(), anyhow::Error> {
                 _ = validator.schedule_revalidation_of_startup_tokens(edge.tokens, lazy_feature_refresher) => {
                     tracing::info!("Token validator validation of startup tokens was unexpectedly shut down");
                 }
-                _ = metrics_pusher::prometheus_remote_write(prom_registry_for_write, edge.prometheus_remote_write_url, edge.prometheus_push_interval, edge.prometheus_username, edge.prometheus_password, app_name) => {
+                _ = metrics_pusher::prometheus_remote_write(prom_registry_for_write.clone(), edge.prometheus_remote_write_url, edge.prometheus_push_interval, edge.prometheus_username, edge.prometheus_password, app_name) => {
                     tracing::info!("Prometheus push unexpectedly shut down");
+                }
+                _ = unleash_edge::http::instance_data::send_instance_data(refresher.clone(), &prom_registry_for_write, our_instance_data.clone(), downstream_instance_data.clone()) => {
+                    tracing::info!("Instance data pusher unexpectedly quit");
                 }
             }
         }

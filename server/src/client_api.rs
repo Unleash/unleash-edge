@@ -1,3 +1,5 @@
+use std::sync::RwLock;
+
 use crate::cli::{EdgeArgs, EdgeMode};
 use crate::delta_cache::DeltaCache;
 use crate::error::EdgeError;
@@ -10,15 +12,18 @@ use crate::http::broadcaster::Broadcaster;
 use crate::http::refresher::delta_refresher::Environment;
 use crate::http::refresher::feature_refresher::FeatureRefresher;
 use crate::metrics::client_metrics::MetricsCache;
+use crate::metrics::edge_metrics::EdgeInstanceData;
 use crate::tokens::cache_key;
 use crate::types::{
     self, BatchMetricsRequestBody, EdgeJsonResult, EdgeResult, EdgeToken, FeatureFilters,
 };
-use actix_web::web::{self, Data, Json, Query};
+use actix_web::web::{self, post, Data, Json, Query};
 use actix_web::Responder;
 use actix_web::{get, post, HttpRequest, HttpResponse};
 use dashmap::DashMap;
 use unleash_types::client_features::{ClientFeature, ClientFeatures, ClientFeaturesDelta};
+use tracing::{info, instrument};
+use unleash_types::client_features::{ClientFeature, ClientFeatures};
 use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ConnectVia};
 
 #[utoipa::path(
@@ -310,6 +315,27 @@ pub async fn post_bulk_metrics(
     );
     Ok(HttpResponse::Accepted().finish())
 }
+
+#[utoipa::path(context_path = "/api/client", responses((status = 202, description = "Accepted Instance data"), (status = 403, description = "Was not allowed to post instance data")), request_body = EdgeInstanceData, security(
+("Authorization" = [])
+)
+)]
+#[post("/metrics/edge")]
+#[instrument(skip(_edge_token, instance_data, connected_instances))]
+pub async fn post_edge_instance_data(
+    _edge_token: EdgeToken,
+    instance_data: Json<EdgeInstanceData>,
+    connected_instances: Data<RwLock<Vec<EdgeInstanceData>>>,
+) -> EdgeResult<HttpResponse> {
+    tracing::info!("Accepted {instance_data:?}");
+    connected_instances
+        .write()
+        .unwrap()
+        .push(instance_data.into_inner());
+    info!("Adding to {connected_instances:?}");
+    Ok(HttpResponse::Accepted().finish())
+}
+
 pub fn configure_client_api(cfg: &mut web::ServiceConfig) {
     let client_scope = web::scope("/client")
         .wrap(crate::middleware::as_async_middleware::as_async_middleware(
@@ -321,7 +347,8 @@ pub fn configure_client_api(cfg: &mut web::ServiceConfig) {
         .service(register)
         .service(metrics)
         .service(post_bulk_metrics)
-        .service(stream_features);
+        .service(stream_features)
+        .service(post_edge_instance_data);
 
     cfg.service(client_scope);
 }
