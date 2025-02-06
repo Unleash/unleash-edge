@@ -171,7 +171,7 @@ async fn main() -> Result<(), anyhow::Error> {
             if edge.streaming {
                 let app_name = app_name.clone();
                 let custom_headers = custom_headers.clone();
-                if(edge.delta) {
+                if edge.delta {
                     tokio::spawn(async move {
                         let _ = refresher_for_background
                             .start_streaming_delta_background_task(
