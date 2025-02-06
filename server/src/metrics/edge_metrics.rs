@@ -12,6 +12,7 @@ use crate::types::BuildInfo;
 pub struct LatencyMetrics {
     pub avg: f64,
     pub count: f64,
+    pub p99: f64,
 }
 
 impl LatencyMetrics {
@@ -19,6 +20,7 @@ impl LatencyMetrics {
         Self {
             avg: 0.0,
             count: 0.0,
+            p99: 0.0,
         }
     }
 }
@@ -137,9 +139,15 @@ impl EdgeInstanceData {
                             };
                             let total = m.get_histogram().get_sample_sum();
                             let count = m.get_histogram().get_sample_count() as f64;
-                            *latency = LatencyMetrics {
+                            let p99 = get_percentile(
+                                99,
+                                m.get_histogram().get_sample_count(),
+                                m.get_histogram().get_bucket(),
+                            );
+                            LatencyMetrics {
                                 avg: total / count,
                                 count,
+                                p99,
                             };
                         });
                 }
@@ -155,11 +163,18 @@ impl EdgeInstanceData {
                 }
                 "client_metrics_upload" => {
                     if let Some(metrics_upload_metric) = family.get_metric().last() {
+                        let total = metrics_upload_metric.get_histogram().get_sample_sum();
                         let count = metrics_upload_metric.get_histogram().get_sample_count();
+                        let p99 = get_percentile(
+                            99,
+                            count,
+                            metrics_upload_metric.get_histogram().get_bucket(),
+                        );
                         observed.latency_upstream.metrics = LatencyMetrics {
                             avg: metrics_upload_metric.get_histogram().get_sample_sum()
                                 / count as f64,
                             count: count as f64,
+                            p99,
                         }
                     }
                 }
@@ -168,20 +183,32 @@ impl EdgeInstanceData {
                         let count = instance_data_upload_metric
                             .get_histogram()
                             .get_sample_count();
+                        let p99 = get_percentile(
+                            99,
+                            count,
+                            instance_data_upload_metric.get_histogram().get_bucket(),
+                        );
                         observed.latency_upstream.edge = LatencyMetrics {
                             avg: instance_data_upload_metric.get_histogram().get_sample_sum()
                                 / count as f64,
                             count: count as f64,
+                            p99,
                         }
                     }
                 }
                 "client_feature_fetch" => {
                     if let Some(feature_fetch_metric) = family.get_metric().last() {
                         let count = feature_fetch_metric.get_histogram().get_sample_count();
+                        let p99 = get_percentile(
+                            99,
+                            count,
+                            feature_fetch_metric.get_histogram().get_bucket(),
+                        );
                         observed.latency_upstream.features = LatencyMetrics {
                             avg: feature_fetch_metric.get_histogram().get_sample_sum()
                                 / count as f64,
                             count: count as f64,
+                            p99,
                         }
                     }
                 }
@@ -204,4 +231,16 @@ impl EdgeInstanceData {
         });
         observed
     }
+}
+
+fn get_percentile(percentile: u64, count: u64, buckets: &[prometheus::proto::Bucket]) -> f64 {
+    let mut total = 0;
+    let target = count * percentile / 100;
+    for bucket in buckets {
+        total += bucket.get_cumulative_count();
+        if total >= target {
+            return bucket.get_upper_bound();
+        }
+    }
+    0.0
 }
