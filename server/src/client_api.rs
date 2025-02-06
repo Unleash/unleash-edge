@@ -1,5 +1,3 @@
-use std::sync::RwLock;
-
 use crate::cli::{EdgeArgs, EdgeMode};
 use crate::error::EdgeError;
 use crate::feature_cache::FeatureCache;
@@ -14,10 +12,11 @@ use crate::tokens::cache_key;
 use crate::types::{
     self, BatchMetricsRequestBody, EdgeJsonResult, EdgeResult, EdgeToken, FeatureFilters,
 };
-use actix_web::web::{self, post, Data, Json, Query};
+use actix_web::web::{self, Data, Json, Query};
 use actix_web::Responder;
 use actix_web::{get, post, HttpRequest, HttpResponse};
 use dashmap::DashMap;
+use tokio::sync::RwLock;
 use tracing::{info, instrument};
 use unleash_types::client_features::{ClientFeature, ClientFeatures};
 use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ConnectVia};
@@ -288,12 +287,11 @@ pub async fn post_edge_instance_data(
     instance_data: Json<EdgeInstanceData>,
     connected_instances: Data<RwLock<Vec<EdgeInstanceData>>>,
 ) -> EdgeResult<HttpResponse> {
-    tracing::info!("Accepted {instance_data:?}");
+    info!("Accepted {instance_data:?}");
     connected_instances
         .write()
-        .unwrap()
+        .await
         .push(instance_data.into_inner());
-    info!("Adding to {connected_instances:?}");
     Ok(HttpResponse::Accepted().finish())
 }
 

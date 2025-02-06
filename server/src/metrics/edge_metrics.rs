@@ -1,7 +1,6 @@
 use ahash::{HashMap, HashSet};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use tracing::{debug, info};
 use ulid::Ulid;
 use utoipa::ToSchema;
 
@@ -79,12 +78,11 @@ impl EdgeInstanceData {
         }
     }
 
-    pub fn add_downstream(&mut self, downstream_edge: EdgeInstanceData) -> Self {
-        self.connected_edges.push(downstream_edge);
-        self.clone()
-    }
-
-    pub fn observe(&self, registry: &prometheus::Registry) -> Self {
+    pub fn observe(
+        &self,
+        registry: &prometheus::Registry,
+        connected_instances: Vec<EdgeInstanceData>,
+    ) -> Self {
         let mut observed = self.clone();
         let mut cpu_seconds = 0;
         let mut resident_memory = 0;
@@ -163,7 +161,6 @@ impl EdgeInstanceData {
                 }
                 "client_metrics_upload" => {
                     if let Some(metrics_upload_metric) = family.get_metric().last() {
-                        let total = metrics_upload_metric.get_histogram().get_sample_sum();
                         let count = metrics_upload_metric.get_histogram().get_sample_count();
                         let p99 = get_percentile(
                             99,
@@ -229,28 +226,73 @@ impl EdgeInstanceData {
             cpu_usage: cpu_seconds as f64,
             memory_usage: resident_memory as f64,
         });
+        observed.connected_edges = connected_instances.clone();
         observed
     }
 }
 
 fn get_percentile(percentile: u64, count: u64, buckets: &[prometheus::proto::Bucket]) -> f64 {
-    info!("Calculating {percentile}th percentile");
-    if count == 0 {
-        return 0.0;
-    }
-    let mut total = 0;
-    let target = count * percentile / 100;
-    info!("Our target is request nr {target}");
+    let target = (percentile as f64 / 100.0) * count as f64;
+    let mut previous_upper_bound = 0.0;
+    let mut previous_count = 0;
     for bucket in buckets {
-        total += bucket.get_cumulative_count();
-        info!(
-            "Looking at bucket {}, total: {total}",
-            bucket.get_upper_bound()
-        );
-        if total >= target {
-            info!("Setting percentile to {} ms", bucket.get_upper_bound());
-            return bucket.get_upper_bound() / 1000.0;
+        if bucket.get_cumulative_count() as f64 >= target {
+            let nth_count = bucket.get_cumulative_count() - previous_count;
+            let observation_in_range = target - previous_count as f64;
+            return previous_upper_bound
+                + ((observation_in_range / nth_count as f64)
+                    * (bucket.get_upper_bound() - previous_upper_bound));
         }
+        previous_upper_bound = bucket.get_upper_bound();
+        previous_count = bucket.get_cumulative_count();
     }
     0.0
+}
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    pub fn can_find_p99_of_a_range() {
+        let mut one_ms = prometheus::proto::Bucket::new();
+        one_ms.set_cumulative_count(1000);
+        one_ms.set_upper_bound(1.0);
+        let mut five_ms = prometheus::proto::Bucket::new();
+        five_ms.set_cumulative_count(2000);
+        five_ms.set_upper_bound(5.0);
+        let mut ten_ms = prometheus::proto::Bucket::new();
+        ten_ms.set_cumulative_count(3000);
+        ten_ms.set_upper_bound(10.0);
+        let mut twenty_ms = prometheus::proto::Bucket::new();
+        twenty_ms.set_cumulative_count(4000);
+        twenty_ms.set_upper_bound(20.0);
+        let mut fifty_ms = prometheus::proto::Bucket::new();
+        fifty_ms.set_cumulative_count(5000);
+        fifty_ms.set_upper_bound(50.0);
+        let buckets = vec![one_ms, five_ms, ten_ms, twenty_ms, fifty_ms];
+        let result = super::get_percentile(99, 5000, &buckets);
+        assert_eq!(result, 48.5);
+    }
+
+    #[test]
+    pub fn can_find_p50_of_a_range() {
+        let mut one_ms = prometheus::proto::Bucket::new();
+        one_ms.set_cumulative_count(1000);
+        one_ms.set_upper_bound(1.0);
+        let mut five_ms = prometheus::proto::Bucket::new();
+        five_ms.set_cumulative_count(2000);
+        five_ms.set_upper_bound(5.0);
+        let mut ten_ms = prometheus::proto::Bucket::new();
+        ten_ms.set_cumulative_count(3000);
+        ten_ms.set_upper_bound(10.0);
+        let mut twenty_ms = prometheus::proto::Bucket::new();
+        twenty_ms.set_cumulative_count(4000);
+        twenty_ms.set_upper_bound(20.0);
+        let mut fifty_ms = prometheus::proto::Bucket::new();
+        fifty_ms.set_cumulative_count(5000);
+        fifty_ms.set_upper_bound(50.0);
+        let buckets = vec![one_ms, five_ms, ten_ms, twenty_ms, fifty_ms];
+        let result = super::get_percentile(50, 5000, &buckets);
+        assert_eq!(result, 7.5);
+    }
 }
