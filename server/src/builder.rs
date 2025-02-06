@@ -8,7 +8,7 @@ use dashmap::DashMap;
 use reqwest::Url;
 use tracing::{debug, error, warn};
 use unleash_types::client_features::ClientFeatures;
-use unleash_yggdrasil::EngineState;
+use unleash_yggdrasil::{EngineState, UpdateMessage};
 
 use crate::cli::RedisMode;
 use crate::feature_cache::FeatureCache;
@@ -70,7 +70,7 @@ async fn hydrate_from_persistent_storage(cache: CacheContainer, storage: Arc<dyn
         features_cache.insert(key.clone(), features.clone());
         let mut engine_state = EngineState::default();
 
-        let warnings = engine_state.take_state(features);
+        let warnings = engine_state.take_state(UpdateMessage::FullResponse(features));
         if let Some(warnings) = warnings {
             warn!("Failed to hydrate features for {key:?}: {warnings:?}");
         }

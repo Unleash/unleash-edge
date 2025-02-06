@@ -1,7 +1,8 @@
 use std::time::Duration;
+use eventsource_client::Client;
 use actix_web::http::header::EntityTag;
-use actix_web_lab::__reexports::futures_util::TryStreamExt;
 use reqwest::StatusCode;
+use futures::TryStreamExt;
 use tracing::{debug, info, warn};
 use unleash_types::client_features::{ClientFeaturesDelta};
 use unleash_yggdrasil::EngineState;
