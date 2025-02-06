@@ -14,6 +14,7 @@ pub async fn send_instance_data(
     downstream_instance_data: Arc<RwLock<Vec<EdgeInstanceData>>>,
 ) {
     loop {
+        tokio::time::sleep(std::time::Duration::from_secs(15)).await;
         trace!("Looping instance data sending");
         let mut observed_data = our_instance_data.observe(prometheus_registry);
         {
@@ -42,6 +43,5 @@ pub async fn send_instance_data(
             Ok(_) => info!("Posted instance data"),
             Err(_) => info!("Failed to post instance data"),
         }
-        tokio::time::sleep(std::time::Duration::from_secs(15)).await;
     }
 }

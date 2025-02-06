@@ -1,7 +1,7 @@
 use ahash::{HashMap, HashSet};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use tracing::debug;
+use tracing::{debug, info};
 use ulid::Ulid;
 use utoipa::ToSchema;
 
@@ -144,7 +144,7 @@ impl EdgeInstanceData {
                                 m.get_histogram().get_sample_count(),
                                 m.get_histogram().get_bucket(),
                             );
-                            LatencyMetrics {
+                            *latency = LatencyMetrics {
                                 avg: total / count,
                                 count,
                                 p99,
@@ -234,12 +234,22 @@ impl EdgeInstanceData {
 }
 
 fn get_percentile(percentile: u64, count: u64, buckets: &[prometheus::proto::Bucket]) -> f64 {
+    info!("Calculating {percentile}th percentile");
+    if count == 0 {
+        return 0.0;
+    }
     let mut total = 0;
     let target = count * percentile / 100;
+    info!("Our target is request nr {target}");
     for bucket in buckets {
         total += bucket.get_cumulative_count();
+        info!(
+            "Looking at bucket {}, total: {total}",
+            bucket.get_upper_bound()
+        );
         if total >= target {
-            return bucket.get_upper_bound();
+            info!("Setting percentile to {} ms", bucket.get_upper_bound());
+            return bucket.get_upper_bound() / 1000.0;
         }
     }
     0.0
