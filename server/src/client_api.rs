@@ -1433,7 +1433,6 @@ mod tests {
         let features_cache = Arc::new(FeatureCache::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let token_header = TokenHeader::from_str("NeedsToBeTested").unwrap();
-        println!("token_header: {:?}", token_header);
         let app = test::init_service(
             App::new()
                 .app_data(Data::from(features_cache.clone()))

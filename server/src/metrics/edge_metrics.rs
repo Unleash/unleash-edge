@@ -1,6 +1,7 @@
 use ahash::{HashMap, HashSet};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use tracing::info;
 use ulid::Ulid;
 use utoipa::ToSchema;
 
@@ -92,6 +93,7 @@ impl EdgeInstanceData {
         desired_urls.insert("/api/client/metrics/bulk");
         desired_urls.insert("/api/client/metrics/edge");
         desired_urls.insert("/api/frontend");
+        desired_urls.insert("/api/proxy");
         let mut get_requests = HashMap::default();
         let mut post_requests = HashMap::default();
 
@@ -135,15 +137,16 @@ impl EdgeInstanceData {
                                     .entry(path.to_string())
                                     .or_insert(LatencyMetrics::new())
                             };
-                            let total = m.get_histogram().get_sample_sum();
+                            let total = m.get_histogram().get_sample_sum() * 1000.0; // convert to ms
                             let count = m.get_histogram().get_sample_count() as f64;
+                            println!("{path}: Total time {total}, calls {count}");
                             let p99 = get_percentile(
                                 99,
                                 m.get_histogram().get_sample_count(),
                                 m.get_histogram().get_bucket(),
                             );
                             *latency = LatencyMetrics {
-                                avg: total / count,
+                                avg: if count == 0.0 { 0.0 } else { total / count },
                                 count,
                                 p99,
                             };
@@ -160,6 +163,7 @@ impl EdgeInstanceData {
                     }
                 }
                 "client_metrics_upload" => {
+                    info!("{:?}", family.get_metric());
                     if let Some(metrics_upload_metric) = family.get_metric().last() {
                         let count = metrics_upload_metric.get_histogram().get_sample_count();
                         let p99 = get_percentile(

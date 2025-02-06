@@ -11,7 +11,7 @@ use super::refresher::feature_refresher::FeatureRefresher;
 
 pub async fn send_instance_data(
     feature_refresher: Arc<FeatureRefresher>,
-    prometheus_registry: &Registry,
+    prometheus_registry: Registry,
     our_instance_data: Arc<EdgeInstanceData>,
     downstream_instance_data: Arc<RwLock<Vec<EdgeInstanceData>>>,
 ) {
@@ -19,7 +19,7 @@ pub async fn send_instance_data(
         tokio::time::sleep(std::time::Duration::from_secs(15)).await;
         trace!("Looping instance data sending");
         let downstream_instances = downstream_instance_data.read().await.clone();
-        let observed_data = our_instance_data.observe(prometheus_registry, downstream_instances);
+        let observed_data = our_instance_data.observe(&prometheus_registry, downstream_instances);
         info!("Observed when sending: {observed_data:?}");
         let status = feature_refresher
             .unleash_client

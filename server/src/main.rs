@@ -229,7 +229,7 @@ async fn main() -> Result<(), anyhow::Error> {
                 _ = metrics_pusher::prometheus_remote_write(prom_registry_for_write.clone(), edge.prometheus_remote_write_url, edge.prometheus_push_interval, edge.prometheus_username, edge.prometheus_password, app_name) => {
                     tracing::info!("Prometheus push unexpectedly shut down");
                 }
-                _ = unleash_edge::http::instance_data::send_instance_data(refresher.clone(), &prom_registry_for_write, our_instance_data.clone(), downstream_instance_data.clone()) => {
+                _ = unleash_edge::http::instance_data::send_instance_data(refresher.clone(), prom_registry_for_write.clone(), our_instance_data.clone(), downstream_instance_data.clone()) => {
                     tracing::info!("Instance data pusher unexpectedly quit");
                 }
             }
