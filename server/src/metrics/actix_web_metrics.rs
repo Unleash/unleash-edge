@@ -121,6 +121,10 @@ impl Metrics {
             .f64_histogram(HTTP_SERVER_DURATION)
             .with_description("HTTP inbound request duration per route")
             .with_unit("ms")
+            .with_boundaries(vec![
+                1.0, 5.0, 10.0, 20.0, 30.0, 40.0, 50.0, 100.0, 200.0, 300.0, 400.0, 500.0, 750.0,
+                1000.0, 1500.0, 2000.0,
+            ])
             .build();
 
         let http_server_request_size = meter
