@@ -1,11 +1,11 @@
-use std::sync::Arc;
-
 use actix_middleware_etag::Etag;
 use actix_web::middleware::Logger;
 use actix_web::{web, App, HttpServer};
 use clap::Parser;
 use dashmap::DashMap;
 use futures::future::join_all;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ConnectVia;
 use utoipa::OpenApi;
@@ -16,8 +16,10 @@ use unleash_edge::builder::build_caches_and_refreshers;
 use unleash_edge::cli::{CliArgs, EdgeMode};
 use unleash_edge::feature_cache::FeatureCache;
 use unleash_edge::http::background_send_metrics::send_metrics_one_shot;
+use unleash_edge::http::broadcaster::Broadcaster;
 use unleash_edge::http::refresher::feature_refresher::FeatureRefresher;
 use unleash_edge::metrics::client_metrics::MetricsCache;
+use unleash_edge::metrics::edge_metrics::EdgeInstanceData;
 use unleash_edge::offline::offline_hotload;
 use unleash_edge::persistence::{persist_data, EdgePersistence};
 use unleash_edge::types::{EdgeToken, TokenValidationStatus};
@@ -28,12 +30,8 @@ use unleash_edge::{internal_backstage, tls};
 #[cfg(not(tarpaulin_include))]
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {
-    use std::sync::RwLock;
+    use unleash_edge::{http::unleash_client::ClientMetaInformation, metrics::metrics_pusher};
 
-    use unleash_edge::{
-        http::{broadcaster::Broadcaster, unleash_client::ClientMetaInformation},
-        metrics::{edge_metrics::EdgeInstanceData, metrics_pusher},
-    };
     let args = CliArgs::parse();
     let disable_all_endpoint = args.disable_all_endpoint;
     if args.markdown_help {
