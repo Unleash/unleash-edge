@@ -14,7 +14,7 @@ use tracing::warn;
 use unleash_types::client_features::{
     ClientFeature, ClientFeatures, Strategy, Variant, WeightType,
 };
-use unleash_yggdrasil::EngineState;
+use unleash_yggdrasil::{EngineState, UpdateMessage};
 
 use crate::{cli::OfflineArgs, error::EdgeError, feature_cache::FeatureCache, types::EdgeToken};
 
@@ -69,7 +69,7 @@ pub(crate) fn load_offline_engine_cache(
         client_features.clone(),
     );
     let mut engine = EngineState::default();
-    let warnings = engine.take_state(client_features);
+    let warnings = engine.take_state(UpdateMessage::FullResponse(client_features));
     engine_cache.insert(crate::tokens::cache_key(edge_token), engine);
     if let Some(warnings) = warnings {
         warn!("The following toggle failed to compile and will be defaulted to off: {warnings:?}");

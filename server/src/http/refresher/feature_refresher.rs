@@ -11,7 +11,7 @@ use reqwest::StatusCode;
 use tracing::{debug, info, warn};
 use unleash_types::client_features::{ClientFeatures, DeltaEvent};
 use unleash_types::client_metrics::{ClientApplication, MetricsMetadata};
-use unleash_yggdrasil::EngineState;
+use unleash_yggdrasil::{EngineState, UpdateMessage};
 
 use crate::error::{EdgeError, FeatureError};
 use crate::feature_cache::FeatureCache;
@@ -495,7 +495,7 @@ impl FeatureRefresher {
                         .and_modify(|engine| {
                             if let Some(f) = self.features_cache.get(&key) {
                                 let mut new_state = EngineState::default();
-                                let warnings = new_state.take_state(f.clone());
+                                let warnings = new_state.take_state(UpdateMessage::FullResponse(f.clone()));
                                 if let Some(warnings) = warnings {
                                     warn!("The following toggle failed to compile and will be defaulted to off: {warnings:?}");
                                 };
@@ -506,7 +506,7 @@ impl FeatureRefresher {
                         .or_insert_with(|| {
                             let mut new_state = EngineState::default();
 
-                            let warnings = new_state.take_state(features);
+                            let warnings = new_state.take_state(UpdateMessage::FullResponse(features));
                             if let Some(warnings) = warnings {
                                 warn!("The following toggle failed to compile and will be defaulted to off: {warnings:?}");
                             };
@@ -623,7 +623,7 @@ mod tests {
     use dashmap::DashMap;
     use reqwest::Url;
     use unleash_types::client_features::ClientFeature;
-    use unleash_yggdrasil::EngineState;
+    use unleash_yggdrasil::{EngineState, UpdateMessage};
 
     use crate::feature_cache::{update_projects_from_feature_update, FeatureCache};
     use crate::filters::{project_filter, FeatureFilterSet};
@@ -1043,7 +1043,7 @@ mod tests {
         let example_features = features_from_disk("../examples/features.json");
         let cache_key = cache_key(&token);
         let mut engine_state = EngineState::default();
-        let warnings = engine_state.take_state(example_features.clone());
+        let warnings = engine_state.take_state(UpdateMessage::FullResponse(example_features.clone()));
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         upstream_engine_cache.insert(cache_key.clone(), engine_state);
         let mut server = client_api_test_server(
@@ -1099,7 +1099,7 @@ mod tests {
         let example_features = features_from_disk("../examples/features.json");
         let cache_key = cache_key(&valid_token);
         let mut engine_state = EngineState::default();
-        let warnings = engine_state.take_state(example_features.clone());
+        let warnings = engine_state.take_state(UpdateMessage::FullResponse(example_features.clone()));
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         upstream_engine_cache.insert(cache_key.clone(), engine_state);
         let server = client_api_test_server(
@@ -1144,7 +1144,7 @@ mod tests {
         let example_features = features_from_disk("../examples/hostedexample.json");
         let cache_key = cache_key(&dx_token);
         let mut engine_state = EngineState::default();
-        let warnings = engine_state.take_state(example_features.clone());
+        let warnings = engine_state.take_state(UpdateMessage::FullResponse(example_features.clone()));
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         upstream_engine_cache.insert(cache_key.clone(), engine_state);
         let server = client_api_test_server(
@@ -1194,7 +1194,7 @@ mod tests {
         let cache_key = cache_key(&dx_token);
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         let mut engine_state = EngineState::default();
-        let warnings = engine_state.take_state(example_features.clone());
+        let warnings = engine_state.take_state(UpdateMessage::FullResponse(example_features.clone()));
         upstream_engine_cache.insert(cache_key, engine_state);
         let server = client_api_test_server(
             upstream_token_cache,
@@ -1256,7 +1256,7 @@ mod tests {
         let cache_key = cache_key(&dx_token);
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         let mut engine_state = EngineState::default();
-        let warnings = engine_state.take_state(example_features.clone());
+        let warnings = engine_state.take_state(UpdateMessage::FullResponse(example_features.clone()));
         upstream_engine_cache.insert(cache_key, engine_state);
         let server = client_api_test_server(
             upstream_token_cache,
@@ -1364,7 +1364,7 @@ mod tests {
         let cache_key = cache_key(&eg_token);
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         let mut engine_state = EngineState::default();
-        let warnings = engine_state.take_state(example_features.clone());
+        let warnings = engine_state.take_state(UpdateMessage::FullResponse(example_features.clone()));
         upstream_engine_cache.insert(cache_key.clone(), engine_state);
         let server = client_api_test_server(
             upstream_token_cache,

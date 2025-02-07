@@ -167,17 +167,31 @@ async fn main() -> Result<(), anyhow::Error> {
             if edge.streaming {
                 let app_name = app_name.clone();
                 let custom_headers = custom_headers.clone();
-                tokio::spawn(async move {
-                    let _ = refresher_for_background
-                        .start_streaming_features_background_task(
-                            ClientMetaInformation {
-                                app_name,
-                                instance_id,
-                            },
-                            custom_headers,
-                        )
-                        .await;
-                });
+                if edge.delta {
+                    tokio::spawn(async move {
+                        let _ = refresher_for_background
+                            .start_streaming_delta_background_task(
+                                ClientMetaInformation {
+                                    app_name,
+                                    instance_id,
+                                },
+                                custom_headers,
+                            )
+                            .await;
+                    });
+                } else {
+                    tokio::spawn(async move {
+                        let _ = refresher_for_background
+                            .start_streaming_features_background_task(
+                                ClientMetaInformation {
+                                    app_name,
+                                    instance_id,
+                                },
+                                custom_headers,
+                            )
+                            .await;
+                    });
+                }
             }
 
             let refresher = feature_refresher.clone().unwrap();
