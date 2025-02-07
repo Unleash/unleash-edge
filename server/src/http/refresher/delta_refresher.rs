@@ -1,12 +1,17 @@
+use std::time::Duration;
+use eventsource_client::Client;
 use actix_web::http::header::EntityTag;
 use reqwest::StatusCode;
+use futures::TryStreamExt;
 use tracing::{debug, info, warn};
 use unleash_types::client_features::{ClientFeaturesDelta};
 use unleash_yggdrasil::EngineState;
 
 use crate::error::{EdgeError, FeatureError};
+use crate::http::headers::{UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_INSTANCE_ID_HEADER};
 use crate::types::{ClientFeaturesDeltaResponse, ClientFeaturesRequest, EdgeToken, TokenRefresh};
 use crate::http::refresher::feature_refresher::FeatureRefresher;
+use crate::http::unleash_client::ClientMetaInformation;
 use crate::tokens::cache_key;
 
 impl FeatureRefresher {
@@ -19,7 +24,7 @@ impl FeatureRefresher {
         let updated_len = delta.events.len();
 
         debug!(
-            "Got updated client features delta. Updating features with {etag:?}, events count {updated_len}"
+            "Got updated client features delta. Updating features with etag {etag:?}, events count {updated_len}"
         );
 
         let key = cache_key(refresh_token);
@@ -109,6 +114,117 @@ impl FeatureRefresher {
                 }
             }
         }
+    }
+
+    pub async fn start_streaming_delta_background_task(
+        &self,
+        client_meta_information: ClientMetaInformation,
+        custom_headers: Vec<(String, String)>,
+    ) -> anyhow::Result<()> {
+        use anyhow::Context;
+
+        let refreshes = self.get_tokens_due_for_refresh();
+        for refresh in refreshes {
+            let token = refresh.token.clone();
+            let streaming_url = self.unleash_client.urls.client_features_stream_url.as_str();
+
+            let mut es_client_builder = eventsource_client::ClientBuilder::for_url(streaming_url)
+                .context("Failed to create EventSource client for streaming")?
+                .header("Authorization", &token.token)?
+                .header(UNLEASH_APPNAME_HEADER, &client_meta_information.app_name)?
+                .header(
+                    UNLEASH_INSTANCE_ID_HEADER,
+                    &client_meta_information.instance_id,
+                )?
+                .header(
+                    UNLEASH_CLIENT_SPEC_HEADER,
+                    unleash_yggdrasil::SUPPORTED_SPEC_VERSION,
+                )?;
+
+            for (key, value) in custom_headers.clone() {
+                es_client_builder = es_client_builder.header(&key, &value)?;
+            }
+
+            let es_client = es_client_builder
+                .reconnect(
+                    eventsource_client::ReconnectOptions::reconnect(true)
+                        .retry_initial(true)
+                        .delay(Duration::from_secs(5))
+                        .delay_max(Duration::from_secs(30))
+                        .backoff_factor(2)
+                        .build(),
+                )
+                .build();
+
+            let refresher = self.clone();
+
+            tokio::spawn(async move {
+                let mut stream = es_client
+                    .stream()
+                    .map_ok(move |sse| {
+                        let token = token.clone();
+                        let refresher = refresher.clone();
+                        async move {
+                            match sse {
+                                // The first time we're connecting to Unleash.
+                                eventsource_client::SSE::Event(event)
+                                if event.event_type == "unleash-connected" =>
+                                    {
+                                        debug!(
+                                        "Connected to unleash! Populating my flag cache now.",
+                                    );
+
+                                        match serde_json::from_str(&event.data) {
+                                            Ok(delta) => { refresher.handle_client_features_delta_updated(&token, delta, None).await; }
+                                            Err(e) => { warn!("Could not parse features response to internal representation: {e:?}");
+                                            }
+                                        }
+                                    }
+                                // Unleash has updated features for us.
+                                eventsource_client::SSE::Event(event)
+                                if event.event_type == "unleash-updated" =>
+                                    {
+                                        debug!(
+                                        "Got an unleash updated event. Updating cache.",
+                                    );
+
+                                        match serde_json::from_str(&event.data) {
+                                            Ok(delta) => { refresher.handle_client_features_delta_updated(&token, delta, None).await; }
+                                            Err(e) => { warn!("Could not parse features response to internal representation: {e:?}");
+                                            }
+                                        }
+                                    }
+                                eventsource_client::SSE::Event(event) => {
+                                    info!(
+                                        "Got an SSE event that I wasn't expecting: {:#?}",
+                                        event
+                                    );
+                                }
+                                eventsource_client::SSE::Connected(_) => {
+                                    debug!("SSE Connection established");
+                                }
+                                eventsource_client::SSE::Comment(_) => {
+                                    // purposefully left blank.
+                                },
+                            }
+                        }
+                    })
+                    .map_err(|e| warn!("Error in SSE stream: {:?}", e));
+
+                loop {
+                    match stream.try_next().await {
+                        Ok(Some(handler)) => handler.await,
+                        Ok(None) => {
+                            info!("SSE stream ended? Handler was None, anyway. Reconnecting.");
+                        }
+                        Err(e) => {
+                            info!("SSE stream error: {e:?}. Reconnecting");
+                        }
+                    }
+                }
+            });
+        }
+        Ok(())
     }
 }
 
@@ -277,4 +393,6 @@ mod tests {
         })
             .await
     }
+
+
 }
