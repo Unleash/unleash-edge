@@ -24,7 +24,7 @@ impl FeatureRefresher {
         let updated_len = delta.events.len();
 
         debug!(
-            "Got updated client features delta. Updating features with {etag:?}, events count {updated_len}"
+            "Got updated client features delta. Updating features with etag {etag:?}, events count {updated_len}"
         );
 
         let key = cache_key(refresh_token);
