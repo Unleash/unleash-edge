@@ -37,6 +37,7 @@ pub struct ProcessMetrics {
 pub struct InstanceTraffic {
     pub get: HashMap<String, LatencyMetrics>,
     pub post: HashMap<String, LatencyMetrics>,
+    pub access_denied: HashMap<String, LatencyMetrics>,
 }
 
 #[derive(Debug, Default, Clone, Deserialize, Serialize, ToSchema)]
@@ -96,6 +97,7 @@ impl EdgeInstanceData {
         desired_urls.insert("/api/proxy");
         let mut get_requests = HashMap::default();
         let mut post_requests = HashMap::default();
+        let mut access_denied = HashMap::default();
 
         for family in registry.gather().iter() {
             match family.get_name() {
@@ -112,6 +114,7 @@ impl EdgeInstanceData {
                                 && m.get_label().iter().any(|l| {
                                     l.get_name() == "http_response_status_code"
                                         && l.get_value() == "200"
+                                        || l.get_value() == "403"
                                 })
                         })
                         .for_each(|m| {
@@ -127,8 +130,16 @@ impl EdgeInstanceData {
                                 .find(|l| l.get_name() == "http_request_method")
                                 .unwrap()
                                 .get_value();
-
-                            let latency = if method == "GET" {
+                            let status = labels
+                                .iter()
+                                .find(|l| l.get_name() == "http_response_status_code")
+                                .unwrap()
+                                .get_value();
+                            let latency = if status != "200" {
+                                access_denied
+                                    .entry(path.to_string())
+                                    .or_insert(LatencyMetrics::new())
+                            } else if method == "GET" {
                                 get_requests
                                     .entry(path.to_string())
                                     .or_insert(LatencyMetrics::new())
@@ -139,7 +150,6 @@ impl EdgeInstanceData {
                             };
                             let total = m.get_histogram().get_sample_sum() * 1000.0; // convert to ms
                             let count = m.get_histogram().get_sample_count() as f64;
-                            println!("{path}: Total time {total}, calls {count}");
                             let p99 = get_percentile(
                                 99,
                                 m.get_histogram().get_sample_count(),
@@ -225,6 +235,7 @@ impl EdgeInstanceData {
         observed.traffic = InstanceTraffic {
             get: get_requests,
             post: post_requests,
+            access_denied,
         };
         observed.process_metrics = Some(ProcessMetrics {
             cpu_usage: cpu_seconds as f64,

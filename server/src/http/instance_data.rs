@@ -18,8 +18,10 @@ pub async fn send_instance_data(
     loop {
         tokio::time::sleep(std::time::Duration::from_secs(15)).await;
         trace!("Looping instance data sending");
-        let downstream_instances = downstream_instance_data.read().await.clone();
-        let observed_data = our_instance_data.observe(&prometheus_registry, downstream_instances);
+        let observed_data = our_instance_data.observe(
+            &prometheus_registry,
+            downstream_instance_data.read().await.clone(),
+        );
         info!("Observed when sending: {observed_data:?}");
         let status = feature_refresher
             .unleash_client
