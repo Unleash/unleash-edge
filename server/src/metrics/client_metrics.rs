@@ -106,9 +106,7 @@ pub struct MetricsCache {
 }
 
 pub(crate) fn size_of_batch(batch: &MetricsBatch) -> usize {
-    serde_json::to_string(batch)
-        .map(|s| s.len())
-        .unwrap_or(0)
+    serde_json::to_string(batch).map(|s| s.len()).unwrap_or(0)
 }
 
 pub(crate) fn register_client_application(
