@@ -2,5 +2,5 @@
 pub mod background_send_metrics;
 pub mod broadcaster;
 pub(crate) mod headers;
-pub mod unleash_client;
 pub mod refresher;
+pub mod unleash_client;

@@ -1,11 +1,11 @@
+use crate::types::EdgeToken;
 use dashmap::DashMap;
 use tokio::sync::broadcast;
+use unleash_types::client_features::ClientFeaturesDelta;
 use unleash_types::{
     client_features::{ClientFeature, ClientFeatures, Segment},
     Deduplicate,
 };
-use unleash_types::client_features::ClientFeaturesDelta;
-use crate::types::EdgeToken;
 
 #[derive(Debug, Clone)]
 pub enum UpdateType {

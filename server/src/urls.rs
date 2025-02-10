@@ -138,6 +138,9 @@ mod tests {
         assert_eq!(urls.api_url.to_string(), api_url);
         assert_eq!(urls.client_api_url.to_string(), client_url);
         assert_eq!(urls.client_features_url.to_string(), client_features_url);
-        assert_eq!(urls.client_features_delta_url.to_string(), client_features_delta_url);
+        assert_eq!(
+            urls.client_features_delta_url.to_string(),
+            client_features_delta_url
+        );
     }
 }
