@@ -1,18 +1,20 @@
-use std::time::Duration;
-use eventsource_client::Client;
 use actix_web::http::header::EntityTag;
-use reqwest::StatusCode;
+use eventsource_client::Client;
 use futures::TryStreamExt;
+use reqwest::StatusCode;
+use std::time::Duration;
 use tracing::{debug, info, warn};
-use unleash_types::client_features::{ClientFeaturesDelta};
+use unleash_types::client_features::ClientFeaturesDelta;
 use unleash_yggdrasil::EngineState;
 
 use crate::error::{EdgeError, FeatureError};
-use crate::http::headers::{UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_INSTANCE_ID_HEADER};
-use crate::types::{ClientFeaturesDeltaResponse, ClientFeaturesRequest, EdgeToken, TokenRefresh};
+use crate::http::headers::{
+    UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_INSTANCE_ID_HEADER,
+};
 use crate::http::refresher::feature_refresher::FeatureRefresher;
 use crate::http::unleash_client::ClientMetaInformation;
 use crate::tokens::cache_key;
+use crate::types::{ClientFeaturesDeltaResponse, ClientFeaturesRequest, EdgeToken, TokenRefresh};
 
 impl FeatureRefresher {
     async fn handle_client_features_delta_updated(
@@ -230,6 +232,10 @@ impl FeatureRefresher {
 
 #[cfg(test)]
 mod tests {
+    use crate::feature_cache::FeatureCache;
+    use crate::http::refresher::feature_refresher::FeatureRefresher;
+    use crate::http::unleash_client::{ClientMetaInformation, UnleashClient};
+    use crate::types::EdgeToken;
     use actix_http::header::IF_NONE_MATCH;
     use actix_http::HttpService;
     use actix_http_test::{test_server, TestServer};
@@ -240,11 +246,10 @@ mod tests {
     use chrono::Duration;
     use dashmap::DashMap;
     use std::sync::Arc;
-    use crate::feature_cache::FeatureCache;
-    use crate::http::refresher::feature_refresher::FeatureRefresher;
-    use crate::http::unleash_client::{ClientMetaInformation, UnleashClient};
-    use crate::types::EdgeToken;
-    use unleash_types::client_features::{ClientFeature, ClientFeatures, ClientFeaturesDelta, Constraint, DeltaEvent, Operator, Segment};
+    use unleash_types::client_features::{
+        ClientFeature, ClientFeatures, ClientFeaturesDelta, Constraint, DeltaEvent, Operator,
+        Segment,
+    };
     use unleash_yggdrasil::EngineState;
 
     #[actix_web::test]
@@ -265,7 +270,7 @@ mod tests {
             strict: false,
             streaming: false,
             delta: true,
-            delta_diff : false,
+            delta_diff: false,
             client_meta_information: ClientMetaInformation::test_config(),
         });
         let mut delta_features = ClientFeatures::create_from_delta(&revision(1));
@@ -359,7 +364,6 @@ mod tests {
         }
     }
 
-
     async fn return_client_features_delta(etag_header: Option<String>) -> HttpResponse {
         match etag_header {
             Some(value) => match value.as_str() {
@@ -389,10 +393,8 @@ mod tests {
                 ))),
                 |_| AppConfig::default(),
             ))
-                .tcp()
+            .tcp()
         })
-            .await
+        .await
     }
-
-
 }

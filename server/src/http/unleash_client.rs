@@ -243,7 +243,6 @@ impl UnleashClient {
 
     #[cfg(test)]
     pub fn new_insecure(server_url: &str) -> Result<Self, EdgeError> {
-
         Ok(Self {
             urls: UnleashUrls::from_str(server_url)?,
             backing_client: new_reqwest_client(
@@ -609,17 +608,6 @@ mod tests {
     use std::path::PathBuf;
     use std::str::FromStr;
 
-    use actix_http::{body::MessageBody, HttpService, TlsAcceptorConfig};
-    use actix_http_test::{test_server, TestServer};
-    use actix_middleware_etag::Etag;
-    use actix_service::map_config;
-    use actix_web::{
-        dev::{AppConfig, ServiceRequest, ServiceResponse},
-        http::header::EntityTag,
-        web, App, HttpResponse,
-    };
-    use chrono::Duration;
-    use unleash_types::client_features::{ClientFeature, ClientFeatures};
     use crate::cli::ClientIdentity;
     use crate::http::unleash_client::new_reqwest_client;
     use crate::{
@@ -631,8 +619,19 @@ mod tests {
             ValidateTokensRequest,
         },
     };
+    use actix_http::{body::MessageBody, HttpService, TlsAcceptorConfig};
+    use actix_http_test::{test_server, TestServer};
+    use actix_middleware_etag::Etag;
+    use actix_service::map_config;
+    use actix_web::{
+        dev::{AppConfig, ServiceRequest, ServiceResponse},
+        http::header::EntityTag,
+        web, App, HttpResponse,
+    };
+    use chrono::Duration;
+    use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
-    use super::{EdgeTokens, UnleashClient, ClientMetaInformation};
+    use super::{ClientMetaInformation, EdgeTokens, UnleashClient};
 
     impl ClientFeaturesRequest {
         pub(crate) fn new(api_key: String, etag: Option<String>) -> Self {
