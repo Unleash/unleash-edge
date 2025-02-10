@@ -7,6 +7,7 @@ use actix_web::{
 use dashmap::DashMap;
 use iter_tools::Itertools;
 use serde::{Deserialize, Serialize};
+use tokio::sync::RwLock;
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ClientApplication;
 
@@ -157,11 +158,11 @@ pub struct DebugEdgeInstanceData {
 #[get("/instancedata")]
 pub async fn instance_data(
     this_instance: web::Data<EdgeInstanceData>,
-    downstream_instance_data: web::Data<std::sync::RwLock<Vec<EdgeInstanceData>>>,
+    downstream_instance_data: web::Data<RwLock<Vec<EdgeInstanceData>>>,
 ) -> EdgeJsonResult<DebugEdgeInstanceData> {
     Ok(Json(DebugEdgeInstanceData {
         this_instance: this_instance.get_ref().clone(),
-        connected_instances: downstream_instance_data.read().unwrap().clone(),
+        connected_instances: downstream_instance_data.read().await.clone(),
     }))
 }
 
