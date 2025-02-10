@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use actix_cors::Cors;
 use actix_middleware_etag::Etag;
 use actix_web::middleware::Logger;
 use actix_web::{web, App, HttpServer};
@@ -51,6 +50,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let schedule_args = args.clone();
     let mode_arg = args.clone().mode;
     let http_args = args.clone().http;
+    let cors_arg = http_args.cors.clone();
     let token_header = args.clone().token_header;
     let request_timeout = args.edge_request_timeout;
     let keepalive_timeout = args.edge_keepalive_timeout;
@@ -96,11 +96,7 @@ async fn main() -> Result<(), anyhow::Error> {
         let qs_config =
             serde_qs::actix::QsQueryConfig::default().qs_config(serde_qs::Config::new(5, false));
 
-        let cors_middleware = Cors::default()
-            .allow_any_origin()
-            .send_wildcard()
-            .allow_any_header()
-            .allow_any_method();
+        let cors_middleware = cors_arg.middleware();
         let mut app = App::new()
             .app_data(qs_config)
             .app_data(web::Data::new(token_header.clone()))
@@ -171,17 +167,31 @@ async fn main() -> Result<(), anyhow::Error> {
             if edge.streaming {
                 let app_name = app_name.clone();
                 let custom_headers = custom_headers.clone();
-                tokio::spawn(async move {
-                    let _ = refresher_for_background
-                        .start_streaming_features_background_task(
-                            ClientMetaInformation {
-                                app_name,
-                                instance_id,
-                            },
-                            custom_headers,
-                        )
-                        .await;
-                });
+                if edge.delta {
+                    tokio::spawn(async move {
+                        let _ = refresher_for_background
+                            .start_streaming_delta_background_task(
+                                ClientMetaInformation {
+                                    app_name,
+                                    instance_id,
+                                },
+                                custom_headers,
+                            )
+                            .await;
+                    });
+                } else {
+                    tokio::spawn(async move {
+                        let _ = refresher_for_background
+                            .start_streaming_features_background_task(
+                                ClientMetaInformation {
+                                    app_name,
+                                    instance_id,
+                                },
+                                custom_headers,
+                            )
+                            .await;
+                    });
+                }
             }
 
             let refresher = feature_refresher.clone().unwrap();
