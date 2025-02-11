@@ -4,8 +4,6 @@ use std::{sync::Arc, time::Duration};
 use actix_web::http::header::EntityTag;
 use chrono::Utc;
 use dashmap::DashMap;
-use eventsource_client::Client;
-use futures::TryStreamExt;
 use json_structural_diff::JsonDiff;
 use reqwest::StatusCode;
 use tracing::{debug, info, warn};
@@ -16,9 +14,6 @@ use unleash_yggdrasil::{EngineState, UpdateMessage};
 use crate::error::{EdgeError, FeatureError};
 use crate::feature_cache::FeatureCache;
 use crate::filters::{filter_client_features, FeatureFilterSet};
-use crate::http::headers::{
-    UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_INSTANCE_ID_HEADER,
-};
 use crate::types::{
     build, ClientFeaturesDeltaResponse, EdgeResult, TokenType, TokenValidationStatus,
 };
