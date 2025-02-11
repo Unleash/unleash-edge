@@ -561,16 +561,19 @@ impl UnleashClient {
         }
     }
 
+    #[tracing::instrument(skip(self, instance_data, token))]
     pub async fn send_instance_data(
         &self,
         instance_data: EdgeInstanceData,
         token: &str,
     ) -> EdgeResult<()> {
         let started_at = Utc::now();
+        info!("Started at {}", started_at);
         let result = self
             .backing_client
             .post(self.urls.edge_instance_data_url.to_string())
             .headers(self.header_map(Some(token.into())))
+            .timeout(Duration::seconds(3).to_std().unwrap())
             .json(&instance_data)
             .send()
             .await
@@ -579,6 +582,7 @@ impl UnleashClient {
                 EdgeError::EdgeMetricsError
             })?;
         let ended_at = Utc::now();
+        info!("Done sending at {}", ended_at);
         INSTANCE_DATA_UPLOAD
             .with_label_values(&[result.status().as_str()])
             .observe(
