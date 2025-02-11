@@ -23,9 +23,10 @@ use unleash_edge::metrics::edge_metrics::EdgeInstanceData;
 use unleash_edge::offline::offline_hotload;
 use unleash_edge::persistence::{persist_data, EdgePersistence};
 use unleash_edge::types::{EdgeToken, TokenValidationStatus};
-use unleash_edge::{cli, client_api, frontend_api, health_checker, openapi, ready_checker};
+use unleash_edge::{client_api, frontend_api, health_checker, openapi, ready_checker};
 use unleash_edge::{edge_api, prom_metrics};
 use unleash_edge::{internal_backstage, tls};
+use unleash_edge::http::instance_data::InstanceDataSender;
 
 #[cfg(not(tarpaulin_include))]
 #[actix_web::main]
@@ -65,7 +66,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let our_instance_data = our_instance_data_for_app_context.clone();
     let instance_id = args.instance_id.clone();
     let custom_headers = match args.mode {
-        cli::EdgeMode::Edge(ref edge) => edge.custom_client_headers.clone(),
+        EdgeMode::Edge(ref edge) => edge.custom_client_headers.clone(),
         _ => vec![],
     };
 
@@ -76,8 +77,9 @@ async fn main() -> Result<(), anyhow::Error> {
         token_validator,
         feature_refresher,
         persistence,
-    ) = build_caches_and_refreshers(args).await.unwrap();
+    ) = build_caches_and_refreshers(args.clone()).await.unwrap();
 
+    let instance_data_sender = InstanceDataSender::from_args(args.clone(), our_instance_data.clone());
     let token_validator_schedule = token_validator.clone();
     let lazy_feature_cache = features_cache.clone();
     let lazy_token_cache = token_cache.clone();
@@ -169,7 +171,7 @@ async fn main() -> Result<(), anyhow::Error> {
         .client_request_timeout(std::time::Duration::from_secs(request_timeout));
 
     match schedule_args.mode {
-        cli::EdgeMode::Edge(edge) => {
+        EdgeMode::Edge(edge) => {
             let refresher_for_background = feature_refresher.clone().unwrap();
             if edge.streaming {
                 let app_name = app_name.clone();
@@ -207,48 +209,48 @@ async fn main() -> Result<(), anyhow::Error> {
 
             tokio::select! {
                 _ = server.run() => {
-                    tracing::info!("Actix is shutting down. Persisting data");
+                    info!("Actix is shutting down. Persisting data");
                     clean_shutdown(persistence.clone(), lazy_feature_cache.clone(), lazy_token_cache.clone(), metrics_cache_clone.clone(), feature_refresher.clone()).await;
-                    tracing::info!("Actix was shutdown properly");
+                    info!("Actix was shutdown properly");
                 },
                 _ = refresher.start_refresh_features_background_task() => {
-                    tracing::info!("Feature refresher unexpectedly shut down");
+                    info!("Feature refresher unexpectedly shut down");
                 }
                 _ = unleash_edge::http::background_send_metrics::send_metrics_task(metrics_cache_clone.clone(), refresher.clone(), edge.metrics_interval_seconds.try_into().unwrap()) => {
-                    tracing::info!("Metrics poster unexpectedly shut down");
+                    info!("Metrics poster unexpectedly shut down");
                 }
                 _ = persist_data(persistence.clone(), lazy_token_cache.clone(), lazy_feature_cache.clone()) => {
-                    tracing::info!("Persister was unexpectedly shut down");
+                    info!("Persister was unexpectedly shut down");
                 }
                 _ = validator.schedule_validation_of_known_tokens(edge.token_revalidation_interval_seconds) => {
-                    tracing::info!("Token validator validation of known tokens was unexpectedly shut down");
+                    info!("Token validator validation of known tokens was unexpectedly shut down");
                 }
-                _ = validator.schedule_revalidation_of_startup_tokens(edge.tokens, lazy_feature_refresher) => {
-                    tracing::info!("Token validator validation of startup tokens was unexpectedly shut down");
+                _ = validator.schedule_revalidation_of_startup_tokens(edge.tokens, lazy_feature_refresher.clone()) => {
+                    info!("Token validator validation of startup tokens was unexpectedly shut down");
                 }
                 _ = metrics_pusher::prometheus_remote_write(prom_registry_for_write.clone(), edge.prometheus_remote_write_url, edge.prometheus_push_interval, edge.prometheus_username, edge.prometheus_password, app_name) => {
-                    tracing::info!("Prometheus push unexpectedly shut down");
+                    info!("Prometheus push unexpectedly shut down");
                 }
-                _ = unleash_edge::http::instance_data::send_instance_data(refresher.clone(), prom_registry_for_write.clone(), our_instance_data.clone(), downstream_instance_data.clone()) => {
-                    tracing::info!("Instance data pusher unexpectedly quit");
+                _ = unleash_edge::http::instance_data::send_instance_data(instance_data_sender?, prom_registry_for_write.clone(), our_instance_data.clone(), downstream_instance_data.clone()) => {
+                    info!("Instance data pusher unexpectedly quit");
                 }
             }
         }
-        cli::EdgeMode::Offline(offline_args) if offline_args.reload_interval > 0 => {
+        EdgeMode::Offline(offline_args) if offline_args.reload_interval > 0 => {
             tokio::select! {
                 _ = offline_hotload::start_hotload_loop(lazy_feature_cache, lazy_engine_cache, offline_args) => {
-                    tracing::info!("Hotloader unexpectedly shut down.");
+                    info!("Hotloader unexpectedly shut down.");
                 },
                 _ = server.run() => {
-                    tracing::info!("Actix is shutting down. No pending tasks.");
+                    info!("Actix is shutting down. No pending tasks.");
                 },
             }
         }
         _ => tokio::select! {
             _ = server.run() => {
-                tracing::info!("Actix is shutting down. Persisting data");
+                info!("Actix is shutting down. Persisting data");
                 clean_shutdown(persistence, lazy_feature_cache.clone(), lazy_token_cache.clone(), metrics_cache_clone.clone(), feature_refresher.clone()).await;
-                tracing::info!("Actix was shutdown properly");
+                info!("Actix was shutdown properly");
 
             }
         },
@@ -283,7 +285,7 @@ async fn clean_shutdown(
         ])
         .await;
         if res.iter().all(|save| save.is_ok()) {
-            tracing::info!("Successfully persisted data to storage backend");
+            info!("Successfully persisted data to storage backend");
         } else {
             res.iter()
                 .filter(|save| save.is_err())

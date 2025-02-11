@@ -244,7 +244,6 @@ impl EdgeInstanceData {
         for connected_instance in connected_instances {
             observed.connected_edges.push(connected_instance.clone());
         }
-        info!("Observed");
         observed
     }
 }
