@@ -271,7 +271,7 @@ async fn build_edge(
         refresher_mode,
         client_meta_information,
         args.delta,
-        args.delta_diff
+        args.delta_diff,
     );
     let feature_refresher = Arc::new(FeatureRefresher::new(
         unleash_client,

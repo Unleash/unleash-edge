@@ -19,7 +19,9 @@ use crate::filters::{filter_client_features, FeatureFilterSet};
 use crate::http::headers::{
     UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_INSTANCE_ID_HEADER,
 };
-use crate::types::{build, ClientFeaturesDeltaResponse, EdgeResult, TokenType, TokenValidationStatus};
+use crate::types::{
+    build, ClientFeaturesDeltaResponse, EdgeResult, TokenType, TokenValidationStatus,
+};
 use crate::{
     persistence::EdgePersistence,
     tokens::{cache_key, simplify},
@@ -122,7 +124,7 @@ impl FeatureRefreshConfig {
             mode,
             client_meta_information,
             delta,
-            delta_diff
+            delta_diff,
         }
     }
 }
@@ -347,7 +349,7 @@ impl FeatureRefresher {
 
                                     match serde_json::from_str(&event.data) {
                                         Ok(features) => { refresher.handle_client_features_updated(&token, features, None).await; }
-                                        Err(e) => { warn!("Could not parse features response to internal representation: {e:?}");
+                                        Err(e) => { tracing::error!("Could not parse features response to internal representation: {e:?}");
                                         }
                                     }
                                 }
@@ -411,16 +413,13 @@ impl FeatureRefresher {
         if let Some(client_features) = self.features_cache.get(&key).as_ref() {
             if let Ok(ClientFeaturesDeltaResponse::Updated(delta_features, _etag)) = delta_result {
                 let c_features = &client_features.features;
-                let d_features = delta_features
-                    .events
-                    .iter()
-                    .find_map(|event| {
-                        if let DeltaEvent::Hydration { features, .. } = event {
-                            Some(features)
-                        } else {
-                            None
-                        }
-                    });
+                let d_features = delta_features.events.iter().find_map(|event| {
+                    if let DeltaEvent::Hydration { features, .. } = event {
+                        Some(features)
+                    } else {
+                        None
+                    }
+                });
 
                 let delta_json = serde_json::to_value(d_features).unwrap();
                 let client_json = serde_json::to_value(c_features).unwrap();
@@ -475,7 +474,6 @@ impl FeatureRefresher {
             } else {
                 self.refresh_single(refresh).await;
             }
-
         }
     }
 
@@ -1043,7 +1041,8 @@ mod tests {
         let example_features = features_from_disk("../examples/features.json");
         let cache_key = cache_key(&token);
         let mut engine_state = EngineState::default();
-        let warnings = engine_state.take_state(UpdateMessage::FullResponse(example_features.clone()));
+        let warnings =
+            engine_state.take_state(UpdateMessage::FullResponse(example_features.clone()));
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         upstream_engine_cache.insert(cache_key.clone(), engine_state);
         let mut server = client_api_test_server(
@@ -1099,7 +1098,8 @@ mod tests {
         let example_features = features_from_disk("../examples/features.json");
         let cache_key = cache_key(&valid_token);
         let mut engine_state = EngineState::default();
-        let warnings = engine_state.take_state(UpdateMessage::FullResponse(example_features.clone()));
+        let warnings =
+            engine_state.take_state(UpdateMessage::FullResponse(example_features.clone()));
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         upstream_engine_cache.insert(cache_key.clone(), engine_state);
         let server = client_api_test_server(
@@ -1144,7 +1144,8 @@ mod tests {
         let example_features = features_from_disk("../examples/hostedexample.json");
         let cache_key = cache_key(&dx_token);
         let mut engine_state = EngineState::default();
-        let warnings = engine_state.take_state(UpdateMessage::FullResponse(example_features.clone()));
+        let warnings =
+            engine_state.take_state(UpdateMessage::FullResponse(example_features.clone()));
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         upstream_engine_cache.insert(cache_key.clone(), engine_state);
         let server = client_api_test_server(
@@ -1194,7 +1195,8 @@ mod tests {
         let cache_key = cache_key(&dx_token);
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         let mut engine_state = EngineState::default();
-        let warnings = engine_state.take_state(UpdateMessage::FullResponse(example_features.clone()));
+        let warnings =
+            engine_state.take_state(UpdateMessage::FullResponse(example_features.clone()));
         upstream_engine_cache.insert(cache_key, engine_state);
         let server = client_api_test_server(
             upstream_token_cache,
@@ -1256,7 +1258,8 @@ mod tests {
         let cache_key = cache_key(&dx_token);
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         let mut engine_state = EngineState::default();
-        let warnings = engine_state.take_state(UpdateMessage::FullResponse(example_features.clone()));
+        let warnings =
+            engine_state.take_state(UpdateMessage::FullResponse(example_features.clone()));
         upstream_engine_cache.insert(cache_key, engine_state);
         let server = client_api_test_server(
             upstream_token_cache,
@@ -1364,7 +1367,8 @@ mod tests {
         let cache_key = cache_key(&eg_token);
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         let mut engine_state = EngineState::default();
-        let warnings = engine_state.take_state(UpdateMessage::FullResponse(example_features.clone()));
+        let warnings =
+            engine_state.take_state(UpdateMessage::FullResponse(example_features.clone()));
         upstream_engine_cache.insert(cache_key.clone(), engine_state);
         let server = client_api_test_server(
             upstream_token_cache,
