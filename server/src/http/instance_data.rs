@@ -36,11 +36,12 @@ pub async fn send_instance_data(
                     .expect("No token to refresh, cowardly panic'ing"),
             )
             .await;
+        info!("Got response from upstream: {status:?}");
         match status {
             Ok(_) => {
                 info!("Upstream successfully accepted our data");
                 {
-                    downstream_instance_data.write().await.clear();
+                    //downstream_instance_data.write().await.clear();
                     info!("cleared downstream instances")
                 }
             }
@@ -50,13 +51,13 @@ pub async fn send_instance_data(
                     if status == StatusCode::NOT_FOUND {
                         debug!("Upstream edge metrics not found, clearing our data about downstream instances to avoid growing to infinity (and beyond!)");
                         {
-                            downstream_instance_data.write().await.clear();
+                            //downstream_instance_data.write().await.clear();
                             info!("cleared downstream instances")
                         }
                     } else if status == StatusCode::FORBIDDEN {
                         warn!("Upstream edge metrics rejected our data, clearing our data about downstream instances to avoid growing to infinity (and beyond!)");
                         {
-                            downstream_instance_data.write().await.clear();
+                            //downstream_instance_data.write().await.clear();
                             info!("cleared downstream instances")
                         }
                     }
