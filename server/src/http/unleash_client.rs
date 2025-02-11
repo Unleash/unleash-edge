@@ -12,7 +12,7 @@ use reqwest::header::{HeaderMap, HeaderName};
 use reqwest::{header, Client};
 use reqwest::{ClientBuilder, Identity, RequestBuilder, StatusCode, Url};
 use serde::{Deserialize, Serialize};
-use tracing::error;
+use tracing::{debug, error};
 use tracing::{info, trace, warn};
 use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta};
 use unleash_types::client_metrics::ClientApplication;
@@ -568,7 +568,6 @@ impl UnleashClient {
         token: &str,
     ) -> EdgeResult<()> {
         let started_at = Utc::now();
-        info!("Started at {}", started_at);
         let result = self
             .backing_client
             .post(self.urls.edge_instance_data_url.to_string())
@@ -582,7 +581,6 @@ impl UnleashClient {
                 EdgeError::EdgeMetricsError
             })?;
         let ended_at = Utc::now();
-        info!("Done sending at {}", ended_at);
         INSTANCE_DATA_UPLOAD
             .with_label_values(&[result.status().as_str()])
             .observe(
@@ -590,7 +588,7 @@ impl UnleashClient {
                     .signed_duration_since(started_at)
                     .num_milliseconds() as f64,
             );
-        if result.status().is_success() {
+        let r = if result.status().is_success() {
             Ok(())
         } else {
             match result.status() {
@@ -600,7 +598,9 @@ impl UnleashClient {
                 )),
                 _ => Err(EdgeMetricsRequestError(result.status(), None)),
             }
-        }
+        };
+        debug!("Sent instance data to upstream server");
+        r
     }
 
     pub async fn validate_tokens(
