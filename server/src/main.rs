@@ -64,7 +64,7 @@ async fn main() -> Result<(), anyhow::Error> {
         instance_id: our_instance_data_for_app_context.identifier.clone(),
     };
     let our_instance_data = our_instance_data_for_app_context.clone();
-    let instance_id = args.instance_id.clone();
+    let instance_id = our_instance_data_for_app_context.identifier.clone();
     let custom_headers = match args.mode {
         EdgeMode::Edge(ref edge) => edge.custom_client_headers.clone(),
         _ => vec![],
