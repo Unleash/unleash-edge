@@ -1,4 +1,4 @@
-use ahash::{HashMap, HashSet};
+use ahash::{HashMap};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tracing::info;
@@ -24,6 +24,8 @@ impl LatencyMetrics {
         }
     }
 }
+
+pub const DESIRED_URLS: [&str; 6] = ["/api/client/features", "/api/client/metrics", "/api/client/metrics/bulk","/api/client/metrics/edge","/api/frontend", "/api/proxy"];
 
 #[derive(Debug, Default, Clone, Copy, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -84,17 +86,11 @@ impl EdgeInstanceData {
         &self,
         registry: &prometheus::Registry,
         connected_instances: Vec<EdgeInstanceData>,
+        base_path: &str
     ) -> Self {
         let mut observed = self.clone();
         let mut cpu_seconds = 0;
         let mut resident_memory = 0;
-        let mut desired_urls = HashSet::default();
-        desired_urls.insert("/api/client/features");
-        desired_urls.insert("/api/client/metrics");
-        desired_urls.insert("/api/client/metrics/bulk");
-        desired_urls.insert("/api/client/metrics/edge");
-        desired_urls.insert("/api/frontend");
-        desired_urls.insert("/api/proxy");
         let mut get_requests = HashMap::default();
         let mut post_requests = HashMap::default();
         let mut access_denied = HashMap::default();
@@ -109,7 +105,7 @@ impl EdgeInstanceData {
                             m.has_histogram()
                                 && m.get_label().iter().any(|l| {
                                     l.get_name() == "url_path"
-                                        && desired_urls.contains(l.get_value())
+                                        && DESIRED_URLS.iter().any(|desired| l.get_value().ends_with(desired))
                                 })
                                 && m.get_label().iter().any(|l| {
                                     l.get_name() == "http_response_status_code"
@@ -124,7 +120,9 @@ impl EdgeInstanceData {
                                 .iter()
                                 .find(|l| l.get_name() == "url_path")
                                 .unwrap()
-                                .get_value();
+                                .get_value()
+                                .strip_prefix(base_path)
+                                .unwrap();
                             let method = labels
                                 .iter()
                                 .find(|l| l.get_name() == "http_request_method")

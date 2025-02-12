@@ -14,6 +14,7 @@ use tracing::{debug, trace, warn};
 pub struct InstanceDataSender {
     pub unleash_client: Arc<UnleashClient>,
     pub token: String,
+    pub base_path: String,
 }
 
 impl InstanceDataSender {
@@ -55,6 +56,7 @@ impl InstanceDataSender {
                     Self {
                         unleash_client,
                         token: token.clone(),
+                        base_path: args.http.base_path.clone(),
                     }
                 }))
             }
@@ -78,6 +80,7 @@ pub async fn send_instance_data(
             let observed_data = our_instance_data.observe(
                 &prometheus_registry,
                 downstream_instance_data.read().await.clone(),
+                &instance_data_sender.base_path
             );
             if do_the_work {
                 let status = instance_data_sender
@@ -87,8 +90,8 @@ pub async fn send_instance_data(
                 match status {
                     Ok(_) => {}
                     Err(e) => match e {
-                        EdgeError::EdgeMetricsRequestError(status, _message) => {
-                            warn!("Failed to post instance data with status {status}");
+                        EdgeError::EdgeMetricsRequestError(status, message) => {
+                            warn!("Failed to post instance data with status {status} and {message:?}");
                             if status == StatusCode::NOT_FOUND {
                                 debug!("Upstream edge metrics not found, clearing our data about downstream instances to avoid growing to infinity (and beyond!).");
                                 empty = true;
