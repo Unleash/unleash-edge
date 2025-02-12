@@ -2907,13 +2907,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "opentelemetry"
+version = "0.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "236e667b670a5cdf90c258f5a55794ec5ac5027e960c224bff8367a59e1e6426"
+dependencies = [
+ "futures-core",
+ "futures-sink",
+ "js-sys",
+ "pin-project-lite",
+ "thiserror 2.0.9",
+ "tracing",
+]
+
+[[package]]
 name = "opentelemetry-prometheus"
 version = "0.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b834e966ea5e2d03dfe5f2253f03d22cce21403ee940265070eeee96cee0bcc"
 dependencies = [
  "once_cell",
- "opentelemetry",
+ "opentelemetry 0.27.1",
  "opentelemetry_sdk",
  "prometheus",
  "protobuf",
@@ -2937,7 +2951,7 @@ dependencies = [
  "futures-executor",
  "futures-util",
  "glob",
- "opentelemetry",
+ "opentelemetry 0.27.1",
  "percent-encoding",
  "rand 0.8.5",
  "serde",
@@ -4748,7 +4762,7 @@ dependencies = [
  "lazy_static",
  "maplit",
  "num_cpus",
- "opentelemetry",
+ "opentelemetry 0.28.0",
  "opentelemetry-prometheus",
  "opentelemetry-semantic-conventions",
  "opentelemetry_sdk",
