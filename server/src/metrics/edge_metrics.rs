@@ -156,7 +156,11 @@ impl EdgeInstanceData {
                                 m.get_histogram().get_bucket(),
                             );
                             *latency = LatencyMetrics {
-                                avg: if count == 0.0 { 0.0 } else { round_to_3_decimals(total / count) },
+                                avg: if count == 0.0 {
+                                    0.0
+                                } else {
+                                    round_to_3_decimals(total / count)
+                                },
                                 count,
                                 p99,
                             };
@@ -182,8 +186,10 @@ impl EdgeInstanceData {
                             metrics_upload_metric.get_histogram().get_bucket(),
                         );
                         observed.latency_upstream.metrics = LatencyMetrics {
-                            avg: round_to_3_decimals(metrics_upload_metric.get_histogram().get_sample_sum()
-                                / count as f64),
+                            avg: round_to_3_decimals(
+                                metrics_upload_metric.get_histogram().get_sample_sum()
+                                    / count as f64,
+                            ),
                             count: count as f64,
                             p99,
                         }
@@ -200,8 +206,10 @@ impl EdgeInstanceData {
                             instance_data_upload_metric.get_histogram().get_bucket(),
                         );
                         observed.latency_upstream.edge = LatencyMetrics {
-                            avg: round_to_3_decimals(instance_data_upload_metric.get_histogram().get_sample_sum()
-                                / count as f64),
+                            avg: round_to_3_decimals(
+                                instance_data_upload_metric.get_histogram().get_sample_sum()
+                                    / count as f64,
+                            ),
                             count: count as f64,
                             p99,
                         }
@@ -216,8 +224,10 @@ impl EdgeInstanceData {
                             feature_fetch_metric.get_histogram().get_bucket(),
                         );
                         observed.latency_upstream.features = LatencyMetrics {
-                            avg: round_to_3_decimals(feature_fetch_metric.get_histogram().get_sample_sum()
-                                / count as f64),
+                            avg: round_to_3_decimals(
+                                feature_fetch_metric.get_histogram().get_sample_sum()
+                                    / count as f64,
+                            ),
                             count: count as f64,
                             p99,
                         }
@@ -256,9 +266,11 @@ fn get_percentile(percentile: u64, count: u64, buckets: &[prometheus::proto::Buc
         if bucket.get_cumulative_count() as f64 >= target {
             let nth_count = bucket.get_cumulative_count() - previous_count;
             let observation_in_range = target - previous_count as f64;
-            return round_to_3_decimals(previous_upper_bound
-                + ((observation_in_range / nth_count as f64)
-                    * (bucket.get_upper_bound() - previous_upper_bound)));
+            return round_to_3_decimals(
+                previous_upper_bound
+                    + ((observation_in_range / nth_count as f64)
+                        * (bucket.get_upper_bound() - previous_upper_bound)),
+            );
         }
         previous_upper_bound = bucket.get_upper_bound();
         previous_count = bucket.get_cumulative_count();

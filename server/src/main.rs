@@ -17,6 +17,7 @@ use unleash_edge::cli::{CliArgs, EdgeMode};
 use unleash_edge::feature_cache::FeatureCache;
 use unleash_edge::http::background_send_metrics::send_metrics_one_shot;
 use unleash_edge::http::broadcaster::Broadcaster;
+use unleash_edge::http::instance_data::InstanceDataSender;
 use unleash_edge::http::refresher::feature_refresher::FeatureRefresher;
 use unleash_edge::metrics::client_metrics::MetricsCache;
 use unleash_edge::metrics::edge_metrics::EdgeInstanceData;
@@ -26,7 +27,6 @@ use unleash_edge::types::{EdgeToken, TokenValidationStatus};
 use unleash_edge::{client_api, frontend_api, health_checker, openapi, ready_checker};
 use unleash_edge::{edge_api, prom_metrics};
 use unleash_edge::{internal_backstage, tls};
-use unleash_edge::http::instance_data::InstanceDataSender;
 
 #[cfg(not(tarpaulin_include))]
 #[actix_web::main]
@@ -48,6 +48,7 @@ async fn main() -> Result<(), anyhow::Error> {
         return ready_checker::check_ready(args).await.map_err(|e| e.into());
     }
     let schedule_args = args.clone();
+    let app_name = args.app_name.clone();
     let mode_arg = args.clone().mode;
     let http_args = args.clone().http;
     let cors_arg = http_args.cors.clone();
@@ -57,12 +58,11 @@ async fn main() -> Result<(), anyhow::Error> {
     let trust_proxy = args.clone().trust_proxy;
     let base_path = http_args.base_path.clone();
     let (metrics_handler, request_metrics) = prom_metrics::instantiate(None, &args.log_format);
+    let our_instance_data_for_app_context = Arc::new(EdgeInstanceData::new(&app_name));
     let connect_via = ConnectVia {
         app_name: args.clone().app_name,
-        instance_id: args.clone().instance_id,
+        instance_id: our_instance_data_for_app_context.identifier.clone(),
     };
-    let app_name = args.app_name.clone();
-    let our_instance_data_for_app_context = Arc::new(EdgeInstanceData::new(&app_name));
     let our_instance_data = our_instance_data_for_app_context.clone();
     let instance_id = args.instance_id.clone();
     let custom_headers = match args.mode {
@@ -79,7 +79,8 @@ async fn main() -> Result<(), anyhow::Error> {
         persistence,
     ) = build_caches_and_refreshers(args.clone()).await.unwrap();
 
-    let instance_data_sender = InstanceDataSender::from_args(args.clone(), our_instance_data.clone());
+    let instance_data_sender =
+        InstanceDataSender::from_args(args.clone(), our_instance_data.clone());
     let token_validator_schedule = token_validator.clone();
     let lazy_feature_cache = features_cache.clone();
     let lazy_token_cache = token_cache.clone();
