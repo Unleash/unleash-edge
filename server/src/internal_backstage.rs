@@ -7,16 +7,19 @@ use actix_web::{
 use dashmap::DashMap;
 use iter_tools::Itertools;
 use serde::{Deserialize, Serialize};
+use tokio::sync::RwLock;
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ClientApplication;
 
-use crate::http::refresher::feature_refresher::FeatureRefresher;
 use crate::metrics::actix_web_metrics::PrometheusMetricsHandler;
 use crate::metrics::client_metrics::MetricsCache;
 use crate::types::{BuildInfo, EdgeJsonResult, EdgeToken, TokenInfo, TokenRefresh};
 use crate::types::{ClientMetric, MetricsInfo, Status};
 use crate::{auth::token_validator::TokenValidator, cli::InternalBackstageArgs};
 use crate::{error::EdgeError, feature_cache::FeatureCache};
+use crate::{
+    http::refresher::feature_refresher::FeatureRefresher, metrics::edge_metrics::EdgeInstanceData,
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EdgeStatus {
@@ -146,23 +149,43 @@ pub async fn features(
     Ok(Json(features))
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DebugEdgeInstanceData {
+    pub this_instance: EdgeInstanceData,
+    pub connected_instances: Vec<EdgeInstanceData>,
+}
+
+#[get("/instancedata")]
+pub async fn instance_data(
+    this_instance: web::Data<EdgeInstanceData>,
+    downstream_instance_data: web::Data<RwLock<Vec<EdgeInstanceData>>>,
+) -> EdgeJsonResult<DebugEdgeInstanceData> {
+    Ok(Json(DebugEdgeInstanceData {
+        this_instance: this_instance.get_ref().clone(),
+        connected_instances: downstream_instance_data.read().await.clone(),
+    }))
+}
+
 pub fn configure_internal_backstage(
     cfg: &mut web::ServiceConfig,
     metrics_handler: PrometheusMetricsHandler,
-    internal_backtage_args: InternalBackstageArgs,
+    internal_backstage_args: InternalBackstageArgs,
 ) {
     cfg.service(health).service(info).service(ready);
-    if !internal_backtage_args.disable_tokens_endpoint {
+    if !internal_backstage_args.disable_tokens_endpoint {
         cfg.service(tokens);
     }
-    if !internal_backtage_args.disable_metrics_endpoint {
+    if !internal_backstage_args.disable_metrics_endpoint {
         cfg.service(web::resource("/metrics").route(web::get().to(metrics_handler)));
     }
-    if !internal_backtage_args.disable_metrics_batch_endpoint {
+    if !internal_backstage_args.disable_metrics_batch_endpoint {
         cfg.service(metrics_batch);
     }
-    if !internal_backtage_args.disable_features_endpoint {
+    if !internal_backstage_args.disable_features_endpoint {
         cfg.service(features);
+    }
+    if !internal_backstage_args.disable_instance_data_endpoint {
+        cfg.service(instance_data);
     }
 }
 
