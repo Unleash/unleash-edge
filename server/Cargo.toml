@@ -73,7 +73,7 @@ reqwest = { version = "0.12.12", default-features = false, features = [
     "rustls-tls",
     "native-tls",
 ] }
-rustls = { version = "0.23.22", default-features = false, features = [
+rustls = { version = "0.23.23", default-features = false, features = [
     "logging",
     "ring",
     "std",
