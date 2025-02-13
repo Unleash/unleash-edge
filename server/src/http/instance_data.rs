@@ -74,13 +74,13 @@ pub async fn send_instance_data(
     let mut do_the_work = true;
     loop {
         let mut empty = true;
-        tokio::time::sleep(std::time::Duration::from_secs(15)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(60)).await;
         if let Some(instance_data_sender) = instance_data_sender.clone() {
             trace!("Looping instance data sending");
             let observed_data = our_instance_data.observe(
                 &prometheus_registry,
                 downstream_instance_data.read().await.clone(),
-                &instance_data_sender.base_path
+                &instance_data_sender.base_path,
             );
             if do_the_work {
                 let status = instance_data_sender
@@ -89,24 +89,26 @@ pub async fn send_instance_data(
                     .await;
                 match status {
                     Ok(_) => {}
-                    Err(e) => match e {
-                        EdgeError::EdgeMetricsRequestError(status, message) => {
-                            warn!("Failed to post instance data with status {status} and {message:?}");
-                            if status == StatusCode::NOT_FOUND {
-                                debug!("Upstream edge metrics not found, clearing our data about downstream instances to avoid growing to infinity (and beyond!).");
-                                empty = true;
-                                do_the_work = false;
-                            } else if status == StatusCode::FORBIDDEN {
-                                warn!("Upstream edge metrics rejected our data, clearing our data about downstream instances to avoid growing to infinity (and beyond!)");
-                                empty = true;
-                                do_the_work = false;
+                    Err(e) => {
+                        match e {
+                            EdgeError::EdgeMetricsRequestError(status, message) => {
+                                warn!("Failed to post instance data with status {status} and {message:?}");
+                                if status == StatusCode::NOT_FOUND {
+                                    debug!("Upstream edge metrics not found, clearing our data about downstream instances to avoid growing to infinity (and beyond!).");
+                                    empty = true;
+                                    do_the_work = false;
+                                } else if status == StatusCode::FORBIDDEN {
+                                    warn!("Upstream edge metrics rejected our data, clearing our data about downstream instances to avoid growing to infinity (and beyond!)");
+                                    empty = true;
+                                    do_the_work = false;
+                                }
+                            }
+                            _ => {
+                                warn!("Failed to post instance data due to unknown error {e:?}");
+                                empty = false;
                             }
                         }
-                        _ => {
-                            warn!("Failed to post instance data due to unknown error {e:?}");
-                            empty = false;
-                        }
-                    },
+                    }
                 }
             }
         } else {
