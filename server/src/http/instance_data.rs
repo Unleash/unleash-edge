@@ -8,7 +8,7 @@ use crate::error::EdgeError;
 use crate::http::unleash_client::{new_reqwest_client, ClientMetaInformation, UnleashClient};
 use crate::metrics::edge_metrics::EdgeInstanceData;
 use prometheus::Registry;
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 
 #[derive(Debug, Clone)]
 pub struct InstanceDataSender {
@@ -123,28 +123,30 @@ pub async fn loop_send_instance_data(
                     downstream_instance_data.clone(),
                 )
                 .await;
-                match status {
-                    Ok(_) => {
-                        debug!("Successfully posted observability metrics.");
-                        errors = 0;
-                    }
-                    Err(e) => {
-                        match e {
-                            EdgeError::EdgeMetricsRequestError(status, message) => {
-                                warn!("Failed to post instance data with status {status} and {message:?}");
-                                if status == StatusCode::NOT_FOUND {
-                                    debug!("Upstream edge metrics not found, clearing our data about downstream instances to avoid growing to infinity (and beyond!).");
-                                    errors += 1;
-                                } else if status == StatusCode::FORBIDDEN {
-                                    warn!("Upstream edge metrics rejected our data, clearing our data about downstream instances to avoid growing to infinity (and beyond!)");
-                                    errors += 1;
-                                }
-                            }
-                            _ => {
-                                warn!("Failed to post instance data due to unknown error {e:?}");
+                if let Err(e) = status {
+                    match e {
+                        EdgeError::EdgeMetricsRequestError(status, message) => {
+                            info!(
+                                "Failed to post instance data with status {status} and {message:?}"
+                            );
+                            if status == StatusCode::NOT_FOUND {
+                                debug!("Upstream edge metrics not found, clearing our data about downstream instances to avoid growing to infinity (and beyond!).");
+                                errors += 1;
+                                downstream_instance_data.write().await.clear();
+                            } else if status == StatusCode::FORBIDDEN {
+                                warn!("Upstream edge metrics rejected our data, clearing our data about downstream instances to avoid growing to infinity (and beyond!)");
+                                errors += 1;
+                                downstream_instance_data.write().await.clear();
                             }
                         }
+                        _ => {
+                            warn!("Failed to post instance data due to unknown error {e:?}");
+                        }
                     }
+                } else {
+                    debug!("Successfully posted observability metrics.");
+                    errors = 0;
+                    downstream_instance_data.write().await.clear();
                 }
             }
         }
