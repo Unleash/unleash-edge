@@ -8,11 +8,12 @@ use crate::error::EdgeError;
 use crate::http::unleash_client::{new_reqwest_client, ClientMetaInformation, UnleashClient};
 use crate::metrics::edge_metrics::EdgeInstanceData;
 use prometheus::Registry;
-use tracing::{debug, info, warn};
+use tracing::{debug, warn};
 
 #[derive(Debug, Clone)]
 pub struct InstanceDataSender {
     pub unleash_client: Arc<UnleashClient>,
+    pub registry: Registry,
     pub token: String,
     pub base_path: String,
 }
@@ -27,6 +28,7 @@ impl InstanceDataSending {
     pub fn from_args(
         args: CliArgs,
         instance_data: Arc<EdgeInstanceData>,
+        registry: Registry,
     ) -> Result<Self, EdgeError> {
         match args.mode {
             EdgeMode::Edge(edge_args) => {
@@ -72,6 +74,7 @@ impl InstanceDataSending {
                             unleash_client,
                             token: token.clone(),
                             base_path: args.http.base_path.clone(),
+                            registry,
                         };
                         InstanceDataSending::SendInstanceData(instance_data_sender)
                     })
@@ -85,12 +88,11 @@ impl InstanceDataSending {
 
 pub async fn send_instance_data(
     instance_data_sender: &InstanceDataSender,
-    prometheus_registry: Registry,
     our_instance_data: Arc<EdgeInstanceData>,
     downstream_instance_data: Arc<RwLock<Vec<EdgeInstanceData>>>,
 ) -> Result<(), EdgeError> {
     let observed_data = our_instance_data.observe(
-        &prometheus_registry,
+        &instance_data_sender.registry,
         downstream_instance_data.read().await.clone(),
         &instance_data_sender.base_path,
     );
@@ -101,7 +103,6 @@ pub async fn send_instance_data(
 }
 pub async fn loop_send_instance_data(
     instance_data_sender: Arc<InstanceDataSending>,
-    prometheus_registry: Registry,
     our_instance_data: Arc<EdgeInstanceData>,
     downstream_instance_data: Arc<RwLock<Vec<EdgeInstanceData>>>,
 ) {
@@ -118,23 +119,19 @@ pub async fn loop_send_instance_data(
             InstanceDataSending::SendInstanceData(instance_data_sender) => {
                 let status = send_instance_data(
                     instance_data_sender,
-                    prometheus_registry.clone(),
                     our_instance_data.clone(),
                     downstream_instance_data.clone(),
                 )
                 .await;
                 if let Err(e) = status {
                     match e {
-                        EdgeError::EdgeMetricsRequestError(status, message) => {
-                            info!(
-                                "Failed to post instance data with status {status} and {message:?}"
-                            );
+                        EdgeError::EdgeMetricsRequestError(status, _) => {
                             if status == StatusCode::NOT_FOUND {
-                                debug!("Upstream edge metrics not found, clearing our data about downstream instances to avoid growing to infinity (and beyond!).");
+                                debug!("Our upstream is not running a version that supports edge metrics.");
                                 errors += 1;
                                 downstream_instance_data.write().await.clear();
                             } else if status == StatusCode::FORBIDDEN {
-                                warn!("Upstream edge metrics rejected our data, clearing our data about downstream instances to avoid growing to infinity (and beyond!)");
+                                warn!("Upstream edge metrics said our token wasn't allowed to post data");
                                 errors += 1;
                                 downstream_instance_data.write().await.clear();
                             }
