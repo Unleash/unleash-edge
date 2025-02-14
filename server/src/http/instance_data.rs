@@ -96,7 +96,7 @@ pub async fn send_instance_data(
     );
     instance_data_sender
         .unleash_client
-        .send_instance_data(observed_data, &instance_data_sender.token)
+        .post_edge_observability_data(observed_data, &instance_data_sender.token)
         .await
 }
 pub async fn loop_send_instance_data(

@@ -21,6 +21,7 @@ use actix_web::Responder;
 use actix_web::{get, post, HttpRequest, HttpResponse};
 use dashmap::DashMap;
 use tokio::sync::RwLock;
+use tracing::instrument;
 use unleash_types::client_features::{ClientFeature, ClientFeatures, ClientFeaturesDelta};
 use tracing::{info, instrument};
 use unleash_types::client_features::{ClientFeature, ClientFeatures};
@@ -328,14 +329,11 @@ pub async fn post_edge_instance_data(
     instance_data_sending: Data<InstanceDataSending>,
     connected_instances: Data<RwLock<Vec<EdgeInstanceData>>>,
 ) -> EdgeResult<HttpResponse> {
-    match instance_data_sending.as_ref() {
-        InstanceDataSending::SendInstanceData(_) => {
-            connected_instances
-                .write()
-                .await
-                .push(instance_data.into_inner());
-        }
-        _ => {}
+    if let InstanceDataSending::SendInstanceData(_) = instance_data_sending.as_ref() {
+        connected_instances
+            .write()
+            .await
+            .push(instance_data.into_inner());
     }
     Ok(HttpResponse::Accepted().finish())
 }

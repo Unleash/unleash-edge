@@ -314,7 +314,7 @@ async fn clean_shutdown(
         InstanceDataSending::SendInstanceData(instance_data_sender) => {
             info!("Connected to an upstream, flushing last set of instance data");
             let _ = unleash_edge::http::instance_data::send_instance_data(
-                &instance_data_sender,
+                instance_data_sender,
                 prom_registry_for_write,
                 our_instance_data,
                 downstream_instance_data,
