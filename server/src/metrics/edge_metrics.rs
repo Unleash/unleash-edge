@@ -33,6 +33,7 @@ pub struct ProcessMetrics {
 #[derive(Debug, Default, Clone, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct InstanceTraffic {
+    pub cached_responses: HashMap<String, LatencyMetrics>,
     pub get: HashMap<String, LatencyMetrics>,
     pub post: HashMap<String, LatencyMetrics>,
     pub access_denied: HashMap<String, LatencyMetrics>,
@@ -90,6 +91,7 @@ impl EdgeInstanceData {
         let mut get_requests = HashMap::default();
         let mut post_requests = HashMap::default();
         let mut access_denied = HashMap::default();
+        let mut no_change = HashMap::default();
 
         for family in registry.gather().iter() {
             match family.get_name() {
@@ -108,6 +110,7 @@ impl EdgeInstanceData {
                                 && m.get_label().iter().any(|l| {
                                     l.get_name() == "http_response_status_code"
                                         && l.get_value() == "200"
+                                        || l.get_value() == "304"
                                         || l.get_value() == "403"
                                 })
                         })
@@ -131,18 +134,24 @@ impl EdgeInstanceData {
                                 .find(|l| l.get_name() == "http_response_status_code")
                                 .unwrap()
                                 .get_value();
-                            let latency = if status != "200" {
-                                access_denied
+                            let latency = match status {
+                                "200" => {
+                                    if method == "GET" {
+                                        get_requests
+                                            .entry(path.to_string())
+                                            .or_insert(LatencyMetrics::default())
+                                    } else {
+                                        post_requests
+                                            .entry(path.to_string())
+                                            .or_insert(LatencyMetrics::default())
+                                    }
+                                }
+                                "304" => no_change
                                     .entry(path.to_string())
-                                    .or_insert(LatencyMetrics::default())
-                            } else if method == "GET" {
-                                get_requests
+                                    .or_insert(LatencyMetrics::default()),
+                                _ => access_denied
                                     .entry(path.to_string())
-                                    .or_insert(LatencyMetrics::default())
-                            } else {
-                                post_requests
-                                    .entry(path.to_string())
-                                    .or_insert(LatencyMetrics::default())
+                                    .or_insert(LatencyMetrics::default()),
                             };
                             let total = m.get_histogram().get_sample_sum() * 1000.0; // convert to ms
                             let count = m.get_histogram().get_sample_count() as f64;
@@ -241,6 +250,7 @@ impl EdgeInstanceData {
             get: get_requests,
             post: post_requests,
             access_denied,
+            cached_responses: no_change,
         };
         observed.process_metrics = Some(ProcessMetrics {
             cpu_usage: cpu_seconds as f64,
