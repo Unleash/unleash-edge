@@ -562,7 +562,7 @@ impl UnleashClient {
     }
 
     #[tracing::instrument(skip(self, instance_data, token))]
-    pub async fn send_instance_data(
+    pub async fn post_edge_observability_data(
         &self,
         instance_data: EdgeInstanceData,
         token: &str,
