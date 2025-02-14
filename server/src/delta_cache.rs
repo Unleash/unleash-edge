@@ -102,7 +102,9 @@ impl DeltaCache {
                 self.hydration_event.segments.retain(|s| s.id != segment_id);
                 self.hydration_event.event_id = event_id;
             }
-            _ => { }
+            DeltaEvent::Hydration { .. } => {
+               // do nothing, as hydration will never end up in update events
+            }
         }
     }
 }
