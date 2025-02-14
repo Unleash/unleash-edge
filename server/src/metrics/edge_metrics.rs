@@ -1,7 +1,6 @@
-use ahash::{HashMap};
+use ahash::HashMap;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use tracing::info;
 use ulid::Ulid;
 use utoipa::ToSchema;
 
@@ -15,17 +14,14 @@ pub struct LatencyMetrics {
     pub p99: f64,
 }
 
-impl LatencyMetrics {
-    pub fn new() -> Self {
-        Self {
-            avg: 0.0,
-            count: 0.0,
-            p99: 0.0,
-        }
-    }
-}
-
-pub const DESIRED_URLS: [&str; 6] = ["/api/client/features", "/api/client/metrics", "/api/client/metrics/bulk","/api/client/metrics/edge","/api/frontend", "/api/proxy"];
+pub const DESIRED_URLS: [&str; 6] = [
+    "/api/client/features",
+    "/api/client/metrics",
+    "/api/client/metrics/bulk",
+    "/api/client/metrics/edge",
+    "/api/frontend",
+    "/api/proxy",
+];
 
 #[derive(Debug, Default, Clone, Copy, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -77,7 +73,7 @@ impl EdgeInstanceData {
             started: Utc::now(),
             traffic: InstanceTraffic::default(),
             latency_upstream: UpstreamLatency::default(),
-            connected_edges: Vec::new(),
+            connected_edges: vec![],
             connected_streaming_clients: 0,
         }
     }
@@ -86,7 +82,7 @@ impl EdgeInstanceData {
         &self,
         registry: &prometheus::Registry,
         connected_instances: Vec<EdgeInstanceData>,
-        base_path: &str
+        base_path: &str,
     ) -> Self {
         let mut observed = self.clone();
         let mut cpu_seconds = 0;
@@ -105,7 +101,9 @@ impl EdgeInstanceData {
                             m.has_histogram()
                                 && m.get_label().iter().any(|l| {
                                     l.get_name() == "url_path"
-                                        && DESIRED_URLS.iter().any(|desired| l.get_value().ends_with(desired))
+                                        && DESIRED_URLS
+                                            .iter()
+                                            .any(|desired| l.get_value().ends_with(desired))
                                 })
                                 && m.get_label().iter().any(|l| {
                                     l.get_name() == "http_response_status_code"
@@ -136,15 +134,15 @@ impl EdgeInstanceData {
                             let latency = if status != "200" {
                                 access_denied
                                     .entry(path.to_string())
-                                    .or_insert(LatencyMetrics::new())
+                                    .or_insert(LatencyMetrics::default())
                             } else if method == "GET" {
                                 get_requests
                                     .entry(path.to_string())
-                                    .or_insert(LatencyMetrics::new())
+                                    .or_insert(LatencyMetrics::default())
                             } else {
                                 post_requests
                                     .entry(path.to_string())
-                                    .or_insert(LatencyMetrics::new())
+                                    .or_insert(LatencyMetrics::default())
                             };
                             let total = m.get_histogram().get_sample_sum() * 1000.0; // convert to ms
                             let count = m.get_histogram().get_sample_count() as f64;
@@ -175,7 +173,6 @@ impl EdgeInstanceData {
                     }
                 }
                 "client_metrics_upload" => {
-                    info!("{:?}", family.get_metric());
                     if let Some(metrics_upload_metric) = family.get_metric().last() {
                         let count = metrics_upload_metric.get_histogram().get_sample_count();
                         let p99 = get_percentile(
