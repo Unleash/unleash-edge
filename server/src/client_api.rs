@@ -7,6 +7,7 @@ use crate::filters::{
     project_filter, FeatureFilterSet,
 };
 use crate::http::broadcaster::Broadcaster;
+use crate::http::instance_data::InstanceDataSending;
 use crate::http::refresher::delta_refresher::Environment;
 use crate::http::refresher::feature_refresher::FeatureRefresher;
 use crate::metrics::client_metrics::MetricsCache;
@@ -324,13 +325,18 @@ pub async fn post_bulk_metrics(
 pub async fn post_edge_instance_data(
     _edge_token: EdgeToken,
     instance_data: Json<EdgeInstanceData>,
+    instance_data_sending: Data<InstanceDataSending>,
     connected_instances: Data<RwLock<Vec<EdgeInstanceData>>>,
 ) -> EdgeResult<HttpResponse> {
-    info!("Accepted {instance_data:?}");
-    connected_instances
-        .write()
-        .await
-        .push(instance_data.into_inner());
+    match instance_data_sending.as_ref() {
+        InstanceDataSending::SendInstanceData(_) => {
+            connected_instances
+                .write()
+                .await
+                .push(instance_data.into_inner());
+        }
+        _ => {}
+    }
     Ok(HttpResponse::Accepted().finish())
 }
 

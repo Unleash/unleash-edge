@@ -17,7 +17,7 @@ use unleash_edge::cli::{CliArgs, EdgeMode};
 use unleash_edge::feature_cache::FeatureCache;
 use unleash_edge::http::background_send_metrics::send_metrics_one_shot;
 use unleash_edge::http::broadcaster::Broadcaster;
-use unleash_edge::http::instance_data::InstanceDataSender;
+use unleash_edge::http::instance_data::InstanceDataSending;
 use unleash_edge::http::refresher::feature_refresher::FeatureRefresher;
 use unleash_edge::metrics::client_metrics::MetricsCache;
 use unleash_edge::metrics::edge_metrics::EdgeInstanceData;
@@ -31,7 +31,10 @@ use unleash_edge::{internal_backstage, tls};
 #[cfg(not(tarpaulin_include))]
 #[actix_web::main]
 async fn main() -> Result<(), anyhow::Error> {
-    use unleash_edge::{http::unleash_client::ClientMetaInformation, metrics::metrics_pusher};
+    use unleash_edge::{
+        http::{instance_data::InstanceDataSending, unleash_client::ClientMetaInformation},
+        metrics::metrics_pusher,
+    };
 
     let args = CliArgs::parse();
     let disable_all_endpoint = args.disable_all_endpoint;
@@ -79,8 +82,11 @@ async fn main() -> Result<(), anyhow::Error> {
         persistence,
     ) = build_caches_and_refreshers(args.clone()).await.unwrap();
 
-    let instance_data_sender =
-        InstanceDataSender::from_args(args.clone(), our_instance_data.clone());
+    let instance_data_sender: Arc<InstanceDataSending> = Arc::new(InstanceDataSending::from_args(
+        args.clone(),
+        our_instance_data.clone(),
+    )?);
+    let instance_data_sender_for_app_context = instance_data_sender.clone();
     let token_validator_schedule = token_validator.clone();
     let lazy_feature_cache = features_cache.clone();
     let lazy_token_cache = token_cache.clone();
@@ -116,6 +122,9 @@ async fn main() -> Result<(), anyhow::Error> {
             .app_data(web::Data::from(features_cache.clone()))
             .app_data(web::Data::from(engine_cache.clone()))
             .app_data(web::Data::from(broadcaster.clone()))
+            .app_data(web::Data::from(
+                instance_data_sender_for_app_context.clone(),
+            ))
             .app_data(web::Data::from(our_instance_data_for_app_context.clone()))
             .app_data(web::Data::from(instances_observed_for_app_context.clone()));
 
@@ -211,8 +220,8 @@ async fn main() -> Result<(), anyhow::Error> {
             tokio::select! {
                 _ = server.run() => {
                     info!("Actix is shutting down. Persisting data");
-                    clean_shutdown(persistence.clone(), lazy_feature_cache.clone(), lazy_token_cache.clone(), metrics_cache_clone.clone(), feature_refresher.clone()).await;
-                    info!("Actix was shutdown properly");
+                    clean_shutdown(persistence, lazy_feature_cache.clone(), lazy_token_cache.clone(), metrics_cache_clone.clone(), feature_refresher.clone(), instance_data_sender.clone(), prom_registry_for_write.clone(), our_instance_data.clone(), downstream_instance_data.clone()).await;
+                                        info!("Actix was shutdown properly");
                 },
                 _ = refresher.start_refresh_features_background_task() => {
                     info!("Feature refresher unexpectedly shut down");
@@ -232,7 +241,7 @@ async fn main() -> Result<(), anyhow::Error> {
                 _ = metrics_pusher::prometheus_remote_write(prom_registry_for_write.clone(), edge.prometheus_remote_write_url, edge.prometheus_push_interval, edge.prometheus_username, edge.prometheus_password, app_name) => {
                     info!("Prometheus push unexpectedly shut down");
                 }
-                _ = unleash_edge::http::instance_data::send_instance_data(instance_data_sender?, prom_registry_for_write.clone(), our_instance_data.clone(), downstream_instance_data.clone()) => {
+                _ = unleash_edge::http::instance_data::loop_send_instance_data(instance_data_sender.clone(), prom_registry_for_write.clone(), our_instance_data.clone(), downstream_instance_data.clone()) => {
                     info!("Instance data pusher unexpectedly quit");
                 }
             }
@@ -250,7 +259,7 @@ async fn main() -> Result<(), anyhow::Error> {
         _ => tokio::select! {
             _ = server.run() => {
                 info!("Actix is shutting down. Persisting data");
-                clean_shutdown(persistence, lazy_feature_cache.clone(), lazy_token_cache.clone(), metrics_cache_clone.clone(), feature_refresher.clone()).await;
+                clean_shutdown(persistence, lazy_feature_cache.clone(), lazy_token_cache.clone(), metrics_cache_clone.clone(), feature_refresher.clone(), instance_data_sender.clone(), prom_registry_for_write.clone(), our_instance_data.clone(), downstream_instance_data.clone()).await;
                 info!("Actix was shutdown properly");
 
             }
@@ -267,6 +276,10 @@ async fn clean_shutdown(
     token_cache: Arc<DashMap<String, EdgeToken>>,
     metrics_cache: Arc<MetricsCache>,
     feature_refresher: Option<Arc<FeatureRefresher>>,
+    instance_data_sending: Arc<InstanceDataSending>,
+    prom_registry_for_write: prometheus::Registry,
+    our_instance_data: Arc<EdgeInstanceData>,
+    downstream_instance_data: Arc<RwLock<Vec<EdgeInstanceData>>>,
 ) {
     let tokens: Vec<EdgeToken> = token_cache
         .iter()
@@ -296,5 +309,20 @@ async fn clean_shutdown(
     if let Some(feature_refresher) = feature_refresher {
         info!("Connected to an upstream, flushing last set of metrics");
         send_metrics_one_shot(metrics_cache, feature_refresher).await;
+    }
+    match instance_data_sending.as_ref() {
+        InstanceDataSending::SendInstanceData(instance_data_sender) => {
+            info!("Connected to an upstream, flushing last set of instance data");
+            let _ = unleash_edge::http::instance_data::send_instance_data(
+                &instance_data_sender,
+                prom_registry_for_write,
+                our_instance_data,
+                downstream_instance_data,
+            )
+            .await;
+        }
+        InstanceDataSending::SendNothing => {
+            info!("No instance data sender configured, skipping flushing instance data");
+        }
     }
 }
