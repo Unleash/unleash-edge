@@ -35,11 +35,11 @@ ahash = "0.8.11"
 anyhow = "1.0.95"
 async-trait = "0.1.86"
 aws-config = { version = "1.5.16", features = ["behavior-version-latest"] }
-aws-sdk-s3 = { version = "1.74.0", features = ["behavior-version-latest"] }
+aws-sdk-s3 = { version = "1.75.0", features = ["behavior-version-latest"] }
 base64 = "0.22.1"
 chrono = { version = "0.4.39", features = ["serde"] }
 cidr = "0.3.1"
-clap = { version = "4.5.28", features = ["derive", "env"] }
+clap = { version = "4.5.29", features = ["derive", "env"] }
 clap-markdown = "0.1.4"
 dashmap = "6.1.0"
 eventsource-client = { version = "0.13.0" }
@@ -73,7 +73,7 @@ reqwest = { version = "0.12.12", default-features = false, features = [
     "rustls-tls",
     "native-tls",
 ] }
-rustls = { version = "0.23.22", default-features = false, features = [
+rustls = { version = "0.23.23", default-features = false, features = [
     "logging",
     "ring",
     "std",
