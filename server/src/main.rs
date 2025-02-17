@@ -71,7 +71,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let internal_backstage_args = args.internal_backstage.clone();
 
     let (
-        (token_cache, features_cache, engine_cache),
+        (token_cache, features_cache, delta_cache, engine_cache),
         token_validator,
         feature_refresher,
         persistence,
