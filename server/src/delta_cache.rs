@@ -1,4 +1,3 @@
-use std::collections::VecDeque;
 use unleash_types::client_features::{DeltaEvent, ClientFeature, Segment};
 
 
@@ -14,7 +13,7 @@ pub struct DeltaHydrationEvent {
 #[derive(Debug, Clone)]
 pub struct DeltaCache {
     max_length: usize,
-    events: VecDeque<DeltaEvent>,
+    events: Vec<DeltaEvent>,
     hydration_event: DeltaHydrationEvent,
 }
 
@@ -22,7 +21,7 @@ impl DeltaCache {
     pub fn new(hydration_event: DeltaHydrationEvent, max_length: usize) -> Self {
         let mut cache = DeltaCache {
             max_length,
-            events: VecDeque::new(),
+            events: Vec::new(),
             hydration_event: hydration_event.clone(),
         };
         cache.add_base_event_from_hydration(hydration_event);
@@ -40,15 +39,17 @@ impl DeltaCache {
 
     pub fn add_events(&mut self, events: Vec<DeltaEvent>) {
         for event in events.into_iter() {
-            self.events.push_back(event.clone());
+            self.events.push(event.clone());
             self.update_hydration_event(event);
+
             if self.events.len() > self.max_length {
-                self.events.pop_front();
+                self.events.remove(0); // O(n) operation
             }
         }
     }
 
-    pub fn get_events(&self) -> &VecDeque<DeltaEvent> {
+
+    pub fn get_events(&self) -> &Vec<DeltaEvent> {
         &self.events
     }
 
