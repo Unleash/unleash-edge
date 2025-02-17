@@ -4,17 +4,18 @@ use futures::TryStreamExt;
 use reqwest::StatusCode;
 use std::time::Duration;
 use tracing::{debug, info, warn};
-use unleash_types::client_features::ClientFeaturesDelta;
+use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta};
 use unleash_yggdrasil::EngineState;
 
 use crate::error::{EdgeError, FeatureError};
+use crate::filters::FeatureFilterSet;
 use crate::http::headers::{
     UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_INSTANCE_ID_HEADER,
 };
 use crate::http::refresher::feature_refresher::FeatureRefresher;
 use crate::http::unleash_client::ClientMetaInformation;
 use crate::tokens::cache_key;
-use crate::types::{ClientFeaturesDeltaResponse, ClientFeaturesRequest, EdgeToken, TokenRefresh};
+use crate::types::{ClientFeaturesDeltaResponse, ClientFeaturesRequest, EdgeResult, EdgeToken, TokenRefresh};
 
 impl FeatureRefresher {
     async fn handle_client_features_delta_updated(
@@ -117,6 +118,34 @@ impl FeatureRefresher {
             }
         }
     }
+
+    pub(crate) async fn features_for_filter(
+        &self,
+        token: EdgeToken,
+        filters: &FeatureFilterSet,
+    ) -> EdgeResult<ClientFeatures> {
+        match self.get_features_by_filter(&token, filters) {
+            Some(features) if self.token_is_subsumed(&token) => Ok(features),
+            _ => {
+                if self.strict {
+                    debug!("Strict behavior: Token is not subsumed by any registered tokens. Returning error");
+                    Err(EdgeError::InvalidTokenWithStrictBehavior)
+                } else {
+                    debug!(
+                        "Dynamic behavior: Had never seen this environment. Configuring fetcher"
+                    );
+                    self.register_and_hydrate_token(&token).await;
+                    self.get_features_by_filter(&token, filters).ok_or_else(|| {
+                        EdgeError::ClientHydrationFailed(
+                            "Failed to get features by filter after registering and hydrating token (This is very likely an error in Edge. Please report this!)"
+                                .into(),
+                        )
+                    })
+                }
+            }
+        }
+    }
+
 
     pub async fn start_streaming_delta_background_task(
         &self,

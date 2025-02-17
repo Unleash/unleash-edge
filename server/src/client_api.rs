@@ -162,7 +162,7 @@ async fn resolve_features(
 
 async fn resolve_delta(
     edge_token: EdgeToken,
-    delta_cache: Data<DeltaCache>,
+    delta_cache: Data<DashMap<String,DeltaCache>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
     filter_query: Query<FeatureFilters>,
     req: HttpRequest,
@@ -172,7 +172,7 @@ async fn resolve_delta(
 
     let client_features = match req.app_data::<Data<FeatureRefresher>>() {
         Some(refresher) => {
-            refresher
+            refresher.
                 .features_for_filter(validated_token.clone(), &filter_set)
                 .await
         }

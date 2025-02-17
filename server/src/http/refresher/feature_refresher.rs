@@ -46,6 +46,7 @@ pub struct FeatureRefresher {
     pub unleash_client: Arc<UnleashClient>,
     pub tokens_to_refresh: Arc<DashMap<String, TokenRefresh>>,
     pub features_cache: Arc<FeatureCache>,
+    pub delta_cache: Arc<DashMap<String, DeltaCache>>,
     pub engine_cache: Arc<DashMap<String, EngineState>>,
     pub refresh_interval: chrono::Duration,
     pub persistence: Option<Arc<dyn EdgePersistence>>,
