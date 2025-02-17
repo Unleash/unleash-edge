@@ -6,6 +6,7 @@ use tracing::trace;
 pub mod actix_web_metrics;
 
 pub mod client_metrics;
+pub mod edge_metrics;
 pub mod metrics_pusher;
 pub mod route_formatter;
 

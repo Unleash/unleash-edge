@@ -12,7 +12,7 @@ use reqwest::header::{HeaderMap, HeaderName};
 use reqwest::{header, Client};
 use reqwest::{ClientBuilder, Identity, RequestBuilder, StatusCode, Url};
 use serde::{Deserialize, Serialize};
-use tracing::error;
+use tracing::{debug, error};
 use tracing::{info, trace, warn};
 use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta};
 use unleash_types::client_metrics::ClientApplication;
@@ -24,6 +24,7 @@ use crate::http::headers::{
     UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_INSTANCE_ID_HEADER,
 };
 use crate::metrics::client_metrics::MetricsBatch;
+use crate::metrics::edge_metrics::EdgeInstanceData;
 use crate::tls::build_upstream_certificate;
 use crate::types::{
     ClientFeaturesDeltaResponse, ClientFeaturesResponse, EdgeResult, EdgeToken,
@@ -53,6 +54,20 @@ lazy_static! {
         "Timings for fetching feature deltas in milliseconds",
         &["status_code"],
         vec![1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0, 5000.0]
+    )
+    .unwrap();
+    pub static ref METRICS_UPLOAD: HistogramVec = register_histogram_vec!(
+        "client_metrics_upload",
+        "Timings for uploading client metrics in milliseconds",
+        &["status_code"],
+        vec![1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0]
+    )
+    .unwrap();
+    pub static ref INSTANCE_DATA_UPLOAD: HistogramVec = register_histogram_vec!(
+        "instance_data_upload",
+        "Timings for uploading Edge instance data in milliseconds",
+        &["status_code"],
+        vec![1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0]
     )
     .unwrap();
     pub static ref CLIENT_FEATURE_FETCH_FAILURES: IntGaugeVec = register_int_gauge_vec!(
@@ -517,6 +532,7 @@ impl UnleashClient {
         token: &str,
     ) -> EdgeResult<()> {
         trace!("Sending metrics to bulk endpoint");
+        let started_at = Utc::now();
         let result = self
             .backing_client
             .post(self.urls.client_bulk_metrics_url.to_string())
@@ -528,6 +544,10 @@ impl UnleashClient {
                 info!("Failed to send metrics to /api/client/metrics/bulk endpoint {e:?}");
                 EdgeError::EdgeMetricsError
             })?;
+        let ended = Utc::now();
+        METRICS_UPLOAD
+            .with_label_values(&[result.status().as_str()])
+            .observe(ended.signed_duration_since(started_at).num_milliseconds() as f64);
         if result.status().is_success() {
             Ok(())
         } else {
@@ -539,6 +559,48 @@ impl UnleashClient {
                 _ => Err(EdgeMetricsRequestError(result.status(), None)),
             }
         }
+    }
+
+    #[tracing::instrument(skip(self, instance_data, token))]
+    pub async fn post_edge_observability_data(
+        &self,
+        instance_data: EdgeInstanceData,
+        token: &str,
+    ) -> EdgeResult<()> {
+        let started_at = Utc::now();
+        let result = self
+            .backing_client
+            .post(self.urls.edge_instance_data_url.to_string())
+            .headers(self.header_map(Some(token.into())))
+            .timeout(Duration::seconds(3).to_std().unwrap())
+            .json(&instance_data)
+            .send()
+            .await
+            .map_err(|e| {
+                info!("Failed to send instance data: {e:?}");
+                EdgeError::EdgeMetricsError
+            })?;
+        let ended_at = Utc::now();
+        INSTANCE_DATA_UPLOAD
+            .with_label_values(&[result.status().as_str()])
+            .observe(
+                ended_at
+                    .signed_duration_since(started_at)
+                    .num_milliseconds() as f64,
+            );
+        let r = if result.status().is_success() {
+            Ok(())
+        } else {
+            match result.status() {
+                StatusCode::BAD_REQUEST => Err(EdgeMetricsRequestError(
+                    result.status(),
+                    result.json().await.ok(),
+                )),
+                _ => Err(EdgeMetricsRequestError(result.status(), None)),
+            }
+        };
+        debug!("Sent instance data to upstream server");
+        r
     }
 
     pub async fn validate_tokens(
