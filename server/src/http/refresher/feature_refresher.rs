@@ -28,6 +28,7 @@ use crate::{
     types::{ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenRefresh},
 };
 use crate::delta_cache::DeltaCache;
+use crate::http::refresher::delta_refresher::Environment;
 use crate::http::unleash_client::{ClientMetaInformation, UnleashClient};
 
 fn frontend_token_is_covered_by_tokens(
@@ -46,7 +47,7 @@ pub struct FeatureRefresher {
     pub unleash_client: Arc<UnleashClient>,
     pub tokens_to_refresh: Arc<DashMap<String, TokenRefresh>>,
     pub features_cache: Arc<FeatureCache>,
-    pub delta_cache: Arc<DashMap<String, DeltaCache>>,
+    pub delta_cache: Arc<DashMap<Environment, DeltaCache>>,
     pub engine_cache: Arc<DashMap<String, EngineState>>,
     pub refresh_interval: chrono::Duration,
     pub persistence: Option<Arc<dyn EdgePersistence>>,
@@ -64,6 +65,7 @@ impl Default for FeatureRefresher {
             unleash_client: Default::default(),
             tokens_to_refresh: Arc::new(DashMap::default()),
             features_cache: Arc::new(Default::default()),
+            delta_cache: Default::default(),
             engine_cache: Default::default(),
             persistence: None,
             strict: true,
@@ -134,6 +136,7 @@ impl FeatureRefresher {
     pub fn new(
         unleash_client: Arc<UnleashClient>,
         features_cache: Arc<FeatureCache>,
+        delta_cache: Arc<DashMap<Environment, DeltaCache>>,
         engines: Arc<DashMap<String, EngineState>>,
         persistence: Option<Arc<dyn EdgePersistence>>,
         config: FeatureRefreshConfig,
@@ -142,6 +145,7 @@ impl FeatureRefresher {
             unleash_client,
             tokens_to_refresh: Arc::new(DashMap::default()),
             features_cache,
+            delta_cache,
             engine_cache: engines,
             refresh_interval: config.features_refresh_interval,
             persistence,

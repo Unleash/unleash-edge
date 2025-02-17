@@ -35,16 +35,16 @@ impl DeltaCache {
             .cloned()
             .expect("Hydration event must have at least one feature");
 
-        self.add_events(vec![DeltaEvent::FeatureUpdated {
+        self.add_events(&vec![DeltaEvent::FeatureUpdated {
             event_id: hydration_event.event_id,
             feature: last_feature,
         }]);
     }
 
-    pub fn add_events(&mut self, events: Vec<DeltaEvent>) {
+    pub fn add_events(&mut self, events: &Vec<DeltaEvent>) {
         for event in events.into_iter() {
             self.events.push(event.clone());
-            self.update_hydration_event(event);
+            self.update_hydration_event(&event);
 
             if self.events.len() > self.max_length {
                 self.events.remove(0); // O(n) operation
@@ -65,29 +65,29 @@ impl DeltaCache {
         &self.hydration_event
     }
 
-    fn update_hydration_event(&mut self, event: DeltaEvent) {
+    fn update_hydration_event(&mut self, event: &DeltaEvent) {
         let event_id = event.get_event_id();
         self.hydration_event.event_id = event_id;
         match event {
             DeltaEvent::FeatureUpdated { feature, .. } => {
                 if let Some(existing) = self.hydration_event.features.iter_mut().find(|f| f.name == feature.name) {
-                    *existing = feature;
+                    *existing = feature.clone();
                 } else {
-                    self.hydration_event.features.push(feature);
+                    self.hydration_event.features.push(feature.clone());
                 }
             }
             DeltaEvent::FeatureRemoved {  feature_name, .. } => {
-                self.hydration_event.features.retain(|f| f.name != feature_name);
+                self.hydration_event.features.retain(|f| f.name != feature_name.clone());
             }
             DeltaEvent::SegmentUpdated {  segment, .. } => {
                 if let Some(existing) = self.hydration_event.segments.iter_mut().find(|s| s.id == segment.id) {
-                    *existing = segment;
+                    *existing = segment.clone();
                 } else {
-                    self.hydration_event.segments.push(segment);
+                    self.hydration_event.segments.push(segment.clone());
                 }
             }
             DeltaEvent::SegmentRemoved {  segment_id, .. } => {
-                self.hydration_event.segments.retain(|s| s.id != segment_id);
+                self.hydration_event.segments.retain(|s| s.id != segment_id.clone());
 
             }
             DeltaEvent::Hydration { .. } => {
@@ -124,7 +124,7 @@ mod tests {
         let max_length = 2;
         let mut delta_cache = DeltaCache::new(base_event.clone(), max_length);
 
-        let initial_events = vec![
+        let initial_events = &vec![
             DeltaEvent::FeatureUpdated {
                 event_id: 2,
                 feature: ClientFeature {
@@ -160,7 +160,7 @@ mod tests {
                 segment: Segment { id: 3, constraints: vec![] },
             },
         ];
-        delta_cache.add_events(added_events.clone());
+        delta_cache.add_events(&added_events);
 
         let events: Vec<_> = delta_cache.get_events().to_vec();
         assert_eq!(events.len(), max_length);

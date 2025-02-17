@@ -16,6 +16,8 @@ use crate::http::unleash_client::ClientMetaInformation;
 use crate::tokens::cache_key;
 use crate::types::{ClientFeaturesDeltaResponse, ClientFeaturesRequest, EdgeToken, TokenRefresh};
 
+pub type Environment = String;
+
 impl FeatureRefresher {
     async fn handle_client_features_delta_updated(
         &self,
@@ -33,24 +35,20 @@ impl FeatureRefresher {
         self.features_cache.apply_delta(key.clone(), &delta);
 
 
-        self.delta_cache
-            .entry(key.clone())
-            .and_modify(|cache| {
-                cache.add_events(delta.events.clone());
-            })
-            .or_insert_with(|| {
-                if let Some(DeltaEvent::Hydration {
-                                event_id,
-                                features,
-                                segments,
-                            }) = delta.events.into_iter().next()
-                {
-                    DeltaCache::new(DeltaHydrationEvent{event_id, features, segments}, 100)
-                } else {
-                    warn!("Expected exactly one Hydration event, but none found. Skipping cache initialization.");
-                    return;
-                }
-            });
+        if let Some(mut entry) = self.delta_cache.get_mut(&key) {
+            entry.add_events(&delta.events);
+        } else {
+            if let Some(DeltaEvent::Hydration {
+                            event_id,
+                            features,
+                            segments,
+                        }) = delta.events.clone().into_iter().next()
+            {
+                self.delta_cache.insert(key.clone(),     DeltaCache::new(DeltaHydrationEvent{event_id, features, segments}, 100));
+            } else {
+                warn!("Warning: No hydrationEvent found in delta.events, but cache empty for environment");
+            }
+        }
 
         self.update_last_refresh(
             refresh_token,
@@ -272,6 +270,8 @@ mod tests {
         Segment,
     };
     use unleash_yggdrasil::EngineState;
+    use crate::delta_cache::DeltaCache;
+    use crate::http::refresher::delta_refresher::Environment;
 
     #[actix_web::test]
     #[tracing_test::traced_test]
@@ -279,6 +279,7 @@ mod tests {
         let srv = test_features_server().await;
         let unleash_client = Arc::new(UnleashClient::new(srv.url("/").as_str(), None).unwrap());
         let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
+        let delta_cache: Arc<DashMap<Environment, DeltaCache>> = Arc::new(DashMap::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
 
         let feature_refresher = Arc::new(FeatureRefresher {
