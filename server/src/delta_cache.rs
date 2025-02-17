@@ -1,4 +1,4 @@
-use unleash_types::client_features::{DeltaEvent, ClientFeature, Segment};
+use unleash_types::client_features::{DeltaEvent, ClientFeature, Segment, Strategy};
 
 
 
@@ -186,6 +186,7 @@ fn test_prevent_mutation_of_previous_feature_updated_events() {
         event_id: 129,
         feature: ClientFeature {
             name: "streaming-test".to_string(),
+            enabled: false,
             ..ClientFeature::default()
         },
     };
@@ -195,10 +196,20 @@ fn test_prevent_mutation_of_previous_feature_updated_events() {
         event_id: 130,
         feature: ClientFeature {
             name: "streaming-test".to_string(),
+            enabled: true,
+            strategies: Some(vec![Strategy {
+                name: "new-strategy".into(),
+                sort_order: None,
+                segments: None,
+                variants: None,
+                constraints: None ,
+                parameters: None,
+            }]),
             ..ClientFeature::default()
         },
     };
-    delta_cache.add_events(vec![updated_feature_event]);
+    delta_cache.add_events(vec![updated_feature_event.clone()]);
 
     assert_eq!(delta_cache.get_events()[1], initial_feature_event);
+    assert_eq!(delta_cache.get_events()[2], updated_feature_event);
 }
