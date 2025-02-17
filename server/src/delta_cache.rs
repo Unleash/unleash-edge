@@ -105,31 +105,11 @@ fn test_update_hydration_event_and_remove_event_when_over_limit() {
         features: vec![
             ClientFeature {
                 name: "test-flag".to_string(),
-                feature_type: None,
-                description: None,
-                created_at: None,
-                last_seen_at: None,
-                enabled: false,
-                stale: None,
-                impression_data: None,
-                project: None,
-                strategies: None,
-                variants: None,
-                dependencies: None,
+                ..ClientFeature::default()
             },
             ClientFeature {
                 name: "my-feature-flag".to_string(),
-                feature_type: None,
-                description: None,
-                created_at: None,
-                last_seen_at: None,
-                enabled: true,
-                stale: None,
-                impression_data: None,
-                project: None,
-                strategies: None,
-                variants: None,
-                dependencies: None,
+                ..ClientFeature::default()
             },
         ],
         segments: vec![
@@ -145,17 +125,7 @@ fn test_update_hydration_event_and_remove_event_when_over_limit() {
             event_id: 2,
             feature: ClientFeature {
                 name: "my-feature-flag".to_string(),
-                feature_type: None,
-                description: None,
-                created_at: None,
-                last_seen_at: None,
-                enabled: true,
-                stale: None,
-                impression_data: None,
-                project: None,
-                strategies: None,
-                variants: None,
-                dependencies: None,
+                ..ClientFeature::default()
             },
         },
     ];
@@ -166,17 +136,7 @@ fn test_update_hydration_event_and_remove_event_when_over_limit() {
             event_id: 3,
             feature: ClientFeature {
                 name: "another-feature-flag".to_string(),
-                feature_type: None,
-                description: None,
-                created_at: None,
-                last_seen_at: None,
-                enabled: true,
-                stale: None,
-                impression_data: None,
-                project: None,
-                strategies: None,
-                variants: None,
-                dependencies: None,
+                ..ClientFeature::default()
             },
         },
         DeltaEvent::FeatureRemoved {
@@ -216,17 +176,7 @@ fn test_prevent_mutation_of_previous_feature_updated_events() {
         event_id: 1,
         features: vec![ClientFeature {
             name: "base-flag".to_string(),
-            feature_type: None,
-            description: None,
-            created_at: None,
-            last_seen_at: None,
-            enabled: true,
-            stale: None,
-            impression_data: None,
-            project: None,
-            strategies: None,
-            variants: None,
-            dependencies: None,
+            ..ClientFeature::default()
         }],
         segments: vec![],
     };
@@ -236,17 +186,7 @@ fn test_prevent_mutation_of_previous_feature_updated_events() {
         event_id: 129,
         feature: ClientFeature {
             name: "streaming-test".to_string(),
-            feature_type: None,
-            description: None,
-            created_at: None,
-            last_seen_at: None,
-            enabled: false,
-            stale: None,
-            impression_data: None,
-            project: None,
-            strategies: None,
-            variants: None,
-            dependencies: None,
+            ..ClientFeature::default()
         },
     };
     delta_cache.add_events(vec![initial_feature_event.clone()]);
@@ -255,17 +195,7 @@ fn test_prevent_mutation_of_previous_feature_updated_events() {
         event_id: 130,
         feature: ClientFeature {
             name: "streaming-test".to_string(),
-            feature_type: None,
-            description: None,
-            created_at: None,
-            last_seen_at: None,
-            enabled: true,
-            stale: None,
-            impression_data: None,
-            project: None,
-            strategies: None,
-            variants: None,
-            dependencies: None,
+            ..ClientFeature::default()
         },
     };
     delta_cache.add_events(vec![updated_feature_event]);
