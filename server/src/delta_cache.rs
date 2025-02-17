@@ -1,4 +1,4 @@
-use unleash_types::client_features::{DeltaEvent, ClientFeature, Segment, Strategy};
+use unleash_types::client_features::{DeltaEvent, ClientFeature, Segment};
 
 
 
