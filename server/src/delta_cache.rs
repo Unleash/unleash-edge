@@ -1,4 +1,4 @@
-use unleash_types::client_features::{DeltaEvent, ClientFeature, Segment, Strategy};
+use unleash_types::client_features::{DeltaEvent, ClientFeature, Segment};
 
 
 
@@ -158,7 +158,7 @@ fn test_update_hydration_event_and_remove_event_when_over_limit() {
     ];
     delta_cache.add_events(added_events.clone());
 
-    let events: Vec<_> = delta_cache.get_events().iter().cloned().collect();
+    let events: Vec<_> = delta_cache.get_events().to_vec();
     assert_eq!(events.len(), max_length);
     assert_eq!(events, added_events[added_events.len() - max_length..]);
 
@@ -197,7 +197,7 @@ fn test_prevent_mutation_of_previous_feature_updated_events() {
         feature: ClientFeature {
             name: "streaming-test".to_string(),
             enabled: true,
-            strategies: Some(vec![Strategy {
+            strategies: Some(vec![unleash_types::client_features::Strategy {
                 name: "new-strategy".into(),
                 sort_order: None,
                 segments: None,
