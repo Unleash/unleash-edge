@@ -20,6 +20,7 @@ pub struct FeatureCache {
     update_sender: broadcast::Sender<UpdateType>,
 }
 
+
 impl FeatureCache {
     pub fn new(features: DashMap<String, ClientFeatures>) -> Self {
         let (tx, _rx) = tokio::sync::broadcast::channel::<UpdateType>(16);

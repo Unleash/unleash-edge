@@ -17,6 +17,7 @@ use actix_web::{get, post, HttpRequest, HttpResponse};
 use dashmap::DashMap;
 use unleash_types::client_features::{ClientFeature, ClientFeatures};
 use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ConnectVia};
+use crate::delta_cache::DeltaCache;
 
 #[utoipa::path(
     context_path = "/api/client",
@@ -39,6 +40,17 @@ pub async fn get_features(
     req: HttpRequest,
 ) -> EdgeJsonResult<ClientFeatures> {
     resolve_features(edge_token, features_cache, token_cache, filter_query, req).await
+}
+
+#[get("/delta")]
+pub async fn get_delta(
+    edge_token: EdgeToken,
+    delta_cache: Data<DashMap<String, DeltaCache>>,
+    token_cache: Data<DashMap<String, EdgeToken>>,
+    filter_query: Query<FeatureFilters>,
+    req: HttpRequest,
+) -> EdgeJsonResult<ClientFeatures> {
+    resolve_delta(edge_token, delta_cache, token_cache, filter_query, req).await
 }
 
 #[get("/streaming")]
@@ -137,6 +149,34 @@ async fn resolve_features(
                 .await
         }
         None => features_cache
+            .get(&cache_key(&validated_token))
+            .map(|client_features| filter_client_features(&client_features, &filter_set))
+            .ok_or(EdgeError::ClientCacheError),
+    }?;
+
+    Ok(Json(ClientFeatures {
+        query: Some(query),
+        ..client_features
+    }))
+}
+
+async fn resolve_delta(
+    edge_token: EdgeToken,
+    delta_cache: Data<DashMap<String,DeltaCache>>,
+    token_cache: Data<DashMap<String, EdgeToken>>,
+    filter_query: Query<FeatureFilters>,
+    req: HttpRequest,
+) -> EdgeJsonResult<ClientFeatures> {
+    let (validated_token, filter_set, query) =
+        get_feature_filter(&edge_token, &token_cache, filter_query.clone())?;
+
+    let client_features = match req.app_data::<Data<FeatureRefresher>>() {
+        Some(refresher) => {
+            refresher.
+                .features_for_filter(validated_token.clone(), &filter_set)
+                .await
+        }
+        None => delta_cache
             .get(&cache_key(&validated_token))
             .map(|client_features| filter_client_features(&client_features, &filter_set))
             .ok_or(EdgeError::ClientCacheError),

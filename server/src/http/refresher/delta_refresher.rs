@@ -3,18 +3,22 @@ use eventsource_client::Client;
 use futures::TryStreamExt;
 use reqwest::StatusCode;
 use std::time::Duration;
-use tracing::{debug, info, warn};
-use unleash_types::client_features::ClientFeaturesDelta;
-use unleash_yggdrasil::EngineState;
+use tracing::{debug, error, info, warn};
+use unleash_types::client_features::{ClientFeaturesDelta, DeltaEvent};
 
+use unleash_yggdrasil::EngineState;
+use crate::delta_cache::{DeltaCache, DeltaHydrationEvent};
 use crate::error::{EdgeError, FeatureError};
+use crate::filters::FeatureFilterSet;
 use crate::http::headers::{
     UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_INSTANCE_ID_HEADER,
 };
 use crate::http::refresher::feature_refresher::FeatureRefresher;
 use crate::http::unleash_client::ClientMetaInformation;
 use crate::tokens::cache_key;
-use crate::types::{ClientFeaturesDeltaResponse, ClientFeaturesRequest, EdgeToken, TokenRefresh};
+use crate::types::{ClientFeaturesDeltaResponse, ClientFeaturesRequest, EdgeResult, EdgeToken, TokenRefresh};
+
+pub type Environment = String;
 
 impl FeatureRefresher {
     async fn handle_client_features_delta_updated(
@@ -31,6 +35,23 @@ impl FeatureRefresher {
 
         let key = cache_key(refresh_token);
         self.features_cache.apply_delta(key.clone(), &delta);
+
+
+        if let Some(mut entry) = self.delta_cache.get_mut(&key) {
+            entry.add_events(&delta.events);
+        } else {
+            if let Some(DeltaEvent::Hydration {
+                            event_id,
+                            features,
+                            segments,
+                        }) = delta.events.clone().into_iter().next()
+            {
+                self.delta_cache.insert(key.clone(),     DeltaCache::new(DeltaHydrationEvent{event_id, features, segments}, 100));
+            } else {
+                warn!("Warning: No hydrationEvent found in delta.events, but cache empty for environment");
+            }
+        }
+
         self.update_last_refresh(
             refresh_token,
             etag,
@@ -117,6 +138,34 @@ impl FeatureRefresher {
             }
         }
     }
+
+    pub(crate) async fn features_for_filter(
+        &self,
+        token: EdgeToken,
+        filters: &FeatureFilterSet,
+    ) -> EdgeResult<ClientFeatures> {
+        match self.get_features_by_filter(&token, filters) {
+            Some(features) if self.token_is_subsumed(&token) => Ok(features),
+            _ => {
+                if self.strict {
+                    debug!("Strict behavior: Token is not subsumed by any registered tokens. Returning error");
+                    Err(EdgeError::InvalidTokenWithStrictBehavior)
+                } else {
+                    debug!(
+                        "Dynamic behavior: Had never seen this environment. Configuring fetcher"
+                    );
+                    self.register_and_hydrate_token(&token).await;
+                    self.get_features_by_filter(&token, filters).ok_or_else(|| {
+                        EdgeError::ClientHydrationFailed(
+                            "Failed to get features by filter after registering and hydrating token (This is very likely an error in Edge. Please report this!)"
+                                .into(),
+                        )
+                    })
+                }
+            }
+        }
+    }
+
 
     pub async fn start_streaming_delta_background_task(
         &self,
@@ -251,6 +300,8 @@ mod tests {
         Segment,
     };
     use unleash_yggdrasil::EngineState;
+    use crate::delta_cache::DeltaCache;
+    use crate::http::refresher::delta_refresher::Environment;
 
     #[actix_web::test]
     #[tracing_test::traced_test]
@@ -258,6 +309,7 @@ mod tests {
         let srv = test_features_server().await;
         let unleash_client = Arc::new(UnleashClient::new(srv.url("/").as_str(), None).unwrap());
         let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
+        let delta_cache: Arc<DashMap<Environment, DeltaCache>> = Arc::new(DashMap::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
 
         let feature_refresher = Arc::new(FeatureRefresher {
