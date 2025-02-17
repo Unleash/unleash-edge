@@ -66,30 +66,29 @@ impl DeltaCache {
     }
 
     fn update_hydration_event(&mut self, event: DeltaEvent) {
+        let event_id = event.get_event_id();
+        self.hydration_event.event_id = event_id;
         match event {
-            DeltaEvent::FeatureUpdated { event_id, feature } => {
+            DeltaEvent::FeatureUpdated { feature, .. } => {
                 if let Some(existing) = self.hydration_event.features.iter_mut().find(|f| f.name == feature.name) {
                     *existing = feature;
                 } else {
                     self.hydration_event.features.push(feature);
                 }
-                self.hydration_event.event_id = event_id;
             }
-            DeltaEvent::FeatureRemoved { event_id, feature_name } => {
+            DeltaEvent::FeatureRemoved {  feature_name, .. } => {
                 self.hydration_event.features.retain(|f| f.name != feature_name);
-                self.hydration_event.event_id = event_id;
             }
-            DeltaEvent::SegmentUpdated { event_id, segment } => {
+            DeltaEvent::SegmentUpdated {  segment, .. } => {
                 if let Some(existing) = self.hydration_event.segments.iter_mut().find(|s| s.id == segment.id) {
                     *existing = segment;
                 } else {
                     self.hydration_event.segments.push(segment);
                 }
-                self.hydration_event.event_id = event_id;
             }
-            DeltaEvent::SegmentRemoved { event_id, segment_id } => {
+            DeltaEvent::SegmentRemoved {  segment_id, .. } => {
                 self.hydration_event.segments.retain(|s| s.id != segment_id);
-                self.hydration_event.event_id = event_id;
+
             }
             DeltaEvent::Hydration { .. } => {
                // do nothing, as hydration will never end up in update events
