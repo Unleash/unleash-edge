@@ -4,9 +4,9 @@ use unleash_types::client_features::{DeltaEvent, ClientFeature, Segment};
 
 #[derive(Debug, Clone)]
 pub struct DeltaHydrationEvent {
-    event_id: u32,
-    features: Vec<ClientFeature>,
-    segments: Vec<Segment>,
+    pub event_id: u32,
+    pub features: Vec<ClientFeature>,
+    pub segments: Vec<Segment>,
 }
 
 

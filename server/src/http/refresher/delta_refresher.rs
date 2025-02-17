@@ -3,10 +3,10 @@ use eventsource_client::Client;
 use futures::TryStreamExt;
 use reqwest::StatusCode;
 use std::time::Duration;
-use tracing::{debug, info, warn};
-use unleash_types::client_features::ClientFeaturesDelta;
+use tracing::{debug, error, info, warn};
+use unleash_types::client_features::{ClientFeaturesDelta, DeltaEvent};
 use unleash_yggdrasil::EngineState;
-
+use crate::delta_cache::{DeltaCache, DeltaHydrationEvent};
 use crate::error::{EdgeError, FeatureError};
 use crate::http::headers::{
     UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_INSTANCE_ID_HEADER,
@@ -31,6 +31,27 @@ impl FeatureRefresher {
 
         let key = cache_key(refresh_token);
         self.features_cache.apply_delta(key.clone(), &delta);
+
+
+        self.delta_cache
+            .entry(key.clone())
+            .and_modify(|cache| {
+                cache.add_events(delta.events.clone());
+            })
+            .or_insert_with(|| {
+                if let Some(DeltaEvent::Hydration {
+                                event_id,
+                                features,
+                                segments,
+                            }) = delta.events.into_iter().next()
+                {
+                    DeltaCache::new(DeltaHydrationEvent{event_id, features, segments}, 100)
+                } else {
+                    warn!("Expected exactly one Hydration event, but none found. Skipping cache initialization.");
+                    return;
+                }
+            });
+
         self.update_last_refresh(
             refresh_token,
             etag,

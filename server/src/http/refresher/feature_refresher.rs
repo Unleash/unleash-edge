@@ -27,7 +27,7 @@ use crate::{
     tokens::{cache_key, simplify},
     types::{ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenRefresh},
 };
-
+use crate::delta_cache::DeltaCache;
 use crate::http::unleash_client::{ClientMetaInformation, UnleashClient};
 
 fn frontend_token_is_covered_by_tokens(
@@ -46,6 +46,7 @@ pub struct FeatureRefresher {
     pub unleash_client: Arc<UnleashClient>,
     pub tokens_to_refresh: Arc<DashMap<String, TokenRefresh>>,
     pub features_cache: Arc<FeatureCache>,
+    pub delta_cache: Arc<DashMap<String, DeltaCache>>,
     pub engine_cache: Arc<DashMap<String, EngineState>>,
     pub refresh_interval: chrono::Duration,
     pub persistence: Option<Arc<dyn EdgePersistence>>,
