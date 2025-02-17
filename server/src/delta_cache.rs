@@ -5,7 +5,7 @@ use unleash_types::client_features::{DeltaEvent, ClientFeature, Segment};
 
 #[derive(Debug, Clone)]
 pub struct DeltaHydrationEvent {
-    event_id: i32,
+    event_id: u32,
     features: Vec<ClientFeature>,
     segments: Vec<Segment>,
 }
@@ -16,22 +16,6 @@ pub struct DeltaCache {
     max_length: usize,
     events: VecDeque<DeltaEvent>,
     hydration_event: DeltaHydrationEvent,
-}
-
-trait GetEventId {
-    fn get_event_id(&self) -> i32;
-}
-
-impl GetEventId for DeltaEvent {
-    fn get_event_id(&self) -> i32 {
-        match self {
-            DeltaEvent::FeatureUpdated { event_id, .. }
-            | DeltaEvent::FeatureRemoved { event_id, .. }
-            | DeltaEvent::SegmentUpdated { event_id, .. }
-            | DeltaEvent::SegmentRemoved { event_id, .. }
-            | DeltaEvent::Hydration { event_id, .. } => *event_id,
-        }
-    }
 }
 
 impl DeltaCache {
@@ -69,7 +53,7 @@ impl DeltaCache {
     }
 
     pub fn is_missing_revision(&self, revision_id: u32) -> bool {
-        !self.events.iter().any(|event| event.get_event_id() == revision_id as i32)
+        !self.events.iter().any(|event| event.get_event_id() == revision_id)
     }
 
     pub fn get_hydration_event(&self) -> &DeltaHydrationEvent {
