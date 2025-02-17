@@ -29,12 +29,16 @@ impl DeltaCache {
     }
 
     fn add_base_event_from_hydration(&mut self, hydration_event: &DeltaHydrationEvent) {
-        if let Some(last_feature) = hydration_event.features.last().cloned() {
-            self.add_events(vec![DeltaEvent::FeatureUpdated {
-                event_id: hydration_event.event_id,
-                feature: last_feature,
-            }]);
-        }
+        let last_feature = hydration_event
+            .features
+            .last()
+            .cloned()
+            .expect("Hydration event must have at least one feature");
+
+        self.add_events(vec![DeltaEvent::FeatureUpdated {
+            event_id: hydration_event.event_id,
+            feature: last_feature,
+        }]);
     }
 
     pub fn add_events(&mut self, events: Vec<DeltaEvent>) {
