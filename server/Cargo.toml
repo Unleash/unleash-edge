@@ -35,7 +35,7 @@ ahash = "0.8.11"
 anyhow = "1.0.95"
 async-trait = "0.1.86"
 aws-config = { version = "1.5.16", features = ["behavior-version-latest"] }
-aws-sdk-s3 = { version = "1.75.0", features = ["behavior-version-latest"] }
+aws-sdk-s3 = { version = "1.76.0", features = ["behavior-version-latest"] }
 base64 = "0.22.1"
 chrono = { version = "0.4.39", features = ["serde"] }
 cidr = "0.3.1"
@@ -63,7 +63,7 @@ prometheus = { version = "0.13.4", features = ["process"] }
 prometheus-reqwest-remote-write = { version = "0.2.1" }
 prometheus-static-metric = "0.5.1"
 rand = "0.9.0"
-redis = { version = "0.28.2", features = [
+redis = { version = "0.29.0", features = [
     "tokio-comp",
     "tokio-rustls-comp",
     "cluster",
