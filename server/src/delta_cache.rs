@@ -194,7 +194,7 @@ mod tests {
                 ..ClientFeature::default()
             },
         };
-        delta_cache.add_events(vec![initial_feature_event.clone()]);
+        delta_cache.add_events(&vec![initial_feature_event.clone()]);
 
         let updated_feature_event = DeltaEvent::FeatureUpdated {
             event_id: 130,
@@ -212,7 +212,7 @@ mod tests {
                 ..ClientFeature::default()
             },
         };
-        delta_cache.add_events(vec![updated_feature_event.clone()]);
+        delta_cache.add_events(&vec![updated_feature_event.clone()]);
 
         assert_eq!(delta_cache.get_events()[1], initial_feature_event);
         assert_eq!(delta_cache.get_events()[2], updated_feature_event);

@@ -55,7 +55,7 @@ fn build_caches() -> CacheContainer {
 }
 
 async fn hydrate_from_persistent_storage(cache: CacheContainer, storage: Arc<dyn EdgePersistence>) {
-    let (token_cache, features_cache, delta_cache, engine_cache, ) = cache;
+    let (token_cache, features_cache, _delta_cache, engine_cache, ) = cache;
     // TODO: do we need to hydrate from persistant storage for delta?
     let tokens = storage.load_tokens().await.unwrap_or_else(|error| {
         warn!("Failed to load tokens from cache {error:?}");
@@ -89,7 +89,7 @@ pub(crate) fn build_offline_mode(
     client_tokens: Vec<String>,
     frontend_tokens: Vec<String>,
 ) -> EdgeResult<CacheContainer> {
-    let (token_cache, features_cache, delta_cache, engine_cache) = build_caches();
+    let (token_cache, features_cache, _delta_cache, engine_cache) = build_caches();
 
     let edge_tokens: Vec<EdgeToken> = tokens
         .iter()
@@ -141,7 +141,7 @@ pub(crate) fn build_offline_mode(
         )
     }
     // TODO: possibly need to resolve delta cache for offline mode?
-    Ok((token_cache, features_cache, delta_cache, engine_cache))
+    Ok((token_cache, features_cache, _delta_cache, engine_cache))
 }
 
 fn build_offline(offline_args: OfflineArgs) -> EdgeResult<CacheContainer> {
@@ -282,6 +282,7 @@ async fn build_edge(
     let feature_refresher = Arc::new(FeatureRefresher::new(
         unleash_client,
         feature_cache.clone(),
+        delta_cache.clone(),
         engine_cache.clone(),
         persistence.clone(),
         feature_config,
@@ -314,7 +315,7 @@ async fn build_edge(
             .await;
     }
     Ok((
-        (token_cache, feature_cache, delta_cache, engine_cache),
+        (token_cache, feature_cache, _delta_cache, engine_cache),
         Some(token_validator),
         Some(feature_refresher),
         persistence,

@@ -1,6 +1,7 @@
 use dashmap::mapref::one::Ref;
-use unleash_types::client_features::{ClientFeature, ClientFeatures};
-
+use unleash_types::client_features::{ClientFeature, ClientFeatures, ClientFeaturesDelta, DeltaEvent};
+use crate::delta_cache::DeltaCache;
+use crate::http::refresher::delta_refresher::Environment;
 use crate::types::EdgeToken;
 
 pub type FeatureFilter = Box<dyn Fn(&ClientFeature) -> bool>;
@@ -39,6 +40,14 @@ fn filter_features(
         .collect::<Vec<ClientFeature>>()
 }
 
+fn filter_deltas(
+    delta_cache: &DeltaCache,
+    _filters: &FeatureFilterSet,
+) -> Vec<DeltaEvent> {
+    // TODO: add filtering to here
+    delta_cache.get_events().clone()
+}
+
 pub(crate) fn filter_client_features(
     feature_cache: &Ref<'_, String, ClientFeatures>,
     filters: &FeatureFilterSet,
@@ -49,6 +58,15 @@ pub(crate) fn filter_client_features(
         query: feature_cache.query.clone(),
         version: feature_cache.version,
         meta: feature_cache.meta.clone(),
+    }
+}
+
+pub(crate) fn filter_delta_events(
+    delta_cache: &DeltaCache,
+    filters: &FeatureFilterSet,
+) -> ClientFeaturesDelta {
+    ClientFeaturesDelta {
+        events: filter_deltas(delta_cache, filters),
     }
 }
 

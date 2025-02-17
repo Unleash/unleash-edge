@@ -9,13 +9,13 @@ use futures::TryStreamExt;
 use json_structural_diff::JsonDiff;
 use reqwest::StatusCode;
 use tracing::{debug, info, warn};
-use unleash_types::client_features::{ClientFeatures, DeltaEvent};
+use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta, DeltaEvent};
 use unleash_types::client_metrics::{ClientApplication, MetricsMetadata};
 use unleash_yggdrasil::{EngineState, UpdateMessage};
 
 use crate::error::{EdgeError, FeatureError};
 use crate::feature_cache::FeatureCache;
-use crate::filters::{filter_client_features, FeatureFilterSet};
+use crate::filters::{filter_client_features, filter_delta_events, FeatureFilterSet};
 use crate::http::headers::{
     UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_INSTANCE_ID_HEADER,
 };
@@ -254,6 +254,33 @@ impl FeatureRefresher {
         }
     }
 
+    pub(crate) async fn delta_events_for_filter(
+        &self,
+        token: EdgeToken,
+        filters: &FeatureFilterSet,
+    ) -> EdgeResult<ClientFeaturesDelta> {
+        match self.get_delta_events_by_filter(&token, filters) {
+            Some(features) if self.token_is_subsumed(&token) => Ok(features),
+            _ => {
+                if self.strict {
+                    debug!("Strict behavior: Token is not subsumed by any registered tokens. Returning error");
+                    Err(EdgeError::InvalidTokenWithStrictBehavior)
+                } else {
+                    debug!(
+                        "Dynamic behavior: Had never seen this environment. Configuring fetcher"
+                    );
+                    self.register_and_hydrate_token(&token).await;
+                    self.get_delta_events_by_filter(&token, filters).ok_or_else(|| {
+                        EdgeError::ClientHydrationFailed(
+                            "Failed to get delta events by filter after registering and hydrating token (This is very likely an error in Edge. Please report this!)"
+                                .into(),
+                        )
+                    })
+                }
+            }
+        }
+    }
+
     fn get_features_by_filter(
         &self,
         token: &EdgeToken,
@@ -263,6 +290,17 @@ impl FeatureRefresher {
             .get(&cache_key(token))
             .map(|client_features| filter_client_features(&client_features, filters))
     }
+
+    fn get_delta_events_by_filter(
+        &self,
+        token: &EdgeToken,
+        filters: &FeatureFilterSet,
+    ) -> Option<ClientFeaturesDelta> {
+        self.delta_cache
+            .get(&cache_key(token))
+            .map(|delta_events| filter_delta_events(&delta_events, filters))
+    }
+
 
     ///
     /// Registers a token for refresh, the token will be discarded if it can be subsumed by another previously registered token

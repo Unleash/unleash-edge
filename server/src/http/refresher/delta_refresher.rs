@@ -139,34 +139,6 @@ impl FeatureRefresher {
         }
     }
 
-    pub(crate) async fn features_for_filter(
-        &self,
-        token: EdgeToken,
-        filters: &FeatureFilterSet,
-    ) -> EdgeResult<ClientFeatures> {
-        match self.get_features_by_filter(&token, filters) {
-            Some(features) if self.token_is_subsumed(&token) => Ok(features),
-            _ => {
-                if self.strict {
-                    debug!("Strict behavior: Token is not subsumed by any registered tokens. Returning error");
-                    Err(EdgeError::InvalidTokenWithStrictBehavior)
-                } else {
-                    debug!(
-                        "Dynamic behavior: Had never seen this environment. Configuring fetcher"
-                    );
-                    self.register_and_hydrate_token(&token).await;
-                    self.get_features_by_filter(&token, filters).ok_or_else(|| {
-                        EdgeError::ClientHydrationFailed(
-                            "Failed to get features by filter after registering and hydrating token (This is very likely an error in Edge. Please report this!)"
-                                .into(),
-                        )
-                    })
-                }
-            }
-        }
-    }
-
-
     pub async fn start_streaming_delta_background_task(
         &self,
         client_meta_information: ClientMetaInformation,
