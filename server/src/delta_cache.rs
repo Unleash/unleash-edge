@@ -41,13 +41,13 @@ impl DeltaCache {
         }]);
     }
 
-    pub fn add_events(&mut self, events: &Vec<DeltaEvent>) {
+    pub fn add_events(&mut self, events: &[DeltaEvent]) {
         for event in events.iter() {
             self.events.push(event.clone());
             self.update_hydration_event(event);
 
             if self.events.len() > self.max_length {
-                self.events.remove(0); // O(n) operation
+                self.events.remove(0);
             }
         }
     }

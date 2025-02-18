@@ -13,7 +13,6 @@ use actix_web::web::{self, Data, Json, Query};
 use actix_web::Responder;
 use actix_web::{get, post, HttpRequest, HttpResponse};
 use dashmap::DashMap;
-use tracing::info;
 use unleash_types::client_features::{ClientFeature, ClientFeatures, ClientFeaturesDelta};
 use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ConnectVia};
 use crate::delta_cache::DeltaCache;
