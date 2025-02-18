@@ -1,10 +1,13 @@
 use crate::cli::{EdgeArgs, EdgeMode};
+use crate::delta_cache::DeltaCache;
 use crate::error::EdgeError;
 use crate::feature_cache::FeatureCache;
 use crate::filters::{
-    filter_client_features, name_match_filter, name_prefix_filter, project_filter, FeatureFilterSet,
+    filter_client_features, filter_delta_events, name_match_filter, name_prefix_filter,
+    project_filter, FeatureFilterSet,
 };
 use crate::http::broadcaster::Broadcaster;
+use crate::http::refresher::delta_refresher::Environment;
 use crate::http::refresher::feature_refresher::FeatureRefresher;
 use crate::metrics::client_metrics::MetricsCache;
 use crate::tokens::cache_key;
@@ -15,7 +18,7 @@ use actix_web::web::{self, Data, Json, Query};
 use actix_web::Responder;
 use actix_web::{get, post, HttpRequest, HttpResponse};
 use dashmap::DashMap;
-use unleash_types::client_features::{ClientFeature, ClientFeatures};
+use unleash_types::client_features::{ClientFeature, ClientFeatures, ClientFeaturesDelta};
 use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ConnectVia};
 
 #[utoipa::path(
@@ -39,6 +42,17 @@ pub async fn get_features(
     req: HttpRequest,
 ) -> EdgeJsonResult<ClientFeatures> {
     resolve_features(edge_token, features_cache, token_cache, filter_query, req).await
+}
+
+#[get("/delta")]
+pub async fn get_delta(
+    edge_token: EdgeToken,
+    delta_cache: Data<DashMap<String, DeltaCache>>,
+    token_cache: Data<DashMap<String, EdgeToken>>,
+    filter_query: Query<FeatureFilters>,
+    req: HttpRequest,
+) -> EdgeJsonResult<ClientFeaturesDelta> {
+    resolve_delta(edge_token, delta_cache, token_cache, filter_query, req).await
 }
 
 #[get("/streaming")]
@@ -146,6 +160,30 @@ async fn resolve_features(
         query: Some(query),
         ..client_features
     }))
+}
+
+async fn resolve_delta(
+    edge_token: EdgeToken,
+    delta_cache: Data<DashMap<Environment, DeltaCache>>,
+    token_cache: Data<DashMap<String, EdgeToken>>,
+    filter_query: Query<FeatureFilters>,
+    req: HttpRequest,
+) -> EdgeJsonResult<ClientFeaturesDelta> {
+    let (validated_token, filter_set, ..) =
+        get_feature_filter(&edge_token, &token_cache, filter_query.clone())?;
+    let delta = match req.app_data::<Data<FeatureRefresher>>() {
+        Some(refresher) => {
+            refresher
+                .delta_events_for_filter(validated_token.clone(), &filter_set)
+                .await
+        }
+        None => delta_cache
+            .get(&cache_key(&validated_token))
+            .map(|cache| filter_delta_events(cache.value(), &filter_set))
+            .ok_or(EdgeError::ClientCacheError),
+    }?;
+
+    Ok(Json(delta))
 }
 #[utoipa::path(
     context_path = "/api/client",
@@ -278,6 +316,7 @@ pub fn configure_client_api(cfg: &mut web::ServiceConfig) {
             crate::middleware::validate_token::validate_token,
         ))
         .service(get_features)
+        .service(get_delta)
         .service(get_feature)
         .service(register)
         .service(metrics)
@@ -688,11 +727,13 @@ mod tests {
         token.token_type = Some(TokenType::Client);
         let upstream_token_cache = Arc::new(DashMap::default());
         let upstream_features_cache = Arc::new(FeatureCache::default());
+        let upstream_delta_cache = Arc::new(DashMap::default());
         let upstream_engine_cache = Arc::new(DashMap::default());
         upstream_token_cache.insert(token.token.clone(), token.clone());
         let srv = upstream_server(
             upstream_token_cache,
             upstream_features_cache,
+            upstream_delta_cache,
             upstream_engine_cache,
         )
         .await;
@@ -727,11 +768,13 @@ mod tests {
         frontend_token.token_type = Some(TokenType::Frontend);
         let upstream_token_cache = Arc::new(DashMap::default());
         let upstream_features_cache = Arc::new(FeatureCache::default());
+        let upstream_delta_cache = Arc::new(DashMap::default());
         let upstream_engine_cache = Arc::new(DashMap::default());
         upstream_token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
         let srv = upstream_server(
             upstream_token_cache,
             upstream_features_cache,
+            upstream_delta_cache,
             upstream_engine_cache,
         )
         .await;
@@ -993,10 +1036,12 @@ mod tests {
     async fn calling_client_features_endpoint_with_new_token_hydrates_from_upstream_when_dynamic() {
         let upstream_features_cache = Arc::new(FeatureCache::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let upstream_delta_cache: Arc<DashMap<String, DeltaCache>> = Arc::new(DashMap::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let server = upstream_server(
             upstream_token_cache.clone(),
             upstream_features_cache.clone(),
+            upstream_delta_cache.clone(),
             upstream_engine_cache.clone(),
         )
         .await;
@@ -1017,6 +1062,7 @@ mod tests {
             unleash_client: unleash_client.clone(),
             tokens_to_refresh: Arc::new(Default::default()),
             features_cache: features_cache.clone(),
+            delta_cache: Arc::new(Default::default()),
             engine_cache: engine_cache.clone(),
             refresh_interval: Duration::seconds(6000),
             persistence: None,
@@ -1057,10 +1103,12 @@ mod tests {
     async fn calling_client_features_endpoint_with_new_token_does_not_hydrate_when_strict() {
         let upstream_features_cache = Arc::new(FeatureCache::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let upstream_delta_cache: Arc<DashMap<String, DeltaCache>> = Arc::new(DashMap::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let server = upstream_server(
             upstream_token_cache.clone(),
             upstream_features_cache.clone(),
+            upstream_delta_cache.clone(),
             upstream_engine_cache.clone(),
         )
         .await;
@@ -1179,10 +1227,12 @@ mod tests {
     {
         let upstream_features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let upstream_delta_cache: Arc<DashMap<String, DeltaCache>> = Arc::new(DashMap::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let server = upstream_server(
             upstream_token_cache.clone(),
             upstream_features_cache.clone(),
+            upstream_delta_cache.clone(),
             upstream_engine_cache.clone(),
         )
         .await;

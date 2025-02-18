@@ -224,7 +224,13 @@ pub struct EdgeArgs {
     pub delta: bool,
 
     /// If set to true, it compares features payload with delta payload and logs diff. This flag is for internal testing only. Do not turn this on for production configurations
-    #[clap(long, env, default_value_t = false, conflicts_with = "delta", hide = true)]
+    #[clap(
+        long,
+        env,
+        default_value_t = false,
+        conflicts_with = "delta",
+        hide = true
+    )]
     pub delta_diff: bool,
 
     /// Sets a remote write url for prometheus metrics, if this is set, prometheus metrics will be written upstream
