@@ -1,7 +1,6 @@
 use dashmap::mapref::one::Ref;
 use unleash_types::client_features::{ClientFeature, ClientFeatures, ClientFeaturesDelta, DeltaEvent};
 use crate::delta_cache::DeltaCache;
-use crate::http::refresher::delta_refresher::Environment;
 use crate::types::EdgeToken;
 
 pub type FeatureFilter = Box<dyn Fn(&ClientFeature) -> bool>;

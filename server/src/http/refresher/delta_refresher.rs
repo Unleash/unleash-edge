@@ -3,20 +3,19 @@ use eventsource_client::Client;
 use futures::TryStreamExt;
 use reqwest::StatusCode;
 use std::time::Duration;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 use unleash_types::client_features::{ClientFeaturesDelta, DeltaEvent};
 
 use unleash_yggdrasil::EngineState;
 use crate::delta_cache::{DeltaCache, DeltaHydrationEvent};
 use crate::error::{EdgeError, FeatureError};
-use crate::filters::FeatureFilterSet;
 use crate::http::headers::{
     UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_INSTANCE_ID_HEADER,
 };
 use crate::http::refresher::feature_refresher::FeatureRefresher;
 use crate::http::unleash_client::ClientMetaInformation;
 use crate::tokens::cache_key;
-use crate::types::{ClientFeaturesDeltaResponse, ClientFeaturesRequest, EdgeResult, EdgeToken, TokenRefresh};
+use crate::types::{ClientFeaturesDeltaResponse, ClientFeaturesRequest, EdgeToken, TokenRefresh};
 
 pub type Environment = String;
 
@@ -39,17 +38,15 @@ impl FeatureRefresher {
 
         if let Some(mut entry) = self.delta_cache.get_mut(&key) {
             entry.add_events(&delta.events);
+        } else if let Some(DeltaEvent::Hydration {
+                        event_id,
+                        features,
+                        segments,
+                    }) = delta.events.clone().into_iter().next()
+        {
+            self.delta_cache.insert(key.clone(),     DeltaCache::new(DeltaHydrationEvent{event_id, features, segments}, 100));
         } else {
-            if let Some(DeltaEvent::Hydration {
-                            event_id,
-                            features,
-                            segments,
-                        }) = delta.events.clone().into_iter().next()
-            {
-                self.delta_cache.insert(key.clone(),     DeltaCache::new(DeltaHydrationEvent{event_id, features, segments}, 100));
-            } else {
-                warn!("Warning: No hydrationEvent found in delta.events, but cache empty for environment");
-            }
+            warn!("Warning: No hydrationEvent found in delta.events, but cache empty for environment");
         }
 
         self.update_last_refresh(

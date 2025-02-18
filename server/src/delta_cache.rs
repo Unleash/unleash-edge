@@ -42,9 +42,9 @@ impl DeltaCache {
     }
 
     pub fn add_events(&mut self, events: &Vec<DeltaEvent>) {
-        for event in events.into_iter() {
+        for event in events.iter() {
             self.events.push(event.clone());
-            self.update_hydration_event(&event);
+            self.update_hydration_event(event);
 
             if self.events.len() > self.max_length {
                 self.events.remove(0); // O(n) operation
@@ -87,7 +87,7 @@ impl DeltaCache {
                 }
             }
             DeltaEvent::SegmentRemoved {  segment_id, .. } => {
-                self.hydration_event.segments.retain(|s| s.id != segment_id.clone());
+                self.hydration_event.segments.retain(|s| s.id != *segment_id);
 
             }
             DeltaEvent::Hydration { .. } => {
