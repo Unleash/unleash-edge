@@ -12,14 +12,17 @@ pub struct DeltaCache {
     max_length: usize,
     events: Vec<DeltaEvent>,
     hydration_event: DeltaHydrationEvent,
+    update_sender: broadcast::Sender<UpdateType>,
 }
 
 impl DeltaCache {
     pub fn new(hydration_event: DeltaHydrationEvent, max_length: usize) -> Self {
+        let (tx, _rx) = tokio::sync::broadcast::channel::<UpdateType>(16);
         let mut cache = DeltaCache {
             max_length,
             events: Vec::new(),
             hydration_event: hydration_event.clone(),
+            update_sender: tx,
         };
         cache.add_base_event_from_hydration(&hydration_event);
         cache
@@ -43,6 +46,8 @@ impl DeltaCache {
             self.events.push(event.clone());
             self.update_hydration_event(event);
 
+            self.update_sender.send(event);
+
             if self.events.len() > self.max_length {
                 self.events.remove(0);
             }
@@ -62,6 +67,10 @@ impl DeltaCache {
 
     pub fn get_hydration_event(&self) -> &DeltaHydrationEvent {
         &self.hydration_event
+    }
+
+    pub fn subscribe(&self) -> broadcast::Receiver<UpdateType> {
+        self.update_sender.subscribe()
     }
 
     fn update_hydration_event(&mut self, event: &DeltaEvent) {

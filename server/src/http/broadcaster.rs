@@ -104,20 +104,20 @@ impl Broadcaster {
     }
 
     fn spawn_feature_cache_subscriber(_this: Arc<Self>) {
-        // let mut rx = this.features_cache.subscribe();
-        // tokio::spawn(async move {
-        //     while let Ok(key) = rx.recv().await {
-        //         debug!("Received update for key: {:?}", key);
-        //         match key {
-        //             UpdateType::Full(env) | UpdateType::Update(env) => {
-        //                 this.broadcast(Some(env)).await;
-        //             }
-        //             UpdateType::Deletion => {
-        //                 this.broadcast(None).await;
-        //             }
-        //         }
-        //     }
-        // });
+        let mut rx = this.features_cache.subscribe();
+        tokio::spawn(async move {
+            while let Ok(key) = rx.recv().await {
+                debug!("Received update for key: {:?}", key);
+                match key {
+                    UpdateType::Full(env) | UpdateType::Update(env) => {
+                        this.broadcast(Some(env)).await;
+                    }
+                    UpdateType::Deletion => {
+                        this.broadcast(None).await;
+                    }
+                }
+            }
+        });
     }
 
     /// Removes all non-responsive clients from broadcast list.
