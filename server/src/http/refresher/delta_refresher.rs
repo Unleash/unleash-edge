@@ -19,6 +19,8 @@ use unleash_yggdrasil::EngineState;
 
 pub type Environment = String;
 
+const DELTA_CACHE_LIMIT: usize = 100;
+
 impl FeatureRefresher {
     async fn handle_client_features_delta_updated(
         &self,
@@ -51,7 +53,7 @@ impl FeatureRefresher {
                         features,
                         segments,
                     },
-                    100,
+                    DELTA_CACHE_LIMIT,
                 ),
             );
         } else {
