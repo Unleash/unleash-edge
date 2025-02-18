@@ -1,8 +1,13 @@
 use crate::cli::{EdgeArgs, EdgeMode};
+use crate::delta_cache::DeltaCache;
 use crate::error::EdgeError;
 use crate::feature_cache::FeatureCache;
-use crate::filters::{filter_client_features, filter_delta_events, name_match_filter, name_prefix_filter, project_filter, FeatureFilterSet};
+use crate::filters::{
+    filter_client_features, filter_delta_events, name_match_filter, name_prefix_filter,
+    project_filter, FeatureFilterSet,
+};
 use crate::http::broadcaster::Broadcaster;
+use crate::http::refresher::delta_refresher::Environment;
 use crate::http::refresher::feature_refresher::FeatureRefresher;
 use crate::metrics::client_metrics::MetricsCache;
 use crate::tokens::cache_key;
@@ -15,8 +20,6 @@ use actix_web::{get, post, HttpRequest, HttpResponse};
 use dashmap::DashMap;
 use unleash_types::client_features::{ClientFeature, ClientFeatures, ClientFeaturesDelta};
 use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ConnectVia};
-use crate::delta_cache::DeltaCache;
-use crate::http::refresher::delta_refresher::Environment;
 
 #[utoipa::path(
     context_path = "/api/client",

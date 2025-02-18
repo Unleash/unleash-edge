@@ -4,11 +4,11 @@ pub mod builder;
 #[cfg(not(tarpaulin_include))]
 pub mod cli;
 pub mod client_api;
+pub mod delta_cache;
 pub mod edge_api;
 #[cfg(not(tarpaulin_include))]
 pub mod error;
 pub mod feature_cache;
-pub mod delta_cache;
 pub mod filters;
 pub mod frontend_api;
 pub mod health_checker;

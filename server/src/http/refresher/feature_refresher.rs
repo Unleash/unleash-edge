@@ -13,12 +13,15 @@ use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta, DeltaE
 use unleash_types::client_metrics::{ClientApplication, MetricsMetadata};
 use unleash_yggdrasil::{EngineState, UpdateMessage};
 
+use crate::delta_cache::DeltaCache;
 use crate::error::{EdgeError, FeatureError};
 use crate::feature_cache::FeatureCache;
 use crate::filters::{filter_client_features, filter_delta_events, FeatureFilterSet};
 use crate::http::headers::{
     UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_INSTANCE_ID_HEADER,
 };
+use crate::http::refresher::delta_refresher::Environment;
+use crate::http::unleash_client::{ClientMetaInformation, UnleashClient};
 use crate::types::{
     build, ClientFeaturesDeltaResponse, EdgeResult, TokenType, TokenValidationStatus,
 };
@@ -27,9 +30,6 @@ use crate::{
     tokens::{cache_key, simplify},
     types::{ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenRefresh},
 };
-use crate::delta_cache::DeltaCache;
-use crate::http::refresher::delta_refresher::Environment;
-use crate::http::unleash_client::{ClientMetaInformation, UnleashClient};
 
 fn frontend_token_is_covered_by_tokens(
     frontend_token: &EdgeToken,
@@ -300,7 +300,6 @@ impl FeatureRefresher {
             .get(&cache_key(token))
             .map(|delta_events| filter_delta_events(&delta_events, filters))
     }
-
 
     ///
     /// Registers a token for refresh, the token will be discarded if it can be subsumed by another previously registered token

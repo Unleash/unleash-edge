@@ -1,8 +1,10 @@
-use dashmap::mapref::one::Ref;
-use tracing::info;
-use unleash_types::client_features::{ClientFeature, ClientFeatures, ClientFeaturesDelta, DeltaEvent};
 use crate::delta_cache::DeltaCache;
 use crate::types::EdgeToken;
+use dashmap::mapref::one::Ref;
+use tracing::info;
+use unleash_types::client_features::{
+    ClientFeature, ClientFeatures, ClientFeaturesDelta, DeltaEvent,
+};
 
 pub type FeatureFilter = Box<dyn Fn(&ClientFeature) -> bool>;
 
@@ -40,10 +42,7 @@ fn filter_features(
         .collect::<Vec<ClientFeature>>()
 }
 
-fn filter_deltas(
-    delta_cache: &DeltaCache,
-    _filters: &FeatureFilterSet,
-) -> Vec<DeltaEvent> {
+fn filter_deltas(delta_cache: &DeltaCache, _filters: &FeatureFilterSet) -> Vec<DeltaEvent> {
     // TODO: add filtering to here
     delta_cache.get_events().clone()
 }
