@@ -4,9 +4,9 @@ use futures::TryStreamExt;
 use reqwest::StatusCode;
 use std::time::Duration;
 use tracing::{debug, info, warn};
-use unleash_types::client_features::ClientFeaturesDelta;
-use unleash_yggdrasil::EngineState;
+use unleash_types::client_features::{ClientFeaturesDelta, DeltaEvent};
 
+use crate::delta_cache::{DeltaCache, DeltaHydrationEvent};
 use crate::error::{EdgeError, FeatureError};
 use crate::http::headers::{
     UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_INSTANCE_ID_HEADER,
@@ -15,6 +15,11 @@ use crate::http::refresher::feature_refresher::FeatureRefresher;
 use crate::http::unleash_client::ClientMetaInformation;
 use crate::tokens::cache_key;
 use crate::types::{ClientFeaturesDeltaResponse, ClientFeaturesRequest, EdgeToken, TokenRefresh};
+use unleash_yggdrasil::EngineState;
+
+pub type Environment = String;
+
+const DELTA_CACHE_LIMIT: usize = 100;
 
 impl FeatureRefresher {
     async fn handle_client_features_delta_updated(
@@ -31,6 +36,32 @@ impl FeatureRefresher {
 
         let key = cache_key(refresh_token);
         self.features_cache.apply_delta(key.clone(), &delta);
+
+        if let Some(mut entry) = self.delta_cache.get_mut(&key) {
+            entry.add_events(&delta.events);
+        } else if let Some(DeltaEvent::Hydration {
+            event_id,
+            features,
+            segments,
+        }) = delta.events.clone().into_iter().next()
+        {
+            self.delta_cache.insert(
+                key.clone(),
+                DeltaCache::new(
+                    DeltaHydrationEvent {
+                        event_id,
+                        features,
+                        segments,
+                    },
+                    DELTA_CACHE_LIMIT,
+                ),
+            );
+        } else {
+            warn!(
+                "Warning: No hydrationEvent found in delta.events, but cache empty for environment"
+            );
+        }
+
         self.update_last_refresh(
             refresh_token,
             etag,
@@ -232,7 +263,9 @@ impl FeatureRefresher {
 
 #[cfg(test)]
 mod tests {
+    use crate::delta_cache::DeltaCache;
     use crate::feature_cache::FeatureCache;
+    use crate::http::refresher::delta_refresher::Environment;
     use crate::http::refresher::feature_refresher::FeatureRefresher;
     use crate::http::unleash_client::{ClientMetaInformation, UnleashClient};
     use crate::types::EdgeToken;
@@ -258,11 +291,13 @@ mod tests {
         let srv = test_features_server().await;
         let unleash_client = Arc::new(UnleashClient::new(srv.url("/").as_str(), None).unwrap());
         let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
+        let delta_cache: Arc<DashMap<Environment, DeltaCache>> = Arc::new(DashMap::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
 
         let feature_refresher = Arc::new(FeatureRefresher {
             unleash_client: unleash_client.clone(),
             tokens_to_refresh: Arc::new(Default::default()),
+            delta_cache: delta_cache.clone(),
             features_cache: features_cache.clone(),
             engine_cache: engine_cache.clone(),
             refresh_interval: Duration::seconds(6000),

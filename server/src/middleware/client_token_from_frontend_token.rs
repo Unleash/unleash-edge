@@ -63,6 +63,7 @@ mod tests {
     use unleash_yggdrasil::EngineState;
 
     use crate::auth::token_validator::TokenValidator;
+    use crate::delta_cache::DeltaCache;
     use crate::feature_cache::FeatureCache;
     use crate::http::refresher::feature_refresher::FeatureRefresher;
     use crate::http::unleash_client::{new_reqwest_client, UnleashClient};
@@ -123,10 +124,12 @@ mod tests {
         let upstream_features_cache = Arc::new(FeatureCache::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         upstream_token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
+        let upstream_delta_cache: Arc<DashMap<String, DeltaCache>> = Arc::new(DashMap::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let upstream_server = upstream_server(
             upstream_token_cache.clone(),
             upstream_features_cache.clone(),
+            upstream_delta_cache.clone(),
             upstream_engine_cache.clone(),
         )
         .await;
