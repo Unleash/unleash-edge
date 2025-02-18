@@ -140,7 +140,6 @@ pub(crate) fn build_offline_mode(
             client_features.clone(),
         )
     }
-    // TODO: possibly need to resolve delta cache for offline mode?
     Ok((token_cache, features_cache, _delta_cache, engine_cache))
 }
 
