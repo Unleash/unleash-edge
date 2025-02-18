@@ -80,6 +80,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let token_validator_schedule = token_validator.clone();
     let lazy_feature_cache = features_cache.clone();
     let lazy_token_cache = token_cache.clone();
+    // TODO : do we need lazy delta cache?
     let lazy_engine_cache = engine_cache.clone();
     let lazy_feature_refresher = feature_refresher.clone();
 
@@ -105,6 +106,7 @@ async fn main() -> Result<(), anyhow::Error> {
             .app_data(web::Data::new(connect_via.clone()))
             .app_data(web::Data::from(metrics_cache.clone()))
             .app_data(web::Data::from(token_cache.clone()))
+            .app_data(web::Data::from(delta_cache.clone()))
             .app_data(web::Data::from(features_cache.clone()))
             .app_data(web::Data::from(engine_cache.clone()))
             .app_data(web::Data::from(broadcaster.clone()));

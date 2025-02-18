@@ -1,4 +1,5 @@
 use dashmap::mapref::one::Ref;
+use tracing::info;
 use unleash_types::client_features::{ClientFeature, ClientFeatures, ClientFeaturesDelta, DeltaEvent};
 use crate::delta_cache::DeltaCache;
 use crate::types::EdgeToken;
@@ -64,6 +65,7 @@ pub(crate) fn filter_delta_events(
     delta_cache: &DeltaCache,
     filters: &FeatureFilterSet,
 ) -> ClientFeaturesDelta {
+    info!("filtering delta events for api");
     ClientFeaturesDelta {
         events: filter_deltas(delta_cache, filters),
     }

@@ -38,12 +38,14 @@ impl FeatureRefresher {
 
         if let Some(mut entry) = self.delta_cache.get_mut(&key) {
             entry.add_events(&delta.events);
+            info!("adding events to delta");
         } else if let Some(DeltaEvent::Hydration {
                         event_id,
                         features,
                         segments,
                     }) = delta.events.clone().into_iter().next()
         {
+            info!("creating entry in delta");
             self.delta_cache.insert(key.clone(),     DeltaCache::new(DeltaHydrationEvent{event_id, features, segments}, 100));
         } else {
             warn!("Warning: No hydrationEvent found in delta.events, but cache empty for environment");
