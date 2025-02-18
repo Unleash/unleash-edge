@@ -215,16 +215,16 @@ pub struct EdgeArgs {
     #[clap(long, env, default_value_t = false, conflicts_with = "strict")]
     pub dynamic: bool,
 
-    /// If set to true, Edge connects to upstream using streaming instead of polling. Requires strict mode
-    #[clap(long, env, default_value_t = false, requires = "strict")]
+    /// If set to true, Edge connects to upstream using streaming instead of polling. This is an experimental feature and may change. Changes to this feature may not follow semantic versioning. Requires strict mode
+    #[clap(long, env, default_value_t = false, requires = "strict", hide = true)]
     pub streaming: bool,
 
-    /// If set to true, Edge connects to upstream using delta polling instead of normal polling. This is experimental feature and might and change. Requires strict mode
-    #[clap(long, env, default_value_t = false, requires = "strict")]
+    /// If set to true, Edge connects to upstream using delta polling instead of normal polling. This is an experimental feature and may change. Changes to this feature may not follow semantic versioning. Requires strict mode
+    #[clap(long, env, default_value_t = false, requires = "strict", hide = true)]
     pub delta: bool,
 
-    /// If set to true, it compares features payload with delta payload and logs diff. This is experimental feature and might change.
-    #[clap(long, env, default_value_t = false, conflicts_with = "delta")]
+    /// If set to true, it compares features payload with delta payload and logs diff. This flag is for internal testing only. Do not turn this on for production configurations
+    #[clap(long, env, default_value_t = false, conflicts_with = "delta", hide = true)]
     pub delta_diff: bool,
 
     /// Sets a remote write url for prometheus metrics, if this is set, prometheus metrics will be written upstream
