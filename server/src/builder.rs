@@ -315,7 +315,7 @@ async fn build_edge(
             .await;
     }
     Ok((
-        (token_cache, feature_cache, _delta_cache, engine_cache),
+        (token_cache, feature_cache, delta_cache, engine_cache),
         Some(token_validator),
         Some(feature_refresher),
         persistence,
