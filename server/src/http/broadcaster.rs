@@ -10,16 +10,13 @@ use futures::future;
 use prometheus::{register_int_gauge, IntGauge};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
-use tracing::{debug, warn};
-use unleash_types::client_features::{ClientFeatures, Query};
+use tracing::{warn};
+use unleash_types::client_features::{ClientFeaturesDelta, Query};
 
 use crate::{
-    error::EdgeError,
-    feature_cache::{FeatureCache, UpdateType},
-    filters::{
-        filter_client_features, name_prefix_filter, project_filter_from_projects, FeatureFilterSet,
-    },
-    types::{EdgeJsonResult, EdgeResult, EdgeToken},
+    delta_cache::DeltaCache, error::EdgeError, filters::{
+        filter_delta_events, name_prefix_filter, project_filter_from_projects, FeatureFilterSet
+    }, types::{EdgeJsonResult, EdgeResult, EdgeToken}
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -67,7 +64,8 @@ struct ClientGroup {
 
 pub struct Broadcaster {
     active_connections: DashMap<StreamingQuery, ClientGroup>,
-    features_cache: Arc<FeatureCache>,
+    //features_cache: Arc<FeatureCache>,
+    delta_cache_map: Arc<DashMap<String, DeltaCache>>,
 }
 
 lazy_static::lazy_static! {
@@ -80,10 +78,10 @@ lazy_static::lazy_static! {
 
 impl Broadcaster {
     /// Constructs new broadcaster and spawns ping loop.
-    pub fn new(features: Arc<FeatureCache>) -> Arc<Self> {
+    pub fn new(delta_cache_map: Arc<DashMap<String, DeltaCache>>) -> Arc<Self> {
         let broadcaster = Arc::new(Broadcaster {
             active_connections: DashMap::new(),
-            features_cache: features.clone(),
+            delta_cache_map: delta_cache_map
         });
 
         Broadcaster::spawn_heartbeat(broadcaster.clone());
@@ -105,21 +103,21 @@ impl Broadcaster {
         });
     }
 
-    fn spawn_feature_cache_subscriber(this: Arc<Self>) {
-        let mut rx = this.features_cache.subscribe();
-        tokio::spawn(async move {
-            while let Ok(key) = rx.recv().await {
-                debug!("Received update for key: {:?}", key);
-                match key {
-                    UpdateType::Full(env) | UpdateType::Update(env) => {
-                        this.broadcast(Some(env)).await;
-                    }
-                    UpdateType::Deletion => {
-                        this.broadcast(None).await;
-                    }
-                }
-            }
-        });
+    fn spawn_feature_cache_subscriber(_this: Arc<Self>) {
+        // let mut rx = this.features_cache.subscribe();
+        // tokio::spawn(async move {
+        //     while let Ok(key) = rx.recv().await {
+        //         debug!("Received update for key: {:?}", key);
+        //         match key {
+        //             UpdateType::Full(env) | UpdateType::Update(env) => {
+        //                 this.broadcast(Some(env)).await;
+        //             }
+        //             UpdateType::Deletion => {
+        //                 this.broadcast(None).await;
+        //             }
+        //         }
+        //     }
+        // });
     }
 
     /// Removes all non-responsive clients from broadcast list.
@@ -200,24 +198,24 @@ impl Broadcaster {
         filter_set
     }
 
-    async fn resolve_features(&self, query: StreamingQuery) -> EdgeJsonResult<ClientFeatures> {
+    async fn resolve_features(&self, query: StreamingQuery) -> EdgeJsonResult<ClientFeaturesDelta> {
         let filter_set = Broadcaster::get_query_filters(&query);
 
-        let features = self
-            .features_cache
-            .get(&query.environment)
-            .map(|client_features| filter_client_features(&client_features, &filter_set));
+        let delta_cache = self.delta_cache_map.get(&query.environment);
 
-        match features {
-            Some(features) => Ok(Json(ClientFeatures {
-                query: Some(query.into()),
-                ..features
-            })),
-            // Note: this is a simplification for now, using the following assumptions:
-            // 1. We'll only allow streaming in strict mode
-            // 2. We'll check whether the token is subsumed *before* trying to add it to the broadcaster
-            // If both of these are true, then we should never hit this case (if Thomas's understanding is correct).
-            None => Err(EdgeError::AuthorizationDenied),
+        match delta_cache {
+            Some(delta_cache) => {      
+                Ok(Json(
+                    filter_delta_events(&delta_cache, &filter_set),
+                ))
+            }
+            None => {
+                // Note: this is a simplification for now, using the following assumptions:
+                // 1. We'll only allow streaming in strict mode
+                // 2. We'll check whether the token is subsumed *before* trying to add it to the broadcaster
+                // If both of these are true, then we should never hit this case (if Thomas's understanding is correct).
+                return Err(EdgeError::AuthorizationDenied);
+            }
         }
     }
 

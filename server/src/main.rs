@@ -90,7 +90,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let refresher_for_app_data = feature_refresher.clone();
     let prom_registry_for_write = metrics_handler.registry.clone();
 
-    let broadcaster = Broadcaster::new(features_cache.clone());
+    let broadcaster = Broadcaster::new(delta_cache.clone());
 
     let server = HttpServer::new(move || {
         let qs_config =
