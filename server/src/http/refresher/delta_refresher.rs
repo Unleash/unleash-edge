@@ -295,7 +295,7 @@ mod tests {
         let feature_refresher = Arc::new(FeatureRefresher {
             unleash_client: unleash_client.clone(),
             tokens_to_refresh: Arc::new(Default::default()),
-            delta_cache: Arc::new(Default::default()),
+            delta_cache: delta_cache.clone(),
             features_cache: features_cache.clone(),
             engine_cache: engine_cache.clone(),
             refresh_interval: Duration::seconds(6000),
