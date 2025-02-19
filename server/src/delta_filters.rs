@@ -47,9 +47,7 @@ pub(crate) fn projects_filter(projects: Vec<String>) -> DeltaFilter {
                 false
             }
         }
-        DeltaEvent::FeatureRemoved { project, .. } => {
-            all_projects || projects.contains(project)
-        }
+        DeltaEvent::FeatureRemoved { project, .. } => all_projects || projects.contains(project),
         _ => false,
     })
 }

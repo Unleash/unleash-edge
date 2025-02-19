@@ -4,8 +4,7 @@ use crate::delta_filters::{combined_filter, filter_delta_events, DeltaFilterSet}
 use crate::error::EdgeError;
 use crate::feature_cache::FeatureCache;
 use crate::filters::{
-    filter_client_features, name_match_filter, name_prefix_filter,
-    project_filter, FeatureFilterSet,
+    filter_client_features, name_match_filter, name_prefix_filter, project_filter, FeatureFilterSet,
 };
 use crate::http::broadcaster::Broadcaster;
 use crate::http::refresher::delta_refresher::Environment;
@@ -252,12 +251,19 @@ async fn resolve_delta(
     let delta = match req.app_data::<Data<FeatureRefresher>>() {
         Some(refresher) => {
             refresher
-                .delta_events_for_filter(validated_token.clone(), &filter_set, &delta_filter_set, revision)
+                .delta_events_for_filter(
+                    validated_token.clone(),
+                    &filter_set,
+                    &delta_filter_set,
+                    revision,
+                )
                 .await
         }
         None => delta_cache
             .get(&cache_key(&validated_token))
-            .map(|cache| filter_delta_events(cache.value(), &filter_set, &delta_filter_set, revision))
+            .map(|cache| {
+                filter_delta_events(cache.value(), &filter_set, &delta_filter_set, revision)
+            })
             .ok_or(EdgeError::ClientCacheError),
     }?;
 
