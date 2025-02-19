@@ -1,10 +1,10 @@
 use crate::cli::{EdgeArgs, EdgeMode};
 use crate::delta_cache::DeltaCache;
-use crate::delta_filters::{combined_filter, DeltaFilterSet};
+use crate::delta_filters::{combined_filter, filter_delta_events, DeltaFilterSet};
 use crate::error::EdgeError;
 use crate::feature_cache::FeatureCache;
 use crate::filters::{
-    filter_client_features, filter_delta_events, name_match_filter, name_prefix_filter,
+    filter_client_features, name_match_filter, name_prefix_filter,
     project_filter, FeatureFilterSet,
 };
 use crate::http::broadcaster::Broadcaster;
@@ -152,7 +152,7 @@ fn get_delta_filter(
     edge_token: &EdgeToken,
     token_cache: &Data<DashMap<String, EdgeToken>>,
     filter_query: Query<FeatureFilters>,
-) -> EdgeResult<(EdgeToken, DeltaFilterSet)> {
+) -> EdgeResult<DeltaFilterSet> {
     let validated_token = token_cache
         .get(&edge_token.token)
         .map(|e| e.value().clone())
@@ -160,13 +160,13 @@ fn get_delta_filter(
 
     let query_filters = filter_query.into_inner();
 
-    let filter_set = DeltaFilterSet::default().with_filter(combined_filter(
+    let delta_filter_set = DeltaFilterSet::default().with_filter(combined_filter(
         100,
         validated_token.projects.clone(),
         query_filters.name_prefix.clone(),
     ));
 
-    Ok(filter_set)
+    Ok(delta_filter_set)
 }
 
 fn get_delta_events_filter(
@@ -240,6 +240,8 @@ async fn resolve_delta(
     let (validated_token, filter_set, ..) =
         get_feature_filter(&edge_token, &token_cache, filter_query.clone())?;
 
+    let delta_filter_set = get_delta_filter(&edge_token, &token_cache, filter_query.clone())?;
+
     let revision: u32 = req
         .headers()
         .get("If-None-Match")
@@ -250,12 +252,12 @@ async fn resolve_delta(
     let delta = match req.app_data::<Data<FeatureRefresher>>() {
         Some(refresher) => {
             refresher
-                .delta_events_for_filter(validated_token.clone(), &filter_set, revision)
+                .delta_events_for_filter(validated_token.clone(), &filter_set, &delta_filter_set, revision)
                 .await
         }
         None => delta_cache
             .get(&cache_key(&validated_token))
-            .map(|cache| filter_delta_events(cache.value(), &filter_set, revision))
+            .map(|cache| filter_delta_events(cache.value(), &filter_set, &delta_filter_set, revision))
             .ok_or(EdgeError::ClientCacheError),
     }?;
 

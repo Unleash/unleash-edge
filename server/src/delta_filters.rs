@@ -94,25 +94,26 @@ pub(crate) fn combined_filter(
 
 fn filter_deltas(
     delta_cache: &DeltaCache,
-    filters: &FeatureFilterSet,
+    feature_filters: &FeatureFilterSet,
+    delta_filters: &DeltaFilterSet,
     revision: u32,
 ) -> Vec<DeltaEvent> {
     if revision > 0 {
         let events = delta_cache.get_events().clone();
         events
             .iter()
-            .filter(|delta| filters.apply(delta))
+            .filter(|delta| delta_filters.apply(delta))
             .cloned()
             .collect::<Vec<DeltaEvent>>()
     } else {
         let hydration_event = delta_cache.get_hydration_event().clone();
-        vec![DeltaEvent {
+        vec![DeltaEvent::Hydration {
             event_id: hydration_event.event_id,
             segments: hydration_event.segments,
             features: hydration_event
                 .features
                 .iter()
-                .filter(|feature| filters.apply(feature))
+                .filter(|feature| feature_filters.apply(feature))
                 .cloned()
                 .collect::<Vec<ClientFeature>>(),
         }]
@@ -121,12 +122,13 @@ fn filter_deltas(
 
 pub(crate) fn filter_delta_events(
     delta_cache: &DeltaCache,
-    filters: &FeatureFilterSet,
+    feature_filters: &FeatureFilterSet,
+    delta_filters: &DeltaFilterSet,
     revision: u32,
 ) -> ClientFeaturesDelta {
     info!("filtering delta events for api");
 
     ClientFeaturesDelta {
-        events: filter_deltas(delta_cache, filters, revision),
+        events: filter_deltas(delta_cache, feature_filters, delta_filters, revision),
     }
 }
