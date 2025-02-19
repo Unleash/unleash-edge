@@ -15,8 +15,8 @@ use unleash_types::client_features::{ClientFeaturesDelta, Query};
 use crate::delta_cache_manager::{DeltaCacheManager, DeltaCacheUpdate};
 use crate::{
     error::EdgeError, filters::{
-        filter_delta_events, name_prefix_filter, project_filter_from_projects, FeatureFilterSet
-    }, types::{EdgeJsonResult, EdgeResult, EdgeToken}
+        filter_delta_events, name_prefix_filter, project_filter_from_projects, FeatureFilterSet,
+    }, types::{EdgeJsonResult, EdgeResult, EdgeToken},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -80,7 +80,7 @@ impl Broadcaster {
     pub fn new(delta_cache_manager: Arc<DeltaCacheManager>) -> Arc<Self> {
         let broadcaster = Arc::new(Broadcaster {
             active_connections: DashMap::new(),
-            delta_cache_manager
+            delta_cache_manager,
         });
 
         Broadcaster::spawn_heartbeat(broadcaster.clone());
@@ -167,7 +167,7 @@ impl Broadcaster {
                 .event("unleash-connected")
                 .into(),
         )
-        .await?;
+            .await?;
 
         self.active_connections
             .entry(query)
@@ -193,7 +193,7 @@ impl Broadcaster {
         } else {
             FeatureFilterSet::default()
         }
-        .with_filter(project_filter_from_projects(query.projects.clone()));
+            .with_filter(project_filter_from_projects(query.projects.clone()));
         filter_set
     }
 
@@ -202,7 +202,7 @@ impl Broadcaster {
         // Replace delta_cache_map.get() with delta_cache_manager.get()
         let delta_cache = self.delta_cache_manager.get(&query.environment);
         match delta_cache {
-            Some(delta_cache) => {      
+            Some(delta_cache) => {
                 Ok(Json(
                     filter_delta_events(&delta_cache, &filter_set),
                 ))
@@ -258,119 +258,118 @@ impl Broadcaster {
     }
 }
 
-//#[cfg(test)]
-// mod test {
-//     use tokio::time::timeout;
-//     use unleash_types::client_features::ClientFeature;
+#[cfg(test)]
+mod test {
+    use tokio::time::timeout;
+    use unleash_types::client_features::{ClientFeature, Segment, DeltaEvent};
+    use crate::delta_cache::{DeltaCache, DeltaHydrationEvent};
 
-//     use crate::feature_cache::FeatureCache;
+    use crate::feature_cache::FeatureCache;
 
-//     use super::*;
+    use super::*;
 
-//     #[actix_web::test]
-//     async fn only_updates_clients_in_same_env() {
-//         let feature_cache = Arc::new(FeatureCache::default());
-//         let broadcaster = Broadcaster::new(feature_cache.clone());
+    #[actix_web::test]
+    async fn only_updates_clients_in_same_env() {
+        let delta_cache_manager = Arc::new(DeltaCacheManager::new());
+        let broadcaster = Broadcaster::new(delta_cache_manager.clone());
 
-//         let env_with_updates = "production";
-//         let env_without_updates = "development";
-//         for env in &[env_with_updates, env_without_updates] {
-//             feature_cache.insert(
-//                 env.to_string(),
-//                 ClientFeatures {
-//                     version: 0,
-//                     features: vec![],
-//                     query: None,
-//                     segments: None,
-//                     meta: None,
-//                 },
-//             );
-//         }
+        let env_with_updates = "production";
+        let env_without_updates = "development";
+        let hydration = DeltaHydrationEvent {
+            event_id: 1,
+            features: vec![ClientFeature {
+                name: "feature1".to_string(),
+                ..Default::default()
+            }],
+            segments: vec![],
+        };
+        let max_length = 5;
+        let delta_cache = DeltaCache::new(hydration, max_length);
+        for env in &[env_with_updates, env_without_updates] {
+            delta_cache_manager.insert_cache(
+                env.to_string(),
+                delta_cache.clone(),
+            );
+        }
 
-//         let mut rx = broadcaster
-//             .create_connection(
-//                 StreamingQuery {
-//                     name_prefix: None,
-//                     environment: env_with_updates.into(),
-//                     projects: vec!["dx".to_string()],
-//                 },
-//                 "token",
-//             )
-//             .await
-//             .expect("Failed to connect");
+        let mut rx = broadcaster
+            .create_connection(
+                StreamingQuery {
+                    name_prefix: None,
+                    environment: env_with_updates.into(),
+                    projects: vec!["dx".to_string()],
+                },
+                "token",
+            )
+            .await
+            .expect("Failed to connect");
 
-//         // Drain any initial events to start with a clean state
-//         while let Ok(Some(_)) = timeout(Duration::from_secs(1), rx.recv()).await {
-//             // ignored
-//         }
+        // Drain any initial events to start with a clean state
+        while let Ok(Some(_)) = timeout(Duration::from_secs(1), rx.recv()).await {
+            // ignored
+        }
 
-//         feature_cache.insert(
-//             env_with_updates.to_string(),
-//             ClientFeatures {
-//                 version: 0,
-//                 features: vec![ClientFeature {
-//                     name: "flag-a".into(),
-//                     project: Some("dx".into()),
-//                     ..Default::default()
-//                 }],
-//                 segments: None,
-//                 query: None,
-//                 meta: None,
-//             },
-//         );
+        delta_cache_manager.update_cache(
+            env_with_updates,
+            &vec![DeltaEvent::FeatureUpdated {
+                event_id: 2,
+                feature: ClientFeature {
+                    name: "flag-a".into(),
+                    project: Some("dx".into()),
+                    ..Default::default()
+                },
+            }],
+        );
 
-//         if tokio::time::timeout(std::time::Duration::from_secs(2), async {
-//             loop {
-//                 if let Some(event) = rx.recv().await {
-//                     match event {
-//                         Event::Data(_) => {
-//                             // the only kind of data events we send at the moment are unleash-updated events. So if we receive a data event, we've got the update.
-//                             break;
-//                         }
-//                         _ => {
-//                             // ignore other events
-//                         }
-//                     }
-//                 }
-//             }
-//         })
-//         .await
-//         .is_err()
-//         {
-//             panic!("Test timed out waiting for update event");
-//         }
+        if tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            loop {
+                if let Some(event) = rx.recv().await {
+                    match event {
+                        Event::Data(_) => {
+                            // the only kind of data events we send at the moment are unleash-updated events. So if we receive a data event, we've got the update.
+                            break;
+                        }
+                        _ => {
+                            // ignore other events
+                        }
+                    }
+                }
+            }
+        })
+        .await
+        .is_err()
+        {
+            panic!("Test timed out waiting for update event");
+        }
 
-//         feature_cache.insert(
-//             env_without_updates.to_string(),
-//             ClientFeatures {
-//                 version: 0,
-//                 features: vec![ClientFeature {
-//                     name: "flag-b".into(),
-//                     project: Some("dx".into()),
-//                     ..Default::default()
-//                 }],
-//                 segments: None,
-//                 query: None,
-//                 meta: None,
-//             },
-//         );
+        delta_cache_manager.update_cache(
+            env_without_updates,
+            &vec![DeltaEvent::FeatureUpdated {
+                event_id: 2,
+                feature: ClientFeature {
+                    name: "flag-b".into(),
+                    project: Some("dx".into()),
+                    ..Default::default()
+                },
+            }]
+        );
 
-//         let result = tokio::time::timeout(std::time::Duration::from_secs(1), async {
-//             loop {
-//                 if let Some(event) = rx.recv().await {
-//                     match event {
-//                         Event::Data(_) => {
-//                             panic!("Received an update for an env I'm not subscribed to!");
-//                         }
-//                         _ => {
-//                             // ignore other events
-//                         }
-//                     }
-//                 }
-//             }
-//         })
-//         .await;
+        let result = tokio::time::timeout(std::time::Duration::from_secs(1), async {
+            loop {
+                if let Some(event) = rx.recv().await {
+                    match event {
+                        Event::Data(_) => {
+                            panic!("Received an update for an env I'm not subscribed to!");
+                        }
+                        _ => {
+                            // ignore other events
+                        }
+                    }
+                }
+            }
+        })
+        .await;
 
-//         assert!(result.is_err());
-//     }
-// }
+        assert!(result.is_err());
+    }
+}
