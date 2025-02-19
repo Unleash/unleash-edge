@@ -110,6 +110,7 @@ impl EdgeInstanceData {
                                 && m.get_label().iter().any(|l| {
                                     l.get_name() == "http_response_status_code"
                                         && l.get_value() == "200"
+                                        || l.get_value() == "202"
                                         || l.get_value() == "304"
                                         || l.get_value() == "403"
                                 })
@@ -135,7 +136,7 @@ impl EdgeInstanceData {
                                 .unwrap()
                                 .get_value();
                             let latency = match status {
-                                "200" => {
+                                "200" | "202" => {
                                     if method == "GET" {
                                         get_requests
                                             .entry(path.to_string())
