@@ -5,7 +5,6 @@ use reqwest::StatusCode;
 use std::time::Duration;
 use tracing::{debug, info, warn};
 use unleash_types::client_features::{ClientFeaturesDelta, DeltaEvent};
-
 use crate::delta_cache::{DeltaCache, DeltaHydrationEvent};
 use crate::error::{EdgeError, FeatureError};
 use crate::http::headers::{
@@ -34,10 +33,10 @@ impl FeatureRefresher {
             "Got updated client features delta. Updating features with etag {etag:?}, events count {updated_len}"
         );
 
-        let key = cache_key(refresh_token);
+        let key: String = cache_key(refresh_token);
         self.features_cache.apply_delta(key.clone(), &delta);
 
-        if let Some(mut entry) = self.delta_cache.get_mut(&key) {
+        if let Some(mut entry) = self.delta_cache_manager.get(&key) {
             entry.add_events(&delta.events);
         } else if let Some(DeltaEvent::Hydration {
             event_id,
@@ -45,7 +44,7 @@ impl FeatureRefresher {
             segments,
         }) = delta.events.clone().into_iter().next()
         {
-            self.delta_cache.insert(
+            self.delta_cache_manager.insert_cache(
                 key.clone(),
                 DeltaCache::new(
                     DeltaHydrationEvent {
@@ -263,7 +262,7 @@ impl FeatureRefresher {
 
 #[cfg(test)]
 mod tests {
-    use crate::delta_cache::DeltaCache;
+    use crate::delta_cache_manager::DeltaCacheManager;
     use crate::feature_cache::FeatureCache;
     use crate::http::refresher::delta_refresher::Environment;
     use crate::http::refresher::feature_refresher::FeatureRefresher;
@@ -291,13 +290,13 @@ mod tests {
         let srv = test_features_server().await;
         let unleash_client = Arc::new(UnleashClient::new(srv.url("/").as_str(), None).unwrap());
         let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
-        let delta_cache: Arc<DashMap<Environment, DeltaCache>> = Arc::new(DashMap::default());
+        let delta_cache_manager: Arc<DeltaCacheManager> = Arc::new(DeltaCacheManager::new());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
 
         let feature_refresher = Arc::new(FeatureRefresher {
             unleash_client: unleash_client.clone(),
             tokens_to_refresh: Arc::new(Default::default()),
-            delta_cache: delta_cache.clone(),
+            delta_cache_manager,
             features_cache: features_cache.clone(),
             engine_cache: engine_cache.clone(),
             refresh_interval: Duration::seconds(6000),

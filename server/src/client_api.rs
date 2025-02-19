@@ -1,5 +1,5 @@
 use crate::cli::{EdgeArgs, EdgeMode};
-use crate::delta_cache::DeltaCache;
+use crate::delta_cache_manager::DeltaCacheManager;
 use crate::error::EdgeError;
 use crate::feature_cache::FeatureCache;
 use crate::filters::{
@@ -7,7 +7,6 @@ use crate::filters::{
     project_filter, FeatureFilterSet,
 };
 use crate::http::broadcaster::Broadcaster;
-use crate::http::refresher::delta_refresher::Environment;
 use crate::http::refresher::feature_refresher::FeatureRefresher;
 use crate::metrics::client_metrics::MetricsCache;
 use crate::tokens::cache_key;
@@ -47,12 +46,12 @@ pub async fn get_features(
 #[get("/delta")]
 pub async fn get_delta(
     edge_token: EdgeToken,
-    delta_cache: Data<DashMap<String, DeltaCache>>,
+    delta_cache_manager: Data<DeltaCacheManager>,
     token_cache: Data<DashMap<String, EdgeToken>>,
     filter_query: Query<FeatureFilters>,
     req: HttpRequest,
 ) -> EdgeJsonResult<ClientFeaturesDelta> {
-    resolve_delta(edge_token, delta_cache, token_cache, filter_query, req).await
+    resolve_delta(edge_token, delta_cache_manager, token_cache, filter_query, req).await
 }
 
 #[get("/streaming")]
@@ -164,7 +163,7 @@ async fn resolve_features(
 
 async fn resolve_delta(
     edge_token: EdgeToken,
-    delta_cache: Data<DashMap<Environment, DeltaCache>>,
+    delta_cache_manager: Data<DeltaCacheManager>,
     token_cache: Data<DashMap<String, EdgeToken>>,
     filter_query: Query<FeatureFilters>,
     req: HttpRequest,
@@ -177,9 +176,9 @@ async fn resolve_delta(
                 .delta_events_for_filter(validated_token.clone(), &filter_set)
                 .await
         }
-        None => delta_cache
+        None => delta_cache_manager
             .get(&cache_key(&validated_token))
-            .map(|cache| filter_delta_events(cache.value(), &filter_set))
+            .map(|cache| filter_delta_events(&cache, &filter_set))
             .ok_or(EdgeError::ClientCacheError),
     }?;
 
@@ -350,6 +349,7 @@ mod tests {
     use crate::auth::token_validator::TokenValidator;
     use crate::cli::{OfflineArgs, TokenHeader};
     use crate::http::unleash_client::{ClientMetaInformation, UnleashClient};
+    use crate::delta_cache_manager::DeltaCacheManager;
     use crate::middleware;
     use crate::tests::{features_from_disk, upstream_server};
     use actix_http::{Request, StatusCode};
@@ -1056,13 +1056,14 @@ mod tests {
         upstream_features_cache.insert(cache_key(&upstream_known_token), upstream_features.clone());
         let unleash_client = Arc::new(UnleashClient::new(server.url("/").as_str(), None).unwrap());
         let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
+        let delta_cache_manager: Arc<DeltaCacheManager> = Arc::new(DeltaCacheManager::new());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let feature_refresher = Arc::new(FeatureRefresher {
             unleash_client: unleash_client.clone(),
             tokens_to_refresh: Arc::new(Default::default()),
             features_cache: features_cache.clone(),
-            delta_cache: Arc::new(Default::default()),
+            delta_cache_manager: delta_cache_manager.clone(),
             engine_cache: engine_cache.clone(),
             refresh_interval: Duration::seconds(6000),
             persistence: None,

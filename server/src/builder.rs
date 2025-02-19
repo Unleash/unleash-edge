@@ -11,7 +11,7 @@ use unleash_types::client_features::ClientFeatures;
 use unleash_yggdrasil::{EngineState, UpdateMessage};
 
 use crate::cli::RedisMode;
-use crate::delta_cache::DeltaCache;
+use crate::delta_cache_manager::DeltaCacheManager;
 use crate::feature_cache::FeatureCache;
 use crate::http::refresher::feature_refresher::{FeatureRefreshConfig, FeatureRefresherMode};
 use crate::http::unleash_client::{new_reqwest_client, ClientMetaInformation};
@@ -31,7 +31,7 @@ use crate::{
 type CacheContainer = (
     Arc<DashMap<String, EdgeToken>>,
     Arc<FeatureCache>,
-    Arc<DashMap<String, DeltaCache>>,
+    Arc<DeltaCacheManager>,
     Arc<DashMap<String, EngineState>>,
 );
 type EdgeInfo = (
@@ -44,12 +44,12 @@ type EdgeInfo = (
 fn build_caches() -> CacheContainer {
     let token_cache: DashMap<String, EdgeToken> = DashMap::default();
     let features_cache: DashMap<String, ClientFeatures> = DashMap::default();
-    let delta_cache: DashMap<String, DeltaCache> = DashMap::default();
+    let delta_cache_manager = DeltaCacheManager::new();
     let engine_cache: DashMap<String, EngineState> = DashMap::default();
     (
         Arc::new(token_cache),
         Arc::new(FeatureCache::new(features_cache)),
-        Arc::new(delta_cache),
+        Arc::new(delta_cache_manager),
         Arc::new(engine_cache),
     )
 }
@@ -89,7 +89,7 @@ pub(crate) fn build_offline_mode(
     client_tokens: Vec<String>,
     frontend_tokens: Vec<String>,
 ) -> EdgeResult<CacheContainer> {
-    let (token_cache, features_cache, _delta_cache, engine_cache) = build_caches();
+    let (token_cache, features_cache, _delta_cache_manager, engine_cache) = build_caches();
 
     let edge_tokens: Vec<EdgeToken> = tokens
         .iter()
@@ -140,7 +140,7 @@ pub(crate) fn build_offline_mode(
             client_features.clone(),
         )
     }
-    Ok((token_cache, features_cache, _delta_cache, engine_cache))
+    Ok((token_cache, features_cache, _delta_cache_manager, engine_cache))
 }
 
 fn build_offline(offline_args: OfflineArgs) -> EdgeResult<CacheContainer> {
@@ -271,6 +271,7 @@ async fn build_edge(
         (true, _) => FeatureRefresherMode::Strict,
         _ => FeatureRefresherMode::Dynamic,
     };
+    let delta_cache_manager = Arc::new(DeltaCacheManager::new());
     let feature_config = FeatureRefreshConfig::new(
         Duration::seconds(args.features_refresh_interval_seconds as i64),
         refresher_mode,
@@ -281,7 +282,7 @@ async fn build_edge(
     let feature_refresher = Arc::new(FeatureRefresher::new(
         unleash_client,
         feature_cache.clone(),
-        delta_cache.clone(),
+        delta_cache_manager.clone(),
         engine_cache.clone(),
         persistence.clone(),
         feature_config,
@@ -314,7 +315,7 @@ async fn build_edge(
             .await;
     }
     Ok((
-        (token_cache, feature_cache, delta_cache, engine_cache),
+        (token_cache, feature_cache, delta_cache_manager, engine_cache),
         Some(token_validator),
         Some(feature_refresher),
         persistence,
