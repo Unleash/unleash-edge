@@ -37,6 +37,7 @@ impl FeatureRefresher {
         self.features_cache.apply_delta(key.clone(), &delta);
 
         if let Some(mut entry) = self.delta_cache_manager.get(&key) {
+            debug!("Found delta cache for environment, updating");
             entry.add_events(&delta.events);
         } else if let Some(DeltaEvent::Hydration {
             event_id,
@@ -44,6 +45,7 @@ impl FeatureRefresher {
             segments,
         }) = delta.events.clone().into_iter().next()
         {
+            debug!("Received hydration, inserting cache");
             self.delta_cache_manager.insert_cache(
                 key.clone(),
                 DeltaCache::new(
