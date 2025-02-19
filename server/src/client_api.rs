@@ -63,7 +63,6 @@ pub async fn get_delta(
             .insert_header(("ETag", "100"))
             .json(response_body),
         Err(err) => HttpResponse::InternalServerError()
-            .insert_header(("ETag", "100"))
             .body(format!("Error: {:?}", err)),
     }
 }
