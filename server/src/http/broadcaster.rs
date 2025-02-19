@@ -10,9 +10,9 @@ use futures::future;
 use prometheus::{register_int_gauge, IntGauge};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
-use tracing::warn;
+use tracing::{debug, warn};
 use unleash_types::client_features::{ClientFeaturesDelta, Query};
-use crate::delta_cache_manager::DeltaCacheManager;
+use crate::delta_cache_manager::{DeltaCacheManager, DeltaCacheUpdate};
 use crate::{
     error::EdgeError, filters::{
         filter_delta_events, name_prefix_filter, project_filter_from_projects, FeatureFilterSet
@@ -64,7 +64,6 @@ struct ClientGroup {
 
 pub struct Broadcaster {
     active_connections: DashMap<StreamingQuery, ClientGroup>,
-    // Change field: use DeltaCacheManager instead of a raw DashMap.
     delta_cache_manager: Arc<DeltaCacheManager>,
 }
 
@@ -85,7 +84,7 @@ impl Broadcaster {
         });
 
         Broadcaster::spawn_heartbeat(broadcaster.clone());
-        Broadcaster::spawn_feature_cache_subscriber(broadcaster.clone());
+        Broadcaster::spawn_delta_cache_manager_subscriber(broadcaster.clone());
 
         broadcaster
     }
@@ -103,21 +102,21 @@ impl Broadcaster {
         });
     }
 
-    fn spawn_feature_cache_subscriber(_this: Arc<Self>) {
-        // let mut rx = this.features_cache.subscribe();
-        // tokio::spawn(async move {
-        //     while let Ok(key) = rx.recv().await {
-        //         debug!("Received update for key: {:?}", key);
-        //         match key {
-        //             UpdateType::Full(env) | UpdateType::Update(env) => {
-        //                 this.broadcast(Some(env)).await;
-        //             }
-        //             UpdateType::Deletion => {
-        //                 this.broadcast(None).await;
-        //             }
-        //         }
-        //     }
-        // });
+    fn spawn_delta_cache_manager_subscriber(this: Arc<Self>) {
+        let mut rx = this.delta_cache_manager.subscribe();
+        tokio::spawn(async move {
+            while let Ok(key) = rx.recv().await {
+                debug!("Received update for key: {:?}", key);
+                match key {
+                    DeltaCacheUpdate::Full(env) | DeltaCacheUpdate::Update(env) => {
+                        this.broadcast(Some(env.clone())).await;
+                    }
+                    DeltaCacheUpdate::Deletion(env) => {
+                        this.broadcast(None).await;
+                    }
+                }
+            }
+        });
     }
 
     /// Removes all non-responsive clients from broadcast list.
