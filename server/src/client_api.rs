@@ -1,5 +1,6 @@
 use crate::cli::{EdgeArgs, EdgeMode};
 use crate::delta_cache::DeltaCache;
+use crate::delta_filters::{combined_filter, DeltaFilterSet};
 use crate::error::EdgeError;
 use crate::feature_cache::FeatureCache;
 use crate::filters::{
@@ -51,8 +52,21 @@ pub async fn get_delta(
     token_cache: Data<DashMap<String, EdgeToken>>,
     filter_query: Query<FeatureFilters>,
     req: HttpRequest,
-) -> EdgeJsonResult<ClientFeaturesDelta> {
-    resolve_delta(edge_token, delta_cache, token_cache, filter_query, req).await
+) -> impl Responder {
+    if let Some(if_none_match) = req.headers().get("If-None-Match") {
+        println!("If-None-Match: {:?}", if_none_match);
+    } else {
+        println!("If-None-Match header not found");
+    }
+
+    match resolve_delta(edge_token, delta_cache, token_cache, filter_query, req).await {
+        Ok(response_body) => HttpResponse::Ok()
+            .insert_header(("ETag", "100"))
+            .json(response_body),
+        Err(err) => HttpResponse::InternalServerError()
+            .insert_header(("ETag", "100"))
+            .body(format!("Error: {:?}", err)),
+    }
 }
 
 #[get("/streaming")]
@@ -134,6 +148,60 @@ fn get_feature_filter(
     Ok((validated_token, filter_set, query))
 }
 
+fn get_delta_filter(
+    edge_token: &EdgeToken,
+    token_cache: &Data<DashMap<String, EdgeToken>>,
+    filter_query: Query<FeatureFilters>,
+) -> EdgeResult<(EdgeToken, DeltaFilterSet)> {
+    let validated_token = token_cache
+        .get(&edge_token.token)
+        .map(|e| e.value().clone())
+        .ok_or(EdgeError::AuthorizationDenied)?;
+
+    let query_filters = filter_query.into_inner();
+
+    let filter_set = DeltaFilterSet::default().with_filter(combined_filter(
+        100,
+        validated_token.projects.clone(),
+        query_filters.name_prefix.clone(),
+    ));
+
+    Ok(filter_set)
+}
+
+fn get_delta_events_filter(
+    edge_token: &EdgeToken,
+    token_cache: &Data<DashMap<String, EdgeToken>>,
+    filter_query: Query<FeatureFilters>,
+) -> EdgeResult<(
+    EdgeToken,
+    FeatureFilterSet,
+    unleash_types::client_features::Query,
+)> {
+    let validated_token = token_cache
+        .get(&edge_token.token)
+        .map(|e| e.value().clone())
+        .ok_or(EdgeError::AuthorizationDenied)?;
+
+    let query_filters = filter_query.into_inner();
+    let query = unleash_types::client_features::Query {
+        tags: None,
+        projects: Some(validated_token.projects.clone()),
+        name_prefix: query_filters.name_prefix.clone(),
+        environment: validated_token.environment.clone(),
+        inline_segment_constraints: Some(false),
+    };
+
+    let filter_set = if let Some(name_prefix) = query_filters.name_prefix {
+        FeatureFilterSet::from(Box::new(name_prefix_filter(name_prefix)))
+    } else {
+        FeatureFilterSet::default()
+    }
+    .with_filter(project_filter(&validated_token));
+
+    Ok((validated_token, filter_set, query))
+}
+
 async fn resolve_features(
     edge_token: EdgeToken,
     features_cache: Data<FeatureCache>,
@@ -171,15 +239,23 @@ async fn resolve_delta(
 ) -> EdgeJsonResult<ClientFeaturesDelta> {
     let (validated_token, filter_set, ..) =
         get_feature_filter(&edge_token, &token_cache, filter_query.clone())?;
+
+    let revision: u32 = req
+        .headers()
+        .get("If-None-Match")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|str_val| str_val.trim_matches('"').parse::<u32>().ok())
+        .unwrap_or(0);
+
     let delta = match req.app_data::<Data<FeatureRefresher>>() {
         Some(refresher) => {
             refresher
-                .delta_events_for_filter(validated_token.clone(), &filter_set)
+                .delta_events_for_filter(validated_token.clone(), &filter_set, revision)
                 .await
         }
         None => delta_cache
             .get(&cache_key(&validated_token))
-            .map(|cache| filter_delta_events(cache.value(), &filter_set))
+            .map(|cache| filter_delta_events(cache.value(), &filter_set, revision))
             .ok_or(EdgeError::ClientCacheError),
     }?;
 

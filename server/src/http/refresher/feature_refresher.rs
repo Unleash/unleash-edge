@@ -258,6 +258,7 @@ impl FeatureRefresher {
         &self,
         token: EdgeToken,
         filters: &FeatureFilterSet,
+        revision: u32,
     ) -> EdgeResult<ClientFeaturesDelta> {
         match self.get_delta_events_by_filter(&token, filters) {
             Some(features) if self.token_is_subsumed(&token) => Ok(features),
@@ -270,7 +271,7 @@ impl FeatureRefresher {
                         "Dynamic behavior: Had never seen this environment. Configuring fetcher"
                     );
                     self.register_and_hydrate_token(&token).await;
-                    self.get_delta_events_by_filter(&token, filters).ok_or_else(|| {
+                    self.get_delta_events_by_filter(&token, filters, revision).ok_or_else(|| {
                         EdgeError::ClientHydrationFailed(
                             "Failed to get delta events by filter after registering and hydrating token (This is very likely an error in Edge. Please report this!)"
                                 .into(),
@@ -295,10 +296,11 @@ impl FeatureRefresher {
         &self,
         token: &EdgeToken,
         filters: &FeatureFilterSet,
+        revision: u32,
     ) -> Option<ClientFeaturesDelta> {
         self.delta_cache
             .get(&cache_key(token))
-            .map(|delta_events| filter_delta_events(&delta_events, filters))
+            .map(|delta_events| filter_delta_events(&delta_events, filters, revision))
     }
 
     ///
