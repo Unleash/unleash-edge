@@ -53,7 +53,6 @@ impl DeltaCacheManager {
 
 #[cfg(test)]
 mod tests {
-    use dashmap::DashMap;
     use tokio::sync::broadcast::error::TryRecvError;
     use unleash_types::client_features::{ClientFeature, DeltaEvent, Segment};
     use crate::delta_cache::{DeltaCache, DeltaHydrationEvent};
@@ -75,14 +74,13 @@ mod tests {
         };
         let max_length = 5;
         let delta_cache = DeltaCache::new(hydration, max_length);
-        let container = DeltaCacheManager::new();
+        let delta_cache_manager = DeltaCacheManager::new();
         let env = "test-env";
 
-        // Insert the delta cache.
-        container.insert_cache(env.to_string(), delta_cache);
+        let mut rx = delta_cache_manager.subscribe();
 
-        // Subscribe and consume the insertion update
-        let mut rx = container.subscribe();
+        delta_cache_manager.insert_cache(env.to_string(), delta_cache);
+
         match rx.try_recv() {
             Ok(DeltaCacheUpdate::Full(e)) => assert_eq!(e, env),
             e => panic!("Expected Full update, got {:?}", e),
@@ -98,7 +96,7 @@ mod tests {
         };
 
         // Update the delta cache.
-        container.update_cache(env, &[update_event.clone()]);
+        delta_cache_manager.update_cache(env, &[update_event.clone()]);
 
         // Verify that an Update event is sent.
         match rx.try_recv() {
@@ -107,7 +105,7 @@ mod tests {
         }
 
         // Retrieve the updated cache and check events.
-        let cache = container.get(env).expect("Cache should exist");
+        let cache = delta_cache_manager.get(env).expect("Cache should exist");
         let events = cache.get_events();
         // Expect the last event to be the update_event.
         assert_eq!(events.last().unwrap(), &update_event);

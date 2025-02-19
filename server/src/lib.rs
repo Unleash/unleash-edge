@@ -48,6 +48,7 @@ mod tests {
 
     use crate::auth::token_validator::TokenValidator;
     use crate::delta_cache::DeltaCache;
+    use crate::delta_cache_manager::DeltaCacheManager;
     use crate::feature_cache::FeatureCache;
     use crate::metrics::client_metrics::MetricsCache;
     use crate::types::EdgeToken;
@@ -62,7 +63,7 @@ mod tests {
     pub async fn upstream_server(
         upstream_token_cache: Arc<DashMap<String, EdgeToken>>,
         upstream_features_cache: Arc<FeatureCache>,
-        upstream_delta_cache: Arc<DashMap<String, DeltaCache>>,
+        upstream_delta_cache_manager: Arc<DeltaCacheManager>,
         upstream_engine_cache: Arc<DashMap<String, EngineState>>,
     ) -> TestServer {
         let token_validator = Arc::new(TokenValidator {
@@ -84,7 +85,7 @@ mod tests {
                     .app_data(config)
                     .app_data(web::Data::from(token_validator.clone()))
                     .app_data(web::Data::from(upstream_features_cache.clone()))
-                    .app_data(web::Data::from(upstream_delta_cache.clone()))
+                    .app_data(web::Data::from(upstream_delta_cache_manager.clone()))
                     .app_data(web::Data::from(upstream_engine_cache.clone()))
                     .app_data(web::Data::from(upstream_token_cache.clone()))
                     .app_data(web::Data::new(metrics_cache))
