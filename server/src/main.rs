@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use actix_middleware_etag::Etag;
 use actix_web::middleware::Logger;
-use actix_web::{middleware, web, App, HttpServer};
+use actix_web::{web, App, HttpServer};
 use clap::Parser;
 use dashmap::DashMap;
 use futures::future::join_all;

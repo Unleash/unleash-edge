@@ -1,5 +1,5 @@
 use crate::delta_cache::DeltaCache;
-use crate::filters::{FeatureFilter, FeatureFilterSet};
+use crate::filters::FeatureFilterSet;
 use tracing::info;
 use unleash_types::client_features::{ClientFeature, ClientFeaturesDelta, DeltaEvent};
 
