@@ -1,3 +1,4 @@
+use tokio::sync::broadcast;
 use unleash_types::client_features::{ClientFeature, DeltaEvent, Segment};
 
 #[derive(Debug, Clone)]
@@ -12,12 +13,12 @@ pub struct DeltaCache {
     max_length: usize,
     events: Vec<DeltaEvent>,
     hydration_event: DeltaHydrationEvent,
-    update_sender: broadcast::Sender<UpdateType>,
+    update_sender: broadcast::Sender<Vec<DeltaEvent>>,
 }
 
 impl DeltaCache {
     pub fn new(hydration_event: DeltaHydrationEvent, max_length: usize) -> Self {
-        let (tx, _rx) = tokio::sync::broadcast::channel::<UpdateType>(16);
+        let (tx, _rx) = tokio::sync::broadcast::channel::<Vec<DeltaEvent>>(16);
         let mut cache = DeltaCache {
             max_length,
             events: Vec::new(),
@@ -46,12 +47,12 @@ impl DeltaCache {
             self.events.push(event.clone());
             self.update_hydration_event(event);
 
-            self.update_sender.send(event);
-
             if self.events.len() > self.max_length {
                 self.events.remove(0);
             }
         }
+
+        self.update_sender.send(events.into());
     }
 
     pub fn get_events(&self) -> &Vec<DeltaEvent> {
@@ -69,7 +70,7 @@ impl DeltaCache {
         &self.hydration_event
     }
 
-    pub fn subscribe(&self) -> broadcast::Receiver<UpdateType> {
+    pub fn subscribe(&self) -> broadcast::Receiver<Vec<DeltaEvent>> {
         self.update_sender.subscribe()
     }
 
