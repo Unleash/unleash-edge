@@ -1,6 +1,6 @@
 use std::{hash::Hash, sync::Arc, time::Duration};
 
-use crate::delta_cache::{DeltaHydrationEvent};
+use crate::delta_cache::DeltaHydrationEvent;
 use crate::delta_cache_manager::{DeltaCacheManager, DeltaCacheUpdate};
 use crate::{
     error::EdgeError,
@@ -58,7 +58,7 @@ impl From<(&Query, &EdgeToken)> for StreamingQuery {
 struct ClientData {
     token: String,
     sender: mpsc::Sender<sse::Event>,
-    current_revision: u32
+    current_revision: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -129,7 +129,12 @@ impl Broadcaster {
         for mut group in self.active_connections.iter_mut() {
             let mut ok_clients = Vec::new();
 
-            for ClientData { token, sender, current_revision } in &group.clients {
+            for ClientData {
+                token,
+                sender,
+                current_revision,
+            } in &group.clients
+            {
                 if sender
                     .send(sse::Event::Comment("keep-alive".into()))
                     .await
@@ -138,7 +143,7 @@ impl Broadcaster {
                     ok_clients.push(ClientData {
                         token: token.clone(),
                         sender: sender.clone(),
-                        current_revision: current_revision.clone()
+                        current_revision: current_revision.to_owned(),
                     });
                 }
             }
@@ -174,8 +179,8 @@ impl Broadcaster {
             sse::Data::new_json(Json(ClientFeaturesDelta {
                 events: vec![hydration_event],
             }))?
-                .event("unleash-connected")
-                .into(),
+            .event("unleash-connected")
+            .into(),
         )
         .await?;
 
@@ -185,14 +190,14 @@ impl Broadcaster {
                 group.clients.push(ClientData {
                     token: token.into(),
                     sender: tx.clone(),
-                    current_revision: event_id
+                    current_revision: event_id,
                 });
             })
             .or_insert(ClientGroup {
                 clients: vec![ClientData {
                     token: token.into(),
                     sender: tx.clone(),
-                    current_revision: event_id
+                    current_revision: event_id,
                 }],
             });
 
@@ -209,14 +214,14 @@ impl Broadcaster {
         filter_set
     }
 
-    async fn resolve_last_event_id(
-        &self,
-        query: StreamingQuery,
-    ) -> Option<u32> {
+    async fn resolve_last_event_id(&self, query: StreamingQuery) -> Option<u32> {
         let delta_cache = self.delta_cache_manager.get(&query.environment);
         match delta_cache {
-            Some(delta_cache) => delta_cache.get_events().last().map(|event| event.get_event_id()),
-            None => None
+            Some(delta_cache) => delta_cache
+                .get_events()
+                .last()
+                .map(|event| event.get_event_id()),
+            None => None,
         }
     }
 

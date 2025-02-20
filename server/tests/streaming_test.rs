@@ -14,9 +14,7 @@ mod streaming_test {
         tokens::cache_key,
         types::{EdgeToken, TokenType, TokenValidationStatus},
     };
-    use unleash_types::client_features::{
-        ClientFeature, ClientFeaturesDelta, DeltaEvent,
-    };
+    use unleash_types::client_features::{ClientFeature, ClientFeaturesDelta, DeltaEvent};
 
     #[actix_web::test]
     async fn test_streaming() {
