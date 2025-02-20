@@ -23,8 +23,6 @@ use dashmap::DashMap;
 use tokio::sync::RwLock;
 use tracing::instrument;
 use unleash_types::client_features::{ClientFeature, ClientFeatures, ClientFeaturesDelta};
-use tracing::{info, instrument};
-use unleash_types::client_features::{ClientFeature, ClientFeatures};
 use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ConnectVia};
 
 #[utoipa::path(
