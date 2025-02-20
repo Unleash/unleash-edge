@@ -27,7 +27,7 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }
 [dependencies]
 actix-cors = "0.7.0"
 actix-http = "3.9.0"
-actix-middleware-etag = "0.4.2"
+actix-middleware-etag = "0.4.3"
 actix-service = "2.0.2"
 actix-web = { version = "4.9.0", features = ["rustls-0_23", "compress-zstd"] }
 actix-web-lab = { version = "0.23.0" }
