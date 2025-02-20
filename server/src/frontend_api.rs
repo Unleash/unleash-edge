@@ -917,7 +917,7 @@ mod tests {
     #[actix_web::test]
     #[traced_test]
     async fn calling_post_requests_resolves_context_values_correctly() {
-        let (token_cache, features_cache, engine_cache) = build_offline_mode(
+        let (token_cache, features_cache, _delta_cache, engine_cache) = build_offline_mode(
             client_features_with_constraint_requiring_user_id_of_seven(),
             vec![
                 "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7"
@@ -969,7 +969,7 @@ mod tests {
     #[actix_web::test]
     #[traced_test]
     async fn calling_get_requests_resolves_context_values_correctly() {
-        let (feature_cache, token_cache, engine_cache) = build_offline_mode(
+        let (token_cache, feature_cache, _delta_cache, engine_cache) = build_offline_mode(
             client_features_with_constraint_requiring_user_id_of_seven(),
             vec![
                 "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7"
@@ -1019,7 +1019,7 @@ mod tests {
     #[actix_web::test]
     #[traced_test]
     async fn calling_get_requests_resolves_top_level_properties_correctly() {
-        let (feature_cache, token_cache, engine_cache) = build_offline_mode(
+        let (token_cache, feature_cache, _delta_cache, engine_cache) = build_offline_mode(
             client_features_with_constraint_requiring_test_property_to_be_42(),
             vec![
                 "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7"
@@ -1079,7 +1079,7 @@ mod tests {
     #[actix_web::test]
     #[traced_test]
     async fn calling_post_requests_resolves_top_level_properties_correctly() {
-        let (feature_cache, token_cache, engine_cache) = build_offline_mode(
+        let (token_cache, feature_cache, _delta_cache, engine_cache) = build_offline_mode(
             client_features_with_constraint_requiring_test_property_to_be_42(),
             vec![
                 "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7"
@@ -1137,7 +1137,7 @@ mod tests {
     #[actix_web::test]
     #[traced_test]
     async fn calling_get_requests_resolves_context_values_correctly_with_enabled_filter() {
-        let (token_cache, features_cache, engine_cache) = build_offline_mode(
+        let (token_cache, features_cache, _delta_cache, engine_cache) = build_offline_mode(
             client_features_with_constraint_one_enabled_toggle_and_one_disabled_toggle(),
             vec![
                 "*:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7"
@@ -1256,7 +1256,7 @@ mod tests {
     #[tokio::test]
     async fn when_running_in_offline_mode_with_proxy_key_should_not_filter_features() {
         let client_features = client_features_with_constraint_requiring_user_id_of_seven();
-        let (token_cache, feature_cache, engine_cache) = build_offline_mode(
+        let (token_cache, feature_cache, _delta_cache, engine_cache) = build_offline_mode(
             client_features.clone(),
             vec!["secret-123".to_string()],
             vec![],
@@ -1292,7 +1292,7 @@ mod tests {
     #[tokio::test]
     async fn frontend_api_filters_evaluated_toggles_to_tokens_access() {
         let client_features = crate::tests::features_from_disk("../examples/hostedexample.json");
-        let (token_cache, feature_cache, engine_cache) = build_offline_mode(
+        let (token_cache, feature_cache, _delta_cache, engine_cache) = build_offline_mode(
             client_features.clone(),
             vec!["dx:development.secret123".to_string()],
             vec![],
@@ -1382,7 +1382,7 @@ mod tests {
     #[tokio::test]
     async fn using_a_string_for_properties_gives_400() {
         let client_features = crate::tests::features_from_disk("../examples/hostedexample.json");
-        let (token_cache, feature_cache, engine_cache) = build_offline_mode(
+        let (token_cache, feature_cache, _delta_cache, engine_cache) = build_offline_mode(
             client_features,
             vec!["dx:development.secret123".to_string()],
             vec![],
@@ -1413,7 +1413,7 @@ mod tests {
     #[tokio::test]
     async fn can_get_single_feature() {
         let client_features = crate::tests::features_from_disk("../examples/hostedexample.json");
-        let (token_cache, feature_cache, engine_cache) = build_offline_mode(
+        let (token_cache, feature_cache, _delta_cache, engine_cache) = build_offline_mode(
             client_features.clone(),
             vec!["dx:development.secret123".to_string()],
             vec![],
@@ -1443,7 +1443,7 @@ mod tests {
 
     #[tokio::test]
     async fn can_get_single_feature_with_top_level_properties() {
-        let (token_cache, feature_cache, engine_cache) = build_offline_mode(
+        let (token_cache, feature_cache, _delta_cache, engine_cache) = build_offline_mode(
             client_features_with_constraint_requiring_test_property_to_be_42(),
             vec!["*:development.secret123".to_string()],
             vec![],
@@ -1473,7 +1473,7 @@ mod tests {
     #[tokio::test]
     async fn trying_to_evaluate_feature_you_do_not_have_access_to_will_give_not_found() {
         let client_features = crate::tests::features_from_disk("../examples/hostedexample.json");
-        let (token_cache, feature_cache, engine_cache) = build_offline_mode(
+        let (token_cache, feature_cache, _delta_cache, engine_cache) = build_offline_mode(
             client_features.clone(),
             vec!["dx:development.secret123".to_string()],
             vec![],
@@ -1506,7 +1506,7 @@ mod tests {
         let client_features_with_custom_context_field =
             crate::tests::features_from_disk("../examples/with_custom_constraint.json");
         let auth_key = "default:development.secret123".to_string();
-        let (token_cache, feature_cache, engine_cache) = build_offline_mode(
+        let (token_cache, feature_cache, _delta_cache, engine_cache) = build_offline_mode(
             client_features_with_custom_context_field.clone(),
             vec![auth_key.clone()],
             vec![],
@@ -1548,7 +1548,7 @@ mod tests {
         let client_features_with_custom_context_field =
             crate::tests::features_from_disk("../examples/with_custom_constraint.json");
         let auth_key = "default:development.secret123".to_string();
-        let (token_cache, feature_cache, engine_cache) = build_offline_mode(
+        let (token_cache, feature_cache, _delta_cache, engine_cache) = build_offline_mode(
             client_features_with_custom_context_field.clone(),
             vec![auth_key.clone()],
             vec![],
@@ -1589,7 +1589,7 @@ mod tests {
         let client_features_with_custom_context_field =
             crate::tests::features_from_disk("../examples/ip_address_feature.json");
         let auth_key = "gard:development.secret123".to_string();
-        let (token_cache, feature_cache, engine_cache) = build_offline_mode(
+        let (token_cache, feature_cache, _delta_cache, engine_cache) = build_offline_mode(
             client_features_with_custom_context_field.clone(),
             vec![auth_key.clone()],
             vec![],
@@ -1629,7 +1629,7 @@ mod tests {
         let client_features_with_custom_context_field =
             crate::tests::features_from_disk("../examples/ip_address_feature.json");
         let auth_key = "gard:development.secret123".to_string();
-        let (token_cache, feature_cache, engine_cache) = build_offline_mode(
+        let (token_cache, feature_cache, _delta_cache, engine_cache) = build_offline_mode(
             client_features_with_custom_context_field.clone(),
             vec![auth_key.clone()],
             vec![],
@@ -1671,7 +1671,7 @@ mod tests {
         let client_features_with_custom_context_field =
             crate::tests::features_from_disk("../examples/with_custom_constraint.json");
         let auth_key = "default:development.secret123".to_string();
-        let (token_cache, feature_cache, engine_cache) = build_offline_mode(
+        let (token_cache, feature_cache, _delta_cache, engine_cache) = build_offline_mode(
             client_features_with_custom_context_field.clone(),
             vec![auth_key.clone()],
             vec![],
