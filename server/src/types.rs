@@ -451,7 +451,6 @@ pub trait TokenValidator {
 pub struct BuildInfo {
     pub package_version: String,
     pub app_name: String,
-    pub git_commit_date: DateTime<Utc>,
     pub package_major: String,
     pub package_minor: String,
     pub package_patch: String,
@@ -487,9 +486,6 @@ impl Default for BuildInfo {
             rust_channel: build::RUST_CHANNEL.into(),
             short_commit_hash: build::SHORT_COMMIT.into(),
             full_commit_hash: build::COMMIT_HASH.into(),
-            git_commit_date: DateTime::parse_from_rfc3339(build::COMMIT_DATE_3339)
-                .expect("shadow-rs did not give proper date")
-                .into(),
             build_os: build::BUILD_OS.into(),
             build_target: build::BUILD_TARGET.into(),
         }

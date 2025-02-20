@@ -320,6 +320,12 @@ pub struct InternalBackstageArgs {
     /// Used to show tokens used to refresh feature caches, but also tokens already validated/invalidated against upstream
     #[clap(long, env, global = true)]
     pub disable_tokens_endpoint: bool,
+
+    /// Disables /internal-backstage/instancedata endpoint
+    ///
+    /// Used to show instance data for the edge instance.
+    #[clap(long, env, global = true)]
+    pub disable_instance_data_endpoint: bool,
 }
 
 #[derive(Args, Debug, Clone)]

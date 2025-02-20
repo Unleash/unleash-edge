@@ -50,10 +50,10 @@ itertools = "0.14.0"
 json-structural-diff = "0.2.0"
 lazy_static = "1.5.0"
 num_cpus = "1.16.0"
-opentelemetry = { version = "0.27.1", features = ["trace", "metrics"] }
-opentelemetry-prometheus = "0.27.0"
+opentelemetry = { version = "0.28.0", features = ["trace", "metrics"] }
+opentelemetry-prometheus = "0.28.0"
 opentelemetry-semantic-conventions = "0.28.0"
-opentelemetry_sdk = { version = "0.27.1", features = [
+opentelemetry_sdk = { version = "0.28.0", features = [
     "metrics",
     "serde",
     "serde_json",
