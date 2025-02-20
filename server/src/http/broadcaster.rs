@@ -112,10 +112,10 @@ impl Broadcaster {
             while let Ok(key) = rx.recv().await {
                 debug!("Received update for key: {:?}", key);
                 match key {
-                    DeltaCacheUpdate::Full(env) | DeltaCacheUpdate::Update(env) => {
+                    DeltaCacheUpdate::Update(env) => {
                         this.broadcast(Some(env.clone())).await;
                     }
-                    DeltaCacheUpdate::Deletion(_env) => {
+                    DeltaCacheUpdate::Deletion(_env) | DeltaCacheUpdate::Full(_env) => {
                         this.broadcast(None).await;
                     }
                 }
@@ -292,7 +292,6 @@ impl Broadcaster {
                     client_events.push((client.clone(), event.clone()));
 
                     if let Some(new_id) = last_event_id {
-                        println!("Setting new id {:#?}", new_id);
                         client.current_revision = new_id;
                     }
                 } else if let Err(e) = event_data {
