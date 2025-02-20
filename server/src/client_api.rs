@@ -49,16 +49,30 @@ pub async fn get_delta(
     filter_query: Query<FeatureFilters>,
     req: HttpRequest,
 ) -> impl Responder {
-    let requested_revision_id = req.headers().get("If-None-Match")
+    let requested_revision_id = req
+        .headers()
+        .get("If-None-Match")
         .and_then(|value| value.to_str().ok())
         .and_then(|etag| etag.trim_matches('"').parse::<u32>().ok())
         .unwrap_or(0);
 
     let current_sdk_revision_id = 100; // TODO: Read from delta_manager
 
-    match resolve_delta(edge_token, token_cache, filter_query, requested_revision_id, req).await {
+    match resolve_delta(
+        edge_token,
+        token_cache,
+        filter_query,
+        requested_revision_id,
+        req,
+    )
+    .await
+    {
         Some(Ok(delta)) => {
-            let last_event_id = delta.events.last().map(|e| e.get_event_id()).unwrap_or(current_sdk_revision_id);
+            let last_event_id = delta
+                .events
+                .last()
+                .map(|e| e.get_event_id())
+                .unwrap_or(current_sdk_revision_id);
 
             HttpResponse::Ok()
                 .insert_header(("ETag", format!("\"{}\"", last_event_id)))
@@ -204,12 +218,13 @@ async fn resolve_delta(
     requested_revision_id: u32,
     req: HttpRequest,
 ) -> Option<EdgeJsonResult<ClientFeaturesDelta>> {
-    let (validated_token, filter_set, ..) = match get_feature_filter(&edge_token, &token_cache, filter_query.clone()) {
-        Ok(result) => result,
-        Err(e) => return Some(Err(e)),
-    };
-    let delta_filter_set = get_delta_filter(&edge_token, &token_cache, filter_query.clone()).ok()?;
-
+    let (validated_token, filter_set, ..) =
+        match get_feature_filter(&edge_token, &token_cache, filter_query.clone()) {
+            Ok(result) => result,
+            Err(e) => return Some(Err(e)),
+        };
+    let delta_filter_set =
+        get_delta_filter(&edge_token, &token_cache, filter_query.clone()).ok()?;
 
     let current_sdk_revision_id = 100; // TODO: get from delta manager
     if requested_revision_id >= current_sdk_revision_id {
@@ -243,9 +258,6 @@ async fn resolve_delta(
 
     Some(Ok(Json(delta)))
 }
-
-
-
 
 #[utoipa::path(
     context_path = "/api/client",
@@ -411,6 +423,7 @@ mod tests {
 
     use crate::auth::token_validator::TokenValidator;
     use crate::cli::{OfflineArgs, TokenHeader};
+    use crate::delta_cache::DeltaCache;
     use crate::http::unleash_client::{ClientMetaInformation, UnleashClient};
     use crate::middleware;
     use crate::tests::{features_from_disk, upstream_server};
@@ -431,7 +444,6 @@ mod tests {
         ClientMetricsEnv, ConnectViaBuilder, MetricBucket, MetricsMetadata, ToggleStats,
     };
     use unleash_yggdrasil::EngineState;
-    use crate::delta_cache::DeltaCache;
 
     async fn make_metrics_post_request() -> Request {
         test::TestRequest::post()
