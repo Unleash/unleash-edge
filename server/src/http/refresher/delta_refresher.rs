@@ -391,6 +391,7 @@ mod tests {
                     DeltaEvent::FeatureRemoved {
                         event_id: 2,
                         feature_name: "test2".to_string(),
+                        project: "default".to_string()
                     },
                 ],
             },
