@@ -17,155 +17,174 @@ mod streaming_test {
         tokens::cache_key,
         types::{EdgeToken, TokenType, TokenValidationStatus},
     };
-    use unleash_types::client_features::{ClientFeatures, Query};
+    use unleash_types::client_features::{ClientFeature, ClientFeatures, ClientFeaturesDelta, DeltaEvent, Query};
+    use tracing::{debug, error, warn};
 
-    pub fn features_from_disk(path: &str) -> ClientFeatures {
+    pub fn features_from_disk(path: &str) -> ClientFeaturesDelta {
         let path = PathBuf::from(path);
         let file = fs::File::open(path).unwrap();
         let reader = BufReader::new(file);
         serde_json::from_reader(reader).unwrap()
     }
 
-    // #[actix_web::test]
-    // async fn test_streaming() {
-    //     let unleash_features_cache: Arc<FeatureCache> =
-    //         Arc::new(FeatureCache::new(DashMap::default()));
-    //     let delta_cache_manager: Arc<DeltaCacheManager> = Arc::new(DeltaCacheManager::new());
-    //     let unleash_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
-    //     let unleash_broadcaster = Broadcaster::new(delta_cache_manager.clone());
-    //
-    //     let unleash_server = upstream_server(
-    //         unleash_token_cache.clone(),
-    //         unleash_features_cache.clone(),
-    //         delta_cache_manager.clone(),
-    //         Arc::new(DashMap::default()),
-    //         unleash_broadcaster.clone(),
-    //     )
-    //     .await;
-    //
-    //     let mut upstream_known_token = EdgeToken::from_str("dx:development.secret123").unwrap();
-    //     upstream_known_token.status = TokenValidationStatus::Validated;
-    //     upstream_known_token.token_type = Some(TokenType::Client);
-    //     unleash_token_cache.insert(
-    //         upstream_known_token.token.clone(),
-    //         upstream_known_token.clone(),
-    //     );
-    //
-    //     delta_cache_manager.insert(
-    //         cache_key(&upstream_known_token),
-    //         features_from_disk("../examples/features.json"),
-    //     );
-    //
-    //     let mut edge = Command::new("./../target/debug/unleash-edge")
-    //         .arg("edge")
-    //         .arg("--upstream-url")
-    //         .arg(unleash_server.url("/"))
-    //         .arg("--strict")
-    //         .arg("--streaming")
-    //         .arg("-t")
-    //         .arg(&upstream_known_token.token)
-    //         .stdout(Stdio::null()) // Suppress stdout
-    //         .stderr(Stdio::null()) // Suppress stderr
-    //         .spawn()
-    //         .expect("Failed to start the app");
-    //
-    //     // Allow edge to establish a connection with upstream and populate the cache
-    //     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-    //
-    //     // let es_client = eventsource_client::ClientBuilder::for_url(&edge.url("/api/client/streaming"))
-    //     let es_client = eventsource_client::ClientBuilder::for_url(
-    //         "http://localhost:3063/api/client/streaming",
-    //     )
-    //     .unwrap()
-    //     .header("Authorization", &upstream_known_token.token)
-    //     .unwrap()
-    //     .build();
-    //
-    //     let initial_features = ClientFeatures {
-    //         features: vec![],
-    //         version: 2,
-    //         segments: None,
-    //         query: Some(Query {
-    //             tags: None,
-    //             projects: Some(vec!["dx".into()]),
-    //             name_prefix: None,
-    //             environment: Some("development".into()),
-    //             inline_segment_constraints: Some(false),
-    //         }),
-    //         meta: None,
-    //     };
-    //
-    //     let mut stream = es_client.stream();
-    //
-    //     if tokio::time::timeout(std::time::Duration::from_secs(2), async {
-    //         loop {
-    //             if let Some(Ok(event)) = stream.next().await {
-    //                 match event {
-    //                     eventsource_client::SSE::Event(event)
-    //                         if event.event_type == "unleash-connected" =>
-    //                     {
-    //                         assert_eq!(
-    //                             serde_json::from_str::<ClientFeatures>(&event.data).unwrap(),
-    //                             initial_features
-    //                         );
-    //                         println!("Connected event received; features match expected");
-    //                         break;
-    //                     }
-    //                     _ => {
-    //                         // ignore other events
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     })
-    //     .await
-    //     .is_err()
-    //     {
-    //         // If the test times out, kill the app process and fail the test
-    //         edge.kill().expect("Failed to kill the app process");
-    //         edge.wait().expect("Failed to wait for the app process");
-    //         panic!("Test timed out waiting for connected event");
-    //     }
-    //
-    //     delta_cache_manager.insert(
-    //         cache_key(&upstream_known_token),
-    //         features_from_disk("../examples/hostedexample.json"),
-    //     );
-    //
-    //     if tokio::time::timeout(std::time::Duration::from_secs(2), async {
-    //         loop {
-    //             if let Some(Ok(event)) = stream.next().await {
-    //                 match event {
-    //                     eventsource_client::SSE::Event(event)
-    //                         if event.event_type == "unleash-updated" =>
-    //                     {
-    //                         let update =
-    //                             serde_json::from_str::<ClientFeatures>(&event.data).unwrap();
-    //                         assert_eq!(initial_features.query, update.query);
-    //                         assert_eq!(initial_features.version, update.version);
-    //                         assert_ne!(initial_features.features, update.features);
-    //                         println!("Updated event received; features match expected");
-    //                         break;
-    //                     }
-    //                     _ => {
-    //                         // ignore other events
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     })
-    //     .await
-    //     .is_err()
-    //     {
-    //         // If the test times out, kill the app process and fail the test
-    //         edge.kill().expect("Failed to kill the app process");
-    //         edge.wait().expect("Failed to wait for the app process");
-    //         panic!("Test timed out waiting for update event");
-    //     }
-    //
-    //     edge.kill().expect("Failed to kill the app process");
-    //     edge.wait().expect("Failed to wait for the app process");
-    // }
+    #[actix_web::test]
+    async fn test_streaming() {
+        let unleash_features_cache: Arc<FeatureCache> =
+            Arc::new(FeatureCache::new(DashMap::default()));
+        let delta_cache_manager: Arc<DeltaCacheManager> = Arc::new(DeltaCacheManager::new());
+        let unleash_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let unleash_broadcaster = Broadcaster::new(delta_cache_manager.clone());
+
+        let unleash_server = upstream_server(
+            unleash_token_cache.clone(),
+            unleash_features_cache.clone(),
+            delta_cache_manager.clone(),
+            Arc::new(DashMap::default()),
+            unleash_broadcaster.clone(),
+        )
+        .await;
+
+        let mut upstream_known_token = EdgeToken::from_str("dx:development.secret123").unwrap();
+        upstream_known_token.status = TokenValidationStatus::Validated;
+        upstream_known_token.token_type = Some(TokenType::Client);
+        unleash_token_cache.insert(
+            upstream_known_token.token.clone(),
+            upstream_known_token.clone(),
+        );
+
+        let delta_cache = DeltaCache::new(DeltaHydrationEvent {
+            event_id: 1,
+            features: vec![ClientFeature {
+                name: "feature1".to_string(),
+                ..Default::default()
+            }],
+            segments: vec![],
+        }, 10);
+        delta_cache_manager.insert_cache(
+            cache_key(&upstream_known_token),
+            delta_cache,
+        );
+
+        let mut edge = Command::new("./../target/debug/unleash-edge")
+            .arg("edge")
+            .arg("--upstream-url")
+            .arg(unleash_server.url("/"))
+            .arg("--strict")
+            .arg("--streaming")
+            .arg("-t")
+            .arg(&upstream_known_token.token)
+            .stdout(Stdio::null()) // Suppress stdout
+            .stderr(Stdio::null()) // Suppress stderr
+            .spawn()
+            .expect("Failed to start the app");
+
+        // Allow edge to establish a connection with upstream and populate the cache
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
+        // let es_client = eventsource_client::ClientBuilder::for_url(&edge.url("/api/client/streaming"))
+        let es_client = eventsource_client::ClientBuilder::for_url(
+            "http://localhost:3063/api/client/streaming",
+        )
+        .unwrap()
+        .header("Authorization", &upstream_known_token.token)
+        .unwrap()
+        .build();
+
+        let initial_event = ClientFeaturesDelta {
+            events: vec![
+                DeltaEvent::Hydration {
+                    event_id: 1,
+                    features: vec![ClientFeature {
+                        name: "feature1".to_string(),
+                        ..Default::default()
+                    }],
+                    segments: vec![],
+                },
+            ]
+        };
+
+        let mut stream = es_client.stream();
+
+        if tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            loop {
+                if let Some(Ok(event)) = stream.next().await {
+                    match event {
+                        eventsource_client::SSE::Event(event)
+                            if event.event_type == "unleash-connected" =>
+                        {
+                            assert_eq!(
+                                serde_json::from_str::<ClientFeaturesDelta>(&event.data).unwrap(),
+                                initial_event
+                            );
+                            println!("Connected event received; features match expected");
+                            break;
+                        }
+                        _ => {
+                            // ignore other events
+                        }
+                    }
+                }
+            }
+        })
+        .await
+        .is_err()
+        {
+            // If the test times out, kill the app process and fail the test
+            edge.kill().expect("Failed to kill the app process");
+            edge.wait().expect("Failed to wait for the app process");
+            panic!("Test timed out waiting for connected event");
+        }
+
+        let update_events = vec![
+            DeltaEvent::FeatureUpdated {
+                event_id: 2,
+                feature: ClientFeature {
+                    name: "feature1".to_string(),
+                    enabled: false,
+                    ..Default::default()
+                }
+            }
+        ];
+        delta_cache_manager.update_cache(
+            &cache_key(&upstream_known_token),
+            &update_events,
+        );
+
+        if tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            loop {
+                if let Some(Ok(event)) = stream.next().await {
+                    match event {
+                        eventsource_client::SSE::Event(event)
+                            if event.event_type == "unleash-updated" =>
+                        {
+                            assert_eq!(
+                                serde_json::from_str::<ClientFeaturesDelta>(&event.data).unwrap(),
+                                ClientFeaturesDelta {
+                                    events: update_events
+                                }
+                            );
+                            println!("Updated event received; features match expected");
+                            break;
+                        }
+                        _ => {
+                            // ignore other events
+                        }
+                    }
+                }
+            }
+        })
+        .await
+        .is_err()
+        {
+            // If the test times out, kill the app process and fail the test
+            edge.kill().expect("Failed to kill the app process");
+            edge.wait().expect("Failed to wait for the app process");
+            panic!("Test timed out waiting for update event");
+        }
+
+        edge.kill().expect("Failed to kill the app process");
+        edge.wait().expect("Failed to wait for the app process");
+    }
 
     use actix_http::HttpService;
     use actix_http_test::{test_server, TestServer};
@@ -176,6 +195,7 @@ mod streaming_test {
     use unleash_yggdrasil::EngineState;
 
     use unleash_edge::auth::token_validator::TokenValidator;
+    use unleash_edge::delta_cache::{DeltaCache, DeltaHydrationEvent};
     use unleash_edge::delta_cache_manager::DeltaCacheManager;
     use unleash_edge::metrics::client_metrics::MetricsCache;
 

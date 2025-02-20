@@ -63,7 +63,6 @@ mod tests {
     use unleash_yggdrasil::EngineState;
 
     use crate::auth::token_validator::TokenValidator;
-    use crate::delta_cache::DeltaCache;
     use crate::delta_cache_manager::DeltaCacheManager;
     use crate::feature_cache::FeatureCache;
     use crate::http::refresher::feature_refresher::FeatureRefresher;

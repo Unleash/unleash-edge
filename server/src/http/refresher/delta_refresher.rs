@@ -264,7 +264,6 @@ impl FeatureRefresher {
 mod tests {
     use crate::delta_cache_manager::DeltaCacheManager;
     use crate::feature_cache::FeatureCache;
-    use crate::http::refresher::delta_refresher::Environment;
     use crate::http::refresher::feature_refresher::FeatureRefresher;
     use crate::http::unleash_client::{ClientMetaInformation, UnleashClient};
     use crate::types::EdgeToken;

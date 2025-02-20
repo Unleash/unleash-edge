@@ -53,7 +53,6 @@ impl DeltaCacheManager {
 
 #[cfg(test)]
 mod tests {
-    use tokio::sync::broadcast::error::TryRecvError;
     use unleash_types::client_features::{ClientFeature, DeltaEvent, Segment};
     use crate::delta_cache::{DeltaCache, DeltaHydrationEvent};
     use super::*;

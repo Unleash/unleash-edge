@@ -11,13 +11,14 @@ use prometheus::{register_int_gauge, IntGauge};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::{debug, warn};
-use unleash_types::client_features::{ClientFeaturesDelta, Query};
+use unleash_types::client_features::{ClientFeaturesDelta, DeltaEvent, Query};
 use crate::delta_cache_manager::{DeltaCacheManager, DeltaCacheUpdate};
 use crate::{
     error::EdgeError, filters::{
         filter_delta_events, name_prefix_filter, project_filter_from_projects, FeatureFilterSet,
     }, types::{EdgeJsonResult, EdgeResult, EdgeToken},
 };
+use crate::delta_cache::DeltaHydrationEvent;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct StreamingQuery {
@@ -111,7 +112,7 @@ impl Broadcaster {
                     DeltaCacheUpdate::Full(env) | DeltaCacheUpdate::Update(env) => {
                         this.broadcast(Some(env.clone())).await;
                     }
-                    DeltaCacheUpdate::Deletion(env) => {
+                    DeltaCacheUpdate::Deletion(_env) => {
                         this.broadcast(None).await;
                     }
                 }
@@ -161,9 +162,9 @@ impl Broadcaster {
     ) -> EdgeResult<mpsc::Receiver<sse::Event>> {
         let (tx, rx) = mpsc::channel(10);
 
-        let features = self.resolve_features(query.clone()).await?;
+        let hydration_event = self.resolve_delta_cache_hydration_event(query.clone()).await?;
         tx.send(
-            sse::Data::new_json(&features)?
+            sse::Data::new_json(&hydration_event)?
                 .event("unleash-connected")
                 .into(),
         )
@@ -197,9 +198,8 @@ impl Broadcaster {
         filter_set
     }
 
-    async fn resolve_features(&self, query: StreamingQuery) -> EdgeJsonResult<ClientFeaturesDelta> {
+    async fn resolve_delta_cache(&self, query: StreamingQuery) -> EdgeJsonResult<ClientFeaturesDelta> {
         let filter_set = Broadcaster::get_query_filters(&query);
-        // Replace delta_cache_map.get() with delta_cache_manager.get()
         let delta_cache = self.delta_cache_manager.get(&query.environment);
         match delta_cache {
             Some(delta_cache) => {
@@ -212,6 +212,34 @@ impl Broadcaster {
                 // 1. We'll only allow streaming in strict mode
                 // 2. We'll check whether the token is subsumed *before* trying to add it to the broadcaster
                 // If both of these are true, then we should never hit this case (if Thomas's understanding is correct).
+                return Err(EdgeError::AuthorizationDenied);
+            }
+        }
+    }
+
+    async fn resolve_delta_cache_hydration_event(&self, query: StreamingQuery) -> EdgeJsonResult<ClientFeaturesDelta> {
+        // do we need filter_set for hydration event?
+        let filter_set = Broadcaster::get_query_filters(&query);
+        let delta_cache = self.delta_cache_manager.get(&query.environment);
+        match delta_cache {
+            Some(delta_cache) => {
+                let hydration_event = delta_cache.get_hydration_event();
+                let serialized_event = match hydration_event {
+                    DeltaHydrationEvent {
+                        event_id, features, segments
+                    } => DeltaEvent::Hydration {
+                        event_id: event_id.to_owned(),
+                        features: features.to_owned(),
+                        segments: segments.to_owned()
+                    }
+                };
+                Ok(Json(
+                    ClientFeaturesDelta {
+                        events: vec![serialized_event]
+                    }
+                ))
+            }
+            None => {
                 return Err(EdgeError::AuthorizationDenied);
             }
         }
@@ -231,7 +259,7 @@ impl Broadcaster {
             let (query, group) = entry.pair();
 
             let event_data = self
-                .resolve_features(query.clone())
+                .resolve_delta_cache(query.clone())
                 .await
                 .and_then(|features| sse::Data::new_json(&features).map_err(|e| e.into()));
 
@@ -261,10 +289,8 @@ impl Broadcaster {
 #[cfg(test)]
 mod test {
     use tokio::time::timeout;
-    use unleash_types::client_features::{ClientFeature, Segment, DeltaEvent};
+    use unleash_types::client_features::{ClientFeature, DeltaEvent};
     use crate::delta_cache::{DeltaCache, DeltaHydrationEvent};
-
-    use crate::feature_cache::FeatureCache;
 
     use super::*;
 
