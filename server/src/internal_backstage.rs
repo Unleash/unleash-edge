@@ -355,7 +355,8 @@ mod tests {
     async fn returns_validated_tokens_when_dynamic() {
         let upstream_features_cache = Arc::new(FeatureCache::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
-        let upstream_delta_cache_manager: Arc<DeltaCacheManager> = Arc::new(DeltaCacheManager::new());
+        let upstream_delta_cache_manager: Arc<DeltaCacheManager> =
+            Arc::new(DeltaCacheManager::new());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let server = upstream_server(
             upstream_token_cache.clone(),
@@ -428,7 +429,8 @@ mod tests {
     async fn returns_validated_tokens_when_strict() {
         let upstream_features_cache = Arc::new(FeatureCache::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
-        let upstream_delta_cache_manager: Arc<DeltaCacheManager> = Arc::new(DeltaCacheManager::new());
+        let upstream_delta_cache_manager: Arc<DeltaCacheManager> =
+            Arc::new(DeltaCacheManager::new());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let server = upstream_server(
             upstream_token_cache.clone(),

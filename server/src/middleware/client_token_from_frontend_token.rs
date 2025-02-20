@@ -124,7 +124,8 @@ mod tests {
         let upstream_features_cache = Arc::new(FeatureCache::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         upstream_token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
-        let upstream_delta_cache_manager: Arc<DeltaCacheManager> = Arc::new(DeltaCacheManager::new());
+        let upstream_delta_cache_manager: Arc<DeltaCacheManager> =
+            Arc::new(DeltaCacheManager::new());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let upstream_server = upstream_server(
             upstream_token_cache.clone(),

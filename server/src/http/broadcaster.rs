@@ -1,5 +1,14 @@
 use std::{hash::Hash, sync::Arc, time::Duration};
 
+use crate::delta_cache::DeltaHydrationEvent;
+use crate::delta_cache_manager::{DeltaCacheManager, DeltaCacheUpdate};
+use crate::{
+    error::EdgeError,
+    filters::{
+        filter_delta_events, name_prefix_filter, project_filter_from_projects, FeatureFilterSet,
+    },
+    types::{EdgeJsonResult, EdgeResult, EdgeToken},
+};
 use actix_web::{rt::time::interval, web::Json};
 use actix_web_lab::{
     sse::{self, Event, Sse},
@@ -12,13 +21,6 @@ use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::{debug, warn};
 use unleash_types::client_features::{ClientFeaturesDelta, DeltaEvent, Query};
-use crate::delta_cache_manager::{DeltaCacheManager, DeltaCacheUpdate};
-use crate::{
-    error::EdgeError, filters::{
-        filter_delta_events, name_prefix_filter, project_filter_from_projects, FeatureFilterSet,
-    }, types::{EdgeJsonResult, EdgeResult, EdgeToken},
-};
-use crate::delta_cache::DeltaHydrationEvent;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct StreamingQuery {
@@ -162,13 +164,15 @@ impl Broadcaster {
     ) -> EdgeResult<mpsc::Receiver<sse::Event>> {
         let (tx, rx) = mpsc::channel(10);
 
-        let hydration_event = self.resolve_delta_cache_hydration_event(query.clone()).await?;
+        let hydration_event = self
+            .resolve_delta_cache_hydration_event(query.clone())
+            .await?;
         tx.send(
             sse::Data::new_json(&hydration_event)?
                 .event("unleash-connected")
                 .into(),
         )
-            .await?;
+        .await?;
 
         self.active_connections
             .entry(query)
@@ -194,54 +198,54 @@ impl Broadcaster {
         } else {
             FeatureFilterSet::default()
         }
-            .with_filter(project_filter_from_projects(query.projects.clone()));
+        .with_filter(project_filter_from_projects(query.projects.clone()));
         filter_set
     }
 
-    async fn resolve_delta_cache(&self, query: StreamingQuery) -> EdgeJsonResult<ClientFeaturesDelta> {
+    async fn resolve_delta_cache(
+        &self,
+        query: StreamingQuery,
+    ) -> EdgeJsonResult<ClientFeaturesDelta> {
         let filter_set = Broadcaster::get_query_filters(&query);
         let delta_cache = self.delta_cache_manager.get(&query.environment);
         match delta_cache {
-            Some(delta_cache) => {
-                Ok(Json(
-                    filter_delta_events(&delta_cache, &filter_set),
-                ))
-            }
+            Some(delta_cache) => Ok(Json(filter_delta_events(&delta_cache, &filter_set))),
             None => {
                 // Note: this is a simplification for now, using the following assumptions:
                 // 1. We'll only allow streaming in strict mode
                 // 2. We'll check whether the token is subsumed *before* trying to add it to the broadcaster
                 // If both of these are true, then we should never hit this case (if Thomas's understanding is correct).
-                return Err(EdgeError::AuthorizationDenied);
+                Err(EdgeError::AuthorizationDenied)
             }
         }
     }
 
-    async fn resolve_delta_cache_hydration_event(&self, query: StreamingQuery) -> EdgeJsonResult<ClientFeaturesDelta> {
+    async fn resolve_delta_cache_hydration_event(
+        &self,
+        query: StreamingQuery,
+    ) -> EdgeJsonResult<ClientFeaturesDelta> {
         // do we need filter_set for hydration event?
-        let filter_set = Broadcaster::get_query_filters(&query);
+        let _filter_set = Broadcaster::get_query_filters(&query);
         let delta_cache = self.delta_cache_manager.get(&query.environment);
         match delta_cache {
             Some(delta_cache) => {
                 let hydration_event = delta_cache.get_hydration_event();
-                let serialized_event = match hydration_event {
-                    DeltaHydrationEvent {
-                        event_id, features, segments
-                    } => DeltaEvent::Hydration {
-                        event_id: event_id.to_owned(),
-                        features: features.to_owned(),
-                        segments: segments.to_owned()
-                    }
+                let DeltaHydrationEvent {
+                    event_id,
+                    features,
+                    segments,
+                } = hydration_event;
+                let serialized_event = DeltaEvent::Hydration {
+                    event_id: event_id.to_owned(),
+                    features: features.to_owned(),
+                    segments: segments.to_owned(),
                 };
-                Ok(Json(
-                    ClientFeaturesDelta {
-                        events: vec![serialized_event]
-                    }
-                ))
+
+                Ok(Json(ClientFeaturesDelta {
+                    events: vec![serialized_event],
+                }))
             }
-            None => {
-                return Err(EdgeError::AuthorizationDenied);
-            }
+            None => Err(EdgeError::AuthorizationDenied),
         }
     }
 
@@ -288,9 +292,9 @@ impl Broadcaster {
 
 #[cfg(test)]
 mod test {
+    use crate::delta_cache::{DeltaCache, DeltaHydrationEvent};
     use tokio::time::timeout;
     use unleash_types::client_features::{ClientFeature, DeltaEvent};
-    use crate::delta_cache::{DeltaCache, DeltaHydrationEvent};
 
     use super::*;
 
@@ -312,10 +316,7 @@ mod test {
         let max_length = 5;
         let delta_cache = DeltaCache::new(hydration, max_length);
         for env in &[env_with_updates, env_without_updates] {
-            delta_cache_manager.insert_cache(
-                env.to_string(),
-                delta_cache.clone(),
-            );
+            delta_cache_manager.insert_cache(env.to_string(), delta_cache.clone());
         }
 
         let mut rx = broadcaster
@@ -377,7 +378,7 @@ mod test {
                     project: Some("dx".into()),
                     ..Default::default()
                 },
-            }]
+            }],
         );
 
         let result = tokio::time::timeout(std::time::Duration::from_secs(1), async {

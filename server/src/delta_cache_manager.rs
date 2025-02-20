@@ -6,14 +6,20 @@ use crate::delta_cache::DeltaCache;
 
 #[derive(Debug, Clone)]
 pub enum DeltaCacheUpdate {
-    Full(String),   // environment with a newly inserted cache
-    Update(String), // environment with an updated delta cache
+    Full(String),     // environment with a newly inserted cache
+    Update(String),   // environment with an updated delta cache
     Deletion(String), // environment removed
 }
 
 pub struct DeltaCacheManager {
     caches: DashMap<String, DeltaCache>,
     update_sender: broadcast::Sender<DeltaCacheUpdate>,
+}
+
+impl Default for DeltaCacheManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl DeltaCacheManager {
@@ -41,21 +47,25 @@ impl DeltaCacheManager {
     pub fn update_cache(&self, env: &str, events: &[DeltaEvent]) {
         if let Some(mut cache) = self.caches.get_mut(env) {
             cache.add_events(events);
-            let _ = self.update_sender.send(DeltaCacheUpdate::Update(env.to_string()));
+            let _ = self
+                .update_sender
+                .send(DeltaCacheUpdate::Update(env.to_string()));
         }
     }
 
     pub fn remove_cache(&self, env: &str) {
         self.caches.remove(env);
-        let _ = self.update_sender.send(DeltaCacheUpdate::Deletion(env.to_string()));
+        let _ = self
+            .update_sender
+            .send(DeltaCacheUpdate::Deletion(env.to_string()));
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use unleash_types::client_features::{ClientFeature, DeltaEvent, Segment};
-    use crate::delta_cache::{DeltaCache, DeltaHydrationEvent};
     use super::*;
+    use crate::delta_cache::{DeltaCache, DeltaHydrationEvent};
+    use unleash_types::client_features::{ClientFeature, DeltaEvent, Segment};
 
     #[test]
     fn test_insert_and_update_delta_cache() {

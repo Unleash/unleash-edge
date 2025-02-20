@@ -1,17 +1,6 @@
 use std::collections::HashSet;
 use std::{sync::Arc, time::Duration};
 
-use actix_web::http::header::EntityTag;
-use chrono::Utc;
-use dashmap::DashMap;
-use eventsource_client::Client;
-use futures::TryStreamExt;
-use json_structural_diff::JsonDiff;
-use reqwest::StatusCode;
-use tracing::{debug, info, warn};
-use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta, DeltaEvent};
-use unleash_types::client_metrics::{ClientApplication, MetricsMetadata};
-use unleash_yggdrasil::{EngineState, UpdateMessage};
 use crate::delta_cache_manager::DeltaCacheManager;
 use crate::error::{EdgeError, FeatureError};
 use crate::feature_cache::FeatureCache;
@@ -28,6 +17,17 @@ use crate::{
     tokens::{cache_key, simplify},
     types::{ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenRefresh},
 };
+use actix_web::http::header::EntityTag;
+use chrono::Utc;
+use dashmap::DashMap;
+use eventsource_client::Client;
+use futures::TryStreamExt;
+use json_structural_diff::JsonDiff;
+use reqwest::StatusCode;
+use tracing::{debug, info, warn};
+use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta, DeltaEvent};
+use unleash_types::client_metrics::{ClientApplication, MetricsMetadata};
+use unleash_yggdrasil::{EngineState, UpdateMessage};
 
 fn frontend_token_is_covered_by_tokens(
     frontend_token: &EdgeToken,

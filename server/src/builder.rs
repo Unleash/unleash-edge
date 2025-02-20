@@ -140,7 +140,12 @@ pub(crate) fn build_offline_mode(
             client_features.clone(),
         )
     }
-    Ok((token_cache, features_cache, _delta_cache_manager, engine_cache))
+    Ok((
+        token_cache,
+        features_cache,
+        _delta_cache_manager,
+        engine_cache,
+    ))
 }
 
 fn build_offline(offline_args: OfflineArgs) -> EdgeResult<CacheContainer> {
@@ -315,7 +320,12 @@ async fn build_edge(
             .await;
     }
     Ok((
-        (token_cache, feature_cache, delta_cache_manager, engine_cache),
+        (
+            token_cache,
+            feature_cache,
+            delta_cache_manager,
+            engine_cache,
+        ),
         Some(token_validator),
         Some(feature_refresher),
         persistence,

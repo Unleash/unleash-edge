@@ -51,7 +51,14 @@ pub async fn get_delta(
     filter_query: Query<FeatureFilters>,
     req: HttpRequest,
 ) -> EdgeJsonResult<ClientFeaturesDelta> {
-    resolve_delta(edge_token, delta_cache_manager, token_cache, filter_query, req).await
+    resolve_delta(
+        edge_token,
+        delta_cache_manager,
+        token_cache,
+        filter_query,
+        req,
+    )
+    .await
 }
 
 #[get("/streaming")]
@@ -348,8 +355,8 @@ mod tests {
 
     use crate::auth::token_validator::TokenValidator;
     use crate::cli::{OfflineArgs, TokenHeader};
-    use crate::http::unleash_client::{ClientMetaInformation, UnleashClient};
     use crate::delta_cache_manager::DeltaCacheManager;
+    use crate::http::unleash_client::{ClientMetaInformation, UnleashClient};
     use crate::middleware;
     use crate::tests::{features_from_disk, upstream_server};
     use actix_http::{Request, StatusCode};
@@ -1104,7 +1111,8 @@ mod tests {
     async fn calling_client_features_endpoint_with_new_token_does_not_hydrate_when_strict() {
         let upstream_features_cache = Arc::new(FeatureCache::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
-        let upstream_delta_cache_manager: Arc<DeltaCacheManager> = Arc::new(DeltaCacheManager::new());
+        let upstream_delta_cache_manager: Arc<DeltaCacheManager> =
+            Arc::new(DeltaCacheManager::new());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let server = upstream_server(
             upstream_token_cache.clone(),
@@ -1228,7 +1236,8 @@ mod tests {
     {
         let upstream_features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
-        let upstream_delta_cache_manager: Arc<DeltaCacheManager> = Arc::new(DeltaCacheManager::new());
+        let upstream_delta_cache_manager: Arc<DeltaCacheManager> =
+            Arc::new(DeltaCacheManager::new());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let server = upstream_server(
             upstream_token_cache.clone(),

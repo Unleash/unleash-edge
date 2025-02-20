@@ -10,6 +10,7 @@ mod streaming_test {
         str::FromStr,
         sync::Arc,
     };
+    use tracing::{debug, error, warn};
     use unleash_edge::{
         cli::{EdgeArgs, EdgeMode, TokenHeader},
         feature_cache::FeatureCache,
@@ -17,8 +18,9 @@ mod streaming_test {
         tokens::cache_key,
         types::{EdgeToken, TokenType, TokenValidationStatus},
     };
-    use unleash_types::client_features::{ClientFeature, ClientFeatures, ClientFeaturesDelta, DeltaEvent, Query};
-    use tracing::{debug, error, warn};
+    use unleash_types::client_features::{
+        ClientFeature, ClientFeatures, ClientFeaturesDelta, DeltaEvent, Query,
+    };
 
     pub fn features_from_disk(path: &str) -> ClientFeaturesDelta {
         let path = PathBuf::from(path);
@@ -52,18 +54,18 @@ mod streaming_test {
             upstream_known_token.clone(),
         );
 
-        let delta_cache = DeltaCache::new(DeltaHydrationEvent {
-            event_id: 1,
-            features: vec![ClientFeature {
-                name: "feature1".to_string(),
-                ..Default::default()
-            }],
-            segments: vec![],
-        }, 10);
-        delta_cache_manager.insert_cache(
-            cache_key(&upstream_known_token),
-            delta_cache,
+        let delta_cache = DeltaCache::new(
+            DeltaHydrationEvent {
+                event_id: 1,
+                features: vec![ClientFeature {
+                    name: "feature1".to_string(),
+                    ..Default::default()
+                }],
+                segments: vec![],
+            },
+            10,
         );
+        delta_cache_manager.insert_cache(cache_key(&upstream_known_token), delta_cache);
 
         let mut edge = Command::new("./../target/debug/unleash-edge")
             .arg("edge")
@@ -91,16 +93,14 @@ mod streaming_test {
         .build();
 
         let initial_event = ClientFeaturesDelta {
-            events: vec![
-                DeltaEvent::Hydration {
-                    event_id: 1,
-                    features: vec![ClientFeature {
-                        name: "feature1".to_string(),
-                        ..Default::default()
-                    }],
-                    segments: vec![],
-                },
-            ]
+            events: vec![DeltaEvent::Hydration {
+                event_id: 1,
+                features: vec![ClientFeature {
+                    name: "feature1".to_string(),
+                    ..Default::default()
+                }],
+                segments: vec![],
+            }],
         };
 
         let mut stream = es_client.stream();
@@ -135,20 +135,15 @@ mod streaming_test {
             panic!("Test timed out waiting for connected event");
         }
 
-        let update_events = vec![
-            DeltaEvent::FeatureUpdated {
-                event_id: 2,
-                feature: ClientFeature {
-                    name: "feature1".to_string(),
-                    enabled: false,
-                    ..Default::default()
-                }
-            }
-        ];
-        delta_cache_manager.update_cache(
-            &cache_key(&upstream_known_token),
-            &update_events,
-        );
+        let update_events = vec![DeltaEvent::FeatureUpdated {
+            event_id: 2,
+            feature: ClientFeature {
+                name: "feature1".to_string(),
+                enabled: false,
+                ..Default::default()
+            },
+        }];
+        delta_cache_manager.update_cache(&cache_key(&upstream_known_token), &update_events);
 
         if tokio::time::timeout(std::time::Duration::from_secs(2), async {
             loop {

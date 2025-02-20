@@ -1,10 +1,3 @@
-use actix_web::http::header::EntityTag;
-use eventsource_client::Client;
-use futures::TryStreamExt;
-use reqwest::StatusCode;
-use std::time::Duration;
-use tracing::{debug, info, warn};
-use unleash_types::client_features::{ClientFeaturesDelta, DeltaEvent};
 use crate::delta_cache::{DeltaCache, DeltaHydrationEvent};
 use crate::error::{EdgeError, FeatureError};
 use crate::http::headers::{
@@ -14,6 +7,13 @@ use crate::http::refresher::feature_refresher::FeatureRefresher;
 use crate::http::unleash_client::ClientMetaInformation;
 use crate::tokens::cache_key;
 use crate::types::{ClientFeaturesDeltaResponse, ClientFeaturesRequest, EdgeToken, TokenRefresh};
+use actix_web::http::header::EntityTag;
+use eventsource_client::Client;
+use futures::TryStreamExt;
+use reqwest::StatusCode;
+use std::time::Duration;
+use tracing::{debug, info, warn};
+use unleash_types::client_features::{ClientFeaturesDelta, DeltaEvent};
 use unleash_yggdrasil::EngineState;
 
 pub type Environment = String;
