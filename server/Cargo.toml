@@ -32,7 +32,7 @@ actix-service = "2.0.2"
 actix-web = { version = "4.9.0", features = ["rustls-0_23", "compress-zstd"] }
 actix-web-lab = { version = "0.23.0" }
 ahash = "0.8.11"
-anyhow = "1.0.95"
+anyhow = "1.0.96"
 async-trait = "0.1.86"
 aws-config = { version = "1.5.16", features = ["behavior-version-latest"] }
 aws-sdk-s3 = { version = "1.76.0", features = ["behavior-version-latest"] }
