@@ -1,13 +1,12 @@
 use crate::cli::{EdgeArgs, EdgeMode};
 use crate::delta_cache::DeltaCache;
-use crate::delta_filters::{combined_filter, filter_delta_events, DeltaFilterSet};
+use crate::delta_filters::{combined_filter, DeltaFilterSet};
 use crate::error::EdgeError;
 use crate::feature_cache::FeatureCache;
 use crate::filters::{
     filter_client_features, name_match_filter, name_prefix_filter, project_filter, FeatureFilterSet,
 };
 use crate::http::broadcaster::Broadcaster;
-use crate::http::refresher::delta_refresher::Environment;
 use crate::http::refresher::feature_refresher::FeatureRefresher;
 use crate::metrics::client_metrics::MetricsCache;
 use crate::tokens::cache_key;
@@ -47,23 +46,27 @@ pub async fn get_features(
 #[get("/delta")]
 pub async fn get_delta(
     edge_token: EdgeToken,
-    delta_cache: Data<DashMap<String, DeltaCache>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
     filter_query: Query<FeatureFilters>,
     req: HttpRequest,
 ) -> impl Responder {
-    if let Some(if_none_match) = req.headers().get("If-None-Match") {
-        println!("If-None-Match: {:?}", if_none_match);
-    } else {
-        println!("If-None-Match header not found");
-    }
+    let requested_revision_id = req.headers().get("If-None-Match")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|etag| etag.trim_matches('"').parse::<u32>().ok())
+        .unwrap_or(0);
 
-    match resolve_delta(edge_token, delta_cache, token_cache, filter_query, req).await {
-        Ok(response_body) => HttpResponse::Ok()
-            .insert_header(("ETag", "100"))
-            .json(response_body),
-        Err(err) => HttpResponse::InternalServerError()
-            .body(format!("Error: {:?}", err)),
+    let current_sdk_revision_id = 100; // TODO: Read from delta_manager
+
+    match resolve_delta(edge_token, token_cache, filter_query, requested_revision_id, req).await {
+        Some(Ok(delta)) => {
+            let last_event_id = delta.events.last().map(|e| e.get_event_id()).unwrap_or(current_sdk_revision_id);
+
+            HttpResponse::Ok()
+                .insert_header(("ETag", format!("\"{}\"", last_event_id)))
+                .json(delta)
+        }
+        Some(Err(err)) => HttpResponse::InternalServerError().body(format!("Error: {:?}", err)),
+        None => HttpResponse::NotModified().finish(),
     }
 }
 
@@ -167,39 +170,6 @@ fn get_delta_filter(
     Ok(delta_filter_set)
 }
 
-fn get_delta_events_filter(
-    edge_token: &EdgeToken,
-    token_cache: &Data<DashMap<String, EdgeToken>>,
-    filter_query: Query<FeatureFilters>,
-) -> EdgeResult<(
-    EdgeToken,
-    FeatureFilterSet,
-    unleash_types::client_features::Query,
-)> {
-    let validated_token = token_cache
-        .get(&edge_token.token)
-        .map(|e| e.value().clone())
-        .ok_or(EdgeError::AuthorizationDenied)?;
-
-    let query_filters = filter_query.into_inner();
-    let query = unleash_types::client_features::Query {
-        tags: None,
-        projects: Some(validated_token.projects.clone()),
-        name_prefix: query_filters.name_prefix.clone(),
-        environment: validated_token.environment.clone(),
-        inline_segment_constraints: Some(false),
-    };
-
-    let filter_set = if let Some(name_prefix) = query_filters.name_prefix {
-        FeatureFilterSet::from(Box::new(name_prefix_filter(name_prefix)))
-    } else {
-        FeatureFilterSet::default()
-    }
-    .with_filter(project_filter(&validated_token));
-
-    Ok((validated_token, filter_set, query))
-}
-
 async fn resolve_features(
     edge_token: EdgeToken,
     features_cache: Data<FeatureCache>,
@@ -230,44 +200,54 @@ async fn resolve_features(
 
 async fn resolve_delta(
     edge_token: EdgeToken,
-    delta_cache: Data<DashMap<Environment, DeltaCache>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
     filter_query: Query<FeatureFilters>,
+    requested_revision_id: u32,
     req: HttpRequest,
-) -> EdgeJsonResult<ClientFeaturesDelta> {
-    let (validated_token, filter_set, ..) =
-        get_feature_filter(&edge_token, &token_cache, filter_query.clone())?;
+) -> Option<EdgeJsonResult<ClientFeaturesDelta>> {
+    let (validated_token, filter_set, query) = match get_feature_filter(&edge_token, &token_cache, filter_query.clone()) {
+        Ok(result) => result,
+        Err(e) => return Some(Err(e)),
+    };
+    let delta_filter_set = get_delta_filter(&edge_token, &token_cache, filter_query.clone()).ok()?;
 
-    let delta_filter_set = get_delta_filter(&edge_token, &token_cache, filter_query.clone())?;
 
-    let revision: u32 = req
-        .headers()
-        .get("If-None-Match")
-        .and_then(|value| value.to_str().ok())
-        .and_then(|str_val| str_val.trim_matches('"').parse::<u32>().ok())
-        .unwrap_or(0);
+    let current_sdk_revision_id = 100; // TODO: get from delta manager
+    if requested_revision_id >= current_sdk_revision_id {
+        return None;
+    }
 
-    let delta = match req.app_data::<Data<FeatureRefresher>>() {
+    let delta_result = match req.app_data::<Data<FeatureRefresher>>() {
         Some(refresher) => {
             refresher
                 .delta_events_for_filter(
                     validated_token.clone(),
                     &filter_set,
                     &delta_filter_set,
-                    revision,
+                    requested_revision_id,
                 )
                 .await
         }
-        None => delta_cache
-            .get(&cache_key(&validated_token))
-            .map(|cache| {
-                filter_delta_events(cache.value(), &filter_set, &delta_filter_set, revision)
-            })
-            .ok_or(EdgeError::ClientCacheError),
-    }?;
+        None => Err(EdgeError::ClientHydrationFailed(
+            "FeatureRefresher is missing - cannot resolve delta in offline mode".to_string(),
+        )),
+    };
 
-    Ok(Json(delta))
+    let delta = match delta_result {
+        Ok(delta) => delta,
+        Err(e) => return Some(Err(e)),
+    };
+
+    if delta.events.is_empty() {
+        return None;
+    }
+
+    Some(Ok(Json(delta)))
 }
+
+
+
+
 #[utoipa::path(
     context_path = "/api/client",
     params(("feature_name" = String, Path,)),
