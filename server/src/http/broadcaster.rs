@@ -1,6 +1,6 @@
 use std::{hash::Hash, sync::Arc, time::Duration};
 
-use crate::delta_cache::DeltaHydrationEvent;
+use crate::delta_cache::{DeltaHydrationEvent};
 use crate::delta_cache_manager::{DeltaCacheManager, DeltaCacheUpdate};
 use crate::{
     error::EdgeError,
@@ -209,8 +209,20 @@ impl Broadcaster {
         filter_set
     }
 
-    async fn resolve_delta_cache(
+    async fn resolve_last_event_id(
         &self,
+        query: StreamingQuery,
+    ) -> Option<u32> {
+        let delta_cache = self.delta_cache_manager.get(&query.environment);
+        match delta_cache {
+            Some(delta_cache) => delta_cache.get_events().last().map(|event| event.get_event_id()),
+            None => None
+        }
+    }
+
+    async fn resolve_delta_cache_data(
+        &self,
+        _last_event_id: Option<u32>,
         query: StreamingQuery,
     ) -> EdgeJsonResult<ClientFeaturesDelta> {
         let filter_set = Broadcaster::get_query_filters(&query);
@@ -267,21 +279,23 @@ impl Broadcaster {
         }) {
             let (query, group) = entry.pair();
 
-            let event_data = self
-                .resolve_delta_cache(query.clone())
-                .await
-                .and_then(|features| sse::Data::new_json(&features).map_err(|e| e.into()));
+            for client in &group.clients {
+                let event_data = self
+                    .resolve_delta_cache_data(Some(client.current_revision), query.clone())
+                    .await
+                    .and_then(|features| sse::Data::new_json(&features).map_err(|e| e.into()));
 
-            match event_data {
-                Ok(sse_data) => {
-                    let event: Event = sse_data.event("unleash-updated").into();
+                let _last_event_id = self.resolve_last_event_id(query.clone());
 
-                    for client in &group.clients {
+                match event_data {
+                    Ok(sse_data) => {
+                        let event: Event = sse_data.event("unleash-updated").into();
+
                         client_events.push((client.clone(), event.clone()));
                     }
-                }
-                Err(e) => {
-                    warn!("Failed to broadcast features: {:?}", e);
+                    Err(e) => {
+                        warn!("Failed to broadcast features: {:?}", e);
+                    }
                 }
             }
         }
