@@ -302,7 +302,7 @@ impl Broadcaster {
         }
 
         // Try to send to all clients, ignoring failures
-        // Disconnected clients will get swept up by `remove_stale_clients`
+        // Disconnected clients will get swept up by the heartbeat cleanup
         let send_events = client_events
             .iter()
             .map(|(client, event)| client.sender.send(event.clone()));
