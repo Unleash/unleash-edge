@@ -32,7 +32,7 @@ actix-service = "2.0.2"
 actix-web = { version = "4.9.0", features = ["rustls-0_23", "compress-zstd"] }
 actix-web-lab = { version = "0.23.0" }
 ahash = "0.8.11"
-anyhow = "1.0.95"
+anyhow = "1.0.96"
 async-trait = "0.1.86"
 aws-config = { version = "1.5.16", features = ["behavior-version-latest"] }
 aws-sdk-s3 = { version = "1.76.0", features = ["behavior-version-latest"] }
@@ -82,7 +82,7 @@ rustls-pemfile = "2.2.0"
 rustls-pki-types = "1.11.0"
 semver = "1.0.25"
 serde = { version = "1.0.217", features = ["derive"] }
-serde_json = "1.0.138"
+serde_json = "1.0.139"
 serde_qs = { version = "0.13.0", features = ["actix4", "tracing"] }
 shadow-rs = { version = "0.38.1" }
 tokio = { version = "1.43.0", features = [
@@ -108,7 +108,7 @@ env_logger = "0.11.6"
 maplit = "1.0.2"
 rand = "0.9.0"
 test-case = "3.3.1"
-testcontainers = "0.23.2"
+testcontainers = "0.23.3"
 testcontainers-modules = { version = "0.11.6", features = [
     "redis",
     "localstack",
