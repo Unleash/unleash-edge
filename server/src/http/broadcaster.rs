@@ -266,44 +266,46 @@ impl Broadcaster {
         }
     }
 
-    /// Broadcast new features to all clients.
+    /// Broadcast new event deltas to all clients.
     pub async fn broadcast(&self, environment: Option<String>) {
         let mut client_events = Vec::new();
 
-        for entry in self.active_connections.iter().filter(|entry| {
+        for mut entry in self.active_connections.iter_mut().filter(|entry| {
             if let Some(env) = &environment {
                 entry.key().environment == *env
             } else {
                 true
             }
         }) {
-            let (query, group) = entry.pair();
+            let (query, group) = entry.pair_mut();
 
-            for client in &group.clients {
+            for client in &mut group.clients {
                 let event_data = self
                     .resolve_delta_cache_data(Some(client.current_revision), query.clone())
                     .await
                     .and_then(|features| sse::Data::new_json(&features).map_err(|e| e.into()));
 
-                let _last_event_id = self.resolve_last_event_id(query.clone());
+                let last_event_id = self.resolve_last_event_id(query.clone()).await;
 
-                match event_data {
-                    Ok(sse_data) => {
-                        let event: Event = sse_data.event("unleash-updated").into();
+                if let Ok(sse_data) = event_data {
+                    let event: Event = sse_data.event("unleash-updated").into();
+                    client_events.push((client.clone(), event.clone()));
 
-                        client_events.push((client.clone(), event.clone()));
+                    if let Some(new_id) = last_event_id {
+                        println!("Setting new id {:#?}", new_id);
+                        client.current_revision = new_id;
                     }
-                    Err(e) => {
-                        warn!("Failed to broadcast features: {:?}", e);
-                    }
+                } else if let Err(e) = event_data {
+                    warn!("Failed to broadcast features: {:?}", e);
                 }
             }
         }
-        // try to send to all clients, ignoring failures
-        // disconnected clients will get swept up by `remove_stale_clients`
+
+        // Try to send to all clients, ignoring failures
+        // Disconnected clients will get swept up by `remove_stale_clients`
         let send_events = client_events
             .iter()
-            .map(|(ClientData { sender, .. }, event)| sender.send(event.clone()));
+            .map(|(client, event)| client.sender.send(event.clone()));
 
         let _ = future::join_all(send_events).await;
     }
