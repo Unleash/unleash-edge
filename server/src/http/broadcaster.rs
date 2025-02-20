@@ -375,16 +375,9 @@ mod test {
 
         if tokio::time::timeout(std::time::Duration::from_secs(2), async {
             loop {
-                if let Some(event) = rx.recv().await {
-                    match event {
-                        Event::Data(_) => {
-                            // the only kind of data events we send at the moment are unleash-updated events. So if we receive a data event, we've got the update.
-                            break;
-                        }
-                        _ => {
-                            // ignore other events
-                        }
-                    }
+                if let Some(Event::Data(_)) = rx.recv().await {
+                    // the only kind of data events we send at the moment are unleash-updated events. So if we receive a data event, we've got the update.
+                    break;
                 }
             }
         })
@@ -408,15 +401,8 @@ mod test {
 
         let result = tokio::time::timeout(std::time::Duration::from_secs(1), async {
             loop {
-                if let Some(event) = rx.recv().await {
-                    match event {
-                        Event::Data(_) => {
-                            panic!("Received an update for an env I'm not subscribed to!");
-                        }
-                        _ => {
-                            // ignore other events
-                        }
-                    }
+                if let Some(Event::Data(_)) = rx.recv().await {
+                    panic!("Received an update for an env I'm not subscribed to!");
                 }
             }
         })

@@ -17,6 +17,7 @@ pub struct UnleashUrls {
     pub edge_api_url: Url,
     pub edge_validate_url: Url,
     pub edge_metrics_url: Url,
+    pub edge_instance_data_url: Url,
     pub new_api_token_url: Url,
     pub client_features_stream_url: Url,
 }
@@ -100,6 +101,11 @@ impl UnleashUrls {
             .path_segments_mut()
             .expect("Could not create /api/client/metrics/bulk")
             .push("bulk");
+        let mut edge_instance_data_url = client_metrics_url.clone();
+        edge_instance_data_url
+            .path_segments_mut()
+            .expect("Could not create /api/client/metrics/instance-data")
+            .push("edge");
         UnleashUrls {
             base_url,
             api_url,
@@ -114,6 +120,7 @@ impl UnleashUrls {
             edge_metrics_url,
             new_api_token_url,
             client_features_stream_url,
+            edge_instance_data_url,
         }
     }
 }
