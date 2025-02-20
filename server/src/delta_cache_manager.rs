@@ -95,7 +95,6 @@ mod tests {
             e => panic!("Expected Full update, got {:?}", e),
         }
 
-        // Prepare an update event.
         let update_event = DeltaEvent::FeatureUpdated {
             event_id: 2,
             feature: ClientFeature {
@@ -104,19 +103,15 @@ mod tests {
             },
         };
 
-        // Update the delta cache.
         delta_cache_manager.update_cache(env, &[update_event.clone()]);
 
-        // Verify that an Update event is sent.
         match rx.try_recv() {
             Ok(DeltaCacheUpdate::Update(e)) => assert_eq!(e, env),
             e => panic!("Expected Update update, got {:?}", e),
         }
 
-        // Retrieve the updated cache and check events.
         let cache = delta_cache_manager.get(env).expect("Cache should exist");
         let events = cache.get_events();
-        // Expect the last event to be the update_event.
         assert_eq!(events.last().unwrap(), &update_event);
     }
 
@@ -139,7 +134,6 @@ mod tests {
         // Consume the Full update.
         let _ = rx.try_recv();
 
-        // Remove the cache.
         container.remove_cache(env);
         match rx.try_recv() {
             Ok(DeltaCacheUpdate::Deletion(e)) => assert_eq!(e, env),
