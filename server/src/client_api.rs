@@ -41,7 +41,7 @@ pub async fn get_features(
 ) -> EdgeJsonResult<ClientFeatures> {
     resolve_features(edge_token, features_cache, token_cache, filter_query, req).await
 }
-
+// TODO: add tests for delta api
 #[get("/delta")]
 pub async fn get_delta(
     edge_token: EdgeToken,
