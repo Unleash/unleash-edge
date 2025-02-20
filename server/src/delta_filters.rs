@@ -11,6 +11,11 @@ pub(crate) struct DeltaFilterSet {
 }
 
 impl DeltaFilterSet {
+    pub fn with_filter(mut self, filter: DeltaFilter) -> Self {
+        self.filters.push(filter);
+        self
+    }
+
     pub fn apply(&self, feature: &DeltaEvent) -> bool {
         self.filters.iter().all(|filter| filter(feature))
     }
