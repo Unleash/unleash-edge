@@ -1,5 +1,4 @@
 use crate::cli::{EdgeArgs, EdgeMode};
-use crate::delta_cache::DeltaCache;
 use crate::delta_filters::{combined_filter, DeltaFilterSet};
 use crate::error::EdgeError;
 use crate::feature_cache::FeatureCache;
@@ -205,7 +204,7 @@ async fn resolve_delta(
     requested_revision_id: u32,
     req: HttpRequest,
 ) -> Option<EdgeJsonResult<ClientFeaturesDelta>> {
-    let (validated_token, filter_set, query) = match get_feature_filter(&edge_token, &token_cache, filter_query.clone()) {
+    let (validated_token, filter_set, ..) = match get_feature_filter(&edge_token, &token_cache, filter_query.clone()) {
         Ok(result) => result,
         Err(e) => return Some(Err(e)),
     };
@@ -432,6 +431,7 @@ mod tests {
         ClientMetricsEnv, ConnectViaBuilder, MetricBucket, MetricsMetadata, ToggleStats,
     };
     use unleash_yggdrasil::EngineState;
+    use crate::delta_cache::DeltaCache;
 
     async fn make_metrics_post_request() -> Request {
         test::TestRequest::post()
