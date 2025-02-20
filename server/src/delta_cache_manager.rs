@@ -125,18 +125,18 @@ mod tests {
             segments: vec![],
         };
         let delta_cache = DeltaCache::new(hydration, 3);
-        let container = DeltaCacheManager::new();
+        let delta_cache_manager = DeltaCacheManager::new();
         let env = "remove-env";
 
-        container.insert_cache(env.to_string(), delta_cache);
-        let mut rx = container.subscribe();
+        delta_cache_manager.insert_cache(env.to_string(), delta_cache);
+        let mut rx = delta_cache_manager.subscribe();
         let _ = rx.try_recv();
 
-        container.remove_cache(env);
+        delta_cache_manager.remove_cache(env);
         match rx.try_recv() {
             Ok(DeltaCacheUpdate::Deletion(e)) => assert_eq!(e, env),
             e => panic!("Expected Deletion update, got {:?}", e),
         }
-        assert!(container.get(env).is_none());
+        assert!(delta_cache_manager.get(env).is_none());
     }
 }
