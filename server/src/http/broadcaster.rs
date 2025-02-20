@@ -58,6 +58,7 @@ impl From<(&Query, &EdgeToken)> for StreamingQuery {
 struct ClientData {
     token: String,
     sender: mpsc::Sender<sse::Event>,
+    current_revision: u32
 }
 
 #[derive(Clone, Debug)]
@@ -128,7 +129,7 @@ impl Broadcaster {
         for mut group in self.active_connections.iter_mut() {
             let mut ok_clients = Vec::new();
 
-            for ClientData { token, sender } in &group.clients {
+            for ClientData { token, sender, current_revision } in &group.clients {
                 if sender
                     .send(sse::Event::Comment("keep-alive".into()))
                     .await
@@ -137,6 +138,7 @@ impl Broadcaster {
                     ok_clients.push(ClientData {
                         token: token.clone(),
                         sender: sender.clone(),
+                        current_revision: current_revision.clone()
                     });
                 }
             }
@@ -167,8 +169,11 @@ impl Broadcaster {
         let hydration_event = self
             .resolve_delta_cache_hydration_event(query.clone())
             .await?;
+        let event_id = hydration_event.get_event_id();
         tx.send(
-            sse::Data::new_json(&hydration_event)?
+            sse::Data::new_json(Json(ClientFeaturesDelta {
+                events: vec![hydration_event],
+            }))?
                 .event("unleash-connected")
                 .into(),
         )
@@ -180,12 +185,14 @@ impl Broadcaster {
                 group.clients.push(ClientData {
                     token: token.into(),
                     sender: tx.clone(),
+                    current_revision: event_id
                 });
             })
             .or_insert(ClientGroup {
                 clients: vec![ClientData {
                     token: token.into(),
                     sender: tx.clone(),
+                    current_revision: event_id
                 }],
             });
 
@@ -223,7 +230,7 @@ impl Broadcaster {
     async fn resolve_delta_cache_hydration_event(
         &self,
         query: StreamingQuery,
-    ) -> EdgeJsonResult<ClientFeaturesDelta> {
+    ) -> Result<DeltaEvent, EdgeError> {
         // do we need filter_set for hydration event?
         let _filter_set = Broadcaster::get_query_filters(&query);
         let delta_cache = self.delta_cache_manager.get(&query.environment);
@@ -241,9 +248,7 @@ impl Broadcaster {
                     segments: segments.to_owned(),
                 };
 
-                Ok(Json(ClientFeaturesDelta {
-                    events: vec![serialized_event],
-                }))
+                Ok(serialized_event)
             }
             None => Err(EdgeError::AuthorizationDenied),
         }

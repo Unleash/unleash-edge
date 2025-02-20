@@ -3,14 +3,10 @@ mod streaming_test {
     use eventsource_client::Client;
     use futures::StreamExt;
     use std::{
-        fs,
-        io::BufReader,
-        path::PathBuf,
         process::{Command, Stdio},
         str::FromStr,
         sync::Arc,
     };
-    use tracing::{debug, error, warn};
     use unleash_edge::{
         cli::{EdgeArgs, EdgeMode, TokenHeader},
         feature_cache::FeatureCache,
@@ -19,15 +15,8 @@ mod streaming_test {
         types::{EdgeToken, TokenType, TokenValidationStatus},
     };
     use unleash_types::client_features::{
-        ClientFeature, ClientFeatures, ClientFeaturesDelta, DeltaEvent, Query,
+        ClientFeature, ClientFeaturesDelta, DeltaEvent,
     };
-
-    pub fn features_from_disk(path: &str) -> ClientFeaturesDelta {
-        let path = PathBuf::from(path);
-        let file = fs::File::open(path).unwrap();
-        let reader = BufReader::new(file);
-        serde_json::from_reader(reader).unwrap()
-    }
 
     #[actix_web::test]
     async fn test_streaming() {
