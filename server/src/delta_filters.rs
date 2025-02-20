@@ -1,6 +1,5 @@
 use crate::delta_cache::DeltaCache;
 use crate::filters::FeatureFilterSet;
-use tracing::info;
 use unleash_types::client_features::{ClientFeature, ClientFeaturesDelta, DeltaEvent};
 
 pub type DeltaFilter = Box<dyn Fn(&DeltaEvent) -> bool>;
@@ -22,13 +21,7 @@ impl DeltaFilterSet {
 }
 
 pub(crate) fn revision_id_filter(required_revision_id: u32) -> DeltaFilter {
-    Box::new(move |event| match event {
-        DeltaEvent::FeatureUpdated { event_id, .. }
-        | DeltaEvent::FeatureRemoved { event_id, .. }
-        | DeltaEvent::SegmentUpdated { event_id, .. }
-        | DeltaEvent::SegmentRemoved { event_id, .. }
-        | DeltaEvent::Hydration { event_id, .. } => *event_id > required_revision_id,
-    })
+    Box::new(move |event| event.get_event_id() > required_revision_id)
 }
 
 pub(crate) fn projects_filter(projects: Vec<String>) -> DeltaFilter {
@@ -42,7 +35,7 @@ pub(crate) fn projects_filter(projects: Vec<String>) -> DeltaFilter {
             }
         }
         DeltaEvent::FeatureRemoved { project, .. } => all_projects || projects.contains(project),
-        _ => false,
+        _ => true,
     })
 }
 
@@ -55,7 +48,7 @@ pub(crate) fn name_prefix_filter(name_prefix: Option<String>) -> DeltaFilter {
             feature_name.starts_with(prefix)
         }
         (_, None) => true,
-        _ => false,
+        _ => true,
     })
 }
 
@@ -118,9 +111,144 @@ pub(crate) fn filter_delta_events(
     delta_filters: &DeltaFilterSet,
     revision: u32,
 ) -> ClientFeaturesDelta {
-    info!("filtering delta events for api");
-
     ClientFeaturesDelta {
         events: filter_deltas(delta_cache, feature_filters, delta_filters, revision),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use unleash_types::client_features::{ClientFeature, DeltaEvent, Segment};
+
+    fn mock_events() -> Vec<DeltaEvent> {
+        vec![
+            DeltaEvent::FeatureUpdated {
+                event_id: 1,
+                feature: ClientFeature {
+                    name: "test-feature".to_string(),
+                    project: Some("project1".to_string()),
+                    enabled: true,
+                    ..Default::default()
+                },
+            },
+            DeltaEvent::FeatureUpdated {
+                event_id: 2,
+                feature: ClientFeature {
+                    name: "alpha-feature".to_string(),
+                    project: Some("project2".to_string()),
+                    enabled: true,
+                    ..Default::default()
+                },
+            },
+            DeltaEvent::FeatureRemoved {
+                event_id: 3,
+                feature_name: "beta-feature".to_string(),
+                project: "project3".to_string(),
+            },
+            DeltaEvent::SegmentUpdated {
+                event_id: 4,
+                segment: Segment {
+                    id: 0,
+                    constraints: vec![],
+                },
+            },
+            DeltaEvent::SegmentRemoved {
+                event_id: 5,
+                segment_id: 2,
+            },
+        ]
+    }
+
+    #[test]
+    fn filters_events_based_on_event_id() {
+        let events = mock_events();
+        let delta_filters = DeltaFilterSet::default().with_filter(revision_id_filter(2));
+        let filtered: Vec<_> = events
+            .iter()
+            .filter(|e| delta_filters.apply(e))
+            .cloned()
+            .collect();
+
+        assert_eq!(filtered.len(), 3);
+        assert!(matches!(
+            filtered[0],
+            DeltaEvent::FeatureRemoved { event_id: 3, .. }
+        ));
+        assert!(matches!(
+            filtered[1],
+            DeltaEvent::SegmentUpdated { event_id: 4, .. }
+        ));
+        assert!(matches!(
+            filtered[2],
+            DeltaEvent::SegmentRemoved { event_id: 5, .. }
+        ));
+    }
+
+    #[test]
+    fn allows_all_projects_when_wildcard_is_provided() {
+        let events = mock_events();
+        let delta_filters =
+            DeltaFilterSet::default().with_filter(projects_filter(vec!["*".to_string()]));
+        let filtered: Vec<_> = events
+            .iter()
+            .filter(|e| delta_filters.apply(e))
+            .cloned()
+            .collect();
+
+        assert_eq!(filtered, events);
+    }
+
+    #[test]
+    fn filters_by_name_prefix() {
+        let events = mock_events();
+        let delta_filters =
+            DeltaFilterSet::default().with_filter(name_prefix_filter(Some("alpha".to_string())));
+        let filtered: Vec<_> = events
+            .iter()
+            .filter(|e| delta_filters.apply(e))
+            .cloned()
+            .collect();
+
+        assert_eq!(filtered.len(), 3);
+        assert!(matches!(
+            filtered[0],
+            DeltaEvent::FeatureUpdated { event_id: 2, .. }
+        ));
+        assert!(matches!(
+            filtered[1],
+            DeltaEvent::SegmentUpdated { event_id: 4, .. }
+        ));
+        assert!(matches!(
+            filtered[2],
+            DeltaEvent::SegmentRemoved { event_id: 5, .. }
+        ));
+    }
+
+    #[test]
+    fn filters_by_project_list() {
+        let events = mock_events();
+        let delta_filters = DeltaFilterSet::default()
+            .with_filter(projects_filter(vec!["project3".to_string()]))
+            .with_filter(name_prefix_filter(Some("beta".to_string())));
+        let filtered: Vec<_> = events
+            .iter()
+            .filter(|e| delta_filters.apply(e))
+            .cloned()
+            .collect();
+
+        assert_eq!(filtered.len(), 3);
+        assert!(matches!(
+            filtered[0],
+            DeltaEvent::FeatureRemoved { event_id: 3, .. }
+        ));
+        assert!(matches!(
+            filtered[1],
+            DeltaEvent::SegmentUpdated { event_id: 4, .. }
+        ));
+        assert!(matches!(
+            filtered[2],
+            DeltaEvent::SegmentRemoved { event_id: 5, .. }
+        ));
     }
 }
