@@ -56,7 +56,7 @@ pub async fn get_delta(
         .and_then(|etag| etag.trim_matches('"').parse::<u32>().ok())
         .unwrap_or(0);
 
-    let current_sdk_revision_id = 100; // TODO: Read from delta_manager
+    let current_sdk_revision_id = requested_revision_id + 1; // TODO: Read from delta_manager
 
     match resolve_delta(
         edge_token,
@@ -75,7 +75,7 @@ pub async fn get_delta(
                 .unwrap_or(current_sdk_revision_id);
 
             HttpResponse::Ok()
-                .insert_header(("ETag", format!("\"{}\"", last_event_id)))
+                .insert_header(("ETag", format!("{}", last_event_id)))
                 .json(delta)
         }
         Some(Err(err)) => HttpResponse::InternalServerError().body(format!("Error: {:?}", err)),
@@ -226,7 +226,7 @@ async fn resolve_delta(
     let delta_filter_set =
         get_delta_filter(&edge_token, &token_cache, filter_query.clone()).ok()?;
 
-    let current_sdk_revision_id = 100; // TODO: get from delta manager
+    let current_sdk_revision_id = requested_revision_id + 1; // TODO: get from delta manager
     if requested_revision_id >= current_sdk_revision_id {
         return None;
     }
