@@ -71,7 +71,8 @@ pub async fn get_delta(
     )
     .await
     {
-        Some(Ok(delta)) => {
+        Ok(Json(None)) => HttpResponse::NotModified().finish(),
+        Ok(Json(Some(delta))) => {
             let last_event_id = delta
                 .events
                 .last()
@@ -82,8 +83,7 @@ pub async fn get_delta(
                 .insert_header(("ETag", format!("{}", last_event_id)))
                 .json(delta)
         }
-        Some(Err(err)) => HttpResponse::InternalServerError().body(format!("Error: {:?}", err)),
-        None => HttpResponse::NotModified().finish(),
+        Err(err) => HttpResponse::InternalServerError().body(format!("Error: {:?}", err)),
     }
 }
 
@@ -214,53 +214,43 @@ async fn resolve_features(
         ..client_features
     }))
 }
-
 async fn resolve_delta(
     edge_token: EdgeToken,
     token_cache: Data<DashMap<String, EdgeToken>>,
     filter_query: Query<FeatureFilters>,
     requested_revision_id: u32,
     req: HttpRequest,
-) -> Option<EdgeJsonResult<ClientFeaturesDelta>> {
+) -> EdgeJsonResult<Option<ClientFeaturesDelta>> {
     let (validated_token, filter_set, ..) =
-        match get_feature_filter(&edge_token, &token_cache, filter_query.clone()) {
-            Ok(result) => result,
-            Err(e) => return Some(Err(e)),
-        };
-    let delta_filter_set =
-        get_delta_filter(&edge_token, &token_cache, filter_query.clone()).ok()?;
+        get_feature_filter(&edge_token, &token_cache, filter_query.clone())?;
+
+    let delta_filter_set = get_delta_filter(&edge_token, &token_cache, filter_query.clone())?;
 
     let current_sdk_revision_id = requested_revision_id + 1; // TODO: get from delta manager
     if requested_revision_id >= current_sdk_revision_id {
-        return None;
+        return Ok(Json(None));
     }
 
-    let delta_result = match req.app_data::<Data<FeatureRefresher>>() {
-        Some(refresher) => {
-            refresher
-                .delta_events_for_filter(
-                    validated_token.clone(),
-                    &filter_set,
-                    &delta_filter_set,
-                    requested_revision_id,
-                )
-                .await
-        }
-        None => Err(EdgeError::ClientHydrationFailed(
+    let refresher = req.app_data::<Data<FeatureRefresher>>().ok_or_else(|| {
+        EdgeError::ClientHydrationFailed(
             "FeatureRefresher is missing - cannot resolve delta in offline mode".to_string(),
-        )),
-    };
+        )
+    })?;
 
-    let delta = match delta_result {
-        Ok(delta) => delta,
-        Err(e) => return Some(Err(e)),
-    };
+    let delta = refresher
+        .delta_events_for_filter(
+            validated_token.clone(),
+            &filter_set,
+            &delta_filter_set,
+            requested_revision_id,
+        )
+        .await?;
 
     if delta.events.is_empty() {
-        return None;
+        return Ok(Json(None));
     }
 
-    Some(Ok(Json(delta)))
+    Ok(Json(Some(delta)))
 }
 
 #[utoipa::path(
