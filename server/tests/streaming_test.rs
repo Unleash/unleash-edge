@@ -46,6 +46,7 @@ mod streaming_test {
                 event_id: 1,
                 features: vec![ClientFeature {
                     name: "feature1".to_string(),
+                    project: Some("dx".to_string()),
                     enabled: false,
                     ..Default::default()
                 }],
@@ -86,6 +87,7 @@ mod streaming_test {
                 event_id: 1,
                 features: vec![ClientFeature {
                     name: "feature1".to_string(),
+                    project: Some("dx".to_string()),
                     enabled: false,
                     ..Default::default()
                 }],
@@ -96,7 +98,7 @@ mod streaming_test {
         let mut stream = es_client.stream();
 
         // Allow SSE connection to be established
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 
         if tokio::time::timeout(std::time::Duration::from_secs(2), async {
             loop {
@@ -110,7 +112,7 @@ mod streaming_test {
                                 serde_json::from_str::<ClientFeaturesDelta>(&event.data).unwrap(),
                                 initial_event
                             );
-                            println!("Connected event received; features match expected");
+                            println!("unleash-connected event received; features match expected");
                             break;
                         }
                         e => {
@@ -128,13 +130,14 @@ mod streaming_test {
             // If the test times out, kill the app process and fail the test
             edge.kill().expect("Failed to kill the app process");
             edge.wait().expect("Failed to wait for the app process");
-            panic!("Test timed out waiting for connected event");
+            panic!("Test timed out waiting for unleash-connected event");
         }
 
         let update_events = vec![DeltaEvent::FeatureUpdated {
             event_id: 3,
             feature: ClientFeature {
                 name: "feature1".to_string(),
+                project: Some("dx".to_string()),
                 enabled: true,
                 ..Default::default()
             },
@@ -149,14 +152,13 @@ mod streaming_test {
                         eventsource_client::SSE::Event(event)
                             if event.event_type == "unleash-updated" =>
                         {
-                            // TODO: uncomment when we can filter by id
-                            // assert_eq!(
-                            //     serde_json::from_str::<ClientFeaturesDelta>(&event.data).unwrap(),
-                            //     ClientFeaturesDelta {
-                            //         events: update_events
-                            //     }
-                            // );
-                            println!("Updated event received;");
+                            assert_eq!(
+                                serde_json::from_str::<ClientFeaturesDelta>(&event.data).unwrap(),
+                                ClientFeaturesDelta {
+                                    events: update_events
+                                }
+                            );
+                            println!("unleash-updated event received;");
                             break;
                         }
                         e => {
@@ -174,7 +176,7 @@ mod streaming_test {
             // If the test times out, kill the app process and fail the test
             edge.kill().expect("Failed to kill the app process");
             edge.wait().expect("Failed to wait for the app process");
-            panic!("Test timed out waiting for update event");
+            panic!("Test timed out waiting for unleash-updated event");
         }
 
         edge.kill().expect("Failed to kill the app process");

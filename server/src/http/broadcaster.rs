@@ -175,11 +175,7 @@ impl Broadcaster {
             .and_then(|features| sse::Data::new_json(&features).map_err(|e| e.into()));
 
         if let Ok(sse_data) = event_data {
-            tx.send(
-                sse_data
-                    .event("unleash-connected")
-                    .into(),
-            ).await?;
+            tx.send(sse_data.event("unleash-connected").into()).await?;
         } else if let Err(e) = event_data {
             warn!("Failed to broadcast hydration event: {:?}", e);
         }
@@ -203,7 +199,6 @@ impl Broadcaster {
                 }],
             });
 
-
         Ok(rx)
     }
 
@@ -213,7 +208,7 @@ impl Broadcaster {
         } else {
             FeatureFilterSet::default()
         }
-            .with_filter(project_filter_from_projects(query.projects.clone()));
+        .with_filter(project_filter_from_projects(query.projects.clone()));
         filter_set
     }
 
@@ -367,8 +362,8 @@ mod test {
                 }
             }
         })
-            .await
-            .is_err()
+        .await
+        .is_err()
         {
             panic!("Test timed out waiting for update event");
         }
@@ -392,7 +387,7 @@ mod test {
                 }
             }
         })
-            .await;
+        .await;
 
         assert!(result.is_err());
     }
