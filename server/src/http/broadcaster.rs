@@ -5,7 +5,7 @@ use crate::delta_cache_manager::{DeltaCacheManager, DeltaCacheUpdate};
 use crate::{
     error::EdgeError,
     filters::{
-        filter_delta_events, name_prefix_filter, project_filter_from_projects, FeatureFilterSet,
+        name_prefix_filter, project_filter_from_projects, FeatureFilterSet,
     },
     types::{EdgeJsonResult, EdgeResult, EdgeToken},
 };
@@ -21,6 +21,7 @@ use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::{debug, warn};
 use unleash_types::client_features::{ClientFeaturesDelta, DeltaEvent, Query};
+use crate::delta_filters::{combined_filter, DeltaFilterSet, filter_delta_events};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct StreamingQuery {
@@ -227,13 +228,18 @@ impl Broadcaster {
 
     async fn resolve_delta_cache_data(
         &self,
-        _last_event_id: Option<u32>,
+        last_event_id: u32,
         query: StreamingQuery,
     ) -> EdgeJsonResult<ClientFeaturesDelta> {
         let filter_set = Broadcaster::get_query_filters(&query);
+        let delta_filter_set = DeltaFilterSet::default().with_filter(combined_filter(
+            last_event_id,
+            query.projects.clone(),
+            query.name_prefix.clone(),
+        ));
         let delta_cache = self.delta_cache_manager.get(&query.environment);
         match delta_cache {
-            Some(delta_cache) => Ok(Json(filter_delta_events(&delta_cache, &filter_set))),
+            Some(delta_cache) => Ok(Json(filter_delta_events(&delta_cache, &filter_set, &delta_filter_set, last_event_id))),
             None => {
                 // Note: this is a simplification for now, using the following assumptions:
                 // 1. We'll only allow streaming in strict mode
@@ -286,7 +292,7 @@ impl Broadcaster {
 
             for client in &mut group.clients {
                 let event_data = self
-                    .resolve_delta_cache_data(Some(client.current_revision), query.clone())
+                    .resolve_delta_cache_data(client.current_revision, query.clone())
                     .await
                     .and_then(|features| sse::Data::new_json(&features).map_err(|e| e.into()));
 
@@ -341,7 +347,7 @@ mod test {
         let max_length = 5;
         let delta_cache = DeltaCache::new(hydration, max_length);
         for env in &[env_with_updates, env_without_updates] {
-            delta_cache_manager.insert_cache(env.to_string(), delta_cache.clone());
+            delta_cache_manager.insert_cache(env, delta_cache.clone());
         }
 
         let mut rx = broadcaster

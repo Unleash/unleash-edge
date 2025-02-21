@@ -39,9 +39,9 @@ impl DeltaCacheManager {
         self.caches.get(env).map(|entry| entry.value().clone())
     }
 
-    pub fn insert_cache(&self, env: String, cache: DeltaCache) {
-        self.caches.insert(env.clone(), cache);
-        let _ = self.update_sender.send(DeltaCacheUpdate::Full(env));
+    pub fn insert_cache(&self, env: &str, cache: DeltaCache) {
+        self.caches.insert(env.to_string(), cache);
+        let _ = self.update_sender.send(DeltaCacheUpdate::Full(env.to_string()));
     }
 
     pub fn update_cache(&self, env: &str, events: &[DeltaEvent]) {
@@ -69,7 +69,6 @@ mod tests {
 
     #[test]
     fn test_insert_and_update_delta_cache() {
-        // Create a dummy hydration event.
         let hydration = DeltaHydrationEvent {
             event_id: 1,
             features: vec![ClientFeature {
@@ -88,7 +87,7 @@ mod tests {
 
         let mut rx = delta_cache_manager.subscribe();
 
-        delta_cache_manager.insert_cache(env.to_string(), delta_cache);
+        delta_cache_manager.insert_cache(env, delta_cache);
 
         match rx.try_recv() {
             Ok(DeltaCacheUpdate::Full(e)) => assert_eq!(e, env),
@@ -126,19 +125,18 @@ mod tests {
             segments: vec![],
         };
         let delta_cache = DeltaCache::new(hydration, 3);
-        let container = DeltaCacheManager::new();
+        let delta_cache_manager = DeltaCacheManager::new();
         let env = "remove-env";
 
-        container.insert_cache(env.to_string(), delta_cache);
-        let mut rx = container.subscribe();
-        // Consume the Full update.
+        delta_cache_manager.insert_cache(env, delta_cache);
+        let mut rx = delta_cache_manager.subscribe();
         let _ = rx.try_recv();
 
-        container.remove_cache(env);
+        delta_cache_manager.remove_cache(env);
         match rx.try_recv() {
             Ok(DeltaCacheUpdate::Deletion(e)) => assert_eq!(e, env),
             e => panic!("Expected Deletion update, got {:?}", e),
         }
-        assert!(container.get(env).is_none());
+        assert!(delta_cache_manager.get(env).is_none());
     }
 }

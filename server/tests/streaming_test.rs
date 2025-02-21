@@ -53,7 +53,7 @@ mod streaming_test {
             },
             10,
         );
-        delta_cache_manager.insert_cache(cache_key(&upstream_known_token), delta_cache);
+        delta_cache_manager.insert_cache(&cache_key(&upstream_known_token), delta_cache);
 
         let mut edge = Command::new("./../target/debug/unleash-edge")
             .arg("edge")

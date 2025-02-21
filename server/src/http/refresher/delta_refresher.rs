@@ -45,7 +45,7 @@ impl FeatureRefresher {
         }) = delta.events.clone().into_iter().next()
         {
             self.delta_cache_manager.insert_cache(
-                key.clone(),
+                &key,
                 DeltaCache::new(
                     DeltaHydrationEvent {
                         event_id,
@@ -391,7 +391,7 @@ mod tests {
                     DeltaEvent::FeatureRemoved {
                         event_id: 2,
                         feature_name: "test2".to_string(),
-                        project: "default".to_string()
+                        project: "default".to_string(),
                     },
                 ],
             },

@@ -1,10 +1,22 @@
 use std::collections::HashSet;
 use std::{sync::Arc, time::Duration};
 
-use crate::delta_cache_manager::DeltaCacheManager;
+use actix_web::http::header::EntityTag;
+use chrono::Utc;
+use dashmap::DashMap;
+use eventsource_client::Client;
+use futures::TryStreamExt;
+use json_structural_diff::JsonDiff;
+use reqwest::StatusCode;
+use tracing::{debug, info, warn};
+use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta, DeltaEvent};
+use unleash_types::client_metrics::{ClientApplication, MetricsMetadata};
+use unleash_yggdrasil::{EngineState, UpdateMessage};
+
+use crate::delta_filters::{filter_delta_events, DeltaFilterSet};
 use crate::error::{EdgeError, FeatureError};
 use crate::feature_cache::FeatureCache;
-use crate::filters::{filter_client_features, filter_delta_events, FeatureFilterSet};
+use crate::filters::{filter_client_features, FeatureFilterSet};
 use crate::http::headers::{
     UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_INSTANCE_ID_HEADER,
 };
@@ -17,17 +29,7 @@ use crate::{
     tokens::{cache_key, simplify},
     types::{ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenRefresh},
 };
-use actix_web::http::header::EntityTag;
-use chrono::Utc;
-use dashmap::DashMap;
-use eventsource_client::Client;
-use futures::TryStreamExt;
-use json_structural_diff::JsonDiff;
-use reqwest::StatusCode;
-use tracing::{debug, info, warn};
-use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta, DeltaEvent};
-use unleash_types::client_metrics::{ClientApplication, MetricsMetadata};
-use unleash_yggdrasil::{EngineState, UpdateMessage};
+use crate::delta_cache_manager::DeltaCacheManager;
 
 fn frontend_token_is_covered_by_tokens(
     frontend_token: &EdgeToken,
@@ -255,9 +257,11 @@ impl FeatureRefresher {
     pub(crate) async fn delta_events_for_filter(
         &self,
         token: EdgeToken,
-        filters: &FeatureFilterSet,
+        feature_filters: &FeatureFilterSet,
+        delta_filters: &DeltaFilterSet,
+        revision: u32,
     ) -> EdgeResult<ClientFeaturesDelta> {
-        match self.get_delta_events_by_filter(&token, filters) {
+        match self.get_delta_events_by_filter(&token, feature_filters, delta_filters, revision) {
             Some(features) if self.token_is_subsumed(&token) => Ok(features),
             _ => {
                 if self.strict {
@@ -268,7 +272,7 @@ impl FeatureRefresher {
                         "Dynamic behavior: Had never seen this environment. Configuring fetcher"
                     );
                     self.register_and_hydrate_token(&token).await;
-                    self.get_delta_events_by_filter(&token, filters).ok_or_else(|| {
+                    self.get_delta_events_by_filter(&token, feature_filters, delta_filters, revision).ok_or_else(|| {
                         EdgeError::ClientHydrationFailed(
                             "Failed to get delta events by filter after registering and hydrating token (This is very likely an error in Edge. Please report this!)"
                                 .into(),
@@ -292,11 +296,13 @@ impl FeatureRefresher {
     fn get_delta_events_by_filter(
         &self,
         token: &EdgeToken,
-        filters: &FeatureFilterSet,
+        feature_filters: &FeatureFilterSet,
+        delta_filters: &DeltaFilterSet,
+        revision: u32,
     ) -> Option<ClientFeaturesDelta> {
-        self.delta_cache_manager
-            .get(&cache_key(token))
-            .map(|delta_events| filter_delta_events(&delta_events, filters))
+        self.delta_cache_manager.get(&cache_key(token)).map(|delta_events| {
+            filter_delta_events(&delta_events, feature_filters, delta_filters, revision)
+        })
     }
 
     ///

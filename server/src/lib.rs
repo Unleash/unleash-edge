@@ -5,6 +5,7 @@ pub mod builder;
 pub mod cli;
 pub mod client_api;
 pub mod delta_cache;
+pub mod delta_filters;
 pub mod delta_cache_manager;
 pub mod edge_api;
 #[cfg(not(tarpaulin_include))]
@@ -29,6 +30,7 @@ pub mod tls;
 pub mod tokens;
 pub mod types;
 pub mod urls;
+
 #[cfg(test)]
 mod tests {
     use std::fs;
