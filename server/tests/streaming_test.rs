@@ -156,7 +156,7 @@ mod streaming_test {
                             //         events: update_events
                             //     }
                             // );
-                            println!("Updated event received; features match expected");
+                            println!("Updated event received;");
                             break;
                         }
                         e => {

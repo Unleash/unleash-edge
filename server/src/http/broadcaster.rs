@@ -1,6 +1,5 @@
 use std::{hash::Hash, sync::Arc, time::Duration};
 
-use crate::delta_cache::DeltaHydrationEvent;
 use crate::delta_cache_manager::{DeltaCacheManager, DeltaCacheUpdate};
 use crate::delta_filters::{combined_filter, filter_delta_events, DeltaFilterSet};
 use crate::{
@@ -19,7 +18,7 @@ use prometheus::{register_int_gauge, IntGauge};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::{debug, warn};
-use unleash_types::client_features::{ClientFeaturesDelta, DeltaEvent, Query};
+use unleash_types::client_features::{ClientFeaturesDelta, Query};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct StreamingQuery {
@@ -170,18 +169,22 @@ impl Broadcaster {
     ) -> EdgeResult<mpsc::Receiver<sse::Event>> {
         let (tx, rx) = mpsc::channel(10);
 
-        let hydration_event = self
-            .resolve_delta_cache_hydration_event(query.clone())
-            .await?;
-        let event_id = hydration_event.get_event_id();
-        tx.send(
-            sse::Data::new_json(Json(ClientFeaturesDelta {
-                events: vec![hydration_event],
-            }))?
-            .event("unleash-connected")
-            .into(),
-        )
-        .await?;
+        let event_data = self
+            .resolve_delta_cache_data(0, query.clone())
+            .await
+            .and_then(|features| sse::Data::new_json(&features).map_err(|e| e.into()));
+
+        if let Ok(sse_data) = event_data {
+            tx.send(
+                sse_data
+                    .event("unleash-connected")
+                    .into(),
+            ).await?;
+        } else if let Err(e) = event_data {
+            warn!("Failed to broadcast hydration event: {:?}", e);
+        }
+
+        let event_id = self.resolve_last_event_id(query.clone()).await;
 
         self.active_connections
             .entry(query)
@@ -189,16 +192,17 @@ impl Broadcaster {
                 group.clients.push(ClientData {
                     token: token.into(),
                     sender: tx.clone(),
-                    current_revision: event_id,
+                    current_revision: event_id.unwrap_or(0),
                 });
             })
             .or_insert(ClientGroup {
                 clients: vec![ClientData {
                     token: token.into(),
                     sender: tx.clone(),
-                    current_revision: event_id,
+                    current_revision: event_id.unwrap_or(0),
                 }],
             });
+
 
         Ok(rx)
     }
@@ -209,7 +213,7 @@ impl Broadcaster {
         } else {
             FeatureFilterSet::default()
         }
-        .with_filter(project_filter_from_projects(query.projects.clone()));
+            .with_filter(project_filter_from_projects(query.projects.clone()));
         filter_set
     }
 
@@ -250,33 +254,6 @@ impl Broadcaster {
                 // If both of these are true, then we should never hit this case (if Thomas's understanding is correct).
                 Err(EdgeError::AuthorizationDenied)
             }
-        }
-    }
-
-    async fn resolve_delta_cache_hydration_event(
-        &self,
-        query: StreamingQuery,
-    ) -> Result<DeltaEvent, EdgeError> {
-        // do we need filter_set for hydration event?
-        let _filter_set = Broadcaster::get_query_filters(&query);
-        let delta_cache = self.delta_cache_manager.get(&query.environment);
-        match delta_cache {
-            Some(delta_cache) => {
-                let hydration_event = delta_cache.get_hydration_event();
-                let DeltaHydrationEvent {
-                    event_id,
-                    features,
-                    segments,
-                } = hydration_event;
-                let serialized_event = DeltaEvent::Hydration {
-                    event_id: event_id.to_owned(),
-                    features: features.to_owned(),
-                    segments: segments.to_owned(),
-                };
-
-                Ok(serialized_event)
-            }
-            None => Err(EdgeError::AuthorizationDenied),
         }
     }
 
@@ -390,8 +367,8 @@ mod test {
                 }
             }
         })
-        .await
-        .is_err()
+            .await
+            .is_err()
         {
             panic!("Test timed out waiting for update event");
         }
@@ -415,7 +392,7 @@ mod test {
                 }
             }
         })
-        .await;
+            .await;
 
         assert!(result.is_err());
     }
