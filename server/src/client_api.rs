@@ -225,7 +225,12 @@ async fn resolve_delta(
     let (validated_token, filter_set, ..) =
         get_feature_filter(&edge_token, &token_cache, filter_query.clone())?;
 
-    let delta_filter_set = get_delta_filter(&edge_token, &token_cache, filter_query.clone(), requested_revision_id)?;
+    let delta_filter_set = get_delta_filter(
+        &edge_token,
+        &token_cache,
+        filter_query.clone(),
+        requested_revision_id,
+    )?;
 
     let current_sdk_revision_id = requested_revision_id + 1; // TODO: get from delta manager
     if requested_revision_id >= current_sdk_revision_id {

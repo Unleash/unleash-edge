@@ -13,6 +13,7 @@ use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta, DeltaE
 use unleash_types::client_metrics::{ClientApplication, MetricsMetadata};
 use unleash_yggdrasil::{EngineState, UpdateMessage};
 
+use crate::delta_cache_manager::DeltaCacheManager;
 use crate::delta_filters::{filter_delta_events, DeltaFilterSet};
 use crate::error::{EdgeError, FeatureError};
 use crate::feature_cache::FeatureCache;
@@ -29,7 +30,6 @@ use crate::{
     tokens::{cache_key, simplify},
     types::{ClientFeaturesRequest, ClientFeaturesResponse, EdgeToken, TokenRefresh},
 };
-use crate::delta_cache_manager::DeltaCacheManager;
 
 fn frontend_token_is_covered_by_tokens(
     frontend_token: &EdgeToken,
@@ -300,9 +300,11 @@ impl FeatureRefresher {
         delta_filters: &DeltaFilterSet,
         revision: u32,
     ) -> Option<ClientFeaturesDelta> {
-        self.delta_cache_manager.get(&cache_key(token)).map(|delta_events| {
-            filter_delta_events(&delta_events, feature_filters, delta_filters, revision)
-        })
+        self.delta_cache_manager
+            .get(&cache_key(token))
+            .map(|delta_events| {
+                filter_delta_events(&delta_events, feature_filters, delta_filters, revision)
+            })
     }
 
     ///

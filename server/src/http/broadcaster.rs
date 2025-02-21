@@ -2,11 +2,10 @@ use std::{hash::Hash, sync::Arc, time::Duration};
 
 use crate::delta_cache::DeltaHydrationEvent;
 use crate::delta_cache_manager::{DeltaCacheManager, DeltaCacheUpdate};
+use crate::delta_filters::{combined_filter, filter_delta_events, DeltaFilterSet};
 use crate::{
     error::EdgeError,
-    filters::{
-        name_prefix_filter, project_filter_from_projects, FeatureFilterSet,
-    },
+    filters::{name_prefix_filter, project_filter_from_projects, FeatureFilterSet},
     types::{EdgeJsonResult, EdgeResult, EdgeToken},
 };
 use actix_web::{rt::time::interval, web::Json};
@@ -21,7 +20,6 @@ use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::{debug, warn};
 use unleash_types::client_features::{ClientFeaturesDelta, DeltaEvent, Query};
-use crate::delta_filters::{combined_filter, DeltaFilterSet, filter_delta_events};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct StreamingQuery {
@@ -239,7 +237,12 @@ impl Broadcaster {
         ));
         let delta_cache = self.delta_cache_manager.get(&query.environment);
         match delta_cache {
-            Some(delta_cache) => Ok(Json(filter_delta_events(&delta_cache, &filter_set, &delta_filter_set, last_event_id))),
+            Some(delta_cache) => Ok(Json(filter_delta_events(
+                &delta_cache,
+                &filter_set,
+                &delta_filter_set,
+                last_event_id,
+            ))),
             None => {
                 // Note: this is a simplification for now, using the following assumptions:
                 // 1. We'll only allow streaming in strict mode

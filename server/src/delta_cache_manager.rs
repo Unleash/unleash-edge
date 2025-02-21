@@ -41,7 +41,9 @@ impl DeltaCacheManager {
 
     pub fn insert_cache(&self, env: &str, cache: DeltaCache) {
         self.caches.insert(env.to_string(), cache);
-        let _ = self.update_sender.send(DeltaCacheUpdate::Full(env.to_string()));
+        let _ = self
+            .update_sender
+            .send(DeltaCacheUpdate::Full(env.to_string()));
     }
 
     pub fn update_cache(&self, env: &str, events: &[DeltaEvent]) {
