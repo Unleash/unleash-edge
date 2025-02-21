@@ -162,6 +162,7 @@ mod tests {
             DeltaEvent::FeatureRemoved {
                 event_id: 4,
                 feature_name: "test-flag".to_string(),
+                project: "default".to_string(),
             },
             DeltaEvent::SegmentUpdated {
                 event_id: 5,
