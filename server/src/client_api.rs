@@ -225,7 +225,12 @@ async fn resolve_delta(
     let (validated_token, filter_set, ..) =
         get_feature_filter(&edge_token, &token_cache, filter_query.clone())?;
 
-    let delta_filter_set = get_delta_filter(&edge_token, &token_cache, filter_query.clone(), requested_revision_id)?;
+    let delta_filter_set = get_delta_filter(
+        &edge_token,
+        &token_cache,
+        filter_query.clone(),
+        requested_revision_id,
+    )?;
 
     let current_sdk_revision_id = requested_revision_id + 1; // TODO: get from delta manager
     if requested_revision_id >= current_sdk_revision_id {
@@ -441,7 +446,7 @@ mod tests {
 
     use crate::auth::token_validator::TokenValidator;
     use crate::cli::{OfflineArgs, TokenHeader};
-    use crate::delta_cache::DeltaCache;
+    use crate::delta_cache_manager::DeltaCacheManager;
     use crate::http::unleash_client::{ClientMetaInformation, UnleashClient};
     use crate::middleware;
     use crate::tests::{features_from_disk, upstream_server};
@@ -820,13 +825,13 @@ mod tests {
         token.token_type = Some(TokenType::Client);
         let upstream_token_cache = Arc::new(DashMap::default());
         let upstream_features_cache = Arc::new(FeatureCache::default());
-        let upstream_delta_cache = Arc::new(DashMap::default());
+        let upstream_delta_cache_manager = Arc::new(DeltaCacheManager::new());
         let upstream_engine_cache = Arc::new(DashMap::default());
         upstream_token_cache.insert(token.token.clone(), token.clone());
         let srv = upstream_server(
             upstream_token_cache,
             upstream_features_cache,
-            upstream_delta_cache,
+            upstream_delta_cache_manager,
             upstream_engine_cache,
         )
         .await;
@@ -861,13 +866,13 @@ mod tests {
         frontend_token.token_type = Some(TokenType::Frontend);
         let upstream_token_cache = Arc::new(DashMap::default());
         let upstream_features_cache = Arc::new(FeatureCache::default());
-        let upstream_delta_cache = Arc::new(DashMap::default());
+        let upstream_delta_cache_manager = Arc::new(DeltaCacheManager::new());
         let upstream_engine_cache = Arc::new(DashMap::default());
         upstream_token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
         let srv = upstream_server(
             upstream_token_cache,
             upstream_features_cache,
-            upstream_delta_cache,
+            upstream_delta_cache_manager,
             upstream_engine_cache,
         )
         .await;
@@ -1129,12 +1134,12 @@ mod tests {
     async fn calling_client_features_endpoint_with_new_token_hydrates_from_upstream_when_dynamic() {
         let upstream_features_cache = Arc::new(FeatureCache::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
-        let upstream_delta_cache: Arc<DashMap<String, DeltaCache>> = Arc::new(DashMap::default());
+        let delta_cache_manager: Arc<DeltaCacheManager> = Arc::new(DeltaCacheManager::new());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let server = upstream_server(
             upstream_token_cache.clone(),
             upstream_features_cache.clone(),
-            upstream_delta_cache.clone(),
+            delta_cache_manager.clone(),
             upstream_engine_cache.clone(),
         )
         .await;
@@ -1149,13 +1154,14 @@ mod tests {
         upstream_features_cache.insert(cache_key(&upstream_known_token), upstream_features.clone());
         let unleash_client = Arc::new(UnleashClient::new(server.url("/").as_str(), None).unwrap());
         let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
+        let delta_cache_manager: Arc<DeltaCacheManager> = Arc::new(DeltaCacheManager::new());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let feature_refresher = Arc::new(FeatureRefresher {
             unleash_client: unleash_client.clone(),
             tokens_to_refresh: Arc::new(Default::default()),
             features_cache: features_cache.clone(),
-            delta_cache: Arc::new(Default::default()),
+            delta_cache_manager: delta_cache_manager.clone(),
             engine_cache: engine_cache.clone(),
             refresh_interval: Duration::seconds(6000),
             persistence: None,
@@ -1196,12 +1202,13 @@ mod tests {
     async fn calling_client_features_endpoint_with_new_token_does_not_hydrate_when_strict() {
         let upstream_features_cache = Arc::new(FeatureCache::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
-        let upstream_delta_cache: Arc<DashMap<String, DeltaCache>> = Arc::new(DashMap::default());
+        let upstream_delta_cache_manager: Arc<DeltaCacheManager> =
+            Arc::new(DeltaCacheManager::new());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let server = upstream_server(
             upstream_token_cache.clone(),
             upstream_features_cache.clone(),
-            upstream_delta_cache.clone(),
+            upstream_delta_cache_manager.clone(),
             upstream_engine_cache.clone(),
         )
         .await;
@@ -1320,12 +1327,13 @@ mod tests {
     {
         let upstream_features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
-        let upstream_delta_cache: Arc<DashMap<String, DeltaCache>> = Arc::new(DashMap::default());
+        let upstream_delta_cache_manager: Arc<DeltaCacheManager> =
+            Arc::new(DeltaCacheManager::new());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let server = upstream_server(
             upstream_token_cache.clone(),
             upstream_features_cache.clone(),
-            upstream_delta_cache.clone(),
+            upstream_delta_cache_manager.clone(),
             upstream_engine_cache.clone(),
         )
         .await;

@@ -1,5 +1,6 @@
 use dashmap::DashMap;
 use tokio::sync::broadcast;
+use tracing::error;
 use unleash_types::client_features::DeltaEvent;
 
 use crate::delta_cache::DeltaCache;
@@ -41,15 +42,20 @@ impl DeltaCacheManager {
 
     pub fn insert_cache(&self, env: &str, cache: DeltaCache) {
         self.caches.insert(env.to_string(), cache);
-        let _ = self.update_sender.send(DeltaCacheUpdate::Full(env.to_string()));
+        let _ = self
+            .update_sender
+            .send(DeltaCacheUpdate::Full(env.to_string()));
     }
 
     pub fn update_cache(&self, env: &str, events: &[DeltaEvent]) {
         if let Some(mut cache) = self.caches.get_mut(env) {
             cache.add_events(events);
-            let _ = self
+            let result = self
                 .update_sender
                 .send(DeltaCacheUpdate::Update(env.to_string()));
+            if let Err(e) = result {
+                error!("Unexpected broadcast error: {:#?}", e);
+            }
         }
     }
 
