@@ -2824,7 +2824,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
    our known tokens are still valid will go a long way towards mitigating
    this.
    
-   * task: Make feature_refresher remove tokens/caches.
+   * task: Make k remove tokens/caches.
    
    When unleash_client receives forbidden from upstream, feature_refresher
    will now remove the token to refresh from its cache. If the token is the
