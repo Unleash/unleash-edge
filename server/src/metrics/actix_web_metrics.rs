@@ -2,6 +2,7 @@ use actix_http::header::CONTENT_LENGTH;
 use actix_web::dev;
 use actix_web::dev::ServiceRequest;
 use actix_web::http::{Method, StatusCode, Version};
+use actix_web::web::Data;
 use futures::{future, FutureExt};
 use futures_core::future::LocalBoxFuture;
 use opentelemetry::metrics::{Histogram, Meter, MeterProvider, UpDownCounter};
@@ -15,6 +16,8 @@ use std::sync::Arc;
 use std::time::SystemTime;
 
 use crate::metrics::route_formatter::RouteFormatter;
+
+use super::edge_metrics::EdgeInstanceData;
 const HTTP_SERVER_ACTIVE_REQUESTS: &str = "http.server.active_requests";
 const HTTP_SERVER_DURATION: &str = "http.server.duration";
 const HTTP_SERVER_REQUEST_SIZE: &str = "http.server.request.size";
@@ -267,6 +270,7 @@ where
         }
 
         let mut attributes = metrics_attributes_from_request(&req, &http_target);
+        let edge_instance_data = req.app_data::<Data<EdgeInstanceData>>().cloned();
         self.metrics.http_server_active_requests.add(1, &attributes);
 
         let content_length = req
@@ -310,6 +314,14 @@ where
                 timer.elapsed().map(|t| t.as_secs_f64()).unwrap_or_default(),
                 &attributes,
             );
+            if let Some(instance_data) = edge_instance_data {
+                if let Some(endpoint) = super::edge_metrics::DESIRED_URLS
+                    .into_iter()
+                    .find(|u| http_target.ends_with(u))
+                {
+                    instance_data.observe_request(endpoint, status_code);
+                }
+            }
 
             res
         }))

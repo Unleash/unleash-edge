@@ -12,5 +12,5 @@ export const options = {
 };
 
 export default function () {
-  http.get('http://127.0.0.1:3063/api/client/features', { 'headers': { 'Authorization': `${__ENV.TOKEN}` } });
+  http.get('http://127.0.0.1:3063/ourdemo/api/client/features', { 'headers': { 'Authorization': `${__ENV.TOKEN}` } });
 }

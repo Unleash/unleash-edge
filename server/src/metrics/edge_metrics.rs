@@ -1,5 +1,6 @@
 use ahash::HashMap;
 use chrono::{DateTime, Utc};
+use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use ulid::Ulid;
 use utoipa::ToSchema;
@@ -47,7 +48,14 @@ pub struct UpstreamLatency {
     pub edge: LatencyMetrics,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
+#[derive(Debug, Default, Clone, Deserialize, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RequestStats {
+    pub requests_200: u64,
+    pub requests_304: u64,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EdgeInstanceData {
     pub identifier: String,
@@ -58,6 +66,7 @@ pub struct EdgeInstanceData {
     pub started: DateTime<Utc>,
     pub traffic: InstanceTraffic,
     pub latency_upstream: UpstreamLatency,
+    pub requests_since_last_report: DashMap<String, RequestStats>,
     pub connected_streaming_clients: u64,
     pub connected_edges: Vec<EdgeInstanceData>,
 }
@@ -76,6 +85,25 @@ impl EdgeInstanceData {
             latency_upstream: UpstreamLatency::default(),
             connected_edges: vec![],
             connected_streaming_clients: 0,
+            requests_since_last_report: DashMap::default(),
+        }
+    }
+
+    pub fn observe_request(&self, http_target: &str, status_code: i64) {
+        match status_code {
+            200 => {
+                self.requests_since_last_report
+                    .entry(http_target.to_string())
+                    .or_insert(RequestStats::default())
+                    .requests_200 += 1
+            }
+            304 => {
+                self.requests_since_last_report
+                    .entry(http_target.to_string())
+                    .or_insert(RequestStats::default())
+                    .requests_304 += 1
+            }
+            _ => {}
         }
     }
 
