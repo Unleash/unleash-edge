@@ -94,13 +94,13 @@ impl EdgeInstanceData {
             200 => {
                 self.requests_since_last_report
                     .entry(http_target.to_string())
-                    .or_insert(RequestStats::default())
+                    .or_default()
                     .requests_200 += 1
             }
             304 => {
                 self.requests_since_last_report
                     .entry(http_target.to_string())
-                    .or_insert(RequestStats::default())
+                    .or_default()
                     .requests_304 += 1
             }
             _ => {}
