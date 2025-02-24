@@ -76,7 +76,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let internal_backstage_args = args.internal_backstage.clone();
 
     let (
-        (token_cache, features_cache, delta_cache, engine_cache),
+        (token_cache, features_cache, delta_cache_manager, engine_cache),
         token_validator,
         feature_refresher,
         persistence,
@@ -104,7 +104,7 @@ async fn main() -> Result<(), anyhow::Error> {
         Arc::new(RwLock::new(Vec::new()));
     let downstream_instance_data = instances_observed_for_app_context.clone();
 
-    let broadcaster = Broadcaster::new(features_cache.clone());
+    let broadcaster = Broadcaster::new(delta_cache_manager.clone());
 
     let server = HttpServer::new(move || {
         let qs_config =
@@ -119,7 +119,7 @@ async fn main() -> Result<(), anyhow::Error> {
             .app_data(web::Data::new(connect_via.clone()))
             .app_data(web::Data::from(metrics_cache.clone()))
             .app_data(web::Data::from(token_cache.clone()))
-            .app_data(web::Data::from(delta_cache.clone()))
+            .app_data(web::Data::from(delta_cache_manager.clone()))
             .app_data(web::Data::from(features_cache.clone()))
             .app_data(web::Data::from(engine_cache.clone()))
             .app_data(web::Data::from(broadcaster.clone()))

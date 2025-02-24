@@ -204,7 +204,7 @@ mod tests {
     use unleash_yggdrasil::EngineState;
 
     use crate::auth::token_validator::TokenValidator;
-    use crate::delta_cache::DeltaCache;
+    use crate::delta_cache_manager::DeltaCacheManager;
     use crate::feature_cache::FeatureCache;
     use crate::http::refresher::feature_refresher::FeatureRefresher;
     use crate::http::unleash_client::UnleashClient;
@@ -337,7 +337,7 @@ mod tests {
         let upstream_server = upstream_server(
             Arc::new(DashMap::default()),
             Arc::new(FeatureCache::default()),
-            Arc::new(DashMap::default()),
+            Arc::new(DeltaCacheManager::new()),
             Arc::new(DashMap::default()),
         )
         .await;
@@ -378,12 +378,13 @@ mod tests {
     async fn returns_validated_tokens_when_dynamic() {
         let upstream_features_cache = Arc::new(FeatureCache::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
-        let upstream_delta_cache: Arc<DashMap<String, DeltaCache>> = Arc::new(DashMap::default());
+        let upstream_delta_cache_manager: Arc<DeltaCacheManager> =
+            Arc::new(DeltaCacheManager::new());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let server = upstream_server(
             upstream_token_cache.clone(),
             upstream_features_cache.clone(),
-            upstream_delta_cache.clone(),
+            upstream_delta_cache_manager.clone(),
             upstream_engine_cache.clone(),
         )
         .await;
@@ -451,12 +452,13 @@ mod tests {
     async fn returns_validated_tokens_when_strict() {
         let upstream_features_cache = Arc::new(FeatureCache::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
-        let upstream_delta_cache: Arc<DashMap<String, DeltaCache>> = Arc::new(DashMap::default());
+        let upstream_delta_cache_manager: Arc<DeltaCacheManager> =
+            Arc::new(DeltaCacheManager::new());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let server = upstream_server(
             upstream_token_cache.clone(),
             upstream_features_cache.clone(),
-            upstream_delta_cache.clone(),
+            upstream_delta_cache_manager.clone(),
             upstream_engine_cache.clone(),
         )
         .await;
