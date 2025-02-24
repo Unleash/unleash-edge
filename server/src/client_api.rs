@@ -232,11 +232,6 @@ async fn resolve_delta(
         requested_revision_id,
     )?;
 
-    let current_sdk_revision_id = requested_revision_id + 1; // TODO: get from delta manager
-    if requested_revision_id >= current_sdk_revision_id {
-        return Ok(Json(None));
-    }
-
     let refresher = req.app_data::<Data<FeatureRefresher>>().ok_or_else(|| {
         EdgeError::ClientHydrationFailed(
             "FeatureRefresher is missing - cannot resolve delta in offline mode".to_string(),
@@ -1168,6 +1163,7 @@ mod tests {
         upstream_features_cache.insert(cache_key(&upstream_known_token), upstream_features.clone());
         let unleash_client = Arc::new(UnleashClient::new(server.url("/").as_str(), None).unwrap());
         let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
+        let delta_cache_manager: Arc<DeltaCacheManager> = Arc::new(DeltaCacheManager::new());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let feature_refresher = Arc::new(FeatureRefresher {
@@ -1559,7 +1555,7 @@ mod tests {
     }
 
 
-    async fn setup_delta_test() -> (
+    async fn setup_delta_test(initial_event_id: u32) -> (
         Arc<FeatureRefresher>,
         Arc<DashMap<String, EdgeToken>>,
         EdgeToken,
@@ -1592,7 +1588,7 @@ mod tests {
         });
 
         let delta_hydration_event = DeltaHydrationEvent {
-            event_id: 10,
+            event_id: initial_event_id,
             features: vec![ClientFeature {
                 name: "feature1".to_string(),
                 project: Some("dx".to_string()),
@@ -1619,7 +1615,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_delta_endpoint_returns_hydration_event() {
-        let (_, _, token, delta_hydration_event, app) = setup_delta_test().await;
+        let (_, _, token, delta_hydration_event, app) = setup_delta_test(10).await;
         
         let req = make_delta_request_with_token(token.clone()).await;
         let res: ClientFeaturesDelta = test::call_and_read_body_json(&app, req).await;
@@ -1633,7 +1629,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_delta_endpoint_returns_not_modified_for_matching_etag() {
-        let (_, _, token, _, app) = setup_delta_test().await;
+        let (_, _, token, _, app) = setup_delta_test(10).await;
         
         let res = test::call_service(
             &app,
@@ -1645,7 +1641,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_delta_endpoint_returns_not_modified_for_newer_etag() {
-        let (_, _, token, _, app) = setup_delta_test().await;
+        let (_, _, token, _, app) = setup_delta_test(10).await;
         
         let res = test::call_service(
             &app,
@@ -1657,7 +1653,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_delta_endpoint_returns_delta_events_after_update() {
-        let (feature_refresher, _, token, _, app) = setup_delta_test().await;
+        let (feature_refresher, _, token, _, app) = setup_delta_test(10).await;
         
         let delta_event = DeltaEvent::FeatureRemoved {
             event_id: 11,
@@ -1673,5 +1669,21 @@ mod tests {
         ).await;
         
         assert_eq!(res.events.get(0).unwrap(), &delta_event);
+    }
+
+    #[tokio::test]
+    async fn test_delta_endpoint_returns_hydration_event_when_unknown_etag_lower_than_current_event_id() {
+        let (_, _, token, delta_hydration_event, app) = setup_delta_test(10).await;
+        
+        let res: ClientFeaturesDelta = test::call_and_read_body_json(
+            &app,
+            make_delta_request_with_token_and_etag(token.clone(), "8").await
+        ).await;
+                
+        assert_eq!(res.events.get(0).unwrap(), &DeltaEvent::Hydration {
+            event_id: delta_hydration_event.event_id,
+            features: delta_hydration_event.features.clone(),
+            segments: delta_hydration_event.segments.clone()
+        });
     }
 }
