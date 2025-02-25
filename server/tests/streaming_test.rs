@@ -71,7 +71,7 @@ mod streaming_test {
             .expect("Failed to start the app");
 
         // Allow edge to establish a connection with upstream and populate the cache
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 
         // let es_client = eventsource_client::ClientBuilder::for_url(&edge.url("/api/client/streaming"))
         let es_client = eventsource_client::ClientBuilder::for_url(
@@ -96,9 +96,6 @@ mod streaming_test {
         };
 
         let mut stream = es_client.stream();
-
-        // Allow SSE connection to be established
-        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 
         if tokio::time::timeout(std::time::Duration::from_secs(2), async {
             loop {

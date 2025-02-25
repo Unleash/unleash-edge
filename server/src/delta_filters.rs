@@ -83,11 +83,15 @@ fn filter_deltas(
     delta_filters: &DeltaFilterSet,
     revision: u32,
 ) -> Vec<DeltaEvent> {
-    if revision > 0 {
+    let hydration_event = delta_cache.get_hydration_event();
+    if revision > hydration_event.event_id {
+        return vec![];
+    }
+    if revision > 0 && delta_cache.has_revision(revision) {
         let events = delta_cache.get_events().clone();
         events
             .iter()
-            .filter(|delta| delta_filters.apply(delta))
+            .filter(|delta| delta_filters.apply(delta) && delta.get_event_id() >= revision)
             .cloned()
             .collect::<Vec<DeltaEvent>>()
     } else {
