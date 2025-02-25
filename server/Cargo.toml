@@ -60,7 +60,7 @@ opentelemetry_sdk = { version = "0.28.0", features = [
     "logs",
 ] }
 prometheus = { version = "0.13.4", features = ["process"] }
-prometheus-reqwest-remote-write = { version = "0.2.1" }
+prometheus-reqwest-remote-write = { version = "0.3.0" }
 prometheus-static-metric = "0.5.1"
 rand = "0.9.0"
 redis = { version = "0.29.0", features = [
@@ -71,7 +71,6 @@ redis = { version = "0.29.0", features = [
 reqwest = { version = "0.12.12", default-features = false, features = [
     "json",
     "rustls-tls",
-    "native-tls",
 ] }
 rustls = { version = "0.23.23", default-features = false, features = [
     "logging",
