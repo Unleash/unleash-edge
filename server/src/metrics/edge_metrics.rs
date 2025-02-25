@@ -107,14 +107,14 @@ impl EdgeInstanceData {
                     .entry(http_target.to_string())
                     .or_default()
                     .requests_200
-                    .fetch_add(1, Ordering::AcqRel);
+                    .fetch_add(1, Ordering::SeqCst);
             }
             304 => {
                 self.requests_since_last_report
                     .entry(http_target.to_string())
                     .or_default()
                     .requests_304
-                    .fetch_add(1, Ordering::AcqRel);
+                    .fetch_add(1, Ordering::SeqCst);
             }
             _ => {}
         }
