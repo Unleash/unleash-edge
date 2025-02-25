@@ -72,7 +72,7 @@ pub(crate) fn combined_filter(
     let segment_filter = is_segment_event_filter();
 
     Box::new(move |event| {
-        segment_filter(event)
+        (segment_filter(event) && revision_filter(event))
             || (name_filter(event) && projects_filter(event) && revision_filter(event))
     })
 }
@@ -91,7 +91,7 @@ fn filter_deltas(
         let events = delta_cache.get_events().clone();
         events
             .iter()
-            .filter(|delta| delta_filters.apply(delta) && delta.get_event_id() >= revision)
+            .filter(|delta| delta_filters.apply(delta))
             .cloned()
             .collect::<Vec<DeltaEvent>>()
     } else {
