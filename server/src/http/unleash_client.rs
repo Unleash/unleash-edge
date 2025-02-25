@@ -6,6 +6,7 @@ use std::str::FromStr;
 use actix_web::http::header::EntityTag;
 use chrono::Duration;
 use chrono::Utc;
+use iter_tools::Itertools;
 use lazy_static::lazy_static;
 use prometheus::{register_histogram_vec, register_int_gauge_vec, HistogramVec, IntGaugeVec, Opts};
 use reqwest::header::{HeaderMap, HeaderName};
@@ -129,21 +130,59 @@ pub struct UnleashClient {
     meta_info: ClientMetaInformation,
 }
 
+fn load_pkcs12(id: &ClientIdentity) -> EdgeResult<Identity> {
+    let p12_file = fs::read(id.pkcs12_identity_file.clone().unwrap()).map_err(|e| {
+        println!("Could not find PKCS#12 identity file: {}", e);
+        EdgeError::ClientCertificateError(CertificateError::Pkcs12ArchiveNotFound(format!("{e:?}")))
+    })?;
+    let keystore =
+        p12_keystore::KeyStore::from_pkcs12(&p12_file, &id.pkcs12_passphrase.clone().unwrap())
+            .map_err(|e| {
+                println!("p12 failed parsing to PFX: {}", e);
+                EdgeError::ClientCertificateError(CertificateError::Pkcs12ParseError(format!(
+                    "{e:?}"
+                )))
+            })?;
+    if let Some((s, chain)) = keystore.private_key_chain() {
+        println!("Processing {s}");
+        let mut pem = vec![];
+        pem.extend(chain.key());
+        pem.push(0x0a);
+        for cert in chain.chain() {
+            pem.extend(cert.as_der());
+            pem.push(0x0a);
+        }
+        Identity::from_pem(&pem).map_err(|e| {
+            println!("Failed to load PKCS#12 identity: {}", e);
+            EdgeError::ClientCertificateError(CertificateError::Pkcs12X509Error(format!("{e:?}")))
+        })
+    } else {
+        println!("No private key chain found");
+        Err(EdgeError::ClientCertificateError(
+            CertificateError::Pkcs12IdentityGeneration("No private key chain".to_string()),
+        ))
+    }
+}
+
 fn load_pkcs8_identity(id: &ClientIdentity) -> EdgeResult<Vec<u8>> {
     let cert = fs::read(id.pkcs8_client_certificate_file.clone().unwrap()).map_err(|e| {
+        println!("Failed to read pkcs8 client certificate file: {}", e);
         EdgeError::ClientCertificateError(CertificateError::Pem8ClientCertNotFound(format!("{e:}")))
     })?;
     let key = fs::read(id.pkcs8_client_key_file.clone().unwrap()).map_err(|e| {
+        println!("Failed to read pkcs8 client key file: {}", e);
         EdgeError::ClientCertificateError(CertificateError::Pem8ClientKeyNotFound(format!("{e:?}")))
     })?;
-    let mut combined = Vec::new();
-    combined.extend(&cert);
+    let mut combined: Vec<u8> = Vec::new();
     combined.extend(&key);
+    combined.push(0x0a);
+    combined.extend(&cert);
     Ok(combined)
 }
 
 fn load_pkcs8(id: &ClientIdentity) -> EdgeResult<Identity> {
     Identity::from_pem(&load_pkcs8_identity(id)?).map_err(|e| {
+        println!("Failed to load pkcs8 identity: {}", e);
         EdgeError::ClientCertificateError(CertificateError::Pem8IdentityGeneration(format!(
             "{e:?}"
         )))
@@ -156,17 +195,22 @@ fn build_identity(tls: Option<ClientIdentity>) -> EdgeResult<ClientBuilder> {
         |tls| {
             let req_identity = if tls.pkcs12_identity_file.is_some() {
                 // We're going to assume that we're using pkcs#12
-                //load_pkcs12(&tls)
-                Err(EdgeError::ClientCertificateError(CertificateError::Pkcs12IdentityGeneration(
-                    "Edge does not currently support PKCS#12, please convert to PEM/pkcs8 format".to_string(),
-                )))
+                println!("Loading pkcs12 identity");
+                load_pkcs12(&tls)
             } else if tls.pkcs8_client_certificate_file.is_some() {
+                println!("Loading pkcs8");
                 load_pkcs8(&tls)
             } else {
                 Err(EdgeError::ClientCertificateError(
                     CertificateError::NoCertificateFiles,
                 ))
             };
+            if let Err(e) = req_identity {
+                println!("Failed to load identity: {}", e);
+                return Err(EdgeError::ClientCertificateError(
+                    CertificateError::Pem8IdentityGeneration(format!("{e:?}")),
+                ));
+            }
             req_identity.map(|id| ClientBuilder::new().identity(id))
         },
     )
