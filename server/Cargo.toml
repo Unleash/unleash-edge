@@ -27,7 +27,7 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }
 [dependencies]
 actix-cors = "0.7.0"
 actix-http = "3.9.0"
-actix-middleware-etag = "0.4.3"
+actix-middleware-etag = "0.4.4"
 actix-service = "2.0.2"
 actix-web = { version = "4.9.0", features = ["rustls-0_23", "compress-zstd"] }
 actix-web-lab = { version = "0.23.0" }
@@ -35,14 +35,14 @@ ahash = "0.8.11"
 anyhow = "1.0.96"
 async-trait = "0.1.86"
 aws-config = { version = "1.5.16", features = ["behavior-version-latest"] }
-aws-sdk-s3 = { version = "1.76.0", features = ["behavior-version-latest"] }
+aws-sdk-s3 = { version = "1.77.0", features = ["behavior-version-latest"] }
 base64 = "0.22.1"
 chrono = { version = "0.4.39", features = ["serde"] }
 cidr = "0.3.1"
 clap = { version = "4.5.30", features = ["derive", "env"] }
 clap-markdown = "0.1.4"
 dashmap = "6.1.0"
-eventsource-client = { version = "0.13.0" }
+eventsource-client = { version = "0.14.0" }
 futures = "0.3.31"
 futures-core = "0.3.31"
 iter_tools = "0.24.0"
@@ -50,10 +50,10 @@ itertools = "0.14.0"
 json-structural-diff = "0.2.0"
 lazy_static = "1.5.0"
 num_cpus = "1.16.0"
-opentelemetry = { version = "0.27.1", features = ["trace", "metrics"] }
-opentelemetry-prometheus = "0.27.0"
+opentelemetry = { version = "0.28.0", features = ["trace", "metrics"] }
+opentelemetry-prometheus = "0.28.0"
 opentelemetry-semantic-conventions = "0.28.0"
-opentelemetry_sdk = { version = "0.27.1", features = [
+opentelemetry_sdk = { version = "0.28.0", features = [
     "metrics",
     "serde",
     "serde_json",
@@ -81,7 +81,7 @@ rustls = { version = "0.23.23", default-features = false, features = [
 rustls-pemfile = "2.2.0"
 rustls-pki-types = "1.11.0"
 semver = "1.0.25"
-serde = { version = "1.0.217", features = ["derive"] }
+serde = { version = "1.0.218", features = ["derive"] }
 serde_json = "1.0.139"
 serde_qs = { version = "0.13.0", features = ["actix4", "tracing"] }
 shadow-rs = { version = "0.38.1" }
@@ -95,8 +95,8 @@ tokio-stream = { version = "0.1.17" }
 tracing = { version = "0.1.41", features = ["log"] }
 tracing-subscriber = { version = "0.3.19", features = ["json", "env-filter"] }
 ulid = "1.2.0"
-unleash-types = { version = "0.15.8", features = ["openapi", "hashes"] }
-unleash-yggdrasil = { version = "0.17.1" }
+unleash-types = { version = "0.15.9", features = ["openapi", "hashes"] }
+unleash-yggdrasil = { version = "0.17.2" }
 utoipa = { version = "5.3.1", features = ["actix_extras", "chrono"] }
 utoipa-swagger-ui = { version = "9.0.0", features = ["actix-web"] }
 [dev-dependencies]

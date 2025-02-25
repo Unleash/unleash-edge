@@ -13,14 +13,14 @@ use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta, DeltaE
 use unleash_types::client_metrics::{ClientApplication, MetricsMetadata};
 use unleash_yggdrasil::{EngineState, UpdateMessage};
 
-use crate::delta_cache::DeltaCache;
+use crate::delta_cache_manager::DeltaCacheManager;
+use crate::delta_filters::{filter_delta_events, DeltaFilterSet};
 use crate::error::{EdgeError, FeatureError};
 use crate::feature_cache::FeatureCache;
-use crate::filters::{filter_client_features, filter_delta_events, FeatureFilterSet};
+use crate::filters::{filter_client_features, FeatureFilterSet};
 use crate::http::headers::{
     UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_INSTANCE_ID_HEADER,
 };
-use crate::http::refresher::delta_refresher::Environment;
 use crate::http::unleash_client::{ClientMetaInformation, UnleashClient};
 use crate::types::{
     build, ClientFeaturesDeltaResponse, EdgeResult, TokenType, TokenValidationStatus,
@@ -47,7 +47,7 @@ pub struct FeatureRefresher {
     pub unleash_client: Arc<UnleashClient>,
     pub tokens_to_refresh: Arc<DashMap<String, TokenRefresh>>,
     pub features_cache: Arc<FeatureCache>,
-    pub delta_cache: Arc<DashMap<Environment, DeltaCache>>,
+    pub delta_cache_manager: Arc<DeltaCacheManager>,
     pub engine_cache: Arc<DashMap<String, EngineState>>,
     pub refresh_interval: chrono::Duration,
     pub persistence: Option<Arc<dyn EdgePersistence>>,
@@ -65,7 +65,7 @@ impl Default for FeatureRefresher {
             unleash_client: Default::default(),
             tokens_to_refresh: Arc::new(DashMap::default()),
             features_cache: Arc::new(Default::default()),
-            delta_cache: Default::default(),
+            delta_cache_manager: Arc::new(DeltaCacheManager::new()),
             engine_cache: Default::default(),
             persistence: None,
             strict: true,
@@ -136,7 +136,7 @@ impl FeatureRefresher {
     pub fn new(
         unleash_client: Arc<UnleashClient>,
         features_cache: Arc<FeatureCache>,
-        delta_cache: Arc<DashMap<Environment, DeltaCache>>,
+        delta_cache_manager: Arc<DeltaCacheManager>,
         engines: Arc<DashMap<String, EngineState>>,
         persistence: Option<Arc<dyn EdgePersistence>>,
         config: FeatureRefreshConfig,
@@ -145,7 +145,7 @@ impl FeatureRefresher {
             unleash_client,
             tokens_to_refresh: Arc::new(DashMap::default()),
             features_cache,
-            delta_cache,
+            delta_cache_manager,
             engine_cache: engines,
             refresh_interval: config.features_refresh_interval,
             persistence,
@@ -257,9 +257,11 @@ impl FeatureRefresher {
     pub(crate) async fn delta_events_for_filter(
         &self,
         token: EdgeToken,
-        filters: &FeatureFilterSet,
+        feature_filters: &FeatureFilterSet,
+        delta_filters: &DeltaFilterSet,
+        revision: u32,
     ) -> EdgeResult<ClientFeaturesDelta> {
-        match self.get_delta_events_by_filter(&token, filters) {
+        match self.get_delta_events_by_filter(&token, feature_filters, delta_filters, revision) {
             Some(features) if self.token_is_subsumed(&token) => Ok(features),
             _ => {
                 if self.strict {
@@ -270,7 +272,7 @@ impl FeatureRefresher {
                         "Dynamic behavior: Had never seen this environment. Configuring fetcher"
                     );
                     self.register_and_hydrate_token(&token).await;
-                    self.get_delta_events_by_filter(&token, filters).ok_or_else(|| {
+                    self.get_delta_events_by_filter(&token, feature_filters, delta_filters, revision).ok_or_else(|| {
                         EdgeError::ClientHydrationFailed(
                             "Failed to get delta events by filter after registering and hydrating token (This is very likely an error in Edge. Please report this!)"
                                 .into(),
@@ -294,11 +296,15 @@ impl FeatureRefresher {
     fn get_delta_events_by_filter(
         &self,
         token: &EdgeToken,
-        filters: &FeatureFilterSet,
+        feature_filters: &FeatureFilterSet,
+        delta_filters: &DeltaFilterSet,
+        revision: u32,
     ) -> Option<ClientFeaturesDelta> {
-        self.delta_cache
+        self.delta_cache_manager
             .get(&cache_key(token))
-            .map(|delta_events| filter_delta_events(&delta_events, filters))
+            .map(|delta_events| {
+                filter_delta_events(&delta_events, feature_filters, delta_filters, revision)
+            })
     }
 
     ///

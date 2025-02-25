@@ -5,6 +5,8 @@ pub mod builder;
 pub mod cli;
 pub mod client_api;
 pub mod delta_cache;
+pub mod delta_cache_manager;
+pub mod delta_filters;
 pub mod edge_api;
 #[cfg(not(tarpaulin_include))]
 pub mod error;
@@ -28,6 +30,7 @@ pub mod tls;
 pub mod tokens;
 pub mod types;
 pub mod urls;
+
 #[cfg(test)]
 mod tests {
     use std::fs;
@@ -46,7 +49,7 @@ mod tests {
     use unleash_yggdrasil::EngineState;
 
     use crate::auth::token_validator::TokenValidator;
-    use crate::delta_cache::DeltaCache;
+    use crate::delta_cache_manager::DeltaCacheManager;
     use crate::feature_cache::FeatureCache;
     use crate::metrics::client_metrics::MetricsCache;
     use crate::types::EdgeToken;
@@ -61,7 +64,7 @@ mod tests {
     pub async fn upstream_server(
         upstream_token_cache: Arc<DashMap<String, EdgeToken>>,
         upstream_features_cache: Arc<FeatureCache>,
-        upstream_delta_cache: Arc<DashMap<String, DeltaCache>>,
+        upstream_delta_cache_manager: Arc<DeltaCacheManager>,
         upstream_engine_cache: Arc<DashMap<String, EngineState>>,
     ) -> TestServer {
         let token_validator = Arc::new(TokenValidator {
@@ -83,7 +86,7 @@ mod tests {
                     .app_data(config)
                     .app_data(web::Data::from(token_validator.clone()))
                     .app_data(web::Data::from(upstream_features_cache.clone()))
-                    .app_data(web::Data::from(upstream_delta_cache.clone()))
+                    .app_data(web::Data::from(upstream_delta_cache_manager.clone()))
                     .app_data(web::Data::from(upstream_engine_cache.clone()))
                     .app_data(web::Data::from(upstream_token_cache.clone()))
                     .app_data(web::Data::new(metrics_cache))

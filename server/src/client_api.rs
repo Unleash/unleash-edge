@@ -1,15 +1,15 @@
 use crate::cli::{EdgeArgs, EdgeMode};
-use crate::delta_cache::DeltaCache;
+use crate::delta_filters::{combined_filter, DeltaFilterSet};
 use crate::error::EdgeError;
 use crate::feature_cache::FeatureCache;
 use crate::filters::{
-    filter_client_features, filter_delta_events, name_match_filter, name_prefix_filter,
-    project_filter, FeatureFilterSet,
+    filter_client_features, name_match_filter, name_prefix_filter, project_filter, FeatureFilterSet,
 };
 use crate::http::broadcaster::Broadcaster;
-use crate::http::refresher::delta_refresher::Environment;
+use crate::http::instance_data::InstanceDataSending;
 use crate::http::refresher::feature_refresher::FeatureRefresher;
 use crate::metrics::client_metrics::MetricsCache;
+use crate::metrics::edge_metrics::EdgeInstanceData;
 use crate::tokens::cache_key;
 use crate::types::{
     self, BatchMetricsRequestBody, EdgeJsonResult, EdgeResult, EdgeToken, FeatureFilters,
@@ -18,6 +18,8 @@ use actix_web::web::{self, Data, Json, Query};
 use actix_web::Responder;
 use actix_web::{get, post, HttpRequest, HttpResponse};
 use dashmap::DashMap;
+use tokio::sync::RwLock;
+use tracing::instrument;
 use unleash_types::client_features::{ClientFeature, ClientFeatures, ClientFeaturesDelta};
 use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ConnectVia};
 
@@ -43,16 +45,46 @@ pub async fn get_features(
 ) -> EdgeJsonResult<ClientFeatures> {
     resolve_features(edge_token, features_cache, token_cache, filter_query, req).await
 }
-
+// TODO: add tests for delta api
 #[get("/delta")]
 pub async fn get_delta(
     edge_token: EdgeToken,
-    delta_cache: Data<DashMap<String, DeltaCache>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
     filter_query: Query<FeatureFilters>,
     req: HttpRequest,
-) -> EdgeJsonResult<ClientFeaturesDelta> {
-    resolve_delta(edge_token, delta_cache, token_cache, filter_query, req).await
+) -> impl Responder {
+    let requested_revision_id = req
+        .headers()
+        .get("If-None-Match")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|etag| etag.trim_matches('"').parse::<u32>().ok())
+        .unwrap_or(0);
+
+    let current_sdk_revision_id = requested_revision_id + 1; // TODO: Read from delta_manager
+
+    match resolve_delta(
+        edge_token,
+        token_cache,
+        filter_query,
+        requested_revision_id,
+        req,
+    )
+    .await
+    {
+        Ok(Json(None)) => HttpResponse::NotModified().finish(),
+        Ok(Json(Some(delta))) => {
+            let last_event_id = delta
+                .events
+                .last()
+                .map(|e| e.get_event_id())
+                .unwrap_or(current_sdk_revision_id);
+
+            HttpResponse::Ok()
+                .insert_header(("ETag", format!("{}", last_event_id)))
+                .json(delta)
+        }
+        Err(err) => HttpResponse::InternalServerError().body(format!("Error: {:?}", err)),
+    }
 }
 
 #[get("/streaming")]
@@ -134,6 +166,28 @@ fn get_feature_filter(
     Ok((validated_token, filter_set, query))
 }
 
+fn get_delta_filter(
+    edge_token: &EdgeToken,
+    token_cache: &Data<DashMap<String, EdgeToken>>,
+    filter_query: Query<FeatureFilters>,
+    requested_revision_id: u32,
+) -> EdgeResult<DeltaFilterSet> {
+    let validated_token = token_cache
+        .get(&edge_token.token)
+        .map(|e| e.value().clone())
+        .ok_or(EdgeError::AuthorizationDenied)?;
+
+    let query_filters = filter_query.into_inner();
+
+    let delta_filter_set = DeltaFilterSet::default().with_filter(combined_filter(
+        requested_revision_id,
+        validated_token.projects.clone(),
+        query_filters.name_prefix.clone(),
+    ));
+
+    Ok(delta_filter_set)
+}
+
 async fn resolve_features(
     edge_token: EdgeToken,
     features_cache: Data<FeatureCache>,
@@ -161,30 +215,50 @@ async fn resolve_features(
         ..client_features
     }))
 }
-
 async fn resolve_delta(
     edge_token: EdgeToken,
-    delta_cache: Data<DashMap<Environment, DeltaCache>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
     filter_query: Query<FeatureFilters>,
+    requested_revision_id: u32,
     req: HttpRequest,
-) -> EdgeJsonResult<ClientFeaturesDelta> {
+) -> EdgeJsonResult<Option<ClientFeaturesDelta>> {
     let (validated_token, filter_set, ..) =
         get_feature_filter(&edge_token, &token_cache, filter_query.clone())?;
-    let delta = match req.app_data::<Data<FeatureRefresher>>() {
-        Some(refresher) => {
-            refresher
-                .delta_events_for_filter(validated_token.clone(), &filter_set)
-                .await
-        }
-        None => delta_cache
-            .get(&cache_key(&validated_token))
-            .map(|cache| filter_delta_events(cache.value(), &filter_set))
-            .ok_or(EdgeError::ClientCacheError),
-    }?;
 
-    Ok(Json(delta))
+    let delta_filter_set = get_delta_filter(
+        &edge_token,
+        &token_cache,
+        filter_query.clone(),
+        requested_revision_id,
+    )?;
+
+    let current_sdk_revision_id = requested_revision_id + 1; // TODO: get from delta manager
+    if requested_revision_id >= current_sdk_revision_id {
+        return Ok(Json(None));
+    }
+
+    let refresher = req.app_data::<Data<FeatureRefresher>>().ok_or_else(|| {
+        EdgeError::ClientHydrationFailed(
+            "FeatureRefresher is missing - cannot resolve delta in offline mode".to_string(),
+        )
+    })?;
+
+    let delta = refresher
+        .delta_events_for_filter(
+            validated_token.clone(),
+            &filter_set,
+            &delta_filter_set,
+            requested_revision_id,
+        )
+        .await?;
+
+    if delta.events.is_empty() {
+        return Ok(Json(None));
+    }
+
+    Ok(Json(Some(delta)))
 }
+
 #[utoipa::path(
     context_path = "/api/client",
     params(("feature_name" = String, Path,)),
@@ -310,6 +384,28 @@ pub async fn post_bulk_metrics(
     );
     Ok(HttpResponse::Accepted().finish())
 }
+
+#[utoipa::path(context_path = "/api/client", responses((status = 202, description = "Accepted Instance data"), (status = 403, description = "Was not allowed to post instance data")), request_body = EdgeInstanceData, security(
+("Authorization" = [])
+)
+)]
+#[post("/metrics/edge")]
+#[instrument(skip(_edge_token, instance_data, connected_instances))]
+pub async fn post_edge_instance_data(
+    _edge_token: EdgeToken,
+    instance_data: Json<EdgeInstanceData>,
+    instance_data_sending: Data<InstanceDataSending>,
+    connected_instances: Data<RwLock<Vec<EdgeInstanceData>>>,
+) -> EdgeResult<HttpResponse> {
+    if let InstanceDataSending::SendInstanceData(_) = instance_data_sending.as_ref() {
+        connected_instances
+            .write()
+            .await
+            .push(instance_data.into_inner());
+    }
+    Ok(HttpResponse::Accepted().finish())
+}
+
 pub fn configure_client_api(cfg: &mut web::ServiceConfig) {
     let client_scope = web::scope("/client")
         .wrap(crate::middleware::as_async_middleware::as_async_middleware(
@@ -321,7 +417,8 @@ pub fn configure_client_api(cfg: &mut web::ServiceConfig) {
         .service(register)
         .service(metrics)
         .service(post_bulk_metrics)
-        .service(stream_features);
+        .service(stream_features)
+        .service(post_edge_instance_data);
 
     cfg.service(client_scope);
 }
@@ -349,6 +446,7 @@ mod tests {
 
     use crate::auth::token_validator::TokenValidator;
     use crate::cli::{OfflineArgs, TokenHeader};
+    use crate::delta_cache_manager::DeltaCacheManager;
     use crate::http::unleash_client::{ClientMetaInformation, UnleashClient};
     use crate::middleware;
     use crate::tests::{features_from_disk, upstream_server};
@@ -727,13 +825,13 @@ mod tests {
         token.token_type = Some(TokenType::Client);
         let upstream_token_cache = Arc::new(DashMap::default());
         let upstream_features_cache = Arc::new(FeatureCache::default());
-        let upstream_delta_cache = Arc::new(DashMap::default());
+        let upstream_delta_cache_manager = Arc::new(DeltaCacheManager::new());
         let upstream_engine_cache = Arc::new(DashMap::default());
         upstream_token_cache.insert(token.token.clone(), token.clone());
         let srv = upstream_server(
             upstream_token_cache,
             upstream_features_cache,
-            upstream_delta_cache,
+            upstream_delta_cache_manager,
             upstream_engine_cache,
         )
         .await;
@@ -768,13 +866,13 @@ mod tests {
         frontend_token.token_type = Some(TokenType::Frontend);
         let upstream_token_cache = Arc::new(DashMap::default());
         let upstream_features_cache = Arc::new(FeatureCache::default());
-        let upstream_delta_cache = Arc::new(DashMap::default());
+        let upstream_delta_cache_manager = Arc::new(DeltaCacheManager::new());
         let upstream_engine_cache = Arc::new(DashMap::default());
         upstream_token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
         let srv = upstream_server(
             upstream_token_cache,
             upstream_features_cache,
-            upstream_delta_cache,
+            upstream_delta_cache_manager,
             upstream_engine_cache,
         )
         .await;
@@ -1036,12 +1134,12 @@ mod tests {
     async fn calling_client_features_endpoint_with_new_token_hydrates_from_upstream_when_dynamic() {
         let upstream_features_cache = Arc::new(FeatureCache::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
-        let upstream_delta_cache: Arc<DashMap<String, DeltaCache>> = Arc::new(DashMap::default());
+        let delta_cache_manager: Arc<DeltaCacheManager> = Arc::new(DeltaCacheManager::new());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let server = upstream_server(
             upstream_token_cache.clone(),
             upstream_features_cache.clone(),
-            upstream_delta_cache.clone(),
+            delta_cache_manager.clone(),
             upstream_engine_cache.clone(),
         )
         .await;
@@ -1056,13 +1154,14 @@ mod tests {
         upstream_features_cache.insert(cache_key(&upstream_known_token), upstream_features.clone());
         let unleash_client = Arc::new(UnleashClient::new(server.url("/").as_str(), None).unwrap());
         let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
+        let delta_cache_manager: Arc<DeltaCacheManager> = Arc::new(DeltaCacheManager::new());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let feature_refresher = Arc::new(FeatureRefresher {
             unleash_client: unleash_client.clone(),
             tokens_to_refresh: Arc::new(Default::default()),
             features_cache: features_cache.clone(),
-            delta_cache: Arc::new(Default::default()),
+            delta_cache_manager: delta_cache_manager.clone(),
             engine_cache: engine_cache.clone(),
             refresh_interval: Duration::seconds(6000),
             persistence: None,
@@ -1103,12 +1202,13 @@ mod tests {
     async fn calling_client_features_endpoint_with_new_token_does_not_hydrate_when_strict() {
         let upstream_features_cache = Arc::new(FeatureCache::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
-        let upstream_delta_cache: Arc<DashMap<String, DeltaCache>> = Arc::new(DashMap::default());
+        let upstream_delta_cache_manager: Arc<DeltaCacheManager> =
+            Arc::new(DeltaCacheManager::new());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let server = upstream_server(
             upstream_token_cache.clone(),
             upstream_features_cache.clone(),
-            upstream_delta_cache.clone(),
+            upstream_delta_cache_manager.clone(),
             upstream_engine_cache.clone(),
         )
         .await;
@@ -1227,12 +1327,13 @@ mod tests {
     {
         let upstream_features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
-        let upstream_delta_cache: Arc<DashMap<String, DeltaCache>> = Arc::new(DashMap::default());
+        let upstream_delta_cache_manager: Arc<DeltaCacheManager> =
+            Arc::new(DeltaCacheManager::new());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let server = upstream_server(
             upstream_token_cache.clone(),
             upstream_features_cache.clone(),
-            upstream_delta_cache.clone(),
+            upstream_delta_cache_manager.clone(),
             upstream_engine_cache.clone(),
         )
         .await;
@@ -1408,7 +1509,6 @@ mod tests {
         let features_cache = Arc::new(FeatureCache::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let token_header = TokenHeader::from_str("NeedsToBeTested").unwrap();
-        println!("token_header: {:?}", token_header);
         let app = test::init_service(
             App::new()
                 .app_data(Data::from(features_cache.clone()))
