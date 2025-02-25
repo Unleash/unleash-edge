@@ -130,10 +130,12 @@ pub async fn loop_send_instance_data(
                                 debug!("Our upstream is not running a version that supports edge metrics.");
                                 errors += 1;
                                 downstream_instance_data.write().await.clear();
+                                our_instance_data.requests_since_last_report.clear();
                             } else if status == StatusCode::FORBIDDEN {
                                 warn!("Upstream edge metrics said our token wasn't allowed to post data");
                                 errors += 1;
                                 downstream_instance_data.write().await.clear();
+                                our_instance_data.requests_since_last_report.clear();
                             }
                         }
                         _ => {
@@ -144,6 +146,7 @@ pub async fn loop_send_instance_data(
                     debug!("Successfully posted observability metrics.");
                     errors = 0;
                     downstream_instance_data.write().await.clear();
+                    our_instance_data.requests_since_last_report.clear();
                 }
             }
         }

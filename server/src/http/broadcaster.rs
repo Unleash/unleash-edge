@@ -1,5 +1,12 @@
 use std::{hash::Hash, sync::Arc, time::Duration};
 
+use crate::delta_cache_manager::{DeltaCacheManager, DeltaCacheUpdate};
+use crate::delta_filters::{combined_filter, filter_delta_events, DeltaFilterSet};
+use crate::{
+    error::EdgeError,
+    filters::{name_prefix_filter, project_filter_from_projects, FeatureFilterSet},
+    types::{EdgeJsonResult, EdgeResult, EdgeToken},
+};
 use actix_web::{rt::time::interval, web::Json};
 use actix_web_lab::{
     sse::{self, Event, Sse},
@@ -11,16 +18,7 @@ use prometheus::{register_int_gauge, IntGauge};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::{debug, warn};
-use unleash_types::client_features::{ClientFeatures, Query};
-
-use crate::{
-    error::EdgeError,
-    feature_cache::{FeatureCache, UpdateType},
-    filters::{
-        filter_client_features, name_prefix_filter, project_filter_from_projects, FeatureFilterSet,
-    },
-    types::{EdgeJsonResult, EdgeResult, EdgeToken},
-};
+use unleash_types::client_features::{ClientFeaturesDelta, Query};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct StreamingQuery {
@@ -58,6 +56,7 @@ impl From<(&Query, &EdgeToken)> for StreamingQuery {
 struct ClientData {
     token: String,
     sender: mpsc::Sender<sse::Event>,
+    current_revision: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -67,7 +66,7 @@ struct ClientGroup {
 
 pub struct Broadcaster {
     active_connections: DashMap<StreamingQuery, ClientGroup>,
-    features_cache: Arc<FeatureCache>,
+    delta_cache_manager: Arc<DeltaCacheManager>,
 }
 
 lazy_static::lazy_static! {
@@ -80,14 +79,14 @@ lazy_static::lazy_static! {
 
 impl Broadcaster {
     /// Constructs new broadcaster and spawns ping loop.
-    pub fn new(features: Arc<FeatureCache>) -> Arc<Self> {
+    pub fn new(delta_cache_manager: Arc<DeltaCacheManager>) -> Arc<Self> {
         let broadcaster = Arc::new(Broadcaster {
             active_connections: DashMap::new(),
-            features_cache: features.clone(),
+            delta_cache_manager,
         });
 
         Broadcaster::spawn_heartbeat(broadcaster.clone());
-        Broadcaster::spawn_feature_cache_subscriber(broadcaster.clone());
+        Broadcaster::spawn_delta_cache_manager_subscriber(broadcaster.clone());
 
         broadcaster
     }
@@ -105,16 +104,16 @@ impl Broadcaster {
         });
     }
 
-    fn spawn_feature_cache_subscriber(this: Arc<Self>) {
-        let mut rx = this.features_cache.subscribe();
+    fn spawn_delta_cache_manager_subscriber(this: Arc<Self>) {
+        let mut rx = this.delta_cache_manager.subscribe();
         tokio::spawn(async move {
             while let Ok(key) = rx.recv().await {
                 debug!("Received update for key: {:?}", key);
                 match key {
-                    UpdateType::Full(env) | UpdateType::Update(env) => {
-                        this.broadcast(Some(env)).await;
+                    DeltaCacheUpdate::Update(env) => {
+                        this.broadcast(Some(env.clone())).await;
                     }
-                    UpdateType::Deletion => {
+                    DeltaCacheUpdate::Deletion(_env) | DeltaCacheUpdate::Full(_env) => {
                         this.broadcast(None).await;
                     }
                 }
@@ -128,7 +127,12 @@ impl Broadcaster {
         for mut group in self.active_connections.iter_mut() {
             let mut ok_clients = Vec::new();
 
-            for ClientData { token, sender } in &group.clients {
+            for ClientData {
+                token,
+                sender,
+                current_revision,
+            } in &group.clients
+            {
                 if sender
                     .send(sse::Event::Comment("keep-alive".into()))
                     .await
@@ -137,6 +141,7 @@ impl Broadcaster {
                     ok_clients.push(ClientData {
                         token: token.clone(),
                         sender: sender.clone(),
+                        current_revision: current_revision.to_owned(),
                     });
                 }
             }
@@ -164,13 +169,18 @@ impl Broadcaster {
     ) -> EdgeResult<mpsc::Receiver<sse::Event>> {
         let (tx, rx) = mpsc::channel(10);
 
-        let features = self.resolve_features(query.clone()).await?;
-        tx.send(
-            sse::Data::new_json(&features)?
-                .event("unleash-connected")
-                .into(),
-        )
-        .await?;
+        let event_data = self
+            .resolve_delta_cache_data(0, query.clone())
+            .await
+            .and_then(|features| sse::Data::new_json(&features).map_err(|e| e.into()));
+
+        if let Ok(sse_data) = event_data {
+            tx.send(sse_data.event("unleash-connected").into()).await?;
+        } else if let Err(e) = event_data {
+            warn!("Failed to broadcast hydration event: {:?}", e);
+        }
+
+        let event_id = self.resolve_last_event_id(query.clone()).await;
 
         self.active_connections
             .entry(query)
@@ -178,12 +188,14 @@ impl Broadcaster {
                 group.clients.push(ClientData {
                     token: token.into(),
                     sender: tx.clone(),
+                    current_revision: event_id.unwrap_or(0),
                 });
             })
             .or_insert(ClientGroup {
                 clients: vec![ClientData {
                     token: token.into(),
                     sender: tx.clone(),
+                    current_revision: event_id.unwrap_or(0),
                 }],
             });
 
@@ -200,63 +212,85 @@ impl Broadcaster {
         filter_set
     }
 
-    async fn resolve_features(&self, query: StreamingQuery) -> EdgeJsonResult<ClientFeatures> {
-        let filter_set = Broadcaster::get_query_filters(&query);
-
-        let features = self
-            .features_cache
-            .get(&query.environment)
-            .map(|client_features| filter_client_features(&client_features, &filter_set));
-
-        match features {
-            Some(features) => Ok(Json(ClientFeatures {
-                query: Some(query.into()),
-                ..features
-            })),
-            // Note: this is a simplification for now, using the following assumptions:
-            // 1. We'll only allow streaming in strict mode
-            // 2. We'll check whether the token is subsumed *before* trying to add it to the broadcaster
-            // If both of these are true, then we should never hit this case (if Thomas's understanding is correct).
-            None => Err(EdgeError::AuthorizationDenied),
+    async fn resolve_last_event_id(&self, query: StreamingQuery) -> Option<u32> {
+        let delta_cache = self.delta_cache_manager.get(&query.environment);
+        match delta_cache {
+            Some(delta_cache) => delta_cache
+                .get_events()
+                .last()
+                .map(|event| event.get_event_id()),
+            None => None,
         }
     }
 
-    /// Broadcast new features to all clients.
+    async fn resolve_delta_cache_data(
+        &self,
+        last_event_id: u32,
+        query: StreamingQuery,
+    ) -> EdgeJsonResult<ClientFeaturesDelta> {
+        let filter_set = Broadcaster::get_query_filters(&query);
+        let delta_filter_set = DeltaFilterSet::default().with_filter(combined_filter(
+            last_event_id,
+            query.projects.clone(),
+            query.name_prefix.clone(),
+        ));
+        let delta_cache = self.delta_cache_manager.get(&query.environment);
+        match delta_cache {
+            Some(delta_cache) => Ok(Json(filter_delta_events(
+                &delta_cache,
+                &filter_set,
+                &delta_filter_set,
+                last_event_id,
+            ))),
+            None => {
+                // Note: this is a simplification for now, using the following assumptions:
+                // 1. We'll only allow streaming in strict mode
+                // 2. We'll check whether the token is subsumed *before* trying to add it to the broadcaster
+                // If both of these are true, then we should never hit this case (if Thomas's understanding is correct).
+                Err(EdgeError::AuthorizationDenied)
+            }
+        }
+    }
+
+    /// Broadcast new event deltas to all clients.
     pub async fn broadcast(&self, environment: Option<String>) {
         let mut client_events = Vec::new();
 
-        for entry in self.active_connections.iter().filter(|entry| {
+        for mut entry in self.active_connections.iter_mut().filter(|entry| {
             if let Some(env) = &environment {
                 entry.key().environment == *env
             } else {
                 true
             }
         }) {
-            let (query, group) = entry.pair();
+            let (query, group) = entry.pair_mut();
 
-            let event_data = self
-                .resolve_features(query.clone())
-                .await
-                .and_then(|features| sse::Data::new_json(&features).map_err(|e| e.into()));
+            for client in &mut group.clients {
+                let event_data = self
+                    .resolve_delta_cache_data(client.current_revision, query.clone())
+                    .await
+                    .and_then(|features| sse::Data::new_json(&features).map_err(|e| e.into()));
 
-            match event_data {
-                Ok(sse_data) => {
+                let last_event_id = self.resolve_last_event_id(query.clone()).await;
+
+                if let Ok(sse_data) = event_data {
                     let event: Event = sse_data.event("unleash-updated").into();
+                    client_events.push((client.clone(), event.clone()));
 
-                    for client in &group.clients {
-                        client_events.push((client.clone(), event.clone()));
+                    if let Some(new_id) = last_event_id {
+                        client.current_revision = new_id;
                     }
-                }
-                Err(e) => {
+                } else if let Err(e) = event_data {
                     warn!("Failed to broadcast features: {:?}", e);
                 }
             }
         }
-        // try to send to all clients, ignoring failures
-        // disconnected clients will get swept up by `remove_stale_clients`
+
+        // Try to send to all clients, ignoring failures
+        // Disconnected clients will get swept up by the heartbeat cleanup
         let send_events = client_events
             .iter()
-            .map(|(ClientData { sender, .. }, event)| sender.send(event.clone()));
+            .map(|(client, event)| client.sender.send(event.clone()));
 
         let _ = future::join_all(send_events).await;
     }
@@ -264,31 +298,31 @@ impl Broadcaster {
 
 #[cfg(test)]
 mod test {
+    use crate::delta_cache::{DeltaCache, DeltaHydrationEvent};
     use tokio::time::timeout;
-    use unleash_types::client_features::ClientFeature;
-
-    use crate::feature_cache::FeatureCache;
+    use unleash_types::client_features::{ClientFeature, DeltaEvent};
 
     use super::*;
 
     #[actix_web::test]
     async fn only_updates_clients_in_same_env() {
-        let feature_cache = Arc::new(FeatureCache::default());
-        let broadcaster = Broadcaster::new(feature_cache.clone());
+        let delta_cache_manager = Arc::new(DeltaCacheManager::new());
+        let broadcaster = Broadcaster::new(delta_cache_manager.clone());
 
         let env_with_updates = "production";
         let env_without_updates = "development";
+        let hydration = DeltaHydrationEvent {
+            event_id: 1,
+            features: vec![ClientFeature {
+                name: "feature1".to_string(),
+                ..Default::default()
+            }],
+            segments: vec![],
+        };
+        let max_length = 5;
+        let delta_cache = DeltaCache::new(hydration, max_length);
         for env in &[env_with_updates, env_without_updates] {
-            feature_cache.insert(
-                env.to_string(),
-                ClientFeatures {
-                    version: 0,
-                    features: vec![],
-                    query: None,
-                    segments: None,
-                    meta: None,
-                },
-            );
+            delta_cache_manager.insert_cache(env, delta_cache.clone());
         }
 
         let mut rx = broadcaster
@@ -308,19 +342,16 @@ mod test {
             // ignored
         }
 
-        feature_cache.insert(
-            env_with_updates.to_string(),
-            ClientFeatures {
-                version: 0,
-                features: vec![ClientFeature {
+        delta_cache_manager.update_cache(
+            env_with_updates,
+            &vec![DeltaEvent::FeatureUpdated {
+                event_id: 2,
+                feature: ClientFeature {
                     name: "flag-a".into(),
                     project: Some("dx".into()),
                     ..Default::default()
-                }],
-                segments: None,
-                query: None,
-                meta: None,
-            },
+                },
+            }],
         );
 
         if tokio::time::timeout(std::time::Duration::from_secs(2), async {
@@ -337,19 +368,16 @@ mod test {
             panic!("Test timed out waiting for update event");
         }
 
-        feature_cache.insert(
-            env_without_updates.to_string(),
-            ClientFeatures {
-                version: 0,
-                features: vec![ClientFeature {
+        delta_cache_manager.update_cache(
+            env_without_updates,
+            &vec![DeltaEvent::FeatureUpdated {
+                event_id: 2,
+                feature: ClientFeature {
                     name: "flag-b".into(),
                     project: Some("dx".into()),
                     ..Default::default()
-                }],
-                segments: None,
-                query: None,
-                meta: None,
-            },
+                },
+            }],
         );
 
         let result = tokio::time::timeout(std::time::Duration::from_secs(1), async {

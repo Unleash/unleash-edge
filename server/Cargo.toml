@@ -34,15 +34,15 @@ actix-web-lab = { version = "0.23.0" }
 ahash = "0.8.11"
 anyhow = "1.0.96"
 async-trait = "0.1.86"
-aws-config = { version = "1.5.16", features = ["behavior-version-latest"] }
-aws-sdk-s3 = { version = "1.76.0", features = ["behavior-version-latest"] }
+aws-config = { version = "1.5.17", features = ["behavior-version-latest"] }
+aws-sdk-s3 = { version = "1.77.0", features = ["behavior-version-latest"] }
 base64 = "0.22.1"
 chrono = { version = "0.4.39", features = ["serde"] }
 cidr = "0.3.1"
-clap = { version = "4.5.30", features = ["derive", "env"] }
+clap = { version = "4.5.31", features = ["derive", "env"] }
 clap-markdown = "0.1.4"
-dashmap = "6.1.0"
-eventsource-client = { version = "0.13.0" }
+dashmap = { version = "6.1.0", features = ["serde"] }
+eventsource-client = { version = "0.14.0" }
 futures = "0.3.31"
 futures-core = "0.3.31"
 iter_tools = "0.24.0"

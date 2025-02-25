@@ -45,7 +45,7 @@ pub async fn get_features(
 ) -> EdgeJsonResult<ClientFeatures> {
     resolve_features(edge_token, features_cache, token_cache, filter_query, req).await
 }
-// TODO: add tests for delta api
+
 #[get("/delta")]
 pub async fn get_delta(
     edge_token: EdgeToken,
@@ -60,8 +60,6 @@ pub async fn get_delta(
         .and_then(|etag| etag.trim_matches('"').parse::<u32>().ok())
         .unwrap_or(0);
 
-    let current_sdk_revision_id = requested_revision_id + 1; // TODO: Read from delta_manager
-
     match resolve_delta(
         edge_token,
         token_cache,
@@ -73,11 +71,7 @@ pub async fn get_delta(
     {
         Ok(Json(None)) => HttpResponse::NotModified().finish(),
         Ok(Json(Some(delta))) => {
-            let last_event_id = delta
-                .events
-                .last()
-                .map(|e| e.get_event_id())
-                .unwrap_or(current_sdk_revision_id);
+            let last_event_id = delta.events.last().map(|e| e.get_event_id()).unwrap_or(0); // should never occur
 
             HttpResponse::Ok()
                 .insert_header(("ETag", format!("{}", last_event_id)))
@@ -225,12 +219,12 @@ async fn resolve_delta(
     let (validated_token, filter_set, ..) =
         get_feature_filter(&edge_token, &token_cache, filter_query.clone())?;
 
-    let delta_filter_set = get_delta_filter(&edge_token, &token_cache, filter_query.clone(), requested_revision_id)?;
-
-    let current_sdk_revision_id = requested_revision_id + 1; // TODO: get from delta manager
-    if requested_revision_id >= current_sdk_revision_id {
-        return Ok(Json(None));
-    }
+    let delta_filter_set = get_delta_filter(
+        &edge_token,
+        &token_cache,
+        filter_query.clone(),
+        requested_revision_id,
+    )?;
 
     let refresher = req.app_data::<Data<FeatureRefresher>>().ok_or_else(|| {
         EdgeError::ClientHydrationFailed(
@@ -380,10 +374,6 @@ pub async fn post_bulk_metrics(
     Ok(HttpResponse::Accepted().finish())
 }
 
-#[utoipa::path(context_path = "/api/client", responses((status = 202, description = "Accepted Instance data"), (status = 403, description = "Was not allowed to post instance data")), request_body = EdgeInstanceData, security(
-("Authorization" = [])
-)
-)]
 #[post("/metrics/edge")]
 #[instrument(skip(_edge_token, instance_data, connected_instances))]
 pub async fn post_edge_instance_data(
@@ -441,7 +431,8 @@ mod tests {
 
     use crate::auth::token_validator::TokenValidator;
     use crate::cli::{OfflineArgs, TokenHeader};
-    use crate::delta_cache::DeltaCache;
+    use crate::delta_cache::{DeltaCache, DeltaHydrationEvent};
+    use crate::delta_cache_manager::DeltaCacheManager;
     use crate::http::unleash_client::{ClientMetaInformation, UnleashClient};
     use crate::middleware;
     use crate::tests::{features_from_disk, upstream_server};
@@ -456,7 +447,7 @@ mod tests {
     use maplit::hashmap;
     use ulid::Ulid;
     use unleash_types::client_features::{
-        ClientFeature, Constraint, Operator, Strategy, StrategyVariant,
+        ClientFeature, Constraint, DeltaEvent, Operator, Strategy, StrategyVariant,
     };
     use unleash_types::client_metrics::{
         ClientMetricsEnv, ConnectViaBuilder, MetricBucket, MetricsMetadata, ToggleStats,
@@ -555,6 +546,21 @@ mod tests {
         test::TestRequest::get()
             .uri("/api/client/features")
             .insert_header(("Authorization", token.token))
+            .to_request()
+    }
+
+    async fn make_delta_request_with_token(token: EdgeToken) -> Request {
+        test::TestRequest::get()
+            .uri("/api/client/delta")
+            .insert_header(("Authorization", token.token))
+            .to_request()
+    }
+
+    async fn make_delta_request_with_token_and_etag(token: EdgeToken, etag: &str) -> Request {
+        test::TestRequest::get()
+            .uri("/api/client/delta")
+            .insert_header(("Authorization", token.token))
+            .insert_header(("If-None-Match", etag))
             .to_request()
     }
 
@@ -820,13 +826,13 @@ mod tests {
         token.token_type = Some(TokenType::Client);
         let upstream_token_cache = Arc::new(DashMap::default());
         let upstream_features_cache = Arc::new(FeatureCache::default());
-        let upstream_delta_cache = Arc::new(DashMap::default());
+        let upstream_delta_cache_manager = Arc::new(DeltaCacheManager::new());
         let upstream_engine_cache = Arc::new(DashMap::default());
         upstream_token_cache.insert(token.token.clone(), token.clone());
         let srv = upstream_server(
             upstream_token_cache,
             upstream_features_cache,
-            upstream_delta_cache,
+            upstream_delta_cache_manager,
             upstream_engine_cache,
         )
         .await;
@@ -861,13 +867,13 @@ mod tests {
         frontend_token.token_type = Some(TokenType::Frontend);
         let upstream_token_cache = Arc::new(DashMap::default());
         let upstream_features_cache = Arc::new(FeatureCache::default());
-        let upstream_delta_cache = Arc::new(DashMap::default());
+        let upstream_delta_cache_manager = Arc::new(DeltaCacheManager::new());
         let upstream_engine_cache = Arc::new(DashMap::default());
         upstream_token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
         let srv = upstream_server(
             upstream_token_cache,
             upstream_features_cache,
-            upstream_delta_cache,
+            upstream_delta_cache_manager,
             upstream_engine_cache,
         )
         .await;
@@ -1129,12 +1135,12 @@ mod tests {
     async fn calling_client_features_endpoint_with_new_token_hydrates_from_upstream_when_dynamic() {
         let upstream_features_cache = Arc::new(FeatureCache::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
-        let upstream_delta_cache: Arc<DashMap<String, DeltaCache>> = Arc::new(DashMap::default());
+        let delta_cache_manager: Arc<DeltaCacheManager> = Arc::new(DeltaCacheManager::new());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let server = upstream_server(
             upstream_token_cache.clone(),
             upstream_features_cache.clone(),
-            upstream_delta_cache.clone(),
+            delta_cache_manager.clone(),
             upstream_engine_cache.clone(),
         )
         .await;
@@ -1149,13 +1155,14 @@ mod tests {
         upstream_features_cache.insert(cache_key(&upstream_known_token), upstream_features.clone());
         let unleash_client = Arc::new(UnleashClient::new(server.url("/").as_str(), None).unwrap());
         let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
+        let delta_cache_manager: Arc<DeltaCacheManager> = Arc::new(DeltaCacheManager::new());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let feature_refresher = Arc::new(FeatureRefresher {
             unleash_client: unleash_client.clone(),
             tokens_to_refresh: Arc::new(Default::default()),
             features_cache: features_cache.clone(),
-            delta_cache: Arc::new(Default::default()),
+            delta_cache_manager: delta_cache_manager.clone(),
             engine_cache: engine_cache.clone(),
             refresh_interval: Duration::seconds(6000),
             persistence: None,
@@ -1196,12 +1203,13 @@ mod tests {
     async fn calling_client_features_endpoint_with_new_token_does_not_hydrate_when_strict() {
         let upstream_features_cache = Arc::new(FeatureCache::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
-        let upstream_delta_cache: Arc<DashMap<String, DeltaCache>> = Arc::new(DashMap::default());
+        let upstream_delta_cache_manager: Arc<DeltaCacheManager> =
+            Arc::new(DeltaCacheManager::new());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let server = upstream_server(
             upstream_token_cache.clone(),
             upstream_features_cache.clone(),
-            upstream_delta_cache.clone(),
+            upstream_delta_cache_manager.clone(),
             upstream_engine_cache.clone(),
         )
         .await;
@@ -1320,12 +1328,13 @@ mod tests {
     {
         let upstream_features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
-        let upstream_delta_cache: Arc<DashMap<String, DeltaCache>> = Arc::new(DashMap::default());
+        let upstream_delta_cache_manager: Arc<DeltaCacheManager> =
+            Arc::new(DeltaCacheManager::new());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let server = upstream_server(
             upstream_token_cache.clone(),
             upstream_features_cache.clone(),
-            upstream_delta_cache.clone(),
+            upstream_delta_cache_manager.clone(),
             upstream_engine_cache.clone(),
         )
         .await;
@@ -1535,5 +1544,186 @@ mod tests {
             .to_request();
         let res = test::call_service(&app, request).await;
         assert_eq!(res.status(), StatusCode::FORBIDDEN);
+    }
+
+    async fn setup_delta_test(
+        initial_event_id: u32,
+    ) -> (
+        Arc<FeatureRefresher>,
+        Arc<DashMap<String, EdgeToken>>,
+        EdgeToken,
+        DeltaHydrationEvent,
+        impl actix_web::dev::Service<
+            actix_http::Request,
+            Response = actix_web::dev::ServiceResponse,
+            Error = actix_web::Error,
+        >,
+    ) {
+        let unleash_client = Arc::new(UnleashClient::new("http://localhost:9999/", None).unwrap());
+        let delta_cache_manager = Arc::new(DeltaCacheManager::default());
+        let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+
+        let mut token = EdgeToken::try_from(
+            "dx:development.03fa5f506428fe80ed5640c351c7232e38940814d2923b08f5c05fa7".to_string(),
+        )
+        .unwrap();
+        token.token_type = Some(TokenType::Client);
+        token.status = TokenValidationStatus::Validated;
+        token_cache.insert(token.token.clone(), token.clone());
+
+        let feature_refresher = Arc::new(FeatureRefresher {
+            unleash_client: unleash_client.clone(),
+            delta_cache_manager: delta_cache_manager.clone(),
+            tokens_to_refresh: Arc::new(Default::default()),
+            refresh_interval: Duration::seconds(0),
+            strict: false,
+            delta: true,
+            ..Default::default()
+        });
+
+        let delta_hydration_event = DeltaHydrationEvent {
+            event_id: initial_event_id,
+            features: vec![ClientFeature {
+                name: "feature1".to_string(),
+                project: Some("dx".to_string()),
+                enabled: false,
+                ..Default::default()
+            }],
+            segments: vec![],
+        };
+
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::from(feature_refresher.clone()))
+                .app_data(Data::from(token_cache.clone()))
+                .service(web::scope("/api/client").service(get_delta)),
+        )
+        .await;
+
+        delta_cache_manager.insert_cache(
+            "development",
+            DeltaCache::new(delta_hydration_event.clone(), 10),
+        );
+
+        (
+            feature_refresher,
+            token_cache,
+            token,
+            delta_hydration_event,
+            app,
+        )
+    }
+
+    #[tokio::test]
+    async fn test_delta_endpoint_returns_hydration_event() {
+        let (_, _, token, delta_hydration_event, app) = setup_delta_test(10).await;
+
+        let req = make_delta_request_with_token(token.clone()).await;
+        let res: ClientFeaturesDelta = test::call_and_read_body_json(&app, req).await;
+
+        assert_eq!(
+            res.events.get(0).unwrap(),
+            &DeltaEvent::Hydration {
+                event_id: delta_hydration_event.event_id,
+                features: delta_hydration_event.features.clone(),
+                segments: delta_hydration_event.segments.clone()
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn test_delta_endpoint_returns_not_modified_for_matching_etag() {
+        let (_, _, token, _, app) = setup_delta_test(10).await;
+
+        let res = test::call_service(
+            &app,
+            make_delta_request_with_token_and_etag(token.clone(), "10").await,
+        )
+        .await;
+
+        assert_eq!(res.status(), StatusCode::NOT_MODIFIED);
+    }
+
+    #[tokio::test]
+    async fn test_delta_endpoint_returns_not_modified_for_newer_etag() {
+        let (_, _, token, _, app) = setup_delta_test(10).await;
+
+        let res = test::call_service(
+            &app,
+            make_delta_request_with_token_and_etag(token.clone(), "11").await,
+        )
+        .await;
+
+        assert_eq!(res.status(), StatusCode::NOT_MODIFIED);
+    }
+
+    #[tokio::test]
+    async fn test_delta_endpoint_returns_delta_events_after_update() {
+        let (feature_refresher, _, token, _, app) = setup_delta_test(10).await;
+
+        let delta_event = DeltaEvent::FeatureRemoved {
+            event_id: 11,
+            feature_name: "test".to_string(),
+            project: "dx".to_string(),
+        };
+
+        feature_refresher
+            .delta_cache_manager
+            .update_cache("development", &vec![delta_event.clone()]);
+
+        let res: ClientFeaturesDelta = test::call_and_read_body_json(
+            &app,
+            make_delta_request_with_token_and_etag(token.clone(), "10").await,
+        )
+        .await;
+
+        assert_eq!(res.events.get(0).unwrap(), &delta_event);
+        assert_eq!(res.events.len(), 1);
+
+        let res = test::call_service(
+            &app,
+            make_delta_request_with_token_and_etag(token.clone(), "11").await,
+        )
+        .await;
+
+        assert_eq!(res.status(), StatusCode::NOT_MODIFIED);
+
+        let delta_event = DeltaEvent::SegmentRemoved {
+            event_id: 12,
+            segment_id: 1,
+        };
+
+        feature_refresher
+            .delta_cache_manager
+            .update_cache("development", &vec![delta_event.clone()]);
+
+        let res = test::call_service(
+            &app,
+            make_delta_request_with_token_and_etag(token.clone(), "12").await,
+        )
+        .await;
+
+        assert_eq!(res.status(), StatusCode::NOT_MODIFIED);
+    }
+
+    #[tokio::test]
+    async fn test_delta_endpoint_returns_hydration_event_when_unknown_etag_lower_than_current_event_id(
+    ) {
+        let (_, _, token, delta_hydration_event, app) = setup_delta_test(10).await;
+
+        let res: ClientFeaturesDelta = test::call_and_read_body_json(
+            &app,
+            make_delta_request_with_token_and_etag(token.clone(), "8").await,
+        )
+        .await;
+
+        assert_eq!(
+            res.events.get(0).unwrap(),
+            &DeltaEvent::Hydration {
+                event_id: delta_hydration_event.event_id,
+                features: delta_hydration_event.features.clone(),
+                segments: delta_hydration_event.segments.clone()
+            }
+        );
     }
 }

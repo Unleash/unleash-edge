@@ -3,9 +3,6 @@ mod streaming_test {
     use eventsource_client::Client;
     use futures::StreamExt;
     use std::{
-        fs,
-        io::BufReader,
-        path::PathBuf,
         process::{Command, Stdio},
         str::FromStr,
         sync::Arc,
@@ -17,25 +14,20 @@ mod streaming_test {
         tokens::cache_key,
         types::{EdgeToken, TokenType, TokenValidationStatus},
     };
-    use unleash_types::client_features::{ClientFeatures, Query};
-
-    pub fn features_from_disk(path: &str) -> ClientFeatures {
-        let path = PathBuf::from(path);
-        let file = fs::File::open(path).unwrap();
-        let reader = BufReader::new(file);
-        serde_json::from_reader(reader).unwrap()
-    }
+    use unleash_types::client_features::{ClientFeature, ClientFeaturesDelta, DeltaEvent};
 
     #[actix_web::test]
     async fn test_streaming() {
         let unleash_features_cache: Arc<FeatureCache> =
             Arc::new(FeatureCache::new(DashMap::default()));
+        let delta_cache_manager: Arc<DeltaCacheManager> = Arc::new(DeltaCacheManager::new());
         let unleash_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
-        let unleash_broadcaster = Broadcaster::new(unleash_features_cache.clone());
+        let unleash_broadcaster = Broadcaster::new(delta_cache_manager.clone());
 
         let unleash_server = upstream_server(
             unleash_token_cache.clone(),
             unleash_features_cache.clone(),
+            delta_cache_manager.clone(),
             Arc::new(DashMap::default()),
             unleash_broadcaster.clone(),
         )
@@ -49,10 +41,20 @@ mod streaming_test {
             upstream_known_token.clone(),
         );
 
-        unleash_features_cache.insert(
-            cache_key(&upstream_known_token),
-            features_from_disk("../examples/features.json"),
+        let delta_cache = DeltaCache::new(
+            DeltaHydrationEvent {
+                event_id: 1,
+                features: vec![ClientFeature {
+                    name: "feature1".to_string(),
+                    project: Some("dx".to_string()),
+                    enabled: false,
+                    ..Default::default()
+                }],
+                segments: vec![],
+            },
+            10,
         );
+        delta_cache_manager.insert_cache(&cache_key(&upstream_known_token), delta_cache);
 
         let mut edge = Command::new("./../target/debug/unleash-edge")
             .arg("edge")
@@ -60,6 +62,7 @@ mod streaming_test {
             .arg(unleash_server.url("/"))
             .arg("--strict")
             .arg("--streaming")
+            .arg("--delta")
             .arg("-t")
             .arg(&upstream_known_token.token)
             .stdout(Stdio::null()) // Suppress stdout
@@ -68,7 +71,7 @@ mod streaming_test {
             .expect("Failed to start the app");
 
         // Allow edge to establish a connection with upstream and populate the cache
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 
         // let es_client = eventsource_client::ClientBuilder::for_url(&edge.url("/api/client/streaming"))
         let es_client = eventsource_client::ClientBuilder::for_url(
@@ -79,40 +82,42 @@ mod streaming_test {
         .unwrap()
         .build();
 
-        let initial_features = ClientFeatures {
-            features: vec![],
-            version: 2,
-            segments: None,
-            query: Some(Query {
-                tags: None,
-                projects: Some(vec!["dx".into()]),
-                name_prefix: None,
-                environment: Some("development".into()),
-                inline_segment_constraints: Some(false),
-            }),
-            meta: None,
+        let initial_event = ClientFeaturesDelta {
+            events: vec![DeltaEvent::Hydration {
+                event_id: 1,
+                features: vec![ClientFeature {
+                    name: "feature1".to_string(),
+                    project: Some("dx".to_string()),
+                    enabled: false,
+                    ..Default::default()
+                }],
+                segments: vec![],
+            }],
         };
 
         let mut stream = es_client.stream();
 
         if tokio::time::timeout(std::time::Duration::from_secs(2), async {
             loop {
-                if let Some(Ok(event)) = stream.next().await {
+                let next = stream.next().await;
+                if let Some(Ok(event)) = next {
                     match event {
                         eventsource_client::SSE::Event(event)
                             if event.event_type == "unleash-connected" =>
                         {
                             assert_eq!(
-                                serde_json::from_str::<ClientFeatures>(&event.data).unwrap(),
-                                initial_features
+                                serde_json::from_str::<ClientFeaturesDelta>(&event.data).unwrap(),
+                                initial_event
                             );
-                            println!("Connected event received; features match expected");
+                            println!("unleash-connected event received; features match expected");
                             break;
                         }
-                        _ => {
-                            // ignore other events
+                        e => {
+                            println!("Other event received; ignoring {:#?}", e);
                         }
                     }
+                } else if let Some(error) = next {
+                    error!("{:#?}", error);
                 }
             }
         })
@@ -122,33 +127,43 @@ mod streaming_test {
             // If the test times out, kill the app process and fail the test
             edge.kill().expect("Failed to kill the app process");
             edge.wait().expect("Failed to wait for the app process");
-            panic!("Test timed out waiting for connected event");
+            panic!("Test timed out waiting for unleash-connected event");
         }
 
-        unleash_features_cache.insert(
-            cache_key(&upstream_known_token),
-            features_from_disk("../examples/hostedexample.json"),
-        );
+        let update_events = vec![DeltaEvent::FeatureUpdated {
+            event_id: 3,
+            feature: ClientFeature {
+                name: "feature1".to_string(),
+                project: Some("dx".to_string()),
+                enabled: true,
+                ..Default::default()
+            },
+        }];
+        delta_cache_manager.update_cache(&cache_key(&upstream_known_token), &update_events);
 
         if tokio::time::timeout(std::time::Duration::from_secs(2), async {
             loop {
-                if let Some(Ok(event)) = stream.next().await {
+                let next = stream.next().await;
+                if let Some(Ok(event)) = next {
                     match event {
                         eventsource_client::SSE::Event(event)
                             if event.event_type == "unleash-updated" =>
                         {
-                            let update =
-                                serde_json::from_str::<ClientFeatures>(&event.data).unwrap();
-                            assert_eq!(initial_features.query, update.query);
-                            assert_eq!(initial_features.version, update.version);
-                            assert_ne!(initial_features.features, update.features);
-                            println!("Updated event received; features match expected");
+                            assert_eq!(
+                                serde_json::from_str::<ClientFeaturesDelta>(&event.data).unwrap(),
+                                ClientFeaturesDelta {
+                                    events: update_events
+                                }
+                            );
+                            println!("unleash-updated event received;");
                             break;
                         }
-                        _ => {
-                            // ignore other events
+                        e => {
+                            println!("Other event received; ignoring {:#?}", e);
                         }
                     }
+                } else if let Some(error) = next {
+                    error!("{:#?}", error);
                 }
             }
         })
@@ -158,7 +173,7 @@ mod streaming_test {
             // If the test times out, kill the app process and fail the test
             edge.kill().expect("Failed to kill the app process");
             edge.wait().expect("Failed to wait for the app process");
-            panic!("Test timed out waiting for update event");
+            panic!("Test timed out waiting for unleash-updated event");
         }
 
         edge.kill().expect("Failed to kill the app process");
@@ -170,15 +185,19 @@ mod streaming_test {
     use actix_service::map_config;
     use actix_web::dev::AppConfig;
     use actix_web::{web, App};
+    use tracing::error;
     use unleash_types::client_metrics::ConnectVia;
     use unleash_yggdrasil::EngineState;
 
     use unleash_edge::auth::token_validator::TokenValidator;
+    use unleash_edge::delta_cache::{DeltaCache, DeltaHydrationEvent};
+    use unleash_edge::delta_cache_manager::DeltaCacheManager;
     use unleash_edge::metrics::client_metrics::MetricsCache;
 
     async fn upstream_server(
         upstream_token_cache: Arc<DashMap<String, EdgeToken>>,
         upstream_features_cache: Arc<FeatureCache>,
+        upstream_delta_cache_manager: Arc<DeltaCacheManager>,
         upstream_engine_cache: Arc<DashMap<String, EngineState>>,
         upstream_broadcaster: Arc<Broadcaster>,
     ) -> TestServer {
@@ -232,6 +251,7 @@ mod streaming_test {
                     .app_data(config)
                     .app_data(web::Data::from(token_validator.clone()))
                     .app_data(web::Data::from(upstream_features_cache.clone()))
+                    .app_data(web::Data::from(upstream_delta_cache_manager.clone()))
                     .app_data(web::Data::from(upstream_broadcaster.clone()))
                     .app_data(web::Data::from(upstream_engine_cache.clone()))
                     .app_data(web::Data::from(upstream_token_cache.clone()))
