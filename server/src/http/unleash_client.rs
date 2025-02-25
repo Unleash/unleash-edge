@@ -129,29 +129,21 @@ pub struct UnleashClient {
     meta_info: ClientMetaInformation,
 }
 
-fn load_pkcs12(id: &ClientIdentity) -> EdgeResult<Identity> {
-    let pfx = fs::read(id.pkcs12_identity_file.clone().unwrap()).map_err(|e| {
-        EdgeError::ClientCertificateError(CertificateError::Pkcs12ArchiveNotFound(format!("{e:?}")))
-    })?;
-    Identity::from_pkcs12_der(
-        &pfx,
-        &id.pkcs12_passphrase.clone().unwrap_or_else(|| "".into()),
-    )
-    .map_err(|e| {
-        EdgeError::ClientCertificateError(CertificateError::Pkcs12IdentityGeneration(format!(
-            "{e:?}"
-        )))
-    })
-}
-
-fn load_pkcs8(id: &ClientIdentity) -> EdgeResult<Identity> {
+fn load_pkcs8_identity(id: &ClientIdentity) -> EdgeResult<Vec<u8>> {
     let cert = fs::read(id.pkcs8_client_certificate_file.clone().unwrap()).map_err(|e| {
         EdgeError::ClientCertificateError(CertificateError::Pem8ClientCertNotFound(format!("{e:}")))
     })?;
     let key = fs::read(id.pkcs8_client_key_file.clone().unwrap()).map_err(|e| {
         EdgeError::ClientCertificateError(CertificateError::Pem8ClientKeyNotFound(format!("{e:?}")))
     })?;
-    Identity::from_pkcs8_pem(&cert, &key).map_err(|e| {
+    let mut combined = Vec::new();
+    combined.extend(&cert);
+    combined.extend(&key);
+    Ok(combined)
+}
+
+fn load_pkcs8(id: &ClientIdentity) -> EdgeResult<Identity> {
+    Identity::from_pem(&load_pkcs8_identity(id)?).map_err(|e| {
         EdgeError::ClientCertificateError(CertificateError::Pem8IdentityGeneration(format!(
             "{e:?}"
         )))
@@ -164,7 +156,10 @@ fn build_identity(tls: Option<ClientIdentity>) -> EdgeResult<ClientBuilder> {
         |tls| {
             let req_identity = if tls.pkcs12_identity_file.is_some() {
                 // We're going to assume that we're using pkcs#12
-                load_pkcs12(&tls)
+                //load_pkcs12(&tls)
+                Err(EdgeError::ClientCertificateError(CertificateError::Pkcs12IdentityGeneration(
+                    "Edge does not currently support PKCS#12, please convert to PEM/pkcs8 format".to_string(),
+                )))
             } else if tls.pkcs8_client_certificate_file.is_some() {
                 load_pkcs8(&tls)
             } else {

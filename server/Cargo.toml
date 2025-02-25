@@ -71,7 +71,6 @@ redis = { version = "0.29.0", features = [
 reqwest = { version = "0.12.12", default-features = false, features = [
     "json",
     "rustls-tls",
-    "native-tls",
 ] }
 rustls = { version = "0.23.23", default-features = false, features = [
     "logging",
