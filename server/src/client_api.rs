@@ -1678,6 +1678,32 @@ mod tests {
         .await;
 
         assert_eq!(res.events.get(0).unwrap(), &delta_event);
+        assert_eq!(res.events.len(), 1);
+
+        let res = test::call_service(
+            &app,
+            make_delta_request_with_token_and_etag(token.clone(), "11").await,
+        )
+        .await;
+
+        assert_eq!(res.status(), StatusCode::NOT_MODIFIED);
+
+        let delta_event = DeltaEvent::SegmentRemoved {
+            event_id: 12,
+            segment_id: 1,
+        };
+
+        feature_refresher
+            .delta_cache_manager
+            .update_cache("development", &vec![delta_event.clone()]);
+
+        let res = test::call_service(
+            &app,
+            make_delta_request_with_token_and_etag(token.clone(), "12").await,
+        )
+        .await;
+
+        assert_eq!(res.status(), StatusCode::NOT_MODIFIED);
     }
 
     #[tokio::test]
