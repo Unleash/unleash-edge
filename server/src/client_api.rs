@@ -385,10 +385,6 @@ pub async fn post_bulk_metrics(
     Ok(HttpResponse::Accepted().finish())
 }
 
-#[utoipa::path(context_path = "/api/client", responses((status = 202, description = "Accepted Instance data"), (status = 403, description = "Was not allowed to post instance data")), request_body = EdgeInstanceData, security(
-("Authorization" = [])
-)
-)]
 #[post("/metrics/edge")]
 #[instrument(skip(_edge_token, instance_data, connected_instances))]
 pub async fn post_edge_instance_data(
