@@ -39,7 +39,9 @@ impl DeltaCache {
     }
 
     pub fn has_revision(&self, revision: u32) -> bool {
-        self.get_events().iter().any(|e| e.get_event_id() == revision)
+        self.get_events()
+            .iter()
+            .any(|e| e.get_event_id() == revision)
     }
 
     pub fn add_events(&mut self, events: &[DeltaEvent]) {
