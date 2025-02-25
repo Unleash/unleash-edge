@@ -1,3 +1,5 @@
+use std::sync::atomic::{AtomicU64, Ordering};
+
 use ahash::HashMap;
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
@@ -48,11 +50,20 @@ pub struct UpstreamLatency {
     pub edge: LatencyMetrics,
 }
 
-#[derive(Debug, Default, Clone, Deserialize, Serialize, ToSchema)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RequestStats {
-    pub requests_200: u64,
-    pub requests_304: u64,
+    pub requests_200: AtomicU64,
+    pub requests_304: AtomicU64,
+}
+
+impl Clone for RequestStats {
+    fn clone(&self) -> Self {
+        Self {
+            requests_200: AtomicU64::new(self.requests_200.load(Ordering::Relaxed)),
+            requests_304: AtomicU64::new(self.requests_304.load(Ordering::Relaxed)),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -91,17 +102,19 @@ impl EdgeInstanceData {
 
     pub fn observe_request(&self, http_target: &str, status_code: i64) {
         match status_code {
-            200 => {
+            200 | 202 | 204 => {
                 self.requests_since_last_report
                     .entry(http_target.to_string())
                     .or_default()
-                    .requests_200 += 1
+                    .requests_200
+                    .fetch_add(1, Ordering::AcqRel);
             }
             304 => {
                 self.requests_since_last_report
                     .entry(http_target.to_string())
                     .or_default()
-                    .requests_304 += 1
+                    .requests_304
+                    .fetch_add(1, Ordering::AcqRel);
             }
             _ => {}
         }
