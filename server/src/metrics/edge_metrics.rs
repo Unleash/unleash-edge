@@ -1,5 +1,8 @@
+use std::sync::atomic::{AtomicU64, Ordering};
+
 use ahash::HashMap;
 use chrono::{DateTime, Utc};
+use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use ulid::Ulid;
 use utoipa::ToSchema;
@@ -47,7 +50,23 @@ pub struct UpstreamLatency {
     pub edge: LatencyMetrics,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
+#[derive(Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RequestStats {
+    pub requests_200: AtomicU64,
+    pub requests_304: AtomicU64,
+}
+
+impl Clone for RequestStats {
+    fn clone(&self) -> Self {
+        Self {
+            requests_200: AtomicU64::new(self.requests_200.load(Ordering::Relaxed)),
+            requests_304: AtomicU64::new(self.requests_304.load(Ordering::Relaxed)),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EdgeInstanceData {
     pub identifier: String,
@@ -58,6 +77,7 @@ pub struct EdgeInstanceData {
     pub started: DateTime<Utc>,
     pub traffic: InstanceTraffic,
     pub latency_upstream: UpstreamLatency,
+    pub requests_since_last_report: DashMap<String, RequestStats>,
     pub connected_streaming_clients: u64,
     pub connected_edges: Vec<EdgeInstanceData>,
 }
@@ -76,6 +96,27 @@ impl EdgeInstanceData {
             latency_upstream: UpstreamLatency::default(),
             connected_edges: vec![],
             connected_streaming_clients: 0,
+            requests_since_last_report: DashMap::default(),
+        }
+    }
+
+    pub fn observe_request(&self, http_target: &str, status_code: i64) {
+        match status_code {
+            200 | 202 | 204 => {
+                self.requests_since_last_report
+                    .entry(http_target.to_string())
+                    .or_default()
+                    .requests_200
+                    .fetch_add(1, Ordering::SeqCst);
+            }
+            304 => {
+                self.requests_since_last_report
+                    .entry(http_target.to_string())
+                    .or_default()
+                    .requests_304
+                    .fetch_add(1, Ordering::SeqCst);
+            }
+            _ => {}
         }
     }
 
