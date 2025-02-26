@@ -260,7 +260,12 @@ async fn build_edge(
 
     let unleash_client = Url::parse(&args.upstream_url.clone())
         .map(|url| {
-            UnleashClient::from_url(url, args.token_header.token_header.clone(), http_client)
+            UnleashClient::from_url(
+                url,
+                args.token_header.token_header.clone(),
+                http_client,
+                client_meta_information.clone(),
+            )
         })
         .map(|c| c.with_custom_client_headers(args.custom_client_headers.clone()))
         .map(Arc::new)
