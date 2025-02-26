@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [19.7.1](https://github.com/Unleash/unleash-edge/compare/v19.7.0...v19.7.1) - 2025-02-26
+
+### Dependency updates
+- bump prometheus-reqwest-remote-write from 0.2.1 to 0.3.0 (#778) (by @dependabot[bot]) - #778
+
+### Contributors
+
+* @dependabot[bot]
+
 ## [19.7.0](https://github.com/Unleash/unleash-edge/compare/v19.6.3...v19.7.0) - 2025-02-25
 
 ### 🚀 Features
