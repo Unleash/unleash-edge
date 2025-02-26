@@ -58,6 +58,7 @@ impl InstanceDataSending {
                                     url,
                                     args.token_header.token_header.clone(),
                                     http_client,
+                                    client_meta_information.clone(),
                                 )
                             })
                             .map(|c| {

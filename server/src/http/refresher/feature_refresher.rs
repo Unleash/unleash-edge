@@ -709,6 +709,7 @@ mod tests {
             Url::parse("http://localhost:4242").unwrap(),
             "Authorization".to_string(),
             http_client,
+            ClientMetaInformation::test_config(),
         )
     }
 

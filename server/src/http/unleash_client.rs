@@ -39,34 +39,34 @@ lazy_static! {
             "client_register_failures",
             "Why we failed to register upstream"
         ),
-        &["status_code"]
+        &["status_code", "app_name", "instance_id"]
     )
     .unwrap();
     pub static ref CLIENT_FEATURE_FETCH: HistogramVec = register_histogram_vec!(
         "client_feature_fetch",
         "Timings for fetching features in milliseconds",
-        &["status_code"],
+        &["status_code", "app_name", "instance_id"],
         vec![1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0, 5000.0]
     )
     .unwrap();
     pub static ref CLIENT_FEATURE_DELTA_FETCH: HistogramVec = register_histogram_vec!(
         "client_feature_delta_fetch",
         "Timings for fetching feature deltas in milliseconds",
-        &["status_code"],
+        &["status_code", "app_name", "instance_id"],
         vec![1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0, 5000.0]
     )
     .unwrap();
     pub static ref METRICS_UPLOAD: HistogramVec = register_histogram_vec!(
         "client_metrics_upload",
         "Timings for uploading client metrics in milliseconds",
-        &["status_code"],
+        &["status_code", "app_name", "instance_id"],
         vec![1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0]
     )
     .unwrap();
     pub static ref INSTANCE_DATA_UPLOAD: HistogramVec = register_histogram_vec!(
         "instance_data_upload",
         "Timings for uploading Edge instance data in milliseconds",
-        &["status_code"],
+        &["status_code", "app_name", "instance_id"],
         vec![1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0]
     )
     .unwrap();
@@ -75,7 +75,7 @@ lazy_static! {
             "client_feature_fetch_failures",
             "Why we failed to fetch features"
         ),
-        &["status_code"]
+        &["status_code", "app_name", "instance_id"]
     )
     .unwrap();
     pub static ref TOKEN_VALIDATION_FAILURES: IntGaugeVec = register_int_gauge_vec!(
@@ -83,7 +83,7 @@ lazy_static! {
             "token_validation_failures",
             "Why we failed to validate tokens"
         ),
-        &["status_code"]
+        &["status_code", "app_name", "instance_id"]
     )
     .unwrap();
     pub static ref UPSTREAM_VERSION: IntGaugeVec = register_int_gauge_vec!(
@@ -91,7 +91,7 @@ lazy_static! {
             "upstream_version",
             "The server type (Unleash or Edge) and version of the upstream we're connected to"
         ),
-        &["server", "version"]
+        &["server", "version", "app_name", "instance_id"]
     )
     .unwrap();
 }
@@ -126,6 +126,7 @@ pub struct UnleashClient {
     backing_client: Client,
     custom_headers: HashMap<String, String>,
     token_header: String,
+    meta_info: ClientMetaInformation,
 }
 
 fn load_pkcs12(id: &ClientIdentity) -> EdgeResult<Identity> {
@@ -224,12 +225,18 @@ pub struct EdgeTokens {
 }
 
 impl UnleashClient {
-    pub fn from_url(server_url: Url, token_header: String, backing_client: Client) -> Self {
+    pub fn from_url(
+        server_url: Url,
+        token_header: String,
+        backing_client: Client,
+        client_meta_information: ClientMetaInformation,
+    ) -> Self {
         Self {
             urls: UnleashUrls::from_base_url(server_url),
             backing_client,
             custom_headers: Default::default(),
             token_header,
+            meta_info: client_meta_information.clone(),
         }
     }
 
@@ -237,6 +244,10 @@ impl UnleashClient {
         use ulid::Ulid;
 
         let instance_id = instance_id_opt.unwrap_or_else(|| Ulid::new().to_string());
+        let client_meta_info = ClientMetaInformation {
+            instance_id,
+            app_name: "test-client".into(),
+        };
         Ok(Self {
             urls: UnleashUrls::from_str(server_url)?,
             backing_client: new_reqwest_client(
@@ -245,14 +256,12 @@ impl UnleashClient {
                 None,
                 Duration::seconds(5),
                 Duration::seconds(5),
-                ClientMetaInformation {
-                    instance_id,
-                    app_name: "test-client".into(),
-                },
+                client_meta_info.clone(),
             )
             .unwrap(),
             custom_headers: Default::default(),
             token_header: "Authorization".to_string(),
+            meta_info: client_meta_info.clone(),
         })
     }
 
@@ -271,6 +280,7 @@ impl UnleashClient {
             .unwrap(),
             custom_headers: Default::default(),
             token_header: "Authorization".to_string(),
+            meta_info: ClientMetaInformation::test_config(),
         })
     }
 
@@ -336,7 +346,11 @@ impl UnleashClient {
             .map(|r| {
                 if !r.status().is_success() {
                     CLIENT_REGISTER_FAILURES
-                        .with_label_values(&[r.status().as_str()])
+                        .with_label_values(&[
+                            r.status().as_str(),
+                            &self.meta_info.app_name,
+                            &self.meta_info.instance_id,
+                        ])
                         .inc();
                     warn!(
                         "Failed to register client upstream with status code {}",
@@ -364,7 +378,11 @@ impl UnleashClient {
             })?;
         let stop_time = Utc::now();
         CLIENT_FEATURE_FETCH
-            .with_label_values(&[&response.status().as_u16().to_string()])
+            .with_label_values(&[
+                &response.status().as_u16().to_string(),
+                &self.meta_info.app_name,
+                &self.meta_info.instance_id,
+            ])
             .observe(
                 stop_time
                     .signed_duration_since(start_time)
@@ -387,14 +405,22 @@ impl UnleashClient {
             Ok(ClientFeaturesResponse::Updated(features, etag))
         } else if response.status() == StatusCode::FORBIDDEN {
             CLIENT_FEATURE_FETCH_FAILURES
-                .with_label_values(&[response.status().as_str()])
+                .with_label_values(&[
+                    response.status().as_str(),
+                    &self.meta_info.app_name,
+                    &self.meta_info.instance_id,
+                ])
                 .inc();
             Err(EdgeError::ClientFeaturesFetchError(
                 FeatureError::AccessDenied,
             ))
         } else if response.status() == StatusCode::UNAUTHORIZED {
             CLIENT_FEATURE_FETCH_FAILURES
-                .with_label_values(&[response.status().as_str()])
+                .with_label_values(&[
+                    response.status().as_str(),
+                    &self.meta_info.app_name,
+                    &self.meta_info.instance_id,
+                ])
                 .inc();
             warn!(
                 "Failed to get features. Url: [{}]. Status code: [401]",
@@ -405,7 +431,11 @@ impl UnleashClient {
             ))
         } else if response.status() == StatusCode::NOT_FOUND {
             CLIENT_FEATURE_FETCH_FAILURES
-                .with_label_values(&[response.status().as_str()])
+                .with_label_values(&[
+                    response.status().as_str(),
+                    &self.meta_info.app_name,
+                    &self.meta_info.instance_id,
+                ])
                 .inc();
             warn!(
                 "Failed to get features. Url: [{}]. Status code: [{}]",
@@ -415,7 +445,11 @@ impl UnleashClient {
             Err(EdgeError::ClientFeaturesFetchError(FeatureError::NotFound))
         } else {
             CLIENT_FEATURE_FETCH_FAILURES
-                .with_label_values(&[response.status().as_str()])
+                .with_label_values(&[
+                    response.status().as_str(),
+                    &self.meta_info.app_name,
+                    &self.meta_info.instance_id,
+                ])
                 .inc();
             Err(EdgeError::ClientFeaturesFetchError(
                 FeatureError::Retriable(response.status()),
@@ -441,7 +475,11 @@ impl UnleashClient {
             })?;
         let stop_time = Utc::now();
         CLIENT_FEATURE_DELTA_FETCH
-            .with_label_values(&[&response.status().as_u16().to_string()])
+            .with_label_values(&[
+                &response.status().as_u16().to_string(),
+                &self.meta_info.app_name,
+                &self.meta_info.instance_id,
+            ])
             .observe(
                 stop_time
                     .signed_duration_since(start_time)
@@ -464,7 +502,7 @@ impl UnleashClient {
             Ok(ClientFeaturesDeltaResponse::Updated(features, etag))
         } else if response.status() == StatusCode::FORBIDDEN {
             CLIENT_FEATURE_FETCH_FAILURES
-                .with_label_values(&[response.status().as_str()])
+                .with_label_values(&[response.status().as_str(), &self.meta_info.app_name])
                 .inc();
             Err(EdgeError::ClientFeaturesFetchError(
                 FeatureError::AccessDenied,
@@ -546,7 +584,11 @@ impl UnleashClient {
             })?;
         let ended = Utc::now();
         METRICS_UPLOAD
-            .with_label_values(&[result.status().as_str()])
+            .with_label_values(&[
+                result.status().as_str(),
+                &self.meta_info.app_name,
+                &self.meta_info.instance_id,
+            ])
             .observe(ended.signed_duration_since(started_at).num_milliseconds() as f64);
         if result.status().is_success() {
             Ok(())
@@ -582,7 +624,11 @@ impl UnleashClient {
             })?;
         let ended_at = Utc::now();
         INSTANCE_DATA_UPLOAD
-            .with_label_values(&[result.status().as_str()])
+            .with_label_values(&[
+                result.status().as_str(),
+                &self.meta_info.app_name,
+                &self.meta_info.instance_id,
+            ])
             .observe(
                 ended_at
                     .signed_duration_since(started_at)
@@ -649,7 +695,11 @@ impl UnleashClient {
             }
             s => {
                 TOKEN_VALIDATION_FAILURES
-                    .with_label_values(&[result.status().as_str()])
+                    .with_label_values(&[
+                        result.status().as_str(),
+                        &self.meta_info.app_name,
+                        &self.meta_info.instance_id,
+                    ])
                     .inc();
                 error!(
                     "Failed to validate tokens. Requested url: [{}]. Got status: {:?}",
