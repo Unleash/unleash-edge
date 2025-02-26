@@ -136,6 +136,8 @@ pub struct ClientIdentity {
     #[clap(long, env)]
     /// Passphrase used to unlock the pkcs12 file
     pub pkcs12_passphrase: Option<String>,
+
+    pub pem_cert_file: Option<PathBuf>,
 }
 
 pub enum PromAuth {

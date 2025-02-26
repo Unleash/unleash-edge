@@ -9,7 +9,6 @@ use std::str::FromStr;
 use actix_web::http::header::EntityTag;
 use chrono::Duration;
 use chrono::Utc;
-use iter_tools::Itertools;
 use lazy_static::lazy_static;
 use prometheus::{register_histogram_vec, register_int_gauge_vec, HistogramVec, IntGaugeVec, Opts};
 use reqwest::header::{HeaderMap, HeaderName};
@@ -194,6 +193,22 @@ fn load_pkcs8(id: &ClientIdentity) -> EdgeResult<Identity> {
     })
 }
 
+fn load_pem_identity(pem_file: PathBuf) -> EdgeResult<Vec<u8>> {
+    let mut pem = vec![];
+    let mut pem_reader = BufReader::new(File::open(pem_file).expect("No such file"));
+    let _ = pem_reader.read_to_end(&mut pem);
+    Ok(pem)
+}
+
+fn load_pem(id: &ClientIdentity) -> EdgeResult<Identity> {
+    Identity::from_pem(&load_pem_identity(id.pem_cert_file.clone().unwrap())?).map_err(|e| {
+        println!("Failed to load pem identity: {}", e);
+        EdgeError::ClientCertificateError(CertificateError::Pem8IdentityGeneration(format!(
+            "{e:?}"
+        )))
+    })
+}
+
 fn build_identity(tls: Option<ClientIdentity>) -> EdgeResult<ClientBuilder> {
     tls.map_or_else(
         || Ok(ClientBuilder::new().use_rustls_tls()),
@@ -205,6 +220,9 @@ fn build_identity(tls: Option<ClientIdentity>) -> EdgeResult<ClientBuilder> {
             } else if tls.pkcs8_client_certificate_file.is_some() {
                 println!("Loading pkcs8");
                 load_pkcs8(&tls)
+            } else if tls.pem_cert_file.is_some() {
+                println!("Loading pem");
+                load_pem(&tls)
             } else {
                 Err(EdgeError::ClientCertificateError(
                     CertificateError::NoCertificateFiles,
@@ -216,7 +234,7 @@ fn build_identity(tls: Option<ClientIdentity>) -> EdgeResult<ClientBuilder> {
                     CertificateError::Pem8IdentityGeneration(format!("{e:?}")),
                 ));
             }
-            req_identity.map(|id| ClientBuilder::new().identity(id).use_rustls_tls())
+            req_identity.map(|id| ClientBuilder::new().use_rustls_tls().identity(id))
         },
     )
 }
@@ -1072,6 +1090,7 @@ mod tests {
             pkcs8_client_key_file: None,
             pkcs12_identity_file: Some(PathBuf::from(pfx)),
             pkcs12_passphrase: Some(passphrase.into()),
+            pem_cert_file: None,
         };
         let client = new_reqwest_client(
             false,
@@ -1096,6 +1115,7 @@ mod tests {
             pkcs8_client_key_file: None,
             pkcs12_identity_file: Some(PathBuf::from(pfx)),
             pkcs12_passphrase: Some(passphrase.into()),
+            pem_cert_file: None,
         };
         let client = new_reqwest_client(
             false,
@@ -1113,13 +1133,14 @@ mod tests {
 
     #[test]
     pub fn can_instantiate_pkcs_8_client() {
-        let key = "./testdata/pkcs8/snakeoil.key";
-        let cert = "./testdata/pkcs12/snakeoil.pem";
+        let key = "./testdata/pkcs8/snakeoil.key.pem";
+        let cert = "./testdata/pkcs8/snakeoil.crt";
         let identity = ClientIdentity {
             pkcs8_client_certificate_file: Some(cert.into()),
             pkcs8_client_key_file: Some(key.into()),
             pkcs12_identity_file: None,
             pkcs12_passphrase: None,
+            pem_cert_file: None,
         };
         let client = new_reqwest_client(
             false,
@@ -1132,6 +1153,40 @@ mod tests {
                 instance_id: "test-pkcs8".into(),
             },
         );
-        assert!(client.is_ok());
+        if let Err(e) = client {
+            println!("Error: {}", e);
+            panic!("client error");
+        } else {
+            assert!(true)
+        }
+    }
+
+    #[test]
+    pub fn can_instantiate_pem_client() {
+        let cert = "./testdata/pem/keyStore.pem";
+        let identity = ClientIdentity {
+            pkcs8_client_certificate_file: None,
+            pkcs8_client_key_file: None,
+            pkcs12_identity_file: None,
+            pkcs12_passphrase: None,
+            pem_cert_file: Some(cert.into()),
+        };
+        let client = new_reqwest_client(
+            false,
+            Some(identity),
+            None,
+            Duration::seconds(5),
+            Duration::seconds(5),
+            ClientMetaInformation {
+                app_name: "test-client".into(),
+                instance_id: "test-pkcs8".into(),
+            },
+        );
+        if let Err(e) = client {
+            println!("Error: {}", e);
+            panic!("client error");
+        } else {
+            assert!(true)
+        }
     }
 }
