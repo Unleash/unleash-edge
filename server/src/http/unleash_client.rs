@@ -1,5 +1,8 @@
 use std::collections::HashMap;
 use std::fs;
+use std::fs::File;
+use std::io::BufReader;
+use std::io::Read;
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -165,19 +168,21 @@ fn load_pkcs12(id: &ClientIdentity) -> EdgeResult<Identity> {
 }
 
 fn load_pkcs8_identity(id: &ClientIdentity) -> EdgeResult<Vec<u8>> {
-    let cert = fs::read(id.pkcs8_client_certificate_file.clone().unwrap()).map_err(|e| {
+    let cert = File::open(id.pkcs8_client_certificate_file.clone().unwrap()).map_err(|e| {
         println!("Failed to read pkcs8 client certificate file: {}", e);
         EdgeError::ClientCertificateError(CertificateError::Pem8ClientCertNotFound(format!("{e:}")))
     })?;
-    let key = fs::read(id.pkcs8_client_key_file.clone().unwrap()).map_err(|e| {
+    let key = File::open(id.pkcs8_client_key_file.clone().unwrap()).map_err(|e| {
         println!("Failed to read pkcs8 client key file: {}", e);
         EdgeError::ClientCertificateError(CertificateError::Pem8ClientKeyNotFound(format!("{e:?}")))
     })?;
-    let mut combined: Vec<u8> = Vec::new();
-    combined.extend(&key);
-    combined.push(0x0a);
-    combined.extend(&cert);
-    Ok(combined)
+    let mut cert_reader = BufReader::new(cert);
+    let mut key_reader = BufReader::new(key);
+    let mut pem = vec![];
+    let _ = key_reader.read_to_end(&mut pem);
+    pem.push(0x0a);
+    let _ = cert_reader.read_to_end(&mut pem);
+    Ok(pem)
 }
 
 fn load_pkcs8(id: &ClientIdentity) -> EdgeResult<Identity> {
@@ -191,7 +196,7 @@ fn load_pkcs8(id: &ClientIdentity) -> EdgeResult<Identity> {
 
 fn build_identity(tls: Option<ClientIdentity>) -> EdgeResult<ClientBuilder> {
     tls.map_or_else(
-        || Ok(ClientBuilder::new()),
+        || Ok(ClientBuilder::new().use_rustls_tls()),
         |tls| {
             let req_identity = if tls.pkcs12_identity_file.is_some() {
                 // We're going to assume that we're using pkcs#12
@@ -211,7 +216,7 @@ fn build_identity(tls: Option<ClientIdentity>) -> EdgeResult<ClientBuilder> {
                     CertificateError::Pem8IdentityGeneration(format!("{e:?}")),
                 ));
             }
-            req_identity.map(|id| ClientBuilder::new().identity(id))
+            req_identity.map(|id| ClientBuilder::new().identity(id).use_rustls_tls())
         },
     )
 }
@@ -254,7 +259,7 @@ pub fn new_reqwest_client(
                 .timeout(socket_timeout.to_std().unwrap())
                 .connect_timeout(connect_timeout.to_std().unwrap())
                 .build()
-                .map_err(|e| EdgeError::ClientBuildError(format!("{e:?}")))
+                .map_err(|e| EdgeError::ClientBuildError(format!("Failed to build client {e:?}")))
         })
 }
 
