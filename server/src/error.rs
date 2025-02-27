@@ -42,6 +42,8 @@ impl From<&EdgeToken> for FrontendHydrationMissing {
 pub enum CertificateError {
     Pkcs12ArchiveNotFound(String),
     Pkcs12IdentityGeneration(String),
+    Pkcs12X509Error(String),
+    Pkcs12ParseError(String),
     Pem8ClientKeyNotFound(String),
     Pem8ClientCertNotFound(String),
     Pem8IdentityGeneration(String),
@@ -81,6 +83,15 @@ impl Display for CertificateError {
             }
             CertificateError::RootCertificatesError(e) => {
                 write!(f, "Could not load root certificate {e:?}")
+            }
+            CertificateError::Pkcs12ParseError(e) => {
+                write!(f, "Failed to parse PKCS#12 archive {e:?}")
+            }
+            CertificateError::Pkcs12X509Error(e) => {
+                write!(
+                    f,
+                    "Failed to read X509 certificate from PKCS#12 archive. {e:?}"
+                )
             }
         }
     }
