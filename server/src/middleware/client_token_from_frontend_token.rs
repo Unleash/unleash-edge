@@ -135,13 +135,14 @@ mod tests {
         )
         .await;
 
+        let meta_information = crate::http::unleash_client::ClientMetaInformation::test_config();
         let http_client = new_reqwest_client(
             false,
             None,
             None,
             Duration::seconds(5),
             Duration::seconds(5),
-            crate::http::unleash_client::ClientMetaInformation::test_config(),
+            meta_information.clone(),
         )
         .expect("Failed to create client");
 
@@ -149,6 +150,7 @@ mod tests {
             Url::parse(&upstream_server.url("/")).unwrap(),
             "test-client".into(),
             http_client,
+            meta_information.clone(),
         );
         let local_features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let local_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
