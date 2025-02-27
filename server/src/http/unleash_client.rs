@@ -134,34 +134,27 @@ pub struct UnleashClient {
 
 fn load_pkcs12(id: &ClientIdentity) -> EdgeResult<Identity> {
     let p12_file = fs::read(id.pkcs12_identity_file.clone().unwrap()).map_err(|e| {
-        println!("Could not find PKCS#12 identity file: {}", e);
         EdgeError::ClientCertificateError(CertificateError::Pkcs12ArchiveNotFound(format!("{e:?}")))
     })?;
     let p12_keystore =
         p12_keystore::KeyStore::from_pkcs12(&p12_file, &id.pkcs12_passphrase.clone().unwrap())
             .map_err(|e| {
-                println!("p12 failed parsing to PFX: {}", e);
                 EdgeError::ClientCertificateError(CertificateError::Pkcs12ParseError(format!(
                     "{e:?}"
                 )))
             })?;
     let mut pem = vec![];
     for (alias, entry) in p12_keystore.entries() {
-        println!("P12 entry: {alias}");
+        debug!("P12 entry: {alias}");
         match entry {
-            p12_keystore::KeyStoreEntry::Certificate(cert) => {
-                println!("Direct Certificate, we want chain because client identity needs the private key: {:?}", cert);
+            p12_keystore::KeyStoreEntry::Certificate(_) => {
+                info!("Direct Certificate, skipping. We want chain because client identity needs the private key");
             }
             p12_keystore::KeyStoreEntry::PrivateKeyChain(chain) => {
                 let key_pem = pkix::pem::der_to_pem(chain.key(), pkix::pem::PEM_PRIVATE_KEY);
                 pem.extend(key_pem.as_bytes());
                 pem.push(0x0a); // Added new line
                 for cert in chain.chain() {
-                    println!(
-                        "Certificate issuer: {:?} and subject: {:?}",
-                        cert.issuer(),
-                        cert.subject()
-                    );
                     let cert_pem = pkix::pem::der_to_pem(cert.as_der(), pkix::pem::PEM_CERTIFICATE);
                     pem.extend(cert_pem.as_bytes());
                     pem.push(0x0a); // Added new line
@@ -171,18 +164,15 @@ fn load_pkcs12(id: &ClientIdentity) -> EdgeResult<Identity> {
     }
 
     Identity::from_pem(&pem).map_err(|e| {
-        println!("Failed to build identify from certs");
         EdgeError::ClientCertificateError(CertificateError::Pkcs12X509Error(format!("{e:?}")))
     })
 }
 
 fn load_pkcs8_identity(id: &ClientIdentity) -> EdgeResult<Vec<u8>> {
     let cert = File::open(id.pkcs8_client_certificate_file.clone().unwrap()).map_err(|e| {
-        println!("Failed to read pkcs8 client certificate file: {}", e);
         EdgeError::ClientCertificateError(CertificateError::Pem8ClientCertNotFound(format!("{e:}")))
     })?;
     let key = File::open(id.pkcs8_client_key_file.clone().unwrap()).map_err(|e| {
-        println!("Failed to read pkcs8 client key file: {}", e);
         EdgeError::ClientCertificateError(CertificateError::Pem8ClientKeyNotFound(format!("{e:?}")))
     })?;
     let mut cert_reader = BufReader::new(cert);
@@ -196,7 +186,6 @@ fn load_pkcs8_identity(id: &ClientIdentity) -> EdgeResult<Vec<u8>> {
 
 fn load_pkcs8(id: &ClientIdentity) -> EdgeResult<Identity> {
     Identity::from_pem(&load_pkcs8_identity(id)?).map_err(|e| {
-        println!("Failed to load pkcs8 identity: {}", e);
         EdgeError::ClientCertificateError(CertificateError::Pem8IdentityGeneration(format!(
             "{e:?}"
         )))
@@ -212,7 +201,6 @@ fn load_pem_identity(pem_file: PathBuf) -> EdgeResult<Vec<u8>> {
 
 fn load_pem(id: &ClientIdentity) -> EdgeResult<Identity> {
     Identity::from_pem(&load_pem_identity(id.pem_cert_file.clone().unwrap())?).map_err(|e| {
-        println!("Failed to load pem identity: {}", e);
         EdgeError::ClientCertificateError(CertificateError::Pem8IdentityGeneration(format!(
             "{e:?}"
         )))
@@ -225,25 +213,16 @@ fn build_identity(tls: Option<ClientIdentity>) -> EdgeResult<ClientBuilder> {
         |tls| {
             let req_identity = if tls.pkcs12_identity_file.is_some() {
                 // We're going to assume that we're using pkcs#12
-                println!("Loading pkcs12 identity");
                 load_pkcs12(&tls)
             } else if tls.pkcs8_client_certificate_file.is_some() {
-                println!("Loading pkcs8");
                 load_pkcs8(&tls)
             } else if tls.pem_cert_file.is_some() {
-                println!("Loading pem");
                 load_pem(&tls)
             } else {
                 Err(EdgeError::ClientCertificateError(
                     CertificateError::NoCertificateFiles,
                 ))
             };
-            if let Err(e) = req_identity {
-                println!("Failed to load identity: {}", e);
-                return Err(EdgeError::ClientCertificateError(
-                    CertificateError::Pem8IdentityGeneration(format!("{e:?}")),
-                ));
-            }
             req_identity.map(|id| ClientBuilder::new().use_rustls_tls().identity(id))
         },
     )
@@ -1163,12 +1142,7 @@ mod tests {
                 instance_id: "test-pkcs8".into(),
             },
         );
-        if let Err(e) = client {
-            println!("Error: {}", e);
-            panic!("client error");
-        } else {
-            assert!(true)
-        }
+        assert!(client.is_ok());
     }
 
     #[test]
@@ -1192,11 +1166,6 @@ mod tests {
                 instance_id: "test-pkcs8".into(),
             },
         );
-        if let Err(e) = client {
-            println!("Error: {}", e);
-            panic!("client error");
-        } else {
-            assert!(true)
-        }
+        assert!(client.is_ok());
     }
 }
