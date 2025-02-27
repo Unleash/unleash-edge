@@ -236,7 +236,7 @@ impl UnleashClient {
             backing_client,
             custom_headers: Default::default(),
             token_header,
-            meta_info: client_meta_information.clone(),
+            meta_info: client_meta_information,
         }
     }
 
