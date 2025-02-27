@@ -137,7 +137,7 @@ fn load_pkcs12(id: &ClientIdentity) -> EdgeResult<Identity> {
         println!("Could not find PKCS#12 identity file: {}", e);
         EdgeError::ClientCertificateError(CertificateError::Pkcs12ArchiveNotFound(format!("{e:?}")))
     })?;
-    let keystore =
+    let p12_keystore =
         p12_keystore::KeyStore::from_pkcs12(&p12_file, &id.pkcs12_passphrase.clone().unwrap())
             .map_err(|e| {
                 println!("p12 failed parsing to PFX: {}", e);
@@ -145,25 +145,35 @@ fn load_pkcs12(id: &ClientIdentity) -> EdgeResult<Identity> {
                     "{e:?}"
                 )))
             })?;
-    if let Some((s, chain)) = keystore.private_key_chain() {
-        println!("Processing {s}");
-        let mut pem = vec![];
-        pem.extend(chain.key());
-        pem.push(0x0a);
-        for cert in chain.chain() {
-            pem.extend(cert.as_der());
-            pem.push(0x0a);
+    let mut pem = vec![];
+    for (alias, entry) in p12_keystore.entries() {
+        println!("P12 entry: {alias}");
+        match entry {
+            p12_keystore::KeyStoreEntry::Certificate(cert) => {
+                println!("Direct Certificate, we want chain because client identity needs the private key: {:?}", cert);
+            }
+            p12_keystore::KeyStoreEntry::PrivateKeyChain(chain) => {
+                let key_pem = pkix::pem::der_to_pem(chain.key(), pkix::pem::PEM_PRIVATE_KEY);
+                pem.extend(key_pem.as_bytes());
+                pem.push(0x0a); // Added new line
+                for cert in chain.chain() {
+                    println!(
+                        "Certificate issuer: {:?} and subject: {:?}",
+                        cert.issuer(),
+                        cert.subject()
+                    );
+                    let cert_pem = pkix::pem::der_to_pem(cert.as_der(), pkix::pem::PEM_CERTIFICATE);
+                    pem.extend(cert_pem.as_bytes());
+                    pem.push(0x0a); // Added new line
+                }
+            }
         }
-        Identity::from_pem(&pem).map_err(|e| {
-            println!("Failed to load PKCS#12 identity: {}", e);
-            EdgeError::ClientCertificateError(CertificateError::Pkcs12X509Error(format!("{e:?}")))
-        })
-    } else {
-        println!("No private key chain found");
-        Err(EdgeError::ClientCertificateError(
-            CertificateError::Pkcs12IdentityGeneration("No private key chain".to_string()),
-        ))
     }
+
+    Identity::from_pem(&pem).map_err(|e| {
+        println!("Failed to build identify from certs");
+        EdgeError::ClientCertificateError(CertificateError::Pkcs12X509Error(format!("{e:?}")))
+    })
 }
 
 fn load_pkcs8_identity(id: &ClientIdentity) -> EdgeResult<Vec<u8>> {

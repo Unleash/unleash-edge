@@ -931,6 +931,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "b64-ct"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "41dd1e07aafe656df62d40e74d4627a0cce26da43b0bec233ac1305207a5a768"
+
+[[package]]
 name = "backtrace"
 version = "0.3.74"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -978,6 +984,12 @@ name = "base64ct"
 version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c3c1a368f70d6cf7302d78f8f7093da241fb8e8807c05cc9e51a125895a6d5b"
+
+[[package]]
+name = "bit-vec"
+version = "0.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "349f9b6a179ed607305526ca489b34ad0a41aed5f7980fa90eb03160b69598fb"
 
 [[package]]
 name = "bitflags"
@@ -1558,7 +1570,7 @@ dependencies = [
  "asn1-rs",
  "displaydoc",
  "nom",
- "num-bigint",
+ "num-bigint 0.4.6",
  "num-traits",
  "rusticata-macros",
 ]
@@ -2862,6 +2874,17 @@ dependencies = [
 
 [[package]]
 name = "num-bigint"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "090c7f9998ee0ff65aa5b723e4009f7b217707f1fb5ea551329cc4d6231fb304"
+dependencies = [
+ "autocfg",
+ "num-integer",
+ "num-traits",
+]
+
+[[package]]
+name = "num-bigint"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a5e44f723f1133c9deac646763579fdb3ac745e418f2a7af9cd0c431da1f20b9"
@@ -3008,23 +3031,6 @@ name = "overload"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
-
-[[package]]
-name = "p12"
-version = "0.6.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4873306de53fe82e7e484df31e1e947d61514b6ea2ed6cd7b45d63006fd9224"
-dependencies = [
- "cbc",
- "cipher",
- "des",
- "getrandom 0.2.15",
- "hmac",
- "lazy_static",
- "rc2",
- "sha1",
- "yasna",
-]
 
 [[package]]
 name = "p12-keystore"
@@ -3260,6 +3266,22 @@ name = "pkg-config"
 version = "0.3.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "953ec861398dccce10c670dfeaf3ec4911ca479e9c02154b3a215178c5f566f2"
+
+[[package]]
+name = "pkix"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6e18f09ac3ee824fac9693352470dcb4b008d211a41f103fa4e80e91e2e6260"
+dependencies = [
+ "b64-ct",
+ "bit-vec",
+ "bitflags 1.3.2",
+ "chrono",
+ "lazy_static",
+ "num-bigint 0.2.6",
+ "num-integer",
+ "yasna",
+]
 
 [[package]]
 name = "powerfmt"
@@ -3522,7 +3544,7 @@ dependencies = [
  "crc16",
  "futures-util",
  "itoa",
- "num-bigint",
+ "num-bigint 0.4.6",
  "percent-encoding",
  "pin-project-lite",
  "rand 0.9.0",
@@ -4843,8 +4865,8 @@ dependencies = [
  "opentelemetry-prometheus",
  "opentelemetry-semantic-conventions",
  "opentelemetry_sdk",
- "p12",
  "p12-keystore",
+ "pkix",
  "prometheus",
  "prometheus-reqwest-remote-write",
  "prometheus-static-metric",
@@ -5457,9 +5479,13 @@ checksum = "fdd20c5420375476fbd4394763288da7eb0cc0b8c11deed431a91562af7335d3"
 
 [[package]]
 name = "yasna"
-version = "0.5.2"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e17bb3549cc1321ae1296b9cdc2698e2b6cb1992adfa19a8c72e5b7a738f44cd"
+checksum = "0de7bff972b4f2a06c85f6d8454b09df153af7e3a4ec2aac81db1b105b684ddb"
+dependencies = [
+ "bit-vec",
+ "num-bigint 0.2.6",
+]
 
 [[package]]
 name = "yoke"

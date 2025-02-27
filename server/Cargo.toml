@@ -59,8 +59,8 @@ opentelemetry_sdk = { version = "0.28.0", features = [
     "serde_json",
     "logs",
 ] }
-p12 = "0.6.3"
 p12-keystore = "0.1.4"
+pkix = "0.2.3"
 prometheus = { version = "0.13.4", features = ["process"] }
 prometheus-reqwest-remote-write = { version = "0.3.0" }
 prometheus-static-metric = "0.5.1"
