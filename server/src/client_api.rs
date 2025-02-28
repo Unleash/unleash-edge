@@ -1622,7 +1622,7 @@ mod tests {
         let res: ClientFeaturesDelta = test::call_and_read_body_json(&app, req).await;
 
         assert_eq!(
-            res.events.get(0).unwrap(),
+            res.events.first().unwrap(),
             &DeltaEvent::Hydration {
                 event_id: delta_hydration_event.event_id,
                 features: delta_hydration_event.features.clone(),
@@ -1677,7 +1677,7 @@ mod tests {
         )
         .await;
 
-        assert_eq!(res.events.get(0).unwrap(), &delta_event);
+        assert_eq!(res.events.first().unwrap(), &delta_event);
         assert_eq!(res.events.len(), 1);
 
         let res = test::call_service(
@@ -1718,7 +1718,7 @@ mod tests {
         .await;
 
         assert_eq!(
-            res.events.get(0).unwrap(),
+            res.events.first().unwrap(),
             &DeltaEvent::Hydration {
                 event_id: delta_hydration_event.event_id,
                 features: delta_hydration_event.features.clone(),
