@@ -1114,6 +1114,7 @@ mod tests {
             ClientMetaInformation {
                 app_name: "test-client".into(),
                 instance_id: "test-pkcs12".into(),
+                connection_id: "test-pkcs12".into(),
             },
         );
         assert!(client.is_ok());
