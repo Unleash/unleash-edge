@@ -454,7 +454,7 @@ impl FeatureRefresher {
             .get_client_features_delta(ClientFeaturesRequest {
                 api_key: refresh.token.token.clone(),
                 etag: None,
-                interval: None
+                interval: None,
             })
             .await;
 
@@ -566,7 +566,7 @@ impl FeatureRefresher {
             .get_client_features(ClientFeaturesRequest {
                 api_key: refresh.token.token.clone(),
                 etag: refresh.etag.clone(),
-                interval: Some(self.refresh_interval.num_milliseconds())
+                interval: Some(self.refresh_interval.num_milliseconds()),
             })
             .await;
 

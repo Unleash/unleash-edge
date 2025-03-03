@@ -20,7 +20,10 @@ use unleash_types::client_metrics::ClientApplication;
 use crate::cli::ClientIdentity;
 use crate::error::EdgeError::EdgeMetricsRequestError;
 use crate::error::{CertificateError, FeatureError};
-use crate::http::headers::{UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_INSTANCE_ID_HEADER, UNLEASH_INTERVAL};
+use crate::http::headers::{
+    UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_INSTANCE_ID_HEADER,
+    UNLEASH_INTERVAL,
+};
 use crate::metrics::client_metrics::MetricsBatch;
 use crate::metrics::edge_metrics::EdgeInstanceData;
 use crate::tls::build_upstream_certificate;
@@ -541,7 +544,11 @@ impl UnleashClient {
         }
     }
 
-    pub async fn send_batch_metrics(&self, request: MetricsBatch, interval: Option<i64>) -> EdgeResult<()> {
+    pub async fn send_batch_metrics(
+        &self,
+        request: MetricsBatch,
+        interval: Option<i64>,
+    ) -> EdgeResult<()> {
         trace!("Sending metrics to old /edge/metrics endpoint");
         let mut client_req = self
             .backing_client
@@ -551,14 +558,10 @@ impl UnleashClient {
             client_req = client_req.header(UNLEASH_INTERVAL, interval_value.to_string());
         }
 
-        let result = client_req
-            .json(&request)
-            .send()
-            .await
-            .map_err(|e| {
-                info!("Failed to send batch metrics: {e:?}");
-                EdgeError::EdgeMetricsError
-            })?;
+        let result = client_req.json(&request).send().await.map_err(|e| {
+            info!("Failed to send batch metrics: {e:?}");
+            EdgeError::EdgeMetricsError
+        })?;
         if result.status().is_success() {
             Ok(())
         } else {
@@ -758,7 +761,7 @@ mod tests {
             Self {
                 api_key,
                 etag: etag.map(EntityTag::new_weak),
-                interval: Some(15)
+                interval: Some(15),
             }
         }
     }
