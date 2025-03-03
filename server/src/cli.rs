@@ -502,9 +502,9 @@ pub struct HttpServerArgs {
     #[clap(flatten)]
     pub cors: CorsOptions,
 
-    /// Configures the AllowList middleware to only accept requests from IPs that belong to the CIDRs configured here. Defaults to 0.0.0.0/0 (ALL Ips)
-    #[clap(long, env, global=true, default_value = "0.0.0.0/0", value_delimiter = ',', value_parser = ip_net_parser)]
-    pub allow_list: Vec<IpNet>,
+    /// Configures the AllowList middleware to only accept requests from IPs that belong to the CIDRs configured here. Defaults to 0.0.0.0/0, ::/0 (ALL Ips v4 and v6)
+    #[clap(long, env, global=true, value_delimiter = ',', value_parser = ip_net_parser)]
+    pub allow_list: Option<Vec<IpNet>>,
 
     /// Configures the DenyList middleware to deny requests from IPs that belong to the CIDRs configured here. Defaults to denying no IPs.
     #[clap(long, env, global=true, value_parser = ip_net_parser, value_delimiter = ',')]

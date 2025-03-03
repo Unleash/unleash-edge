@@ -150,9 +150,13 @@ async fn main() -> Result<(), anyhow::Error> {
                         .clone()
                         .unwrap_or_default(),
                 ))
-                .wrap(AllowList::with_allowed_ipnets(
-                    &http_args_for_app_setup.allow_list,
-                ))
+                .wrap(
+                    http_args_for_app_setup
+                        .allow_list
+                        .clone()
+                        .map(|list| AllowList::with_allowed_ipnets(&list))
+                        .unwrap_or(AllowList::default()),
+                )
                 .wrap(request_metrics.clone())
                 .wrap(Logger::default())
                 .service(web::scope("/internal-backstage").configure(|service_cfg| {

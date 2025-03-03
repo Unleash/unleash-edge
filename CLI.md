@@ -63,9 +63,7 @@ This document contains the help content for the `unleash-edge` command-line prog
   the [Access-Control-Allow-Methods](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Methods)
   header to this value
 * `--allow-list <ALLOW_LIST>` — Configures the AllowList middleware to only accept requests from IPs that belong to the
-  CIDRs configured here. Defaults to 0.0.0.0/0 (ALL Ips)
-
-  Default value: `0.0.0.0/0`
+  CIDRs configured here. Defaults to 0.0.0.0/0, ::/0 (ALL Ips v4 and v6)
 * `--deny-list <DENY_LIST>` — Configures the DenyList middleware to deny requests from IPs that belong to the CIDRs
   configured here. Defaults to denying no IPs
 * `--instance-id <INSTANCE_ID>` — Instance id. Used for metrics reporting
