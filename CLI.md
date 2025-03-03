@@ -133,9 +133,8 @@ Run in edge mode
 * `-f`, `--features-refresh-interval-seconds <FEATURES_REFRESH_INTERVAL_SECONDS>` — How long between each refresh for a
   token
 
-  Default value: `10`
-* `--token-revalidation-interval-seconds <TOKEN_REVALIDATION_INTERVAL_SECONDS>` — How long between each revalidation of
-  a token
+  Default value: `15`
+* `--token-revalidation-interval-seconds <TOKEN_REVALIDATION_INTERVAL_SECONDS>` — How long between each revalidation of a token
 
   Default value: `3600`
 * `-t`, `--tokens <TOKENS>` — Get data for these client tokens at startup. Accepts comma-separated list of tokens. Hot

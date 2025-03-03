@@ -61,7 +61,7 @@ pub struct FeatureRefresher {
 impl Default for FeatureRefresher {
     fn default() -> Self {
         Self {
-            refresh_interval: chrono::Duration::seconds(10),
+            refresh_interval: chrono::Duration::seconds(15),
             unleash_client: Default::default(),
             tokens_to_refresh: Arc::new(DashMap::default()),
             features_cache: Arc::new(Default::default()),

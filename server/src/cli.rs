@@ -162,7 +162,7 @@ pub struct EdgeArgs {
     #[clap(short, long, env, default_value_t = 60)]
     pub metrics_interval_seconds: u64,
     /// How long between each refresh for a token
-    #[clap(short, long, env, default_value_t = 10)]
+    #[clap(short, long, env, default_value_t = 15)]
     pub features_refresh_interval_seconds: u64,
 
     /// How long between each revalidation of a token
