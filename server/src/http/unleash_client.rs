@@ -988,6 +988,7 @@ mod tests {
             .get_client_features(ClientFeaturesRequest {
                 api_key: "notneeded".into(),
                 etag: None,
+                interval: Some(15),
             })
             .await;
         assert!(res.is_err());
@@ -995,6 +996,7 @@ mod tests {
             .get_client_features(ClientFeaturesRequest {
                 api_key: "notneeded".into(),
                 etag: None,
+                interval: Some(15),
             })
             .await;
         assert!(authed_res.is_ok());
