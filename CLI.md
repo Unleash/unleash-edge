@@ -96,7 +96,7 @@ Run in edge mode
   Default value: `60`
 * `-f`, `--features-refresh-interval-seconds <FEATURES_REFRESH_INTERVAL_SECONDS>` — How long between each refresh for a token
 
-  Default value: `10`
+  Default value: `15`
 * `--token-revalidation-interval-seconds <TOKEN_REVALIDATION_INTERVAL_SECONDS>` — How long between each revalidation of a token
 
   Default value: `3600`
