@@ -337,7 +337,7 @@ async fn build_edge(
     ))
 }
 
-pub async fn build_caches_and_refreshers(args: CliArgs) -> EdgeResult<EdgeInfo> {
+pub async fn build_caches_and_refreshers(args: CliArgs, connection_id: String) -> EdgeResult<EdgeInfo> {
     match args.mode {
         EdgeMode::Offline(offline_args) => {
             build_offline(offline_args).map(|cache| (cache, None, None, None))
@@ -348,6 +348,7 @@ pub async fn build_caches_and_refreshers(args: CliArgs) -> EdgeResult<EdgeInfo> 
                 ClientMetaInformation {
                     app_name: args.app_name,
                     instance_id: args.instance_id,
+                    connection_id
                 },
             )
             .await

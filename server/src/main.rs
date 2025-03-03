@@ -67,7 +67,7 @@ async fn main() -> Result<(), anyhow::Error> {
         instance_id: our_instance_data_for_app_context.identifier.clone(),
     };
     let our_instance_data = our_instance_data_for_app_context.clone();
-    let instance_id = our_instance_data_for_app_context.identifier.clone();
+    let identifier = our_instance_data_for_app_context.identifier.clone();
     let custom_headers = match args.mode {
         EdgeMode::Edge(ref edge) => edge.custom_client_headers.clone(),
         _ => vec![],
@@ -80,7 +80,7 @@ async fn main() -> Result<(), anyhow::Error> {
         token_validator,
         feature_refresher,
         persistence,
-    ) = build_caches_and_refreshers(args.clone()).await.unwrap();
+    ) = build_caches_and_refreshers(args.clone(), identifier.clone()).await.unwrap();
 
     let instance_data_sender: Arc<InstanceDataSending> = Arc::new(InstanceDataSending::from_args(
         args.clone(),
@@ -193,7 +193,8 @@ async fn main() -> Result<(), anyhow::Error> {
                             .start_streaming_delta_background_task(
                                 ClientMetaInformation {
                                     app_name,
-                                    instance_id,
+                                    instance_id: identifier.clone(),
+                                    connection_id: identifier
                                 },
                                 custom_headers,
                             )
@@ -205,7 +206,8 @@ async fn main() -> Result<(), anyhow::Error> {
                             .start_streaming_features_background_task(
                                 ClientMetaInformation {
                                     app_name,
-                                    instance_id,
+                                    instance_id: identifier.clone(),
+                                    connection_id: identifier
                                 },
                                 custom_headers,
                             )
