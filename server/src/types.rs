@@ -122,6 +122,7 @@ pub enum Status {
 pub struct ClientFeaturesRequest {
     pub api_key: String,
     pub etag: Option<EntityTag>,
+    pub interval: Option<i64>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
