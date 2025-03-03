@@ -1,3 +1,4 @@
+use actix_allow_deny_middleware::{AllowList, DenyList};
 use actix_middleware_etag::Etag;
 use actix_web::middleware::Logger;
 use actix_web::{web, App, HttpServer};
@@ -95,7 +96,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let lazy_token_cache = token_cache.clone();
     let lazy_engine_cache = engine_cache.clone();
     let lazy_feature_refresher = feature_refresher.clone();
-
+    let http_args_for_app_setup = args.http.clone();
     let metrics_cache = Arc::new(MetricsCache::default());
     let metrics_cache_clone = metrics_cache.clone();
 
@@ -145,6 +146,19 @@ async fn main() -> Result<(), anyhow::Error> {
                 .wrap(actix_web::middleware::Compress::default())
                 .wrap(actix_web::middleware::NormalizePath::default())
                 .wrap(cors_middleware)
+                .wrap(DenyList::with_denied_ipnets(
+                    &http_args_for_app_setup
+                        .deny_list
+                        .clone()
+                        .unwrap_or_default(),
+                ))
+                .wrap(
+                    http_args_for_app_setup
+                        .allow_list
+                        .clone()
+                        .map(|list| AllowList::with_allowed_ipnets(&list))
+                        .unwrap_or(AllowList::default()),
+                )
                 .wrap(request_metrics.clone())
                 .wrap(Logger::default())
                 .service(web::scope("/internal-backstage").configure(|service_cfg| {
