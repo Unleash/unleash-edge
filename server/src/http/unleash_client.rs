@@ -23,7 +23,10 @@ use unleash_types::client_metrics::ClientApplication;
 use crate::cli::ClientIdentity;
 use crate::error::EdgeError::EdgeMetricsRequestError;
 use crate::error::{CertificateError, FeatureError};
-use crate::http::headers::{UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_CONNECTION_ID_HEADER, UNLEASH_INSTANCE_ID_HEADER, UNLEASH_INTERVAL};
+use crate::http::headers::{
+    UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_CONNECTION_ID_HEADER,
+    UNLEASH_INSTANCE_ID_HEADER, UNLEASH_INTERVAL,
+};
 use crate::metrics::client_metrics::MetricsBatch;
 use crate::metrics::edge_metrics::EdgeInstanceData;
 use crate::tls::build_upstream_certificate;

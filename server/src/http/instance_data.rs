@@ -40,7 +40,7 @@ impl InstanceDataSending {
                         let client_meta_information = ClientMetaInformation {
                             app_name: args.app_name,
                             instance_id: identifier.clone(),
-                            connection_id: identifier
+                            connection_id: identifier,
                         };
                         let http_client = new_reqwest_client(
                             edge_args.skip_ssl_verification,

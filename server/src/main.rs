@@ -80,7 +80,9 @@ async fn main() -> Result<(), anyhow::Error> {
         token_validator,
         feature_refresher,
         persistence,
-    ) = build_caches_and_refreshers(args.clone(), identifier.clone()).await.unwrap();
+    ) = build_caches_and_refreshers(args.clone(), identifier.clone())
+        .await
+        .unwrap();
 
     let instance_data_sender: Arc<InstanceDataSending> = Arc::new(InstanceDataSending::from_args(
         args.clone(),
@@ -194,7 +196,7 @@ async fn main() -> Result<(), anyhow::Error> {
                                 ClientMetaInformation {
                                     app_name,
                                     instance_id: identifier.clone(),
-                                    connection_id: identifier
+                                    connection_id: identifier,
                                 },
                                 custom_headers,
                             )
@@ -207,7 +209,7 @@ async fn main() -> Result<(), anyhow::Error> {
                                 ClientMetaInformation {
                                     app_name,
                                     instance_id: identifier.clone(),
-                                    connection_id: identifier
+                                    connection_id: identifier,
                                 },
                                 custom_headers,
                             )
