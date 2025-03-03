@@ -4,12 +4,12 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
 
+use crate::error;
 use actix_cors::Cors;
 use actix_http::Method;
 use cidr::{Ipv4Cidr, Ipv6Cidr};
 use clap::{ArgGroup, Args, Parser, Subcommand, ValueEnum};
-
-use crate::error;
+use ipnet::IpNet;
 
 #[derive(Subcommand, Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
@@ -433,14 +433,19 @@ pub fn parse_http_method(value: &str) -> Result<actix_http::Method, String> {
 
 #[derive(Args, Debug, Clone)]
 pub struct CorsOptions {
+    /// Sets the [Access-Control-Allow-Origin](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Origin) header to this value
     #[clap(env, long, value_delimiter = ',')]
     pub cors_origin: Option<Vec<String>>,
+    /// Sets the [Access-Control-Allow-Headers](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Headers) header to this value
     #[clap(env, long, value_delimiter = ',')]
     pub cors_allowed_headers: Option<Vec<String>>,
+    /// Sets the [Access-Control-Max-Age](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Max-Age) header to this value
     #[clap(env, long, default_value_t = 172800)]
     pub cors_max_age: usize,
+    /// Sets the [Access-Control-Expose-Headers](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Expose-Headers) header to this value
     #[clap(env, long, value_delimiter = ',')]
     pub cors_exposed_headers: Option<Vec<String>>,
+    /// Sets the [Access-Control-Allow-Methods](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Methods) header to this value
     #[clap(env, long, value_delimiter = ',', value_parser = parse_http_method)]
     pub cors_methods: Option<Vec<actix_http::Method>>,
 }
@@ -496,6 +501,18 @@ pub struct HttpServerArgs {
 
     #[clap(flatten)]
     pub cors: CorsOptions,
+
+    /// Configures the AllowList middleware to only accept requests from IPs that belong to the CIDRs configured here. Defaults to 0.0.0.0/0, ::/0 (ALL Ips v4 and v6)
+    #[clap(long, env, global=true, value_delimiter = ',', value_parser = ip_net_parser)]
+    pub allow_list: Option<Vec<IpNet>>,
+
+    /// Configures the DenyList middleware to deny requests from IPs that belong to the CIDRs configured here. Defaults to denying no IPs.
+    #[clap(long, env, global=true, value_parser = ip_net_parser, value_delimiter = ',')]
+    pub deny_list: Option<Vec<IpNet>>,
+}
+
+fn ip_net_parser(arg: &str) -> Result<IpNet, String> {
+    IpNet::from_str(arg).map_err(|e| format!("{e}"))
 }
 
 #[derive(Debug, Clone)]
@@ -546,6 +563,8 @@ impl HttpServerArgs {
 mod tests {
     use actix_web::http;
     use clap::Parser;
+    use ipnet::IpNet;
+    use std::str::FromStr;
     use tracing::info;
     use tracing_test::traced_test;
 
@@ -915,5 +934,70 @@ mod tests {
             .unwrap()
             .to_string()
             .contains(error::TRUST_PROXY_PARSE_ERROR));
+    }
+
+    #[test]
+    pub fn can_parse_allow_list_cidrs() {
+        let args = vec![
+            "unleash-edge",
+            "--allow-list",
+            "192.168.0.0/16",
+            "edge",
+            "-u http://localhost:4242",
+        ];
+        let args = CliArgs::try_parse_from(args);
+        assert!(args.is_ok());
+        assert_eq!(
+            args.unwrap().http.allow_list.unwrap().first(),
+            IpNet::from_str("192.168.0.0/16").ok().as_ref()
+        );
+    }
+    #[test]
+    pub fn default_allow_list_is_empty() {
+        let args = vec!["unleash-edge", "edge", "-u http://localhost:4242"];
+        let args = CliArgs::try_parse_from(args);
+        assert!(args.is_ok());
+        assert!(args.unwrap().http.allow_list.is_none());
+    }
+
+    #[test]
+    pub fn errors_if_allow_list_is_not_a_valid_cidr() {
+        let args = vec![
+            "unleash-edge",
+            "--allow-list",
+            "192.168.0.1",
+            "edge",
+            "-u http://localhost:4242",
+        ];
+        let args = CliArgs::try_parse_from(args);
+        assert!(args.is_err());
+        if let Err(e) = args {
+            assert!(e.to_string().contains("invalid IP address syntax"));
+        }
+    }
+
+    #[test]
+    pub fn no_default_deny_list() {
+        let args = vec!["unleash-edge", "edge", "-u http://localhost:4242"];
+        let args = CliArgs::try_parse_from(args);
+        assert!(args.is_ok());
+        assert!(args.unwrap().http.deny_list.is_none())
+    }
+
+    #[test]
+    pub fn can_parse_deny_list_cidrs() {
+        let args = vec![
+            "unleash-edge",
+            "--deny-list",
+            "192.168.0.0/16",
+            "edge",
+            "-u http://localhost:4242",
+        ];
+        let args = CliArgs::try_parse_from(args);
+        assert!(args.is_ok());
+        assert_eq!(
+            args.unwrap().http.deny_list.unwrap().first(),
+            IpNet::from_str("192.168.0.0/16").ok().as_ref()
+        );
     }
 }
