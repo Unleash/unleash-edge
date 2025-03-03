@@ -88,6 +88,7 @@ impl FeatureRefresher {
             .get_client_features_delta(ClientFeaturesRequest {
                 api_key: refresh.token.token.clone(),
                 etag: refresh.etag,
+                interval: Some(self.refresh_interval.num_milliseconds())
             })
             .await;
         match delta_result {

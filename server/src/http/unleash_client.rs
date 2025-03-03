@@ -20,9 +20,7 @@ use unleash_types::client_metrics::ClientApplication;
 use crate::cli::ClientIdentity;
 use crate::error::EdgeError::EdgeMetricsRequestError;
 use crate::error::{CertificateError, FeatureError};
-use crate::http::headers::{
-    UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_INSTANCE_ID_HEADER,
-};
+use crate::http::headers::{UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_INSTANCE_ID_HEADER, UNLEASH_INTERVAL};
 use crate::metrics::client_metrics::MetricsBatch;
 use crate::metrics::edge_metrics::EdgeInstanceData;
 use crate::tls::build_upstream_certificate;
@@ -285,15 +283,20 @@ impl UnleashClient {
     }
 
     fn client_features_req(&self, req: ClientFeaturesRequest) -> RequestBuilder {
-        let client_req = self
+        let mut client_req = self
             .backing_client
             .get(self.urls.client_features_url.to_string())
             .headers(self.header_map(Some(req.api_key)));
+
         if let Some(tag) = req.etag {
-            client_req.header(header::IF_NONE_MATCH, tag.to_string())
-        } else {
-            client_req
+            client_req = client_req.header(header::IF_NONE_MATCH, tag.to_string());
         }
+
+        if let Some(interval) = req.interval {
+            client_req = client_req.header(UNLEASH_INTERVAL, interval.to_string());
+        }
+
+        client_req
     }
 
     fn client_features_delta_req(&self, req: ClientFeaturesRequest) -> RequestBuilder {
@@ -538,12 +541,17 @@ impl UnleashClient {
         }
     }
 
-    pub async fn send_batch_metrics(&self, request: MetricsBatch) -> EdgeResult<()> {
+    pub async fn send_batch_metrics(&self, request: MetricsBatch, interval: Option<i64>) -> EdgeResult<()> {
         trace!("Sending metrics to old /edge/metrics endpoint");
-        let result = self
+        let mut client_req = self
             .backing_client
             .post(self.urls.edge_metrics_url.to_string())
-            .headers(self.header_map(None))
+            .headers(self.header_map(None));
+        if let Some(interval_value) = interval {
+            client_req = client_req.header(UNLEASH_INTERVAL, interval_value.to_string());
+        }
+
+        let result = client_req
             .json(&request)
             .send()
             .await
