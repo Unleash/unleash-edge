@@ -172,7 +172,7 @@ impl FeatureRefresher {
                 )?
                 .header(
                     UNLEASH_CONNECTION_ID_HEADER,
-                    &client_meta_information.instance_id,
+                    &client_meta_information.connection_id,
                 )?
                 .header(
                     UNLEASH_CLIENT_SPEC_HEADER,
