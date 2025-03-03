@@ -116,7 +116,7 @@ pub async fn loop_send_instance_data(
         match instance_data_sender.as_ref() {
             InstanceDataSending::SendNothing => {
                 debug!("No instance data sender found. Doing nothing.");
-                return;
+                continue;
             }
             InstanceDataSending::SendInstanceData(instance_data_sender) => {
                 let status = send_instance_data(

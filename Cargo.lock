@@ -3,6 +3,18 @@
 version = 3
 
 [[package]]
+name = "actix-allow-deny-middleware"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "442087d0c853a7adb6633c0b0a37304ca419daff8f7a1f66f81cd3c0592599f4"
+dependencies = [
+ "actix-service",
+ "actix-web",
+ "ipnet",
+ "tracing",
+]
+
+[[package]]
 name = "actix-codec"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4819,6 +4831,7 @@ checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
 name = "unleash-edge"
 version = "19.7.0"
 dependencies = [
+ "actix-allow-deny-middleware",
  "actix-cors",
  "actix-http",
  "actix-http-test",
@@ -4842,6 +4855,7 @@ dependencies = [
  "eventsource-client",
  "futures",
  "futures-core",
+ "ipnet",
  "iter_tools",
  "itertools 0.14.0",
  "json-structural-diff",

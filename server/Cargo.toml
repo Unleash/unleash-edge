@@ -25,6 +25,7 @@ eula = false
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }
 
 [dependencies]
+actix-allow-deny-middleware = "0.1.1"
 actix-cors = "0.7.0"
 actix-http = "3.9.0"
 actix-middleware-etag = "0.4.4"
@@ -45,6 +46,7 @@ dashmap = { version = "6.1.0", features = ["serde"] }
 eventsource-client = { version = "0.14.0" }
 futures = "0.3.31"
 futures-core = "0.3.31"
+ipnet = "2.11.0"
 iter_tools = "0.24.0"
 itertools = "0.14.0"
 json-structural-diff = "0.2.0"
