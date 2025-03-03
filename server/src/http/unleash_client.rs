@@ -758,6 +758,7 @@ mod tests {
             Self {
                 api_key,
                 etag: etag.map(EntityTag::new_weak),
+                interval: Some(15)
             }
         }
     }
