@@ -948,19 +948,16 @@ mod tests {
         let args = CliArgs::try_parse_from(args);
         assert!(args.is_ok());
         assert_eq!(
-            args.unwrap().http.allow_list.first(),
+            args.unwrap().http.allow_list.unwrap().first(),
             IpNet::from_str("192.168.0.0/16").ok().as_ref()
         );
     }
     #[test]
-    pub fn default_allow_list() {
+    pub fn default_allow_list_is_empty() {
         let args = vec!["unleash-edge", "edge", "-u http://localhost:4242"];
         let args = CliArgs::try_parse_from(args);
         assert!(args.is_ok());
-        assert_eq!(
-            args.unwrap().http.allow_list.first(),
-            IpNet::from_str("0.0.0.0/0").ok().as_ref()
-        );
+        assert!(args.unwrap().http.allow_list.is_none());
     }
 
     #[test]
