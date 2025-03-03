@@ -123,7 +123,7 @@ pub async fn send_metrics_task(
                     } else {
                         feature_refresher
                             .unleash_client
-                            .send_batch_metrics(batch.clone(), Some(send_interval))
+                            .send_batch_metrics(batch.clone(), Some(interval.num_milliseconds()))
                             .await
                     };
                     if let Err(edge_error) = result {
