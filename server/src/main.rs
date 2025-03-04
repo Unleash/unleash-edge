@@ -146,19 +146,6 @@ async fn main() -> Result<(), anyhow::Error> {
                 .wrap(actix_web::middleware::Compress::default())
                 .wrap(actix_web::middleware::NormalizePath::default())
                 .wrap(cors_middleware)
-                .wrap(DenyList::with_denied_ipnets(
-                    &http_args_for_app_setup
-                        .deny_list
-                        .clone()
-                        .unwrap_or_default(),
-                ))
-                .wrap(
-                    http_args_for_app_setup
-                        .allow_list
-                        .clone()
-                        .map(|list| AllowList::with_allowed_ipnets(&list))
-                        .unwrap_or(AllowList::default()),
-                )
                 .wrap(request_metrics.clone())
                 .wrap(Logger::default())
                 .service(web::scope("/internal-backstage").configure(|service_cfg| {
@@ -173,9 +160,38 @@ async fn main() -> Result<(), anyhow::Error> {
                         .configure(client_api::configure_client_api)
                         .configure(|cfg| {
                             frontend_api::configure_frontend_api(cfg, disable_all_endpoint)
-                        }),
+                        })
+                        .wrap(DenyList::with_denied_ipnets(
+                            &http_args_for_app_setup
+                                .deny_list
+                                .clone()
+                                .unwrap_or_default(),
+                        ))
+                        .wrap(
+                            http_args_for_app_setup
+                                .allow_list
+                                .clone()
+                                .map(|list| AllowList::with_allowed_ipnets(&list))
+                                .unwrap_or(AllowList::default()),
+                        ),
                 )
-                .service(web::scope("/edge").configure(edge_api::configure_edge_api))
+                .service(
+                    web::scope("/edge")
+                        .configure(edge_api::configure_edge_api)
+                        .wrap(DenyList::with_denied_ipnets(
+                            &http_args_for_app_setup
+                                .deny_list
+                                .clone()
+                                .unwrap_or_default(),
+                        ))
+                        .wrap(
+                            http_args_for_app_setup
+                                .allow_list
+                                .clone()
+                                .map(|list| AllowList::with_allowed_ipnets(&list))
+                                .unwrap_or(AllowList::default()),
+                        ),
+                )
                 .service(
                     SwaggerUi::new("/swagger-ui/{_:.*}")
                         .url("/api-doc/openapi.json", openapi.clone()),
