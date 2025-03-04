@@ -927,7 +927,7 @@ mod tests {
         req: ServiceRequest,
         srv: crate::middleware::as_async_middleware::Next<impl MessageBody + 'static>,
     ) -> Result<ServiceResponse<impl MessageBody>, actix_web::Error> {
-        let api_key_valid = req
+        let custom_header_valid = req
             .headers()
             .get("X-Api-Key")
             .map(|key| key.to_str().unwrap() == "MyMagicKey")
@@ -946,7 +946,7 @@ mod tests {
             .and_then(|value| Ulid::from_str(value).ok())
             .is_some();
 
-        let res = if api_key_valid && unleash_interval_valid && unleash_connection_id_valid {
+        let res = if custom_header_valid && unleash_interval_valid && unleash_connection_id_valid {
             srv.call(req).await?.map_into_left_body()
         } else {
             req.into_response(HttpResponse::Forbidden().finish())
