@@ -1,7 +1,8 @@
 use crate::delta_cache::{DeltaCache, DeltaHydrationEvent};
 use crate::error::{EdgeError, FeatureError};
 use crate::http::headers::{
-    UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_INSTANCE_ID_HEADER,
+    UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_CONNECTION_ID_HEADER,
+    UNLEASH_INSTANCE_ID_HEADER,
 };
 use crate::http::refresher::feature_refresher::FeatureRefresher;
 use crate::http::unleash_client::ClientMetaInformation;
@@ -168,6 +169,10 @@ impl FeatureRefresher {
                 .header(
                     UNLEASH_INSTANCE_ID_HEADER,
                     &client_meta_information.instance_id,
+                )?
+                .header(
+                    UNLEASH_CONNECTION_ID_HEADER,
+                    &client_meta_information.connection_id,
                 )?
                 .header(
                     UNLEASH_CLIENT_SPEC_HEADER,

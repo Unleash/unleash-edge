@@ -32,14 +32,15 @@ impl InstanceDataSending {
     ) -> Result<Self, EdgeError> {
         match args.mode {
             EdgeMode::Edge(edge_args) => {
-                let instance_id = instance_data.identifier.clone();
+                let identifier = instance_data.identifier.clone();
                 edge_args
                     .tokens
                     .first()
                     .map(|token| {
                         let client_meta_information = ClientMetaInformation {
                             app_name: args.app_name,
-                            instance_id,
+                            instance_id: identifier.clone(),
+                            connection_id: identifier,
                         };
                         let http_client = new_reqwest_client(
                             edge_args.skip_ssl_verification,

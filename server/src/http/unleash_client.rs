@@ -24,8 +24,8 @@ use crate::cli::ClientIdentity;
 use crate::error::EdgeError::EdgeMetricsRequestError;
 use crate::error::{CertificateError, FeatureError};
 use crate::http::headers::{
-    UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_INSTANCE_ID_HEADER,
-    UNLEASH_INTERVAL,
+    UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_CONNECTION_ID_HEADER,
+    UNLEASH_INSTANCE_ID_HEADER, UNLEASH_INTERVAL,
 };
 use crate::metrics::client_metrics::MetricsBatch;
 use crate::metrics::edge_metrics::EdgeInstanceData;
@@ -104,13 +104,16 @@ lazy_static! {
 pub struct ClientMetaInformation {
     pub app_name: String,
     pub instance_id: String,
+    pub connection_id: String,
 }
 
 impl Default for ClientMetaInformation {
     fn default() -> Self {
+        let connection_id = ulid::Ulid::new().to_string();
         Self {
             app_name: "unleash-edge".into(),
-            instance_id: format!("unleash-edge@{}", ulid::Ulid::new().to_string()),
+            instance_id: format!("unleash-edge@{}", connection_id.clone()),
+            connection_id,
         }
     }
 }
@@ -120,6 +123,7 @@ impl ClientMetaInformation {
         Self {
             app_name: "test-app-name".into(),
             instance_id: "test-instance-id".into(),
+            connection_id: "test-connection-id".into(),
         }
     }
 }
@@ -256,6 +260,10 @@ pub fn new_reqwest_client(
                 header::HeaderValue::from_str(&client_meta_information.instance_id).unwrap(),
             );
             header_map.insert(
+                UNLEASH_CONNECTION_ID_HEADER,
+                header::HeaderValue::from_str(&client_meta_information.connection_id).unwrap(),
+            );
+            header_map.insert(
                 UNLEASH_CLIENT_SPEC_HEADER,
                 header::HeaderValue::from_static(unleash_yggdrasil::SUPPORTED_SPEC_VERSION),
             );
@@ -295,9 +303,11 @@ impl UnleashClient {
     pub fn new(server_url: &str, instance_id_opt: Option<String>) -> Result<Self, EdgeError> {
         use ulid::Ulid;
 
-        let instance_id = instance_id_opt.unwrap_or_else(|| Ulid::new().to_string());
+        let connection_id = Ulid::new().to_string();
+        let instance_id = instance_id_opt.unwrap_or_else(|| connection_id.clone());
         let client_meta_info = ClientMetaInformation {
             instance_id,
+            connection_id,
             app_name: "test-client".into(),
         };
         Ok(Self {
@@ -1104,6 +1114,7 @@ mod tests {
             ClientMetaInformation {
                 app_name: "test-client".into(),
                 instance_id: "test-pkcs12".into(),
+                connection_id: "test-pkcs12".into(),
             },
         );
         assert!(client.is_ok());
@@ -1129,6 +1140,7 @@ mod tests {
             ClientMetaInformation {
                 app_name: "test-client".into(),
                 instance_id: "test-pkcs12".into(),
+                connection_id: "test-pkcs12".into(),
             },
         );
         assert!(client.is_err());
@@ -1154,6 +1166,7 @@ mod tests {
             ClientMetaInformation {
                 app_name: "test-client".into(),
                 instance_id: "test-pkcs8".into(),
+                connection_id: "test-pkcs8".into(),
             },
         );
         assert!(client.is_ok());
@@ -1178,6 +1191,7 @@ mod tests {
             ClientMetaInformation {
                 app_name: "test-client".into(),
                 instance_id: "test-pkcs8".into(),
+                connection_id: "test-pkcs8".into(),
             },
         );
         assert!(client.is_ok());
