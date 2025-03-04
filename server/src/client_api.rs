@@ -465,6 +465,7 @@ mod tests {
             .set_json(Json(ClientMetrics {
                 app_name: "some-app".into(),
                 instance_id: Some("some-instance".into()),
+                connection_id: Some("some-connection".into()),
                 bucket: MetricBucket {
                     start: Utc.with_ymd_and_hms(1867, 11, 7, 12, 0, 0).unwrap(),
                     stop: Utc.with_ymd_and_hms(1934, 11, 7, 12, 0, 0).unwrap(),
@@ -501,6 +502,7 @@ mod tests {
                 connect_via: None,
                 environment: None,
                 instance_id: None,
+                connection_id: None,
                 interval: 10,
                 started: Default::default(),
                 strategies: vec![],

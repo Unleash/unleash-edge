@@ -88,6 +88,7 @@ fn client_application_from_token_and_name(
         connect_via: None,
         environment: token.environment,
         instance_id: Some(client_meta_information.instance_id),
+        connection_id: Some(client_meta_information.connection_id),
         interval: refresh_interval as u32,
         started: Utc::now(),
         strategies: vec![],
