@@ -78,7 +78,7 @@ RUN dpkg --add-architecture arm64 \
     libzip-dev:arm64 \
     ca-certificates \
     && rustup target add aarch64-unknown-linux-gnu \
-    && rustup toolchain install stable-aarch64-unknown-linux-gnu \
+    && rustup toolchain install stable-aarch64-unknown-linux-gnu --force-non-host \
     && rm -rf /var/lib/apt/lists/*
 
 # Build dependencies - this is the caching Docker layer!
