@@ -591,6 +591,7 @@ mod test {
             connect_via: None,
             environment: Some("development".into()),
             instance_id: Some("test".into()),
+            connection_id: Some("test".into()),
             interval: 60,
             started: Default::default(),
             strategies: vec![],
@@ -629,13 +630,14 @@ mod test {
     #[test_case(1, 10000, 25; "1 app 10k toggles, will be split into 25 batches")]
     #[test_case(1000, 1000, 7; "1000 apps 1000 toggles, will be split into 7 batches")]
     #[test_case(500, 5000, 15; "500 apps 5000 toggles, will be split into 15 batches")]
-    #[test_case(5000, 1, 17; "5000 apps 1 metric will be split")]
+    #[test_case(5000, 1, 19; "5000 apps 1 metric will be split")]
     fn splits_successfully_into_sendable_chunks(apps: u64, toggles: u64, batch_count: usize) {
         let apps: Vec<ClientApplication> = (1..=apps)
             .map(|app_id| ClientApplication {
                 app_name: format!("app_name_{}", app_id),
                 environment: Some("development".into()),
                 instance_id: Some(format!("instance-{}", app_id)),
+                connection_id: Some(format!("connection-{}", app_id)),
                 interval: 10,
                 connect_via: Some(vec![ConnectVia {
                     app_name: "edge".into(),
