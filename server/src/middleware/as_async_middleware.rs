@@ -1,19 +1,20 @@
 use std::{
-    future::{ready, Ready},
+    future::{Ready, ready},
     marker::PhantomData,
     rc::Rc,
 };
 
 use actix_service::{
+    Service, Transform,
     boxed::{self, BoxFuture, RcService},
-    forward_ready, Service, Transform,
+    forward_ready,
 };
 use actix_web::{
+    Error, FromRequest,
     body::MessageBody,
     dev::{ServiceRequest, ServiceResponse},
-    Error, FromRequest,
 };
-use futures_core::{future::LocalBoxFuture, Future};
+use futures_core::{Future, future::LocalBoxFuture};
 
 /// Wraps an async function to be used as a middleware.
 ///
@@ -238,9 +239,10 @@ impl<B> Service<ServiceRequest> for Next<B> {
 #[cfg(test)]
 mod tests {
     use actix_web::{
+        App, HttpResponse,
         http::header::{self, HeaderValue},
         middleware::{Compat, Logger},
-        test, web, App, HttpResponse,
+        test, web,
     };
 
     use super::*;
@@ -270,11 +272,11 @@ mod tests {
     struct MyMw(bool);
 
     impl MyMw {
-        async fn mw_cb(
+        async fn mw_cb<T: MessageBody + 'static>(
             &self,
             req: ServiceRequest,
-            next: Next<impl MessageBody + 'static>,
-        ) -> Result<ServiceResponse<impl MessageBody>, Error> {
+            next: Next<T>,
+        ) -> Result<ServiceResponse<impl MessageBody + use<T>>, Error> {
             let mut res = match self.0 {
                 true => req.into_response("short-circuited").map_into_right_body(),
                 false => next.call(req).await?.map_into_left_body(),
