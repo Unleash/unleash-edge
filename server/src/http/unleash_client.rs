@@ -10,9 +10,9 @@ use actix_web::http::header::EntityTag;
 use chrono::Duration;
 use chrono::Utc;
 use lazy_static::lazy_static;
-use prometheus::{register_histogram_vec, register_int_gauge_vec, HistogramVec, IntGaugeVec, Opts};
+use prometheus::{HistogramVec, IntGaugeVec, Opts, register_histogram_vec, register_int_gauge_vec};
 use reqwest::header::{HeaderMap, HeaderName};
-use reqwest::{header, Client};
+use reqwest::{Client, header};
 use reqwest::{ClientBuilder, Identity, RequestBuilder, StatusCode, Url};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error};
@@ -50,14 +50,18 @@ lazy_static! {
         "client_feature_fetch",
         "Timings for fetching features in milliseconds",
         &["status_code", "app_name", "instance_id"],
-        vec![1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0, 5000.0]
+        vec![
+            1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0, 5000.0
+        ]
     )
     .unwrap();
     pub static ref CLIENT_FEATURE_DELTA_FETCH: HistogramVec = register_histogram_vec!(
         "client_feature_delta_fetch",
         "Timings for fetching feature deltas in milliseconds",
         &["status_code", "app_name", "instance_id"],
-        vec![1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0, 5000.0]
+        vec![
+            1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0, 5000.0
+        ]
     )
     .unwrap();
     pub static ref METRICS_UPLOAD: HistogramVec = register_histogram_vec!(
@@ -153,7 +157,9 @@ fn load_pkcs12(id: &ClientIdentity) -> EdgeResult<Identity> {
         debug!("P12 entry: {alias}");
         match entry {
             p12_keystore::KeyStoreEntry::Certificate(_) => {
-                info!("Direct Certificate, skipping. We want chain because client identity needs the private key");
+                info!(
+                    "Direct Certificate, skipping. We want chain because client identity needs the private key"
+                );
             }
             p12_keystore::KeyStoreEntry::PrivateKeyChain(chain) => {
                 let key_pem = pkix::pem::der_to_pem(chain.key(), pkix::pem::PEM_PRIVATE_KEY);
@@ -803,16 +809,18 @@ mod tests {
             ValidateTokensRequest,
         },
     };
-    use actix_http::{body::MessageBody, HttpService, TlsAcceptorConfig};
-    use actix_http_test::{test_server, TestServer};
+    use actix_http::{HttpService, TlsAcceptorConfig, body::MessageBody};
+    use actix_http_test::{TestServer, test_server};
     use actix_middleware_etag::Etag;
     use actix_service::map_config;
     use actix_web::{
+        App, HttpResponse,
         dev::{AppConfig, ServiceRequest, ServiceResponse},
         http::header::EntityTag,
-        web, App, HttpResponse,
+        web,
     };
     use chrono::Duration;
+    use ulid::Ulid;
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
     use super::{ClientMetaInformation, EdgeTokens, UnleashClient};
@@ -915,16 +923,30 @@ mod tests {
         .await
     }
 
-    async fn validate_api_key_middleware(
+    async fn validate_headers_middleware(
         req: ServiceRequest,
         srv: crate::middleware::as_async_middleware::Next<impl MessageBody + 'static>,
     ) -> Result<ServiceResponse<impl MessageBody>, actix_web::Error> {
-        let res = if req
+        let api_key_valid = req
             .headers()
             .get("X-Api-Key")
             .map(|key| key.to_str().unwrap() == "MyMagicKey")
-            .unwrap_or(false)
-        {
+            .unwrap_or(false);
+
+        let unleash_interval_valid = req
+            .headers()
+            .get("Unleash-Interval")
+            .map(|value| value.to_str().unwrap() == "15")
+            .unwrap_or(false);
+
+        let unleash_connection_id_valid = req
+            .headers()
+            .get("Unleash-Connection-ID")
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| Ulid::from_str(value).ok())
+            .is_some();
+
+        let res = if api_key_valid && unleash_interval_valid && unleash_connection_id_valid {
             srv.call(req).await?.map_into_left_body()
         } else {
             req.into_response(HttpResponse::Forbidden().finish())
@@ -933,12 +955,12 @@ mod tests {
         Ok(res)
     }
 
-    async fn test_features_server_with_required_custom_header() -> TestServer {
+    async fn test_features_server_with_required_headers() -> TestServer {
         test_server(move || {
             HttpService::new(map_config(
                 App::new()
                     .wrap(Etag)
-                    .wrap(as_async_middleware(validate_api_key_middleware))
+                    .wrap(as_async_middleware(validate_headers_middleware))
                     .service(
                         web::resource("/api/client/features")
                             .route(web::get().to(return_client_features)),
@@ -1038,9 +1060,9 @@ mod tests {
     }
 
     #[actix_web::test]
-    pub async fn custom_client_headers_are_sent_along() {
+    pub async fn custom_and_identification_headers_are_sent_along() {
         let custom_headers = vec![("X-Api-Key".to_string(), "MyMagicKey".to_string())];
-        let srv = test_features_server_with_required_custom_header().await;
+        let srv = test_features_server_with_required_headers().await;
         let client_without_extra_headers = UnleashClient::new(srv.url("/").as_str(), None).unwrap();
         let client_with_headers = client_without_extra_headers
             .clone()
@@ -1064,8 +1086,8 @@ mod tests {
     }
 
     #[actix_web::test]
-    pub async fn disabling_ssl_verification_allows_communicating_with_upstream_unleash_with_self_signed_cert(
-    ) {
+    pub async fn disabling_ssl_verification_allows_communicating_with_upstream_unleash_with_self_signed_cert()
+     {
         let srv = test_features_server_with_untrusted_ssl().await;
         let client = UnleashClient::new_insecure(srv.surl("/").as_str()).unwrap();
 
@@ -1079,8 +1101,8 @@ mod tests {
     }
 
     #[actix_web::test]
-    pub async fn not_disabling_ssl_verification_fails_communicating_with_upstream_unleash_with_self_signed_cert(
-    ) {
+    pub async fn not_disabling_ssl_verification_fails_communicating_with_upstream_unleash_with_self_signed_cert()
+     {
         let srv = test_features_server_with_untrusted_ssl().await;
         let client = UnleashClient::new(srv.surl("/").as_str(), None).unwrap();
 
