@@ -31,8 +31,6 @@ WORKDIR /all-files/${TARGETPLATFORM}/app
 
 # ARM64
 COPY --from=arm64-chef \
-        /lib/aarch64-linux-gnu/libssl.so.3 \
-        /lib/aarch64-linux-gnu/libcrypto.so.3 \
         /lib/aarch64-linux-gnu/libgcc_s.so.1 \
         /lib/aarch64-linux-gnu/libm.so.6 \
         /lib/aarch64-linux-gnu/libc.so.6 \
@@ -45,8 +43,6 @@ COPY --from=arm64-chef \
 
 # AMD64
 COPY --from=amd64-chef \
-        /lib/x86_64-linux-gnu/libssl.so.3 \
-        /lib/x86_64-linux-gnu/libcrypto.so.3 \
         /lib/x86_64-linux-gnu/libgcc_s.so.1 \
         /lib/x86_64-linux-gnu/libm.so.6 \
         /lib/x86_64-linux-gnu/libc.so.6 \
@@ -74,7 +70,6 @@ RUN dpkg --add-architecture arm64 \
     protobuf-compiler \
     g++-aarch64-linux-gnu \
     libc6-dev-arm64-cross \
-    libssl-dev:arm64 \
     libzip-dev:arm64 \
     ca-certificates \
     && rustup target add aarch64-unknown-linux-gnu \
