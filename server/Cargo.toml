@@ -7,12 +7,12 @@ authors = [
     "Gaston Fournier <gaston@getunleash.io>",
 ]
 description = "Unleash edge is a proxy for Unleash. It can return both evaluated feature toggles as well as the raw data from Unleash's client API"
-edition = "2021"
+edition = "2024"
 homepage = "https://github.com/Unleash/unleash-edge"
 license = "MIT"
 name = "unleash-edge"
 repository = "https://github.com/Unleash/unleash-edge"
-rust-version = "1.81.0"
+rust-version = "1.85.0"
 version = "19.7.0"
 
 [package.metadata.wix]
