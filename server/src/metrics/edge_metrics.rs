@@ -141,37 +141,38 @@ impl EdgeInstanceData {
                         .get_metric()
                         .iter()
                         .filter(|m| {
-                            m.has_histogram()
-                                && m.get_label().iter().any(|l| {
-                                    l.get_name() == "endpoint"
-                                        && DESIRED_URLS
-                                            .iter()
-                                            .any(|desired| l.get_value().ends_with(desired))
-                                })
-                                && m.get_label().iter().any(|l| {
-                                    l.get_name() == "status" && l.get_value() == "200"
-                                        || l.get_value() == "202"
-                                        || l.get_value() == "304"
-                                        || l.get_value() == "403"
-                                })
+                            m.has_histogram() && m.get_label().iter().any(|l| {
+                                l.get_name()
+                                    == crate::metrics::actix_web_prometheus_metrics::ENDPOINT_LABEL
+                                    && DESIRED_URLS
+                                        .iter()
+                                        .any(|desired| l.get_value().ends_with(desired))
+                            }) && m.get_label().iter().any(|l| {
+                                l.get_name()
+                                    == crate::metrics::actix_web_prometheus_metrics::STATUS_LABEL
+                                    && l.get_value() == "200"
+                                    || l.get_value() == "202"
+                                    || l.get_value() == "304"
+                                    || l.get_value() == "403"
+                            })
                         })
                         .for_each(|m| {
                             let labels = m.get_label();
                             let path = labels
                                 .iter()
-                                .find(|l| l.get_name() == "endpoint")
+                                .find(|l| l.get_name() == crate::metrics::actix_web_prometheus_metrics::ENDPOINT_LABEL)
                                 .unwrap()
                                 .get_value()
                                 .strip_prefix(base_path)
                                 .unwrap();
                             let method = labels
                                 .iter()
-                                .find(|l| l.get_name() == "method")
+                                .find(|l| l.get_name() == crate::metrics::actix_web_prometheus_metrics::METHOD_LABEL)
                                 .unwrap()
                                 .get_value();
                             let status = labels
                                 .iter()
-                                .find(|l| l.get_name() == "status")
+                                .find(|l| l.get_name() == crate::metrics::actix_web_prometheus_metrics::STATUS_LABEL)
                                 .unwrap()
                                 .get_value();
                             let latency = match status {

@@ -219,12 +219,16 @@ pub struct LabelsConfiguration {
     version: Option<String>,
 }
 
+pub(crate) const ENDPOINT_LABEL: &str = "endpoint";
+pub(crate) const METHOD_LABEL: &str = "method";
+pub(crate) const STATUS_LABEL: &str = "status";
+
 impl Default for LabelsConfiguration {
     fn default() -> Self {
         Self {
-            endpoint: String::from("endpoint"),
-            method: String::from("method"),
-            status: String::from("status"),
+            endpoint: ENDPOINT_LABEL.to_string(),
+            method: METHOD_LABEL.to_string(),
+            status: STATUS_LABEL.to_string(),
             version: None,
         }
     }
