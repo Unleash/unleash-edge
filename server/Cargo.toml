@@ -62,6 +62,7 @@ opentelemetry_sdk = { version = "0.28.0", features = [
     "logs",
 ] }
 p12-keystore = "0.1.4"
+pin-project-lite = "0.2.16"
 pkix = "0.2.3"
 prometheus = { version = "0.13.4", features = ["process"] }
 prometheus-reqwest-remote-write = { version = "0.3.0" }
@@ -72,6 +73,7 @@ redis = { version = "0.29.1", features = [
     "tokio-rustls-comp",
     "cluster",
 ] }
+regex = "1.11.1"
 reqwest = { version = "0.12.12", default-features = false, features = [
     "json",
     "rustls-tls"
@@ -88,6 +90,7 @@ serde = { version = "1.0.218", features = ["derive"] }
 serde_json = "1.0.139"
 serde_qs = { version = "0.13.0", features = ["actix4", "tracing"] }
 shadow-rs = { version = "1.0.1" }
+strfmt = "0.2.4"
 tokio = { version = "1.43.0", features = [
     "macros",
     "rt-multi-thread",
