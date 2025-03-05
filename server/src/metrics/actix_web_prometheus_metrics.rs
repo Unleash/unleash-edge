@@ -354,7 +354,6 @@ pub struct PrometheusMetrics {
     pub(crate) enable_http_version_label: bool,
     pub(crate) unmatched_patterns_mask: Option<String>,
 }
-
 impl PrometheusMetrics {
     fn metrics(&self) -> String {
         let mut buffer = vec![];
@@ -368,6 +367,7 @@ impl PrometheusMetrics {
         self.endpoint.is_some() && self.endpoint.as_ref().unwrap() == path && method == Method::GET
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn update_metrics(
         &self,
         http_version: actix_http::Version,

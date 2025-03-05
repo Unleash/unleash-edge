@@ -168,5 +168,5 @@ pub fn test_instantiate_without_tracing_and_logging(
 ) -> PrometheusMetrics {
     let registry = registry.unwrap_or_else(instantiate_registry);
     register_custom_metrics(&registry);
-    instantiate_prometheus_metrics_handler(registry, false)
+    instantiate_prometheus_metrics_handler(registry, false, &EdgeInstanceData::new("test app"))
 }
