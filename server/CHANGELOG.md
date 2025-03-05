@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [19.8.0](https://github.com/Unleash/unleash-edge/compare/v19.7.0...v19.8.0) - 2025-03-05
+
+### 🚀 Features
+- add connection-id to registration payload ([#790](https://github.com/unleash/unleash-edge/issues/790)) (by @kwasniew) - #790
+- unleash-connection-id header ([#789](https://github.com/unleash/unleash-edge/issues/789)) (by @kwasniew) - #789
+- add allow-list and deny-list middlewares ([#786](https://github.com/unleash/unleash-edge/issues/786)) (by @chriswk) - #786
+- sync refresh-interval with other SDKs ([#787](https://github.com/unleash/unleash-edge/issues/787)) (by @kwasniew) - #787
+- unleash-interval header ([#785](https://github.com/unleash/unleash-edge/issues/785)) (by @kwasniew) - #785
+- No more openssl ([#782](https://github.com/unleash/unleash-edge/issues/782)) (by @chriswk) - #782
+- app_name and instance_id added as label to metrics ([#780](https://github.com/unleash/unleash-edge/issues/780)) (by @chriswk) - #780
+
+### 🐛 Bug Fixes
+- change to continue in instance data loop to avoid terminating edge ([#788](https://github.com/unleash/unleash-edge/issues/788)) (by @chriswk) - #788
+
+### 💼 Other
+- allow/deny middlewares only active for /api and /edge paths. ([#792](https://github.com/unleash/unleash-edge/issues/792)) (by @chriswk) - #792
+
+### Dependency updates
+- bump redis from 0.29.0 to 0.29.1 ([#784](https://github.com/unleash/unleash-edge/issues/784)) (by @dependabot[bot]) - #784
+- bump shadow-rs from 1.0.0 to 1.0.1 ([#783](https://github.com/unleash/unleash-edge/issues/783)) (by @dependabot[bot]) - #783
+- bump chrono from 0.4.39 to 0.4.40 ([#781](https://github.com/unleash/unleash-edge/issues/781)) (by @dependabot[bot]) - #781
+- bump prometheus-reqwest-remote-write from 0.2.1 to 0.3.0 ([#778](https://github.com/unleash/unleash-edge/issues/778)) (by @dependabot[bot]) - #778
+
+### 🧪 Testing
+- identification headers ([#794](https://github.com/unleash/unleash-edge/issues/794)) (by @kwasniew) - #794
+
+### ⚙️ Miscellaneous Tasks
+- update to rust 1.85 and 2024 edition ([#791](https://github.com/unleash/unleash-edge/issues/791)) (by @chriswk) - #791
+
+### Contributors
+
+* @kwasniew
+* @chriswk
+* @dependabot[bot]
+
 ## [19.7.0](https://github.com/Unleash/unleash-edge/compare/v19.6.3...v19.7.0) - 2025-02-25
 
 ### 🚀 Features
