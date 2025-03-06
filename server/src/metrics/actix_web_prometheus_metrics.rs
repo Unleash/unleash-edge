@@ -1,3 +1,8 @@
+/// A big thank you to https://github.com/atomix-team/actix-web-prometheus for the initial idea
+/// but https://github.com/nlopes/actix-web-prom had fixed comments and tests which we use with pride.
+///
+/// Uses different metric names to more closely align with what we had in our old metrics middleware.
+/// In addition, we needed the possibility to deny access to the metrics endpoint if the user had disabled it at startup
 use futures_core::ready;
 use std::{
     collections::{HashMap, HashSet},
