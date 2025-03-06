@@ -20,7 +20,6 @@ use actix_http::{
 };
 use actix_service::{Service, Transform, forward_ready};
 use actix_web::{
-    HttpMessage,
     body::{BodySize, EitherBody, MessageBody},
     dev::{ServiceRequest, ServiceResponse},
     web::{Bytes, Data},
@@ -29,7 +28,6 @@ use pin_project_lite::pin_project;
 use prometheus::{
     Encoder, HistogramOpts, HistogramVec, IntCounterVec, Opts, Registry, TextEncoder,
 };
-use tracing::warn;
 
 use super::edge_metrics::EdgeInstanceData;
 
@@ -197,7 +195,6 @@ impl PrometheusMetricsBuilder {
             exclude: self.exclude,
             exclude_status: self.exclude_status,
             enable_http_version_label: self.metrics_configuration.labels.version.is_some(),
-            unmatched_patterns_mask: self.unmatched_patterns_mask,
             expose_metrics_endpoint: !self.disable_metrics_endpoint,
         })
     }
@@ -344,17 +341,14 @@ pub struct PrometheusMetrics {
     pub(crate) exclude: HashSet<String>,
     pub(crate) exclude_status: HashSet<StatusCode>,
     pub(crate) enable_http_version_label: bool,
-    pub(crate) unmatched_patterns_mask: Option<String>,
 }
 
-struct MetricsUpdate<'a, 'b> {
+struct MetricsUpdate<'a> {
     size: usize,
-    mixed_pattern: &'a str,
-    fallback_pattern: &'b str,
+    path: &'a str,
     method: &'a Method,
     status: StatusCode,
     clock: Instant,
-    was_path_matched: bool,
 }
 impl PrometheusMetrics {
     fn metrics(&self) -> String {
@@ -373,34 +367,17 @@ impl PrometheusMetrics {
         &self,
         MetricsUpdate {
             size,
-            mixed_pattern,
-            fallback_pattern,
+            path,
             method,
             status,
             clock,
-            was_path_matched,
         }: MetricsUpdate,
     ) {
-        if self.exclude.contains(mixed_pattern) || self.exclude_status.contains(&status) {
+        if self.exclude.contains(path) || self.exclude_status.contains(&status) {
             return;
         }
-        // do not record mixed patterns that were considered invalid by the server
-        let final_pattern = if fallback_pattern != mixed_pattern && (status == 404 || status == 405)
-        {
-            fallback_pattern
-        } else {
-            mixed_pattern
-        };
 
-        let final_pattern = if was_path_matched {
-            final_pattern
-        } else if let Some(mask) = &self.unmatched_patterns_mask {
-            mask
-        } else {
-            final_pattern
-        };
-
-        let label_values = [final_pattern, method.as_str(), status.as_str()];
+        let label_values = [path, method.as_str(), status.as_str()];
         let label_values = if self.enable_http_version_label {
             &label_values[..]
         } else {
@@ -470,45 +447,6 @@ where
         let time = *this.time;
         let req = res.request();
         let method = req.method().clone();
-        let was_path_matched = req.match_pattern().is_some();
-
-        // get metrics config for this specific route
-        // piece of code to allow for more cardinality
-        let params_keep_path_cardinality = match req.extensions_mut().get::<MetricsConfig>() {
-            Some(config) => config.cardinality_keep_params.clone(),
-            None => vec![],
-        };
-
-        let full_pattern = req.match_pattern();
-        let path = req.path().to_string();
-        let fallback_pattern = full_pattern.clone().unwrap_or(path.clone());
-
-        // mixed_pattern is the final path used as label value in metrics
-        let mixed_pattern = match full_pattern {
-            None => path.clone(),
-            Some(full_pattern) => {
-                let mut params: HashMap<String, String> = HashMap::new();
-
-                for (key, val) in req.match_info().iter() {
-                    if params_keep_path_cardinality.contains(&key.to_string()) {
-                        params.insert(key.to_string(), val.to_string());
-                        continue;
-                    }
-                    params.insert(key.to_string(), format!("{{{key}}}"));
-                }
-
-                if let Ok(mixed_cardinality_pattern) = strfmt::strfmt(&full_pattern, &params) {
-                    mixed_cardinality_pattern
-                } else {
-                    warn!(
-                        "Cannot build mixed cardinality pattern {full_pattern}, with params {params:?}"
-                    );
-                    full_pattern
-                }
-            }
-        };
-        // get metrics config for this specific route
-        // piece of code to allow for more cardinality
 
         let path = req.path().to_string();
 
@@ -525,14 +463,12 @@ where
                     head.status = StatusCode::FORBIDDEN;
                     EitherBody::right(StreamLog {
                         body: "".to_string(),
+                        path,
                         size: 0,
                         clock: time,
                         inner,
                         status: head.status,
-                        mixed_pattern,
-                        fallback_pattern,
                         method,
-                        was_path_matched: true,
                     })
                 } else {
                     head.status = StatusCode::OK;
@@ -545,12 +481,10 @@ where
                         body: inner.metrics(),
                         size: 0,
                         clock: time,
+                        path,
                         inner,
                         status: head.status,
-                        mixed_pattern,
-                        fallback_pattern,
                         method,
-                        was_path_matched: true,
                     })
                 }
             } else {
@@ -571,10 +505,8 @@ where
                     clock: time,
                     inner,
                     status: head.status,
-                    mixed_pattern,
-                    fallback_pattern,
                     method,
-                    was_path_matched,
+                    path,
                 })
             }
         })))
@@ -617,11 +549,8 @@ pin_project! {
         clock: Instant,
         inner: Arc<PrometheusMetrics>,
         status: StatusCode,
-        // a route pattern with some params not-filled and some params filled in by user-defined
-        mixed_pattern: String,
-        fallback_pattern: String,
+        path: String,
         method: Method,
-        was_path_matched: bool
     }
 
 
@@ -631,12 +560,10 @@ pin_project! {
             this.inner
                 .update_metrics(MetricsUpdate {
                     size: this.size,
-                    mixed_pattern: &this.mixed_pattern,
-                    fallback_pattern: &this.fallback_pattern,
+                    path: &this.path,
                     method: &this.method,
                     status: this.status,
                     clock: this.clock,
-                    was_path_matched: this.was_path_matched,
                 });
         }
     }
@@ -668,9 +595,8 @@ impl<B: MessageBody> MessageBody for StreamLog<B> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use actix_web::dev::Service;
     use actix_web::test::{TestRequest, call_and_read_body, call_service, init_service, read_body};
-    use actix_web::{App, HttpMessage, HttpResponse, Resource, Scope, web};
+    use actix_web::{App, HttpResponse, Resource, Scope, web};
 
     use prometheus::{Counter, Opts};
 
@@ -771,162 +697,6 @@ actix_web_prom_http_requests_duration_seconds_bucket{endpoint=\"/internal/health
 # TYPE actix_web_prom_http_requests_total counter
 actix_web_prom_http_requests_total{endpoint=\"/internal/health_check\",method=\"GET\",status=\"200\"} 1
 "
-                )
-                .to_vec()
-            )
-            .unwrap()
-        ));
-    }
-
-    #[actix_web::test]
-    async fn middleware_match_pattern() {
-        let prometheus = PrometheusMetricsBuilder::new("actix_web_prom")
-            .endpoint("/metrics")
-            .build()
-            .unwrap();
-
-        let app = init_service(
-            App::new()
-                .wrap(prometheus)
-                .service(web::resource("/resource/{id}").to(HttpResponse::Ok)),
-        )
-        .await;
-
-        let res = call_service(&app, TestRequest::with_uri("/resource/123").to_request()).await;
-        assert!(res.status().is_success());
-        assert_eq!(read_body(res).await, "");
-
-        let res = call_and_read_body(&app, TestRequest::with_uri("/metrics").to_request()).await;
-        let body = String::from_utf8(res.to_vec()).unwrap();
-        assert!(&body.contains(
-            &String::from_utf8(web::Bytes::from(
-                "# HELP actix_web_prom_http_requests_duration_seconds HTTP request duration in seconds for all requests
-# TYPE actix_web_prom_http_requests_duration_seconds histogram
-actix_web_prom_http_requests_duration_seconds_bucket{endpoint=\"/resource/{id}\",method=\"GET\",status=\"200\",le=\"0.005\"} 1
-"
-        ).to_vec()).unwrap()));
-        assert!(
-            body.contains(
-                &String::from_utf8(
-                    web::Bytes::from(
-                        "# HELP actix_web_prom_http_requests_total Total number of HTTP requests
-# TYPE actix_web_prom_http_requests_total counter
-actix_web_prom_http_requests_total{endpoint=\"/resource/{id}\",method=\"GET\",status=\"200\"} 1
-"
-                    )
-                    .to_vec()
-                )
-                .unwrap()
-            )
-        );
-    }
-
-    #[actix_web::test]
-    async fn middleware_with_mask_unmatched_pattern() {
-        let prometheus = PrometheusMetricsBuilder::new("actix_web_prom")
-            .endpoint("/metrics")
-            .mask_unmatched_patterns("UNKNOWN")
-            .build()
-            .unwrap();
-
-        let app = init_service(
-            App::new()
-                .wrap(prometheus)
-                .service(web::resource("/resource/{id}").to(HttpResponse::Ok)),
-        )
-        .await;
-
-        let res = call_service(&app, TestRequest::with_uri("/not-real").to_request()).await;
-        assert!(res.status().is_client_error());
-        assert_eq!(read_body(res).await, "");
-
-        let res = call_and_read_body(&app, TestRequest::with_uri("/metrics").to_request()).await;
-        let body = String::from_utf8(res.to_vec()).unwrap();
-        assert!(&body.contains(
-            &String::from_utf8(web::Bytes::from(
-                "actix_web_prom_http_requests_duration_seconds_bucket{endpoint=\"UNKNOWN\",method=\"GET\",status=\"404\",le=\"0.005\"} 1"
-        ).to_vec()).unwrap()));
-        assert!(body.contains(
-            &String::from_utf8(
-                web::Bytes::from(
-                    "actix_web_prom_http_requests_total{endpoint=\"UNKNOWN\",method=\"GET\",status=\"404\"} 1"
-                )
-                .to_vec()
-            )
-            .unwrap()
-        ));
-    }
-
-    #[actix_web::test]
-    async fn middleware_with_mixed_params_cardinality() {
-        // we want to keep metrics label on the "cheap param" but not on the "expensive" param
-        let prometheus = PrometheusMetricsBuilder::new("actix_web_prom")
-            .endpoint("/metrics")
-            .build()
-            .unwrap();
-
-        let app = init_service(
-            App::new().wrap(prometheus).service(
-                web::resource("/resource/{cheap}/{expensive}")
-                    .wrap_fn(|req, srv| {
-                        req.extensions_mut().insert::<MetricsConfig>(MetricsConfig {
-                            cardinality_keep_params: vec!["cheap".to_string()],
-                        });
-                        srv.call(req)
-                    })
-                    .to(|path: web::Path<(String, String)>| async {
-                        let (cheap, _expensive) = path.into_inner();
-                        if !["foo", "bar"].map(|x| x.to_string()).contains(&cheap) {
-                            return HttpResponse::NotFound().finish();
-                        }
-                        HttpResponse::Ok().finish()
-                    }),
-            ),
-        )
-        .await;
-
-        // first probe to check basic facts
-        let res = call_service(
-            &app,
-            TestRequest::with_uri("/resource/foo/12345").to_request(),
-        )
-        .await;
-        assert!(res.status().is_success());
-        assert_eq!(read_body(res).await, "");
-
-        let res = call_and_read_body(&app, TestRequest::with_uri("/metrics").to_request()).await;
-        let body = String::from_utf8(res.to_vec()).unwrap();
-        println!("Body: {}", body);
-        assert!(&body.contains(
-            &String::from_utf8(web::Bytes::from(
-                "actix_web_prom_http_requests_duration_seconds_bucket{endpoint=\"/resource/foo/{expensive}\",method=\"GET\",status=\"200\",le=\"0.005\"} 1"
-        ).to_vec()).unwrap()));
-        assert!(body.contains(
-            &String::from_utf8(
-                web::Bytes::from(
-                    "actix_web_prom_http_requests_total{endpoint=\"/resource/foo/{expensive}\",method=\"GET\",status=\"200\"} 1"
-                )
-                .to_vec()
-            )
-            .unwrap()
-        ));
-
-        // second probe to test 404 behavior
-        let res = call_service(
-            &app,
-            TestRequest::with_uri("/resource/invalid/92945").to_request(),
-        )
-        .await;
-        assert!(res.status() == 404);
-        assert_eq!(read_body(res).await, "");
-
-        let res = call_and_read_body(&app, TestRequest::with_uri("/metrics").to_request()).await;
-        let body = String::from_utf8(res.to_vec()).unwrap();
-        println!("Body: {}", body);
-        assert!(body.contains(
-            &String::from_utf8(
-                web::Bytes::from(
-                    "actix_web_prom_http_requests_total{endpoint=\"/resource/{cheap}/{expensive}\",method=\"GET\",status=\"404\"} 1"
                 )
                 .to_vec()
             )

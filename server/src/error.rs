@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use actix_web::{http::StatusCode, HttpResponseBuilder, ResponseError};
+use actix_web::{HttpResponseBuilder, ResponseError, http::StatusCode};
 use actix_web_lab::sse::Event;
 use serde::Serialize;
 use serde_json::json;
@@ -129,7 +129,7 @@ pub enum EdgeError {
     PersistenceError(String),
     ReadyCheckError(String),
     SseError(String),
-    TlsError,
+    TlsError(String),
     TokenParseError(String),
     TokenValidationError(reqwest::StatusCode),
 }
@@ -142,7 +142,7 @@ impl Display for EdgeError {
             EdgeError::InvalidBackupFile(path, why_invalid) => {
                 write!(f, "file at path: {path} was invalid due to {why_invalid}")
             }
-            EdgeError::TlsError => write!(f, "Could not configure TLS"),
+            EdgeError::TlsError(msg) => write!(f, "Could not configure TLS: {msg}"),
             EdgeError::NoFeaturesFile => write!(f, "No features file located"),
             EdgeError::AuthorizationDenied => write!(f, "Not allowed to access"),
             EdgeError::NoTokenProvider => write!(f, "Could not get a TokenProvider"),
@@ -182,7 +182,10 @@ impl Display for EdgeError {
             EdgeError::EdgeTokenError => write!(f, "Edge token error"),
             EdgeError::EdgeTokenParseError => write!(f, "Failed to parse token response"),
             EdgeError::EdgeMetricsRequestError(status_code, message) => {
-                write!(f, "Failed to post metrics with status code: {status_code} and response {message:?}")
+                write!(
+                    f,
+                    "Failed to post metrics with status code: {status_code} and response {message:?}"
+                )
             }
             EdgeError::AuthorizationPending => {
                 write!(f, "No validation for token has happened yet")
@@ -222,7 +225,10 @@ impl Display for EdgeError {
             EdgeError::NotReady => {
                 write!(f, "Edge is not ready to serve requests")
             }
-            EdgeError::InvalidTokenWithStrictBehavior => write!(f, "Edge is running with strict behavior and the token is not subsumed by any registered tokens"),
+            EdgeError::InvalidTokenWithStrictBehavior => write!(
+                f,
+                "Edge is running with strict behavior and the token is not subsumed by any registered tokens"
+            ),
             EdgeError::SseError(message) => write!(f, "{}", message),
             EdgeError::Forbidden(reason) => write!(f, "{}", reason),
         }
@@ -233,7 +239,7 @@ impl ResponseError for EdgeError {
     fn status_code(&self) -> actix_web::http::StatusCode {
         match self {
             EdgeError::InvalidBackupFile(_, _) => StatusCode::INTERNAL_SERVER_ERROR,
-            EdgeError::TlsError => StatusCode::INTERNAL_SERVER_ERROR,
+            EdgeError::TlsError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::NoFeaturesFile => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::AuthorizationDenied => StatusCode::FORBIDDEN,
             EdgeError::NoTokenProvider => StatusCode::INTERNAL_SERVER_ERROR,
