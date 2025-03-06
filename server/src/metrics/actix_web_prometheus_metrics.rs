@@ -356,7 +356,7 @@ impl PrometheusMetrics {
     }
 
     fn matches(&self, path: &str, method: &Method) -> bool {
-        self.endpoint.is_some() && self.endpoint.as_ref().unwrap() == path && method == Method::GET
+        self.endpoint.as_ref().map_or(false, |ep| ep == path) && method == Method::GET
     }
 
     #[allow(clippy::too_many_arguments)]
