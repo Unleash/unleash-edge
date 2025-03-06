@@ -53,10 +53,10 @@ mod tests {
     use tracing_test::traced_test;
 
     use actix_http::HttpService;
-    use actix_http_test::{test_server, TestServer};
+    use actix_http_test::{TestServer, test_server};
     use actix_service::map_config;
     use actix_web::dev::AppConfig;
-    use actix_web::{web, App};
+    use actix_web::{App, web};
     use chrono::Duration;
     use dashmap::DashMap;
     use reqwest::{StatusCode, Url};
@@ -66,7 +66,7 @@ mod tests {
     use crate::delta_cache_manager::DeltaCacheManager;
     use crate::feature_cache::FeatureCache;
     use crate::http::refresher::feature_refresher::FeatureRefresher;
-    use crate::http::unleash_client::{new_reqwest_client, UnleashClient};
+    use crate::http::unleash_client::{UnleashClient, new_reqwest_client};
     use crate::tests::upstream_server;
     use crate::types::{EdgeToken, TokenType, TokenValidationStatus};
 

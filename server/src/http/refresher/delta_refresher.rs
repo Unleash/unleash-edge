@@ -112,7 +112,9 @@ impl FeatureRefresher {
                                 | StatusCode::BAD_GATEWAY
                                 | StatusCode::SERVICE_UNAVAILABLE
                                 | StatusCode::GATEWAY_TIMEOUT => {
-                                    info!("Upstream is having some problems, increasing my waiting period");
+                                    info!(
+                                        "Upstream is having some problems, increasing my waiting period"
+                                    );
                                     self.backoff(&refresh.token);
                                 }
                                 StatusCode::TOO_MANY_REQUESTS => {
@@ -124,7 +126,9 @@ impl FeatureRefresher {
                                 }
                             },
                             FeatureError::AccessDenied => {
-                                info!("Token used to fetch features was Forbidden, will remove from list of refresh tasks");
+                                info!(
+                                    "Token used to fetch features was Forbidden, will remove from list of refresh tasks"
+                                );
                                 self.tokens_to_refresh.remove(&refresh.token.token);
                                 if !self.tokens_to_refresh.iter().any(|e| {
                                     e.value().token.environment == refresh.token.environment
@@ -136,7 +140,9 @@ impl FeatureRefresher {
                                 }
                             }
                             FeatureError::NotFound => {
-                                info!("Had a bad URL when trying to fetch features. Increasing waiting period for the token before trying again");
+                                info!(
+                                    "Had a bad URL when trying to fetch features. Increasing waiting period for the token before trying again"
+                                );
                                 self.backoff(&refresh.token);
                             }
                         }
@@ -273,13 +279,13 @@ mod tests {
     use crate::http::refresher::feature_refresher::FeatureRefresher;
     use crate::http::unleash_client::{ClientMetaInformation, UnleashClient};
     use crate::types::EdgeToken;
-    use actix_http::header::IF_NONE_MATCH;
     use actix_http::HttpService;
-    use actix_http_test::{test_server, TestServer};
+    use actix_http::header::IF_NONE_MATCH;
+    use actix_http_test::{TestServer, test_server};
     use actix_service::map_config;
     use actix_web::dev::AppConfig;
     use actix_web::http::header::{ETag, EntityTag};
-    use actix_web::{web, App, HttpRequest, HttpResponse};
+    use actix_web::{App, HttpRequest, HttpResponse, web};
     use chrono::Duration;
     use dashmap::DashMap;
     use std::sync::Arc;

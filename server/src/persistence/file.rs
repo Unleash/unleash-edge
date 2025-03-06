@@ -150,8 +150,8 @@ mod tests {
 
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
-    use crate::persistence::file::FilePersister;
     use crate::persistence::EdgePersistence;
+    use crate::persistence::file::FilePersister;
     use crate::types::{EdgeToken, TokenType, TokenValidationStatus};
 
     #[tokio::test]

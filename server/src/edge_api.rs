@@ -1,7 +1,6 @@
 use actix_web::{
-    post,
+    HttpRequest, post,
     web::{self, Data, Json},
-    HttpRequest,
 };
 use dashmap::DashMap;
 use utoipa;
@@ -60,7 +59,7 @@ mod tests {
 
     use actix_web::http::header::ContentType;
     use actix_web::web::Json;
-    use actix_web::{test, web, App};
+    use actix_web::{App, test, web};
     use dashmap::DashMap;
 
     use crate::auth::token_validator::TokenValidator;

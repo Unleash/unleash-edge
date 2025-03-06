@@ -3,8 +3,8 @@ use dashmap::DashMap;
 use tokio::sync::broadcast;
 use unleash_types::client_features::ClientFeaturesDelta;
 use unleash_types::{
-    client_features::{ClientFeature, ClientFeatures, Segment},
     Deduplicate,
+    client_features::{ClientFeature, ClientFeatures, Segment},
 };
 
 #[derive(Debug, Clone)]

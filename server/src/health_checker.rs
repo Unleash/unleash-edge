@@ -49,7 +49,7 @@ mod tests {
     use actix_http_test::test_server;
     use actix_service::map_config;
     use actix_web::dev::AppConfig;
-    use actix_web::{web, App, HttpResponse};
+    use actix_web::{App, HttpResponse, web};
 
     #[tokio::test]
     pub async fn runs_health_check() {

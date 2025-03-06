@@ -5,7 +5,7 @@ use tokio::sync::RwLock;
 
 use crate::cli::{CliArgs, EdgeMode};
 use crate::error::EdgeError;
-use crate::http::unleash_client::{new_reqwest_client, ClientMetaInformation, UnleashClient};
+use crate::http::unleash_client::{ClientMetaInformation, UnleashClient, new_reqwest_client};
 use crate::metrics::edge_metrics::EdgeInstanceData;
 use prometheus::Registry;
 use tracing::{debug, warn};
@@ -129,12 +129,16 @@ pub async fn loop_send_instance_data(
                     match e {
                         EdgeError::EdgeMetricsRequestError(status, _) => {
                             if status == StatusCode::NOT_FOUND {
-                                debug!("Our upstream is not running a version that supports edge metrics.");
+                                debug!(
+                                    "Our upstream is not running a version that supports edge metrics."
+                                );
                                 errors += 1;
                                 downstream_instance_data.write().await.clear();
                                 our_instance_data.requests_since_last_report.clear();
                             } else if status == StatusCode::FORBIDDEN {
-                                warn!("Upstream edge metrics said our token wasn't allowed to post data");
+                                warn!(
+                                    "Upstream edge metrics said our token wasn't allowed to post data"
+                                );
                                 errors += 1;
                                 downstream_instance_data.write().await.clear();
                                 our_instance_data.requests_since_last_report.clear();

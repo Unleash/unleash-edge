@@ -929,11 +929,12 @@ mod tests {
         ];
         let args = CliArgs::try_parse_from(args);
         assert!(args.is_err());
-        assert!(args
-            .err()
-            .unwrap()
-            .to_string()
-            .contains(error::TRUST_PROXY_PARSE_ERROR));
+        assert!(
+            args.err()
+                .unwrap()
+                .to_string()
+                .contains(error::TRUST_PROXY_PARSE_ERROR)
+        );
     }
 
     #[test]

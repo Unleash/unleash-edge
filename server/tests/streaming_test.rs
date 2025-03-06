@@ -181,10 +181,10 @@ mod streaming_test {
     }
 
     use actix_http::HttpService;
-    use actix_http_test::{test_server, TestServer};
+    use actix_http_test::{TestServer, test_server};
     use actix_service::map_config;
     use actix_web::dev::AppConfig;
-    use actix_web::{web, App};
+    use actix_web::{App, web};
     use tracing::error;
     use unleash_types::client_metrics::ConnectVia;
     use unleash_yggdrasil::EngineState;

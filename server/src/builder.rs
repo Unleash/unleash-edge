@@ -14,12 +14,12 @@ use crate::cli::RedisMode;
 use crate::delta_cache_manager::DeltaCacheManager;
 use crate::feature_cache::FeatureCache;
 use crate::http::refresher::feature_refresher::{FeatureRefreshConfig, FeatureRefresherMode};
-use crate::http::unleash_client::{new_reqwest_client, ClientMetaInformation};
+use crate::http::unleash_client::{ClientMetaInformation, new_reqwest_client};
 use crate::offline::offline_hotload::{load_bootstrap, load_offline_engine_cache};
+use crate::persistence::EdgePersistence;
 use crate::persistence::file::FilePersister;
 use crate::persistence::redis::RedisPersister;
 use crate::persistence::s3::S3Persister;
-use crate::persistence::EdgePersistence;
 use crate::{
     auth::token_validator::TokenValidator,
     cli::{CliArgs, EdgeArgs, EdgeMode, OfflineArgs},
@@ -234,9 +234,13 @@ async fn build_edge(
 ) -> EdgeResult<EdgeInfo> {
     if !args.strict {
         if !args.dynamic {
-            error!("You should explicitly opt into either strict or dynamic behavior. Edge has defaulted to dynamic to preserve legacy behavior, however we recommend using strict from now on. Not explicitly opting into a behavior will return an error on startup in a future release");
+            error!(
+                "You should explicitly opt into either strict or dynamic behavior. Edge has defaulted to dynamic to preserve legacy behavior, however we recommend using strict from now on. Not explicitly opting into a behavior will return an error on startup in a future release"
+            );
         }
-        warn!("Dynamic behavior has been deprecated and we plan to remove it in a future release. If you have a use case for it, please reach out to us");
+        warn!(
+            "Dynamic behavior has been deprecated and we plan to remove it in a future release. If you have a use case for it, please reach out to us"
+        );
     }
 
     if args.strict && args.tokens.is_empty() {
@@ -313,7 +317,9 @@ async fn build_edge(
     }
 
     if args.strict && token_cache.is_empty() {
-        error!("You started Edge in strict mode, but Edge was not able to validate any of the tokens configured at startup");
+        error!(
+            "You started Edge in strict mode, but Edge was not able to validate any of the tokens configured at startup"
+        );
         return Err(EdgeError::NoTokens("No valid tokens was provided on startup. At least one valid token must be specified at startup when running in Strict mode".into()));
     }
     for validated_token in token_cache
