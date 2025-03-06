@@ -100,7 +100,7 @@ impl EdgeInstanceData {
         }
     }
 
-    pub fn observe_request(&self, http_target: &str, status_code: i64) {
+    pub fn observe_request(&self, http_target: &str, status_code: u16) {
         match status_code {
             200 | 202 | 204 => {
                 self.requests_since_last_report
@@ -136,44 +136,43 @@ impl EdgeInstanceData {
 
         for family in registry.gather().iter() {
             match family.get_name() {
-                "http_server_duration_milliseconds" => {
+                crate::metrics::actix_web_prometheus_metrics::HTTP_REQUESTS_DURATION => {
                     family
                         .get_metric()
                         .iter()
                         .filter(|m| {
-                            m.has_histogram()
-                                && m.get_label().iter().any(|l| {
-                                    l.get_name() == "url_path"
-                                        && DESIRED_URLS
-                                            .iter()
-                                            .any(|desired| l.get_value().ends_with(desired))
-                                })
-                                && m.get_label().iter().any(|l| {
-                                    l.get_name() == "http_response_status_code"
-                                        && l.get_value() == "200"
-                                        || l.get_value() == "202"
-                                        || l.get_value() == "304"
-                                        || l.get_value() == "403"
-                                })
+                            m.has_histogram() && m.get_label().iter().any(|l| {
+                                l.get_name()
+                                    == crate::metrics::actix_web_prometheus_metrics::ENDPOINT_LABEL
+                                    && DESIRED_URLS
+                                        .iter()
+                                        .any(|desired| l.get_value().ends_with(desired))
+                            }) && m.get_label().iter().any(|l| {
+                                l.get_name()
+                                    == crate::metrics::actix_web_prometheus_metrics::STATUS_LABEL
+                                    && l.get_value() == "200"
+                                    || l.get_value() == "202"
+                                    || l.get_value() == "304"
+                                    || l.get_value() == "403"
+                            })
                         })
                         .for_each(|m| {
                             let labels = m.get_label();
-
                             let path = labels
                                 .iter()
-                                .find(|l| l.get_name() == "url_path")
+                                .find(|l| l.get_name() == crate::metrics::actix_web_prometheus_metrics::ENDPOINT_LABEL)
                                 .unwrap()
                                 .get_value()
                                 .strip_prefix(base_path)
                                 .unwrap();
                             let method = labels
                                 .iter()
-                                .find(|l| l.get_name() == "http_request_method")
+                                .find(|l| l.get_name() == crate::metrics::actix_web_prometheus_metrics::METHOD_LABEL)
                                 .unwrap()
                                 .get_value();
                             let status = labels
                                 .iter()
-                                .find(|l| l.get_name() == "http_response_status_code")
+                                .find(|l| l.get_name() == crate::metrics::actix_web_prometheus_metrics::STATUS_LABEL)
                                 .unwrap()
                                 .get_value();
                             let latency = match status {
@@ -195,7 +194,7 @@ impl EdgeInstanceData {
                                     .entry(path.to_string())
                                     .or_insert(LatencyMetrics::default()),
                             };
-                            let total = m.get_histogram().get_sample_sum() * 1000.0; // convert to ms
+                            let total = m.get_histogram().get_sample_sum(); // convert to ms
                             let count = m.get_histogram().get_sample_count() as f64;
                             let p99 = get_percentile(
                                 99,

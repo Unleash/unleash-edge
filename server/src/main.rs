@@ -1,7 +1,7 @@
 use actix_allow_deny_middleware::{AllowList, DenyList};
 use actix_middleware_etag::Etag;
 use actix_web::middleware::Logger;
-use actix_web::{web, App, HttpServer};
+use actix_web::{App, HttpServer, web};
 use clap::Parser;
 use dashmap::DashMap;
 use futures::future::join_all;
@@ -23,7 +23,7 @@ use unleash_edge::http::refresher::feature_refresher::FeatureRefresher;
 use unleash_edge::metrics::client_metrics::MetricsCache;
 use unleash_edge::metrics::edge_metrics::EdgeInstanceData;
 use unleash_edge::offline::offline_hotload;
-use unleash_edge::persistence::{persist_data, EdgePersistence};
+use unleash_edge::persistence::{EdgePersistence, persist_data};
 use unleash_edge::types::{EdgeToken, TokenValidationStatus};
 use unleash_edge::{client_api, frontend_api, health_checker, openapi, ready_checker};
 use unleash_edge::{edge_api, prom_metrics};
@@ -61,7 +61,6 @@ async fn main() -> Result<(), anyhow::Error> {
     let keepalive_timeout = args.edge_keepalive_timeout;
     let trust_proxy = args.clone().trust_proxy;
     let base_path = http_args.base_path.clone();
-    let (metrics_handler, request_metrics) = prom_metrics::instantiate(None, &args.log_format);
     let our_instance_data_for_app_context = Arc::new(EdgeInstanceData::new(&app_name));
     let connect_via = ConnectVia {
         app_name: args.clone().app_name,
@@ -69,6 +68,12 @@ async fn main() -> Result<(), anyhow::Error> {
     };
     let our_instance_data = our_instance_data_for_app_context.clone();
     let identifier = our_instance_data_for_app_context.identifier.clone();
+    let metrics_middleware = prom_metrics::instantiate(
+        None,
+        args.internal_backstage.disable_metrics_endpoint,
+        &args.log_format,
+        &our_instance_data,
+    );
     let custom_headers = match args.mode {
         EdgeMode::Edge(ref edge) => edge.custom_client_headers.clone(),
         _ => vec![],
@@ -88,7 +93,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let instance_data_sender: Arc<InstanceDataSending> = Arc::new(InstanceDataSending::from_args(
         args.clone(),
         our_instance_data.clone(),
-        metrics_handler.registry.clone(),
+        metrics_middleware.registry.clone(),
     )?);
     let instance_data_sender_for_app_context = instance_data_sender.clone();
     let token_validator_schedule = token_validator.clone();
@@ -102,7 +107,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let openapi = openapi::ApiDoc::openapi();
     let refresher_for_app_data = feature_refresher.clone();
-    let prom_registry_for_write = metrics_handler.registry.clone();
+    let prom_registry_for_write = metrics_middleware.registry.clone();
     let instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>> =
         Arc::new(RwLock::new(Vec::new()));
     let downstream_instance_data = instances_observed_for_app_context.clone();
@@ -146,12 +151,11 @@ async fn main() -> Result<(), anyhow::Error> {
                 .wrap(actix_web::middleware::Compress::default())
                 .wrap(actix_web::middleware::NormalizePath::default())
                 .wrap(cors_middleware)
-                .wrap(request_metrics.clone())
+                .wrap(metrics_middleware.clone())
                 .wrap(Logger::default())
                 .service(web::scope("/internal-backstage").configure(|service_cfg| {
                     internal_backstage::configure_internal_backstage(
                         service_cfg,
-                        metrics_handler.clone(),
                         internal_backstage_args.clone(),
                     )
                 }))

@@ -1,6 +1,5 @@
-use rustls::crypto::CryptoProvider;
-use rustls::pki_types::PrivateKeyDer;
 use rustls::ServerConfig;
+use rustls::pki_types::PrivateKeyDer;
 use rustls_pemfile::{certs, pkcs8_private_keys};
 use std::path::PathBuf;
 use std::{fs, fs::File, io::BufReader};
@@ -33,8 +32,9 @@ pub(crate) fn build_upstream_certificate(
 }
 
 pub fn config(tls_config: TlsOptions) -> Result<ServerConfig, EdgeError> {
-    let provider = rustls::crypto::ring::default_provider();
-    CryptoProvider::install_default(provider).expect("Failed to setup default crypto provider");
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .map_err(|e| EdgeError::TlsError(format!("{e:?}")))?;
     let mut cert_file = BufReader::new(
         File::open(
             tls_config
@@ -42,7 +42,7 @@ pub fn config(tls_config: TlsOptions) -> Result<ServerConfig, EdgeError> {
                 .expect("No TLS server cert")
                 .as_path(),
         )
-        .map_err(|_| EdgeError::TlsError)?,
+        .map_err(|_| EdgeError::TlsError("Failed to open certfile".to_string()))?,
     );
     let mut key_file = BufReader::new(
         File::open(tls_config.tls_server_key.expect("No server key").as_path())
@@ -55,5 +55,5 @@ pub fn config(tls_config: TlsOptions) -> Result<ServerConfig, EdgeError> {
     ServerConfig::builder()
         .with_no_client_auth()
         .with_single_cert(cert_chain, keys.remove(0))
-        .map_err(|_e| EdgeError::TlsError)
+        .map_err(|e| EdgeError::TlsError(format!("Failed to configure ServerConfig: {e:?}")))
 }

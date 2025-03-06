@@ -1,15 +1,14 @@
+use std::collections::HashMap;
+
 use crate::cli::LogFormat;
-use opentelemetry::global;
-use opentelemetry_sdk::metrics::SdkMeterProvider;
+use crate::metrics::actix_web_prometheus_metrics::{PrometheusMetrics, PrometheusMetricsBuilder};
+use crate::metrics::edge_metrics::EdgeInstanceData;
 #[cfg(target_os = "linux")]
 use prometheus::process_collector::ProcessCollector;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::{EnvFilter, Registry};
 
 use crate::http::background_send_metrics;
-use crate::metrics::actix_web_metrics::{
-    PrometheusMetricsHandler, RequestMetrics, RequestMetricsBuilder,
-};
 
 fn instantiate_tracing_and_logging(log_format: &LogFormat) {
     let env_filter = EnvFilter::try_from_default_env()
@@ -36,39 +35,41 @@ fn instantiate_tracing_and_logging(log_format: &LogFormat) {
 
 pub fn instantiate(
     registry: Option<prometheus::Registry>,
+    disable_metrics_endpoint: bool,
     log_format: &LogFormat,
-) -> (PrometheusMetricsHandler, RequestMetrics) {
+    instance_data: &EdgeInstanceData,
+) -> PrometheusMetrics {
     instantiate_tracing_and_logging(log_format);
     let registry = registry.unwrap_or_else(instantiate_registry);
     register_custom_metrics(&registry);
-    instantiate_prometheus_metrics_handler(registry)
+    instantiate_prometheus_metrics_handler(registry, disable_metrics_endpoint, instance_data)
 }
 
 fn instantiate_prometheus_metrics_handler(
     registry: prometheus::Registry,
-) -> (PrometheusMetricsHandler, RequestMetrics) {
-    let resource = opentelemetry_sdk::Resource::builder()
-        .with_service_name("unleash-edge")
-        .with_attributes(vec![
-            opentelemetry::KeyValue::new("edge_version", crate::types::build::PKG_VERSION),
-            opentelemetry::KeyValue::new("edge_githash", crate::types::build::SHORT_COMMIT),
-        ])
-        .build();
-    let exporter = opentelemetry_prometheus::exporter()
-        .with_registry(registry.clone())
+    disable_metrics_endpoint: bool,
+    instance_data: &EdgeInstanceData,
+) -> PrometheusMetrics {
+    let mut extra_labels = HashMap::<String, String>::new();
+    extra_labels.insert(
+        "edge_version".to_string(),
+        crate::types::build::PKG_VERSION.to_string(),
+    );
+    extra_labels.insert(
+        "edge_githash".to_string(),
+        crate::types::build::SHORT_COMMIT.to_string(),
+    );
+    extra_labels.insert("app_name".to_string(), instance_data.app_name.clone());
+    extra_labels.insert("instance_id".to_string(), instance_data.identifier.clone());
+
+    PrometheusMetricsBuilder::new("")
+        .endpoint("/internal-backstage/metrics")
+        .const_labels(extra_labels)
+        .registry(registry)
+        .exclude("/favicon.ico")
+        .disable_metrics_endpoint(disable_metrics_endpoint)
         .build()
-        .expect("Failed to setup prometheus");
-    let provider = SdkMeterProvider::builder()
-        .with_resource(resource)
-        .with_reader(exporter)
-        .build();
-    global::set_meter_provider(provider.clone());
-    (
-        PrometheusMetricsHandler::new(registry),
-        RequestMetricsBuilder::new()
-            .with_meter_provider(provider)
-            .build(),
-    )
+        .unwrap()
 }
 
 fn instantiate_registry() -> prometheus::Registry {
@@ -164,8 +165,8 @@ fn register_custom_metrics(registry: &prometheus::Registry) {
 #[cfg(test)]
 pub fn test_instantiate_without_tracing_and_logging(
     registry: Option<prometheus::Registry>,
-) -> (PrometheusMetricsHandler, RequestMetrics) {
+) -> PrometheusMetrics {
     let registry = registry.unwrap_or_else(instantiate_registry);
     register_custom_metrics(&registry);
-    instantiate_prometheus_metrics_handler(registry)
+    instantiate_prometheus_metrics_handler(registry, false, &EdgeInstanceData::new("test app"))
 }
