@@ -29,7 +29,6 @@ use pin_project_lite::pin_project;
 use prometheus::{
     Encoder, HistogramOpts, HistogramVec, IntCounterVec, Opts, Registry, TextEncoder,
 };
-use regex::RegexSet;
 use tracing::warn;
 
 use super::edge_metrics::EdgeInstanceData;
@@ -54,7 +53,6 @@ pub struct PrometheusMetricsBuilder {
     buckets: Vec<f64>,
     size_buckets: Vec<f64>,
     exclude: HashSet<String>,
-    exclude_regex: RegexSet,
     exclude_status: HashSet<StatusCode>,
     unmatched_patterns_mask: Option<String>,
     disable_metrics_endpoint: bool,
@@ -76,7 +74,6 @@ impl PrometheusMetricsBuilder {
                 50000.0, 100000.0,
             ],
             exclude: HashSet::new(),
-            exclude_regex: RegexSet::empty(),
             exclude_status: HashSet::new(),
             unmatched_patterns_mask: None,
             disable_metrics_endpoint: false,
@@ -121,14 +118,6 @@ impl PrometheusMetricsBuilder {
     /// Disable the metrics endpoint
     pub fn disable_metrics_endpoint(mut self, value: bool) -> Self {
         self.disable_metrics_endpoint = value;
-        self
-    }
-
-    /// Ignore and do not record metrics for paths matching the regex.
-    pub fn exclude_regex<T: Into<String>>(mut self, path: T) -> Self {
-        let mut patterns = self.exclude_regex.patterns().to_vec();
-        patterns.push(path.into());
-        self.exclude_regex = RegexSet::new(patterns).unwrap();
         self
     }
 
@@ -206,7 +195,6 @@ impl PrometheusMetricsBuilder {
             endpoint: self.endpoint,
             const_labels: self.const_labels,
             exclude: self.exclude,
-            exclude_regex: self.exclude_regex,
             exclude_status: self.exclude_status,
             enable_http_version_label: self.metrics_configuration.labels.version.is_some(),
             unmatched_patterns_mask: self.unmatched_patterns_mask,
@@ -354,7 +342,6 @@ pub struct PrometheusMetrics {
     pub(crate) const_labels: HashMap<String, String>,
     pub(crate) expose_metrics_endpoint: bool,
     pub(crate) exclude: HashSet<String>,
-    pub(crate) exclude_regex: RegexSet,
     pub(crate) exclude_status: HashSet<StatusCode>,
     pub(crate) enable_http_version_label: bool,
     pub(crate) unmatched_patterns_mask: Option<String>,
@@ -384,10 +371,7 @@ impl PrometheusMetrics {
         clock: Instant,
         was_path_matched: bool,
     ) {
-        if self.exclude.contains(mixed_pattern)
-            || self.exclude_regex.is_match(mixed_pattern)
-            || self.exclude_status.contains(&status)
-        {
+        if self.exclude.contains(mixed_pattern) || self.exclude_status.contains(&status) {
             return;
         }
         // do not record mixed patterns that were considered invalid by the server
@@ -1339,7 +1323,6 @@ actix_web_prom_my_http_requests_total{endpoint=\"/health_check\",method=\"GET\",
         let prometheus = PrometheusMetricsBuilder::new("actix_web_prom")
             .endpoint("/metrics")
             .exclude("/ping")
-            .exclude_regex("/readyz/.*")
             .exclude_status(StatusCode::NOT_FOUND)
             .build()
             .unwrap();
@@ -1348,8 +1331,7 @@ actix_web_prom_my_http_requests_total{endpoint=\"/health_check\",method=\"GET\",
             App::new()
                 .wrap(prometheus)
                 .service(web::resource("/health_check").to(HttpResponse::Ok))
-                .service(web::resource("/ping").to(HttpResponse::Ok))
-                .service(web::resource("/readyz/{subsystem}").to(HttpResponse::Ok)),
+                .service(web::resource("/ping").to(HttpResponse::Ok)),
         )
         .await;
 
@@ -1358,10 +1340,6 @@ actix_web_prom_my_http_requests_total{endpoint=\"/health_check\",method=\"GET\",
         assert_eq!(read_body(res).await, "");
 
         let res = call_service(&app, TestRequest::with_uri("/ping").to_request()).await;
-        assert!(res.status().is_success());
-        assert_eq!(read_body(res).await, "");
-
-        let res = call_service(&app, TestRequest::with_uri("/readyz/database").to_request()).await;
         assert!(res.status().is_success());
         assert_eq!(read_body(res).await, "");
 
@@ -1391,7 +1369,6 @@ actix_web_prom_http_requests_total{endpoint=\"/health_check\",method=\"GET\",sta
         );
 
         assert!(!&body.contains("endpoint=\"/ping\""));
-        assert!(!&body.contains("endpoint=\"/readyz"));
         assert!(!body.contains("endpoint=\"/notfound"));
     }
 }
