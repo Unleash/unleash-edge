@@ -1,6 +1,6 @@
 use base64::Engine;
 use prometheus_reqwest_remote_write::WriteRequest;
-use reqwest::{header, Client};
+use reqwest::{Client, header};
 use tracing::debug;
 
 fn get_http_client(username: Option<String>, password: Option<String>) -> Client {

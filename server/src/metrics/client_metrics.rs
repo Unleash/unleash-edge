@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use iter_tools::Itertools;
 use lazy_static::lazy_static;
-use prometheus::{register_histogram, register_int_counter_vec, Histogram, IntCounterVec};
+use prometheus::{Histogram, IntCounterVec, register_histogram, register_int_counter_vec};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -23,7 +23,9 @@ lazy_static! {
     pub static ref METRICS_SIZE_HISTOGRAM: Histogram = register_histogram!(
         "metrics_size_in_bytes",
         "Size of metrics when posting",
-        vec![1000.0, 10000.0, 20000.0, 50000.0, 75000.0, 100000.0, 250000.0, 500000.0, 1000000.0]
+        vec![
+            1000.0, 10000.0, 20000.0, 50000.0, 75000.0, 100000.0, 250000.0, 500000.0, 1000000.0
+        ]
     )
     .unwrap();
     pub static ref FEATURE_TOGGLE_USAGE_TOTAL: IntCounterVec = register_int_counter_vec!(
@@ -192,7 +194,9 @@ pub(crate) fn cut_into_sendable_batches(batch: MetricsBatch) -> Vec<MetricsBatch
     let metrics_count = batch.metrics.len();
     let metrics_per_batch = metrics_count / batch_count;
 
-    debug!("Batch count: {batch_count}. Apps per batch: {apps_per_batch}, Metrics per batch: {metrics_per_batch}");
+    debug!(
+        "Batch count: {batch_count}. Apps per batch: {apps_per_batch}, Metrics per batch: {metrics_per_batch}"
+    );
     (0..=batch_count)
         .map(|counter| {
             let apps_iter = batch.applications.iter();

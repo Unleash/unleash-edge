@@ -786,8 +786,8 @@ mod tests {
     }
 
     #[test]
-    fn post_context_properties_are_taken_from_nested_context_object_but_custom_properties_on_context_are_ignored(
-    ) {
+    fn post_context_properties_are_taken_from_nested_context_object_but_custom_properties_on_context_are_ignored()
+     {
         let json = json!(
             {
                 "context": {

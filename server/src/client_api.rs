@@ -1,9 +1,9 @@
 use crate::cli::{EdgeArgs, EdgeMode};
-use crate::delta_filters::{combined_filter, DeltaFilterSet};
+use crate::delta_filters::{DeltaFilterSet, combined_filter};
 use crate::error::EdgeError;
 use crate::feature_cache::FeatureCache;
 use crate::filters::{
-    filter_client_features, name_match_filter, name_prefix_filter, project_filter, FeatureFilterSet,
+    FeatureFilterSet, filter_client_features, name_match_filter, name_prefix_filter, project_filter,
 };
 use crate::http::broadcaster::Broadcaster;
 use crate::http::instance_data::InstanceDataSending;
@@ -14,9 +14,9 @@ use crate::tokens::cache_key;
 use crate::types::{
     self, BatchMetricsRequestBody, EdgeJsonResult, EdgeResult, EdgeToken, FeatureFilters,
 };
-use actix_web::web::{self, Data, Json, Query};
 use actix_web::Responder;
-use actix_web::{get, post, HttpRequest, HttpResponse};
+use actix_web::web::{self, Data, Json, Query};
+use actix_web::{HttpRequest, HttpResponse, get, post};
 use dashmap::DashMap;
 use tokio::sync::RwLock;
 use tracing::instrument;
@@ -438,10 +438,10 @@ mod tests {
     use crate::tests::{features_from_disk, upstream_server};
     use actix_http::{Request, StatusCode};
     use actix_web::{
+        App, ResponseError,
         http::header::ContentType,
         test,
         web::{self, Data},
-        App, ResponseError,
     };
     use chrono::{DateTime, Duration, TimeZone, Utc};
     use maplit::hashmap;
@@ -1020,10 +1020,11 @@ mod tests {
         let req = make_features_request_with_token(edge_token.clone()).await;
         let res: ClientFeatures = test::call_and_read_body_json(&app, req).await;
         assert_eq!(res.features.len(), 5);
-        assert!(res
-            .features
-            .iter()
-            .all(|t| t.project == Some("demo-app".into())));
+        assert!(
+            res.features
+                .iter()
+                .all(|t| t.project == Some("demo-app".into()))
+        );
     }
 
     #[tokio::test]
@@ -1048,10 +1049,11 @@ mod tests {
         let req = make_features_request_with_token(token.clone()).await;
         let res: ClientFeatures = test::call_and_read_body_json(&app, req).await;
         assert_eq!(res.features.len(), 24);
-        assert!(res
-            .features
-            .iter()
-            .all(|f| token.projects.contains(&f.project.clone().unwrap())));
+        assert!(
+            res.features
+                .iter()
+                .all(|f| token.projects.contains(&f.project.clone().unwrap()))
+        );
     }
 
     #[tokio::test]
@@ -1086,24 +1088,30 @@ mod tests {
 
         let req_1 = make_features_request_with_token(token_a.clone()).await;
         let res_1: ClientFeatures = test::call_and_read_body_json(&app, req_1).await;
-        assert!(res_1
-            .features
-            .iter()
-            .all(|f| token_a.projects.contains(&f.project.clone().unwrap())));
+        assert!(
+            res_1
+                .features
+                .iter()
+                .all(|f| token_a.projects.contains(&f.project.clone().unwrap()))
+        );
 
         let req_2 = make_features_request_with_token(token_b.clone()).await;
         let res_2: ClientFeatures = test::call_and_read_body_json(&app, req_2).await;
-        assert!(res_2
-            .features
-            .iter()
-            .all(|f| token_b.projects.contains(&f.project.clone().unwrap())));
+        assert!(
+            res_2
+                .features
+                .iter()
+                .all(|f| token_b.projects.contains(&f.project.clone().unwrap()))
+        );
 
         let req_3 = make_features_request_with_token(token_a.clone()).await;
         let res_3: ClientFeatures = test::call_and_read_body_json(&app, req_3).await;
-        assert!(res_3
-            .features
-            .iter()
-            .all(|f| token_a.projects.contains(&f.project.clone().unwrap())));
+        assert!(
+            res_3
+                .features
+                .iter()
+                .all(|f| token_a.projects.contains(&f.project.clone().unwrap()))
+        );
     }
 
     #[tokio::test]
@@ -1709,8 +1717,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_delta_endpoint_returns_hydration_event_when_unknown_etag_lower_than_current_event_id(
-    ) {
+    async fn test_delta_endpoint_returns_hydration_event_when_unknown_etag_lower_than_current_event_id()
+     {
         let (_, _, token, delta_hydration_event, app) = setup_delta_test(10).await;
 
         let res: ClientFeaturesDelta = test::call_and_read_body_json(

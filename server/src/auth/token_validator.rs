@@ -168,9 +168,9 @@ mod tests {
     use std::sync::Arc;
 
     use actix_http::HttpService;
-    use actix_http_test::{test_server, TestServer};
+    use actix_http_test::{TestServer, test_server};
     use actix_service::map_config;
-    use actix_web::{dev::AppConfig, web, App, HttpResponse};
+    use actix_web::{App, HttpResponse, dev::AppConfig, web};
     use dashmap::DashMap;
     use serde::{Deserialize, Serialize};
 
@@ -261,11 +261,13 @@ mod tests {
         assert!(validation_holder.token_cache.iter().any(|t| t.value().token
             == "*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1f"
             && t.status == TokenValidationStatus::Validated));
-        assert!(validation_holder
-            .token_cache
-            .iter()
-            .any(|t| t.value().token == "*:production.abcdef1234567890"
-                && t.value().status == TokenValidationStatus::Invalid));
+        assert!(
+            validation_holder
+                .token_cache
+                .iter()
+                .any(|t| t.value().token == "*:production.abcdef1234567890"
+                    && t.value().status == TokenValidationStatus::Invalid)
+        );
     }
 
     #[tokio::test]
@@ -324,10 +326,12 @@ mod tests {
             persistence: None,
         };
         let _ = validation_holder.revalidate_known_tokens().await;
-        assert!(validation_holder
-            .token_cache
-            .iter()
-            .all(|t| t.value().status == TokenValidationStatus::Invalid));
+        assert!(
+            validation_holder
+                .token_cache
+                .iter()
+                .all(|t| t.value().status == TokenValidationStatus::Invalid)
+        );
     }
 
     #[tokio::test]
@@ -367,9 +371,11 @@ mod tests {
         };
         let _ = validator.revalidate_known_tokens().await;
         assert_eq!(validator.token_cache.len(), 2);
-        assert!(validator
-            .token_cache
-            .iter()
-            .all(|t| t.value().status == TokenValidationStatus::Validated));
+        assert!(
+            validator
+                .token_cache
+                .iter()
+                .all(|t| t.value().status == TokenValidationStatus::Validated)
+        );
     }
 }
