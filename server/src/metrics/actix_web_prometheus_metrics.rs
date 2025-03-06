@@ -366,7 +366,7 @@ impl PrometheusMetrics {
     }
 
     fn matches(&self, path: &str, method: &Method) -> bool {
-        self.endpoint.as_ref().map_or(false, |ep| ep == path) && method == Method::GET
+        self.endpoint.as_ref().is_some_and(|ep| ep == path) && method == Method::GET
     }
 
     fn update_metrics(
