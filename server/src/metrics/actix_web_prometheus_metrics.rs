@@ -15,7 +15,7 @@ use std::{
 };
 
 use actix_http::{
-    Method, StatusCode, Version,
+    Method, StatusCode,
     header::{CONTENT_TYPE, HeaderValue},
 };
 use actix_service::{Service, Transform, forward_ready};
@@ -362,7 +362,6 @@ impl PrometheusMetrics {
     #[allow(clippy::too_many_arguments)]
     fn update_metrics(
         &self,
-        http_version: actix_http::Version,
         size: usize,
         mixed_pattern: &str,
         fallback_pattern: &str,
@@ -390,12 +389,7 @@ impl PrometheusMetrics {
             final_pattern
         };
 
-        let label_values = [
-            final_pattern,
-            method.as_str(),
-            status.as_str(),
-            Self::http_version_label(http_version),
-        ];
+        let label_values = [final_pattern, method.as_str(), status.as_str()];
         let label_values = if self.enable_http_version_label {
             &label_values[..]
         } else {
@@ -412,17 +406,6 @@ impl PrometheusMetrics {
         self.http_response_size_bytes
             .with_label_values(label_values)
             .observe(size as f64);
-    }
-
-    fn http_version_label(version: Version) -> &'static str {
-        match version {
-            v if v == Version::HTTP_09 => "HTTP/0.9",
-            v if v == Version::HTTP_10 => "HTTP/1.0",
-            v if v == Version::HTTP_11 => "HTTP/1.1",
-            v if v == Version::HTTP_2 => "HTTP/2.0",
-            v if v == Version::HTTP_3 => "HTTP/3.0",
-            _ => "<unrecognized>",
-        }
     }
 }
 
@@ -476,7 +459,6 @@ where
         let time = *this.time;
         let req = res.request();
         let method = req.method().clone();
-        let version = req.version();
         let was_path_matched = req.match_pattern().is_some();
 
         // get metrics config for this specific route
@@ -539,7 +521,6 @@ where
                         mixed_pattern,
                         fallback_pattern,
                         method,
-                        version,
                         was_path_matched: true,
                     })
                 } else {
@@ -558,7 +539,6 @@ where
                         mixed_pattern,
                         fallback_pattern,
                         method,
-                        version,
                         was_path_matched: true,
                     })
                 }
@@ -583,7 +563,6 @@ where
                     mixed_pattern,
                     fallback_pattern,
                     method,
-                    version,
                     was_path_matched,
                 })
             }
@@ -631,7 +610,6 @@ pin_project! {
         mixed_pattern: String,
         fallback_pattern: String,
         method: Method,
-        version: Version,
         was_path_matched: bool
     }
 
@@ -640,7 +618,7 @@ pin_project! {
         fn drop(this: Pin<&mut Self>) {
             // update the metrics for this request at the very end of responding
             this.inner
-                .update_metrics(this.version, this.size, &this.mixed_pattern, &this.fallback_pattern, &this.method, this.status, this.clock, this.was_path_matched);
+                .update_metrics(this.size, &this.mixed_pattern, &this.fallback_pattern, &this.method, this.status, this.clock, this.was_path_matched);
         }
     }
 }
@@ -724,70 +702,6 @@ actix_web_prom_http_requests_total{endpoint=\"/health_check\",method=\"GET\",sta
                 .unwrap()
             )
         );
-    }
-
-    #[actix_web::test]
-    async fn middleware_http_version() {
-        let prometheus = PrometheusMetricsBuilder::new("actix_web_prom")
-            .endpoint("/metrics")
-            .metrics_configuration(
-                ActixMetricsConfiguration::default()
-                    .labels(LabelsConfiguration::default().version("version")),
-            )
-            .build()
-            .unwrap();
-
-        let app = init_service(
-            App::new()
-                .wrap(prometheus)
-                .service(web::resource("/health_check").to(HttpResponse::Ok)),
-        )
-        .await;
-
-        let test_cases = HashMap::from([
-            (Version::HTTP_09, 1),
-            (Version::HTTP_10, 2),
-            (Version::HTTP_11, 5),
-            (Version::HTTP_2, 7),
-            (Version::HTTP_3, 11),
-        ]);
-
-        for (http_version, repeats) in test_cases.iter() {
-            for _ in 0..*repeats {
-                let res = call_service(
-                    &app,
-                    TestRequest::with_uri("/health_check")
-                        .version(*http_version)
-                        .to_request(),
-                )
-                .await;
-                assert!(res.status().is_success());
-                assert_eq!(read_body(res).await, "");
-            }
-        }
-
-        let res = call_service(&app, TestRequest::with_uri("/metrics").to_request()).await;
-        assert_eq!(
-            res.headers().get(CONTENT_TYPE).unwrap(),
-            "text/plain; version=0.0.4; charset=utf-8"
-        );
-        let body = String::from_utf8(read_body(res).await.to_vec()).unwrap();
-        println!("Body: {}", body);
-        for (http_version, repeats) in test_cases {
-            assert!(&body.contains(
-                &String::from_utf8(web::Bytes::from(
-                    format!(
-                        "actix_web_prom_http_requests_duration_seconds_bucket{{endpoint=\"/health_check\",method=\"GET\",status=\"200\",version=\"{}\",le=\"0.005\"}} {}
-", PrometheusMetrics::http_version_label(http_version), repeats)
-            ).to_vec()).unwrap()));
-
-            assert!(&body.contains(
-                &String::from_utf8(web::Bytes::from(
-                    format!(
-                        "actix_web_prom_http_requests_total{{endpoint=\"/health_check\",method=\"GET\",status=\"200\",version=\"{}\"}} {}
-", PrometheusMetrics::http_version_label(http_version), repeats)
-            ).to_vec()).unwrap()));
-        }
     }
 
     #[actix_web::test]
