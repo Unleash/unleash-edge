@@ -11,7 +11,7 @@ use std::{
     pin::Pin,
     sync::Arc,
     task::{Context, Poll},
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use actix_http::{
@@ -66,7 +66,10 @@ impl PrometheusMetricsBuilder {
             endpoint: None,
             const_labels: HashMap::new(),
             registry: Registry::new(),
-            buckets: prometheus::DEFAULT_BUCKETS.to_vec(),
+            buckets: vec![
+                1.0, 5.0, 10.0, 25.0, 50.0, 75.0, 100.0, 250.0, 500.0, 750.0, 1000.0, 2500.0,
+                5000.0, 10000.0,
+            ],
             size_buckets: vec![
                 5.0, 10.0, 100.0, 250.0, 500.0, 750.0, 1000.0, 2500.0, 5000.0, 10000.0, 25000.0,
                 50000.0, 100000.0,
@@ -153,18 +156,18 @@ impl PrometheusMetricsBuilder {
 
         let http_requests_total = IntCounterVec::new(http_requests_total_opts, labels)?;
 
-        let http_requests_duration_seconds_opts = HistogramOpts::new(
+        let http_requests_duration_milliseconds_opts = HistogramOpts::new(
             self.metrics_configuration
-                .http_requests_duration_seconds
+                .http_server_duration_milliseconds
                 .to_owned(),
-            "HTTP request duration in seconds for all requests",
+            "HTTP request duration in milliseconds for all requests",
         )
         .namespace(&self.namespace)
         .buckets(self.buckets.to_vec())
         .const_labels(self.const_labels.clone());
 
-        let http_requests_duration_seconds =
-            HistogramVec::new(http_requests_duration_seconds_opts, labels)?;
+        let http_requests_duration_milliseconds =
+            HistogramVec::new(http_requests_duration_milliseconds_opts, labels)?;
 
         let http_response_size_opts = HistogramOpts::new(
             self.metrics_configuration
@@ -181,12 +184,12 @@ impl PrometheusMetricsBuilder {
         self.registry
             .register(Box::new(http_requests_total.clone()))?;
         self.registry
-            .register(Box::new(http_requests_duration_seconds.clone()))?;
+            .register(Box::new(http_requests_duration_milliseconds.clone()))?;
         self.registry
             .register(Box::new(http_response_size_bytes.clone()))?;
         Ok(PrometheusMetrics {
             http_requests_total,
-            http_requests_duration_seconds,
+            http_requests_duration_milliseconds,
             http_response_size_bytes,
             registry: self.registry,
             namespace: self.namespace,
@@ -268,20 +271,20 @@ impl LabelsConfiguration {
 /// Stores individual metric configuration objects
 pub struct ActixMetricsConfiguration {
     http_requests_total_name: String,
-    http_requests_duration_seconds: String,
+    http_server_duration_milliseconds: String,
     http_response_size_name: String,
     labels: LabelsConfiguration,
 }
 
 pub(crate) const HTTP_REQUESTS_TOTAL: &str = "http_requests_total";
-pub(crate) const HTTP_REQUESTS_DURATION: &str = "http_requests_duration_seconds";
+pub(crate) const HTTP_REQUESTS_DURATION: &str = "http_server_duration_milliseconds";
 pub(crate) const HTTP_RESPONSE_SIZE: &str = "http_response_size";
 
 impl Default for ActixMetricsConfiguration {
     fn default() -> Self {
         Self {
             http_requests_total_name: HTTP_REQUESTS_TOTAL.to_string(),
-            http_requests_duration_seconds: HTTP_REQUESTS_DURATION.to_string(),
+            http_server_duration_milliseconds: HTTP_REQUESTS_DURATION.to_string(),
             http_response_size_name: HTTP_RESPONSE_SIZE.to_string(),
             labels: LabelsConfiguration::default(),
         }
@@ -303,7 +306,7 @@ impl ActixMetricsConfiguration {
 
     /// Set name for `http_requests_duration_seconds` metric
     pub fn http_requests_duration_seconds_name(mut self, name: &str) -> Self {
-        self.http_requests_duration_seconds = name.to_owned();
+        self.http_server_duration_milliseconds = name.to_owned();
         self
     }
     /// Set name for 'http_response_size' metric
@@ -327,7 +330,7 @@ impl ActixMetricsConfiguration {
 ///   - `http_server_response_size` (labels: endpoint, method, status): the request size for all HTTP requests handled by the actix `HttpServer`.
 pub struct PrometheusMetrics {
     pub(crate) http_requests_total: IntCounterVec,
-    pub(crate) http_requests_duration_seconds: HistogramVec,
+    pub(crate) http_requests_duration_milliseconds: HistogramVec,
     pub(crate) http_response_size_bytes: HistogramVec,
 
     /// exposed registry for custom prometheus metrics
@@ -384,8 +387,8 @@ impl PrometheusMetrics {
             &label_values[..3]
         };
         let elapsed = clock.elapsed();
-        let duration = elapsed.as_secs_f64() + ((elapsed.subsec_nanos() as f64) / 1_000_000_000.0);
-        self.http_requests_duration_seconds
+        let duration = as_millis(elapsed);
+        self.http_requests_duration_milliseconds
             .with_label_values(label_values)
             .observe(duration);
         self.http_requests_total
@@ -395,6 +398,12 @@ impl PrometheusMetrics {
             .with_label_values(label_values)
             .observe(size as f64);
     }
+}
+
+fn as_millis(elapsed: Duration) -> f64 {
+    let ms = elapsed.as_secs() as f64 * 1000.0;
+    let nano_frac = elapsed.subsec_nanos() as f64 / 1_000_000.0;
+    ms + nano_frac
 }
 
 impl<S, B> Transform<S, ServiceRequest> for PrometheusMetrics
@@ -597,6 +606,7 @@ mod tests {
     use super::*;
     use actix_web::test::{TestRequest, call_and_read_body, call_service, init_service, read_body};
     use actix_web::{App, HttpResponse, Resource, Scope, web};
+    use test_case::test_case;
 
     use prometheus::{Counter, Opts};
 
@@ -624,13 +634,12 @@ mod tests {
             "text/plain; version=0.0.4; charset=utf-8"
         );
         let body = String::from_utf8(read_body(res).await.to_vec()).unwrap();
-        println!("{body}");
 
         assert!(&body.contains(
             &String::from_utf8(web::Bytes::from(
-                "# HELP actix_web_prom_http_requests_duration_seconds HTTP request duration in seconds for all requests
-# TYPE actix_web_prom_http_requests_duration_seconds histogram
-actix_web_prom_http_requests_duration_seconds_bucket{endpoint=\"/health_check\",method=\"GET\",status=\"200\",le=\"0.005\"} 1
+                "# HELP actix_web_prom_http_server_duration_milliseconds HTTP request duration in milliseconds for all requests
+# TYPE actix_web_prom_http_server_duration_milliseconds histogram
+actix_web_prom_http_server_duration_milliseconds_bucket{endpoint=\"/health_check\",method=\"GET\",status=\"200\",le=\"1\"} 1
 "
         ).to_vec()).unwrap()));
         assert!(
@@ -683,25 +692,8 @@ actix_web_prom_http_requests_total{endpoint=\"/health_check\",method=\"GET\",sta
             "text/plain; version=0.0.4; charset=utf-8"
         );
         let body = String::from_utf8(read_body(res).await.to_vec()).unwrap();
-        assert!(&body.contains(
-            &String::from_utf8(web::Bytes::from(
-                "# HELP actix_web_prom_http_requests_duration_seconds HTTP request duration in seconds for all requests
-# TYPE actix_web_prom_http_requests_duration_seconds histogram
-actix_web_prom_http_requests_duration_seconds_bucket{endpoint=\"/internal/health_check\",method=\"GET\",status=\"200\",le=\"0.005\"} 1
-"
-        ).to_vec()).unwrap()));
-        assert!(body.contains(
-            &String::from_utf8(
-                web::Bytes::from(
-                    "# HELP actix_web_prom_http_requests_total Total number of HTTP requests
-# TYPE actix_web_prom_http_requests_total counter
-actix_web_prom_http_requests_total{endpoint=\"/internal/health_check\",method=\"GET\",status=\"200\"} 1
-"
-                )
-                .to_vec()
-            )
-            .unwrap()
-        ));
+        assert!(&body.contains(r#"actix_web_prom_http_server_duration_milliseconds_bucket{endpoint="/internal/health_check",method="GET",status="200",le="5"} 1"#));
+        assert!(body.contains(r#"actix_web_prom_http_requests_total{endpoint="/internal/health_check",method="GET",status="200"} 1"#));
     }
 
     #[actix_web::test]
@@ -726,7 +718,7 @@ actix_web_prom_http_requests_total{endpoint=\"/internal/health_check\",method=\"
         let body = String::from_utf8(res.to_vec()).unwrap();
         assert!(&body.contains(
             &String::from_utf8(web::Bytes::from(
-                "# HELP actix_web_prom_http_requests_duration_seconds HTTP request duration in seconds for all requests"
+                "# HELP actix_web_prom_http_server_duration_milliseconds HTTP request duration in milliseconds for all requests"
         ).to_vec()).unwrap()));
     }
 
@@ -931,25 +923,9 @@ actix_web_prom_counter{endpoint=\"endpoint\",method=\"method\",status=\"status\"
 
         let res = call_and_read_body(&app, TestRequest::with_uri("/metrics").to_request()).await;
         let body = String::from_utf8(res.to_vec()).unwrap();
-        assert!(&body.contains(
-            &String::from_utf8(web::Bytes::from(
-                "# HELP actix_web_prom_http_requests_duration_seconds HTTP request duration in seconds for all requests
-# TYPE actix_web_prom_http_requests_duration_seconds histogram
-actix_web_prom_http_requests_duration_seconds_bucket{endpoint=\"/health_check\",label1=\"value1\",label2=\"value2\",method=\"GET\",status=\"200\",le=\"0.005\"} 1
-"
-        ).to_vec()).unwrap()));
-        assert!(body.contains(
-            &String::from_utf8(
-                web::Bytes::from(
-                    "# HELP actix_web_prom_http_requests_total Total number of HTTP requests
-# TYPE actix_web_prom_http_requests_total counter
-actix_web_prom_http_requests_total{endpoint=\"/health_check\",label1=\"value1\",label2=\"value2\",method=\"GET\",status=\"200\"} 1
-"
-                )
-                .to_vec()
-            )
-            .unwrap()
-        ));
+
+        assert!(&body.contains(r#"actix_web_prom_http_server_duration_milliseconds_bucket{endpoint="/health_check",label1="value1",label2="value2",method="GET",status="200",le="5"} 1"#));
+        assert!(body.contains(r#"actix_web_prom_http_requests_total{endpoint="/health_check",label1="value1",label2="value2",method="GET",status="200"} 1"#));
     }
 
     #[actix_web::test]
@@ -977,27 +953,9 @@ actix_web_prom_http_requests_total{endpoint=\"/health_check\",label1=\"value1\",
 
         let res = call_and_read_body(&app, TestRequest::with_uri("/metrics").to_request()).await;
         let body = String::from_utf8(res.to_vec()).unwrap();
-        assert!(&body.contains(
-            &String::from_utf8(web::Bytes::from(
-                "# HELP actix_web_prom_my_http_request_duration HTTP request duration in seconds for all requests
-# TYPE actix_web_prom_my_http_request_duration histogram
-actix_web_prom_my_http_request_duration_bucket{endpoint=\"/health_check\",method=\"GET\",status=\"200\",le=\"0.005\"} 1
-"
-        ).to_vec()).unwrap()));
-        assert!(
-            body.contains(
-                &String::from_utf8(
-                    web::Bytes::from(
-                        "# HELP actix_web_prom_my_http_requests_total Total number of HTTP requests
-# TYPE actix_web_prom_my_http_requests_total counter
-actix_web_prom_my_http_requests_total{endpoint=\"/health_check\",method=\"GET\",status=\"200\"} 1
-"
-                    )
-                    .to_vec()
-                )
-                .unwrap()
-            )
-        );
+        println!("{body}");
+        assert!(&body.contains(r#"actix_web_prom_my_http_request_duration_bucket{endpoint="/health_check",method="GET",status="200",le="5"} 1"#));
+        assert!(body.contains(r#"actix_web_prom_my_http_requests_total{endpoint="/health_check",method="GET",status="200"} 1"#));
     }
 
     #[test]
@@ -1073,5 +1031,16 @@ actix_web_prom_http_requests_total{endpoint=\"/health_check\",method=\"GET\",sta
 
         assert!(!&body.contains("endpoint=\"/ping\""));
         assert!(!body.contains("endpoint=\"/notfound"));
+    }
+
+    #[test_case(2, 476_000, 2000.476)]
+    #[test_case(5, 9_760_000, 5009.76)]
+    #[test_case(1, 970_000_000, 1970.0)]
+    #[test_case(0, 0, 0.0)]
+    #[test_case(1, 0, 1000.0)]
+    #[test_case(0, 1_000_000, 1.0)]
+    pub fn correctly_calculates_millis(seconds: u64, nanos: u32, millis: f64) {
+        let d = Duration::new(seconds, nanos);
+        assert_eq!(super::as_millis(d), millis)
     }
 }
