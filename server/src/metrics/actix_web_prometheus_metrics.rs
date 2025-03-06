@@ -304,8 +304,8 @@ impl ActixMetricsConfiguration {
         self
     }
 
-    /// Set name for `http_requests_duration_seconds` metric
-    pub fn http_requests_duration_seconds_name(mut self, name: &str) -> Self {
+    /// Set name for `http_server_duration_milliseconds` metric
+    pub fn http_server_duration_milliseconds_name(mut self, name: &str) -> Self {
         self.http_server_duration_milliseconds = name.to_owned();
         self
     }
@@ -323,8 +323,8 @@ impl ActixMetricsConfiguration {
 ///   - `http_requests_total` (labels: endpoint, method, status): the total
 ///     number of HTTP requests handled by the actix `HttpServer`.
 ///
-///   - `http_requests_duration_milliseconds` (labels: endpoint, method,
-///     status): the request duration for all HTTP requests handled by the actix
+///   - `http_server_duration_milliseconds` (labels: endpoint, method,
+///     status): the request duration (in milliseconds) for all HTTP requests handled by the actix
 ///     `HttpServer`.
 ///
 ///   - `http_server_response_size` (labels: endpoint, method, status): the request size for all HTTP requests handled by the actix `HttpServer`.
@@ -931,7 +931,7 @@ actix_web_prom_counter{endpoint=\"endpoint\",method=\"method\",status=\"status\"
     #[actix_web::test]
     async fn middleware_metrics_configuration() {
         let metrics_config = ActixMetricsConfiguration::default()
-            .http_requests_duration_seconds_name("my_http_request_duration")
+            .http_server_duration_milliseconds_name("my_http_request_duration")
             .http_requests_total_name("my_http_requests_total");
 
         let prometheus = PrometheusMetricsBuilder::new("actix_web_prom")
