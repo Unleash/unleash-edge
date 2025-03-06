@@ -4866,6 +4866,7 @@ dependencies = [
  "opentelemetry-semantic-conventions",
  "opentelemetry_sdk",
  "p12-keystore",
+ "pin-project-lite",
  "pkix",
  "prometheus",
  "prometheus-reqwest-remote-write",

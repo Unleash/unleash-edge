@@ -902,7 +902,7 @@ mod tests {
                 tls_server_key: Some("../examples/server.key".into()),
                 tls_server_port: 443,
             };
-            let server_config = tls::config(tls_options).unwrap();
+            let server_config = tls::config(tls_options).expect("Failed to load TLS configuration");
             let tls_acceptor_config =
                 TlsAcceptorConfig::default().handshake_timeout(std::time::Duration::from_secs(5));
             HttpService::new(map_config(

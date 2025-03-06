@@ -11,7 +11,6 @@ use tokio::sync::RwLock;
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ClientApplication;
 
-use crate::metrics::actix_web_metrics::PrometheusMetricsHandler;
 use crate::metrics::client_metrics::MetricsCache;
 use crate::types::{BuildInfo, EdgeJsonResult, EdgeToken, TokenInfo, TokenRefresh};
 use crate::types::{ClientMetric, MetricsInfo, Status};
@@ -168,16 +167,13 @@ pub async fn instance_data(
 
 pub fn configure_internal_backstage(
     cfg: &mut web::ServiceConfig,
-    metrics_handler: PrometheusMetricsHandler,
     internal_backstage_args: InternalBackstageArgs,
 ) {
     cfg.service(health).service(info).service(ready);
     if !internal_backstage_args.disable_tokens_endpoint {
         cfg.service(tokens);
     }
-    if !internal_backstage_args.disable_metrics_endpoint {
-        cfg.service(web::resource("/metrics").route(web::get().to(metrics_handler)));
-    }
+
     if !internal_backstage_args.disable_metrics_batch_endpoint {
         cfg.service(metrics_batch);
     }
@@ -197,7 +193,7 @@ mod tests {
     use actix_web::body::MessageBody;
     use actix_web::http::header::ContentType;
     use actix_web::test;
-    use actix_web::{web, App};
+    use actix_web::{App, web};
     use chrono::Duration;
     use dashmap::DashMap;
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
