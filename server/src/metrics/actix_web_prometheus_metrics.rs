@@ -346,6 +346,16 @@ pub struct PrometheusMetrics {
     pub(crate) enable_http_version_label: bool,
     pub(crate) unmatched_patterns_mask: Option<String>,
 }
+
+struct MetricsUpdate<'a, 'b> {
+    size: usize,
+    mixed_pattern: &'a str,
+    fallback_pattern: &'b str,
+    method: &'a Method,
+    status: StatusCode,
+    clock: Instant,
+    was_path_matched: bool,
+}
 impl PrometheusMetrics {
     fn metrics(&self) -> String {
         let mut buffer = vec![];
@@ -359,16 +369,17 @@ impl PrometheusMetrics {
         self.endpoint.as_ref().map_or(false, |ep| ep == path) && method == Method::GET
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn update_metrics(
         &self,
-        size: usize,
-        mixed_pattern: &str,
-        fallback_pattern: &str,
-        method: &Method,
-        status: StatusCode,
-        clock: Instant,
-        was_path_matched: bool,
+        MetricsUpdate {
+            size,
+            mixed_pattern,
+            fallback_pattern,
+            method,
+            status,
+            clock,
+            was_path_matched,
+        }: MetricsUpdate,
     ) {
         if self.exclude.contains(mixed_pattern) || self.exclude_status.contains(&status) {
             return;
@@ -618,7 +629,15 @@ pin_project! {
         fn drop(this: Pin<&mut Self>) {
             // update the metrics for this request at the very end of responding
             this.inner
-                .update_metrics(this.size, &this.mixed_pattern, &this.fallback_pattern, &this.method, this.status, this.clock, this.was_path_matched);
+                .update_metrics(MetricsUpdate {
+                    size: this.size,
+                    mixed_pattern: &this.mixed_pattern,
+                    fallback_pattern: &this.fallback_pattern,
+                    method: &this.method,
+                    status: this.status,
+                    clock: this.clock,
+                    was_path_matched: this.was_path_matched,
+                });
         }
     }
 }
