@@ -5,7 +5,6 @@ members = ["cargo:."]
 [dist]
 # The preferred dist version to use in CI (Cargo.toml SemVer syntax)
 cargo-dist-version = "0.28.0"
-rust-toolchain-version = "1.85.0"
 # CI backends to support
 ci = "github"
 # The installers to generate for each app
