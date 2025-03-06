@@ -33,10 +33,10 @@ actix-service = "2.0.2"
 actix-web = { version = "4.9.0", features = ["rustls-0_23", "compress-zstd"] }
 actix-web-lab = { version = "0.23.0" }
 ahash = "0.8.11"
-anyhow = "1.0.96"
-async-trait = "0.1.86"
-aws-config = { version = "1.5.17", features = ["behavior-version-latest"] }
-aws-sdk-s3 = { version = "1.77.0", features = ["behavior-version-latest"] }
+anyhow = "1.0.97"
+async-trait = "0.1.87"
+aws-config = { version = "1.5.18", features = ["behavior-version-latest"] }
+aws-sdk-s3 = { version = "1.78.0", features = ["behavior-version-latest"] }
 base64 = "0.22.1"
 chrono = { version = "0.4.40", features = ["serde"] }
 cidr = "0.3.1"
@@ -84,10 +84,10 @@ rustls = { version = "0.23.23", default-features = false, features = [
 ] }
 rustls-pemfile = "2.2.0"
 rustls-pki-types = "1.11.0"
-semver = "1.0.25"
+semver = "1.0.26"
 serde = { version = "1.0.218", features = ["derive"] }
-serde_json = "1.0.139"
-serde_qs = { version = "0.13.0", features = ["actix4", "tracing"] }
+serde_json = "1.0.140"
+serde_qs = { version = "0.14.0", features = ["actix4", "tracing"] }
 shadow-rs = { version = "1.0.1" }
 tokio = { version = "1.43.0", features = [
     "macros",
