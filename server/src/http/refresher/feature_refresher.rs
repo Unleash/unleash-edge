@@ -14,16 +14,17 @@ use unleash_types::client_metrics::{ClientApplication, MetricsMetadata};
 use unleash_yggdrasil::{EngineState, UpdateMessage};
 
 use crate::delta_cache_manager::DeltaCacheManager;
-use crate::delta_filters::{filter_delta_events, DeltaFilterSet};
+use crate::delta_filters::{DeltaFilterSet, filter_delta_events};
 use crate::error::{EdgeError, FeatureError};
 use crate::feature_cache::FeatureCache;
-use crate::filters::{filter_client_features, FeatureFilterSet};
+use crate::filters::{FeatureFilterSet, filter_client_features};
 use crate::http::headers::{
-    UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_INSTANCE_ID_HEADER,
+    UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_CONNECTION_ID_HEADER,
+    UNLEASH_INSTANCE_ID_HEADER,
 };
 use crate::http::unleash_client::{ClientMetaInformation, UnleashClient};
 use crate::types::{
-    build, ClientFeaturesDeltaResponse, EdgeResult, TokenType, TokenValidationStatus,
+    ClientFeaturesDeltaResponse, EdgeResult, TokenType, TokenValidationStatus, build,
 };
 use crate::{
     persistence::EdgePersistence,
@@ -61,7 +62,7 @@ pub struct FeatureRefresher {
 impl Default for FeatureRefresher {
     fn default() -> Self {
         Self {
-            refresh_interval: chrono::Duration::seconds(10),
+            refresh_interval: chrono::Duration::seconds(15),
             unleash_client: Default::default(),
             tokens_to_refresh: Arc::new(DashMap::default()),
             features_cache: Arc::new(Default::default()),
@@ -87,6 +88,7 @@ fn client_application_from_token_and_name(
         connect_via: None,
         environment: token.environment,
         instance_id: Some(client_meta_information.instance_id),
+        connection_id: Some(client_meta_information.connection_id),
         interval: refresh_interval as u32,
         started: Utc::now(),
         strategies: vec![],
@@ -236,7 +238,9 @@ impl FeatureRefresher {
             Some(features) if self.token_is_subsumed(&token) => Ok(features),
             _ => {
                 if self.strict {
-                    debug!("Strict behavior: Token is not subsumed by any registered tokens. Returning error");
+                    debug!(
+                        "Strict behavior: Token is not subsumed by any registered tokens. Returning error"
+                    );
                     Err(EdgeError::InvalidTokenWithStrictBehavior)
                 } else {
                     debug!(
@@ -265,7 +269,9 @@ impl FeatureRefresher {
             Some(features) if self.token_is_subsumed(&token) => Ok(features),
             _ => {
                 if self.strict {
-                    debug!("Strict behavior: Token is not subsumed by any registered tokens. Returning error");
+                    debug!(
+                        "Strict behavior: Token is not subsumed by any registered tokens. Returning error"
+                    );
                     Err(EdgeError::InvalidTokenWithStrictBehavior)
                 } else {
                     debug!(
@@ -356,6 +362,10 @@ impl FeatureRefresher {
                 .header(
                     UNLEASH_INSTANCE_ID_HEADER,
                     &client_meta_information.instance_id,
+                )?
+                .header(
+                    UNLEASH_CONNECTION_ID_HEADER,
+                    &client_meta_information.connection_id,
                 )?
                 .header(
                     UNLEASH_CLIENT_SPEC_HEADER,
@@ -454,6 +464,7 @@ impl FeatureRefresher {
             .get_client_features_delta(ClientFeaturesRequest {
                 api_key: refresh.token.token.clone(),
                 etag: None,
+                interval: None,
             })
             .await;
 
@@ -565,6 +576,7 @@ impl FeatureRefresher {
             .get_client_features(ClientFeaturesRequest {
                 api_key: refresh.token.token.clone(),
                 etag: refresh.etag.clone(),
+                interval: Some(self.refresh_interval.num_milliseconds()),
             })
             .await;
 
@@ -591,7 +603,9 @@ impl FeatureRefresher {
                                 | StatusCode::BAD_GATEWAY
                                 | StatusCode::SERVICE_UNAVAILABLE
                                 | StatusCode::GATEWAY_TIMEOUT => {
-                                    info!("Upstream is having some problems, increasing my waiting period");
+                                    info!(
+                                        "Upstream is having some problems, increasing my waiting period"
+                                    );
                                     self.backoff(&refresh.token);
                                 }
                                 StatusCode::TOO_MANY_REQUESTS => {
@@ -603,7 +617,9 @@ impl FeatureRefresher {
                                 }
                             },
                             FeatureError::AccessDenied => {
-                                info!("Token used to fetch features was Forbidden, will remove from list of refresh tasks");
+                                info!(
+                                    "Token used to fetch features was Forbidden, will remove from list of refresh tasks"
+                                );
                                 self.tokens_to_refresh.remove(&refresh.token.token);
                                 if !self.tokens_to_refresh.iter().any(|e| {
                                     e.value().token.environment == refresh.token.environment
@@ -615,7 +631,9 @@ impl FeatureRefresher {
                                 }
                             }
                             FeatureError::NotFound => {
-                                info!("Had a bad URL when trying to fetch features. Increasing waiting period for the token before trying again");
+                                info!(
+                                    "Had a bad URL when trying to fetch features. Increasing waiting period for the token before trying again"
+                                );
                                 self.backoff(&refresh.token);
                             }
                         }
@@ -660,20 +678,20 @@ mod tests {
     use std::sync::Arc;
 
     use actix_http::HttpService;
-    use actix_http_test::{test_server, TestServer};
+    use actix_http_test::{TestServer, test_server};
     use actix_service::map_config;
     use actix_web::dev::AppConfig;
     use actix_web::http::header::EntityTag;
-    use actix_web::{web, App};
+    use actix_web::{App, web};
     use chrono::{Duration, Utc};
     use dashmap::DashMap;
     use reqwest::Url;
     use unleash_types::client_features::ClientFeature;
     use unleash_yggdrasil::{EngineState, UpdateMessage};
 
-    use crate::feature_cache::{update_projects_from_feature_update, FeatureCache};
-    use crate::filters::{project_filter, FeatureFilterSet};
-    use crate::http::unleash_client::{new_reqwest_client, ClientMetaInformation};
+    use crate::feature_cache::{FeatureCache, update_projects_from_feature_update};
+    use crate::filters::{FeatureFilterSet, project_filter};
+    use crate::http::unleash_client::{ClientMetaInformation, new_reqwest_client};
     use crate::tests::features_from_disk;
     use crate::tokens::cache_key;
     use crate::types::TokenValidationStatus::Validated;
@@ -683,7 +701,7 @@ mod tests {
         types::{EdgeToken, TokenRefresh},
     };
 
-    use super::{frontend_token_is_covered_by_tokens, FeatureRefresher};
+    use super::{FeatureRefresher, frontend_token_is_covered_by_tokens};
 
     impl PartialEq for TokenRefresh {
         fn eq(&self, other: &Self) -> bool {
@@ -709,6 +727,7 @@ mod tests {
             Url::parse("http://localhost:4242").unwrap(),
             "Authorization".to_string(),
             http_client,
+            ClientMetaInformation::test_config(),
         )
     }
 
@@ -736,8 +755,8 @@ mod tests {
     }
 
     #[tokio::test]
-    pub async fn registering_multiple_tokens_with_same_environment_reduces_tokens_to_valid_minimal_set(
-    ) {
+    pub async fn registering_multiple_tokens_with_same_environment_reduces_tokens_to_valid_minimal_set()
+     {
         let unleash_client = create_test_client();
         let features_cache = Arc::new(FeatureCache::default());
         let engine_cache = Arc::new(DashMap::default());
@@ -838,9 +857,11 @@ mod tests {
             .await;
 
         assert_eq!(feature_refresher.tokens_to_refresh.len(), 1);
-        assert!(feature_refresher
-            .tokens_to_refresh
-            .contains_key("*:development.abcdefghijklmnopqrstuvwxyz"))
+        assert!(
+            feature_refresher
+                .tokens_to_refresh
+                .contains_key("*:development.abcdefghijklmnopqrstuvwxyz")
+        )
     }
 
     #[tokio::test]
@@ -883,12 +904,16 @@ mod tests {
             .await;
 
         assert_eq!(feature_refresher.tokens_to_refresh.len(), 2);
-        assert!(feature_refresher
-            .tokens_to_refresh
-            .contains_key("[]:development.abcdefghijklmnopqrstuvwxyz"));
-        assert!(feature_refresher
-            .tokens_to_refresh
-            .contains_key("projectb:development.abcdefghijklmnopqrstuvwxyz"));
+        assert!(
+            feature_refresher
+                .tokens_to_refresh
+                .contains_key("[]:development.abcdefghijklmnopqrstuvwxyz")
+        );
+        assert!(
+            feature_refresher
+                .tokens_to_refresh
+                .contains_key("projectb:development.abcdefghijklmnopqrstuvwxyz")
+        );
     }
 
     #[tokio::test]
@@ -919,9 +944,11 @@ mod tests {
             .await;
 
         assert_eq!(feature_refresher.tokens_to_refresh.len(), 1);
-        assert!(feature_refresher
-            .tokens_to_refresh
-            .contains_key("*:development.abcdefghijklmnopqrstuvwxyz"));
+        assert!(
+            feature_refresher
+                .tokens_to_refresh
+                .contains_key("*:development.abcdefghijklmnopqrstuvwxyz")
+        );
     }
 
     #[tokio::test]
@@ -1175,8 +1202,8 @@ mod tests {
     }
 
     #[tokio::test]
-    pub async fn removing_one_of_multiple_keys_from_same_environment_does_not_remove_feature_and_engine_caches(
-    ) {
+    pub async fn removing_one_of_multiple_keys_from_same_environment_does_not_remove_feature_and_engine_caches()
+     {
         let upstream_features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
@@ -1226,8 +1253,8 @@ mod tests {
     }
 
     #[tokio::test]
-    pub async fn fetching_two_projects_from_same_environment_should_get_features_for_both_when_dynamic(
-    ) {
+    pub async fn fetching_two_projects_from_same_environment_should_get_features_for_both_when_dynamic()
+     {
         let upstream_features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
@@ -1263,10 +1290,12 @@ mod tests {
             )
             .await
             .expect("No dx features");
-        assert!(dx_features
-            .features
-            .iter()
-            .all(|f| f.project == Some("dx".into())));
+        assert!(
+            dx_features
+                .features
+                .iter()
+                .all(|f| f.project == Some("dx".into()))
+        );
         assert_eq!(dx_features.features.len(), 16);
         let eg_features = feature_refresher
             .features_for_filter(
@@ -1276,16 +1305,18 @@ mod tests {
             .await
             .expect("Could not get eg features");
         assert_eq!(eg_features.features.len(), 7);
-        assert!(eg_features
-            .features
-            .iter()
-            .all(|f| f.project == Some("eg".into())));
+        assert!(
+            eg_features
+                .features
+                .iter()
+                .all(|f| f.project == Some("eg".into()))
+        );
         assert!(warnings.is_none());
     }
 
     #[tokio::test]
-    pub async fn should_get_data_for_multi_project_token_even_if_we_have_data_for_one_of_the_projects_when_dynamic(
-    ) {
+    pub async fn should_get_data_for_multi_project_token_even_if_we_have_data_for_one_of_the_projects_when_dynamic()
+     {
         let upstream_features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
@@ -1443,18 +1474,20 @@ mod tests {
 
         feature_refresher.refresh_features().await;
         // Since our response was empty, our theory is that there should be no features here now.
-        assert!(!features_cache
-            .get(&cache_key)
-            .unwrap()
-            .features
-            .iter()
-            .any(|f| f.project == Some("eg".into())));
+        assert!(
+            !features_cache
+                .get(&cache_key)
+                .unwrap()
+                .features
+                .iter()
+                .any(|f| f.project == Some("eg".into()))
+        );
         assert!(warnings.is_none());
     }
 
     #[test]
-    pub fn an_update_with_one_feature_removed_from_one_project_removes_the_feature_from_the_feature_list(
-    ) {
+    pub fn an_update_with_one_feature_removed_from_one_project_removes_the_feature_from_the_feature_list()
+     {
         let features = features_from_disk("../examples/hostedexample.json").features;
         let mut dx_data: Vec<ClientFeature> = features_from_disk("../examples/hostedexample.json")
             .features
@@ -1518,8 +1551,8 @@ mod tests {
     }
 
     #[test]
-    pub fn if_project_is_removed_but_token_has_access_to_project_update_should_remove_cached_project(
-    ) {
+    pub fn if_project_is_removed_but_token_has_access_to_project_update_should_remove_cached_project()
+     {
         let features = features_from_disk("../examples/hostedexample.json").features;
         let edge_token = EdgeToken {
             token: "".to_string(),
@@ -1612,8 +1645,8 @@ mod tests {
     }
 
     #[test]
-    pub fn token_with_access_to_different_project_than_exists_in_cache_should_never_delete_features_from_other_projects(
-    ) {
+    pub fn token_with_access_to_different_project_than_exists_in_cache_should_never_delete_features_from_other_projects()
+     {
         // Added after customer issue in May '24 when tokens unrelated to projects in cache with no actual features connected to them removed existing features in cache for unrelated projects
         let features = vec![
             ClientFeature {
@@ -1661,8 +1694,8 @@ mod tests {
         assert_eq!(updated.len(), 2);
     }
     #[test]
-    pub fn token_with_access_to_both_a_different_project_than_exists_in_cache_and_the_cached_project_should_delete_features_from_both_projects(
-    ) {
+    pub fn token_with_access_to_both_a_different_project_than_exists_in_cache_and_the_cached_project_should_delete_features_from_both_projects()
+     {
         // Added after customer issue in May '24 when tokens unrelated to projects in cache with no actual features connected to them removed existing features in cache for unrelated projects
         let features = vec![
             ClientFeature {

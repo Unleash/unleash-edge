@@ -1,12 +1,12 @@
 use std::collections::HashSet;
-use std::future::{ready, Ready};
+use std::future::{Ready, ready};
 use std::str::FromStr;
 
+use actix_web::FromRequest;
+use actix_web::HttpRequest;
 use actix_web::dev::Payload;
 use actix_web::http::header::HeaderValue;
 use actix_web::web::Data;
-use actix_web::FromRequest;
-use actix_web::HttpRequest;
 
 use crate::cli::EdgeMode;
 use crate::cli::TokenHeader;

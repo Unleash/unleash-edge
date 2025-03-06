@@ -39,10 +39,10 @@ mod tests {
     use std::sync::Arc;
 
     use actix_http::HttpService;
-    use actix_http_test::{test_server, TestServer};
+    use actix_http_test::{TestServer, test_server};
     use actix_service::map_config;
     use actix_web::dev::AppConfig;
-    use actix_web::{web, App};
+    use actix_web::{App, web};
     use dashmap::DashMap;
     use unleash_types::client_features::ClientFeatures;
     use unleash_types::client_metrics::ConnectVia;

@@ -1,10 +1,10 @@
 use std::{hash::Hash, sync::Arc, time::Duration};
 
 use crate::delta_cache_manager::{DeltaCacheManager, DeltaCacheUpdate};
-use crate::delta_filters::{combined_filter, filter_delta_events, DeltaFilterSet};
+use crate::delta_filters::{DeltaFilterSet, combined_filter, filter_delta_events};
 use crate::{
     error::EdgeError,
-    filters::{name_prefix_filter, project_filter_from_projects, FeatureFilterSet},
+    filters::{FeatureFilterSet, name_prefix_filter, project_filter_from_projects},
     types::{EdgeJsonResult, EdgeResult, EdgeToken},
 };
 use actix_web::{rt::time::interval, web::Json};
@@ -14,7 +14,7 @@ use actix_web_lab::{
 };
 use dashmap::DashMap;
 use futures::future;
-use prometheus::{register_int_gauge, IntGauge};
+use prometheus::{IntGauge, register_int_gauge};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::{debug, warn};

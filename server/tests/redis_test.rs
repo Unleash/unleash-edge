@@ -4,9 +4,9 @@ use redis::Client;
 use testcontainers_modules::redis::RedisStack;
 use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
-use testcontainers::{runners::AsyncRunner, ContainerAsync};
+use testcontainers::{ContainerAsync, runners::AsyncRunner};
 use unleash_edge::{
-    persistence::{redis::RedisPersister, EdgePersistence},
+    persistence::{EdgePersistence, redis::RedisPersister},
     types::{EdgeToken, TokenType},
 };
 

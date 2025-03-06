@@ -1,13 +1,12 @@
-use actix_http::body::MessageBody;
 use actix_http::HttpMessage;
+use actix_http::body::MessageBody;
 use actix_service::ServiceFactory;
 use std::collections::HashMap;
 
 use actix_web::dev::{ServiceRequest, ServiceResponse};
 use actix_web::{
-    get, post,
+    HttpRequest, HttpResponse, Scope, get, post,
     web::{self, Data, Json, Path},
-    HttpRequest, HttpResponse, Scope,
 };
 use dashmap::DashMap;
 use serde_qs::actix::QsQuery;
@@ -776,10 +775,10 @@ pub fn get_all_features(
 mod tests {
     use actix_http::{Request, StatusCode};
     use actix_web::{
+        App,
         http::header::ContentType,
         test,
         web::{self, Data},
-        App,
     };
     use chrono::{DateTime, Utc};
     use dashmap::DashMap;
@@ -1319,8 +1318,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn frontend_token_without_matching_client_token_yields_511_when_trying_to_access_frontend_api(
-    ) {
+    async fn frontend_token_without_matching_client_token_yields_511_when_trying_to_access_frontend_api()
+     {
         let features_cache = Arc::new(FeatureCache::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());

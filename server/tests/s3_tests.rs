@@ -8,10 +8,10 @@ mod s3_tests {
     use aws_sdk_s3 as s3;
     use aws_sdk_s3::config::Credentials;
     use aws_sdk_s3::config::SharedCredentialsProvider;
-    use testcontainers::{runners::AsyncRunner, ImageExt};
+    use testcontainers::{ImageExt, runners::AsyncRunner};
     use testcontainers_modules::localstack::LocalStack;
-    use unleash_edge::persistence::s3::S3Persister;
     use unleash_edge::persistence::EdgePersistence;
+    use unleash_edge::persistence::s3::S3Persister;
     use unleash_edge::types::EdgeToken;
     use unleash_types::client_features::ClientFeature;
     use unleash_types::client_features::ClientFeatures;

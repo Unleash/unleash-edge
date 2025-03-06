@@ -1,10 +1,10 @@
 use crate::auth::token_validator::TokenValidator;
 use crate::types::{EdgeToken, TokenType, TokenValidationStatus};
 use actix_web::{
+    HttpResponse,
     body::MessageBody,
     dev::{ServiceRequest, ServiceResponse},
     web::Data,
-    HttpResponse,
 };
 use dashmap::DashMap;
 

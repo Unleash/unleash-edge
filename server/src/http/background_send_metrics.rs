@@ -4,14 +4,14 @@ use std::sync::Arc;
 use chrono::Duration;
 use dashmap::DashMap;
 use lazy_static::lazy_static;
-use prometheus::{register_int_gauge, register_int_gauge_vec, IntGauge, IntGaugeVec, Opts};
+use prometheus::{IntGauge, IntGaugeVec, Opts, register_int_gauge, register_int_gauge_vec};
 use reqwest::StatusCode;
 use tracing::{error, info, trace, warn};
 
 use crate::types::TokenRefresh;
 use crate::{
     error::EdgeError,
-    metrics::client_metrics::{size_of_batch, MetricsCache},
+    metrics::client_metrics::{MetricsCache, size_of_batch},
 };
 
 use super::refresher::feature_refresher::FeatureRefresher;
@@ -87,7 +87,7 @@ pub async fn send_metrics_one_shot(
                 } else {
                     feature_refresher
                         .unleash_client
-                        .send_batch_metrics(batch.clone())
+                        .send_batch_metrics(batch.clone(), None)
                         .await
                 };
                 if let Err(edge_error) = result {
@@ -123,7 +123,7 @@ pub async fn send_metrics_task(
                     } else {
                         feature_refresher
                             .unleash_client
-                            .send_batch_metrics(batch.clone())
+                            .send_batch_metrics(batch.clone(), Some(interval.num_milliseconds()))
                             .await
                     };
                     if let Err(edge_error) = result {
@@ -138,17 +138,25 @@ pub async fn send_metrics_task(
                                         size_of_batch(&batch)
                                     ),
                                     StatusCode::BAD_REQUEST => {
-                                        error!("Unleash said [{message:?}]. Dropping this metric bucket to avoid consuming too much memory");
+                                        error!(
+                                            "Unleash said [{message:?}]. Dropping this metric bucket to avoid consuming too much memory"
+                                        );
                                     }
                                     StatusCode::NOT_FOUND => {
                                         failures = 10;
                                         interval = new_interval(send_interval, failures);
-                                        error!("Upstream said we are trying to post to an endpoint that doesn't exist. backing off to {} seconds", interval.num_seconds());
+                                        error!(
+                                            "Upstream said we are trying to post to an endpoint that doesn't exist. backing off to {} seconds",
+                                            interval.num_seconds()
+                                        );
                                     }
                                     StatusCode::FORBIDDEN | StatusCode::UNAUTHORIZED => {
                                         failures = 10;
                                         interval = new_interval(send_interval, failures);
-                                        error!("Upstream said we were not allowed to post metrics, backing off to {} seconds", interval.num_seconds());
+                                        error!(
+                                            "Upstream said we were not allowed to post metrics, backing off to {} seconds",
+                                            interval.num_seconds()
+                                        );
                                     }
                                     StatusCode::TOO_MANY_REQUESTS => {
                                         failures = max(10, failures + 1);
@@ -165,11 +173,17 @@ pub async fn send_metrics_task(
                                     | StatusCode::GATEWAY_TIMEOUT => {
                                         failures = max(10, failures + 1);
                                         interval = new_interval(send_interval, failures);
-                                        info!("Upstream said it is struggling. It returned Http status {}. Backing off to {} seconds", status_code, interval.num_seconds());
+                                        info!(
+                                            "Upstream said it is struggling. It returned Http status {}. Backing off to {} seconds",
+                                            status_code,
+                                            interval.num_seconds()
+                                        );
                                         metrics_cache.reinsert_batch(batch);
                                     }
                                     _ => {
-                                        warn!("Failed to send metrics. Status code was {status_code}. Will reinsert metrics for next attempt");
+                                        warn!(
+                                            "Failed to send metrics. Status code was {status_code}. Will reinsert metrics for next attempt"
+                                        );
                                         metrics_cache.reinsert_batch(batch);
                                     }
                                 }

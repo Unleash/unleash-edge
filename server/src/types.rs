@@ -122,6 +122,7 @@ pub enum Status {
 pub struct ClientFeaturesRequest {
     pub api_key: String,
     pub etag: Option<EntityTag>,
+    pub interval: Option<i64>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -785,8 +786,8 @@ mod tests {
     }
 
     #[test]
-    fn post_context_properties_are_taken_from_nested_context_object_but_custom_properties_on_context_are_ignored(
-    ) {
+    fn post_context_properties_are_taken_from_nested_context_object_but_custom_properties_on_context_are_ignored()
+     {
         let json = json!(
             {
                 "context": {

@@ -5,7 +5,7 @@ use tokio::sync::RwLock;
 
 use crate::cli::{CliArgs, EdgeMode};
 use crate::error::EdgeError;
-use crate::http::unleash_client::{new_reqwest_client, ClientMetaInformation, UnleashClient};
+use crate::http::unleash_client::{ClientMetaInformation, UnleashClient, new_reqwest_client};
 use crate::metrics::edge_metrics::EdgeInstanceData;
 use prometheus::Registry;
 use tracing::{debug, warn};
@@ -32,14 +32,15 @@ impl InstanceDataSending {
     ) -> Result<Self, EdgeError> {
         match args.mode {
             EdgeMode::Edge(edge_args) => {
-                let instance_id = instance_data.identifier.clone();
+                let identifier = instance_data.identifier.clone();
                 edge_args
                     .tokens
                     .first()
                     .map(|token| {
                         let client_meta_information = ClientMetaInformation {
                             app_name: args.app_name,
-                            instance_id,
+                            instance_id: identifier.clone(),
+                            connection_id: identifier,
                         };
                         let http_client = new_reqwest_client(
                             edge_args.skip_ssl_verification,
@@ -58,6 +59,7 @@ impl InstanceDataSending {
                                     url,
                                     args.token_header.token_header.clone(),
                                     http_client,
+                                    client_meta_information.clone(),
                                 )
                             })
                             .map(|c| {
@@ -114,7 +116,7 @@ pub async fn loop_send_instance_data(
         match instance_data_sender.as_ref() {
             InstanceDataSending::SendNothing => {
                 debug!("No instance data sender found. Doing nothing.");
-                return;
+                continue;
             }
             InstanceDataSending::SendInstanceData(instance_data_sender) => {
                 let status = send_instance_data(
@@ -127,12 +129,16 @@ pub async fn loop_send_instance_data(
                     match e {
                         EdgeError::EdgeMetricsRequestError(status, _) => {
                             if status == StatusCode::NOT_FOUND {
-                                debug!("Our upstream is not running a version that supports edge metrics.");
+                                debug!(
+                                    "Our upstream is not running a version that supports edge metrics."
+                                );
                                 errors += 1;
                                 downstream_instance_data.write().await.clear();
                                 our_instance_data.requests_since_last_report.clear();
                             } else if status == StatusCode::FORBIDDEN {
-                                warn!("Upstream edge metrics said our token wasn't allowed to post data");
+                                warn!(
+                                    "Upstream edge metrics said our token wasn't allowed to post data"
+                                );
                                 errors += 1;
                                 downstream_instance_data.write().await.clear();
                                 our_instance_data.requests_since_last_report.clear();

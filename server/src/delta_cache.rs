@@ -198,14 +198,18 @@ mod tests {
         let hydration_event = delta_cache.get_hydration_event();
         assert_eq!(hydration_event.features.len(), 2);
         assert_eq!(hydration_event.event_id, 7);
-        assert!(hydration_event
-            .features
-            .iter()
-            .any(|f| f.name == "my-feature-flag"));
-        assert!(hydration_event
-            .features
-            .iter()
-            .any(|f| f.name == "another-feature-flag"));
+        assert!(
+            hydration_event
+                .features
+                .iter()
+                .any(|f| f.name == "my-feature-flag")
+        );
+        assert!(
+            hydration_event
+                .features
+                .iter()
+                .any(|f| f.name == "another-feature-flag")
+        );
         assert!(hydration_event.segments.iter().any(|s| s.id == 1));
     }
 

@@ -1,7 +1,7 @@
 use crate::cli::TrustProxy;
 use crate::types::ClientIp;
-use actix_http::body::MessageBody;
 use actix_http::HttpMessage;
+use actix_http::body::MessageBody;
 use actix_web::dev::{ServiceRequest, ServiceResponse};
 use actix_web::web::Data;
 use std::net::IpAddr;
@@ -48,7 +48,7 @@ mod tests {
     use actix_http::HttpMessage;
     use actix_web::get;
     use actix_web::web::{Data, Json};
-    use actix_web::{test, App, HttpRequest};
+    use actix_web::{App, HttpRequest, test};
     use std::net::{IpAddr, SocketAddr};
     use std::str::FromStr;
     use tracing_test::traced_test;

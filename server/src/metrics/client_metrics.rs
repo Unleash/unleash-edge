@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use iter_tools::Itertools;
 use lazy_static::lazy_static;
-use prometheus::{register_histogram, register_int_counter_vec, Histogram, IntCounterVec};
+use prometheus::{Histogram, IntCounterVec, register_histogram, register_int_counter_vec};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -23,7 +23,9 @@ lazy_static! {
     pub static ref METRICS_SIZE_HISTOGRAM: Histogram = register_histogram!(
         "metrics_size_in_bytes",
         "Size of metrics when posting",
-        vec![1000.0, 10000.0, 20000.0, 50000.0, 75000.0, 100000.0, 250000.0, 500000.0, 1000000.0]
+        vec![
+            1000.0, 10000.0, 20000.0, 50000.0, 75000.0, 100000.0, 250000.0, 500000.0, 1000000.0
+        ]
     )
     .unwrap();
     pub static ref FEATURE_TOGGLE_USAGE_TOTAL: IntCounterVec = register_int_counter_vec!(
@@ -192,7 +194,9 @@ pub(crate) fn cut_into_sendable_batches(batch: MetricsBatch) -> Vec<MetricsBatch
     let metrics_count = batch.metrics.len();
     let metrics_per_batch = metrics_count / batch_count;
 
-    debug!("Batch count: {batch_count}. Apps per batch: {apps_per_batch}, Metrics per batch: {metrics_per_batch}");
+    debug!(
+        "Batch count: {batch_count}. Apps per batch: {apps_per_batch}, Metrics per batch: {metrics_per_batch}"
+    );
     (0..=batch_count)
         .map(|counter| {
             let apps_iter = batch.applications.iter();
@@ -591,6 +595,7 @@ mod test {
             connect_via: None,
             environment: Some("development".into()),
             instance_id: Some("test".into()),
+            connection_id: Some("test".into()),
             interval: 60,
             started: Default::default(),
             strategies: vec![],
@@ -629,13 +634,14 @@ mod test {
     #[test_case(1, 10000, 25; "1 app 10k toggles, will be split into 25 batches")]
     #[test_case(1000, 1000, 7; "1000 apps 1000 toggles, will be split into 7 batches")]
     #[test_case(500, 5000, 15; "500 apps 5000 toggles, will be split into 15 batches")]
-    #[test_case(5000, 1, 17; "5000 apps 1 metric will be split")]
+    #[test_case(5000, 1, 19; "5000 apps 1 metric will be split")]
     fn splits_successfully_into_sendable_chunks(apps: u64, toggles: u64, batch_count: usize) {
         let apps: Vec<ClientApplication> = (1..=apps)
             .map(|app_id| ClientApplication {
                 app_name: format!("app_name_{}", app_id),
                 environment: Some("development".into()),
                 instance_id: Some(format!("instance-{}", app_id)),
+                connection_id: Some(format!("connection-{}", app_id)),
                 interval: 10,
                 connect_via: Some(vec![ConnectVia {
                     app_name: "edge".into(),

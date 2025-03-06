@@ -7,13 +7,13 @@ authors = [
     "Gaston Fournier <gaston@getunleash.io>",
 ]
 description = "Unleash edge is a proxy for Unleash. It can return both evaluated feature toggles as well as the raw data from Unleash's client API"
-edition = "2021"
+edition = "2024"
 homepage = "https://github.com/Unleash/unleash-edge"
 license = "MIT"
 name = "unleash-edge"
 repository = "https://github.com/Unleash/unleash-edge"
-rust-version = "1.81.0"
-version = "19.7.0"
+rust-version = "1.85.0"
+version = "19.8.0"
 
 [package.metadata.wix]
 upgrade-guid = "11E5D83A-3034-48BB-9A84-9F589EBD648C"
@@ -25,6 +25,7 @@ eula = false
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }
 
 [dependencies]
+actix-allow-deny-middleware = "0.1.1"
 actix-cors = "0.7.0"
 actix-http = "3.9.0"
 actix-middleware-etag = "0.4.4"
@@ -32,12 +33,12 @@ actix-service = "2.0.2"
 actix-web = { version = "4.9.0", features = ["rustls-0_23", "compress-zstd"] }
 actix-web-lab = { version = "0.23.0" }
 ahash = "0.8.11"
-anyhow = "1.0.96"
-async-trait = "0.1.86"
-aws-config = { version = "1.5.17", features = ["behavior-version-latest"] }
-aws-sdk-s3 = { version = "1.77.0", features = ["behavior-version-latest"] }
+anyhow = "1.0.97"
+async-trait = "0.1.87"
+aws-config = { version = "1.5.18", features = ["behavior-version-latest"] }
+aws-sdk-s3 = { version = "1.78.0", features = ["behavior-version-latest"] }
 base64 = "0.22.1"
-chrono = { version = "0.4.39", features = ["serde"] }
+chrono = { version = "0.4.40", features = ["serde"] }
 cidr = "0.3.1"
 clap = { version = "4.5.31", features = ["derive", "env"] }
 clap-markdown = "0.1.4"
@@ -45,6 +46,7 @@ dashmap = { version = "6.1.0", features = ["serde"] }
 eventsource-client = { version = "0.14.0" }
 futures = "0.3.31"
 futures-core = "0.3.31"
+ipnet = "2.11.0"
 iter_tools = "0.24.0"
 itertools = "0.14.0"
 json-structural-diff = "0.2.0"
@@ -59,19 +61,21 @@ opentelemetry_sdk = { version = "0.28.0", features = [
     "serde_json",
     "logs",
 ] }
+p12-keystore = "0.1.4"
+pin-project-lite = "0.2.16"
+pkix = "0.2.3"
 prometheus = { version = "0.13.4", features = ["process"] }
 prometheus-reqwest-remote-write = { version = "0.3.0" }
 prometheus-static-metric = "0.5.1"
 rand = "0.9.0"
-redis = { version = "0.29.0", features = [
+redis = { version = "0.29.1", features = [
     "tokio-comp",
     "tokio-rustls-comp",
     "cluster",
 ] }
 reqwest = { version = "0.12.12", default-features = false, features = [
     "json",
-    "rustls-tls",
-    "native-tls",
+    "rustls-tls"
 ] }
 rustls = { version = "0.23.23", default-features = false, features = [
     "logging",
@@ -80,11 +84,11 @@ rustls = { version = "0.23.23", default-features = false, features = [
 ] }
 rustls-pemfile = "2.2.0"
 rustls-pki-types = "1.11.0"
-semver = "1.0.25"
+semver = "1.0.26"
 serde = { version = "1.0.218", features = ["derive"] }
-serde_json = "1.0.139"
-serde_qs = { version = "0.13.0", features = ["actix4", "tracing"] }
-shadow-rs = { version = "1.0.0" }
+serde_json = "1.0.140"
+serde_qs = { version = "0.14.0", features = ["actix4", "tracing"] }
+shadow-rs = { version = "1.0.1" }
 tokio = { version = "1.43.0", features = [
     "macros",
     "rt-multi-thread",
@@ -95,7 +99,7 @@ tokio-stream = { version = "0.1.17" }
 tracing = { version = "0.1.41", features = ["log"] }
 tracing-subscriber = { version = "0.3.19", features = ["json", "env-filter"] }
 ulid = "1.2.0"
-unleash-types = { version = "0.15.9", features = ["openapi", "hashes"] }
+unleash-types = { version = "0.15.10", features = ["openapi", "hashes"] }
 unleash-yggdrasil = { version = "0.17.2" }
 utoipa = { version = "5.3.1", features = ["actix_extras", "chrono"] }
 utoipa-swagger-ui = { version = "9.0.0", features = ["actix-web"] }
@@ -116,4 +120,4 @@ testcontainers-modules = { version = "0.11.6", features = [
 tracing-test = "0.2.5"
 
 [build-dependencies]
-shadow-rs = "1.0.0"
+shadow-rs = "1.0.1"
