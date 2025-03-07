@@ -1,6 +1,7 @@
 use actix_http::HttpMessage;
 use actix_http::body::MessageBody;
 use actix_service::ServiceFactory;
+use iter_tools::Itertools;
 use std::collections::HashMap;
 
 use actix_web::dev::{ServiceRequest, ServiceResponse};
@@ -736,6 +737,7 @@ pub fn frontend_from_yggdrasil(
             impression_data: resolved.impression_data,
             impressionData: resolved.impression_data,
         })
+        .sorted_by_key(|toggle| toggle.name.clone())
         .collect::<Vec<EvaluatedToggle>>();
     FrontendResult { toggles }
 }
@@ -774,6 +776,7 @@ pub fn get_all_features(
 #[cfg(test)]
 mod tests {
     use actix_http::{Request, StatusCode};
+    use actix_middleware_etag::Etag;
     use actix_web::{
         App,
         http::header::ContentType,
@@ -1704,5 +1707,51 @@ mod tests {
             .to_request();
         let feature_results: FrontendResult = test::call_and_read_body_json(&app, req).await;
         assert!(feature_results.toggles.iter().any(|f| f.enabled));
+    }
+
+    #[tokio::test]
+    async fn assert_frontend_sort_order_is_stable() {
+        let client_features_with_custom_context_field =
+            crate::tests::features_from_disk("../examples/frontend-stable-sort.json");
+        let auth_key = "default:development.secret123".to_string();
+        let (token_cache, feature_cache, _delta_cache, engine_cache) = build_offline_mode(
+            client_features_with_custom_context_field.clone(),
+            vec![auth_key.clone()],
+            vec![],
+            vec![],
+        )
+        .unwrap();
+        let config =
+            serde_qs::actix::QsQueryConfig::default().qs_config(serde_qs::Config::new(5, false));
+        let app = test::init_service(
+            App::new()
+                .app_data(config)
+                .app_data(Data::from(token_cache))
+                .app_data(Data::from(feature_cache))
+                .app_data(Data::from(engine_cache))
+                .wrap(Etag::default())
+                .service(
+                    web::scope("/api").configure(|cfg| super::configure_frontend_api(cfg, false)),
+                ),
+        )
+        .await;
+        let req = test::TestRequest::get()
+            .uri("/api/frontend/all?properties[companyId]=bricks")
+            .insert_header(ContentType::json())
+            .insert_header(("Authorization", auth_key.clone()))
+            .to_request();
+        let result = test::call_service(&app, req).await;
+        let etag_header = result.headers().get("ETag").unwrap();
+
+        for _i in 1..10 {
+            let another_call = test::TestRequest::get()
+                .uri("/api/frontend?properties[companyId]=bricks")
+                .insert_header(ContentType::json())
+                .insert_header(("If-None-Match", etag_header.to_str().unwrap()))
+                .insert_header(("Authorization", auth_key.clone()))
+                .to_request();
+            let result = test::call_service(&app, another_call).await;
+            assert_eq!(result.status(), StatusCode::NOT_MODIFIED);
+        }
     }
 }
