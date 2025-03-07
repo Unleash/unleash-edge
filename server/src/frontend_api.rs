@@ -1,7 +1,7 @@
 use actix_http::HttpMessage;
 use actix_http::body::MessageBody;
 use actix_service::ServiceFactory;
-use iter_tools::Itertools;
+use itertools::Itertools;
 use std::collections::HashMap;
 
 use actix_web::dev::{ServiceRequest, ServiceResponse};

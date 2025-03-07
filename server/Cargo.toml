@@ -47,7 +47,6 @@ eventsource-client = { version = "0.14.0" }
 futures = "0.3.31"
 futures-core = "0.3.31"
 ipnet = "2.11.0"
-iter_tools = "0.24.0"
 itertools = "0.14.0"
 json-structural-diff = "0.2.0"
 lazy_static = "1.5.0"

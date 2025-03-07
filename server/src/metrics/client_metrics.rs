@@ -2,7 +2,7 @@ use crate::types::{BatchMetricsRequestBody, EdgeToken};
 use actix_web::web::Data;
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
-use iter_tools::Itertools;
+use itertools::Itertools;
 use lazy_static::lazy_static;
 use prometheus::{Histogram, IntCounterVec, register_histogram, register_int_counter_vec};
 use serde::{Deserialize, Serialize};

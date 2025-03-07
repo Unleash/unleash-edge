@@ -5,7 +5,7 @@ use actix_web::{
     web::{self, Json},
 };
 use dashmap::DashMap;
-use iter_tools::Itertools;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use unleash_types::client_features::ClientFeatures;
