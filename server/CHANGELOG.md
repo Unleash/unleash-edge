@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [19.8.2](https://github.com/Unleash/unleash-edge/compare/v19.8.1...v19.8.2) - 2025-03-10
+
+### Dependency updates
+- bump actix-web-lab from 0.23.0 to 0.24.0 ([#808](https://github.com/unleash/unleash-edge/issues/808)) (by @dependabot[bot]) - #808
+
+### Contributors
+
+* @dependabot[bot]
+* @chriswk
+
 ## [19.8.1](https://github.com/Unleash/unleash-edge/compare/v19.8.0...v19.8.1) - 2025-03-07
 
 ### 🐛 Bug Fixes
