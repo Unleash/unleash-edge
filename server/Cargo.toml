@@ -31,7 +31,7 @@ actix-http = "3.9.0"
 actix-middleware-etag = "0.4.4"
 actix-service = "2.0.2"
 actix-web = { version = "4.9.0", features = ["rustls-0_23", "compress-zstd"] }
-actix-web-lab = { version = "0.23.0" }
+actix-web-lab = { version = "0.24.0" }
 ahash = "0.8.11"
 anyhow = "1.0.97"
 async-trait = "0.1.87"
