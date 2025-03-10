@@ -29,9 +29,9 @@ actix-allow-deny-middleware = "0.1.1"
 actix-cors = "0.7.0"
 actix-http = "3.9.0"
 actix-middleware-etag = "0.4.4"
-actix-service = "2.0.2"
+actix-service = "2.0.3"
 actix-web = { version = "4.9.0", features = ["rustls-0_23", "compress-zstd"] }
-actix-web-lab = { version = "0.23.0" }
+actix-web-lab = { version = "0.24.0" }
 ahash = "0.8.11"
 anyhow = "1.0.97"
 async-trait = "0.1.87"
@@ -84,11 +84,11 @@ rustls = { version = "0.23.23", default-features = false, features = [
 rustls-pemfile = "2.2.0"
 rustls-pki-types = "1.11.0"
 semver = "1.0.26"
-serde = { version = "1.0.218", features = ["derive"] }
+serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 serde_qs = { version = "0.14.0", features = ["actix4", "tracing"] }
 shadow-rs = { version = "1.0.1" }
-tokio = { version = "1.43.0", features = [
+tokio = { version = "1.44.0", features = [
     "macros",
     "rt-multi-thread",
     "tracing",
@@ -105,7 +105,7 @@ utoipa-swagger-ui = { version = "9.0.0", features = ["actix-web"] }
 [dev-dependencies]
 actix-http = "3.9.0"
 actix-http-test = "3.2.0"
-actix-service = "2.0.2"
+actix-service = "2.0.3"
 capture-logger = "0.1.1"
 env_logger = "0.11.6"
 maplit = "1.0.2"
