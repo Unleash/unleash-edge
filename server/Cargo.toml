@@ -29,7 +29,7 @@ actix-allow-deny-middleware = "0.1.1"
 actix-cors = "0.7.0"
 actix-http = "3.9.0"
 actix-middleware-etag = "0.4.4"
-actix-service = "2.0.2"
+actix-service = "2.0.3"
 actix-web = { version = "4.9.0", features = ["rustls-0_23", "compress-zstd"] }
 actix-web-lab = { version = "0.23.0" }
 ahash = "0.8.11"
@@ -105,7 +105,7 @@ utoipa-swagger-ui = { version = "9.0.0", features = ["actix-web"] }
 [dev-dependencies]
 actix-http = "3.9.0"
 actix-http-test = "3.2.0"
-actix-service = "2.0.2"
+actix-service = "2.0.3"
 capture-logger = "0.1.1"
 env_logger = "0.11.6"
 maplit = "1.0.2"
