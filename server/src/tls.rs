@@ -3,6 +3,7 @@ use rustls::pki_types::PrivateKeyDer;
 use rustls_pemfile::{certs, pkcs8_private_keys};
 use std::path::PathBuf;
 use std::{fs, fs::File, io::BufReader};
+use tracing::info;
 
 use crate::cli::TlsOptions;
 use crate::error::{CertificateError, EdgeError};
@@ -32,9 +33,12 @@ pub(crate) fn build_upstream_certificate(
 }
 
 pub fn config(tls_config: TlsOptions) -> Result<ServerConfig, EdgeError> {
-    rustls::crypto::ring::default_provider()
-        .install_default()
-        .map_err(|e| EdgeError::TlsError(format!("{e:?}")))?;
+    if let Err(err) = rustls::crypto::ring::default_provider().install_default() {
+        info!(
+            "Failed to install default crypto provider, this is likely because another system has already installed it: {:?}",
+            err
+        );
+    }
     let mut cert_file = BufReader::new(
         File::open(
             tls_config
@@ -56,4 +60,24 @@ pub fn config(tls_config: TlsOptions) -> Result<ServerConfig, EdgeError> {
         .with_no_client_auth()
         .with_single_cert(cert_chain, keys.remove(0))
         .map_err(|e| EdgeError::TlsError(format!("Failed to configure ServerConfig: {e:?}")))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    pub fn provider_installation_does_not_fail_if_already_installed_by_another_subsystem() {
+        // setup a default provider and run it within our test
+        let _ = rustls::crypto::ring::default_provider().install_default();
+        // now we should be able to call config safely without failing but raising a warning instead
+        let tls_options = TlsOptions {
+            tls_server_cert: Some("../examples/server.crt".into()),
+            tls_enable: true,
+            tls_server_key: Some("../examples/server.key".into()),
+            tls_server_port: 443,
+        };
+
+        let _ = config(tls_options);
+    }
 }
