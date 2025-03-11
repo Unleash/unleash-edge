@@ -40,7 +40,7 @@ aws-sdk-s3 = { version = "1.78.0", features = ["behavior-version-latest"] }
 base64 = "0.22.1"
 chrono = { version = "0.4.40", features = ["serde"] }
 cidr = "0.3.1"
-clap = { version = "4.5.31", features = ["derive", "env"] }
+clap = { version = "4.5.32", features = ["derive", "env"] }
 clap-markdown = "0.1.4"
 dashmap = { version = "6.1.0", features = ["serde"] }
 eventsource-client = { version = "0.14.0" }
