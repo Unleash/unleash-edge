@@ -26,12 +26,12 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }
 
 [dependencies]
 actix-allow-deny-middleware = "0.1.1"
-actix-cors = "0.7.0"
+actix-cors = "0.7.1"
 actix-http = "3.9.0"
 actix-middleware-etag = "0.4.4"
 actix-service = "2.0.3"
 actix-web = { version = "4.9.0", features = ["rustls-0_23", "compress-zstd"] }
-actix-web-lab = { version = "0.24.0" }
+actix-web-lab = { version = "0.24.1" }
 ahash = "0.8.11"
 anyhow = "1.0.97"
 async-trait = "0.1.87"
@@ -107,7 +107,7 @@ actix-http = "3.9.0"
 actix-http-test = "3.2.0"
 actix-service = "2.0.3"
 capture-logger = "0.1.1"
-env_logger = "0.11.6"
+env_logger = "0.11.7"
 maplit = "1.0.2"
 rand = "0.9.0"
 test-case = "3.3.1"
