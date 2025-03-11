@@ -277,9 +277,9 @@ dependencies = [
 
 [[package]]
 name = "actix-web-lab"
-version = "0.24.0"
+version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "53df243e3d9bae9e2e1078e8639a0e6f4223a4d0cd7ee3b43ab9d25ec0751f88"
+checksum = "a33034dd88446a5deb20e42156dbfe43d07e0499345db3ae65b3f51854190531"
 dependencies = [
  "actix-http",
  "actix-router",
@@ -310,6 +310,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tracing",
+ "url",
 ]
 
 [[package]]
