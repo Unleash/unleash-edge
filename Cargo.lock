@@ -33,13 +33,13 @@ dependencies = [
 
 [[package]]
 name = "actix-cors"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9e772b3bcafe335042b5db010ab7c09013dad6eac4915c91d8d50902769f331"
+checksum = "daa239b93927be1ff123eebada5a3ff23e89f0124ccb8609234e5103d5a5ae6d"
 dependencies = [
  "actix-utils",
  "actix-web",
- "derive_more 0.99.19",
+ "derive_more",
  "futures-util",
  "log",
  "once_cell",
@@ -62,7 +62,7 @@ dependencies = [
  "brotli",
  "bytes",
  "bytestring",
- "derive_more 2.0.1",
+ "derive_more",
  "encoding_rs",
  "flate2",
  "foldhash",
@@ -239,7 +239,7 @@ dependencies = [
  "bytestring",
  "cfg-if",
  "cookie",
- "derive_more 2.0.1",
+ "derive_more",
  "encoding_rs",
  "foldhash",
  "futures-core",
@@ -292,7 +292,7 @@ dependencies = [
  "bytes",
  "bytestring",
  "csv",
- "derive_more 2.0.1",
+ "derive_more",
  "form_urlencoded",
  "futures-core",
  "futures-util",
@@ -548,7 +548,7 @@ dependencies = [
  "base64 0.22.1",
  "bytes",
  "cfg-if",
- "derive_more 2.0.1",
+ "derive_more",
  "futures-core",
  "futures-util",
  "h2",
@@ -1334,12 +1334,6 @@ dependencies = [
 
 [[package]]
 name = "convert_case"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
-
-[[package]]
-name = "convert_case"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec182b0ca2f35d8fc196cf3404988fd8b8c739a4d270ff118a398feb0cbec1ca"
@@ -1653,19 +1647,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab63b0e2bf4d5928aff72e83a7dace85d7bba5fe12dcc3c5a572d78caffd3f3c"
 dependencies = [
  "derive_builder_core",
- "syn 2.0.100",
-]
-
-[[package]]
-name = "derive_more"
-version = "0.99.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3da29a38df43d6f156149c9b43ded5e018ddff2a855cf2cfd62e8cd7d079c69f"
-dependencies = [
- "convert_case 0.4.0",
- "proc-macro2",
- "quote",
- "rustc_version",
  "syn 2.0.100",
 ]
 
@@ -4903,7 +4884,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "38cb3a1a69053d7ad150a6ee49f60c35133cc15b7ab34b70ba0b1db664c502b6"
 dependencies = [
  "chrono",
- "convert_case 0.6.0",
+ "convert_case",
  "dashmap",
  "ipnet",
  "ipnetwork",
