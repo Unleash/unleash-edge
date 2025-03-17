@@ -781,9 +781,11 @@ mod tests {
         // Verify features data points
         let features_data_points = actual_features["dataPoints"].as_array().unwrap();
         assert_eq!(features_data_points.len(), 2);
-        assert!(features_data_points.iter().any(|dp| {
-            dp["interval"] == serde_json::json!([0, 15000]) && dp["requests"] == 2
-        }));
+        assert!(
+            features_data_points.iter().any(|dp| {
+                dp["interval"] == serde_json::json!([0, 15000]) && dp["requests"] == 2
+            })
+        );
         assert!(features_data_points.iter().any(|dp| {
             dp["interval"] == serde_json::json!([15000, 20000]) && dp["requests"] == 1
         }));
@@ -791,9 +793,11 @@ mod tests {
         // Verify metrics data points
         let metrics_data_points = actual_metrics["dataPoints"].as_array().unwrap();
         assert_eq!(metrics_data_points.len(), 2);
-        assert!(metrics_data_points.iter().any(|dp| {
-            dp["interval"] == serde_json::json!([0, 60000]) && dp["requests"] == 2
-        }));
+        assert!(
+            metrics_data_points.iter().any(|dp| {
+                dp["interval"] == serde_json::json!([0, 60000]) && dp["requests"] == 2
+            })
+        );
         assert!(metrics_data_points.iter().any(|dp| {
             dp["interval"] == serde_json::json!([60000, 120000]) && dp["requests"] == 1
         }));
