@@ -3,7 +3,6 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use ahash::HashMap;
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
-use rustls::Connection;
 use serde::{Deserialize, Serialize};
 use ulid::Ulid;
 use utoipa::ToSchema;
