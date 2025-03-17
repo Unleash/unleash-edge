@@ -3,7 +3,6 @@ use actix_http::body::MessageBody;
 use actix_service::ServiceFactory;
 use itertools::Itertools;
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use actix_web::dev::{ServiceRequest, ServiceResponse};
 use actix_web::{
@@ -21,7 +20,6 @@ use unleash_types::{
 };
 use unleash_yggdrasil::{EngineState, ResolvedToggle};
 
-use crate::metrics::edge_metrics::EdgeInstanceData;
 use crate::types::{ClientIp, IncomingContext, PostContext};
 use crate::{
     error::{EdgeError, FrontendHydrationMissing},
@@ -52,11 +50,6 @@ pub async fn get_proxy_all_features(
     context: QsQuery<IncomingContext>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
-    if let Some(instance_data) = req.app_data::<Data<EdgeInstanceData>>() {
-        let mut data = instance_data.get_ref().clone();
-        data.observe_frontend_request("/api/frontend");
-    }
-
     get_all_features(
         edge_token,
         engine_cache,
@@ -85,11 +78,6 @@ pub async fn get_frontend_all_features(
     context: QsQuery<IncomingContext>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
-    if let Some(instance_data) = req.app_data::<Data<EdgeInstanceData>>() {
-        let mut data = instance_data.get_ref().clone();
-        data.observe_frontend_request("/api/frontend/all");
-    }
-
     get_all_features(
         edge_token,
         engine_cache,
@@ -144,13 +132,7 @@ async fn post_all_proxy_metrics(
     edge_token: EdgeToken,
     metrics: Json<ClientMetrics>,
     metrics_cache: Data<MetricsCache>,
-    req: HttpRequest,
 ) -> EdgeResult<HttpResponse> {
-    if let Some(instance_data) = req.app_data::<Data<EdgeInstanceData>>() {
-        let mut data = instance_data.get_ref().clone();
-        data.observe_frontend_request("/api/frontend/all/client/metrics");
-    }
-
     crate::metrics::client_metrics::register_client_metrics(
         edge_token,
         metrics.into_inner(),
@@ -176,13 +158,7 @@ async fn post_all_frontend_metrics(
     edge_token: EdgeToken,
     metrics: Json<ClientMetrics>,
     metrics_cache: Data<MetricsCache>,
-    req: HttpRequest,
 ) -> EdgeResult<HttpResponse> {
-    if let Some(instance_data) = req.app_data::<Data<EdgeInstanceData>>() {
-        let mut data = instance_data.get_ref().clone();
-        data.observe_frontend_request("/api/frontend/all/client/metrics");
-    }
-
     crate::metrics::client_metrics::register_client_metrics(
         edge_token,
         metrics.into_inner(),
@@ -569,13 +545,7 @@ async fn post_proxy_metrics(
     edge_token: EdgeToken,
     metrics: Json<ClientMetrics>,
     metrics_cache: Data<MetricsCache>,
-    req: HttpRequest,
 ) -> EdgeResult<HttpResponse> {
-    if let Some(instance_data) = req.app_data::<Data<EdgeInstanceData>>() {
-        let mut data = instance_data.get_ref().clone();
-        data.observe_frontend_request("/api/proxy/client/metrics");
-    }
-
     crate::metrics::client_metrics::register_client_metrics(
         edge_token,
         metrics.into_inner(),
@@ -601,13 +571,7 @@ async fn post_frontend_metrics(
     edge_token: EdgeToken,
     metrics: Json<ClientMetrics>,
     metrics_cache: Data<MetricsCache>,
-    req: HttpRequest,
 ) -> EdgeResult<HttpResponse> {
-    if let Some(instance_data) = req.app_data::<Data<EdgeInstanceData>>() {
-        let mut data = instance_data.get_ref().clone();
-        data.observe_frontend_request("/api/frontend/client/metrics");
-    }
-
     crate::metrics::client_metrics::register_client_metrics(
         edge_token,
         metrics.into_inner(),
@@ -718,6 +682,9 @@ fn scope_with_auth(
         ))
         .wrap(crate::middleware::as_async_middleware::as_async_middleware(
             crate::middleware::validate_token::validate_token,
+        ))
+        .wrap(crate::middleware::as_async_middleware::as_async_middleware(
+            crate::middleware::consumption::frontend_consumption,
         ))
 }
 

@@ -6,7 +6,6 @@ use crate::filters::{
     FeatureFilterSet, filter_client_features, name_match_filter, name_prefix_filter, project_filter,
 };
 use crate::http::broadcaster::Broadcaster;
-use crate::http::headers::UNLEASH_INTERVAL;
 use crate::http::instance_data::InstanceDataSending;
 use crate::http::refresher::feature_refresher::FeatureRefresher;
 use crate::metrics::client_metrics::MetricsCache;
@@ -44,17 +43,6 @@ pub async fn get_features(
     filter_query: Query<FeatureFilters>,
     req: HttpRequest,
 ) -> EdgeJsonResult<ClientFeatures> {
-    if let Some(instance_data) = req.app_data::<Data<EdgeInstanceData>>() {
-        let mut data = instance_data.get_ref().clone();
-        let interval = req
-            .headers()
-            .get(UNLEASH_INTERVAL)
-            .and_then(|h| h.to_str().ok())
-            .and_then(|s| s.parse::<u64>().ok())
-            .unwrap_or(15000); // Default to 15s for features requests
-        data.observe_backend_request("/api/client/features", interval);
-    }
-
     resolve_features(edge_token, features_cache, token_cache, filter_query, req).await
 }
 
@@ -65,17 +53,6 @@ pub async fn get_delta(
     filter_query: Query<FeatureFilters>,
     req: HttpRequest,
 ) -> impl Responder {
-    if let Some(instance_data) = req.app_data::<Data<EdgeInstanceData>>() {
-        let mut data = instance_data.as_ref().clone();
-        let interval = req
-            .headers()
-            .get(UNLEASH_INTERVAL)
-            .and_then(|h| h.to_str().ok())
-            .and_then(|s| s.parse::<u64>().ok())
-            .unwrap_or(15000); // Default to 15s for delta requests
-        data.observe_backend_request("/api/client/delta", interval);
-    }
-
     let requested_revision_id = req
         .headers()
         .get("If-None-Match")
@@ -361,19 +338,7 @@ pub async fn metrics(
     edge_token: EdgeToken,
     metrics: Json<ClientMetrics>,
     metrics_cache: Data<MetricsCache>,
-    req: HttpRequest,
 ) -> EdgeResult<HttpResponse> {
-    if let Some(instance_data) = req.app_data::<Data<EdgeInstanceData>>() {
-        let mut data = instance_data.get_ref().clone();
-        let interval = req
-            .headers()
-            .get(UNLEASH_INTERVAL)
-            .and_then(|h| h.to_str().ok())
-            .and_then(|s| s.parse::<u64>().ok())
-            .unwrap_or(60000); // Default to 60s for metrics requests
-        data.observe_backend_request("/api/client/metrics", interval);
-    }
-
     crate::metrics::client_metrics::register_client_metrics(
         edge_token,
         metrics.into_inner(),
@@ -430,6 +395,9 @@ pub fn configure_client_api(cfg: &mut web::ServiceConfig) {
     let client_scope = web::scope("/client")
         .wrap(crate::middleware::as_async_middleware::as_async_middleware(
             crate::middleware::validate_token::validate_token,
+        ))
+        .wrap(crate::middleware::as_async_middleware::as_async_middleware(
+            crate::middleware::consumption::backend_consumption,
         ))
         .service(get_features)
         .service(get_delta)

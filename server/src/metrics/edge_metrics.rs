@@ -225,7 +225,7 @@ impl EdgeInstanceData {
         }
     }
 
-    pub fn observe_frontend_request(&mut self, endpoint: &str) {
+    pub fn observe_frontend_request(&mut self) {
         self.frontend_consumption_since_last_report
             .entry("default".to_string())
             .and_modify(|e| {
