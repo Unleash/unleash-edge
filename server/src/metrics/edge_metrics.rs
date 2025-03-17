@@ -1,9 +1,9 @@
+use ahash::HashMap;
 use chrono::{DateTime, Utc};
+use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU64, Ordering};
 use ulid::Ulid;
-use ahash::HashMap;
-use dashmap::DashMap;
 use utoipa::ToSchema;
 
 use crate::types::BuildInfo;
@@ -167,14 +167,10 @@ impl Serialize for ConnectionConsumptionData {
                 requests: AtomicU64::new(entry.value().requests.load(Ordering::Relaxed)),
             });
         }
-        let features = if !features_data_points.is_empty() {
-            vec![ConsumptionGroup {
-                metered_group: "default".to_string(),
-                data_points: features_data_points,
-            }]
-        } else {
-            vec![]
-        };
+        let features = vec![ConsumptionGroup {
+            metered_group: "default".to_string(),
+            data_points: features_data_points,
+        }];
 
         // Serialize metrics
         let mut metrics_data_points = Vec::new();
@@ -184,14 +180,10 @@ impl Serialize for ConnectionConsumptionData {
                 requests: AtomicU64::new(entry.value().requests.load(Ordering::Relaxed)),
             });
         }
-        let metrics = if !metrics_data_points.is_empty() {
-            vec![ConsumptionGroup {
-                metered_group: "default".to_string(),
-                data_points: metrics_data_points,
-            }]
-        } else {
-            vec![]
-        };
+        let metrics = vec![ConsumptionGroup {
+            metered_group: "default".to_string(),
+            data_points: metrics_data_points,
+        }];
 
         state.serialize_field("features", &features)?;
         state.serialize_field("metrics", &metrics)?;
@@ -349,7 +341,8 @@ impl EdgeInstanceData {
     }
 
     pub fn observe_request_consumption(&self) {
-        self.request_consumption_since_last_report.increment_requests();
+        self.request_consumption_since_last_report
+            .increment_requests();
     }
 
     pub fn get_request_consumption_data(&self) -> Vec<RequestConsumptionData> {
@@ -426,7 +419,8 @@ impl EdgeInstanceData {
         if let Some(metrics_type) = ConnectionMetricsType::from_endpoint(endpoint) {
             match metrics_type {
                 ConnectionMetricsType::Features => {
-                    self.connection_consumption_since_last_report.features_map
+                    self.connection_consumption_since_last_report
+                        .features_map
                         .entry(bucket.as_array())
                         .or_insert_with(|| DataPoint {
                             interval: bucket.as_array(),
@@ -436,7 +430,8 @@ impl EdgeInstanceData {
                         .fetch_add(1, Ordering::SeqCst);
                 }
                 ConnectionMetricsType::Metrics => {
-                    self.connection_consumption_since_last_report.metrics_map
+                    self.connection_consumption_since_last_report
+                        .metrics_map
                         .entry(bucket.as_array())
                         .or_insert_with(|| DataPoint {
                             interval: bucket.as_array(),
@@ -719,31 +714,119 @@ mod tests {
         instance_data.observe_request_consumption();
         instance_data.observe_request_consumption();
 
-        // Get request consumption data
+        // Get request consumption data and verify JSON structure
         let request_data = instance_data.get_request_consumption_data();
-        assert_eq!(request_data[0].get_requests(), 4);
+        let serialized_request = serde_json::to_value(&request_data[0]).unwrap();
+        assert_eq!(
+            serialized_request,
+            serde_json::json!({
+                "meteredGroup": "default",
+                "requests": 4
+            })
+        );
 
-        // Get connection consumption data
+        // Get connection consumption data and verify JSON structure
         let connection_data = instance_data.get_connection_consumption_data();
         let serialized = serde_json::to_value(&connection_data).unwrap();
-        let features = serialized.get("features").unwrap().as_array().unwrap();
-        let metrics = serialized.get("metrics").unwrap().as_array().unwrap();
-        assert_eq!(features.len(), 0);
-        assert_eq!(metrics.len(), 0);
+
+        // Verify empty state JSON structure
+        assert_eq!(
+            serialized,
+            serde_json::json!({
+                "features": [{
+                    "meteredGroup": "default",
+                    "dataPoints": []
+                }],
+                "metrics": [{
+                    "meteredGroup": "default",
+                    "dataPoints": []
+                }]
+            })
+        );
 
         // Clear metrics
         instance_data.clear_time_windowed_metrics();
 
         // Verify cleared data
         let cleared_request_data = instance_data.get_request_consumption_data();
-        assert_eq!(cleared_request_data[0].get_requests(), 0);
+        let serialized_cleared_request = serde_json::to_value(&cleared_request_data[0]).unwrap();
+        assert_eq!(
+            serialized_cleared_request,
+            serde_json::json!({
+                "meteredGroup": "default",
+                "requests": 0
+            })
+        );
 
         let cleared_connection_data = instance_data.get_connection_consumption_data();
         let serialized = serde_json::to_value(&cleared_connection_data).unwrap();
-        let features = serialized.get("features").unwrap().as_array().unwrap();
-        let metrics = serialized.get("metrics").unwrap().as_array().unwrap();
-        assert_eq!(features.len(), 0);
-        assert_eq!(metrics.len(), 0);
+
+        // Verify cleared state JSON structure
+        assert_eq!(
+            serialized,
+            serde_json::json!({
+                "features": [{
+                    "meteredGroup": "default",
+                    "dataPoints": []
+                }],
+                "metrics": [{
+                    "meteredGroup": "default",
+                    "dataPoints": []
+                }]
+            })
+        );
+    }
+
+    #[test]
+    fn can_observe_connection_consumption_with_data_points() {
+        let instance_data = EdgeInstanceData::new("test");
+
+        // Observe some feature consumption
+        instance_data.observe_connection_consumption("/api/client/features", Some(0));
+        instance_data.observe_connection_consumption("/api/client/features", Some(0));
+        instance_data.observe_connection_consumption("/api/client/features", Some(15001));
+
+        // Observe some metrics consumption
+        instance_data.observe_connection_consumption("/api/client/metrics", Some(0));
+        instance_data.observe_connection_consumption("/api/client/metrics", Some(0));
+        instance_data.observe_connection_consumption("/api/client/metrics", Some(60001));
+
+        // Get connection consumption data and verify JSON structure
+        let connection_data = instance_data.get_connection_consumption_data();
+        let serialized = serde_json::to_value(&connection_data).unwrap();
+
+        // Verify JSON structure with data points
+        assert_eq!(
+            serialized,
+            serde_json::json!({
+                "features": [{
+                    "meteredGroup": "default",
+                    "dataPoints": [
+                        {
+                            "interval": [0, 15000],
+                            "requests": 2
+                        },
+                        {
+                            "interval": [15000, 20000],
+                            "requests": 1
+                        }
+                    ]
+                }],
+                "metrics": [{
+                    "meteredGroup": "default",
+                    "dataPoints": [
+                        {
+                            "interval": [0, 60000],
+                            "requests": 2
+                        },
+                        {
+                            "interval": [60000, 120000],
+                            "requests": 1
+                        }
+                    ]
+                }]
+            })
+        );
     }
 
     #[test]
