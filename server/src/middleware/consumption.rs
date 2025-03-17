@@ -14,7 +14,7 @@ pub async fn connection_consumption(
         || req.path().starts_with("/api/client/metrics")
     {
         if let Some(instance_data) = req.app_data::<Data<EdgeInstanceData>>() {
-            let mut data = instance_data.get_ref().clone();
+            let data = instance_data.get_ref().clone();
             let interval = req
                 .headers()
                 .get(UNLEASH_INTERVAL)
@@ -33,7 +33,7 @@ pub async fn request_consumption(
 ) -> Result<ServiceResponse<impl MessageBody>, actix_web::Error> {
     if req.path().starts_with("/api/frontend") {
         if let Some(instance_data) = req.app_data::<Data<EdgeInstanceData>>() {
-            let mut data = instance_data.get_ref().clone();
+            let data = instance_data.get_ref().clone();
             data.observe_request_consumption();
             debug!("Observed frontend request for path: {}", req.path());
         }
