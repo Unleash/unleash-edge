@@ -449,6 +449,7 @@ fn round_to_3_decimals(number: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ahash::HashMapExt;
 
     #[test]
     pub fn can_find_p99_of_a_range() {
@@ -498,24 +499,42 @@ mod tests {
     pub fn can_observe_and_clear_consumption_metrics() {
         let mut instance = EdgeInstanceData::new("test-app");
 
-        instance.observe_connection_consumption("/api/client/features", Some(1000)); // maps to [0, 15000]
-        instance.observe_connection_consumption("/api/client/features", Some(20000)); // maps to [20000, 25000]
-        instance.observe_connection_consumption("/api/client/metrics", Some(25000)); // maps to [25000, 30000]
+        instance.observe_connection_consumption("/api/client/features", None);
+        instance.observe_connection_consumption("/api/client/features", Some(25000));
+        instance.observe_connection_consumption("/api/client/features", Some(3600001));
+        instance.observe_connection_consumption("/api/client/features", Some(15000));
+        instance.observe_connection_consumption("/api/client/features", Some(15001));
+
+        instance.observe_connection_consumption("/api/client/metrics", None);
+        instance.observe_connection_consumption("/api/client/metrics", Some(65000));
+        instance.observe_connection_consumption("/api/client/metrics", Some(3600001));
+        instance.observe_connection_consumption("/api/client/metrics", Some(60000));
+        instance.observe_connection_consumption("/api/client/metrics", Some(60001));
 
         instance.observe_request_consumption();
         instance.observe_request_consumption();
-
-        let mut features_count = 0;
-        let mut metrics_count = 0;
 
         if let Some(features_map) = instance
             .connection_consumption_since_last_report
             .get(&MetricsType::Features)
         {
             if let Some(default_group) = features_map.get("default") {
+                let mut bucket_counts = HashMap::new();
                 for bucket in default_group.iter() {
-                    features_count += bucket.value().count.load(Ordering::SeqCst);
+                    bucket_counts
+                        .insert(*bucket.key(), bucket.value().count.load(Ordering::SeqCst));
                 }
+
+                assert_eq!(bucket_counts.get(&[0, 15000]).copied().unwrap_or(0), 2);
+                assert_eq!(bucket_counts.get(&[25000, 30000]).copied().unwrap_or(0), 1);
+                assert_eq!(
+                    bucket_counts
+                        .get(&[3600000, u64::MAX])
+                        .copied()
+                        .unwrap_or(0),
+                    1
+                );
+                assert_eq!(bucket_counts.get(&[15000, 20000]).copied().unwrap_or(0), 1);
             }
         }
 
@@ -524,14 +543,24 @@ mod tests {
             .get(&MetricsType::Metrics)
         {
             if let Some(default_group) = metrics_map.get("default") {
+                let mut bucket_counts = HashMap::new();
                 for bucket in default_group.iter() {
-                    metrics_count += bucket.value().count.load(Ordering::SeqCst);
+                    bucket_counts
+                        .insert(*bucket.key(), bucket.value().count.load(Ordering::SeqCst));
                 }
+
+                assert_eq!(bucket_counts.get(&[0, 60000]).copied().unwrap_or(0), 2);
+                assert_eq!(bucket_counts.get(&[65000, 70000]).copied().unwrap_or(0), 1);
+                assert_eq!(
+                    bucket_counts
+                        .get(&[3600000, u64::MAX])
+                        .copied()
+                        .unwrap_or(0),
+                    1
+                );
+                assert_eq!(bucket_counts.get(&[60000, 65000]).copied().unwrap_or(0), 1);
             }
         }
-
-        assert_eq!(features_count, 2);
-        assert_eq!(metrics_count, 1);
 
         let frontend_count = instance
             .request_consumption_since_last_report
