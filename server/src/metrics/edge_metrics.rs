@@ -121,7 +121,6 @@ impl ConnectionMetricsType {
     }
 }
 
-// Constants for bucket calculations
 const DEFAULT_METRICS_INTERVAL: u64 = 60000;
 const DEFAULT_FEATURES_INTERVAL: u64 = 15000;
 const BUCKET_SIZE_METRICS: u64 = 60000;
