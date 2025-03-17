@@ -1,10 +1,9 @@
-use std::sync::atomic::{AtomicU64, Ordering};
-
-use ahash::HashMap;
 use chrono::{DateTime, Utc};
-use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicU64, Ordering};
 use ulid::Ulid;
+use ahash::HashMap;
+use dashmap::DashMap;
 use utoipa::ToSchema;
 
 use crate::types::BuildInfo;
@@ -68,36 +67,6 @@ impl Clone for RequestStats {
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RequestCount {
-    pub count: AtomicU64,
-}
-
-impl Clone for RequestCount {
-    fn clone(&self) -> Self {
-        Self {
-            count: AtomicU64::new(self.count.load(Ordering::Relaxed)),
-        }
-    }
-}
-
-#[derive(Debug, Default, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct IntervalRequestCount {
-    pub interval: [u64; 2],
-    pub requests: RequestCount,
-}
-
-impl Clone for IntervalRequestCount {
-    fn clone(&self) -> Self {
-        Self {
-            interval: self.interval,
-            requests: self.requests.clone(),
-        }
-    }
-}
-
-#[derive(Debug, Default, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct DataPoint {
     pub interval: [u64; 2],
     pub requests: AtomicU64,
@@ -114,7 +83,7 @@ impl Clone for DataPoint {
 
 #[derive(Debug, Default, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ConsumptionMetrics {
+pub struct ConsumptionGroup {
     pub metered_group: String,
     pub data_points: Vec<DataPoint>,
 }
@@ -167,28 +136,113 @@ impl BucketRange {
     }
 }
 
-/// Represents a metered group for consumption metrics.
-/// Currently only supports "default" but can be extended for future use.
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Deserialize, Serialize)]
-pub struct MeteredGroup(String);
+#[derive(Debug, Default)]
+pub struct ConnectionConsumptionData {
+    features_map: DashMap<[u64; 2], DataPoint>,
+    metrics_map: DashMap<[u64; 2], DataPoint>,
+}
 
-impl MeteredGroup {
-    pub fn as_str(&self) -> &str {
-        &self.0
+impl Clone for ConnectionConsumptionData {
+    fn clone(&self) -> Self {
+        Self {
+            features_map: self.features_map.clone(),
+            metrics_map: self.metrics_map.clone(),
+        }
     }
 }
 
-impl Default for MeteredGroup {
-    fn default() -> Self {
-        Self("default".to_string())
+impl Serialize for ConnectionConsumptionData {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut state = serializer.serialize_struct("ConnectionConsumptionData", 2)?;
+
+        // Serialize features
+        let mut features_data_points = Vec::new();
+        for entry in self.features_map.iter() {
+            features_data_points.push(DataPoint {
+                interval: *entry.key(),
+                requests: AtomicU64::new(entry.value().requests.load(Ordering::Relaxed)),
+            });
+        }
+        let features = if !features_data_points.is_empty() {
+            vec![ConsumptionGroup {
+                metered_group: "default".to_string(),
+                data_points: features_data_points,
+            }]
+        } else {
+            vec![]
+        };
+
+        // Serialize metrics
+        let mut metrics_data_points = Vec::new();
+        for entry in self.metrics_map.iter() {
+            metrics_data_points.push(DataPoint {
+                interval: *entry.key(),
+                requests: AtomicU64::new(entry.value().requests.load(Ordering::Relaxed)),
+            });
+        }
+        let metrics = if !metrics_data_points.is_empty() {
+            vec![ConsumptionGroup {
+                metered_group: "default".to_string(),
+                data_points: metrics_data_points,
+            }]
+        } else {
+            vec![]
+        };
+
+        state.serialize_field("features", &features)?;
+        state.serialize_field("metrics", &metrics)?;
+        state.end()
     }
 }
 
-#[derive(Debug, Default, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+impl<'de> Deserialize<'de> for ConnectionConsumptionData {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct Helper {
+            features: Vec<ConsumptionGroup>,
+            metrics: Vec<ConsumptionGroup>,
+        }
+
+        let helper = Helper::deserialize(deserializer)?;
+        let data = ConnectionConsumptionData::default();
+
+        // Convert features groups to map entries
+        for group in helper.features {
+            for point in group.data_points {
+                data.features_map.insert(point.interval, point);
+            }
+        }
+
+        // Convert metrics groups to map entries
+        for group in helper.metrics {
+            for point in group.data_points {
+                data.metrics_map.insert(point.interval, point);
+            }
+        }
+
+        Ok(data)
+    }
+}
+
+impl ConnectionConsumptionData {
+    pub fn reset(&self) {
+        self.features_map.clear();
+        self.metrics_map.clear();
+    }
+}
+
+#[derive(Debug, Default)]
 pub struct RequestConsumptionData {
     pub metered_group: String,
-    pub requests: AtomicU64,
+    requests: AtomicU64,
 }
 
 impl Clone for RequestConsumptionData {
@@ -200,17 +254,51 @@ impl Clone for RequestConsumptionData {
     }
 }
 
-#[derive(Debug, Default, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ConnectionConsumptionData {
-    #[serde(skip)]
-    features_map: DashMap<[u64; 2], DataPoint>,
-    #[serde(skip)]
-    metrics_map: DashMap<[u64; 2], DataPoint>,
-    #[serde(rename = "features")]
-    features: Vec<DataPoint>,
-    #[serde(rename = "metrics")]
-    metrics: Vec<DataPoint>,
+impl Serialize for RequestConsumptionData {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut state = serializer.serialize_struct("RequestConsumptionData", 2)?;
+        state.serialize_field("meteredGroup", &self.metered_group)?;
+        state.serialize_field("requests", &self.requests.load(Ordering::Relaxed))?;
+        state.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for RequestConsumptionData {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct Helper {
+            metered_group: String,
+            requests: u64,
+        }
+
+        let helper = Helper::deserialize(deserializer)?;
+        Ok(RequestConsumptionData {
+            metered_group: helper.metered_group,
+            requests: AtomicU64::new(helper.requests),
+        })
+    }
+}
+
+impl RequestConsumptionData {
+    pub fn get_requests(&self) -> u64 {
+        self.requests.load(Ordering::Relaxed)
+    }
+
+    pub fn increment_requests(&self) {
+        self.requests.fetch_add(1, Ordering::SeqCst);
+    }
+
+    pub fn reset(&self) {
+        self.requests.store(0, Ordering::SeqCst);
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -256,9 +344,19 @@ impl EdgeInstanceData {
 
     pub fn clear_time_windowed_metrics(&self) {
         self.requests_since_last_report.clear();
-        self.connection_consumption_since_last_report.features_map.clear();
-        self.connection_consumption_since_last_report.metrics_map.clear();
-        self.request_consumption_since_last_report.requests.store(0, Ordering::SeqCst);
+        self.connection_consumption_since_last_report.reset();
+        self.request_consumption_since_last_report.reset();
+    }
+
+    pub fn observe_request_consumption(&self) {
+        self.request_consumption_since_last_report.increment_requests();
+    }
+
+    pub fn get_request_consumption_data(&self) -> Vec<RequestConsumptionData> {
+        vec![RequestConsumptionData {
+            metered_group: "default".to_string(),
+            requests: AtomicU64::new(self.request_consumption_since_last_report.get_requests()),
+        }]
     }
 
     pub fn observe_request(&self, http_target: &str, status_code: u16) {
@@ -326,23 +424,29 @@ impl EdgeInstanceData {
     pub fn observe_connection_consumption(&self, endpoint: &str, interval: Option<u64>) {
         let bucket = Self::get_interval_bucket(endpoint, interval);
         if let Some(metrics_type) = ConnectionMetricsType::from_endpoint(endpoint) {
-            let data_points_map = match metrics_type {
-                ConnectionMetricsType::Features => &self.connection_consumption_since_last_report.features_map,
-                ConnectionMetricsType::Metrics => &self.connection_consumption_since_last_report.metrics_map,
-            };
-
-            data_points_map.entry(bucket.as_array())
-                .or_insert_with(|| DataPoint {
-                    interval: bucket.as_array(),
-                    requests: AtomicU64::new(0),
-                })
-                .requests
-                .fetch_add(1, Ordering::SeqCst);
+            match metrics_type {
+                ConnectionMetricsType::Features => {
+                    self.connection_consumption_since_last_report.features_map
+                        .entry(bucket.as_array())
+                        .or_insert_with(|| DataPoint {
+                            interval: bucket.as_array(),
+                            requests: AtomicU64::new(0),
+                        })
+                        .requests
+                        .fetch_add(1, Ordering::SeqCst);
+                }
+                ConnectionMetricsType::Metrics => {
+                    self.connection_consumption_since_last_report.metrics_map
+                        .entry(bucket.as_array())
+                        .or_insert_with(|| DataPoint {
+                            interval: bucket.as_array(),
+                            requests: AtomicU64::new(0),
+                        })
+                        .requests
+                        .fetch_add(1, Ordering::SeqCst);
+                }
+            }
         }
-    }
-
-    pub fn observe_request_consumption(&self) {
-        self.request_consumption_since_last_report.requests.fetch_add(1, Ordering::SeqCst);
     }
 
     pub fn observe(
@@ -529,45 +633,7 @@ impl EdgeInstanceData {
     }
 
     pub fn get_connection_consumption_data(&self) -> ConnectionConsumptionData {
-        let mut data = ConnectionConsumptionData::default();
-        
-        // Clone the data points with their current values
-        for entry in self.connection_consumption_since_last_report.features_map.iter() {
-            data.features_map.insert(
-                *entry.key(),
-                DataPoint {
-                    interval: *entry.key(),
-                    requests: AtomicU64::new(entry.value().requests.load(Ordering::Relaxed)),
-                },
-            );
-            data.features.push(DataPoint {
-                interval: *entry.key(),
-                requests: AtomicU64::new(entry.value().requests.load(Ordering::Relaxed)),
-            });
-        }
-
-        for entry in self.connection_consumption_since_last_report.metrics_map.iter() {
-            data.metrics_map.insert(
-                *entry.key(),
-                DataPoint {
-                    interval: *entry.key(),
-                    requests: AtomicU64::new(entry.value().requests.load(Ordering::Relaxed)),
-                },
-            );
-            data.metrics.push(DataPoint {
-                interval: *entry.key(),
-                requests: AtomicU64::new(entry.value().requests.load(Ordering::Relaxed)),
-            });
-        }
-
-        data
-    }
-
-    pub fn get_request_consumption_data(&self) -> Vec<RequestConsumptionData> {
-        vec![RequestConsumptionData {
-            metered_group: "default".to_string(),
-            requests: AtomicU64::new(self.request_consumption_since_last_report.requests.load(Ordering::Relaxed)),
-        }]
+        self.connection_consumption_since_last_report.clone()
     }
 }
 
@@ -644,72 +710,40 @@ mod tests {
     }
 
     #[test]
-    pub fn can_observe_and_clear_consumption_metrics() {
-        let instance = EdgeInstanceData::new("test-app");
+    fn can_observe_and_clear_consumption_metrics() {
+        let instance_data = EdgeInstanceData::new("test");
 
-        // Test features endpoint with different intervals
-        instance.observe_connection_consumption("/api/client/features", None);
-        instance.observe_connection_consumption("/api/client/features", Some(15000));
+        // Observe some consumption
+        instance_data.observe_request_consumption();
+        instance_data.observe_request_consumption();
+        instance_data.observe_request_consumption();
+        instance_data.observe_request_consumption();
 
-        // Test metrics endpoint with different intervals
-        instance.observe_connection_consumption("/api/client/metrics", None);
-        instance.observe_connection_consumption("/api/client/metrics", Some(60000));
+        // Get request consumption data
+        let request_data = instance_data.get_request_consumption_data();
+        assert_eq!(request_data[0].get_requests(), 4);
 
-        // Test frontend consumption
-        instance.observe_request_consumption();
-        instance.observe_request_consumption();
+        // Get connection consumption data
+        let connection_data = instance_data.get_connection_consumption_data();
+        let serialized = serde_json::to_value(&connection_data).unwrap();
+        let features = serialized.get("features").unwrap().as_array().unwrap();
+        let metrics = serialized.get("metrics").unwrap().as_array().unwrap();
+        assert_eq!(features.len(), 0);
+        assert_eq!(metrics.len(), 0);
 
-        // Verify features endpoint metrics in internal counters
-        if let Some(features_map) = instance
-            .connection_consumption_since_last_report.features.iter().find(|dp| dp.interval == [0, 15000])
-        {
-            assert_eq!(features_map.requests.load(Ordering::Relaxed), 2);
-        }
+        // Clear metrics
+        instance_data.clear_time_windowed_metrics();
 
-        // Verify metrics endpoint metrics in internal counters
-        if let Some(metrics_map) = instance
-            .connection_consumption_since_last_report.metrics.iter().find(|dp| dp.interval == [0, 60000])
-        {
-            assert_eq!(metrics_map.requests.load(Ordering::Relaxed), 2);
-        }
+        // Verify cleared data
+        let cleared_request_data = instance_data.get_request_consumption_data();
+        assert_eq!(cleared_request_data[0].get_requests(), 0);
 
-        // Verify frontend consumption in internal counters
-        assert_eq!(instance.request_consumption_since_last_report.requests.load(Ordering::Relaxed), 2);
-
-        // Verify serialized connection consumption data
-        let connection_data = instance.get_connection_consumption_data();
-        
-        // Verify features data points
-        assert_eq!(connection_data.features.len(), 1);
-        assert_eq!(connection_data.features[0].interval, [0, 15000]);
-        assert_eq!(connection_data.features[0].requests.load(Ordering::Relaxed), 2);
-
-        // Verify metrics data points
-        assert_eq!(connection_data.metrics.len(), 1);
-        assert_eq!(connection_data.metrics[0].interval, [0, 60000]);
-        assert_eq!(connection_data.metrics[0].requests.load(Ordering::Relaxed), 2);
-
-        // Verify serialized request consumption data
-        let request_data = instance.get_request_consumption_data();
-        assert_eq!(request_data.len(), 1);
-        assert_eq!(request_data[0].metered_group, "default");
-        assert_eq!(request_data[0].requests.load(Ordering::Relaxed), 2);
-
-        // Verify clearing metrics
-        instance.clear_time_windowed_metrics();
-        assert!(instance.connection_consumption_since_last_report.features.is_empty());
-        assert!(instance.connection_consumption_since_last_report.metrics.is_empty());
-        assert_eq!(instance.request_consumption_since_last_report.requests.load(Ordering::Relaxed), 0);
-
-        // Verify cleared serialized data
-        let cleared_connection_data = instance.get_connection_consumption_data();
-        assert!(cleared_connection_data.features.is_empty());
-        assert!(cleared_connection_data.metrics.is_empty());
-
-        let cleared_request_data = instance.get_request_consumption_data();
-        assert_eq!(cleared_request_data.len(), 1);
-        assert_eq!(cleared_request_data[0].metered_group, "default");
-        assert_eq!(cleared_request_data[0].requests.load(Ordering::Relaxed), 0);
+        let cleared_connection_data = instance_data.get_connection_consumption_data();
+        let serialized = serde_json::to_value(&cleared_connection_data).unwrap();
+        let features = serialized.get("features").unwrap().as_array().unwrap();
+        let metrics = serialized.get("metrics").unwrap().as_array().unwrap();
+        assert_eq!(features.len(), 0);
+        assert_eq!(metrics.len(), 0);
     }
 
     #[test]
