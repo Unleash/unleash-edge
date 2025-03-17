@@ -80,33 +80,27 @@ impl Clone for RequestCount {
     }
 }
 
-#[derive(Debug, Default, Clone, Deserialize, Serialize, ToSchema)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DataPoint {
     pub interval: [u64; 2],
-    pub requests: u64,
+    pub requests: RequestCount,
 }
 
-#[derive(Debug, Default, Clone, Deserialize, Serialize, ToSchema)]
+impl Clone for DataPoint {
+    fn clone(&self) -> Self {
+        Self {
+            interval: self.interval,
+            requests: self.requests.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConsumptionMetrics {
     pub metered_group: String,
     pub data_points: Vec<DataPoint>,
-}
-
-#[derive(Debug, Default, Clone, Deserialize, Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct BackendConsumption {
-    pub features: Vec<ConsumptionMetrics>,
-    pub metrics: Vec<ConsumptionMetrics>,
-}
-
-#[derive(Debug, Default, Clone, Deserialize, Serialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct FrontendConsumption {
-    pub features: u64,
-    pub metrics: u64,
-    pub metered_group: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Hash, Eq, PartialEq)]
@@ -500,8 +494,8 @@ mod tests {
         instance.observe_backend_request("/api/client/features", 20000); // maps to [20000, 25000]
         instance.observe_backend_request("/api/client/metrics", 25000); // maps to [25000, 30000]
 
-        instance.observe_frontend_request("/api/frontend");
-        instance.observe_frontend_request("/api/frontend/client/metrics");
+        instance.observe_frontend_request();
+        instance.observe_frontend_request();
 
         let mut features_count = 0;
         let mut metrics_count = 0;

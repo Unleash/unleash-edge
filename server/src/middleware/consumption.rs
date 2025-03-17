@@ -9,7 +9,6 @@ pub async fn backend_consumption(
     req: ServiceRequest,
     srv: crate::middleware::as_async_middleware::Next<impl MessageBody + 'static>,
 ) -> Result<ServiceResponse<impl MessageBody>, actix_web::Error> {
-    // Only handle /api/client/features and /api/client/delta requests
     if req.path().starts_with("/api/client/features")
         || req.path().starts_with("/api/client/delta")
         || req.path().starts_with("/api/client/metrics")
@@ -41,7 +40,6 @@ pub async fn frontend_consumption(
     req: ServiceRequest,
     srv: crate::middleware::as_async_middleware::Next<impl MessageBody + 'static>,
 ) -> Result<ServiceResponse<impl MessageBody>, actix_web::Error> {
-    // Only handle /api/frontend requests
     if req.path().starts_with("/api/frontend") {
         if let Some(instance_data) = req.app_data::<Data<EdgeInstanceData>>() {
             let mut data = instance_data.get_ref().clone();
