@@ -189,20 +189,28 @@ impl EdgeInstanceData {
         }
     }
 
-    pub fn get_interval_bucket(interval_ms: u64) -> [u64; 2] {
-        if interval_ms <= 15000 {
+    pub fn get_interval_bucket(endpoint: &str, interval_ms: Option<u64>) -> [u64; 2] {
+        let interval = interval_ms.unwrap_or(if endpoint.contains("/metrics") {
+            60000
+        } else {
+            15000
+        });
+
+        if endpoint.contains("/metrics") && interval <= 60000 {
+            [0, 60000]
+        } else if !endpoint.contains("/metrics") && interval <= 15000 {
             [0, 15000]
-        } else if interval_ms > 3600000 {
+        } else if interval > 3600000 {
             // > 1 hour
             [3600000, u64::MAX]
         } else {
-            let bucket_start = ((interval_ms - 15000) / 5000) * 5000 + 15000;
+            let bucket_start = ((interval - 15000) / 5000) * 5000 + 15000;
             [bucket_start, bucket_start + 5000]
         }
     }
 
-    pub fn observe_connection_consumption(&mut self, endpoint: &str, interval: u64) {
-        let bucket = Self::get_interval_bucket(interval);
+    pub fn observe_connection_consumption(&mut self, endpoint: &str, interval: Option<u64>) {
+        let bucket = Self::get_interval_bucket(endpoint, interval);
         if let Some(metrics_type) = MetricsType::from_endpoint(endpoint) {
             self.connection_consumption_since_last_report
                 .entry(metrics_type)
@@ -490,9 +498,9 @@ mod tests {
     pub fn can_observe_and_clear_consumption_metrics() {
         let mut instance = EdgeInstanceData::new("test-app");
 
-        instance.observe_connection_consumption("/api/client/features", 1000); // maps to [0, 15000]
-        instance.observe_connection_consumption("/api/client/features", 20000); // maps to [20000, 25000]
-        instance.observe_connection_consumption("/api/client/metrics", 25000); // maps to [25000, 30000]
+        instance.observe_connection_consumption("/api/client/features", Some(1000)); // maps to [0, 15000]
+        instance.observe_connection_consumption("/api/client/features", Some(20000)); // maps to [20000, 25000]
+        instance.observe_connection_consumption("/api/client/metrics", Some(25000)); // maps to [25000, 30000]
 
         instance.observe_request_consumption();
         instance.observe_request_consumption();

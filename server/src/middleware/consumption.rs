@@ -19,18 +19,9 @@ pub async fn connection_consumption(
                 .headers()
                 .get(UNLEASH_INTERVAL)
                 .and_then(|h| h.to_str().ok())
-                .and_then(|s| s.parse::<u64>().ok())
-                .unwrap_or(if req.path().starts_with("/api/client/metrics") {
-                    60000
-                } else {
-                    15000
-                });
+                .and_then(|s| s.parse::<u64>().ok());
+
             data.observe_connection_consumption(req.path(), interval);
-            debug!(
-                "Observed backend request for path: {} with interval: {}",
-                req.path(),
-                interval
-            );
         }
     }
     srv.call(req).await
