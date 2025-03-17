@@ -160,12 +160,14 @@ impl BucketRange {
 pub struct MeteredGroup(String);
 
 impl MeteredGroup {
-    pub fn default() -> Self {
-        Self("default".to_string())
-    }
-
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+}
+
+impl Default for MeteredGroup {
+    fn default() -> Self {
+        Self("default".to_string())
     }
 }
 
@@ -253,13 +255,23 @@ impl EdgeInstanceData {
         }
 
         if endpoint.ends_with("/metrics") {
-            if interval <= DEFAULT_METRICS_INTERVAL {
-                BucketRange::new(0, DEFAULT_METRICS_INTERVAL)
-            } else {
-                let bucket_start = (interval / BUCKET_SIZE_METRICS) * BUCKET_SIZE_METRICS;
-                BucketRange::new(bucket_start, bucket_start + BUCKET_SIZE_METRICS)
-            }
-        } else if interval <= DEFAULT_FEATURES_INTERVAL {
+            Self::get_metrics_bucket(interval)
+        } else {
+            Self::get_features_bucket(interval)
+        }
+    }
+
+    fn get_metrics_bucket(interval: u64) -> BucketRange {
+        if interval <= DEFAULT_METRICS_INTERVAL {
+            BucketRange::new(0, DEFAULT_METRICS_INTERVAL)
+        } else {
+            let bucket_start = (interval / BUCKET_SIZE_METRICS) * BUCKET_SIZE_METRICS;
+            BucketRange::new(bucket_start, bucket_start + BUCKET_SIZE_METRICS)
+        }
+    }
+
+    fn get_features_bucket(interval: u64) -> BucketRange {
+        if interval <= DEFAULT_FEATURES_INTERVAL {
             BucketRange::new(0, DEFAULT_FEATURES_INTERVAL)
         } else {
             let bucket_start = ((interval - DEFAULT_FEATURES_INTERVAL) / BUCKET_SIZE_FEATURES)
