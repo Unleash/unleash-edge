@@ -3,6 +3,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use ahash::HashMap;
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
+use rustls::Connection;
 use serde::{Deserialize, Serialize};
 use ulid::Ulid;
 use utoipa::ToSchema;
@@ -168,9 +169,9 @@ impl Default for MeteredGroup {
     }
 }
 
-type BackendConsumptionMetrics =
+type ConnectionConsumptionMetrics =
     DashMap<ConnectionMetricsType, DashMap<MeteredGroup, DashMap<BucketRange, RequestCount>>>;
-type FrontendConsumptionMetrics = DashMap<MeteredGroup, RequestCount>;
+type RequestConsumptionMetrics = DashMap<MeteredGroup, RequestCount>;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -186,8 +187,8 @@ pub struct EdgeInstanceData {
     pub requests_since_last_report: DashMap<String, RequestStats>,
     pub connected_streaming_clients: u64,
     pub connected_edges: Vec<EdgeInstanceData>,
-    pub connection_consumption_since_last_report: BackendConsumptionMetrics,
-    pub request_consumption_since_last_report: FrontendConsumptionMetrics,
+    pub connection_consumption_since_last_report: ConnectionConsumptionMetrics,
+    pub request_consumption_since_last_report: RequestConsumptionMetrics,
 }
 
 impl EdgeInstanceData {
