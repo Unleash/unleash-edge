@@ -24,7 +24,7 @@ pub async fn backend_consumption(
                 .unwrap_or(if req.path().starts_with("/api/client/metrics") {
                     60000
                 } else {
-                    15000 
+                    15000
                 });
             data.observe_backend_request(req.path(), interval);
             debug!(
