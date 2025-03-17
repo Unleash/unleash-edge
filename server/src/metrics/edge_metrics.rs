@@ -96,11 +96,27 @@ impl Clone for IntervalRequestCount {
     }
 }
 
+#[derive(Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DataPoint {
+    pub interval: [u64; 2],
+    pub requests: AtomicU64,
+}
+
+impl Clone for DataPoint {
+    fn clone(&self) -> Self {
+        Self {
+            interval: self.interval,
+            requests: AtomicU64::new(self.requests.load(Ordering::Relaxed)),
+        }
+    }
+}
+
 #[derive(Debug, Default, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConsumptionMetrics {
     pub metered_group: String,
-    pub data_points: Vec<IntervalRequestCount>,
+    pub data_points: Vec<DataPoint>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Hash, Eq, PartialEq)]
@@ -168,9 +184,34 @@ impl Default for MeteredGroup {
     }
 }
 
-type ConnectionConsumptionMetrics =
-    DashMap<ConnectionMetricsType, DashMap<MeteredGroup, DashMap<BucketRange, RequestCount>>>;
-type RequestConsumptionMetrics = DashMap<MeteredGroup, RequestCount>;
+#[derive(Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RequestConsumptionData {
+    pub metered_group: String,
+    pub requests: AtomicU64,
+}
+
+impl Clone for RequestConsumptionData {
+    fn clone(&self) -> Self {
+        Self {
+            metered_group: self.metered_group.clone(),
+            requests: AtomicU64::new(self.requests.load(Ordering::Relaxed)),
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConnectionConsumptionData {
+    #[serde(skip)]
+    features_map: DashMap<[u64; 2], DataPoint>,
+    #[serde(skip)]
+    metrics_map: DashMap<[u64; 2], DataPoint>,
+    #[serde(rename = "features")]
+    features: Vec<DataPoint>,
+    #[serde(rename = "metrics")]
+    metrics: Vec<DataPoint>,
+}
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -186,8 +227,8 @@ pub struct EdgeInstanceData {
     pub requests_since_last_report: DashMap<String, RequestStats>,
     pub connected_streaming_clients: u64,
     pub connected_edges: Vec<EdgeInstanceData>,
-    pub connection_consumption_since_last_report: ConnectionConsumptionMetrics,
-    pub request_consumption_since_last_report: RequestConsumptionMetrics,
+    pub connection_consumption_since_last_report: ConnectionConsumptionData,
+    pub request_consumption_since_last_report: RequestConsumptionData,
 }
 
 impl EdgeInstanceData {
@@ -205,15 +246,19 @@ impl EdgeInstanceData {
             connected_edges: vec![],
             connected_streaming_clients: 0,
             requests_since_last_report: DashMap::default(),
-            connection_consumption_since_last_report: DashMap::default(),
-            request_consumption_since_last_report: DashMap::default(),
+            connection_consumption_since_last_report: ConnectionConsumptionData::default(),
+            request_consumption_since_last_report: RequestConsumptionData {
+                metered_group: "default".to_string(),
+                requests: AtomicU64::new(0),
+            },
         }
     }
 
     pub fn clear_time_windowed_metrics(&self) {
         self.requests_since_last_report.clear();
-        self.connection_consumption_since_last_report.clear();
-        self.request_consumption_since_last_report.clear();
+        self.connection_consumption_since_last_report.features_map.clear();
+        self.connection_consumption_since_last_report.metrics_map.clear();
+        self.request_consumption_since_last_report.requests.store(0, Ordering::SeqCst);
     }
 
     pub fn observe_request(&self, http_target: &str, status_code: u16) {
@@ -281,30 +326,23 @@ impl EdgeInstanceData {
     pub fn observe_connection_consumption(&self, endpoint: &str, interval: Option<u64>) {
         let bucket = Self::get_interval_bucket(endpoint, interval);
         if let Some(metrics_type) = ConnectionMetricsType::from_endpoint(endpoint) {
-            self.connection_consumption_since_last_report
-                .entry(metrics_type)
-                .or_default()
-                .entry(MeteredGroup::default())
-                .or_default()
-                .entry(bucket)
-                .and_modify(|e| {
-                    e.count.fetch_add(1, Ordering::SeqCst);
+            let data_points_map = match metrics_type {
+                ConnectionMetricsType::Features => &self.connection_consumption_since_last_report.features_map,
+                ConnectionMetricsType::Metrics => &self.connection_consumption_since_last_report.metrics_map,
+            };
+
+            data_points_map.entry(bucket.as_array())
+                .or_insert_with(|| DataPoint {
+                    interval: bucket.as_array(),
+                    requests: AtomicU64::new(0),
                 })
-                .or_insert_with(|| RequestCount {
-                    count: AtomicU64::new(1),
-                });
+                .requests
+                .fetch_add(1, Ordering::SeqCst);
         }
     }
 
     pub fn observe_request_consumption(&self) {
-        self.request_consumption_since_last_report
-            .entry(MeteredGroup::default())
-            .and_modify(|e| {
-                e.count.fetch_add(1, Ordering::SeqCst);
-            })
-            .or_insert_with(|| RequestCount {
-                count: AtomicU64::new(1),
-            });
+        self.request_consumption_since_last_report.requests.fetch_add(1, Ordering::SeqCst);
     }
 
     pub fn observe(
@@ -489,6 +527,48 @@ impl EdgeInstanceData {
         }
         observed
     }
+
+    pub fn get_connection_consumption_data(&self) -> ConnectionConsumptionData {
+        let mut data = ConnectionConsumptionData::default();
+        
+        // Clone the data points with their current values
+        for entry in self.connection_consumption_since_last_report.features_map.iter() {
+            data.features_map.insert(
+                *entry.key(),
+                DataPoint {
+                    interval: *entry.key(),
+                    requests: AtomicU64::new(entry.value().requests.load(Ordering::Relaxed)),
+                },
+            );
+            data.features.push(DataPoint {
+                interval: *entry.key(),
+                requests: AtomicU64::new(entry.value().requests.load(Ordering::Relaxed)),
+            });
+        }
+
+        for entry in self.connection_consumption_since_last_report.metrics_map.iter() {
+            data.metrics_map.insert(
+                *entry.key(),
+                DataPoint {
+                    interval: *entry.key(),
+                    requests: AtomicU64::new(entry.value().requests.load(Ordering::Relaxed)),
+                },
+            );
+            data.metrics.push(DataPoint {
+                interval: *entry.key(),
+                requests: AtomicU64::new(entry.value().requests.load(Ordering::Relaxed)),
+            });
+        }
+
+        data
+    }
+
+    pub fn get_request_consumption_data(&self) -> Vec<RequestConsumptionData> {
+        vec![RequestConsumptionData {
+            metered_group: "default".to_string(),
+            requests: AtomicU64::new(self.request_consumption_since_last_report.requests.load(Ordering::Relaxed)),
+        }]
+    }
 }
 
 fn get_percentile(percentile: u64, count: u64, buckets: &[prometheus::proto::Bucket]) -> f64 {
@@ -518,7 +598,6 @@ fn round_to_3_decimals(number: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ahash::HashMapExt;
 
     #[test]
     pub fn can_find_p99_of_a_range() {
@@ -580,62 +659,57 @@ mod tests {
         instance.observe_request_consumption();
         instance.observe_request_consumption();
 
-        // Verify features endpoint metrics
+        // Verify features endpoint metrics in internal counters
         if let Some(features_map) = instance
-            .connection_consumption_since_last_report
-            .get(&ConnectionMetricsType::Features)
+            .connection_consumption_since_last_report.features.iter().find(|dp| dp.interval == [0, 15000])
         {
-            if let Some(default_group) = features_map.get(&MeteredGroup::default()) {
-                let mut bucket_counts = HashMap::new();
-                for bucket in default_group.iter() {
-                    bucket_counts
-                        .insert(*bucket.key(), bucket.value().count.load(Ordering::SeqCst));
-                }
-
-                assert_eq!(
-                    bucket_counts
-                        .get(&BucketRange::new(0, 15000))
-                        .copied()
-                        .unwrap_or(0),
-                    2
-                );
-            }
+            assert_eq!(features_map.requests.load(Ordering::Relaxed), 2);
         }
 
-        // Verify metrics endpoint metrics
+        // Verify metrics endpoint metrics in internal counters
         if let Some(metrics_map) = instance
-            .connection_consumption_since_last_report
-            .get(&ConnectionMetricsType::Metrics)
+            .connection_consumption_since_last_report.metrics.iter().find(|dp| dp.interval == [0, 60000])
         {
-            if let Some(default_group) = metrics_map.get(&MeteredGroup::default()) {
-                let mut bucket_counts = HashMap::new();
-                for bucket in default_group.iter() {
-                    bucket_counts
-                        .insert(*bucket.key(), bucket.value().count.load(Ordering::SeqCst));
-                }
-
-                assert_eq!(
-                    bucket_counts
-                        .get(&BucketRange::new(0, 60000))
-                        .copied()
-                        .unwrap_or(0),
-                    2
-                );
-            }
+            assert_eq!(metrics_map.requests.load(Ordering::Relaxed), 2);
         }
 
-        // Verify frontend consumption
-        let frontend_count = instance
-            .request_consumption_since_last_report
-            .get(&MeteredGroup::default())
-            .map(|c| c.count.load(Ordering::SeqCst))
-            .unwrap_or(0);
-        assert_eq!(frontend_count, 2);
+        // Verify frontend consumption in internal counters
+        assert_eq!(instance.request_consumption_since_last_report.requests.load(Ordering::Relaxed), 2);
+
+        // Verify serialized connection consumption data
+        let connection_data = instance.get_connection_consumption_data();
+        
+        // Verify features data points
+        assert_eq!(connection_data.features.len(), 1);
+        assert_eq!(connection_data.features[0].interval, [0, 15000]);
+        assert_eq!(connection_data.features[0].requests.load(Ordering::Relaxed), 2);
+
+        // Verify metrics data points
+        assert_eq!(connection_data.metrics.len(), 1);
+        assert_eq!(connection_data.metrics[0].interval, [0, 60000]);
+        assert_eq!(connection_data.metrics[0].requests.load(Ordering::Relaxed), 2);
+
+        // Verify serialized request consumption data
+        let request_data = instance.get_request_consumption_data();
+        assert_eq!(request_data.len(), 1);
+        assert_eq!(request_data[0].metered_group, "default");
+        assert_eq!(request_data[0].requests.load(Ordering::Relaxed), 2);
 
         // Verify clearing metrics
         instance.clear_time_windowed_metrics();
-        assert!(instance.connection_consumption_since_last_report.is_empty());
-        assert!(instance.request_consumption_since_last_report.is_empty());
+        assert!(instance.connection_consumption_since_last_report.features.is_empty());
+        assert!(instance.connection_consumption_since_last_report.metrics.is_empty());
+        assert_eq!(instance.request_consumption_since_last_report.requests.load(Ordering::Relaxed), 0);
+
+        // Verify cleared serialized data
+        let cleared_connection_data = instance.get_connection_consumption_data();
+        assert!(cleared_connection_data.features.is_empty());
+        assert!(cleared_connection_data.metrics.is_empty());
+
+        let cleared_request_data = instance.get_request_consumption_data();
+        assert_eq!(cleared_request_data.len(), 1);
+        assert_eq!(cleared_request_data[0].metered_group, "default");
+        assert_eq!(cleared_request_data[0].requests.load(Ordering::Relaxed), 0);
     }
 
     #[test]
