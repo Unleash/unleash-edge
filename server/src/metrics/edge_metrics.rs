@@ -345,13 +345,6 @@ impl EdgeInstanceData {
             .increment_requests();
     }
 
-    pub fn get_request_consumption_data(&self) -> Vec<RequestConsumptionData> {
-        vec![RequestConsumptionData {
-            metered_group: "default".to_string(),
-            requests: AtomicU64::new(self.request_consumption_since_last_report.get_requests()),
-        }]
-    }
-
     pub fn observe_request(&self, http_target: &str, status_code: u16) {
         match status_code {
             200 | 202 | 204 => {
@@ -626,10 +619,6 @@ impl EdgeInstanceData {
         }
         observed
     }
-
-    pub fn get_connection_consumption_data(&self) -> ConnectionConsumptionData {
-        self.connection_consumption_since_last_report.clone()
-    }
 }
 
 fn get_percentile(percentile: u64, count: u64, buckets: &[prometheus::proto::Bucket]) -> f64 {
@@ -714,24 +703,19 @@ mod tests {
         instance_data.observe_request_consumption();
         instance_data.observe_request_consumption();
 
-        // Get request consumption data and verify JSON structure
-        let request_data = instance_data.get_request_consumption_data();
-        let serialized_request = serde_json::to_value(&request_data[0]).unwrap();
+        // Verify request consumption through EdgeInstanceData serialization
+        let serialized = serde_json::to_value(&instance_data).unwrap();
         assert_eq!(
-            serialized_request,
+            serialized["requestConsumptionSinceLastReport"],
             serde_json::json!({
                 "meteredGroup": "default",
                 "requests": 4
             })
         );
 
-        // Get connection consumption data and verify JSON structure
-        let connection_data = instance_data.get_connection_consumption_data();
-        let serialized = serde_json::to_value(&connection_data).unwrap();
-
-        // Verify empty state JSON structure
+        // Verify connection consumption through EdgeInstanceData serialization
         assert_eq!(
-            serialized,
+            serialized["connectionConsumptionSinceLastReport"],
             serde_json::json!({
                 "features": [{
                     "meteredGroup": "default",
@@ -747,23 +731,18 @@ mod tests {
         // Clear metrics
         instance_data.clear_time_windowed_metrics();
 
-        // Verify cleared data
-        let cleared_request_data = instance_data.get_request_consumption_data();
-        let serialized_cleared_request = serde_json::to_value(&cleared_request_data[0]).unwrap();
+        // Verify cleared data through EdgeInstanceData serialization
+        let serialized_cleared = serde_json::to_value(&instance_data).unwrap();
         assert_eq!(
-            serialized_cleared_request,
+            serialized_cleared["requestConsumptionSinceLastReport"],
             serde_json::json!({
                 "meteredGroup": "default",
                 "requests": 0
             })
         );
 
-        let cleared_connection_data = instance_data.get_connection_consumption_data();
-        let serialized = serde_json::to_value(&cleared_connection_data).unwrap();
-
-        // Verify cleared state JSON structure
         assert_eq!(
-            serialized,
+            serialized_cleared["connectionConsumptionSinceLastReport"],
             serde_json::json!({
                 "features": [{
                     "meteredGroup": "default",
@@ -791,42 +770,37 @@ mod tests {
         instance_data.observe_connection_consumption("/api/client/metrics", Some(0));
         instance_data.observe_connection_consumption("/api/client/metrics", Some(60001));
 
-        // Get connection consumption data and verify JSON structure
-        let connection_data = instance_data.get_connection_consumption_data();
-        let serialized = serde_json::to_value(&connection_data).unwrap();
+        // Verify connection consumption through EdgeInstanceData serialization
+        let serialized = serde_json::to_value(&instance_data).unwrap();
+        let connection_data = &serialized["connectionConsumptionSinceLastReport"];
 
-        // Verify JSON structure with data points
-        assert_eq!(
-            serialized,
-            serde_json::json!({
-                "features": [{
-                    "meteredGroup": "default",
-                    "dataPoints": [
-                        {
-                            "interval": [0, 15000],
-                            "requests": 2
-                        },
-                        {
-                            "interval": [15000, 20000],
-                            "requests": 1
-                        }
-                    ]
-                }],
-                "metrics": [{
-                    "meteredGroup": "default",
-                    "dataPoints": [
-                        {
-                            "interval": [0, 60000],
-                            "requests": 2
-                        },
-                        {
-                            "interval": [60000, 120000],
-                            "requests": 1
-                        }
-                    ]
-                }]
-            })
-        );
+        // Verify features data points
+        let features = &connection_data["features"][0];
+        assert_eq!(features["meteredGroup"], "default");
+        let features_data_points = features["dataPoints"].as_array().unwrap();
+        assert_eq!(features_data_points.len(), 2);
+        assert!(features_data_points.iter().any(|point| {
+            point["interval"] == serde_json::json!([0, 15000]) && point["requests"] == 2
+        }));
+        assert!(features_data_points.iter().any(|point| {
+            point["interval"] == serde_json::json!([15000, 20000]) && point["requests"] == 1
+        }));
+
+        // Verify metrics data points
+        let metrics = &connection_data["metrics"][0];
+        assert_eq!(metrics, &serde_json::json!({
+            "meteredGroup": "default",
+            "dataPoints": [
+                {
+                    "interval": [0, 60000],
+                    "requests": 2
+                },
+                {
+                    "interval": [60000, 120000], 
+                    "requests": 1
+                }
+            ]
+        }));
     }
 
     #[test]
