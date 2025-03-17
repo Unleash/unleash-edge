@@ -66,6 +66,71 @@ impl Clone for RequestStats {
     }
 }
 
+#[derive(Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RequestCount {
+    pub count: AtomicU64,
+}
+
+impl Clone for RequestCount {
+    fn clone(&self) -> Self {
+        Self {
+            count: AtomicU64::new(self.count.load(Ordering::Relaxed)),
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone, Deserialize, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct DataPoint {
+    pub interval: [u64; 2],
+    pub requests: u64,
+}
+
+#[derive(Debug, Default, Clone, Deserialize, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ConsumptionMetrics {
+    pub metered_group: String,
+    pub data_points: Vec<DataPoint>,
+}
+
+#[derive(Debug, Default, Clone, Deserialize, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct BackendConsumption {
+    pub features: Vec<ConsumptionMetrics>,
+    pub metrics: Vec<ConsumptionMetrics>,
+}
+
+#[derive(Debug, Default, Clone, Deserialize, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct FrontendConsumption {
+    pub features: u64,
+    pub metrics: u64,
+    pub metered_group: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, Hash, Eq, PartialEq)]
+pub enum MetricsType {
+    Features,
+    Metrics,
+}
+
+impl MetricsType {
+    fn from_endpoint(endpoint: &str) -> Option<Self> {
+        match endpoint {
+            "/api/client/features" | "/api/client/delta" => Some(Self::Features),
+            "/api/client/metrics" => Some(Self::Metrics),
+            _ => None,
+        }
+    }
+}
+
+type MeteredGroup = String; // "default" or other group names
+type Bucket = [u64; 2]; // interval bucket [start, end]
+type BackendConsumptionMetrics =
+    DashMap<MetricsType, DashMap<MeteredGroup, DashMap<Bucket, RequestCount>>>;
+type FrontendConsumptionMetrics = DashMap<MeteredGroup, RequestCount>;
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EdgeInstanceData {
@@ -80,6 +145,8 @@ pub struct EdgeInstanceData {
     pub requests_since_last_report: DashMap<String, RequestStats>,
     pub connected_streaming_clients: u64,
     pub connected_edges: Vec<EdgeInstanceData>,
+    pub backend_consumption_since_last_report: BackendConsumptionMetrics,
+    pub frontend_consumption_since_last_report: FrontendConsumptionMetrics,
 }
 
 impl EdgeInstanceData {
@@ -97,7 +164,15 @@ impl EdgeInstanceData {
             connected_edges: vec![],
             connected_streaming_clients: 0,
             requests_since_last_report: DashMap::default(),
+            backend_consumption_since_last_report: DashMap::default(),
+            frontend_consumption_since_last_report: DashMap::default(),
         }
+    }
+
+    pub fn clear_time_windowed_metrics(&self) {
+        self.requests_since_last_report.clear();
+        self.backend_consumption_since_last_report.clear();
+        self.frontend_consumption_since_last_report.clear();
     }
 
     pub fn observe_request(&self, http_target: &str, status_code: u16) {
@@ -118,6 +193,47 @@ impl EdgeInstanceData {
             }
             _ => {}
         }
+    }
+
+    pub fn get_interval_bucket(interval_ms: u64) -> [u64; 2] {
+        if interval_ms <= 15000 {
+            [0, 15000]
+        } else if interval_ms > 3600000 {
+            // > 1 hour
+            [3600000, u64::MAX]
+        } else {
+            let bucket_start = ((interval_ms - 15000) / 5000) * 5000 + 15000;
+            [bucket_start, bucket_start + 5000]
+        }
+    }
+
+    pub fn observe_backend_request(&mut self, endpoint: &str, interval: u64) {
+        let bucket = Self::get_interval_bucket(interval);
+        if let Some(metrics_type) = MetricsType::from_endpoint(endpoint) {
+            self.backend_consumption_since_last_report
+                .entry(metrics_type)
+                .or_default()
+                .entry("default".to_string())
+                .or_default()
+                .entry(bucket)
+                .and_modify(|e| {
+                    e.count.fetch_add(1, Ordering::SeqCst);
+                })
+                .or_insert_with(|| RequestCount {
+                    count: AtomicU64::new(1),
+                });
+        }
+    }
+
+    pub fn observe_frontend_request(&mut self, endpoint: &str) {
+        self.frontend_consumption_since_last_report
+            .entry("default".to_string())
+            .and_modify(|e| {
+                e.count.fetch_add(1, Ordering::SeqCst);
+            })
+            .or_insert_with(|| RequestCount {
+                count: AtomicU64::new(1),
+            });
     }
 
     pub fn observe(
@@ -330,6 +446,7 @@ fn round_to_3_decimals(number: f64) -> f64 {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
 
     #[test]
     pub fn can_find_p99_of_a_range() {
@@ -373,5 +490,56 @@ mod tests {
         let buckets = vec![one_ms, five_ms, ten_ms, twenty_ms, fifty_ms];
         let result = super::get_percentile(50, 5000, &buckets);
         assert_eq!(result, 7.5);
+    }
+
+    #[test]
+    pub fn can_observe_and_clear_consumption_metrics() {
+        let mut instance = EdgeInstanceData::new("test-app");
+
+        instance.observe_backend_request("/api/client/features", 1000); // maps to [0, 15000]
+        instance.observe_backend_request("/api/client/features", 20000); // maps to [20000, 25000]
+        instance.observe_backend_request("/api/client/metrics", 25000); // maps to [25000, 30000]
+
+        instance.observe_frontend_request("/api/frontend");
+        instance.observe_frontend_request("/api/frontend/client/metrics");
+
+        let mut features_count = 0;
+        let mut metrics_count = 0;
+
+        if let Some(features_map) = instance
+            .backend_consumption_since_last_report
+            .get(&MetricsType::Features)
+        {
+            if let Some(default_group) = features_map.get("default") {
+                for bucket in default_group.iter() {
+                    features_count += bucket.value().count.load(Ordering::SeqCst);
+                }
+            }
+        }
+
+        if let Some(metrics_map) = instance
+            .backend_consumption_since_last_report
+            .get(&MetricsType::Metrics)
+        {
+            if let Some(default_group) = metrics_map.get("default") {
+                for bucket in default_group.iter() {
+                    metrics_count += bucket.value().count.load(Ordering::SeqCst);
+                }
+            }
+        }
+
+        assert_eq!(features_count, 2);
+        assert_eq!(metrics_count, 1);
+
+        let frontend_count = instance
+            .frontend_consumption_since_last_report
+            .get("default")
+            .map(|c| c.count.load(Ordering::SeqCst))
+            .unwrap_or(0);
+        assert_eq!(frontend_count, 2);
+
+        instance.clear_time_windowed_metrics();
+        assert!(instance.backend_consumption_since_last_report.is_empty());
+        assert!(instance.frontend_consumption_since_last_report.is_empty());
     }
 }
