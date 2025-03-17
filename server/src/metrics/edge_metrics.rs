@@ -104,12 +104,12 @@ pub struct ConsumptionMetrics {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Hash, Eq, PartialEq)]
-pub enum MetricsType {
+pub enum ConnectionMetricsType {
     Features,
     Metrics,
 }
 
-impl MetricsType {
+impl ConnectionMetricsType {
     fn from_endpoint(endpoint: &str) -> Option<Self> {
         if endpoint.contains("/features") || endpoint.contains("/delta") {
             Some(Self::Features)
@@ -121,10 +121,56 @@ impl MetricsType {
     }
 }
 
-type MeteredGroup = String; // "default" or other group names
-type Bucket = [u64; 2]; // interval bucket [start, end]
+// Constants for bucket calculations
+const DEFAULT_METRICS_INTERVAL: u64 = 60000;
+const DEFAULT_FEATURES_INTERVAL: u64 = 15000;
+const BUCKET_SIZE_METRICS: u64 = 60000;
+const BUCKET_SIZE_FEATURES: u64 = 5000;
+const MAX_BUCKET_INTERVAL: u64 = 3600000;
+
+/// Represents a bucket range for metrics collection.
+/// The range is inclusive on both ends.
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Deserialize, Serialize)]
+pub struct BucketRange {
+    start: u64,
+    end: u64,
+}
+
+impl BucketRange {
+    pub fn new(start: u64, end: u64) -> Self {
+        assert!(
+            start <= end,
+            "Bucket start must be less than or equal to end"
+        );
+        Self { start, end }
+    }
+
+    pub fn as_array(&self) -> [u64; 2] {
+        [self.start, self.end]
+    }
+
+    pub fn from_array(arr: [u64; 2]) -> Self {
+        Self::new(arr[0], arr[1])
+    }
+}
+
+/// Represents a metered group for consumption metrics.
+/// Currently only supports "default" but can be extended for future use.
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Deserialize, Serialize)]
+pub struct MeteredGroup(String);
+
+impl MeteredGroup {
+    pub fn default() -> Self {
+        Self("default".to_string())
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
 type BackendConsumptionMetrics =
-    DashMap<MetricsType, DashMap<MeteredGroup, DashMap<Bucket, RequestCount>>>;
+    DashMap<ConnectionMetricsType, DashMap<MeteredGroup, DashMap<BucketRange, RequestCount>>>;
 type FrontendConsumptionMetrics = DashMap<MeteredGroup, RequestCount>;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -191,41 +237,45 @@ impl EdgeInstanceData {
         }
     }
 
-    pub fn get_interval_bucket(endpoint: &str, interval_ms: Option<u64>) -> [u64; 2] {
+    pub fn get_interval_bucket(endpoint: &str, interval_ms: Option<u64>) -> BucketRange {
+        if endpoint.is_empty() {
+            return BucketRange::new(0, DEFAULT_FEATURES_INTERVAL);
+        }
+
         let interval = interval_ms.unwrap_or(if endpoint.ends_with("/metrics") {
-            60000
+            DEFAULT_METRICS_INTERVAL
         } else {
-            15000
+            DEFAULT_FEATURES_INTERVAL
         });
 
-        if interval > 3600000 {
-            return [3600000, u64::MAX];
+        if interval > MAX_BUCKET_INTERVAL {
+            return BucketRange::new(MAX_BUCKET_INTERVAL, u64::MAX);
         }
 
         if endpoint.ends_with("/metrics") {
-            if interval <= 60000 {
-                [0, 60000]
+            if interval <= DEFAULT_METRICS_INTERVAL {
+                BucketRange::new(0, DEFAULT_METRICS_INTERVAL)
             } else {
-                let bucket_size = 60000;
-                let bucket_start = (interval / bucket_size) * bucket_size;
-                [bucket_start, bucket_start + bucket_size]
+                let bucket_start = (interval / BUCKET_SIZE_METRICS) * BUCKET_SIZE_METRICS;
+                BucketRange::new(bucket_start, bucket_start + BUCKET_SIZE_METRICS)
             }
-        } else if interval <= 15000 {
-            [0, 15000]
+        } else if interval <= DEFAULT_FEATURES_INTERVAL {
+            BucketRange::new(0, DEFAULT_FEATURES_INTERVAL)
         } else {
-            let bucket_size = 5000;
-            let bucket_start = ((interval - 15000) / bucket_size) * bucket_size + 15000;
-            [bucket_start, bucket_start + bucket_size]
+            let bucket_start = ((interval - DEFAULT_FEATURES_INTERVAL) / BUCKET_SIZE_FEATURES)
+                * BUCKET_SIZE_FEATURES
+                + DEFAULT_FEATURES_INTERVAL;
+            BucketRange::new(bucket_start, bucket_start + BUCKET_SIZE_FEATURES)
         }
     }
 
     pub fn observe_connection_consumption(&self, endpoint: &str, interval: Option<u64>) {
         let bucket = Self::get_interval_bucket(endpoint, interval);
-        if let Some(metrics_type) = MetricsType::from_endpoint(endpoint) {
+        if let Some(metrics_type) = ConnectionMetricsType::from_endpoint(endpoint) {
             self.connection_consumption_since_last_report
                 .entry(metrics_type)
                 .or_default()
-                .entry("default".to_string())
+                .entry(MeteredGroup::default())
                 .or_default()
                 .entry(bucket)
                 .and_modify(|e| {
@@ -239,7 +289,7 @@ impl EdgeInstanceData {
 
     pub fn observe_request_consumption(&self) {
         self.request_consumption_since_last_report
-            .entry("default".to_string())
+            .entry(MeteredGroup::default())
             .and_modify(|e| {
                 e.count.fetch_add(1, Ordering::SeqCst);
             })
@@ -524,39 +574,51 @@ mod tests {
         // Verify features endpoint metrics
         if let Some(features_map) = instance
             .connection_consumption_since_last_report
-            .get(&MetricsType::Features)
+            .get(&ConnectionMetricsType::Features)
         {
-            if let Some(default_group) = features_map.get("default") {
+            if let Some(default_group) = features_map.get(&MeteredGroup::default()) {
                 let mut bucket_counts = HashMap::new();
                 for bucket in default_group.iter() {
                     bucket_counts
                         .insert(*bucket.key(), bucket.value().count.load(Ordering::SeqCst));
                 }
 
-                assert_eq!(bucket_counts.get(&[0, 15000]).copied().unwrap_or(0), 2);
+                assert_eq!(
+                    bucket_counts
+                        .get(&BucketRange::new(0, 15000))
+                        .copied()
+                        .unwrap_or(0),
+                    2
+                );
             }
         }
 
         // Verify metrics endpoint metrics
         if let Some(metrics_map) = instance
             .connection_consumption_since_last_report
-            .get(&MetricsType::Metrics)
+            .get(&ConnectionMetricsType::Metrics)
         {
-            if let Some(default_group) = metrics_map.get("default") {
+            if let Some(default_group) = metrics_map.get(&MeteredGroup::default()) {
                 let mut bucket_counts = HashMap::new();
                 for bucket in default_group.iter() {
                     bucket_counts
                         .insert(*bucket.key(), bucket.value().count.load(Ordering::SeqCst));
                 }
 
-                assert_eq!(bucket_counts.get(&[0, 60000]).copied().unwrap_or(0), 2);
+                assert_eq!(
+                    bucket_counts
+                        .get(&BucketRange::new(0, 60000))
+                        .copied()
+                        .unwrap_or(0),
+                    2
+                );
             }
         }
 
         // Verify frontend consumption
         let frontend_count = instance
             .request_consumption_since_last_report
-            .get("default")
+            .get(&MeteredGroup::default())
             .map(|c| c.count.load(Ordering::SeqCst))
             .unwrap_or(0);
         assert_eq!(frontend_count, 2);
@@ -572,96 +634,99 @@ mod tests {
         // Test features endpoint bucket boundaries
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/features", None),
-            [0, 15000]
+            BucketRange::new(0, 15000)
         );
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/features", Some(0)),
-            [0, 15000]
+            BucketRange::new(0, 15000)
         );
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/features", Some(14999)),
-            [0, 15000]
+            BucketRange::new(0, 15000)
         );
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/features", Some(15000)),
-            [0, 15000]
+            BucketRange::new(0, 15000)
         );
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/features", Some(15001)),
-            [15000, 20000]
+            BucketRange::new(15000, 20000)
         );
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/features", Some(19999)),
-            [15000, 20000]
+            BucketRange::new(15000, 20000)
         );
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/features", Some(20000)),
-            [20000, 25000]
+            BucketRange::new(20000, 25000)
         );
 
         // Test metrics endpoint bucket boundaries
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/metrics", None),
-            [0, 60000]
+            BucketRange::new(0, 60000)
         );
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/metrics", Some(0)),
-            [0, 60000]
+            BucketRange::new(0, 60000)
         );
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/metrics", Some(59999)),
-            [0, 60000]
+            BucketRange::new(0, 60000)
         );
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/metrics", Some(60000)),
-            [0, 60000]
+            BucketRange::new(0, 60000)
         );
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/metrics", Some(60001)),
-            [60000, 120000]
+            BucketRange::new(60000, 120000)
         );
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/metrics", Some(119999)),
-            [60000, 120000]
+            BucketRange::new(60000, 120000)
         );
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/metrics", Some(120000)),
-            [120000, 180000]
+            BucketRange::new(120000, 180000)
         );
 
         // Test maximum bucket
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/features", Some(3600001)),
-            [3600000, u64::MAX]
+            BucketRange::new(3600000, u64::MAX)
         );
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/metrics", Some(3600001)),
-            [3600000, u64::MAX]
+            BucketRange::new(3600000, u64::MAX)
         );
     }
 
     #[test]
     fn test_endpoint_matching() {
         assert_eq!(
-            MetricsType::from_endpoint("/api/client/features"),
-            Some(MetricsType::Features)
+            ConnectionMetricsType::from_endpoint("/api/client/features"),
+            Some(ConnectionMetricsType::Features)
         );
         assert_eq!(
-            MetricsType::from_endpoint("/api/client/delta"),
-            Some(MetricsType::Features)
+            ConnectionMetricsType::from_endpoint("/api/client/delta"),
+            Some(ConnectionMetricsType::Features)
         );
         assert_eq!(
-            MetricsType::from_endpoint("/api/client/metrics"),
-            Some(MetricsType::Metrics)
+            ConnectionMetricsType::from_endpoint("/api/client/metrics"),
+            Some(ConnectionMetricsType::Metrics)
         );
         assert_eq!(
-            MetricsType::from_endpoint("/api/client/metrics/bulk"),
-            Some(MetricsType::Metrics)
+            ConnectionMetricsType::from_endpoint("/api/client/metrics/bulk"),
+            Some(ConnectionMetricsType::Metrics)
         );
         assert_eq!(
-            MetricsType::from_endpoint("/api/client/metrics/edge"),
-            Some(MetricsType::Metrics)
+            ConnectionMetricsType::from_endpoint("/api/client/metrics/edge"),
+            Some(ConnectionMetricsType::Metrics)
         );
-        assert_eq!(MetricsType::from_endpoint("/api/client/other"), None);
+        assert_eq!(
+            ConnectionMetricsType::from_endpoint("/api/client/other"),
+            None
+        );
     }
 }
