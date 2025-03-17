@@ -210,14 +210,12 @@ impl EdgeInstanceData {
                 let bucket_start = (interval / bucket_size) * bucket_size;
                 [bucket_start, bucket_start + bucket_size]
             }
+        } else if interval <= 15000 {
+            [0, 15000]
         } else {
-            if interval <= 15000 {
-                [0, 15000]
-            } else {
-                let bucket_size = 5000;
-                let bucket_start = ((interval - 15000) / bucket_size) * bucket_size + 15000;
-                [bucket_start, bucket_start + bucket_size]
-            }
+            let bucket_size = 5000;
+            let bucket_start = ((interval - 15000) / bucket_size) * bucket_size + 15000;
+            [bucket_start, bucket_start + bucket_size]
         }
     }
 
@@ -572,35 +570,98 @@ mod tests {
     #[test]
     fn test_bucket_boundaries() {
         // Test features endpoint bucket boundaries
-        assert_eq!(EdgeInstanceData::get_interval_bucket("/api/client/features", None), [0, 15000]);
-        assert_eq!(EdgeInstanceData::get_interval_bucket("/api/client/features", Some(0)), [0, 15000]);
-        assert_eq!(EdgeInstanceData::get_interval_bucket("/api/client/features", Some(14999)), [0, 15000]);
-        assert_eq!(EdgeInstanceData::get_interval_bucket("/api/client/features", Some(15000)), [0, 15000]);
-        assert_eq!(EdgeInstanceData::get_interval_bucket("/api/client/features", Some(15001)), [15000, 20000]);
-        assert_eq!(EdgeInstanceData::get_interval_bucket("/api/client/features", Some(19999)), [15000, 20000]);
-        assert_eq!(EdgeInstanceData::get_interval_bucket("/api/client/features", Some(20000)), [20000, 25000]);
+        assert_eq!(
+            EdgeInstanceData::get_interval_bucket("/api/client/features", None),
+            [0, 15000]
+        );
+        assert_eq!(
+            EdgeInstanceData::get_interval_bucket("/api/client/features", Some(0)),
+            [0, 15000]
+        );
+        assert_eq!(
+            EdgeInstanceData::get_interval_bucket("/api/client/features", Some(14999)),
+            [0, 15000]
+        );
+        assert_eq!(
+            EdgeInstanceData::get_interval_bucket("/api/client/features", Some(15000)),
+            [0, 15000]
+        );
+        assert_eq!(
+            EdgeInstanceData::get_interval_bucket("/api/client/features", Some(15001)),
+            [15000, 20000]
+        );
+        assert_eq!(
+            EdgeInstanceData::get_interval_bucket("/api/client/features", Some(19999)),
+            [15000, 20000]
+        );
+        assert_eq!(
+            EdgeInstanceData::get_interval_bucket("/api/client/features", Some(20000)),
+            [20000, 25000]
+        );
 
         // Test metrics endpoint bucket boundaries
-        assert_eq!(EdgeInstanceData::get_interval_bucket("/api/client/metrics", None), [0, 60000]);
-        assert_eq!(EdgeInstanceData::get_interval_bucket("/api/client/metrics", Some(0)), [0, 60000]);
-        assert_eq!(EdgeInstanceData::get_interval_bucket("/api/client/metrics", Some(59999)), [0, 60000]);
-        assert_eq!(EdgeInstanceData::get_interval_bucket("/api/client/metrics", Some(60000)), [0, 60000]);
-        assert_eq!(EdgeInstanceData::get_interval_bucket("/api/client/metrics", Some(60001)), [60000, 120000]);
-        assert_eq!(EdgeInstanceData::get_interval_bucket("/api/client/metrics", Some(119999)), [60000, 120000]);
-        assert_eq!(EdgeInstanceData::get_interval_bucket("/api/client/metrics", Some(120000)), [120000, 180000]);
+        assert_eq!(
+            EdgeInstanceData::get_interval_bucket("/api/client/metrics", None),
+            [0, 60000]
+        );
+        assert_eq!(
+            EdgeInstanceData::get_interval_bucket("/api/client/metrics", Some(0)),
+            [0, 60000]
+        );
+        assert_eq!(
+            EdgeInstanceData::get_interval_bucket("/api/client/metrics", Some(59999)),
+            [0, 60000]
+        );
+        assert_eq!(
+            EdgeInstanceData::get_interval_bucket("/api/client/metrics", Some(60000)),
+            [0, 60000]
+        );
+        assert_eq!(
+            EdgeInstanceData::get_interval_bucket("/api/client/metrics", Some(60001)),
+            [60000, 120000]
+        );
+        assert_eq!(
+            EdgeInstanceData::get_interval_bucket("/api/client/metrics", Some(119999)),
+            [60000, 120000]
+        );
+        assert_eq!(
+            EdgeInstanceData::get_interval_bucket("/api/client/metrics", Some(120000)),
+            [120000, 180000]
+        );
 
         // Test maximum bucket
-        assert_eq!(EdgeInstanceData::get_interval_bucket("/api/client/features", Some(3600001)), [3600000, u64::MAX]);
-        assert_eq!(EdgeInstanceData::get_interval_bucket("/api/client/metrics", Some(3600001)), [3600000, u64::MAX]);
+        assert_eq!(
+            EdgeInstanceData::get_interval_bucket("/api/client/features", Some(3600001)),
+            [3600000, u64::MAX]
+        );
+        assert_eq!(
+            EdgeInstanceData::get_interval_bucket("/api/client/metrics", Some(3600001)),
+            [3600000, u64::MAX]
+        );
     }
 
     #[test]
     fn test_endpoint_matching() {
-        assert_eq!(MetricsType::from_endpoint("/api/client/features"), Some(MetricsType::Features));
-        assert_eq!(MetricsType::from_endpoint("/api/client/delta"), Some(MetricsType::Features));
-        assert_eq!(MetricsType::from_endpoint("/api/client/metrics"), Some(MetricsType::Metrics));
-        assert_eq!(MetricsType::from_endpoint("/api/client/metrics/bulk"), Some(MetricsType::Metrics));
-        assert_eq!(MetricsType::from_endpoint("/api/client/metrics/edge"), Some(MetricsType::Metrics));
+        assert_eq!(
+            MetricsType::from_endpoint("/api/client/features"),
+            Some(MetricsType::Features)
+        );
+        assert_eq!(
+            MetricsType::from_endpoint("/api/client/delta"),
+            Some(MetricsType::Features)
+        );
+        assert_eq!(
+            MetricsType::from_endpoint("/api/client/metrics"),
+            Some(MetricsType::Metrics)
+        );
+        assert_eq!(
+            MetricsType::from_endpoint("/api/client/metrics/bulk"),
+            Some(MetricsType::Metrics)
+        );
+        assert_eq!(
+            MetricsType::from_endpoint("/api/client/metrics/edge"),
+            Some(MetricsType::Metrics)
+        );
         assert_eq!(MetricsType::from_endpoint("/api/client/other"), None);
     }
 }
