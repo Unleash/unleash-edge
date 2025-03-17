@@ -684,7 +684,7 @@ fn scope_with_auth(
             crate::middleware::validate_token::validate_token,
         ))
         .wrap(crate::middleware::as_async_middleware::as_async_middleware(
-            crate::middleware::consumption::frontend_consumption,
+            crate::middleware::consumption::request_consumption,
         ))
 }
 

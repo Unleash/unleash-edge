@@ -5,7 +5,7 @@ use actix_web::dev::{ServiceRequest, ServiceResponse};
 use actix_web::web::Data;
 use tracing::debug;
 
-pub async fn backend_consumption(
+pub async fn connection_consumption(
     req: ServiceRequest,
     srv: crate::middleware::as_async_middleware::Next<impl MessageBody + 'static>,
 ) -> Result<ServiceResponse<impl MessageBody>, actix_web::Error> {
@@ -36,7 +36,7 @@ pub async fn backend_consumption(
     srv.call(req).await
 }
 
-pub async fn frontend_consumption(
+pub async fn request_consumption(
     req: ServiceRequest,
     srv: crate::middleware::as_async_middleware::Next<impl MessageBody + 'static>,
 ) -> Result<ServiceResponse<impl MessageBody>, actix_web::Error> {
@@ -63,7 +63,7 @@ mod tests {
         let app = test::init_service(
             App::new()
                 .app_data(Data::new(instance_data.clone()))
-                .wrap(as_async_middleware(backend_consumption))
+                .wrap(as_async_middleware(connection_consumption))
                 .route(
                     "/api/client/features",
                     actix_web::web::get().to(|| async { HttpResponse::Ok() }),
@@ -84,7 +84,7 @@ mod tests {
         let app = test::init_service(
             App::new()
                 .app_data(Data::new(instance_data.clone()))
-                .wrap(as_async_middleware(frontend_consumption))
+                .wrap(as_async_middleware(request_consumption))
                 .route(
                     "/api/frontend/features",
                     actix_web::web::get().to(|| async { HttpResponse::Ok() }),
