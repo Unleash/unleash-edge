@@ -82,12 +82,12 @@ impl Clone for RequestCount {
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DataPoint {
+pub struct IntervalRequestCount {
     pub interval: [u64; 2],
     pub requests: RequestCount,
 }
 
-impl Clone for DataPoint {
+impl Clone for IntervalRequestCount {
     fn clone(&self) -> Self {
         Self {
             interval: self.interval,
@@ -100,7 +100,7 @@ impl Clone for DataPoint {
 #[serde(rename_all = "camelCase")]
 pub struct ConsumptionMetrics {
     pub metered_group: String,
-    pub data_points: Vec<DataPoint>,
+    pub data_points: Vec<IntervalRequestCount>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Hash, Eq, PartialEq)]
