@@ -128,8 +128,6 @@ const BUCKET_SIZE_METRICS: u64 = 60000;
 const BUCKET_SIZE_FEATURES: u64 = 5000;
 const MAX_BUCKET_INTERVAL: u64 = 3600000;
 
-/// Represents a bucket range for metrics collection.
-/// The range is inclusive on both ends.
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Deserialize, Serialize)]
 pub struct BucketRange {
     start: u64,
