@@ -139,8 +139,8 @@ pub struct EdgeInstanceData {
     pub requests_since_last_report: DashMap<String, RequestStats>,
     pub connected_streaming_clients: u64,
     pub connected_edges: Vec<EdgeInstanceData>,
-    pub backend_consumption_since_last_report: BackendConsumptionMetrics,
-    pub frontend_consumption_since_last_report: FrontendConsumptionMetrics,
+    pub connection_consumption_since_last_report: BackendConsumptionMetrics,
+    pub request_consumption_since_last_report: FrontendConsumptionMetrics,
 }
 
 impl EdgeInstanceData {
@@ -158,15 +158,15 @@ impl EdgeInstanceData {
             connected_edges: vec![],
             connected_streaming_clients: 0,
             requests_since_last_report: DashMap::default(),
-            backend_consumption_since_last_report: DashMap::default(),
-            frontend_consumption_since_last_report: DashMap::default(),
+            connection_consumption_since_last_report: DashMap::default(),
+            request_consumption_since_last_report: DashMap::default(),
         }
     }
 
     pub fn clear_time_windowed_metrics(&self) {
         self.requests_since_last_report.clear();
-        self.backend_consumption_since_last_report.clear();
-        self.frontend_consumption_since_last_report.clear();
+        self.connection_consumption_since_last_report.clear();
+        self.request_consumption_since_last_report.clear();
     }
 
     pub fn observe_request(&self, http_target: &str, status_code: u16) {
@@ -201,10 +201,10 @@ impl EdgeInstanceData {
         }
     }
 
-    pub fn observe_backend_request(&mut self, endpoint: &str, interval: u64) {
+    pub fn observe_connection_consumption(&mut self, endpoint: &str, interval: u64) {
         let bucket = Self::get_interval_bucket(interval);
         if let Some(metrics_type) = MetricsType::from_endpoint(endpoint) {
-            self.backend_consumption_since_last_report
+            self.connection_consumption_since_last_report
                 .entry(metrics_type)
                 .or_default()
                 .entry("default".to_string())
@@ -219,8 +219,8 @@ impl EdgeInstanceData {
         }
     }
 
-    pub fn observe_frontend_request(&mut self) {
-        self.frontend_consumption_since_last_report
+    pub fn observe_request_consumption(&mut self) {
+        self.request_consumption_since_last_report
             .entry("default".to_string())
             .and_modify(|e| {
                 e.count.fetch_add(1, Ordering::SeqCst);
@@ -490,18 +490,18 @@ mod tests {
     pub fn can_observe_and_clear_consumption_metrics() {
         let mut instance = EdgeInstanceData::new("test-app");
 
-        instance.observe_backend_request("/api/client/features", 1000); // maps to [0, 15000]
-        instance.observe_backend_request("/api/client/features", 20000); // maps to [20000, 25000]
-        instance.observe_backend_request("/api/client/metrics", 25000); // maps to [25000, 30000]
+        instance.observe_connection_consumption("/api/client/features", 1000); // maps to [0, 15000]
+        instance.observe_connection_consumption("/api/client/features", 20000); // maps to [20000, 25000]
+        instance.observe_connection_consumption("/api/client/metrics", 25000); // maps to [25000, 30000]
 
-        instance.observe_frontend_request();
-        instance.observe_frontend_request();
+        instance.observe_request_consumption();
+        instance.observe_request_consumption();
 
         let mut features_count = 0;
         let mut metrics_count = 0;
 
         if let Some(features_map) = instance
-            .backend_consumption_since_last_report
+            .connection_consumption_since_last_report
             .get(&MetricsType::Features)
         {
             if let Some(default_group) = features_map.get("default") {
@@ -512,7 +512,7 @@ mod tests {
         }
 
         if let Some(metrics_map) = instance
-            .backend_consumption_since_last_report
+            .connection_consumption_since_last_report
             .get(&MetricsType::Metrics)
         {
             if let Some(default_group) = metrics_map.get("default") {
@@ -526,14 +526,14 @@ mod tests {
         assert_eq!(metrics_count, 1);
 
         let frontend_count = instance
-            .frontend_consumption_since_last_report
+            .request_consumption_since_last_report
             .get("default")
             .map(|c| c.count.load(Ordering::SeqCst))
             .unwrap_or(0);
         assert_eq!(frontend_count, 2);
 
         instance.clear_time_windowed_metrics();
-        assert!(instance.backend_consumption_since_last_report.is_empty());
-        assert!(instance.frontend_consumption_since_last_report.is_empty());
+        assert!(instance.connection_consumption_since_last_report.is_empty());
+        assert!(instance.request_consumption_since_last_report.is_empty());
     }
 }

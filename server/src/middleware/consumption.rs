@@ -25,7 +25,7 @@ pub async fn backend_consumption(
                 } else {
                     15000
                 });
-            data.observe_backend_request(req.path(), interval);
+            data.observe_connection_consumption(req.path(), interval);
             debug!(
                 "Observed backend request for path: {} with interval: {}",
                 req.path(),
@@ -43,7 +43,7 @@ pub async fn frontend_consumption(
     if req.path().starts_with("/api/frontend") {
         if let Some(instance_data) = req.app_data::<Data<EdgeInstanceData>>() {
             let mut data = instance_data.get_ref().clone();
-            data.observe_frontend_request();
+            data.observe_request_consumption();
             debug!("Observed frontend request for path: {}", req.path());
         }
     }
