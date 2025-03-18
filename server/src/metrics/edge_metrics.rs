@@ -112,30 +112,6 @@ const BUCKET_SIZE_METRICS: u64 = 60000;
 const BUCKET_SIZE_FEATURES: u64 = 5000;
 const MAX_BUCKET_INTERVAL: u64 = 3600000;
 
-#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Deserialize, Serialize)]
-pub struct BucketRange {
-    start: u64,
-    end: u64,
-}
-
-impl BucketRange {
-    pub fn new(start: u64, end: u64) -> Self {
-        assert!(
-            start <= end,
-            "Bucket start must be less than or equal to end"
-        );
-        Self { start, end }
-    }
-
-    pub fn as_array(&self) -> [u64; 2] {
-        [self.start, self.end]
-    }
-
-    pub fn from_array(arr: [u64; 2]) -> Self {
-        Self::new(arr[0], arr[1])
-    }
-}
-
 #[derive(Debug, Default)]
 pub struct ConnectionConsumptionData {
     features_map: DashMap<[u64; 2], DataPoint>,
@@ -386,9 +362,9 @@ impl EdgeInstanceData {
         }
     }
 
-    pub fn get_interval_bucket(endpoint: &str, interval_ms: Option<u64>) -> BucketRange {
+    pub fn get_interval_bucket(endpoint: &str, interval_ms: Option<u64>) -> std::ops::Range<u64> {
         if endpoint.is_empty() {
-            return BucketRange::new(0, DEFAULT_FEATURES_INTERVAL);
+            return 0..DEFAULT_FEATURES_INTERVAL;
         }
 
         let interval = interval_ms.unwrap_or(if endpoint.ends_with("/metrics") {
@@ -399,7 +375,7 @@ impl EdgeInstanceData {
 
         // For intervals greater than 1 hour, use [1h, 1h] range
         if interval > MAX_BUCKET_INTERVAL {
-            return BucketRange::new(MAX_BUCKET_INTERVAL, MAX_BUCKET_INTERVAL);
+            return MAX_BUCKET_INTERVAL..MAX_BUCKET_INTERVAL;
         }
 
         if endpoint.ends_with("/metrics") {
@@ -409,23 +385,23 @@ impl EdgeInstanceData {
         }
     }
 
-    fn get_metrics_bucket(interval: u64) -> BucketRange {
+    fn get_metrics_bucket(interval: u64) -> std::ops::Range<u64> {
         if interval <= DEFAULT_METRICS_INTERVAL {
-            BucketRange::new(0, DEFAULT_METRICS_INTERVAL)
+            0..DEFAULT_METRICS_INTERVAL
         } else {
             let bucket_start = (interval / BUCKET_SIZE_METRICS) * BUCKET_SIZE_METRICS;
-            BucketRange::new(bucket_start, bucket_start + BUCKET_SIZE_METRICS)
+            bucket_start..(bucket_start + BUCKET_SIZE_METRICS)
         }
     }
 
-    fn get_features_bucket(interval: u64) -> BucketRange {
+    fn get_features_bucket(interval: u64) -> std::ops::Range<u64> {
         if interval <= DEFAULT_FEATURES_INTERVAL {
-            BucketRange::new(0, DEFAULT_FEATURES_INTERVAL)
+            0..DEFAULT_FEATURES_INTERVAL
         } else {
             let bucket_start = ((interval - DEFAULT_FEATURES_INTERVAL) / BUCKET_SIZE_FEATURES)
                 * BUCKET_SIZE_FEATURES
                 + DEFAULT_FEATURES_INTERVAL;
-            BucketRange::new(bucket_start, bucket_start + BUCKET_SIZE_FEATURES)
+            bucket_start..(bucket_start + BUCKET_SIZE_FEATURES)
         }
     }
 
@@ -436,9 +412,9 @@ impl EdgeInstanceData {
                 ConnectionMetricsType::Features => {
                     self.connection_consumption_since_last_report
                         .features_map
-                        .entry(bucket.as_array())
+                        .entry([bucket.start, bucket.end])
                         .or_insert_with(|| DataPoint {
-                            interval: bucket.as_array(),
+                            interval: [bucket.start, bucket.end],
                             requests: AtomicU64::new(0),
                         })
                         .requests
@@ -447,9 +423,9 @@ impl EdgeInstanceData {
                 ConnectionMetricsType::Metrics => {
                     self.connection_consumption_since_last_report
                         .metrics_map
-                        .entry(bucket.as_array())
+                        .entry([bucket.start, bucket.end])
                         .or_insert_with(|| DataPoint {
-                            interval: bucket.as_array(),
+                            interval: [bucket.start, bucket.end],
                             requests: AtomicU64::new(0),
                         })
                         .requests
@@ -792,78 +768,78 @@ mod tests {
     fn test_bucket_boundaries() {
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/features", None),
-            BucketRange::new(0, 15000)
+            0..15000
         );
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/features", Some(0)),
-            BucketRange::new(0, 15000)
+            0..15000
         );
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/features", Some(14999)),
-            BucketRange::new(0, 15000)
+            0..15000
         );
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/features", Some(15000)),
-            BucketRange::new(0, 15000)
+            0..15000
         );
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/features", Some(15001)),
-            BucketRange::new(15000, 20000)
+            15000..20000
         );
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/features", Some(19999)),
-            BucketRange::new(15000, 20000)
+            15000..20000
         );
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/features", Some(20000)),
-            BucketRange::new(20000, 25000)
+            20000..25000
         );
 
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/metrics", None),
-            BucketRange::new(0, 60000)
+            0..60000
         );
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/metrics", Some(0)),
-            BucketRange::new(0, 60000)
+            0..60000
         );
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/metrics", Some(59999)),
-            BucketRange::new(0, 60000)
+            0..60000
         );
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/metrics", Some(60000)),
-            BucketRange::new(0, 60000)
+            0..60000
         );
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/metrics", Some(60001)),
-            BucketRange::new(60000, 120000)
+            60000..120000
         );
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/metrics", Some(119999)),
-            BucketRange::new(60000, 120000)
+            60000..120000
         );
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/metrics", Some(120000)),
-            BucketRange::new(120000, 180000)
+            120000..180000
         );
 
         // Test intervals greater than 1 hour (3600000 ms)
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/features", Some(3600001)),
-            BucketRange::new(3600000, 3600000)
+            3600000..3600000
         );
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/metrics", Some(3600001)),
-            BucketRange::new(3600000, 3600000)
+            3600000..3600000
         );
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/features", Some(7200000)),
-            BucketRange::new(3600000, 3600000)
+            3600000..3600000
         );
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/metrics", Some(7200000)),
-            BucketRange::new(3600000, 3600000)
+            3600000..3600000
         );
     }
 
