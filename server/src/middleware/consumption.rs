@@ -3,42 +3,56 @@ use crate::metrics::edge_metrics::EdgeInstanceData;
 use actix_http::body::MessageBody;
 use actix_web::dev::{ServiceRequest, ServiceResponse};
 use actix_web::web::Data;
-use tracing::debug;
 
 pub async fn connection_consumption(
     req: ServiceRequest,
     srv: crate::middleware::as_async_middleware::Next<impl MessageBody + 'static>,
 ) -> Result<ServiceResponse<impl MessageBody>, actix_web::Error> {
-    if req.path().starts_with("/api/client/features")
-        || req.path().starts_with("/api/client/delta")
-        || req.path().starts_with("/api/client/metrics")
-    {
-        if let Some(instance_data) = req.app_data::<Data<EdgeInstanceData>>() {
-            let data = instance_data.get_ref();
-            let interval = req
-                .headers()
-                .get(UNLEASH_INTERVAL)
-                .and_then(|h| h.to_str().ok())
-                .and_then(|s| s.parse::<u64>().ok());
+    let path = req.path().to_string();
+    let should_observe = path.starts_with("/api/client/features")
+        || path.starts_with("/api/client/delta")
+        || path.starts_with("/api/client/metrics");
 
-            data.observe_connection_consumption(req.path(), interval);
+    let interval = if should_observe {
+        req.headers()
+            .get(UNLEASH_INTERVAL)
+            .and_then(|h| h.to_str().ok())
+            .and_then(|s| s.parse::<u64>().ok())
+    } else {
+        None
+    };
+
+    let resp = srv.call(req).await?;
+    let status_code = resp.status().as_u16();
+
+    if should_observe && ((200..300).contains(&status_code) || status_code == 304) {
+        if let Some(instance_data) = resp.request().app_data::<Data<EdgeInstanceData>>() {
+            instance_data
+                .get_ref()
+                .observe_connection_consumption(&path, interval);
         }
     }
-    srv.call(req).await
+
+    Ok(resp)
 }
 
 pub async fn request_consumption(
     req: ServiceRequest,
     srv: crate::middleware::as_async_middleware::Next<impl MessageBody + 'static>,
 ) -> Result<ServiceResponse<impl MessageBody>, actix_web::Error> {
-    if req.path().starts_with("/api/frontend") {
-        if let Some(instance_data) = req.app_data::<Data<EdgeInstanceData>>() {
-            let data = instance_data.get_ref();
-            data.observe_request_consumption();
-            debug!("Observed frontend request for path: {}", req.path());
+    let path = req.path().to_string();
+    let should_observe = path.starts_with("/api/frontend");
+
+    let resp = srv.call(req).await?;
+    let status_code = resp.status().as_u16();
+
+    if should_observe && ((200..300).contains(&status_code) || status_code == 304) {
+        if let Some(instance_data) = resp.request().app_data::<Data<EdgeInstanceData>>() {
+            instance_data.get_ref().observe_request_consumption();
         }
     }
-    srv.call(req).await
+
+    Ok(resp)
 }
 
 #[cfg(test)]
