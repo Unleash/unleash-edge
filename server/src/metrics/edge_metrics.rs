@@ -694,7 +694,7 @@ mod tests {
     }
 
     #[test]
-    fn can_observe_and_clear_consumption_metrics() {
+    fn can_observe_request_consumption_and_clear_consumption_metrics() {
         let instance_data = EdgeInstanceData::new("test");
 
         instance_data.observe_request_consumption();
@@ -711,20 +711,6 @@ mod tests {
             })
         );
 
-        assert_eq!(
-            serialized["connectionConsumptionSinceLastReport"],
-            serde_json::json!({
-                "features": [{
-                    "meteredGroup": "default",
-                    "dataPoints": []
-                }],
-                "metrics": [{
-                    "meteredGroup": "default",
-                    "dataPoints": []
-                }]
-            })
-        );
-
         instance_data.clear_time_windowed_metrics();
 
         let serialized_cleared = serde_json::to_value(&instance_data).unwrap();
@@ -733,20 +719,6 @@ mod tests {
             serde_json::json!({
                 "meteredGroup": "default",
                 "requests": 0
-            })
-        );
-
-        assert_eq!(
-            serialized_cleared["connectionConsumptionSinceLastReport"],
-            serde_json::json!({
-                "features": [{
-                    "meteredGroup": "default",
-                    "dataPoints": []
-                }],
-                "metrics": [{
-                    "meteredGroup": "default",
-                    "dataPoints": []
-                }]
             })
         );
     }
@@ -772,23 +744,23 @@ mod tests {
         let features_data_points = actual_features["dataPoints"].as_array().unwrap();
         assert_eq!(features_data_points.len(), 2);
         assert!(
-            features_data_points.iter().any(|dp| {
-                dp["interval"] == serde_json::json!([0, 15000]) && dp["requests"] == 2
+            features_data_points.iter().any(|data_point| {
+                data_point["interval"] == serde_json::json!([0, 15000]) && data_point["requests"] == 2
             })
         );
-        assert!(features_data_points.iter().any(|dp| {
-            dp["interval"] == serde_json::json!([15000, 20000]) && dp["requests"] == 1
+        assert!(features_data_points.iter().any(|data_point| {
+            data_point["interval"] == serde_json::json!([15000, 20000]) && data_point["requests"] == 1
         }));
 
         let metrics_data_points = actual_metrics["dataPoints"].as_array().unwrap();
         assert_eq!(metrics_data_points.len(), 2);
         assert!(
-            metrics_data_points.iter().any(|dp| {
-                dp["interval"] == serde_json::json!([0, 60000]) && dp["requests"] == 2
+            metrics_data_points.iter().any(|data_point| {
+                data_point["interval"] == serde_json::json!([0, 60000]) && data_point["requests"] == 2
             })
         );
-        assert!(metrics_data_points.iter().any(|dp| {
-            dp["interval"] == serde_json::json!([60000, 120000]) && dp["requests"] == 1
+        assert!(metrics_data_points.iter().any(|data_point| {
+            data_point["interval"] == serde_json::json!([60000, 120000]) && data_point["requests"] == 1
         }));
     }
 
