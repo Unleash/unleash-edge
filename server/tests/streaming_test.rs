@@ -232,6 +232,7 @@ mod streaming_test {
                 dynamic: false,
                 delta: false,
                 delta_diff: false,
+                consumption: false,
                 prometheus_remote_write_url: None,
                 prometheus_push_interval: 60,
                 prometheus_username: None,
