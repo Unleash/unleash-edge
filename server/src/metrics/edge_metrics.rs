@@ -233,15 +233,20 @@ impl ConnectionConsumptionData {
 
 #[derive(Debug, Default)]
 pub struct RequestConsumptionData {
-    pub metered_group: String,
-    requests: AtomicU64,
+    metered_groups: DashMap<String, AtomicU64>,
 }
 
 impl Clone for RequestConsumptionData {
     fn clone(&self) -> Self {
+        let new_map = DashMap::new();
+        for entry in self.metered_groups.iter() {
+            new_map.insert(
+                entry.key().clone(),
+                AtomicU64::new(entry.value().load(Ordering::Relaxed)),
+            );
+        }
         Self {
-            metered_group: self.metered_group.clone(),
-            requests: AtomicU64::new(self.requests.load(Ordering::Relaxed)),
+            metered_groups: new_map,
         }
     }
 }
@@ -251,11 +256,15 @@ impl Serialize for RequestConsumptionData {
     where
         S: serde::Serializer,
     {
-        use serde::ser::SerializeStruct;
-        let mut state = serializer.serialize_struct("RequestConsumptionData", 2)?;
-        state.serialize_field("meteredGroup", &self.metered_group)?;
-        state.serialize_field("requests", &self.requests.load(Ordering::Relaxed))?;
-        state.end()
+        use serde::ser::SerializeSeq;
+        let mut seq = serializer.serialize_seq(Some(self.metered_groups.len()))?;
+        for entry in self.metered_groups.iter() {
+            seq.serialize_element(&serde_json::json!({
+                "meteredGroup": entry.key(),
+                "requests": entry.value().load(Ordering::Relaxed)
+            }))?;
+        }
+        seq.end()
     }
 }
 
@@ -265,31 +274,44 @@ impl<'de> Deserialize<'de> for RequestConsumptionData {
         D: serde::Deserializer<'de>,
     {
         #[derive(Deserialize)]
-        #[serde(rename_all = "camelCase")]
-        struct Helper {
+        struct GroupData {
             metered_group: String,
             requests: u64,
         }
 
-        let helper = Helper::deserialize(deserializer)?;
-        Ok(RequestConsumptionData {
-            metered_group: helper.metered_group,
-            requests: AtomicU64::new(helper.requests),
-        })
+        let groups: Vec<GroupData> = Vec::deserialize(deserializer)?;
+        let metered_groups = DashMap::new();
+        for group in groups {
+            metered_groups.insert(group.metered_group, AtomicU64::new(group.requests));
+        }
+        Ok(Self { metered_groups })
     }
 }
 
 impl RequestConsumptionData {
-    pub fn get_requests(&self) -> u64 {
-        self.requests.load(Ordering::Relaxed)
+    pub fn get_requests(&self, metered_group: &str) -> u64 {
+        self.metered_groups
+            .get(metered_group)
+            .map(|v| v.load(Ordering::Relaxed))
+            .unwrap_or(0)
     }
 
-    pub fn increment_requests(&self) {
-        self.requests.fetch_add(1, Ordering::SeqCst);
+    pub fn increment_requests(&self, metered_group: &str) {
+        let entry = self.metered_groups.entry(metered_group.to_string());
+        match entry {
+            dashmap::mapref::entry::Entry::Occupied(mut e) => {
+                e.get_mut().fetch_add(1, Ordering::Relaxed);
+            }
+            dashmap::mapref::entry::Entry::Vacant(e) => {
+                e.insert(AtomicU64::new(1));
+            }
+        }
     }
 
     pub fn reset(&self) {
-        self.requests.store(0, Ordering::SeqCst);
+        for mut entry in self.metered_groups.iter_mut() {
+            entry.value_mut().store(0, Ordering::Relaxed);
+        }
     }
 }
 
@@ -328,8 +350,7 @@ impl EdgeInstanceData {
             requests_since_last_report: DashMap::default(),
             connection_consumption_since_last_report: ConnectionConsumptionData::default(),
             request_consumption_since_last_report: RequestConsumptionData {
-                metered_group: "default".to_string(),
-                requests: AtomicU64::new(0),
+                metered_groups: DashMap::new(),
             },
         }
     }
@@ -342,7 +363,7 @@ impl EdgeInstanceData {
 
     pub fn observe_request_consumption(&self) {
         self.request_consumption_since_last_report
-            .increment_requests();
+            .increment_requests("default");
     }
 
     pub fn observe_request(&self, http_target: &str, status_code: u16) {
@@ -376,8 +397,9 @@ impl EdgeInstanceData {
             DEFAULT_FEATURES_INTERVAL
         });
 
+        // For intervals greater than 1 hour, use [1h, 1h] range
         if interval > MAX_BUCKET_INTERVAL {
-            return BucketRange::new(MAX_BUCKET_INTERVAL, u64::MAX);
+            return BucketRange::new(MAX_BUCKET_INTERVAL, MAX_BUCKET_INTERVAL);
         }
 
         if endpoint.ends_with("/metrics") {
@@ -705,10 +727,12 @@ mod tests {
         let serialized = serde_json::to_value(&instance_data).unwrap();
         assert_eq!(
             serialized["requestConsumptionSinceLastReport"],
-            serde_json::json!({
-                "meteredGroup": "default",
-                "requests": 4
-            })
+            serde_json::json!([
+                {
+                    "meteredGroup": "default",
+                    "requests": 4
+                }
+            ])
         );
 
         instance_data.clear_time_windowed_metrics();
@@ -716,10 +740,12 @@ mod tests {
         let serialized_cleared = serde_json::to_value(&instance_data).unwrap();
         assert_eq!(
             serialized_cleared["requestConsumptionSinceLastReport"],
-            serde_json::json!({
-                "meteredGroup": "default",
-                "requests": 0
-            })
+            serde_json::json!([
+                {
+                    "meteredGroup": "default",
+                    "requests": 0
+                }
+            ])
         );
     }
 
@@ -743,24 +769,22 @@ mod tests {
 
         let features_data_points = actual_features["dataPoints"].as_array().unwrap();
         assert_eq!(features_data_points.len(), 2);
-        assert!(
-            features_data_points.iter().any(|data_point| {
-                data_point["interval"] == serde_json::json!([0, 15000]) && data_point["requests"] == 2
-            })
-        );
         assert!(features_data_points.iter().any(|data_point| {
-            data_point["interval"] == serde_json::json!([15000, 20000]) && data_point["requests"] == 1
+            data_point["interval"] == serde_json::json!([0, 15000]) && data_point["requests"] == 2
+        }));
+        assert!(features_data_points.iter().any(|data_point| {
+            data_point["interval"] == serde_json::json!([15000, 20000])
+                && data_point["requests"] == 1
         }));
 
         let metrics_data_points = actual_metrics["dataPoints"].as_array().unwrap();
         assert_eq!(metrics_data_points.len(), 2);
-        assert!(
-            metrics_data_points.iter().any(|data_point| {
-                data_point["interval"] == serde_json::json!([0, 60000]) && data_point["requests"] == 2
-            })
-        );
         assert!(metrics_data_points.iter().any(|data_point| {
-            data_point["interval"] == serde_json::json!([60000, 120000]) && data_point["requests"] == 1
+            data_point["interval"] == serde_json::json!([0, 60000]) && data_point["requests"] == 2
+        }));
+        assert!(metrics_data_points.iter().any(|data_point| {
+            data_point["interval"] == serde_json::json!([60000, 120000])
+                && data_point["requests"] == 1
         }));
     }
 
@@ -824,13 +848,22 @@ mod tests {
             BucketRange::new(120000, 180000)
         );
 
+        // Test intervals greater than 1 hour (3600000 ms)
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/features", Some(3600001)),
-            BucketRange::new(3600000, u64::MAX)
+            BucketRange::new(3600000, 3600000)
         );
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/metrics", Some(3600001)),
-            BucketRange::new(3600000, u64::MAX)
+            BucketRange::new(3600000, 3600000)
+        );
+        assert_eq!(
+            EdgeInstanceData::get_interval_bucket("/api/client/features", Some(7200000)),
+            BucketRange::new(3600000, 3600000)
+        );
+        assert_eq!(
+            EdgeInstanceData::get_interval_bucket("/api/client/metrics", Some(7200000)),
+            BucketRange::new(3600000, 3600000)
         );
     }
 
