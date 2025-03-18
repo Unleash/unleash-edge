@@ -697,13 +697,11 @@ mod tests {
     fn can_observe_and_clear_consumption_metrics() {
         let instance_data = EdgeInstanceData::new("test");
 
-        // Observe some consumption
         instance_data.observe_request_consumption();
         instance_data.observe_request_consumption();
         instance_data.observe_request_consumption();
         instance_data.observe_request_consumption();
 
-        // Verify request consumption through EdgeInstanceData serialization
         let serialized = serde_json::to_value(&instance_data).unwrap();
         assert_eq!(
             serialized["requestConsumptionSinceLastReport"],
@@ -713,7 +711,6 @@ mod tests {
             })
         );
 
-        // Verify connection consumption through EdgeInstanceData serialization
         assert_eq!(
             serialized["connectionConsumptionSinceLastReport"],
             serde_json::json!({
@@ -728,10 +725,8 @@ mod tests {
             })
         );
 
-        // Clear metrics
         instance_data.clear_time_windowed_metrics();
 
-        // Verify cleared data through EdgeInstanceData serialization
         let serialized_cleared = serde_json::to_value(&instance_data).unwrap();
         assert_eq!(
             serialized_cleared["requestConsumptionSinceLastReport"],
@@ -760,25 +755,20 @@ mod tests {
     fn can_observe_connection_consumption_with_data_points() {
         let instance_data = EdgeInstanceData::new("test");
 
-        // Observe some feature consumption
         instance_data.observe_connection_consumption("/api/client/features", Some(0));
         instance_data.observe_connection_consumption("/api/client/features", Some(0));
         instance_data.observe_connection_consumption("/api/client/features", Some(15001));
 
-        // Observe some metrics consumption
         instance_data.observe_connection_consumption("/api/client/metrics", Some(0));
         instance_data.observe_connection_consumption("/api/client/metrics", Some(0));
         instance_data.observe_connection_consumption("/api/client/metrics", Some(60001));
 
-        // Verify connection consumption through EdgeInstanceData serialization
         let serialized = serde_json::to_value(&instance_data).unwrap();
         let connection_data = &serialized["connectionConsumptionSinceLastReport"];
 
-        // Get actual data points
         let actual_features = connection_data["features"][0].clone();
         let actual_metrics = connection_data["metrics"][0].clone();
 
-        // Verify features data points
         let features_data_points = actual_features["dataPoints"].as_array().unwrap();
         assert_eq!(features_data_points.len(), 2);
         assert!(
@@ -790,7 +780,6 @@ mod tests {
             dp["interval"] == serde_json::json!([15000, 20000]) && dp["requests"] == 1
         }));
 
-        // Verify metrics data points
         let metrics_data_points = actual_metrics["dataPoints"].as_array().unwrap();
         assert_eq!(metrics_data_points.len(), 2);
         assert!(
@@ -805,7 +794,6 @@ mod tests {
 
     #[test]
     fn test_bucket_boundaries() {
-        // Test features endpoint bucket boundaries
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/features", None),
             BucketRange::new(0, 15000)
@@ -835,7 +823,6 @@ mod tests {
             BucketRange::new(20000, 25000)
         );
 
-        // Test metrics endpoint bucket boundaries
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/metrics", None),
             BucketRange::new(0, 60000)
@@ -865,7 +852,6 @@ mod tests {
             BucketRange::new(120000, 180000)
         );
 
-        // Test maximum bucket
         assert_eq!(
             EdgeInstanceData::get_interval_bucket("/api/client/features", Some(3600001)),
             BucketRange::new(3600000, u64::MAX)
