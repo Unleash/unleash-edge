@@ -225,6 +225,10 @@ pub struct EdgeArgs {
     #[clap(long, env, default_value_t = false, requires = "strict", hide = true)]
     pub delta: bool,
 
+    /// If set to true, Edge will track and report consumption metrics. This is an experimental feature and may change. Changes to this feature may not follow semantic versioning. Requires strict mode
+    #[clap(long, env, default_value_t = false, requires = "strict", hide = true)]
+    pub consumption: bool,
+
     /// If set to true, it compares features payload with delta payload and logs diff. This flag is for internal testing only. Do not turn this on for production configurations
     #[clap(
         long,

@@ -683,6 +683,9 @@ fn scope_with_auth(
         .wrap(crate::middleware::as_async_middleware::as_async_middleware(
             crate::middleware::validate_token::validate_token,
         ))
+        .wrap(crate::middleware::as_async_middleware::as_async_middleware(
+            crate::middleware::consumption::request_consumption,
+        ))
 }
 
 fn configure_proxy_endpoints(cfg: &mut web::ServiceConfig, disable_all_endpoint: bool) {

@@ -34,7 +34,7 @@ actix-web = { version = "4.9.0", features = ["rustls-0_23", "compress-zstd"] }
 actix-web-lab = { version = "0.24.1" }
 ahash = "0.8.11"
 anyhow = "1.0.97"
-async-trait = "0.1.87"
+async-trait = "0.1.88"
 aws-config = { version = "1.6.0", features = ["behavior-version-latest"] }
 aws-sdk-s3 = { version = "1.79.0", features = ["behavior-version-latest"] }
 base64 = "0.22.1"
@@ -72,11 +72,11 @@ redis = { version = "0.29.1", features = [
     "tokio-rustls-comp",
     "cluster",
 ] }
-reqwest = { version = "0.12.13", default-features = false, features = [
+reqwest = { version = "0.12.15", default-features = false, features = [
     "json",
     "rustls-tls"
 ] }
-rustls = { version = "0.23.23", default-features = false, features = [
+rustls = { version = "0.23.25", default-features = false, features = [
     "logging",
     "ring",
     "std",
@@ -87,8 +87,8 @@ semver = "1.0.26"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 serde_qs = { version = "0.14.0", features = ["actix4", "tracing"] }
-shadow-rs = { version = "1.0.1" }
-tokio = { version = "1.44.0", features = [
+shadow-rs = { version = "1.1.0" }
+tokio = { version = "1.44.1", features = [
     "macros",
     "rt-multi-thread",
     "tracing",
@@ -97,7 +97,7 @@ tokio = { version = "1.44.0", features = [
 tokio-stream = { version = "0.1.17" }
 tracing = { version = "0.1.41", features = ["log"] }
 tracing-subscriber = { version = "0.3.19", features = ["json", "env-filter"] }
-ulid = "1.2.0"
+ulid = "1.2.1"
 unleash-types = { version = "0.15.10", features = ["openapi", "hashes"] }
 unleash-yggdrasil = { version = "0.17.3" }
 utoipa = { version = "5.3.1", features = ["actix_extras", "chrono"] }
@@ -119,4 +119,4 @@ testcontainers-modules = { version = "0.11.6", features = [
 tracing-test = "0.2.5"
 
 [build-dependencies]
-shadow-rs = "1.0.1"
+shadow-rs = "1.1.0"
