@@ -1549,7 +1549,7 @@ mod tests {
 
     #[tokio::test]
     #[traced_test]
-    async fn can_handle_custom_context_fields_with_post() {
+    async fn can_handle_custom_context_fields_with_post_ignoring_non_string_values() {
         let client_features_with_custom_context_field =
             crate::tests::features_from_disk("../examples/with_custom_constraint.json");
         let auth_key = "default:development.secret123".to_string();
@@ -1579,7 +1579,7 @@ mod tests {
             .uri("/api/frontend")
             .insert_header(ContentType::json())
             .insert_header(("Authorization", auth_key.clone()))
-            .set_json(json!({ "properties": {"companyId": "bricks"}}))
+            .set_json(json!({ "properties": {"companyId": "bricks", "myId": 1234}}))
             .to_request();
         let result: FrontendResult = test::try_call_and_read_body_json(&app, req)
             .await
