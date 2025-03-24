@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [19.9.0](https://github.com/Unleash/unleash-edge/compare/v19.8.2...v19.9.0) - 2025-03-24
+
+### 🚀 Features
+- consumption metrics ([#829](https://github.com/unleash/unleash-edge/issues/829)) (by @kwasniew) - #829
+
+### Dependency updates
+- bump opentelemetry-semantic-conventions ([#843](https://github.com/unleash/unleash-edge/issues/843)) (by @dependabot[bot]) - #843
+- bump opentelemetry from 0.28.0 to 0.29.0 ([#841](https://github.com/unleash/unleash-edge/issues/841)) (by @dependabot[bot]) - #841
+- bump opentelemetry_sdk from 0.28.0 to 0.29.0 ([#842](https://github.com/unleash/unleash-edge/issues/842)) (by @dependabot[bot]) - #842
+- bump opentelemetry-prometheus from 0.28.0 to 0.29.0 ([#840](https://github.com/unleash/unleash-edge/issues/840)) (by @dependabot[bot]) - #840
+- bump redis from 0.29.1 to 0.29.2 ([#839](https://github.com/unleash/unleash-edge/issues/839)) (by @dependabot[bot]) - #839
+- bump shadow-rs from 1.1.0 to 1.1.1 ([#837](https://github.com/unleash/unleash-edge/issues/837)) (by @dependabot[bot]) - #837
+- bump reqwest from 0.12.14 to 0.12.15 ([#834](https://github.com/unleash/unleash-edge/issues/834)) (by @dependabot[bot]) - #834
+- bump shadow-rs from 1.0.1 to 1.1.0 ([#833](https://github.com/unleash/unleash-edge/issues/833)) (by @dependabot[bot]) - #833
+- bump rustls from 0.23.23 to 0.23.25 ([#831](https://github.com/unleash/unleash-edge/issues/831)) (by @dependabot[bot]) - #831
+- bump async-trait from 0.1.87 to 0.1.88 ([#826](https://github.com/unleash/unleash-edge/issues/826)) (by @dependabot[bot]) - #826
+- bump ulid from 1.2.0 to 1.2.1 ([#825](https://github.com/unleash/unleash-edge/issues/825)) (by @dependabot[bot]) - #825
+- bump tokio from 1.44.0 to 1.44.1 ([#824](https://github.com/unleash/unleash-edge/issues/824)) (by @dependabot[bot]) - #824
+- bump reqwest from 0.12.13 to 0.12.14 ([#822](https://github.com/unleash/unleash-edge/issues/822)) (by @dependabot[bot]) - #822
+- bump aws-config from 1.5.18 to 1.6.0 ([#819](https://github.com/unleash/unleash-edge/issues/819)) (by @dependabot[bot]) - #819
+- bump aws-sdk-s3 from 1.78.0 to 1.79.0 ([#818](https://github.com/unleash/unleash-edge/issues/818)) (by @dependabot[bot]) - #818
+- bump reqwest from 0.12.12 to 0.12.13 ([#821](https://github.com/unleash/unleash-edge/issues/821)) (by @dependabot[bot]) - #821
+- bump unleash-yggdrasil from 0.17.2 to 0.17.3 ([#820](https://github.com/unleash/unleash-edge/issues/820)) (by @dependabot[bot]) - #820
+- bump clap from 4.5.31 to 4.5.32 ([#816](https://github.com/unleash/unleash-edge/issues/816)) (by @dependabot[bot]) - #816
+- bump actix-web-lab from 0.24.0 to 0.24.1 ([#815](https://github.com/unleash/unleash-edge/issues/815)) (by @dependabot[bot]) - #815
+- bump env_logger from 0.11.6 to 0.11.7 ([#814](https://github.com/unleash/unleash-edge/issues/814)) (by @dependabot[bot]) - #814
+- bump actix-cors from 0.7.0 to 0.7.1 ([#813](https://github.com/unleash/unleash-edge/issues/813)) (by @dependabot[bot]) - #813
+
+### Contributors
+
+* @dependabot[bot]
+* @kwasniew
+
 ## [19.8.2](https://github.com/Unleash/unleash-edge/compare/v19.8.1...v19.8.2) - 2025-03-10
 
 ### 🐛 Bug Fixes
