@@ -67,7 +67,7 @@ prometheus = { version = "0.13.4", features = ["process"] }
 prometheus-reqwest-remote-write = { version = "0.3.0" }
 prometheus-static-metric = "0.5.1"
 rand = "0.9.0"
-redis = { version = "0.29.1", features = [
+redis = { version = "0.29.2", features = [
     "tokio-comp",
     "tokio-rustls-comp",
     "cluster",
