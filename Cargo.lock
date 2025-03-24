@@ -3138,7 +3138,7 @@ checksum = "3ac8c4fc7bd450bcb5b1cbc7325755e86d9f82f1fd80ad8b3441887b715f6a2d"
 dependencies = [
  "once_cell",
  "opentelemetry 0.29.0",
- "opentelemetry_sdk 0.29.0",
+ "opentelemetry_sdk",
  "prometheus",
  "protobuf",
  "tracing",
@@ -3152,26 +3152,6 @@ checksum = "2fb3a2f78c2d55362cd6c313b8abedfbc0142ab3c2676822068fd2ab7d51f9b7"
 
 [[package]]
 name = "opentelemetry_sdk"
-version = "0.28.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84dfad6042089c7fc1f6118b7040dc2eb4ab520abbf410b79dc481032af39570"
-dependencies = [
- "async-trait",
- "futures-channel",
- "futures-executor",
- "futures-util",
- "glob",
- "opentelemetry 0.28.0",
- "percent-encoding",
- "rand 0.8.5",
- "serde",
- "serde_json",
- "thiserror 2.0.12",
- "tracing",
-]
-
-[[package]]
-name = "opentelemetry_sdk"
 version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "afdefb21d1d47394abc1ba6c57363ab141be19e27cc70d0e422b7f303e4d290b"
@@ -3181,7 +3161,12 @@ dependencies = [
  "futures-util",
  "glob",
  "opentelemetry 0.29.0",
+ "percent-encoding",
+ "rand 0.9.0",
+ "serde",
+ "serde_json",
  "thiserror 2.0.12",
+ "tracing",
 ]
 
 [[package]]
@@ -5055,7 +5040,7 @@ dependencies = [
  "opentelemetry 0.28.0",
  "opentelemetry-prometheus",
  "opentelemetry-semantic-conventions",
- "opentelemetry_sdk 0.28.0",
+ "opentelemetry_sdk",
  "p12-keystore",
  "pin-project-lite",
  "pkix",
