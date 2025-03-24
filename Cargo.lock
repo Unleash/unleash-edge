@@ -3117,14 +3117,28 @@ dependencies = [
 ]
 
 [[package]]
-name = "opentelemetry-prometheus"
-version = "0.28.0"
+name = "opentelemetry"
+version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "765a76ba13ec77043903322f85dc5434d7d01a37e75536d0f871ed7b9b5bbf0d"
+checksum = "768ee97dc5cd695a4dd4a69a0678fb42789666b5a89e8c0af48bb06c6e427120"
+dependencies = [
+ "futures-core",
+ "futures-sink",
+ "js-sys",
+ "pin-project-lite",
+ "thiserror 2.0.12",
+ "tracing",
+]
+
+[[package]]
+name = "opentelemetry-prometheus"
+version = "0.29.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ac8c4fc7bd450bcb5b1cbc7325755e86d9f82f1fd80ad8b3441887b715f6a2d"
 dependencies = [
  "once_cell",
- "opentelemetry",
- "opentelemetry_sdk",
+ "opentelemetry 0.29.0",
+ "opentelemetry_sdk 0.29.0",
  "prometheus",
  "protobuf",
  "tracing",
@@ -3147,13 +3161,27 @@ dependencies = [
  "futures-executor",
  "futures-util",
  "glob",
- "opentelemetry",
+ "opentelemetry 0.28.0",
  "percent-encoding",
  "rand 0.8.5",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
  "tracing",
+]
+
+[[package]]
+name = "opentelemetry_sdk"
+version = "0.29.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "afdefb21d1d47394abc1ba6c57363ab141be19e27cc70d0e422b7f303e4d290b"
+dependencies = [
+ "futures-channel",
+ "futures-executor",
+ "futures-util",
+ "glob",
+ "opentelemetry 0.29.0",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -3688,9 +3716,9 @@ dependencies = [
 
 [[package]]
 name = "redis"
-version = "0.29.1"
+version = "0.29.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8034fb926579ff49d3fe58d288d5dcb580bf11e9bccd33224b45adebf0fd0c23"
+checksum = "b110459d6e323b7cda23980c46c77157601199c9da6241552b284cd565a7a133"
 dependencies = [
  "arc-swap",
  "bytes",
@@ -4320,9 +4348,9 @@ dependencies = [
 
 [[package]]
 name = "shadow-rs"
-version = "1.1.0"
+version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5114f11af8b4a4c930fe2650c6f947a448c1787cd963a67824784a5e20671a93"
+checksum = "6d5625ed609cf66d7e505e7d487aca815626dc4ebb6c0dd07637ca61a44651a6"
 dependencies = [
  "const_format",
  "git2",
@@ -5024,10 +5052,10 @@ dependencies = [
  "lazy_static",
  "maplit",
  "num_cpus",
- "opentelemetry",
+ "opentelemetry 0.28.0",
  "opentelemetry-prometheus",
  "opentelemetry-semantic-conventions",
- "opentelemetry_sdk",
+ "opentelemetry_sdk 0.28.0",
  "p12-keystore",
  "pin-project-lite",
  "pkix",
