@@ -5052,7 +5052,7 @@ dependencies = [
  "lazy_static",
  "maplit",
  "num_cpus",
- "opentelemetry 0.28.0",
+ "opentelemetry 0.29.0",
  "opentelemetry-prometheus",
  "opentelemetry-semantic-conventions",
  "opentelemetry_sdk 0.28.0",
