@@ -396,6 +396,9 @@ pub fn configure_client_api(cfg: &mut web::ServiceConfig) {
         .wrap(crate::middleware::as_async_middleware::as_async_middleware(
             crate::middleware::validate_token::validate_token,
         ))
+        .wrap(crate::middleware::as_async_middleware::as_async_middleware(
+            crate::middleware::consumption::connection_consumption,
+        ))
         .service(get_features)
         .service(get_delta)
         .service(get_feature)

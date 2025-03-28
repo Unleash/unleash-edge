@@ -422,6 +422,7 @@ mod tests {
             streaming: false,
             delta: false,
             delta_diff: false,
+            consumption: false,
         };
 
         let result = build_edge(

@@ -134,14 +134,14 @@ pub async fn loop_send_instance_data(
                                 );
                                 errors += 1;
                                 downstream_instance_data.write().await.clear();
-                                our_instance_data.requests_since_last_report.clear();
+                                our_instance_data.clear_time_windowed_metrics();
                             } else if status == StatusCode::FORBIDDEN {
                                 warn!(
                                     "Upstream edge metrics said our token wasn't allowed to post data"
                                 );
                                 errors += 1;
                                 downstream_instance_data.write().await.clear();
-                                our_instance_data.requests_since_last_report.clear();
+                                our_instance_data.clear_time_windowed_metrics();
                             }
                         }
                         _ => {
@@ -152,7 +152,7 @@ pub async fn loop_send_instance_data(
                     debug!("Successfully posted observability metrics.");
                     errors = 0;
                     downstream_instance_data.write().await.clear();
-                    our_instance_data.requests_since_last_report.clear();
+                    our_instance_data.clear_time_windowed_metrics();
                 }
             }
         }

@@ -35,15 +35,15 @@ actix-web-lab = { version = "0.24.1" }
 ahash = "0.8.11"
 anyhow = "1.0.97"
 async-trait = "0.1.88"
-aws-config = { version = "1.6.0", features = ["behavior-version-latest"] }
-aws-sdk-s3 = { version = "1.79.0", features = ["behavior-version-latest"] }
+aws-config = { version = "1.6.1", features = ["behavior-version-latest"] }
+aws-sdk-s3 = { version = "1.80.0", features = ["behavior-version-latest"] }
 base64 = "0.22.1"
 chrono = { version = "0.4.40", features = ["serde"] }
 cidr = "0.3.1"
-clap = { version = "4.5.32", features = ["derive", "env"] }
+clap = { version = "4.5.34", features = ["derive", "env"] }
 clap-markdown = "0.1.4"
 dashmap = { version = "6.1.0", features = ["serde"] }
-eventsource-client = { version = "0.14.0" }
+eventsource-client = { version = "0.15.0" }
 futures = "0.3.31"
 futures-core = "0.3.31"
 ipnet = "2.11.0"
@@ -51,10 +51,10 @@ itertools = "0.14.0"
 json-structural-diff = "0.2.0"
 lazy_static = "1.5.0"
 num_cpus = "1.16.0"
-opentelemetry = { version = "0.28.0", features = ["trace", "metrics"] }
-opentelemetry-prometheus = "0.28.0"
-opentelemetry-semantic-conventions = "0.28.0"
-opentelemetry_sdk = { version = "0.28.0", features = [
+opentelemetry = { version = "0.29.0", features = ["trace", "metrics"] }
+opentelemetry-prometheus = "0.29.0"
+opentelemetry-semantic-conventions = "0.29.0"
+opentelemetry_sdk = { version = "0.29.0", features = [
     "metrics",
     "serde",
     "serde_json",
@@ -67,16 +67,16 @@ prometheus = { version = "0.13.4", features = ["process"] }
 prometheus-reqwest-remote-write = { version = "0.3.0" }
 prometheus-static-metric = "0.5.1"
 rand = "0.9.0"
-redis = { version = "0.29.1", features = [
+redis = { version = "0.29.2", features = [
     "tokio-comp",
     "tokio-rustls-comp",
     "cluster",
 ] }
-reqwest = { version = "0.12.14", default-features = false, features = [
+reqwest = { version = "0.12.15", default-features = false, features = [
     "json",
     "rustls-tls"
 ] }
-rustls = { version = "0.23.23", default-features = false, features = [
+rustls = { version = "0.23.25", default-features = false, features = [
     "logging",
     "ring",
     "std",
@@ -87,7 +87,7 @@ semver = "1.0.26"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 serde_qs = { version = "0.14.0", features = ["actix4", "tracing"] }
-shadow-rs = { version = "1.0.1" }
+shadow-rs = { version = "1.1.1" }
 tokio = { version = "1.44.1", features = [
     "macros",
     "rt-multi-thread",
@@ -119,4 +119,4 @@ testcontainers-modules = { version = "0.11.6", features = [
 tracing-test = "0.2.5"
 
 [build-dependencies]
-shadow-rs = "1.0.1"
+shadow-rs = "1.1.1"
