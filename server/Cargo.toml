@@ -43,7 +43,7 @@ cidr = "0.3.1"
 clap = { version = "4.5.34", features = ["derive", "env"] }
 clap-markdown = "0.1.4"
 dashmap = { version = "6.1.0", features = ["serde"] }
-eventsource-client = { version = "0.14.0" }
+eventsource-client = { version = "0.15.0" }
 futures = "0.3.31"
 futures-core = "0.3.31"
 ipnet = "2.11.0"
