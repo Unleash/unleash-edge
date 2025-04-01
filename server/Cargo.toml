@@ -36,7 +36,7 @@ ahash = "0.8.11"
 anyhow = "1.0.97"
 async-trait = "0.1.88"
 aws-config = { version = "1.6.1", features = ["behavior-version-latest"] }
-aws-sdk-s3 = { version = "1.81.0", features = ["behavior-version-latest"] }
+aws-sdk-s3 = { version = "1.82.0", features = ["behavior-version-latest"] }
 base64 = "0.22.1"
 chrono = { version = "0.4.40", features = ["serde"] }
 cidr = "0.3.1"
