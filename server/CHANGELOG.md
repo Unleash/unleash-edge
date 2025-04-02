@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [19.9.1](https://github.com/Unleash/unleash-edge/compare/v19.9.0...v19.9.1) - 2025-04-02
+
+### Dependency updates
+- bump pkix from 0.2.3 to 0.2.4 ([#863](https://github.com/unleash/unleash-edge/issues/863)) (by @dependabot[bot]) - #863
+- bump p12-keystore from 0.1.4 to 0.1.5 ([#862](https://github.com/unleash/unleash-edge/issues/862)) (by @dependabot[bot]) - #862
+- bump env_logger from 0.11.7 to 0.11.8 ([#861](https://github.com/unleash/unleash-edge/issues/861)) (by @dependabot[bot]) - #861
+- bump clap from 4.5.34 to 4.5.35 ([#860](https://github.com/unleash/unleash-edge/issues/860)) (by @dependabot[bot]) - #860
+- bump aws-sdk-s3 from 1.81.0 to 1.82.0 ([#858](https://github.com/unleash/unleash-edge/issues/858)) (by @dependabot[bot]) - #858
+- bump aws-sdk-s3 from 1.80.0 to 1.81.0 ([#855](https://github.com/unleash/unleash-edge/issues/855)) (by @dependabot[bot]) - #855
+
+### Contributors
+
+* @dependabot[bot]
+
 ## [19.9.0](https://github.com/Unleash/unleash-edge/compare/v19.8.2...v19.9.0) - 2025-03-28
 
 ### 🚀 Features
