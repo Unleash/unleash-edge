@@ -13,7 +13,7 @@ license = "MIT"
 name = "unleash-edge"
 repository = "https://github.com/Unleash/unleash-edge"
 rust-version = "1.85.0"
-version = "19.8.2"
+version = "19.9.0"
 
 [package.metadata.wix]
 upgrade-guid = "11E5D83A-3034-48BB-9A84-9F589EBD648C"
@@ -27,23 +27,23 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }
 [dependencies]
 actix-allow-deny-middleware = "0.1.1"
 actix-cors = "0.7.1"
-actix-http = "3.9.0"
+actix-http = "3.10.0"
 actix-middleware-etag = "0.4.4"
 actix-service = "2.0.3"
-actix-web = { version = "4.9.0", features = ["rustls-0_23", "compress-zstd"] }
+actix-web = { version = "4.10.2", features = ["rustls-0_23", "compress-zstd"] }
 actix-web-lab = { version = "0.24.1" }
 ahash = "0.8.11"
 anyhow = "1.0.97"
 async-trait = "0.1.88"
-aws-config = { version = "1.6.0", features = ["behavior-version-latest"] }
-aws-sdk-s3 = { version = "1.79.0", features = ["behavior-version-latest"] }
+aws-config = { version = "1.6.1", features = ["behavior-version-latest"] }
+aws-sdk-s3 = { version = "1.82.0", features = ["behavior-version-latest"] }
 base64 = "0.22.1"
 chrono = { version = "0.4.40", features = ["serde"] }
 cidr = "0.3.1"
-clap = { version = "4.5.32", features = ["derive", "env"] }
+clap = { version = "4.5.35", features = ["derive", "env"] }
 clap-markdown = "0.1.4"
 dashmap = { version = "6.1.0", features = ["serde"] }
-eventsource-client = { version = "0.14.0" }
+eventsource-client = { version = "0.15.0" }
 futures = "0.3.31"
 futures-core = "0.3.31"
 ipnet = "2.11.0"
@@ -60,7 +60,7 @@ opentelemetry_sdk = { version = "0.29.0", features = [
     "serde_json",
     "logs",
 ] }
-p12-keystore = "0.1.4"
+p12-keystore = "0.1.5"
 pin-project-lite = "0.2.16"
 pkix = "0.2.3"
 prometheus = { version = "0.13.4", features = ["process"] }
@@ -102,12 +102,13 @@ unleash-types = { version = "0.15.10", features = ["openapi", "hashes"] }
 unleash-yggdrasil = { version = "0.17.3" }
 utoipa = { version = "5.3.1", features = ["actix_extras", "chrono"] }
 utoipa-swagger-ui = { version = "9.0.0", features = ["actix-web"] }
+zip = { version = "2.4.2" }
 [dev-dependencies]
-actix-http = "3.9.0"
+actix-http = "3.10.0"
 actix-http-test = "3.2.0"
 actix-service = "2.0.3"
 capture-logger = "0.1.1"
-env_logger = "0.11.7"
+env_logger = "0.11.8"
 maplit = "1.0.2"
 rand = "0.9.0"
 test-case = "3.3.1"

@@ -96,7 +96,7 @@ pub async fn request_consumption(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cli::{EdgeArgs, EdgeMode};
+
     use crate::metrics::edge_metrics::EdgeInstanceData;
     use crate::middleware::as_async_middleware::as_async_middleware;
     use actix_web::{App, HttpResponse, test};
@@ -110,7 +110,7 @@ mod tests {
                 .wrap(as_async_middleware(connection_consumption))
                 .route(
                     "/api/client/features",
-                    actix_web::web::get().to(|| async { HttpResponse::Ok() }),
+                    actix_web::web::get().to(|| async { HttpResponse::Ok().await }),
                 ),
         )
         .await;
@@ -131,7 +131,7 @@ mod tests {
                 .wrap(as_async_middleware(request_consumption))
                 .route(
                     "/api/frontend/features",
-                    actix_web::web::get().to(|| async { HttpResponse::Ok() }),
+                    actix_web::web::get().to(|| async { HttpResponse::Ok().await }),
                 ),
         )
         .await;
