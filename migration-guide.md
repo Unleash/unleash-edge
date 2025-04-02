@@ -34,9 +34,6 @@ curl --location --request GET 'http://0.0.0.0:3063/api/client/features' \
   same tokens that the front end API requires. Because of the way Edge handles API tokens, this is not a feature we're
   planning to support.
 
-- CORS configuration. Edge does not support CORS configuration, we accept any request. If you need this feature, please
-  raise an issue or submit a PR.
-
 - Context enrichers. The Unleash proxy provides an experimental option to automatically enrich requests with additional
   context. This is not supported in currently in Edge, we're open to adding this feature to Edge, opening an issue would
   help us to know that this is a valuable feature to you.
