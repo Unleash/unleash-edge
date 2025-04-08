@@ -23,7 +23,9 @@ pub async fn validate_token(
         Some(validator) => {
             let known_token = validator.register_token(token.token.clone()).await?;
             let res = match known_token.status {
-                TokenValidationStatus::Validated => match known_token.token_type {
+                TokenValidationStatus::Offline(_, _)
+                | TokenValidationStatus::Validated(_, _)
+                | TokenValidationStatus::OfflineWildcard => match known_token.token_type {
                     Some(TokenType::Frontend) => {
                         if req.path().contains("/api/frontend") || req.path().contains("/api/proxy")
                         {

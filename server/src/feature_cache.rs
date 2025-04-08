@@ -22,7 +22,7 @@ pub struct FeatureCache {
 
 impl FeatureCache {
     pub fn new(features: DashMap<String, ClientFeatures>) -> Self {
-        let (tx, _rx) = tokio::sync::broadcast::channel::<UpdateType>(16);
+        let (tx, _rx) = broadcast::channel::<UpdateType>(16);
         Self {
             features,
             update_sender: tx,
@@ -118,7 +118,7 @@ pub(crate) fn update_projects_from_feature_update(
     original: &[ClientFeature],
     updated: &[ClientFeature],
 ) -> Vec<ClientFeature> {
-    let projects_to_update = &token.projects;
+    let projects_to_update = &token.projects();
     if projects_to_update.contains(&"*".into()) {
         updated.into()
     } else {

@@ -102,12 +102,53 @@ pub enum ClientFeaturesDeltaResponse {
     Updated(ClientFeaturesDelta, Option<EntityTag>),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct Projects {
+    pub projects: Vec<String>,
+}
+
+impl Projects {
+    pub fn is_wildcard(&self) -> bool {
+        self.projects.contains(&"*".to_string())
+    }
+
+    pub fn access(&self) -> Vec<String> {
+        self.projects.clone()
+    }
+
+    pub fn new(projects: Vec<String>) -> Self {
+        Self { projects }
+    }
+
+    pub fn single(project: &str) -> Self {
+        Self {
+            projects: vec![project.into()],
+        }
+    }
+
+    pub fn wildcard_project() -> Self {
+        Self {
+            projects: vec!["*".into()],
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct Environment(String);
+
+impl Environment {
+    pub fn new(name: &str) -> Self {
+        Self(name.into())
+    }
+}
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Default, Deserialize, utoipa::ToSchema)]
 pub enum TokenValidationStatus {
-    Invalid,
+    Invalid, // We've spoken to upstream, and this token was not allowed to access
     #[default]
-    Unknown,
-    Validated,
+    Unknown, // We started in Edge mode, so we trust upstream to provide project and environment access
+    OfflineWildcard, // We started in offline mode, but could not parse token in <project>:<environment>.<secret> format, so granting full access to token.
+    Offline(Projects, EnvironmentStatus), // We started in offline mode, but was able to parse token to decide access to grant. i.e. <project>:<environment>.<secret>,
+    Validated(Projects, EnvironmentStatus), // We've spoken to upstream, and this was the access granted,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -137,10 +178,90 @@ pub struct EdgeToken {
     pub token: String,
     #[serde(rename = "type")]
     pub token_type: Option<TokenType>,
-    pub environment: Option<String>,
-    pub projects: Vec<String>,
-    #[serde(default = "valid_status")]
     pub status: TokenValidationStatus,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
+pub enum EnvironmentStatus {
+    #[default]
+    Unknown,
+    Known(String),
+}
+
+impl EdgeToken {
+    pub fn projects(&self) -> Vec<String> {
+        match self.status.clone() {
+            TokenValidationStatus::Invalid => vec![],
+            TokenValidationStatus::Unknown => vec![],
+            TokenValidationStatus::OfflineWildcard => vec!["*".into()],
+            TokenValidationStatus::Offline(projects, _) => projects.access(),
+            TokenValidationStatus::Validated(projects, _) => projects.access(),
+        }
+    }
+
+    pub fn environment(&self) -> EnvironmentStatus {
+        match self.status.clone() {
+            TokenValidationStatus::Invalid => EnvironmentStatus::Unknown,
+            TokenValidationStatus::Unknown => EnvironmentStatus::Unknown,
+            TokenValidationStatus::OfflineWildcard => EnvironmentStatus::Unknown,
+            TokenValidationStatus::Validated(_, env) => env,
+            TokenValidationStatus::Offline(_, env) => env,
+        }
+    }
+
+    pub fn is_known(&self) -> bool {
+        match self.status.clone() {
+            TokenValidationStatus::Invalid => false,
+            TokenValidationStatus::Unknown => false,
+            TokenValidationStatus::OfflineWildcard => true,
+            TokenValidationStatus::Validated(_, _) => true,
+            TokenValidationStatus::Offline(_, _) => true,
+        }
+    }
+
+    pub fn should_validate(&self) -> bool {
+        match self.status.clone() {
+            TokenValidationStatus::Invalid => false,
+            TokenValidationStatus::Unknown => true,
+            TokenValidationStatus::Validated(_, _) => false,
+            TokenValidationStatus::Offline(_, _) => false,
+            TokenValidationStatus::OfflineWildcard => false,
+        }
+    }
+
+    pub fn includes_project(&self, project: &str) -> bool {
+        self.projects().iter().any(|p| p == "*" || p == project)
+    }
+
+    pub fn is_wildcard(&self) -> bool {
+        self.projects().iter().any(|p| p == "*")
+    }
+
+    pub fn validated_with_projects(&self, projects: Vec<String>) -> Self {
+        let mut s = self.clone();
+        s.status =
+            TokenValidationStatus::Validated(Projects::new(projects), EnvironmentStatus::Unknown);
+        s
+    }
+    pub fn validated_with_environment(&self, environment: &str) -> Self {
+        let mut s = self.clone();
+        match s.status.clone() {
+            TokenValidationStatus::Validated(projects, _) => {
+                s.status = TokenValidationStatus::Validated(
+                    projects,
+                    EnvironmentStatus::Known(environment.into()),
+                );
+                s
+            }
+            _ => {
+                s.status = TokenValidationStatus::Validated(
+                    Projects::wildcard_project(),
+                    EnvironmentStatus::Known(environment.into()),
+                );
+                s
+            }
+        }
+    }
 }
 
 impl Debug for EdgeToken {
@@ -158,8 +279,6 @@ impl Debug for EdgeToken {
                 ),
             )
             .field("token_type", &self.token_type)
-            .field("environment", &self.environment)
-            .field("projects", &self.projects)
             .field("status", &self.status)
             .finish()
     }
@@ -191,15 +310,15 @@ impl From<ClientTokenResponse> for EdgeToken {
         Self {
             token: value.secret,
             token_type: value.token_type,
-            environment: value.environment,
-            projects: value.projects,
-            status: TokenValidationStatus::Validated,
+            status: TokenValidationStatus::Validated(
+                Projects::new(value.projects),
+                value
+                    .environment
+                    .map(|env| EnvironmentStatus::Known(env))
+                    .unwrap_or(EnvironmentStatus::Unknown),
+            ),
         }
     }
-}
-
-fn valid_status() -> TokenValidationStatus {
-    TokenValidationStatus::Validated
 }
 
 impl PartialEq for EdgeToken {
@@ -211,41 +330,6 @@ impl PartialEq for EdgeToken {
 impl Hash for EdgeToken {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.token.hash(state);
-    }
-}
-
-impl EdgeToken {
-    pub fn to_client_token_request(&self) -> ClientTokenRequest {
-        ClientTokenRequest {
-            token_name: format!(
-                "edge_data_token_{}",
-                self.environment.clone().unwrap_or("default".into())
-            ),
-            token_type: TokenType::Client,
-            projects: self.projects.clone(),
-            environment: self.environment.clone().unwrap_or("default".into()),
-            expires_at: Utc::now() + Duration::weeks(4),
-        }
-    }
-    pub fn admin_token(secret: &str) -> Self {
-        Self {
-            token: format!("*:*.{}", secret),
-            status: TokenValidationStatus::Validated,
-            token_type: Some(TokenType::Admin),
-            environment: None,
-            projects: vec!["*".into()],
-        }
-    }
-
-    #[cfg(test)]
-    pub fn validated_client_token(token: &str) -> Self {
-        EdgeToken::from_str(token)
-            .map(|mut t| {
-                t.status = TokenValidationStatus::Validated;
-                t.token_type = Some(TokenType::Client);
-                t
-            })
-            .unwrap()
     }
 }
 
@@ -529,7 +613,9 @@ mod tests {
 
     use crate::error::EdgeError::EdgeTokenParseError;
     use crate::http::unleash_client::EdgeTokens;
-    use crate::types::{EdgeResult, EdgeToken, IncomingContext};
+    use crate::types::{
+        EdgeResult, EdgeToken, EnvironmentStatus, IncomingContext, Projects, TokenValidationStatus,
+    };
 
     use super::PostContext;
 
@@ -542,8 +628,11 @@ mod tests {
 
     fn test_token(env: Option<&str>, projects: Vec<&str>) -> EdgeToken {
         EdgeToken {
-            environment: env.map(|env| env.into()),
-            projects: projects.into_iter().map(|p| p.into()).collect(),
+            status: TokenValidationStatus::Validated(
+                Projects::new(projects.iter().map(|s| s.to_string()).collect()),
+                env.map(|env| EnvironmentStatus::Known(env.into()))
+                    .unwrap_or_default(),
+            ),
             ..EdgeToken::default()
         }
     }
@@ -567,8 +656,21 @@ mod tests {
     #[test_case("secret-123"; "old example proxy token")]
     fn offline_token_from_string(token: &str) {
         let offline_token = EdgeToken::offline_token(token);
-        assert_eq!(offline_token.environment, None);
-        assert!(offline_token.projects.is_empty());
+        assert_eq!(offline_token.status, TokenValidationStatus::OfflineWildcard);
+    }
+
+    #[test_case("demo-app:production.614a75cf68bef8703aa1bd8304938a81ec871f86ea40c975468eabd6", "demo-app", "production"; "demo token with project and environment")]
+    #[test_case("*:default.5fa5ac2580c7094abf0d87c68b1eeb54bdc485014aef40f9fcb0673b", "*", "default"; "demo token with access to all projects and default environment")]
+    fn offline_token_with_access(token: &str, expected_project: &str, expected_environment: &str) {
+        let offline_token = EdgeToken::offline_token(token);
+        match offline_token.status {
+            TokenValidationStatus::Offline(projects, env) => {
+                assert_eq!(projects.projects.len(), 1);
+                assert_eq!(projects.projects.first().unwrap(), expected_project);
+                assert_eq!(env, EnvironmentStatus::Known(expected_environment.into()));
+            }
+            _ => panic!("Unexpected offline token status"),
+        }
     }
 
     #[test_case(

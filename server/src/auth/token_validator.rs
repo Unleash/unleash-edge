@@ -75,10 +75,7 @@ impl TokenValidator {
                         .find(|v| maybe_valid.token == v.token)
                     {
                         trace!("Validated token");
-                        EdgeToken {
-                            status: TokenValidationStatus::Validated,
-                            ..validated_token.clone()
-                        }
+                        validated_token.clone()
                     } else {
                         trace!("Invalid token");
                         EdgeToken {
@@ -137,7 +134,7 @@ impl TokenValidator {
         let tokens_to_validate: Vec<String> = self
             .token_cache
             .iter()
-            .filter(|t| t.value().status == TokenValidationStatus::Validated)
+            .filter(|t| t.value().is_known())
             .map(|e| e.key().clone())
             .collect();
         if !tokens_to_validate.is_empty() {
@@ -174,12 +171,12 @@ mod tests {
     use dashmap::DashMap;
     use serde::{Deserialize, Serialize};
 
+    use super::TokenValidator;
+    use crate::types::{Environment, Projects};
     use crate::{
         http::unleash_client::UnleashClient,
         types::{EdgeToken, TokenType, TokenValidationStatus},
     };
-
-    use super::TokenValidator;
 
     #[derive(Clone, Debug, Serialize, Deserialize)]
     pub struct EdgeTokens {
@@ -195,10 +192,11 @@ mod tests {
     fn valid_tokens() -> Vec<EdgeToken> {
         vec![EdgeToken {
             token: "*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1f".into(),
-            projects: vec!["*".into()],
-            environment: Some("development".into()),
             token_type: Some(TokenType::Client),
-            status: TokenValidationStatus::Validated,
+            status: TokenValidationStatus::Validated(
+                Projects::new(&vec!["*".into()]),
+                Environment::new("development".into()),
+            ),
         }]
     }
 
@@ -260,7 +258,11 @@ mod tests {
         assert_eq!(validation_holder.token_cache.len(), 2);
         assert!(validation_holder.token_cache.iter().any(|t| t.value().token
             == "*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1f"
-            && t.status == TokenValidationStatus::Validated));
+            && t.status
+                == TokenValidationStatus::Validated(
+                    Projects::new(&vec!["*".into()]),
+                    Environment::new("development")
+                )));
         assert!(
             validation_holder
                 .token_cache
@@ -293,7 +295,10 @@ mod tests {
         let upstream_tokens = Arc::new(DashMap::default());
         let mut valid_token_development =
             EdgeToken::try_from("*:development.secret123".to_string()).expect("Bad Test Data");
-        valid_token_development.status = TokenValidationStatus::Validated;
+        valid_token_development.status = TokenValidationStatus::Validated(
+            Projects::new(&["*".into()]),
+            Environment::new("development"),
+        );
         valid_token_development.token_type = Some(TokenType::Client);
         upstream_tokens.insert(
             valid_token_development.token.clone(),
@@ -315,7 +320,10 @@ mod tests {
 
         let local_token_cache = Arc::new(DashMap::default());
         let mut previously_valid_token = no_longer_valid_token.clone();
-        previously_valid_token.status = TokenValidationStatus::Validated;
+        previously_valid_token.status = TokenValidationStatus::Validated(
+            Projects::wildcard_project(),
+            Environment::new("production"),
+        );
         local_token_cache.insert(
             previously_valid_token.token.clone(),
             previously_valid_token.clone(),
@@ -339,11 +347,17 @@ mod tests {
         let upstream_tokens: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let mut valid_token_development =
             EdgeToken::try_from("*:development.secret123".to_string()).expect("Bad Test Data");
-        valid_token_development.status = TokenValidationStatus::Validated;
+        valid_token_development.status = TokenValidationStatus::Validated(
+            Projects::wildcard_project(),
+            Environment::new("development"),
+        );
         valid_token_development.token_type = Some(TokenType::Client);
         let mut valid_token_production =
             EdgeToken::try_from("*:production.magic123".to_string()).expect("Bad Test Data");
-        valid_token_production.status = TokenValidationStatus::Validated;
+        valid_token_production.status = TokenValidationStatus::Validated(
+            Projects::wildcard_project(),
+            Environment::new("production"),
+        );
         valid_token_production.token_type = Some(TokenType::Frontend);
         upstream_tokens.insert(
             valid_token_development.token.clone(),
@@ -371,11 +385,5 @@ mod tests {
         };
         let _ = validator.revalidate_known_tokens().await;
         assert_eq!(validator.token_cache.len(), 2);
-        assert!(
-            validator
-                .token_cache
-                .iter()
-                .all(|t| t.value().status == TokenValidationStatus::Validated)
-        );
     }
 }

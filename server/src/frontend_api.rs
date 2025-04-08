@@ -469,9 +469,7 @@ pub fn evaluate_feature(
         .get(&cache_key(&validated_token))
         .and_then(|engine| engine.resolve(&feature_name, &context_with_ip, &None))
         .and_then(|resolved_toggle| {
-            if validated_token.projects.contains(&"*".into())
-                || validated_token.projects.contains(&resolved_toggle.project)
-            {
+            if validated_token.includes_project(&resolved_toggle.project) {
                 Some(resolved_toggle)
             } else {
                 None
@@ -511,11 +509,9 @@ async fn post_enabled_features(
         .get(&edge_token.token)
         .map(|e| e.value().clone())
         .unwrap_or_else(|| edge_token.clone());
-    let engine = engine_cache
-        .get(&tokens::cache_key(&edge_token))
-        .ok_or_else(|| {
-            EdgeError::FrontendNotYetHydrated(FrontendHydrationMissing::from(&edge_token))
-        })?;
+    let engine = engine_cache.get(&cache_key(&edge_token)).ok_or_else(|| {
+        EdgeError::FrontendNotYetHydrated(FrontendHydrationMissing::from(&edge_token))
+    })?;
     let feature_results = engine.resolve_all(&context_with_ip, &None).ok_or_else(|| {
         EdgeError::FrontendExpectedToBeHydrated(
             "Feature cache has not been hydrated yet, but it was expected to be. This can be due to a race condition from calling edge before it's ready. This error might auto resolve as soon as edge is able to fetch from upstream".into(),
@@ -724,11 +720,7 @@ pub fn frontend_from_yggdrasil(
     let toggles: Vec<EvaluatedToggle> = res
         .iter()
         .filter(|(_, resolved)| include_all || resolved.enabled)
-        .filter(|(_, resolved)| {
-            edge_token.projects.is_empty()
-                || edge_token.projects.contains(&"*".to_string())
-                || edge_token.projects.contains(&resolved.project)
-        })
+        .filter(|(_, resolved)| edge_token.includes_project(&resolved.project))
         .map(|(name, resolved)| EvaluatedToggle {
             name: name.into(),
             enabled: resolved.enabled,
@@ -805,7 +797,9 @@ mod tests {
     use crate::metrics::client_metrics::MetricsCache;
     use crate::metrics::client_metrics::MetricsKey;
     use crate::middleware;
-    use crate::types::{EdgeToken, TokenType, TokenValidationStatus};
+    use crate::types::{
+        EdgeToken, Environment, EnvironmentStatus, Projects, TokenType, TokenValidationStatus,
+    };
     use crate::{builder::build_offline_mode, feature_cache::FeatureCache};
 
     async fn make_test_request() -> Request {
@@ -1345,7 +1339,10 @@ mod tests {
 
         let mut frontend_token =
             EdgeToken::try_from("ourtests:rocking.secret123".to_string()).unwrap();
-        frontend_token.status = TokenValidationStatus::Validated;
+        frontend_token.status = TokenValidationStatus::Validated(
+            Projects::single("ourtests"),
+            EnvironmentStatus::Known("rocking".to_string()),
+        );
         frontend_token.token_type = Some(TokenType::Frontend);
         token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
         let req = test::TestRequest::get()

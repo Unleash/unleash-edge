@@ -11,10 +11,10 @@ use actix_web::web::Data;
 use crate::cli::EdgeMode;
 use crate::cli::TokenHeader;
 use crate::error::EdgeError;
-use crate::types::EdgeResult;
-use crate::types::EdgeToken;
 use crate::types::TokenRefresh;
 use crate::types::TokenValidationStatus;
+use crate::types::{EdgeResult, Projects};
+use crate::types::{EdgeToken, EnvironmentStatus};
 
 pub(crate) fn simplify(tokens: &[TokenRefresh]) -> Vec<TokenRefresh> {
     let uniques = filter_unique_tokens(tokens);
@@ -38,10 +38,7 @@ fn filter_unique_tokens(tokens: &[TokenRefresh]) -> Vec<TokenRefresh> {
     let mut unique_keys = HashSet::new();
 
     for token in tokens {
-        let key = (
-            token.token.projects.clone(),
-            token.token.environment.clone(),
-        );
+        let key = (token.token.projects().clone(), token.token.environment());
         if !unique_keys.contains(&key) {
             unique_tokens.push(token.clone());
             unique_keys.insert(key);
@@ -75,19 +72,17 @@ fn clean_hash(hash: &str) -> String {
 }
 
 pub fn cache_key(token: &EdgeToken) -> String {
-    token
-        .environment
-        .clone()
-        .unwrap_or_else(|| token.token.clone())
+    match token.environment() {
+        EnvironmentStatus::Unknown => token.token.clone(),
+        EnvironmentStatus::Known(env) => env,
+    }
 }
 
 impl EdgeToken {
-    pub fn no_project_or_environment(s: &str) -> Self {
+    pub fn non_validated_token(s: &str) -> Self {
         EdgeToken {
             token: s.into(),
             token_type: None,
-            environment: None,
-            projects: vec![],
             status: TokenValidationStatus::default(),
         }
     }
@@ -101,10 +96,16 @@ impl EdgeToken {
         &self,
         other: &EdgeToken,
     ) -> bool {
-        self.environment == other.environment
-            && (self.projects.contains(&"*".into())
-                || (self.projects.len() >= other.projects.len()
-                    && other.projects.iter().all(|p| self.projects.contains(p))))
+        if self.environment() != other.environment() {
+            return false;
+        }
+        if self.is_wildcard() {
+            return true;
+        }
+        let own_projects = self.projects();
+        let other_projects = other.projects();
+        own_projects.len() >= other.projects().len()
+            && other_projects.iter().all(|p| own_projects.contains(p))
     }
 }
 
@@ -168,19 +169,23 @@ impl FromStr for EdgeToken {
     type Err = EdgeError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        EdgeToken::from_trimmed_str(s.trim())
+        Ok(EdgeToken::non_validated_token(s.trim()))
     }
 }
 
 impl EdgeToken {
     pub fn offline_token(s: &str) -> Self {
-        let mut token = EdgeToken::try_from(s.to_string())
-            .ok()
-            .unwrap_or_else(|| EdgeToken::no_project_or_environment(s));
-        token.status = TokenValidationStatus::Validated;
+        let mut token = EdgeToken::non_validated_token(s);
+        if let Ok((projects, env)) = EdgeToken::try_extract_projects_and_environment_from_str(s) {
+            token.status = TokenValidationStatus::Offline(projects, env)
+        } else {
+            token.status = TokenValidationStatus::OfflineWildcard
+        }
         token
     }
-    pub fn from_trimmed_str(s: &str) -> Result<Self, EdgeError> {
+    pub fn try_extract_projects_and_environment_from_str(
+        s: &str,
+    ) -> Result<(Projects, EnvironmentStatus), EdgeError> {
         if s.contains(':') && s.contains('.') {
             let token_parts: Vec<String> = s.split(':').take(2).map(|s| s.to_string()).collect();
             let token_projects = if let Some(projects) = token_parts.first() {
@@ -201,13 +206,14 @@ impl EdgeToken {
                 if e_a_k.len() != 2 {
                     return Err(EdgeError::TokenParseError(s.into()));
                 }
-                Ok(EdgeToken {
-                    environment: e_a_k.first().cloned(),
-                    projects: token_projects,
-                    token_type: None,
-                    token: s.into(),
-                    status: TokenValidationStatus::Unknown,
-                })
+                Ok((
+                    Projects::new(token_projects),
+                    e_a_k
+                        .first()
+                        .cloned()
+                        .map(|env| EnvironmentStatus::Known(env))
+                        .unwrap_or(EnvironmentStatus::Unknown),
+                ))
             } else {
                 Err(EdgeError::TokenParseError(s.into()))
             }
@@ -219,9 +225,9 @@ impl EdgeToken {
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
-
     use ulid::Ulid;
 
+    use crate::types::{EnvironmentStatus, Projects, TokenValidationStatus};
     use crate::{
         tokens::simplify,
         types::{EdgeToken, TokenRefresh, TokenType},
@@ -232,9 +238,12 @@ mod tests {
             token: token
                 .map(|s| s.into())
                 .unwrap_or_else(|| Ulid::new().to_string()),
-            environment: env.map(|env| env.into()),
-            projects: projects.into_iter().map(|p| p.into()).collect(),
-            ..EdgeToken::default()
+            token_type: Some(TokenType::Client),
+            status: TokenValidationStatus::Validated(
+                Projects::new(projects.iter().map(|i| i.to_string()).collect()),
+                env.map(|env| EnvironmentStatus::Known(env.into()))
+                    .unwrap_or(EnvironmentStatus::Unknown),
+            ),
         }
     }
 
@@ -362,15 +371,17 @@ mod tests {
     }
     #[test]
     fn test_single_project_token_is_covered_by_wildcard() {
+        let env_status = EnvironmentStatus::Known("development".into());
         let self_token = EdgeToken {
-            projects: vec!["*".into()],
-            environment: Some("development".into()),
-            ..Default::default()
+            status: TokenValidationStatus::Validated(
+                Projects::wildcard_project(),
+                env_status.clone(),
+            ),
+            ..EdgeToken::default()
         };
 
         let other_token = EdgeToken {
-            projects: vec!["A".into()],
-            environment: Some("development".into()),
+            status: TokenValidationStatus::Validated(Projects::single("A"), env_status.clone()),
             ..Default::default()
         };
 
@@ -381,16 +392,20 @@ mod tests {
 
     #[test]
     fn test_multi_project_token_is_covered_by_wildcard() {
+        let env_status = EnvironmentStatus::Known("development".into());
         let self_token = EdgeToken {
-            projects: vec!["*".into()],
-            environment: Some("development".into()),
-            ..Default::default()
+            status: TokenValidationStatus::Validated(
+                Projects::wildcard_project(),
+                env_status.clone(),
+            ),
+            ..EdgeToken::default()
         };
-
         let other_token = EdgeToken {
-            projects: vec!["A".into(), "B".into()],
-            environment: Some("development".into()),
-            ..Default::default()
+            status: TokenValidationStatus::Validated(
+                Projects::new(vec!["A".into(), "B".into()]),
+                env_status.clone(),
+            ),
+            ..EdgeToken::default()
         };
 
         let is_covered =
@@ -400,17 +415,19 @@ mod tests {
 
     #[test]
     fn test_multi_project_tokens_cover_each_other() {
+        let env_status = EnvironmentStatus::Known("development".into());
         let self_token = EdgeToken {
-            projects: vec!["A".into(), "B".into()],
-            environment: Some("development".into()),
-            ..Default::default()
+            status: TokenValidationStatus::Validated(
+                Projects::new(vec!["A".into(), "B".into()]),
+                env_status.clone(),
+            ),
+            ..EdgeToken::default()
         };
 
         let fe_token = EdgeToken {
-            projects: vec!["A".into()],
-            environment: Some("development".into()),
+            status: TokenValidationStatus::Validated(Projects::single("A"), env_status.clone()),
             token_type: Some(TokenType::Frontend),
-            ..Default::default()
+            ..EdgeToken::default()
         };
 
         let is_covered = self_token.same_environment_and_broader_or_equal_project_access(&fe_token);
@@ -419,18 +436,14 @@ mod tests {
 
     #[test]
     fn test_multi_project_tokens_do_not_cover_each_other_when_they_do_not_overlap() {
-        let self_token = EdgeToken {
-            projects: vec!["A".into(), "B".into()],
-            environment: Some("development".into()),
-            ..Default::default()
-        };
+        let self_token = EdgeToken::default()
+            .validated_with_projects(vec!["A".into(), "B".into()])
+            .validated_with_environment("development");
 
-        let fe_token = EdgeToken {
-            projects: vec!["A".into(), "C".into()],
-            environment: Some("development".into()),
-            token_type: Some(TokenType::Frontend),
-            ..Default::default()
-        };
+        let mut fe_token = EdgeToken::default()
+            .validated_with_projects(vec!["A".into(), "C".into()])
+            .validated_with_environment("development");
+        fe_token.token_type = Some(TokenType::Frontend);
 
         let is_covered = self_token.same_environment_and_broader_or_equal_project_access(&fe_token);
         assert!(!is_covered);

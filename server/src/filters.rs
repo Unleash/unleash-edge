@@ -72,7 +72,7 @@ pub(crate) fn project_filter_from_projects(projects: Vec<String>) -> FeatureFilt
 }
 
 pub(crate) fn project_filter(token: &EdgeToken) -> FeatureFilter {
-    project_filter_from_projects(token.projects.clone())
+    project_filter_from_projects(token.projects().clone())
 }
 
 #[cfg(test)]
@@ -236,11 +236,7 @@ mod tests {
         map.insert(map_key.clone(), client_features);
         let features = map.get(&map_key).unwrap();
 
-        let token = EdgeToken {
-            projects: vec!["default".to_string()],
-            ..Default::default()
-        };
-
+        let token = EdgeToken::default().validated_with_projects(vec!["default".to_string()]);
         let filter = FeatureFilterSet::from(project_filter(&token));
         let filtered_features = filter_features(&features, &filter);
 
