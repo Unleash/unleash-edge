@@ -380,7 +380,11 @@ impl PrometheusMetrics {
             return;
         }
 
-        let label_values = [path, method.as_str(), status.as_str()];
+        let label_values = if status.is_success() {
+            [path, method.as_str(), status.as_str()]
+        } else {
+            ["/{unknown}", method.as_str(), status.as_str()]
+        };
         let label_values = if self.enable_http_version_label {
             &label_values[..]
         } else {
@@ -744,7 +748,7 @@ actix_web_prom_http_requests_total{endpoint=\"/health_check\",method=\"GET\",sta
                     web::Bytes::from(
                         "# HELP actix_web_prom_http_requests_total Total number of HTTP requests
 # TYPE actix_web_prom_http_requests_total counter
-actix_web_prom_http_requests_total{endpoint=\"/health_checkz\",method=\"GET\",status=\"404\"} 1
+actix_web_prom_http_requests_total{endpoint=\"/{unknown}\",method=\"GET\",status=\"404\"} 1
 "
                     )
                     .to_vec()
