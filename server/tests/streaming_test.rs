@@ -65,8 +65,6 @@ mod streaming_test {
             .arg("--delta")
             .arg("-t")
             .arg(&upstream_known_token.token)
-            .stdout(Stdio::null()) // Suppress stdout
-            .stderr(Stdio::null()) // Suppress stderr
             .spawn()
             .expect("Failed to start the app");
 
