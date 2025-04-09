@@ -7,7 +7,7 @@ you through
 - how to migrate from the Unleash proxy to Edge
 - in cases where the feature set isn't equivalent, how to achieve the same results in Edge.
 
-A full [Docker compose file](./examples/docker-compose.yml) is also provided. It will spin up Edge, Unleash, and Redis,
+A full [Docker compose file](../examples/docker-compose.yml) is also provided. It will spin up Edge, Unleash, and Redis,
 to allow you to understand the configuration options in context.
 
 After starting the compose, you should be able to access the Unleash UI at `http://localhost:4242`, add a toggle, and
