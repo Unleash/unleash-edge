@@ -22,7 +22,7 @@ Key features:
 
 You can run Edge in two different modes: **edge** or **offline**. To learn about the different modes and other Edge concepts, visit [Concepts](../docs/concepts.md).
 
-Unleash Edge is the successor to Unleash Proxy. For help with migrating from Proxy to Edge, refer to the [migration guide](../migration-guide.md).
+Unleash Edge is the successor to Unleash Proxy. For help with migrating from Proxy to Edge, refer to the [migration guide](../docs/migration-guide.md).
 
 If you're looking for the simplest way to connect your client SDKs, explore our [Frontend API](https://docs.getunleash.io/reference/front-end-api). For additional recommendations on scaling your feature flag system, see our [Best practices for building and scaling feature flags](https://docs.getunleash.io/topics/feature-flags/feature-flag-best-practices) guide.
 
