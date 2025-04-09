@@ -99,7 +99,7 @@ tracing = { version = "0.1.41", features = ["log"] }
 tracing-subscriber = { version = "0.3.19", features = ["json", "env-filter"] }
 ulid = "1.2.1"
 unleash-types = { version = "0.15.11", features = ["openapi", "hashes"] }
-unleash-yggdrasil = { version = "0.17.3" }
+unleash-yggdrasil = { version = "0.17.4" }
 utoipa = { version = "5.3.1", features = ["actix_extras", "chrono"] }
 utoipa-swagger-ui = { version = "9.0.1", features = ["actix-web"] }
 zip = { version = "2.4.2" }
