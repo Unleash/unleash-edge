@@ -380,7 +380,11 @@ impl PrometheusMetrics {
             return;
         }
 
-        let label_values = [path, method.as_str(), status.as_str()];
+        let label_values = if status.is_success() {
+            [path, method.as_str(), status.as_str()]
+        } else {
+            ["/{unknown}", method.as_str(), status.as_str()]
+        };
         let label_values = if self.enable_http_version_label {
             &label_values[..]
         } else {
