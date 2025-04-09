@@ -83,7 +83,7 @@ Unleash Edge is distributed as a binary and as a Docker image.
 
 ## Running Unleash Edge
 
-The `docker run` command supports the same [CLI arguments](/CLI.md) that are available when running a binary.
+The `docker run` command supports the same [CLI arguments](./docs/CLI.md) that are available when running a binary.
 
 To run Edge in **edge** mode, use the command `edge`. This is built from `HEAD` on each commit.
 
@@ -156,7 +156,7 @@ To learn more about Unleash Edge, see the [Concepts](./docs/concepts.md) documen
 
 ### CLI
 
-For a list of available command-line arguments, see [CLI](/CLI.md).
+For a list of available command-line arguments, see [CLI](/docs/CLI.md).
 
 ### Deploying Edge
 
@@ -164,7 +164,7 @@ For deployment instructions, see our [Deploying Edge](./docs/deploying.md) guide
 
 ### Migrating from Unleash Proxy
 
-To migrate from the Unleash Proxy to Unleash Edge, refer to the [migration guide](./migration-guide.md).
+To migrate from the Unleash Proxy to Unleash Edge, refer to the [migration guide](./docs/migration-guide.md).
 
 ### Performance benchmarking
 
@@ -172,4 +172,4 @@ For performance benchmarking, see our [Benchmarking](./docs/benchmarking.md) pag
 
 ### Contribution and development guide
 
-See our [Contributors guide](./CONTRIBUTING.md) as well as our [development-guide](./development-guide.md).
+See our [Contributors guide](./CONTRIBUTING.md) as well as our [development-guide](./docs/development-guide.md).
