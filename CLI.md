@@ -34,7 +34,7 @@ This document contains the help content for the `unleash-edge` command-line prog
   Default value: ``
 * `-w`, `--workers <WORKERS>` — How many workers should be started to handle requests. Defaults to number of physical cpus
 
-  Default value: `16`
+  Default value: `<physical_cpus>`
 * `--tls-enable` — Should we bind TLS
 
   Default value: `false`
@@ -54,7 +54,7 @@ This document contains the help content for the `unleash-edge` command-line prog
 * `--deny-list <DENY_LIST>` — Configures the DenyList middleware to deny requests from IPs that belong to the CIDRs configured here. Defaults to denying no IPs
 * `--instance-id <INSTANCE_ID>` — Instance id. Used for metrics reporting
 
-  Default value: `unleash-edge@01JRCT354EWQ0D3SXG07J925K2`
+  Default value: `unleash-edge@<random ulid>`
 * `-a`, `--app-name <APP_NAME>` — App name. Used for metrics reporting
 
   Default value: `unleash-edge`
@@ -235,4 +235,3 @@ Perform a ready check against a running edge instance
     This document was generated automatically by
     <a href="https://crates.io/crates/clap-markdown"><code>clap-markdown</code></a>.
 </i></small>
-
