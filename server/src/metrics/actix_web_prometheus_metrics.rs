@@ -748,7 +748,7 @@ actix_web_prom_http_requests_total{endpoint=\"/health_check\",method=\"GET\",sta
                     web::Bytes::from(
                         "# HELP actix_web_prom_http_requests_total Total number of HTTP requests
 # TYPE actix_web_prom_http_requests_total counter
-actix_web_prom_http_requests_total{endpoint=\"/health_checkz\",method=\"GET\",status=\"404\"} 1
+actix_web_prom_http_requests_total{endpoint=\"/{unknown}\",method=\"GET\",status=\"404\"} 1
 "
                     )
                     .to_vec()
