@@ -10,10 +10,20 @@ Anything under /internal-backstage should be protected from public access as it 
   the [Access-Control-Allow-Origin](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Origin)
   header to this value
 
-To enable CORS headers, you can use the `--cors-allowed-origins` flag when starting Edge. For example:
+To enable CORS headers, you can use the `--cors-origin` flag when starting Edge. For example:
 
 ```shell
 unleash-edge edge --cors-origin "https://example.com"
+```
+
+For multiple domains, use a comma separated list or pass multiple instances of the `--cors-origin` parameter
+
+```shell
+unleash-edge edge --cors-origin "https://example.com,https://example2.com"
+```
+is equivalent to
+```shell
+unleash-edge edge --cors-origin "https://example.com" --cors-origin "https://other.example.com"
 ```
 
 #### Other CORS headers
