@@ -48,7 +48,7 @@ unleash-edge edge --cors-origin "https://example.com" --cors-origin "https://oth
 Edge provides a range of powerful ways in which you can run it. For a standard production configuration we recommend the
 following:
 
-- [Run in Edge mode](#edge): Edge mode connects to your upstream Unleash and syncs feature flags and tokens. This should
+- Run in Edge mode: Edge mode connects to your upstream Unleash and syncs feature flags and tokens. This should
   be the default mode that you choose for most Edge configurations in production.
 - Start Edge with initialization tokens: Edge mode allows you to specify a set of tokens on startup that Edge will use
   to hydrate data ahead of time. This means that Edge will have the data it requires to respond to frontend API requests
