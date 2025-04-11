@@ -102,9 +102,8 @@ This section unpacks the small changes in Edge from the proxy. These are ports o
 that have small changes. These shouldn't affect how you use Edge and the ideas here are similar to the proxy, only small
 details have changed.
 
-- Unleash URL. The proxy requires that you specify an Unleash URL to the upstream server, in the format https:
-  //{unleashUrl}/api. Edge has changed this, the URL that Edge requires is https://{unleashUrl}, without the `/api`
-  suffix.
+- Unleash URL. The proxy requires that you specify an Unleash URL to the upstream server, in the format `https://{unleashUrl}/api`.
+- Edge has changed this, the URL that Edge requires is `https://{unleashUrl}`, without the `/api` suffix.
 
 - Backend SDK support. The proxy does support connecting to backend SDKs, but it requires some configuration and setting
   some experimental feature flags. Edge supports this out the box, no additional configuration is required.
