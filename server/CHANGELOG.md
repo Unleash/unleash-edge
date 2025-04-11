@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [19.9.2](https://github.com/Unleash/unleash-edge/compare/v19.9.1...v19.9.2) - 2025-04-11
+
+### Dependency updates
+- bump rustls from 0.23.25 to 0.23.26 ([#887](https://github.com/unleash/unleash-edge/issues/887)) (by @dependabot[bot]) - #887
+
+### ⚙️ Miscellaneous Tasks
+- let streaming test output any issues to stdout ([#882](https://github.com/unleash/unleash-edge/issues/882)) (by @daveleek) - #882
+
+### Contributors
+
+* @dependabot[bot]
+* @daveleek
+
 ## [19.9.1](https://github.com/Unleash/unleash-edge/compare/v19.9.0...v19.9.1) - 2025-04-10
 
 ### 🐛 Bug Fixes
