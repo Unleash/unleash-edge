@@ -13,7 +13,7 @@ license = "MIT"
 name = "unleash-edge"
 repository = "https://github.com/Unleash/unleash-edge"
 rust-version = "1.85.0"
-version = "19.9.0"
+version = "19.9.1"
 
 [package.metadata.wix]
 upgrade-guid = "11E5D83A-3034-48BB-9A84-9F589EBD648C"
@@ -33,14 +33,14 @@ actix-service = "2.0.3"
 actix-web = { version = "4.10.2", features = ["rustls-0_23", "compress-zstd"] }
 actix-web-lab = { version = "0.24.1" }
 ahash = "0.8.11"
-anyhow = "1.0.97"
+anyhow = "1.0.98"
 async-trait = "0.1.88"
 aws-config = { version = "1.6.1", features = ["behavior-version-latest"] }
 aws-sdk-s3 = { version = "1.82.0", features = ["behavior-version-latest"] }
 base64 = "0.22.1"
 chrono = { version = "0.4.40", features = ["serde"] }
 cidr = "0.3.1"
-clap = { version = "4.5.35", features = ["derive", "env"] }
+clap = { version = "4.5.36", features = ["derive", "env"] }
 clap-markdown = "0.1.4"
 dashmap = { version = "6.1.0", features = ["serde"] }
 eventsource-client = { version = "0.15.0" }
@@ -52,7 +52,7 @@ json-structural-diff = "0.2.0"
 lazy_static = "1.5.0"
 num_cpus = "1.16.0"
 opentelemetry = { version = "0.29.1", features = ["trace", "metrics"] }
-opentelemetry-prometheus = "0.29.0"
+opentelemetry-prometheus = "0.29.1"
 opentelemetry-semantic-conventions = "0.29.0"
 opentelemetry_sdk = { version = "0.29.0", features = [
     "metrics",
@@ -76,7 +76,7 @@ reqwest = { version = "0.12.15", default-features = false, features = [
     "json",
     "rustls-tls"
 ] }
-rustls = { version = "0.23.25", default-features = false, features = [
+rustls = { version = "0.23.26", default-features = false, features = [
     "logging",
     "ring",
     "std",

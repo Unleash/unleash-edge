@@ -7,7 +7,7 @@ you through
 - how to migrate from the Unleash proxy to Edge
 - in cases where the feature set isn't equivalent, how to achieve the same results in Edge.
 
-A full [Docker compose file](./examples/docker-compose.yml) is also provided. It will spin up Edge, Unleash, and Redis,
+A full [Docker compose file](../examples/docker-compose.yml) is also provided. It will spin up Edge, Unleash, and Redis,
 to allow you to understand the configuration options in context.
 
 After starting the compose, you should be able to access the Unleash UI at `http://localhost:4242`, add a toggle, and
@@ -102,9 +102,8 @@ This section unpacks the small changes in Edge from the proxy. These are ports o
 that have small changes. These shouldn't affect how you use Edge and the ideas here are similar to the proxy, only small
 details have changed.
 
-- Unleash URL. The proxy requires that you specify an Unleash URL to the upstream server, in the format https:
-  //{unleashUrl}/api. Edge has changed this, the URL that Edge requires is https://{unleashUrl}, without the `/api`
-  suffix.
+- Unleash URL. The proxy requires that you specify an Unleash URL to the upstream server, in the format `https://{unleashUrl}/api`.
+- Edge has changed this, the URL that Edge requires is `https://{unleashUrl}`, without the `/api` suffix.
 
 - Backend SDK support. The proxy does support connecting to backend SDKs, but it requires some configuration and setting
   some experimental feature flags. Edge supports this out the box, no additional configuration is required.
