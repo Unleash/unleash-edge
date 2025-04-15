@@ -19,7 +19,8 @@ use crate::offline::offline_hotload::{load_bootstrap, load_offline_engine_cache}
 use crate::persistence::EdgePersistence;
 use crate::persistence::file::FilePersister;
 use crate::persistence::redis::RedisPersister;
-use crate::persistence::s3::S3Persister;
+#[cfg(feature = "s3-persistence")]
+use crate::persistence::s3::s3_persister::S3Persister;
 use crate::{
     auth::token_validator::TokenValidator,
     cli::{CliArgs, EdgeArgs, EdgeMode, OfflineArgs},
@@ -207,7 +208,7 @@ async fn get_data_source(args: &EdgeArgs) -> Option<Arc<dyn EdgePersistence>> {
         });
         return Some(Arc::new(redis_persister));
     }
-
+    #[cfg(feature = "s3-persistence")]
     if let Some(s3_args) = args.s3.clone() {
         let s3_persister = S3Persister::new_from_env(
             &s3_args
