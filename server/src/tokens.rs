@@ -7,6 +7,7 @@ use actix_web::HttpRequest;
 use actix_web::dev::Payload;
 use actix_web::http::header::HeaderValue;
 use actix_web::web::Data;
+use dashmap::DashMap;
 
 use crate::cli::EdgeMode;
 use crate::cli::TokenHeader;
@@ -118,6 +119,15 @@ impl FromRequest for EdgeToken {
             None => "Authorization".to_string(),
         };
         let value = req.headers().get(token_header);
+
+        if let (Some(value), Some(token_cache)) =
+            (value, req.app_data::<Data<DashMap<String, EdgeToken>>>())
+        {
+            if let Some(token) = token_cache.get(value.to_str().unwrap_or_default()) {
+                return ready(Ok(token.value().clone()));
+            }
+        }
+
         if let Some(data_mode) = req.app_data::<Data<EdgeMode>>() {
             let mode = data_mode.clone().into_inner();
             let key = match *mode {

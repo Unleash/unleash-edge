@@ -19,6 +19,11 @@ pub async fn validate_token(
         .unwrap()
         .clone()
         .into_inner();
+
+    if token.status == TokenValidationStatus::Trusted {
+        return Ok(srv.call(req).await?.map_into_left_body());
+    }
+
     match maybe_validator {
         Some(validator) => {
             let known_token = validator.register_token(token.token.clone()).await?;
@@ -51,6 +56,7 @@ pub async fn validate_token(
                 TokenValidationStatus::Invalid => req
                     .into_response(HttpResponse::Forbidden().finish())
                     .map_into_right_body(),
+                TokenValidationStatus::Trusted => unreachable!(),
             };
             Ok(res)
         }
