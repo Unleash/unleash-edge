@@ -231,9 +231,7 @@ mod tests {
     #[actix_web::test]
     async fn validation_allows_client_tokens_on_backend_paths() {
         let token = EdgeToken {
-            token: "*:development
-                .somesecretstring"
-                .into(),
+            token: "*:development.somesecretstring".into(),
             status: TokenValidationStatus::Validated,
             token_type: Some(TokenType::Client),
             ..Default::default()
