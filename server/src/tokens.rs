@@ -476,7 +476,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn weird_tokens_can_be_parsed_from_request_if_already_in_cache() {
+    async fn invalid_aka_legacy_tokens_can_be_parsed_from_request_if_already_in_cache() {
         let token_cache = DashMap::<String, EdgeToken>::new();
 
         token_cache.insert(
@@ -503,5 +503,35 @@ mod tests {
 
         let resp = actix_test::call_and_read_body(&app, req).await;
         assert_eq!(resp, "some-weird-environment-I-made-up");
+    }
+
+    #[tokio::test]
+    async fn non_trusted_tokens_cannot_be_retrieved_from_cache() {
+        let token_cache = DashMap::<String, EdgeToken>::new();
+
+        token_cache.insert(
+            "legacy-123".to_string(),
+            EdgeToken {
+                token_type: Some(TokenType::Frontend),
+                status: TokenValidationStatus::Validated,
+                environment: Some("some-weird-environment-I-made-up".to_string()),
+                ..Default::default()
+            },
+        );
+        let app = actix_test::init_service(App::new().app_data(Data::new(token_cache)).route(
+            "/",
+            web::get().to(|token: EdgeToken| async move {
+                HttpResponse::Ok().body(token.environment.unwrap())
+            }),
+        ))
+        .await;
+
+        let req = TestRequest::get()
+            .uri("/")
+            .insert_header((AUTHORIZATION, "legacy-123"))
+            .to_request();
+
+        let resp = actix_test::call_and_read_body(&app, req).await;
+        assert_eq!(resp, "{\"explanation\":\"Edge could not parse token: legacy-123\"}");
     }
 }
