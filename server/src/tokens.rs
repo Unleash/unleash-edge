@@ -230,11 +230,19 @@ impl EdgeToken {
 mod tests {
     use std::str::FromStr;
 
+    use actix_http::header::AUTHORIZATION;
+    use actix_web::{
+        App,
+        test::{self as actix_test, TestRequest},
+        web::Data,
+    };
+    use actix_web::{HttpResponse, web};
+    use dashmap::DashMap;
     use ulid::Ulid;
 
     use crate::{
         tokens::simplify,
-        types::{EdgeToken, TokenRefresh, TokenType},
+        types::{EdgeToken, TokenRefresh, TokenType, TokenValidationStatus},
     };
 
     fn test_token(token: Option<&str>, env: Option<&str>, projects: Vec<&str>) -> EdgeToken {
@@ -463,5 +471,35 @@ mod tests {
         assert_eq!(token, token1);
         assert_eq!(token1, token2);
         assert_eq!(token2, token3);
+    }
+
+    #[tokio::test]
+    async fn weird_tokens_can_be_parsed_from_request_if_already_in_cache() {
+        let token_cache = DashMap::<String, EdgeToken>::new();
+
+        token_cache.insert(
+            "legacy-123".to_string(),
+            EdgeToken {
+                token_type: Some(TokenType::Frontend),
+                status: TokenValidationStatus::Trusted,
+                environment: Some("some-weird-environment-I-made-up".to_string()),
+                ..Default::default()
+            },
+        );
+        let app = actix_test::init_service(App::new().app_data(Data::new(token_cache)).route(
+            "/",
+            web::get().to(|token: EdgeToken| async move {
+                HttpResponse::Ok().body(token.environment.unwrap())
+            }),
+        ))
+        .await;
+
+        let req = TestRequest::get()
+            .uri("/")
+            .insert_header((AUTHORIZATION, "legacy-123"))
+            .to_request();
+
+        let resp = actix_test::call_and_read_body(&app, req).await;
+        assert_eq!(resp, "some-weird-environment-I-made-up");
     }
 }
