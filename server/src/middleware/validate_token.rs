@@ -23,12 +23,17 @@ pub async fn validate_token(
 
     let validation_status = validate(&token, maybe_validator, &token_cache, req.path()).await;
 
-    if let Ok(_) = validation_status {
-        Ok(srv.call(req).await?.map_into_left_body())
-    } else {
-        Ok(req
-            .into_response(HttpResponse::Forbidden().finish())
-            .map_into_right_body())
+    match validation_status {
+        Ok(_) => Ok(srv.call(req).await?.map_into_left_body()),
+        Err(err) => match err {
+            EdgeError::AuthorizationDenied => Ok(req
+                .into_response(HttpResponse::Unauthorized().finish())
+                .map_into_right_body()),
+            EdgeError::Forbidden(_) => Ok(req
+                .into_response(HttpResponse::Forbidden().finish())
+                .map_into_right_body()),
+            _ => Err(err.into()),
+        },
     }
 }
 
@@ -49,10 +54,11 @@ async fn validate(
                 TokenValidationStatus::Validated => match known_token.token_type {
                     Some(TokenType::Frontend) => check_frontend_path(path),
                     Some(TokenType::Client) => check_backend_path(path),
-                    _ => Err(EdgeError::AuthorizationDenied),
+                    _ => Err(EdgeError::Forbidden("".into())),
                 },
+
                 TokenValidationStatus::Unknown => Err(EdgeError::AuthorizationDenied),
-                TokenValidationStatus::Invalid => Err(EdgeError::AuthorizationDenied),
+                TokenValidationStatus::Invalid => Err(EdgeError::Forbidden("".into())),
                 TokenValidationStatus::Trusted => unreachable!(),
             }
         }
@@ -63,10 +69,10 @@ async fn validate(
                     Some(TokenType::Frontend) => check_frontend_path(path),
                     Some(TokenType::Client) => check_backend_path(path),
                     None => Ok(()),
-                    _ => Err(EdgeError::AuthorizationDenied),
+                    _ => Err(EdgeError::Forbidden("".into())),
                 }
             }
-            None => Err(EdgeError::AuthorizationDenied),
+            None => Err(EdgeError::Forbidden("".into())),
         },
     }
 }
@@ -75,7 +81,7 @@ fn check_frontend_path(path: &str) -> Result<(), EdgeError> {
     if path.contains("/api/frontend") || path.contains("/api/proxy") {
         Ok(())
     } else {
-        Err(EdgeError::AuthorizationDenied)
+        Err(EdgeError::Forbidden("".into()))
     }
 }
 
@@ -83,7 +89,7 @@ fn check_backend_path(path: &str) -> Result<(), EdgeError> {
     if path.contains("/api/client") {
         Ok(())
     } else {
-        Err(EdgeError::AuthorizationDenied)
+        Err(EdgeError::Forbidden("".into()))
     }
 }
 
@@ -117,11 +123,11 @@ mod tests {
         }
     }
 
-    struct CrashValidator {}
+    struct FailValidator {}
 
-    impl TokenRegister for CrashValidator {
+    impl TokenRegister for FailValidator {
         async fn register_token(&self, _token: String) -> crate::types::EdgeResult<EdgeToken> {
-            panic!("you should never have gotten to this point")
+            Err(EdgeError::EdgeTokenError)
         }
     }
 
@@ -136,7 +142,7 @@ mod tests {
 
         let result = validate(
             &token,
-            Some(&Data::new(CrashValidator {})),
+            Some(&Data::new(FailValidator {})),
             &DashMap::new(),
             "/api/frontend/some_path",
         )
@@ -242,5 +248,27 @@ mod tests {
         .await;
 
         assert!(hit_features.is_ok());
+    }
+
+    #[actix_web::test]
+    async fn broken_token_bubbles_error() {
+        let token = EdgeToken {
+            token: "totally-broken-token".into(),
+            status: TokenValidationStatus::Invalid,
+            ..Default::default()
+        };
+
+        let result = validate(
+            &token,
+            Some(&Data::new(FailValidator {})),
+            &DashMap::new(),
+            "/api/client/features",
+        )
+        .await;
+
+        match result {
+            Err(EdgeError::EdgeTokenError) => {}
+            _ => panic!("Expected a token error"),
+        }
     }
 }
