@@ -124,7 +124,9 @@ impl FromRequest for EdgeToken {
             (value, req.app_data::<Data<DashMap<String, EdgeToken>>>())
         {
             if let Some(token) = token_cache.get(value.to_str().unwrap_or_default()) {
-                return ready(Ok(token.value().clone()));
+                if token.status == TokenValidationStatus::Trusted {
+                    return ready(Ok(token.value().clone()));
+                }
             }
         }
 
