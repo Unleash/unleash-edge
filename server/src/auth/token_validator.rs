@@ -18,6 +18,21 @@ pub struct TokenValidator {
     pub persistence: Option<Arc<dyn EdgePersistence>>,
 }
 
+pub(crate) trait TokenRegister {
+    async fn register_token(&self, token: String) -> EdgeResult<EdgeToken>;
+}
+
+impl TokenRegister for TokenValidator {
+    async fn register_token(&self, token: String) -> EdgeResult<EdgeToken> {
+        Ok(self
+            .register_tokens(vec![token])
+            .await?
+            .first()
+            .expect("Couldn't validate token")
+            .clone())
+    }
+}
+
 impl TokenValidator {
     async fn get_unknown_and_known_tokens(
         &self,
@@ -42,15 +57,6 @@ impl TokenValidator {
             }
             tokens.into_iter().partition(|t| t.token_type.is_none())
         }
-    }
-
-    pub async fn register_token(&self, token: String) -> EdgeResult<EdgeToken> {
-        Ok(self
-            .register_tokens(vec![token])
-            .await?
-            .first()
-            .expect("Couldn't validate token")
-            .clone())
     }
 
     pub async fn register_tokens(&self, tokens: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {

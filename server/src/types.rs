@@ -107,6 +107,7 @@ pub enum TokenValidationStatus {
     Invalid,
     #[default]
     Unknown,
+    Trusted,
     Validated,
 }
 
