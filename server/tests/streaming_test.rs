@@ -215,6 +215,7 @@ mod streaming_test {
                 features_refresh_interval_seconds: 60,
                 token_revalidation_interval_seconds: 60,
                 tokens: vec!["".into()],
+                pretrusted_tokens: None,
                 custom_client_headers: vec![],
                 skip_ssl_verification: false,
                 client_identity: None,
