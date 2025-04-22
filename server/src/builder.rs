@@ -21,7 +21,6 @@ use crate::persistence::file::FilePersister;
 use crate::persistence::redis::RedisPersister;
 #[cfg(feature = "s3-persistence")]
 use crate::persistence::s3::s3_persister::S3Persister;
-use crate::tokens::parse_trusted_token_pairs;
 use crate::{
     auth::token_validator::TokenValidator,
     cli::{CliArgs, EdgeArgs, EdgeMode, OfflineArgs},
@@ -277,17 +276,9 @@ async fn build_edge(
         .map(Arc::new)
         .map_err(|_| EdgeError::InvalidServerUrl(args.upstream_url.clone()))?;
 
-    if let Some(trusted_token_strings) = &args.pretrusted_tokens {
-        let (token_pairs, errors) = parse_trusted_token_pairs(trusted_token_strings);
-
-        if !errors.is_empty() {
-            for error in errors {
-                warn!("Failed to parse trusted token pair {error:?}");
-            }
-        }
-
+    if let Some(token_pairs) = &args.pretrusted_tokens {
         for (token_string, trusted_token) in token_pairs {
-            token_cache.insert(token_string.clone(), trusted_token);
+            token_cache.insert(token_string.clone(), trusted_token.clone());
         }
     }
 

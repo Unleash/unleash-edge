@@ -229,23 +229,7 @@ impl EdgeToken {
     }
 }
 
-pub(crate) fn parse_trusted_token_pairs(
-    trusted_token_strings: &[String],
-) -> (Vec<(String, EdgeToken)>, Vec<EdgeError>) {
-    let trusted_token_pairs: Vec<EdgeResult<(String, EdgeToken)>> = trusted_token_strings
-        .iter()
-        .map(|x| parse_trusted_token_pair(x))
-        .collect();
-
-    let (oks, errs): (Vec<_>, Vec<_>) = trusted_token_pairs.into_iter().partition(|x| x.is_ok());
-
-    let trusted_tokens: Vec<(String, EdgeToken)> = oks.into_iter().map(Result::unwrap).collect();
-    let failed_tokens: Vec<EdgeError> = errs.into_iter().map(Result::unwrap_err).collect();
-
-    (trusted_tokens, failed_tokens)
-}
-
-fn parse_trusted_token_pair(token_string: &str) -> EdgeResult<(String, EdgeToken)> {
+pub(crate) fn parse_trusted_token_pair(token_string: &str) -> EdgeResult<(String, EdgeToken)> {
     match EdgeToken::from_str(token_string) {
         Ok(token) => Ok((
             token_string.into(),
