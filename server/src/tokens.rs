@@ -246,7 +246,7 @@ pub(crate) fn parse_trusted_token_pairs(
 }
 
 fn parse_trusted_token_pair(token_string: &str) -> EdgeResult<(String, EdgeToken)> {
-    match EdgeToken::from_str(&token_string) {
+    match EdgeToken::from_str(token_string) {
         Ok(token) => Ok((
             token_string.into(),
             EdgeToken {
@@ -257,7 +257,7 @@ fn parse_trusted_token_pair(token_string: &str) -> EdgeResult<(String, EdgeToken
                 status: TokenValidationStatus::Trusted,
             },
         )),
-        Err(EdgeError::TokenParseError(_)) => parse_legacy_token(&token_string),
+        Err(EdgeError::TokenParseError(_)) => parse_legacy_token(token_string),
         Err(e) => Err(e),
     }
 }
@@ -265,9 +265,9 @@ fn parse_trusted_token_pair(token_string: &str) -> EdgeResult<(String, EdgeToken
 fn parse_legacy_token(token_string: &str) -> EdgeResult<(String, EdgeToken)> {
     let parts: Vec<&str> = token_string.split('@').collect();
     if parts.len() != 2 {
-        return Err(EdgeError::TokenParseError("Trusted tokens must either match the existing Unleash token format or they must be {string}@{environment}".into()));
+        Err(EdgeError::TokenParseError("Trusted tokens must either match the existing Unleash token format or they must be {string}@{environment}".into()))
     } else {
-        return Ok((
+        Ok((
             parts[0].into(),
             EdgeToken {
                 token: format!("*.{}:{}", parts[1], parts[0]),
@@ -276,7 +276,7 @@ fn parse_legacy_token(token_string: &str) -> EdgeResult<(String, EdgeToken)> {
                 token_type: Some(TokenType::Frontend),
                 status: TokenValidationStatus::Trusted,
             },
-        ));
+        ))
     }
 }
 
