@@ -103,11 +103,11 @@ mod tests {
 
     impl TokenRegister for FrontendValidator {
         async fn register_token(&self, token: String) -> crate::types::EdgeResult<EdgeToken> {
-            return Ok(EdgeToken {
+            Ok(EdgeToken {
                 status: TokenValidationStatus::Validated,
                 token_type: Some(TokenType::Frontend),
                 ..EdgeToken::from_str(&token).unwrap()
-            });
+            })
         }
     }
 
@@ -115,11 +115,11 @@ mod tests {
 
     impl TokenRegister for ClientValidator {
         async fn register_token(&self, token: String) -> crate::types::EdgeResult<EdgeToken> {
-            return Ok(EdgeToken {
+            Ok(EdgeToken {
                 status: TokenValidationStatus::Validated,
                 token_type: Some(TokenType::Client),
                 ..EdgeToken::from_str(&token).unwrap()
-            });
+            })
         }
     }
 
