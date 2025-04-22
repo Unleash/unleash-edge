@@ -3,7 +3,7 @@ mod streaming_test {
     use eventsource_client::Client;
     use futures::StreamExt;
     use std::{
-        process::{Command, Stdio},
+        process::Command,
         str::FromStr,
         sync::Arc,
     };
