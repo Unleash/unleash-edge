@@ -113,6 +113,29 @@ For [frontend tokens](https://docs.getunleash.io/reference/api-tokens-and-client
 
 When configured this way, Edge in offline mode can validate tokens and tell daisy-chained Edges instances the type of token calling the validate endpoint.
 
+
+### Pretrusted tokens
+
+> Availability: Unleash Edge v19.10+
+
+Pretrusted tokens allow you to bypass upstream validation for frontend tokens. This can be useful when you want to explicitly authorize known frontend tokens without relying on Unleash to validate them or you need to use the same authorization scheme as the Unleash Proxy.
+
+You can provide pretrusted tokens using either the --pretrusted-tokens CLI flag or the PRETRUSTED_TOKENS environment variable.
+
+Each token must be in one of the following formats:
+
+- A valid Unleash frontend token, such as:
+
+  `*:development.969e810bb1237ef465c42cb5d8c32c47c1377a4c0885ca3671183255`
+
+- A legacy proxy-style token, of the form:
+
+  `some-secret@development`
+
+  In this format, `some-secret` is the token your frontend client will use and `development` is the environment the token applies to.
+
+> ℹ️ **Note**: When using legacy-style tokens (`some-secret@environment`), you must also configure at least one standard client token (via `TOKENS`) that covers the specified environment. This is required so that Edge knows which features to fetch for that environment.
+
 ## Metrics
 
 > Availability: Unleash v5.9+. For daisy-chaining, ensure Edge v17+ is upstream of any Edge v19+ to preserve metrics.
