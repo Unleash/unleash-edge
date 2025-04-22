@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [19.9.2](https://github.com/Unleash/unleash-edge/compare/v19.9.1...v19.9.2) - 2025-04-22
+
+### 🐛 Bug Fixes
+- *(build)* shadow now runs in lazy mode. No recompile in debug ([#896](https://github.com/unleash/unleash-edge/issues/896)) (by @chriswk)
+
+### Dependency updates
+- bump clap from 4.5.36 to 4.5.37 ([#901](https://github.com/unleash/unleash-edge/issues/901)) (by @dependabot[bot]) - #901
+- bump rand from 0.9.0 to 0.9.1 ([#899](https://github.com/unleash/unleash-edge/issues/899)) (by @dependabot[bot]) - #899
+- bump anyhow from 1.0.97 to 1.0.98 ([#894](https://github.com/unleash/unleash-edge/issues/894)) (by @dependabot[bot]) - #894
+- bump opentelemetry-prometheus from 0.29.0 to 0.29.1 ([#893](https://github.com/unleash/unleash-edge/issues/893)) (by @dependabot[bot]) - #893
+- bump clap from 4.5.35 to 4.5.36 ([#892](https://github.com/unleash/unleash-edge/issues/892)) (by @dependabot[bot]) - #892
+- bump rustls from 0.23.25 to 0.23.26 ([#887](https://github.com/unleash/unleash-edge/issues/887)) (by @dependabot[bot]) - #887
+
+### ⚙️ Miscellaneous Tasks
+- trusted token implementation without being exposed ([#898](https://github.com/unleash/unleash-edge/issues/898)) (by @sighphyre) - #898
+- move s3 persistence behind flag ([#895](https://github.com/unleash/unleash-edge/issues/895)) (by @sighphyre) - #895
+- let streaming test output any issues to stdout ([#882](https://github.com/unleash/unleash-edge/issues/882)) (by @daveleek) - #882
+
+### Contributors
+
+* @sighphyre
+* @dependabot[bot]
+* @chriswk
+* @daveleek
+
 ## [19.9.1](https://github.com/Unleash/unleash-edge/compare/v19.9.0...v19.9.1) - 2025-04-10
 
 ### 🐛 Bug Fixes
