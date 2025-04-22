@@ -276,6 +276,12 @@ async fn build_edge(
         .map(Arc::new)
         .map_err(|_| EdgeError::InvalidServerUrl(args.upstream_url.clone()))?;
 
+    if let Some(token_pairs) = &args.pretrusted_tokens {
+        for (token_string, trusted_token) in token_pairs {
+            token_cache.insert(token_string.clone(), trusted_token.clone());
+        }
+    }
+
     let token_validator = Arc::new(TokenValidator {
         token_cache: token_cache.clone(),
         unleash_client: unleash_client.clone(),
@@ -403,6 +409,7 @@ mod tests {
             strict: true,
             dynamic: false,
             tokens: vec![],
+            pretrusted_tokens: None,
             redis: None,
             s3: None,
             client_identity: Default::default(),
