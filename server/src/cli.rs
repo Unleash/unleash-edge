@@ -173,6 +173,10 @@ pub struct EdgeArgs {
     #[clap(short, long, env, value_delimiter = ',')]
     pub tokens: Vec<String>,
 
+    /// Set a list of frontend tokens that Edge will always trust. These need to either match the Unleash token format, or they're an arbitrary string followed by an @ and then an environment, e.g. secret-123@development
+    #[clap(short, long, env, value_delimiter = ',')]
+    pub pretrusted_tokens: Option<Vec<String>>,
+
     /// Expects curl header format (-H <HEADERNAME>: <HEADERVALUE>)
     /// for instance `-H X-Api-Key: mysecretapikey`
     #[clap(short = 'H', long, env, value_delimiter = ',', value_parser = string_to_header_tuple)]
