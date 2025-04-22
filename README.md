@@ -134,7 +134,7 @@ Each token must be in one of the following formats:
 
   In this format, `some-secret` is the token your frontend client will use and `development` is the environment the token applies to.
 
-> ℹ️ **Note**: When using legacy-style tokens (`some-secret@environment`), you must also configure at least one standard token (via `TOKENS`) that covers the specified environment. This is required so that Edge knows which features to fetch for that environment.
+> ℹ️ **Note**: When using legacy-style tokens (`some-secret@environment`), you must also configure at least one standard client token (via `TOKENS`) that covers the specified environment. This is required so that Edge knows which features to fetch for that environment.
 
 ## Metrics
 
