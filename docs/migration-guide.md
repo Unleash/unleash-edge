@@ -20,6 +20,9 @@ curl --location --request GET 'http://0.0.0.0:3063/api/client/features' \
 --data-raw ''
 ```
 
+## Legacy proxy tokens
+With Edge 19.10.0 we introduced a new concept in Edge that aims to support this functionality. For reference, check the readme file: https://github.com/Unleash/unleash-edge?tab=readme-ov-file#pretrusted-tokens
+
 ## Not supported
 
 - [Custom Strategies](https://docs.getunleash.io/reference/custom-activation-strategies) are not supported in Edge
@@ -29,7 +32,7 @@ curl --location --request GET 'http://0.0.0.0:3063/api/client/features' \
   constraints **cannot** replace your strategy, please raise this as an issue with details on what you're trying to
   achieve. We are looking into supporting custom strategies in Edge in the future.
 
-- Legacy proxy Tokens. If you're using the proxy, you may be using the legacy proxy token format. These are not
+- Legacy proxy Tokens ([now supported](https://github.com/Unleash/unleash-edge?tab=readme-ov-file#pretrusted-tokens) from edge version 19.10.0). If you're using the proxy, you may be using the legacy proxy token format. These are not
   supported in Edge. You will need to create a new front end SDK token in the Unleash UI and use that. These are the
   same tokens that the front end API requires. Because of the way Edge handles API tokens, this is not a feature we're
   planning to support.
