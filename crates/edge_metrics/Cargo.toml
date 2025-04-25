@@ -1,0 +1,22 @@
+[package]
+name = "unleash-edge-metrics"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+documentation.workspace = true
+edition.workspace = true
+
+[dependencies]
+ahash = { workspace = true }
+chrono = { workspace = true }
+dashmap = { workspace = true }
+prometheus = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+ulid = { workspace = true }
+unleash-edge-types = { path = "../types" }
+utoipa = { workspace = true }
+
+[dev-dependencies]
+test-case = { workspace = true }
+tracing-test = { workspace = true }

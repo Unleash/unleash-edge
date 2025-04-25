@@ -1,0 +1,18 @@
+[package]
+name = "unleash-edge-prometheus-remote-writer"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+documentation.workspace = true
+edition.workspace = true
+
+[dependencies]
+base64 = { workspace = true }
+prometheus = { workspace = true }
+prometheus-reqwest-remote-write = { workspace = true }
+reqwest = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+[dev-dependencies]
+test-case = { workspace = true }
+tracing-test = { workspace = true }

@@ -1,0 +1,52 @@
+[package]
+name = "unleash-edge-types"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+documentation.workspace = true
+edition.workspace = true
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }
+
+[features]
+default = ["s3-persistence"]
+s3-persistence = ["aws-sdk-s3", "aws-config"]
+
+[dependencies]
+actix-cors = { workspace = true }
+actix-http = { workspace = true }
+actix-web = { workspace = true }
+actix-web-lab = { workspace = true }
+async-trait = { workspace = true }
+aws-config = { workspace = true, optional = true, features = [
+    "behavior-version-latest",
+] }
+aws-sdk-s3 = { workspace = true, optional = true, features = [
+    "behavior-version-latest",
+] }
+chrono = { workspace = true }
+cidr = { workspace = true }
+clap = { workspace = true }
+dashmap = { workspace = true }
+ipnet = { workspace = true }
+num_cpus = { workspace = true }
+redis = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+shadow-rs = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+ulid = { workspace = true }
+unleash-types = { workspace = true }
+unleash-yggdrasil = { workspace = true }
+utoipa = { workspace = true }
+
+[dev-dependencies]
+actix-http = { workspace = true }
+test-case = { workspace = true }
+tracing-test = { workspace = true }
+
+[build-dependencies]
+shadow-rs = { workspace = true }

@@ -5161,11 +5161,116 @@ dependencies = [
  "tracing-subscriber",
  "tracing-test",
  "ulid",
+ "unleash-edge-client-metrics",
+ "unleash-edge-http-metrics",
+ "unleash-edge-metrics",
+ "unleash-edge-prometheus-remote-writer",
+ "unleash-edge-types",
  "unleash-types",
  "unleash-yggdrasil",
  "utoipa",
  "utoipa-swagger-ui",
  "zip",
+]
+
+[[package]]
+name = "unleash-edge-client-metrics"
+version = "19.10.1"
+dependencies = [
+ "actix-web",
+ "chrono",
+ "dashmap",
+ "itertools 0.14.0",
+ "lazy_static",
+ "prometheus 0.13.4",
+ "serde",
+ "serde_json",
+ "test-case",
+ "tracing",
+ "tracing-test",
+ "ulid",
+ "unleash-edge-types",
+ "unleash-types",
+ "utoipa",
+]
+
+[[package]]
+name = "unleash-edge-http-metrics"
+version = "19.10.1"
+dependencies = [
+ "actix-http",
+ "actix-service",
+ "actix-web",
+ "futures-core",
+ "pin-project-lite",
+ "prometheus 0.13.4",
+ "test-case",
+ "tracing-test",
+ "unleash-edge-metrics",
+ "unleash-edge-types",
+]
+
+[[package]]
+name = "unleash-edge-metrics"
+version = "19.10.1"
+dependencies = [
+ "ahash",
+ "chrono",
+ "dashmap",
+ "prometheus 0.13.4",
+ "serde",
+ "serde_json",
+ "test-case",
+ "tracing-test",
+ "ulid",
+ "unleash-edge-types",
+ "utoipa",
+]
+
+[[package]]
+name = "unleash-edge-prometheus-remote-writer"
+version = "19.10.1"
+dependencies = [
+ "base64 0.22.1",
+ "prometheus 0.13.4",
+ "prometheus-reqwest-remote-write",
+ "reqwest",
+ "test-case",
+ "tokio",
+ "tracing",
+ "tracing-test",
+]
+
+[[package]]
+name = "unleash-edge-types"
+version = "19.10.1"
+dependencies = [
+ "actix-cors",
+ "actix-http",
+ "actix-web",
+ "actix-web-lab",
+ "async-trait",
+ "aws-config",
+ "aws-sdk-s3",
+ "chrono",
+ "cidr",
+ "clap",
+ "dashmap",
+ "ipnet",
+ "num_cpus",
+ "redis",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "shadow-rs",
+ "test-case",
+ "tokio",
+ "tracing",
+ "tracing-test",
+ "ulid",
+ "unleash-types",
+ "unleash-yggdrasil",
+ "utoipa",
 ]
 
 [[package]]

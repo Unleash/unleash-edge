@@ -1,0 +1,20 @@
+[package]
+name = "unleash-edge-http-metrics"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+documentation.workspace = true
+edition.workspace = true
+
+[dependencies]
+actix-http = { workspace = true }
+actix-service = { workspace = true }
+actix-web = { workspace = true }
+futures-core = { workspace = true }
+pin-project-lite = { workspace = true }
+prometheus = { workspace = true }
+unleash-edge-metrics = { path = "../edge_metrics" }
+unleash-edge-types = { path = "../types" }
+[dev-dependencies]
+test-case = { workspace = true }
+tracing-test = { workspace = true }
