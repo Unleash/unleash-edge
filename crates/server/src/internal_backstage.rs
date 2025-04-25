@@ -385,7 +385,8 @@ mod tests {
             upstream_engine_cache.clone(),
         )
         .await;
-        let upstream_features = crate::tests::features_from_disk("../examples/hostedexample.json");
+        let upstream_features =
+            crate::tests::features_from_disk("../../examples/hostedexample.json");
         let mut upstream_known_token = EdgeToken::from_str("dx:development.secret123").unwrap();
         upstream_known_token.status = TokenValidationStatus::Validated;
         upstream_known_token.token_type = Some(TokenType::Client);
@@ -459,7 +460,8 @@ mod tests {
             upstream_engine_cache.clone(),
         )
         .await;
-        let upstream_features = crate::tests::features_from_disk("../examples/hostedexample.json");
+        let upstream_features =
+            crate::tests::features_from_disk("../../examples/hostedexample.json");
         let mut upstream_known_token = EdgeToken::from_str("dx:development.secret123").unwrap();
         upstream_known_token.status = TokenValidationStatus::Validated;
         upstream_known_token.token_type = Some(TokenType::Client);

@@ -71,9 +71,9 @@ mod tests {
         let _ = rustls::crypto::ring::default_provider().install_default();
         // now we should be able to call config safely without failing but raising a warning instead
         let tls_options = TlsOptions {
-            tls_server_cert: Some("../examples/server.crt".into()),
+            tls_server_cert: Some("../../examples/server.crt".into()),
             tls_enable: true,
-            tls_server_key: Some("../examples/server.key".into()),
+            tls_server_key: Some("../../examples/server.key".into()),
             tls_server_port: 443,
         };
 

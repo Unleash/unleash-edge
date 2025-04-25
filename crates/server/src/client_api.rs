@@ -924,7 +924,7 @@ mod tests {
         )
         .await;
         let client_features = cached_client_features();
-        let example_features = features_from_disk("../examples/features.json");
+        let example_features = features_from_disk("../../examples/features.json");
         features_cache.insert("development".into(), client_features.clone());
         features_cache.insert("production".into(), example_features.clone());
         let mut token = EdgeToken::try_from(
@@ -965,7 +965,7 @@ mod tests {
         )
         .await;
         let client_features = cached_client_features();
-        let example_features = features_from_disk("../examples/features.json");
+        let example_features = features_from_disk("../../examples/features.json");
         features_cache.insert("development".into(), client_features.clone());
         features_cache.insert("production".into(), example_features.clone());
         let mut token = EdgeToken::try_from(
@@ -1017,7 +1017,7 @@ mod tests {
         .unwrap();
         edge_token.token_type = Some(TokenType::Client);
         token_cache.insert(edge_token.token.clone(), edge_token.clone());
-        let example_features = features_from_disk("../examples/features.json");
+        let example_features = features_from_disk("../../examples/features.json");
         features_cache.insert("production".into(), example_features.clone());
         let req = make_features_request_with_token(edge_token.clone()).await;
         let res: ClientFeatures = test::call_and_read_body_json(&app, req).await;
@@ -1046,7 +1046,7 @@ mod tests {
         token.status = TokenValidationStatus::Validated;
         token.token_type = Some(TokenType::Client);
         token_cache.insert(token.token.clone(), token.clone());
-        let example_features = features_from_disk("../examples/hostedexample.json");
+        let example_features = features_from_disk("../../examples/hostedexample.json");
         features_cache.insert("production".into(), example_features.clone());
         let req = make_features_request_with_token(token.clone()).await;
         let res: ClientFeatures = test::call_and_read_body_json(&app, req).await;
@@ -1085,7 +1085,7 @@ mod tests {
         token_b.token_type = Some(TokenType::Client);
         token_cache.insert(token_b.token.clone(), token_b.clone());
 
-        let example_features = features_from_disk("../examples/hostedexample.json");
+        let example_features = features_from_disk("../../examples/hostedexample.json");
         features_cache.insert("production".into(), example_features.clone());
 
         let req_1 = make_features_request_with_token(token_a.clone()).await;
@@ -1125,7 +1125,7 @@ mod tests {
                 .app_data(Data::from(features_cache.clone()))
                 .app_data(Data::from(token_cache.clone()))
                 .app_data(Data::new(EdgeMode::Offline(OfflineArgs {
-                    bootstrap_file: Some(PathBuf::from("../examples/features.json")),
+                    bootstrap_file: Some(PathBuf::from("../../examples/features.json")),
                     tokens: vec!["secret_123".into()],
                     client_tokens: vec![],
                     frontend_tokens: vec![],
@@ -1136,7 +1136,7 @@ mod tests {
         .await;
         let token = EdgeToken::offline_token("secret-123");
         token_cache.insert(token.token.clone(), token.clone());
-        let example_features = features_from_disk("../examples/features.json");
+        let example_features = features_from_disk("../../examples/features.json");
         features_cache.insert(token.token.clone(), example_features.clone());
         let req = make_features_request_with_token(token.clone()).await;
         let res: ClientFeatures = test::call_and_read_body_json(&app, req).await;
@@ -1156,7 +1156,7 @@ mod tests {
             upstream_engine_cache.clone(),
         )
         .await;
-        let upstream_features = features_from_disk("../examples/hostedexample.json");
+        let upstream_features = features_from_disk("../../examples/hostedexample.json");
         let mut upstream_known_token = EdgeToken::from_str("dx:development.secret123").unwrap();
         upstream_known_token.status = TokenValidationStatus::Validated;
         upstream_known_token.token_type = Some(TokenType::Client);
@@ -1225,7 +1225,7 @@ mod tests {
             upstream_engine_cache.clone(),
         )
         .await;
-        let upstream_features = features_from_disk("../examples/hostedexample.json");
+        let upstream_features = features_from_disk("../../examples/hostedexample.json");
         let mut upstream_known_token = EdgeToken::from_str("dx:development.secret123").unwrap();
         upstream_known_token.status = TokenValidationStatus::Validated;
         upstream_known_token.token_type = Some(TokenType::Client);
@@ -1277,7 +1277,7 @@ mod tests {
         let features_cache = Arc::new(FeatureCache::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
-        let features = features_from_disk("../examples/hostedexample.json");
+        let features = features_from_disk("../../examples/hostedexample.json");
         let mut dx_token = EdgeToken::from_str("dx:development.secret123").unwrap();
         dx_token.status = TokenValidationStatus::Validated;
         dx_token.token_type = Some(TokenType::Client);
@@ -1309,7 +1309,7 @@ mod tests {
         let features_cache = Arc::new(FeatureCache::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
-        let features = features_from_disk("../examples/hostedexample.json");
+        let features = features_from_disk("../../examples/hostedexample.json");
         let mut dx_token = EdgeToken::from_str("dx:development.secret123").unwrap();
         dx_token.status = TokenValidationStatus::Validated;
         dx_token.token_type = Some(TokenType::Client);
@@ -1350,7 +1350,7 @@ mod tests {
             upstream_engine_cache.clone(),
         )
         .await;
-        let upstream_features = features_from_disk("../examples/hostedexample.json");
+        let upstream_features = features_from_disk("../../examples/hostedexample.json");
         let mut upstream_dx_token = EdgeToken::from_str("dx:development.secret123").unwrap();
         upstream_dx_token.status = TokenValidationStatus::Validated;
         upstream_dx_token.token_type = Some(TokenType::Client);
@@ -1413,7 +1413,7 @@ mod tests {
         let features_cache = Arc::new(FeatureCache::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
-        let features = features_from_disk("../examples/hostedexample.json");
+        let features = features_from_disk("../../examples/hostedexample.json");
         let mut dx_token = EdgeToken::from_str("dx:development.secret123").unwrap();
         dx_token.status = TokenValidationStatus::Validated;
         dx_token.token_type = Some(TokenType::Client);
@@ -1531,7 +1531,7 @@ mod tests {
         )
         .await;
         let client_features = cached_client_features();
-        let example_features = features_from_disk("../examples/features.json");
+        let example_features = features_from_disk("../../examples/features.json");
         features_cache.insert("development".into(), client_features.clone());
         features_cache.insert("production".into(), example_features.clone());
         let mut production_token = EdgeToken::try_from(

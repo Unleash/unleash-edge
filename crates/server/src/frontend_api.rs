@@ -1289,7 +1289,7 @@ mod tests {
 
     #[tokio::test]
     async fn frontend_api_filters_evaluated_toggles_to_tokens_access() {
-        let client_features = crate::tests::features_from_disk("../examples/hostedexample.json");
+        let client_features = crate::tests::features_from_disk("../../examples/hostedexample.json");
         let (token_cache, feature_cache, _delta_cache, engine_cache) = build_offline_mode(
             client_features.clone(),
             vec!["dx:development.secret123".to_string()],
@@ -1379,7 +1379,7 @@ mod tests {
 
     #[tokio::test]
     async fn using_a_string_for_properties_gives_400() {
-        let client_features = crate::tests::features_from_disk("../examples/hostedexample.json");
+        let client_features = crate::tests::features_from_disk("../../examples/hostedexample.json");
         let (token_cache, feature_cache, _delta_cache, engine_cache) = build_offline_mode(
             client_features,
             vec!["dx:development.secret123".to_string()],
@@ -1410,7 +1410,7 @@ mod tests {
 
     #[tokio::test]
     async fn can_get_single_feature() {
-        let client_features = crate::tests::features_from_disk("../examples/hostedexample.json");
+        let client_features = crate::tests::features_from_disk("../../examples/hostedexample.json");
         let (token_cache, feature_cache, _delta_cache, engine_cache) = build_offline_mode(
             client_features.clone(),
             vec!["dx:development.secret123".to_string()],
@@ -1470,7 +1470,7 @@ mod tests {
 
     #[tokio::test]
     async fn trying_to_evaluate_feature_you_do_not_have_access_to_will_give_not_found() {
-        let client_features = crate::tests::features_from_disk("../examples/hostedexample.json");
+        let client_features = crate::tests::features_from_disk("../../examples/hostedexample.json");
         let (token_cache, feature_cache, _delta_cache, engine_cache) = build_offline_mode(
             client_features.clone(),
             vec!["dx:development.secret123".to_string()],
@@ -1502,7 +1502,7 @@ mod tests {
     #[tokio::test]
     async fn can_handle_custom_context_fields() {
         let client_features_with_custom_context_field =
-            crate::tests::features_from_disk("../examples/with_custom_constraint.json");
+            crate::tests::features_from_disk("../../examples/with_custom_constraint.json");
         let auth_key = "default:development.secret123".to_string();
         let (token_cache, feature_cache, _delta_cache, engine_cache) = build_offline_mode(
             client_features_with_custom_context_field.clone(),
@@ -1544,7 +1544,7 @@ mod tests {
     #[traced_test]
     async fn can_handle_custom_context_fields_with_post() {
         let client_features_with_custom_context_field =
-            crate::tests::features_from_disk("../examples/with_custom_constraint.json");
+            crate::tests::features_from_disk("../../examples/with_custom_constraint.json");
         let auth_key = "default:development.secret123".to_string();
         let (token_cache, feature_cache, _delta_cache, engine_cache) = build_offline_mode(
             client_features_with_custom_context_field.clone(),
@@ -1585,7 +1585,7 @@ mod tests {
     #[traced_test]
     async fn will_evaluate_ip_strategy_populated_from_middleware() {
         let client_features_with_custom_context_field =
-            crate::tests::features_from_disk("../examples/ip_address_feature.json");
+            crate::tests::features_from_disk("../../examples/ip_address_feature.json");
         let auth_key = "gard:development.secret123".to_string();
         let (token_cache, feature_cache, _delta_cache, engine_cache) = build_offline_mode(
             client_features_with_custom_context_field.clone(),
@@ -1625,7 +1625,7 @@ mod tests {
     #[traced_test]
     async fn disabling_all_endpoints_yields_404_when_trying_to_access_them() {
         let client_features_with_custom_context_field =
-            crate::tests::features_from_disk("../examples/ip_address_feature.json");
+            crate::tests::features_from_disk("../../examples/ip_address_feature.json");
         let auth_key = "gard:development.secret123".to_string();
         let (token_cache, feature_cache, _delta_cache, engine_cache) = build_offline_mode(
             client_features_with_custom_context_field.clone(),
@@ -1667,7 +1667,7 @@ mod tests {
     #[tokio::test]
     async fn can_handle_custom_context_fields_on_all_endpoint() {
         let client_features_with_custom_context_field =
-            crate::tests::features_from_disk("../examples/with_custom_constraint.json");
+            crate::tests::features_from_disk("../../examples/with_custom_constraint.json");
         let auth_key = "default:development.secret123".to_string();
         let (token_cache, feature_cache, _delta_cache, engine_cache) = build_offline_mode(
             client_features_with_custom_context_field.clone(),
@@ -1708,7 +1708,7 @@ mod tests {
     #[tokio::test]
     async fn assert_frontend_sort_order_is_stable() {
         let client_features_with_custom_context_field =
-            crate::tests::features_from_disk("../examples/frontend-stable-sort.json");
+            crate::tests::features_from_disk("../../examples/frontend-stable-sort.json");
         let auth_key = "default:development.secret123".to_string();
         let (token_cache, feature_cache, _delta_cache, engine_cache) = build_offline_mode(
             client_features_with_custom_context_field.clone(),

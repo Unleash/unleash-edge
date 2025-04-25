@@ -484,7 +484,7 @@ impl Default for BuildInfo {
     fn default() -> Self {
         BuildInfo {
             package_version: build::PKG_VERSION.into(),
-            app_name: build::PROJECT_NAME.into(),
+            app_name: "unleash-edge".into(),
             package_major: build::PKG_VERSION_MAJOR.into(),
             package_minor: build::PKG_VERSION_MINOR.into(),
             package_patch: build::PKG_VERSION_PATCH.into(),

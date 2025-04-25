@@ -1095,7 +1095,7 @@ mod tests {
         let upstream_features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(token_cache);
-        let example_features = features_from_disk("../examples/features.json");
+        let example_features = features_from_disk("../../examples/features.json");
         let cache_key = cache_key(&token);
         let mut engine_state = EngineState::default();
         let warnings =
@@ -1152,7 +1152,7 @@ mod tests {
         valid_token.token_type = Some(TokenType::Client);
         valid_token.status = Validated;
         upstream_token_cache.insert(valid_token.token.clone(), valid_token.clone());
-        let example_features = features_from_disk("../examples/features.json");
+        let example_features = features_from_disk("../../examples/features.json");
         let cache_key = cache_key(&valid_token);
         let mut engine_state = EngineState::default();
         let warnings =
@@ -1198,7 +1198,7 @@ mod tests {
         eg_token.token_type = Some(TokenType::Client);
         eg_token.status = Validated;
         upstream_token_cache.insert(eg_token.token.clone(), eg_token.clone());
-        let example_features = features_from_disk("../examples/hostedexample.json");
+        let example_features = features_from_disk("../../examples/hostedexample.json");
         let cache_key = cache_key(&dx_token);
         let mut engine_state = EngineState::default();
         let warnings =
@@ -1248,7 +1248,7 @@ mod tests {
         eg_token.token_type = Some(TokenType::Client);
         eg_token.status = Validated;
         upstream_token_cache.insert(eg_token.token.clone(), eg_token.clone());
-        let example_features = features_from_disk("../examples/hostedexample.json");
+        let example_features = features_from_disk("../../examples/hostedexample.json");
         let cache_key = cache_key(&dx_token);
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         let mut engine_state = EngineState::default();
@@ -1315,7 +1315,7 @@ mod tests {
         eg_token.token_type = Some(TokenType::Client);
         eg_token.status = Validated;
         upstream_token_cache.insert(eg_token.token.clone(), eg_token.clone());
-        let example_features = features_from_disk("../examples/hostedexample.json");
+        let example_features = features_from_disk("../../examples/hostedexample.json");
         let cache_key = cache_key(&dx_token);
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         let mut engine_state = EngineState::default();
@@ -1424,7 +1424,7 @@ mod tests {
         eg_token.token_type = Some(TokenType::Client);
         eg_token.status = Validated;
         upstream_token_cache.insert(eg_token.token.clone(), eg_token.clone());
-        let example_features = features_from_disk("../examples/hostedexample.json");
+        let example_features = features_from_disk("../../examples/hostedexample.json");
         let cache_key = cache_key(&eg_token);
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         let mut engine_state = EngineState::default();
@@ -1451,7 +1451,7 @@ mod tests {
             .await;
 
         // Now, let's say that all features are archived in upstream
-        let empty_features = features_from_disk("../examples/empty-features.json");
+        let empty_features = features_from_disk("../../examples/empty-features.json");
         upstream_features_cache.insert(cache_key.clone(), empty_features);
 
         feature_refresher.refresh_features().await;
@@ -1470,13 +1470,14 @@ mod tests {
     #[test]
     pub fn an_update_with_one_feature_removed_from_one_project_removes_the_feature_from_the_feature_list()
      {
-        let features = features_from_disk("../examples/hostedexample.json").features;
-        let mut dx_data: Vec<ClientFeature> = features_from_disk("../examples/hostedexample.json")
-            .features
-            .iter()
-            .filter(|f| f.project == Some("dx".into()))
-            .cloned()
-            .collect();
+        let features = features_from_disk("../../examples/hostedexample.json").features;
+        let mut dx_data: Vec<ClientFeature> =
+            features_from_disk("../../examples/hostedexample.json")
+                .features
+                .iter()
+                .filter(|f| f.project == Some("dx".into()))
+                .cloned()
+                .collect();
         dx_data.remove(0);
         let mut token = EdgeToken::from_str("[]:development.somesecret").unwrap();
         token.status = Validated;
@@ -1507,7 +1508,7 @@ mod tests {
 
     #[test]
     pub fn project_state_from_update_should_overwrite_project_state_in_known_state() {
-        let features = features_from_disk("../examples/hostedexample.json").features;
+        let features = features_from_disk("../../examples/hostedexample.json").features;
         let mut dx_data: Vec<ClientFeature> = features
             .iter()
             .filter(|f| f.project == Some("dx".into()))
@@ -1535,7 +1536,7 @@ mod tests {
     #[test]
     pub fn if_project_is_removed_but_token_has_access_to_project_update_should_remove_cached_project()
      {
-        let features = features_from_disk("../examples/hostedexample.json").features;
+        let features = features_from_disk("../../examples/hostedexample.json").features;
         let edge_token = EdgeToken {
             token: "".to_string(),
             token_type: Some(TokenType::Client),
@@ -1553,7 +1554,7 @@ mod tests {
     }
     #[test]
     pub fn if_token_does_not_have_access_to_project_no_update_happens_to_project() {
-        let features = features_from_disk("../examples/hostedexample.json").features;
+        let features = features_from_disk("../../examples/hostedexample.json").features;
         let edge_token = EdgeToken {
             token: "".to_string(),
             token_type: Some(TokenType::Client),

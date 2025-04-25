@@ -885,9 +885,9 @@ mod tests {
     async fn test_features_server_with_untrusted_ssl() -> TestServer {
         test_server(move || {
             let tls_options = TlsOptions {
-                tls_server_cert: Some("../examples/server.crt".into()),
+                tls_server_cert: Some("../../examples/server.crt".into()),
                 tls_enable: true,
-                tls_server_key: Some("../examples/server.key".into()),
+                tls_server_key: Some("../../examples/server.key".into()),
                 tls_server_port: 443,
             };
             let server_config = tls::config(tls_options).expect("Failed to load TLS configuration");

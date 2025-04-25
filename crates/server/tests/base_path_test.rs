@@ -17,7 +17,7 @@ mod base_path_tests {
             .arg("-t")
             .arg(token)
             .arg("--bootstrap-file")
-            .arg("../examples/features.json")
+            .arg("../../examples/features.json")
             .stdout(Stdio::null()) // Suppress stdout
             .stderr(Stdio::null()) // Suppress stderr
             .spawn()
