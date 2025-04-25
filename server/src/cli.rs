@@ -383,7 +383,7 @@ pub struct CliArgs {
     pub mode: EdgeMode,
 
     /// Instance id. Used for metrics reporting.
-    #[clap(long, env, default_value_t = format!("unleash-edge@{}", ulid::Ulid::new()))]
+    #[clap(long, env, global = true, default_value_t = format!("unleash-edge@{}", ulid::Ulid::new()))]
     pub instance_id: String,
 
     /// App name. Used for metrics reporting.
