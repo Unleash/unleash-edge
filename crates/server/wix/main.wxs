@@ -173,7 +173,7 @@
         <!--<Icon Id='ProductICO' SourceFile='wix\Product.ico'/>-->
         <!--<Property Id='ARPPRODUCTICON' Value='ProductICO' />-->
 
-        <Property Id='ARPHELPLINK' Value='https://github.com/Unleash/unleash-edge'/>
+        <Property Id='ARPHELPLINK' Value='https://docs.getunleash.io/reference/unleash-edge'/>
         
         <UI>
             <UIRef Id='WixUI_FeatureTree'/>
