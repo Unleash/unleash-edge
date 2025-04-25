@@ -1,0 +1,104 @@
+[package]
+name = "unleash-edge"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+documentation.workspace = true
+edition.workspace = true
+
+
+[package.metadata.wix]
+upgrade-guid = "11E5D83A-3034-48BB-9A84-9F589EBD648C"
+path-guid = "6F606A3B-C7E9-43EC-8B6E-91D7B74F80FC"
+license = false
+eula = false
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }
+
+[features]
+default = ["s3-persistence"]
+s3-persistence = ["aws-sdk-s3", "aws-config"]
+
+[dependencies]
+actix-allow-deny-middleware = { workspace = true }
+actix-cors = { workspace = true }
+actix-http = { workspace = true }
+actix-middleware-etag = { workspace = true }
+actix-service = { workspace = true }
+actix-web = { workspace = true }
+actix-web-lab = { workspace = true }
+ahash = { workspace = true }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+aws-config = { workspace = true, optional = true, features = [
+    "behavior-version-latest",
+] }
+aws-sdk-s3 = { workspace = true, optional = true, features = [
+    "behavior-version-latest",
+] }
+base64 = { workspace = true }
+chrono = { workspace = true }
+cidr = { workspace = true }
+clap = { workspace = true }
+clap-markdown = { workspace = true }
+dashmap = { workspace = true }
+eventsource-client = { workspace = true }
+futures = { workspace = true }
+futures-core = { workspace = true }
+ipnet = { workspace = true }
+itertools = { workspace = true }
+json-structural-diff = { workspace = true }
+lazy_static = { workspace = true }
+num_cpus = { workspace = true }
+opentelemetry = { workspace = true }
+opentelemetry-prometheus = { workspace = true }
+opentelemetry-semantic-conventions = { workspace = true }
+opentelemetry_sdk = { workspace = true }
+p12-keystore = { workspace = true }
+pin-project-lite = { workspace = true }
+pkix = { workspace = true }
+prometheus = { workspace = true }
+prometheus-reqwest-remote-write = { workspace = true }
+prometheus-static-metric = { workspace = true }
+rand = { workspace = true }
+redis = { workspace = true }
+reqwest = { workspace = true }
+rustls = { workspace = true }
+rustls-pemfile = { workspace = true }
+rustls-pki-types = { workspace = true }
+semver = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_qs = { workspace = true }
+shadow-rs = { workspace = true }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+ulid = { workspace = true }
+unleash-types = { workspace = true }
+unleash-yggdrasil = { workspace = true }
+unleash-edge-client-metrics = { path = "../client_metrics" }
+unleash-edge-http-metrics = { path = "../http_metrics" }
+unleash-edge-metrics = { path = "../edge_metrics" }
+unleash-edge-prometheus-remote-writer = { path = "../prometheus_remote_writer" }
+unleash-edge-types = { path = "../types" }
+utoipa = { workspace = true }
+utoipa-swagger-ui = { workspace = true }
+zip = { workspace = true }
+[dev-dependencies]
+actix-http = { workspace = true }
+actix-http-test = { workspace = true }
+actix-service = { workspace = true }
+capture-logger = { workspace = true }
+env_logger = { workspace = true }
+maplit = { workspace = true }
+rand = { workspace = true }
+test-case = { workspace = true }
+testcontainers = { workspace = true }
+testcontainers-modules = { workspace = true }
+tracing-test = { workspace = true }
+
+[build-dependencies]
+shadow-rs = { workspace = true }
