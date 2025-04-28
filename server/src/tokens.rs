@@ -7,14 +7,15 @@ use actix_web::HttpRequest;
 use actix_web::dev::Payload;
 use actix_web::http::header::HeaderValue;
 use actix_web::web::Data;
+use dashmap::DashMap;
 
 use crate::cli::EdgeMode;
 use crate::cli::TokenHeader;
 use crate::error::EdgeError;
-use crate::types::EdgeResult;
 use crate::types::EdgeToken;
 use crate::types::TokenRefresh;
 use crate::types::TokenValidationStatus;
+use crate::types::{EdgeResult, TokenType};
 
 pub(crate) fn simplify(tokens: &[TokenRefresh]) -> Vec<TokenRefresh> {
     let uniques = filter_unique_tokens(tokens);
@@ -118,6 +119,17 @@ impl FromRequest for EdgeToken {
             None => "Authorization".to_string(),
         };
         let value = req.headers().get(token_header);
+
+        if let (Some(value), Some(token_cache)) =
+            (value, req.app_data::<Data<DashMap<String, EdgeToken>>>())
+        {
+            if let Some(token) = token_cache.get(value.to_str().unwrap_or_default()) {
+                if token.status == TokenValidationStatus::Trusted {
+                    return ready(Ok(token.value().clone()));
+                }
+            }
+        }
+
         if let Some(data_mode) = req.app_data::<Data<EdgeMode>>() {
             let mode = data_mode.clone().into_inner();
             let key = match *mode {
@@ -216,16 +228,56 @@ impl EdgeToken {
         }
     }
 }
+
+pub(crate) fn parse_trusted_token_pair(token_string: &str) -> EdgeResult<(String, EdgeToken)> {
+    match EdgeToken::from_str(token_string) {
+        Ok(token) => Ok((
+            token_string.into(),
+            EdgeToken {
+                token: token.token.clone(),
+                environment: token.environment.clone(),
+                projects: token.projects.clone(),
+                token_type: Some(TokenType::Frontend),
+                status: TokenValidationStatus::Trusted,
+            },
+        )),
+        Err(EdgeError::TokenParseError(_)) => parse_legacy_token(token_string),
+        Err(e) => Err(e),
+    }
+}
+
+fn parse_legacy_token(token_string: &str) -> EdgeResult<(String, EdgeToken)> {
+    let parts: Vec<&str> = token_string.split('@').collect();
+    if parts.len() != 2 {
+        Err(EdgeError::TokenParseError("Trusted tokens must either match the existing Unleash token format or they must be {string}@{environment}".into()))
+    } else {
+        Ok((
+            parts[0].into(),
+            EdgeToken {
+                token: format!("*.{}:{}", parts[1], parts[0]),
+                environment: Some(parts[1].to_string()),
+                projects: vec!["*".into()],
+                token_type: Some(TokenType::Frontend),
+                status: TokenValidationStatus::Trusted,
+            },
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
+    use super::*;
 
-    use ulid::Ulid;
-
-    use crate::{
-        tokens::simplify,
-        types::{EdgeToken, TokenRefresh, TokenType},
+    use actix_http::header::AUTHORIZATION;
+    use actix_web::{
+        App,
+        test::{self as actix_test, TestRequest},
+        web::Data,
     };
+    use actix_web::{HttpResponse, web};
+    use dashmap::DashMap;
+    use ulid::Ulid;
 
     fn test_token(token: Option<&str>, env: Option<&str>, projects: Vec<&str>) -> EdgeToken {
         EdgeToken {
@@ -453,5 +505,105 @@ mod tests {
         assert_eq!(token, token1);
         assert_eq!(token1, token2);
         assert_eq!(token2, token3);
+    }
+
+    #[tokio::test]
+    async fn invalid_aka_legacy_tokens_can_be_parsed_from_request_if_already_in_cache() {
+        let token_cache = DashMap::<String, EdgeToken>::new();
+
+        token_cache.insert(
+            "legacy-123".to_string(),
+            EdgeToken {
+                token_type: Some(TokenType::Frontend),
+                status: TokenValidationStatus::Trusted,
+                environment: Some("some-weird-environment-I-made-up".to_string()),
+                ..Default::default()
+            },
+        );
+        let app = actix_test::init_service(App::new().app_data(Data::new(token_cache)).route(
+            "/",
+            web::get().to(|token: EdgeToken| async move {
+                HttpResponse::Ok().body(token.environment.unwrap())
+            }),
+        ))
+        .await;
+
+        let req = TestRequest::get()
+            .uri("/")
+            .insert_header((AUTHORIZATION, "legacy-123"))
+            .to_request();
+
+        let resp = actix_test::call_and_read_body(&app, req).await;
+        assert_eq!(resp, "some-weird-environment-I-made-up");
+    }
+
+    #[tokio::test]
+    async fn non_trusted_tokens_cannot_be_retrieved_from_cache() {
+        let token_cache = DashMap::<String, EdgeToken>::new();
+
+        token_cache.insert(
+            "legacy-123".to_string(),
+            EdgeToken {
+                token_type: Some(TokenType::Frontend),
+                status: TokenValidationStatus::Validated,
+                environment: Some("some-weird-environment-I-made-up".to_string()),
+                ..Default::default()
+            },
+        );
+        let app = actix_test::init_service(App::new().app_data(Data::new(token_cache)).route(
+            "/",
+            web::get().to(|token: EdgeToken| async move {
+                HttpResponse::Ok().body(token.environment.unwrap())
+            }),
+        ))
+        .await;
+
+        let req = TestRequest::get()
+            .uri("/")
+            .insert_header((AUTHORIZATION, "legacy-123"))
+            .to_request();
+
+        let resp = actix_test::call_and_read_body(&app, req).await;
+        assert_eq!(
+            resp,
+            "{\"explanation\":\"Edge could not parse token: legacy-123\"}"
+        );
+    }
+
+    #[test]
+    fn parses_valid_token_as_trusted() {
+        let input = "*:development.some-hash-blob";
+        let parsed = parse_trusted_token_pair(input).expect("should parse");
+
+        assert_eq!(parsed.0, input);
+        assert_eq!(parsed.1.token, input);
+        assert_eq!(parsed.1.status, TokenValidationStatus::Trusted);
+        assert_eq!(parsed.1.token_type, Some(TokenType::Frontend));
+    }
+
+    #[test]
+    fn parses_legacy_token_correctly() {
+        let input = "mysecret@development";
+        let (raw, token) = parse_trusted_token_pair(input).expect("should parse legacy token");
+
+        assert_eq!(raw, "mysecret");
+        assert_eq!(token.token, "*.development:mysecret");
+        assert_eq!(token.environment.as_deref(), Some("development"));
+        assert_eq!(token.projects, vec!["*"]);
+        assert_eq!(token.token_type, Some(TokenType::Frontend));
+        assert_eq!(token.status, TokenValidationStatus::Trusted);
+    }
+
+    #[test]
+    fn fails_on_bad_legacy_token_format() {
+        let input = "missingatseparator";
+        let err = parse_trusted_token_pair(input).expect_err("should fail");
+
+        match err {
+            EdgeError::TokenParseError(msg) => {
+                assert!(msg.contains("must be {string}@{environment}"));
+            }
+            _ => panic!("wrong error type"),
+        }
     }
 }

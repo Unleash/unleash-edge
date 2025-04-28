@@ -19,7 +19,8 @@ use crate::offline::offline_hotload::{load_bootstrap, load_offline_engine_cache}
 use crate::persistence::EdgePersistence;
 use crate::persistence::file::FilePersister;
 use crate::persistence::redis::RedisPersister;
-use crate::persistence::s3::S3Persister;
+#[cfg(feature = "s3-persistence")]
+use crate::persistence::s3::s3_persister::S3Persister;
 use crate::{
     auth::token_validator::TokenValidator,
     cli::{CliArgs, EdgeArgs, EdgeMode, OfflineArgs},
@@ -207,7 +208,7 @@ async fn get_data_source(args: &EdgeArgs) -> Option<Arc<dyn EdgePersistence>> {
         });
         return Some(Arc::new(redis_persister));
     }
-
+    #[cfg(feature = "s3-persistence")]
     if let Some(s3_args) = args.s3.clone() {
         let s3_persister = S3Persister::new_from_env(
             &s3_args
@@ -274,6 +275,12 @@ async fn build_edge(
         .map(|c| c.with_custom_client_headers(args.custom_client_headers.clone()))
         .map(Arc::new)
         .map_err(|_| EdgeError::InvalidServerUrl(args.upstream_url.clone()))?;
+
+    if let Some(token_pairs) = &args.pretrusted_tokens {
+        for (token_string, trusted_token) in token_pairs {
+            token_cache.insert(token_string.clone(), trusted_token.clone());
+        }
+    }
 
     let token_validator = Arc::new(TokenValidator {
         token_cache: token_cache.clone(),
@@ -402,6 +409,7 @@ mod tests {
             strict: true,
             dynamic: false,
             tokens: vec![],
+            pretrusted_tokens: None,
             redis: None,
             s3: None,
             client_identity: Default::default(),

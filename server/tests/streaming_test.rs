@@ -3,7 +3,7 @@ mod streaming_test {
     use eventsource_client::Client;
     use futures::StreamExt;
     use std::{
-        process::{Command, Stdio},
+        process::Command,
         str::FromStr,
         sync::Arc,
     };
@@ -65,8 +65,6 @@ mod streaming_test {
             .arg("--delta")
             .arg("-t")
             .arg(&upstream_known_token.token)
-            .stdout(Stdio::null()) // Suppress stdout
-            .stderr(Stdio::null()) // Suppress stderr
             .spawn()
             .expect("Failed to start the app");
 
@@ -217,6 +215,7 @@ mod streaming_test {
                 features_refresh_interval_seconds: 60,
                 token_revalidation_interval_seconds: 60,
                 tokens: vec!["".into()],
+                pretrusted_tokens: None,
                 custom_client_headers: vec![],
                 skip_ssl_verification: false,
                 client_identity: None,

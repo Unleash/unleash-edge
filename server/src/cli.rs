@@ -5,6 +5,8 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use crate::error;
+use crate::tokens::parse_trusted_token_pair;
+use crate::types::EdgeToken;
 use actix_cors::Cors;
 use actix_http::Method;
 use cidr::{Ipv4Cidr, Ipv6Cidr};
@@ -172,6 +174,10 @@ pub struct EdgeArgs {
     /// Get data for these client tokens at startup. Accepts comma-separated list of tokens. Hot starts your feature cache
     #[clap(short, long, env, value_delimiter = ',')]
     pub tokens: Vec<String>,
+
+    /// Set a list of frontend tokens that Edge will always trust. These need to either match the Unleash token format, or they're an arbitrary string followed by an @ and then an environment, e.g. secret-123@development
+    #[clap(short, long, env, value_delimiter = ',', value_parser = parse_trusted_token_pair)]
+    pub pretrusted_tokens: Option<Vec<(String, EdgeToken)>>,
 
     /// Expects curl header format (-H <HEADERNAME>: <HEADERVALUE>)
     /// for instance `-H X-Api-Key: mysecretapikey`
@@ -377,7 +383,7 @@ pub struct CliArgs {
     pub mode: EdgeMode,
 
     /// Instance id. Used for metrics reporting.
-    #[clap(long, env, default_value_t = format!("unleash-edge@{}", ulid::Ulid::new()))]
+    #[clap(long, env, global = true, default_value_t = format!("unleash-edge@{}", ulid::Ulid::new()))]
     pub instance_id: String,
 
     /// App name. Used for metrics reporting.

@@ -4,12 +4,51 @@
 
 Anything under /internal-backstage should be protected from public access as it exposes internal state of unleash-edge.
 
+### CORS
+
+`--cors-origin <CORS_ORIGIN>` — Sets
+  the [Access-Control-Allow-Origin](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Origin)
+  header to this value
+
+To enable CORS headers, you can use the `--cors-origin` flag when starting Edge. For example:
+
+```shell
+unleash-edge edge --cors-origin "https://example.com"
+```
+
+For multiple domains, use a comma separated list or pass multiple instances of the `--cors-origin` parameter
+
+```shell
+unleash-edge edge --cors-origin "https://example.com,https://example2.com"
+```
+is equivalent to
+```shell
+unleash-edge edge --cors-origin "https://example.com" --cors-origin "https://other.example.com"
+```
+
+#### Other CORS headers
+
+* `--cors-allowed-headers <CORS_ALLOWED_HEADERS>` — Sets
+  the [Access-Control-Allow-Headers](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Headers)
+  header to this value
+* `--cors-max-age <CORS_MAX_AGE>` — Sets
+  the [Access-Control-Max-Age](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Max-Age) header
+  to this value
+
+  Default value: `172800`
+* `--cors-exposed-headers <CORS_EXPOSED_HEADERS>` — Sets
+  the [Access-Control-Expose-Headers](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Expose-Headers)
+  header to this value
+* `--cors-methods <CORS_METHODS>` — Sets
+  the [Access-Control-Allow-Methods](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Methods)
+  header to this value
+
 ## Running Unleash Edge
 
 Edge provides a range of powerful ways in which you can run it. For a standard production configuration we recommend the
 following:
 
-- [Run in Edge mode](#edge): Edge mode connects to your upstream Unleash and syncs feature flags and tokens. This should
+- Run in Edge mode: Edge mode connects to your upstream Unleash and syncs feature flags and tokens. This should
   be the default mode that you choose for most Edge configurations in production.
 - Start Edge with initialization tokens: Edge mode allows you to specify a set of tokens on startup that Edge will use
   to hydrate data ahead of time. This means that Edge will have the data it requires to respond to frontend API requests
