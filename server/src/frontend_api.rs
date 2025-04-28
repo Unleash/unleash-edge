@@ -9,11 +9,12 @@ use actix_web::{
     HttpRequest, HttpResponse, Scope, get, post,
     web::{self, Data, Json, Path},
 };
+use chrono::Utc;
 use dashmap::DashMap;
 use serde_qs::actix::QsQuery;
 use tracing::debug;
 use unleash_types::client_features::Context;
-use unleash_types::client_metrics::{ClientApplication, ConnectVia};
+use unleash_types::client_metrics::{ClientApplication, ConnectVia, MetricsMetadata};
 use unleash_types::{
     client_metrics::ClientMetrics,
     frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult},
@@ -568,10 +569,41 @@ security(
 )]
 #[post("/client/metrics")]
 async fn post_frontend_metrics(
+    req: HttpRequest,
     edge_token: EdgeToken,
+    connect_via: Data<ConnectVia>,
     metrics: Json<ClientMetrics>,
     metrics_cache: Data<MetricsCache>,
 ) -> EdgeResult<HttpResponse> {
+    if let Some(version) = req
+        .headers()
+        .get("unleash-sdk")
+        .and_then(|val| val.to_str().ok())
+        .map(str::to_owned)
+    {
+        crate::metrics::client_metrics::register_client_application(
+            edge_token.clone(),
+            &connect_via,
+            ClientApplication {
+                app_name: metrics.app_name.clone(),
+                environment: metrics.environment.clone(),
+                instance_id: metrics.instance_id.clone(),
+                connect_via: None,
+                connection_id: None,
+                interval: 15000,
+                started: Utc::now(),
+                strategies: vec![],
+                metadata: MetricsMetadata {
+                    sdk_version: Some(version),
+                    platform_name: None,
+                    platform_version: None,
+                    yggdrasil_version: None,
+                },
+            },
+            metrics_cache.clone(),
+        );
+    }
+
     crate::metrics::client_metrics::register_client_metrics(
         edge_token,
         metrics.into_inner(),
