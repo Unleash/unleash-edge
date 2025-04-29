@@ -6,7 +6,7 @@ Before you begin:
 
 - Have you read the [code of conduct](CODE_OF_CONDUCT.md)?
 - Check out the [existing issues](https://github.com/Unleash/unleash-edge/issues)
-- Browse the [developer-guide](./developer-guide.md) for tips on environment setup, running the tests, and running Unleash-Edge from source.
+- Browse the [developer-guide](/docs/development-guide.md) for tips on environment setup, running the tests, and running Unleash-Edge from source.
 
 ### Don't see your issue? Open one
 
@@ -33,7 +33,7 @@ Follow the steps in [the "how to run the project" section](#how-to-run-the-proje
 
 ### Make your update:
 
-Make your changes to the file(s) you'd like to update. You'll need **Rust 1.66.1** run unleash-edge locally. [See more details](developer-guide.md)
+Make your changes to the file(s) you'd like to update. You'll need **Rust 1.85.1** run unleash-edge locally. [See more details](/docs/development-guide.md)
 
 ### Open a pull request
 
@@ -65,4 +65,4 @@ You'll need:
 
 ### How to run Unleash-Edge
 
-See our [development-guide](./development-guide.md)
+See our [development-guide](/docs/development-guide.md)

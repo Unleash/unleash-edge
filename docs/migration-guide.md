@@ -7,7 +7,7 @@ you through
 - how to migrate from the Unleash proxy to Edge
 - in cases where the feature set isn't equivalent, how to achieve the same results in Edge.
 
-A full [Docker compose file](./examples/docker-compose.yml) is also provided. It will spin up Edge, Unleash, and Redis,
+A full [Docker compose file](../examples/docker-compose.yml) is also provided. It will spin up Edge, Unleash, and Redis,
 to allow you to understand the configuration options in context.
 
 After starting the compose, you should be able to access the Unleash UI at `http://localhost:4242`, add a toggle, and
@@ -20,6 +20,9 @@ curl --location --request GET 'http://0.0.0.0:3063/api/client/features' \
 --data-raw ''
 ```
 
+## Legacy proxy tokens
+With Edge 19.10.0 we introduced a new concept in Edge that aims to support this functionality. For reference, check the readme file: https://github.com/Unleash/unleash-edge?tab=readme-ov-file#pretrusted-tokens
+
 ## Not supported
 
 - [Custom Strategies](https://docs.getunleash.io/reference/custom-activation-strategies) are not supported in Edge
@@ -29,13 +32,10 @@ curl --location --request GET 'http://0.0.0.0:3063/api/client/features' \
   constraints **cannot** replace your strategy, please raise this as an issue with details on what you're trying to
   achieve. We are looking into supporting custom strategies in Edge in the future.
 
-- Legacy proxy Tokens. If you're using the proxy, you may be using the legacy proxy token format. These are not
+- Legacy proxy Tokens ([now supported](https://github.com/Unleash/unleash-edge?tab=readme-ov-file#pretrusted-tokens) from edge version 19.10.0). If you're using the proxy, you may be using the legacy proxy token format. These are not
   supported in Edge. You will need to create a new front end SDK token in the Unleash UI and use that. These are the
   same tokens that the front end API requires. Because of the way Edge handles API tokens, this is not a feature we're
   planning to support.
-
-- CORS configuration. Edge does not support CORS configuration, we accept any request. If you need this feature, please
-  raise an issue or submit a PR.
 
 - Context enrichers. The Unleash proxy provides an experimental option to automatically enrich requests with additional
   context. This is not supported in currently in Edge, we're open to adding this feature to Edge, opening an issue would
@@ -105,9 +105,8 @@ This section unpacks the small changes in Edge from the proxy. These are ports o
 that have small changes. These shouldn't affect how you use Edge and the ideas here are similar to the proxy, only small
 details have changed.
 
-- Unleash URL. The proxy requires that you specify an Unleash URL to the upstream server, in the format https:
-  //{unleashUrl}/api. Edge has changed this, the URL that Edge requires is https://{unleashUrl}, without the `/api`
-  suffix.
+- Unleash URL. The proxy requires that you specify an Unleash URL to the upstream server, in the format `https://{unleashUrl}/api`.
+- Edge has changed this, the URL that Edge requires is `https://{unleashUrl}`, without the `/api` suffix.
 
 - Backend SDK support. The proxy does support connecting to backend SDKs, but it requires some configuration and setting
   some experimental feature flags. Edge supports this out the box, no additional configuration is required.
