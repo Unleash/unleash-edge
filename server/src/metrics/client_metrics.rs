@@ -11,9 +11,8 @@ use std::{
     hash::{Hash, Hasher},
 };
 use tracing::{debug, instrument};
-use unleash_types::client_metrics::{
-    ClientApplication, ClientMetrics, ClientMetricsEnv, ConnectVia,
-};
+use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ClientMetricsEnv, ConnectVia, MetricsMetadata};
+use unleash_types::client_metrics::SdkType::Backend;
 use utoipa::ToSchema;
 
 pub const UPSTREAM_MAX_BODY_SIZE: usize = 100 * 1024;
@@ -123,6 +122,10 @@ pub(crate) fn register_client_application(
     );
     let to_write = ClientApplication {
         environment: edge_token.environment,
+        metadata: MetricsMetadata {
+            sdk_type: Some(Backend),
+            ..updated_with_connection_info.metadata
+        },
         ..updated_with_connection_info
     };
     metrics_cache.applications.insert(
@@ -380,6 +383,7 @@ mod test {
     use unleash_types::client_metrics::{
         ClientMetricsEnv, ConnectVia, ConnectViaBuilder, MetricsMetadata,
     };
+    use unleash_types::client_metrics::SdkType::Backend;
 
     #[test]
     fn cache_aggregates_data_correctly() {
@@ -399,6 +403,7 @@ mod test {
                 platform_name: None,
                 platform_version: None,
                 sdk_version: None,
+                sdk_type: None,
                 yggdrasil_version: None,
             },
         };
@@ -438,6 +443,7 @@ mod test {
                 platform_name: None,
                 platform_version: None,
                 sdk_version: None,
+                sdk_type: None,
                 yggdrasil_version: None,
             },
         };
@@ -470,6 +476,7 @@ mod test {
                 platform_name: None,
                 platform_version: None,
                 sdk_version: None,
+                sdk_type: None,
                 yggdrasil_version: None,
             },
         };
@@ -509,6 +516,7 @@ mod test {
                 platform_name: None,
                 platform_version: None,
                 sdk_version: None,
+                sdk_type: None,
                 yggdrasil_version: None,
             },
         };
@@ -535,6 +543,7 @@ mod test {
                 platform_name: None,
                 platform_version: None,
                 sdk_version: None,
+                sdk_type: None,
                 yggdrasil_version: None,
             },
         };
@@ -571,6 +580,7 @@ mod test {
                 platform_name: None,
                 platform_version: None,
                 sdk_version: None,
+                sdk_type: None,
                 yggdrasil_version: None,
             },
         };
@@ -603,6 +613,7 @@ mod test {
                 platform_name: None,
                 platform_version: None,
                 sdk_version: None,
+                sdk_type: None,
                 yggdrasil_version: None,
             },
         };
@@ -631,10 +642,10 @@ mod test {
     }
 
     #[test_case(10, 100, 1; "10 apps 100 toggles. Will not be split")]
-    #[test_case(1, 10000, 25; "1 app 10k toggles, will be split into 25 batches")]
-    #[test_case(1000, 1000, 7; "1000 apps 1000 toggles, will be split into 7 batches")]
-    #[test_case(500, 5000, 15; "500 apps 5000 toggles, will be split into 15 batches")]
-    #[test_case(5000, 1, 19; "5000 apps 1 metric will be split")]
+    #[test_case(1, 10000, 27; "1 app 10k toggles, will be split into 27 batches")]
+    #[test_case(1000, 1000, 8; "1000 apps 1000 toggles, will be split into 8 batches")]
+    #[test_case(500, 5000, 16; "500 apps 5000 toggles, will be split into 16 batches")]
+    #[test_case(5000, 1, 20; "5000 apps 1 metric will be split")]
     fn splits_successfully_into_sendable_chunks(apps: u64, toggles: u64, batch_count: usize) {
         let apps: Vec<ClientApplication> = (1..=apps)
             .map(|app_id| ClientApplication {
@@ -655,6 +666,7 @@ mod test {
                     platform_name: None,
                     platform_version: None,
                     sdk_version: Some("some-test-sdk".into()),
+                    sdk_type: Some(Backend),
                     yggdrasil_version: None,
                 },
             })
@@ -675,6 +687,7 @@ mod test {
                     platform_name: None,
                     platform_version: None,
                     sdk_version: None,
+                    sdk_type: None,
                     yggdrasil_version: None,
                 },
             })
@@ -722,6 +735,7 @@ mod test {
                 platform_name: None,
                 platform_version: None,
                 sdk_version: None,
+                sdk_type: None,
                 yggdrasil_version: None,
             },
         };
@@ -766,6 +780,7 @@ mod test {
                         platform_name: None,
                         platform_version: None,
                         sdk_version: None,
+                        sdk_type: None,
                         yggdrasil_version: None,
                     },
                 },
@@ -781,6 +796,7 @@ mod test {
                         platform_name: None,
                         platform_version: None,
                         sdk_version: None,
+                        sdk_type: None,
                         yggdrasil_version: None,
                     },
                 },
@@ -810,6 +826,7 @@ mod test {
                     platform_name: None,
                     platform_version: None,
                     sdk_version: None,
+                    sdk_type: None,
                     yggdrasil_version: None,
                 },
             },
@@ -825,6 +842,7 @@ mod test {
                     platform_name: None,
                     platform_version: None,
                     sdk_version: None,
+                    sdk_type: None,
                     yggdrasil_version: None,
                 },
             },

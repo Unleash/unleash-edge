@@ -10,7 +10,7 @@ use json_structural_diff::JsonDiff;
 use reqwest::StatusCode;
 use tracing::{debug, info, warn};
 use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta, DeltaEvent};
-use unleash_types::client_metrics::{ClientApplication, MetricsMetadata};
+use unleash_types::client_metrics::{ClientApplication, MetricsMetadata, SdkType};
 use unleash_yggdrasil::{EngineState, UpdateMessage};
 
 use crate::delta_cache_manager::DeltaCacheManager;
@@ -96,6 +96,7 @@ fn client_application_from_token_and_name(
             platform_name: None,
             platform_version: None,
             sdk_version: Some(format!("unleash-edge:{}", build::PKG_VERSION)),
+            sdk_type: Some(SdkType::Backend),
             yggdrasil_version: None,
         },
     }
