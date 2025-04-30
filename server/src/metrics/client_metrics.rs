@@ -604,6 +604,7 @@ mod test {
             app_name: "tests_help".into(),
             connect_via: None,
             environment: Some("development".into()),
+            projects: vec![],
             instance_id: Some("test".into()),
             connection_id: Some("test".into()),
             interval: 60,
@@ -651,6 +652,7 @@ mod test {
             .map(|app_id| ClientApplication {
                 app_name: format!("app_name_{}", app_id),
                 environment: Some("development".into()),
+                projects: vec![],
                 instance_id: Some(format!("instance-{}", app_id)),
                 connection_id: Some(format!("connection-{}", app_id)),
                 interval: 10,
