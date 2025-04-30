@@ -455,6 +455,7 @@ mod tests {
     use unleash_types::client_metrics::{
         ClientMetricsEnv, ConnectViaBuilder, MetricBucket, MetricsMetadata, ToggleStats,
     };
+    use unleash_types::client_metrics::SdkType::Backend;
     use unleash_yggdrasil::EngineState;
 
     async fn make_metrics_post_request() -> Request {
@@ -485,6 +486,7 @@ mod tests {
                     platform_name: Some("test".into()),
                     platform_version: Some("1.0".into()),
                     sdk_version: Some("1.0".into()),
+                    sdk_type: Some(Backend),
                     yggdrasil_version: None,
                 },
             }))
@@ -513,6 +515,7 @@ mod tests {
                     platform_name: None,
                     platform_version: None,
                     sdk_version: None,
+                    sdk_type: None,
                     yggdrasil_version: None,
                 },
             }],
@@ -528,6 +531,7 @@ mod tests {
                     platform_name: None,
                     platform_version: None,
                     sdk_version: None,
+                    sdk_type: None,
                     yggdrasil_version: None,
                 },
             }],
@@ -615,6 +619,7 @@ mod tests {
                 platform_name: None,
                 platform_version: None,
                 sdk_version: None,
+                sdk_type: None,
                 yggdrasil_version: None,
             },
         };

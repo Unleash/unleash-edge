@@ -4,16 +4,17 @@ use actix_service::ServiceFactory;
 use itertools::Itertools;
 use std::collections::HashMap;
 
-use actix_web::dev::{ServiceRequest, ServiceResponse};
+use actix_web::dev::{ServiceRequest, ServiceResponse, Payload};
 use actix_web::{
     HttpRequest, HttpResponse, Scope, get, post,
     web::{self, Data, Json, Path},
 };
+use chrono::Utc;
 use dashmap::DashMap;
 use serde_qs::actix::QsQuery;
 use tracing::debug;
 use unleash_types::client_features::Context;
-use unleash_types::client_metrics::{ClientApplication, ConnectVia};
+use unleash_types::client_metrics::{ClientApplication, ConnectVia, MetricsMetadata, SdkType};
 use unleash_types::{
     client_metrics::ClientMetrics,
     frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult},
@@ -27,6 +28,26 @@ use crate::{
     tokens::{self, cache_key},
     types::{EdgeJsonResult, EdgeResult, EdgeToken},
 };
+
+use actix_web::FromRequest;
+use std::future::{ready, Ready};
+
+#[derive(Debug, Clone)]
+pub struct UnleashSdkHeader(pub Option<String>);
+
+impl FromRequest for UnleashSdkHeader {
+    type Error = EdgeError;
+    type Future = Ready<EdgeResult<Self>>;
+
+    fn from_request(req: &HttpRequest, _payload: &mut Payload) -> Self::Future {
+        let sdk_version = req
+            .headers()
+            .get("unleash-sdk")
+            .and_then(|val| val.to_str().ok())
+            .map(str::to_owned);
+        ready(Ok(UnleashSdkHeader(sdk_version)))
+    }
+}
 
 ///
 /// Returns all evaluated toggles for the key used
@@ -569,9 +590,36 @@ security(
 #[post("/client/metrics")]
 async fn post_frontend_metrics(
     edge_token: EdgeToken,
+    connect_via: Data<ConnectVia>,
     metrics: Json<ClientMetrics>,
     metrics_cache: Data<MetricsCache>,
+    sdk_version: UnleashSdkHeader,
 ) -> EdgeResult<HttpResponse> {
+    if let Some(version) = sdk_version.0 {
+        crate::metrics::client_metrics::register_client_application(
+            edge_token.clone(),
+            &connect_via,
+            ClientApplication {
+                app_name: metrics.app_name.clone(),
+                environment: metrics.environment.clone(),
+                instance_id: metrics.instance_id.clone(),
+                connect_via: None,
+                connection_id: None,
+                interval: 15000,
+                started: Utc::now(),
+                strategies: vec![],
+                metadata: MetricsMetadata {
+                    sdk_version: Some(version),
+                    sdk_type: Some(SdkType::Frontend),
+                    platform_name: None,
+                    platform_version: None,
+                    yggdrasil_version: None,
+                },
+            },
+            metrics_cache.clone(),
+        );
+    }
+
     crate::metrics::client_metrics::register_client_metrics(
         edge_token,
         metrics.into_inner(),
@@ -1214,6 +1262,7 @@ mod tests {
                 platform_name: None,
                 platform_version: None,
                 sdk_version: None,
+                sdk_type: None,
                 yggdrasil_version: None,
             },
         };
