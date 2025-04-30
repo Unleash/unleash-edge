@@ -610,7 +610,7 @@ async fn post_frontend_metrics(
                 strategies: vec![],
                 metadata: MetricsMetadata {
                     sdk_version: Some(version),
-                    sdk_type: Some(SdkType::Backend),
+                    sdk_type: Some(SdkType::Frontend),
                     platform_name: None,
                     platform_version: None,
                     yggdrasil_version: None,
