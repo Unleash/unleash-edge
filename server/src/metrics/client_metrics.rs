@@ -11,9 +11,8 @@ use std::{
     hash::{Hash, Hasher},
 };
 use tracing::{debug, instrument};
-use unleash_types::client_metrics::{
-    ClientApplication, ClientMetrics, ClientMetricsEnv, ConnectVia,
-};
+use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ClientMetricsEnv, ConnectVia, MetricsMetadata};
+use unleash_types::client_metrics::SdkType::Backend;
 use utoipa::ToSchema;
 
 pub const UPSTREAM_MAX_BODY_SIZE: usize = 100 * 1024;
@@ -123,6 +122,10 @@ pub(crate) fn register_client_application(
     );
     let to_write = ClientApplication {
         environment: edge_token.environment,
+        metadata: MetricsMetadata {
+            sdk_type: Some(Backend),
+            ..updated_with_connection_info.metadata
+        },
         ..updated_with_connection_info
     };
     metrics_cache.applications.insert(
