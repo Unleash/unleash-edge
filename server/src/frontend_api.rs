@@ -602,6 +602,7 @@ async fn post_frontend_metrics(
             ClientApplication {
                 app_name: metrics.app_name.clone(),
                 environment: metrics.environment.clone(),
+                projects: Some(edge_token.projects.clone()),
                 instance_id: metrics.instance_id.clone(),
                 connect_via: None,
                 connection_id: None,

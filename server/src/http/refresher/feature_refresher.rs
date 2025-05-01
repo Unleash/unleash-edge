@@ -87,6 +87,7 @@ fn client_application_from_token_and_name(
         app_name: client_meta_information.app_name,
         connect_via: None,
         environment: token.environment,
+        projects: Some(token.projects),
         instance_id: Some(client_meta_information.instance_id),
         connection_id: Some(client_meta_information.connection_id),
         interval: refresh_interval as u32,

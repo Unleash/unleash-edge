@@ -506,6 +506,7 @@ mod tests {
                 app_name: "test_app".to_string(),
                 connect_via: None,
                 environment: None,
+                projects: Some(vec![]),
                 instance_id: None,
                 connection_id: None,
                 interval: 10,
