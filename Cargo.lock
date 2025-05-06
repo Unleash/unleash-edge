@@ -1958,6 +1958,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "etcetera"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26c7b13d0780cb82722fd59f6f57f925e143427e4a75313a6c77243bf5326ae6"
+dependencies = [
+ "cfg-if",
+ "home",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
 name = "eventsource-client"
 version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4663,7 +4674,36 @@ dependencies = [
  "bytes",
  "docker_credential",
  "either",
- "etcetera",
+ "etcetera 0.8.0",
+ "futures",
+ "log",
+ "memchr",
+ "parse-display",
+ "pin-project-lite",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "thiserror 2.0.12",
+ "tokio",
+ "tokio-stream",
+ "tokio-tar",
+ "tokio-util",
+ "url",
+]
+
+[[package]]
+name = "testcontainers"
+version = "0.24.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23bb7577dca13ad86a78e8271ef5d322f37229ec83b8d98da6d996c588a1ddb1"
+dependencies = [
+ "async-trait",
+ "bollard",
+ "bollard-stubs",
+ "bytes",
+ "docker_credential",
+ "either",
+ "etcetera 0.10.0",
  "futures",
  "log",
  "memchr",
@@ -4682,11 +4722,11 @@ dependencies = [
 
 [[package]]
 name = "testcontainers-modules"
-version = "0.11.6"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d43ed4e8f58424c3a2c6c56dbea6643c3c23e8666a34df13c54f0a184e6c707"
+checksum = "7f29549c522bd43086d038c421ed69cdf88bc66387acf3aa92b26f965fa95ec2"
 dependencies = [
- "testcontainers",
+ "testcontainers 0.24.0",
 ]
 
 [[package]]
@@ -5153,7 +5193,7 @@ dependencies = [
  "serde_qs",
  "shadow-rs",
  "test-case",
- "testcontainers",
+ "testcontainers 0.23.3",
  "testcontainers-modules",
  "tokio",
  "tokio-stream",
