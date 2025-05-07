@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [19.11.0](https://github.com/Unleash/unleash-edge/compare/v19.10.1...v19.11.0) - 2025-05-07
+
+### 🚀 Features
+- client application projects ([#924](https://github.com/unleash/unleash-edge/issues/924)) (by @kwasniew) - #924
+- frontend client registration ([#919](https://github.com/unleash/unleash-edge/issues/919)) (by @kwasniew) - #919
+
+### Dependency updates
+- bump tokio from 1.44.2 to 1.45.0 ([#932](https://github.com/unleash/unleash-edge/issues/932)) (by @dependabot[bot]) - #932
+- bump rustls from 0.23.26 to 0.23.27 ([#928](https://github.com/unleash/unleash-edge/issues/928)) (by @dependabot[bot]) - #928
+- bump aws-sdk-s3 from 1.83.0 to 1.84.0 ([#930](https://github.com/unleash/unleash-edge/issues/930)) (by @dependabot[bot]) - #930
+- bump clap-markdown from 0.1.4 to 0.1.5 ([#926](https://github.com/unleash/unleash-edge/issues/926)) (by @dependabot[bot]) - #926
+- bump chrono from 0.4.40 to 0.4.41 ([#921](https://github.com/unleash/unleash-edge/issues/921)) (by @dependabot[bot]) - #921
+
+### Contributors
+
+* @dependabot[bot]
+* @kwasniew
+
 ## [19.10.1](https://github.com/Unleash/unleash-edge/compare/v19.10.0...v19.10.1) - 2025-04-25
 
 ### 🐛 Bug Fixes
