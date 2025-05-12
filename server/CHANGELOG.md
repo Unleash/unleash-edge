@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [19.11.0](https://github.com/Unleash/unleash-edge/compare/v19.10.1...v19.11.0) - 2025-05-12
+
+### 🚀 Features
+- client application projects ([#924](https://github.com/unleash/unleash-edge/issues/924)) (by @kwasniew) - #924
+- frontend client registration ([#919](https://github.com/unleash/unleash-edge/issues/919)) (by @kwasniew) - #919
+
+### Dependency updates
+- bump clap from 4.5.37 to 4.5.38 ([#940](https://github.com/unleash/unleash-edge/issues/940)) (by @dependabot[bot]) - #940
+- bump aws-sdk-s3 from 1.84.0 to 1.85.0 ([#939](https://github.com/unleash/unleash-edge/issues/939)) (by @dependabot[bot]) - #939
+- bump redis from 0.30.0 to 0.31.0 ([#938](https://github.com/unleash/unleash-edge/issues/938)) (by @dependabot[bot]) - #938
+- bump actix-http from 3.10.0 to 3.11.0 ([#937](https://github.com/unleash/unleash-edge/issues/937)) (by @dependabot[bot]) - #937
+- bump ahash from 0.8.11 to 0.8.12 ([#935](https://github.com/unleash/unleash-edge/issues/935)) (by @dependabot[bot]) - #935
+- bump rustls-pki-types from 1.11.0 to 1.12.0 ([#933](https://github.com/unleash/unleash-edge/issues/933)) (by @dependabot[bot]) - #933
+- bump tokio from 1.44.2 to 1.45.0 ([#932](https://github.com/unleash/unleash-edge/issues/932)) (by @dependabot[bot]) - #932
+- bump rustls from 0.23.26 to 0.23.27 ([#928](https://github.com/unleash/unleash-edge/issues/928)) (by @dependabot[bot]) - #928
+- bump aws-sdk-s3 from 1.83.0 to 1.84.0 ([#930](https://github.com/unleash/unleash-edge/issues/930)) (by @dependabot[bot]) - #930
+- bump clap-markdown from 0.1.4 to 0.1.5 ([#926](https://github.com/unleash/unleash-edge/issues/926)) (by @dependabot[bot]) - #926
+- bump chrono from 0.4.40 to 0.4.41 ([#921](https://github.com/unleash/unleash-edge/issues/921)) (by @dependabot[bot]) - #921
+
+### Contributors
+
+* @dependabot[bot]
+* @kwasniew
+
 ## [19.10.1](https://github.com/Unleash/unleash-edge/compare/v19.10.0...v19.10.1) - 2025-04-25
 
 ### 🐛 Bug Fixes
