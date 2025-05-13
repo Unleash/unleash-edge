@@ -34,7 +34,7 @@ actix-cors = "0.7.1"
 actix-http = "3.11.0"
 actix-middleware-etag = "0.4.4"
 actix-service = "2.0.3"
-actix-web = { version = "4.10.2", features = ["rustls-0_23", "compress-zstd"] }
+actix-web = { version = "4.11.0", features = ["rustls-0_23", "compress-zstd"] }
 actix-web-lab = { version = "0.24.1" }
 ahash = "0.8.12"
 anyhow = "1.0.98"
