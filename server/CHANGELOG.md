@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [19.11.0](https://github.com/Unleash/unleash-edge/compare/v19.10.1...v19.11.0) - 2025-05-29
+
+### 🚀 Features
+- client application projects ([#924](https://github.com/unleash/unleash-edge/issues/924)) (by @kwasniew) - #924
+- frontend client registration ([#919](https://github.com/unleash/unleash-edge/issues/919)) (by @kwasniew) - #919
+
+### Dependency updates
+- bump unleash-yggdrasil from 0.17.4 to 0.17.5 ([#957](https://github.com/unleash/unleash-edge/issues/957)) (by @dependabot[bot]) - #957
+- bump reqwest from 0.12.16 to 0.12.18 ([#956](https://github.com/unleash/unleash-edge/issues/956)) (by @dependabot[bot]) - #956
+- bump reqwest from 0.12.15 to 0.12.16 ([#955](https://github.com/unleash/unleash-edge/issues/955)) (by @dependabot[bot]) - #955
+- bump clap from 4.5.38 to 4.5.39 ([#954](https://github.com/unleash/unleash-edge/issues/954)) (by @dependabot[bot]) - #954
+- bump opentelemetry_sdk from 0.29.0 to 0.30.0 ([#951](https://github.com/unleash/unleash-edge/issues/951)) (by @dependabot[bot]) - #951
+- bump utoipa-swagger-ui from 9.0.1 to 9.0.2 ([#950](https://github.com/unleash/unleash-edge/issues/950)) (by @dependabot[bot]) - #950
+- bump tokio from 1.45.0 to 1.45.1 ([#948](https://github.com/unleash/unleash-edge/issues/948)) (by @dependabot[bot]) - #948
+- bump opentelemetry-semantic-conventions ([#949](https://github.com/unleash/unleash-edge/issues/949)) (by @dependabot[bot]) - #949
+- bump opentelemetry from 0.29.1 to 0.30.0 ([#947](https://github.com/unleash/unleash-edge/issues/947)) (by @dependabot[bot]) - #947
+- bump aws-config from 1.6.2 to 1.6.3 ([#944](https://github.com/unleash/unleash-edge/issues/944)) (by @dependabot[bot]) - #944
+- bump aws-sdk-s3 from 1.85.0 to 1.86.0 ([#943](https://github.com/unleash/unleash-edge/issues/943)) (by @dependabot[bot]) - #943
+- bump actix-web from 4.10.2 to 4.11.0 ([#941](https://github.com/unleash/unleash-edge/issues/941)) (by @dependabot[bot]) - #941
+- bump clap from 4.5.37 to 4.5.38 ([#940](https://github.com/unleash/unleash-edge/issues/940)) (by @dependabot[bot]) - #940
+- bump aws-sdk-s3 from 1.84.0 to 1.85.0 ([#939](https://github.com/unleash/unleash-edge/issues/939)) (by @dependabot[bot]) - #939
+- bump redis from 0.30.0 to 0.31.0 ([#938](https://github.com/unleash/unleash-edge/issues/938)) (by @dependabot[bot]) - #938
+- bump actix-http from 3.10.0 to 3.11.0 ([#937](https://github.com/unleash/unleash-edge/issues/937)) (by @dependabot[bot]) - #937
+- bump ahash from 0.8.11 to 0.8.12 ([#935](https://github.com/unleash/unleash-edge/issues/935)) (by @dependabot[bot]) - #935
+- bump rustls-pki-types from 1.11.0 to 1.12.0 ([#933](https://github.com/unleash/unleash-edge/issues/933)) (by @dependabot[bot]) - #933
+- bump tokio from 1.44.2 to 1.45.0 ([#932](https://github.com/unleash/unleash-edge/issues/932)) (by @dependabot[bot]) - #932
+- bump rustls from 0.23.26 to 0.23.27 ([#928](https://github.com/unleash/unleash-edge/issues/928)) (by @dependabot[bot]) - #928
+- bump aws-sdk-s3 from 1.83.0 to 1.84.0 ([#930](https://github.com/unleash/unleash-edge/issues/930)) (by @dependabot[bot]) - #930
+- bump clap-markdown from 0.1.4 to 0.1.5 ([#926](https://github.com/unleash/unleash-edge/issues/926)) (by @dependabot[bot]) - #926
+- bump chrono from 0.4.40 to 0.4.41 ([#921](https://github.com/unleash/unleash-edge/issues/921)) (by @dependabot[bot]) - #921
+
+### Contributors
+
+* @dependabot[bot]
+* @kwasniew
+
 ## [19.10.1](https://github.com/Unleash/unleash-edge/compare/v19.10.0...v19.10.1) - 2025-04-25
 
 ### 🐛 Bug Fixes
