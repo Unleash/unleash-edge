@@ -118,7 +118,7 @@ impl FromRequest for EdgeToken {
             Some(data) => data.clone().into_inner().edge_auth_header.clone(),
             None => Some("Authorization".to_string()),
         }
-        .unwrap();
+        .unwrap_or("Authorization".to_string());
         let value = req.headers().get(token_header);
 
         if let (Some(value), Some(token_cache)) =
