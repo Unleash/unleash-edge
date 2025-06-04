@@ -4,7 +4,7 @@ mod streaming_test {
     use futures::StreamExt;
     use std::{process::Command, str::FromStr, sync::Arc};
     use unleash_edge::{
-        cli::{EdgeArgs, EdgeMode, TokenHeader},
+        cli::{EdgeArgs, EdgeMode},
         feature_cache::FeatureCache,
         http::broadcaster::Broadcaster,
         tokens::cache_key,
@@ -220,9 +220,6 @@ mod streaming_test {
                 upstream_socket_timeout: 5,
                 redis: None,
                 s3: None,
-                token_header: TokenHeader {
-                    token_header: "".into(),
-                },
                 strict: true,
                 dynamic: false,
                 delta: false,
