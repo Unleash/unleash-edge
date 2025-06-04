@@ -35,7 +35,11 @@ jobs:
         with:
           cache-on-failure: true
       - name: Install required cargo packages for reporting test coverage
-        run: cargo install cargo-tarpaulin
-      - name: Run Tarpaulin (Reporting to coveralls)
+        run: cargo install cargo-llvm-cov
+      - name: Run cargo-llvm-cov
         run: |
-          cargo tarpaulin --all-features --coveralls ${{ secrets.COVERALLS_KEY }} --skip-clean
+          cargo llvm-cov --all-features --lcov --output-path ./test-results.lcov --skip-clean
+      - name: Upload to coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          file: ./test-results.lcov
