@@ -38,8 +38,9 @@ jobs:
         run: cargo install cargo-llvm-cov
       - name: Run cargo-llvm-cov
         run: |
-          cargo llvm-cov --all-features --lcov --output-path ./test-results.lcov --skip-clean
+          cargo llvm-cov --all-features --lcov --output-path ./test-results.lcov --no-clean
       - name: Upload to coveralls
         uses: coverallsapp/github-action@v2
         with:
           file: ./test-results.lcov
+          github-token: ${{ secrets.GITHUB_TOKEN }}
