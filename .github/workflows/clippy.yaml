@@ -32,7 +32,7 @@ jobs:
       - name: Install rust
         run: |
           rustup set auto-self-update disable
-          rustup toolchain install 1.85.0 --profile default
+          rustup toolchain install 1.87.0 --profile default
           rustup show
       - name: Rust cache
         uses: Swatinem/rust-cache@v2

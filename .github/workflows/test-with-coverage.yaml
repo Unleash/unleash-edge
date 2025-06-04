@@ -29,13 +29,21 @@ jobs:
       - name: Install rust
         run: |
           rustup set auto-self-update disable
-          rustup toolchain install stable --profile minimal
+          rustup toolchain install 1.87.0 --profile minimal
           rustup show
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
-      - name: Install required cargo packages for reporting test coverage
-        run: cargo install cargo-tarpaulin
-      - name: Run Tarpaulin (Reporting to coveralls)
+      - name: Build so our integration tests have a binary
         run: |
-          cargo tarpaulin --all-features --coveralls ${{ secrets.COVERALLS_KEY }} --skip-clean
+          cargo build
+      - name: Install required cargo packages for reporting test coverage
+        run: cargo install cargo-llvm-cov
+      - name: Run cargo-llvm-cov
+        run: |
+          cargo llvm-cov --all-features --lcov --output-path ./test-results.lcov --no-clean
+      - name: Upload to coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          file: ./test-results.lcov
+          github-token: ${{ secrets.GITHUB_TOKEN }}
