@@ -147,7 +147,7 @@ Run in edge mode
 * `-p`, `--pretrusted-tokens <PRETRUSTED_TOKENS>` — Set a list of frontend tokens that Edge will always trust. These
   need to either match the Unleash token format, or they're an arbitrary string followed by an @ and then an
   environment, e.g. secret-123@development
-* `-H`, `--custom-client-headers <CUSTOM_CLIENT_HEADERS>` — Expects curl header format (-H <HEADERNAME>: <HEADERVALUE>)
+* `-H`, `--custom-client-headers <CUSTOM_CLIENT_HEADERS>` — Expects curl header format (`-H <HEADERNAME>: <HEADERVALUE>`)
   for instance `-H X-Api-Key: mysecretapikey`
 * `-s`, `--skip-ssl-verification` — If set to true, we will skip SSL verification when connecting to the upstream
   Unleash server
