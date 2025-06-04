@@ -2,11 +2,7 @@ mod streaming_test {
     use dashmap::DashMap;
     use eventsource_client::Client;
     use futures::StreamExt;
-    use std::{
-        process::Command,
-        str::FromStr,
-        sync::Arc,
-    };
+    use std::{process::Command, str::FromStr, sync::Arc};
     use unleash_edge::{
         cli::{EdgeArgs, EdgeMode, TokenHeader},
         feature_cache::FeatureCache,
