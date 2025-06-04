@@ -433,7 +433,7 @@ mod tests {
     use super::*;
 
     use crate::auth::token_validator::TokenValidator;
-    use crate::cli::{OfflineArgs, TokenHeader};
+    use crate::cli::{AuthHeaders, OfflineArgs};
     use crate::delta_cache::{DeltaCache, DeltaHydrationEvent};
     use crate::delta_cache_manager::DeltaCacheManager;
     use crate::http::unleash_client::{ClientMetaInformation, UnleashClient};
@@ -452,10 +452,10 @@ mod tests {
     use unleash_types::client_features::{
         ClientFeature, Constraint, DeltaEvent, Operator, Strategy, StrategyVariant,
     };
+    use unleash_types::client_metrics::SdkType::Backend;
     use unleash_types::client_metrics::{
         ClientMetricsEnv, ConnectViaBuilder, MetricBucket, MetricsMetadata, ToggleStats,
     };
-    use unleash_types::client_metrics::SdkType::Backend;
     use unleash_yggdrasil::EngineState;
 
     async fn make_metrics_post_request() -> Request {
@@ -1528,7 +1528,7 @@ mod tests {
     async fn client_features_endpoint_works_with_overridden_token_header() {
         let features_cache = Arc::new(FeatureCache::default());
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
-        let token_header = TokenHeader::from_str("NeedsToBeTested").unwrap();
+        let token_header = AuthHeaders::from_str("NeedsToBeTested").unwrap();
         let app = test::init_service(
             App::new()
                 .app_data(Data::from(features_cache.clone()))

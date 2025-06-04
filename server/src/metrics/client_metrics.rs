@@ -11,8 +11,10 @@ use std::{
     hash::{Hash, Hasher},
 };
 use tracing::{debug, instrument};
-use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ClientMetricsEnv, ConnectVia, MetricsMetadata};
 use unleash_types::client_metrics::SdkType::Backend;
+use unleash_types::client_metrics::{
+    ClientApplication, ClientMetrics, ClientMetricsEnv, ConnectVia, MetricsMetadata,
+};
 use utoipa::ToSchema;
 
 pub const UPSTREAM_MAX_BODY_SIZE: usize = 100 * 1024;
@@ -343,10 +345,18 @@ impl MetricsCache {
         debug!("Sinking {} metrics", metrics.len());
         for metric in metrics.iter() {
             FEATURE_TOGGLE_USAGE_TOTAL
-                .with_label_values(&[&metric.app_name, &metric.feature_name, "true"])
+                .with_label_values(&[
+                    metric.app_name.clone(),
+                    metric.feature_name.clone(),
+                    "true".to_string(),
+                ])
                 .inc_by(metric.yes as u64);
             FEATURE_TOGGLE_USAGE_TOTAL
-                .with_label_values(&[&metric.app_name, &metric.feature_name, "false"])
+                .with_label_values(&[
+                    metric.app_name.clone(),
+                    metric.feature_name.clone(),
+                    "false".to_string(),
+                ])
                 .inc_by(metric.no as u64);
             self.metrics
                 .entry(MetricsKey {
@@ -381,10 +391,10 @@ mod test {
     use std::collections::HashMap;
     use std::str::FromStr;
     use test_case::test_case;
+    use unleash_types::client_metrics::SdkType::Backend;
     use unleash_types::client_metrics::{
         ClientMetricsEnv, ConnectVia, ConnectViaBuilder, MetricsMetadata,
     };
-    use unleash_types::client_metrics::SdkType::Backend;
 
     #[test]
     fn cache_aggregates_data_correctly() {

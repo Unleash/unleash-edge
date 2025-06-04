@@ -5,6 +5,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use crate::error;
+use crate::error::EdgeError;
 use crate::tokens::parse_trusted_token_pair;
 use crate::types::EdgeToken;
 use actix_cors::Cors;
@@ -211,10 +212,6 @@ pub struct EdgeArgs {
     #[clap(flatten)]
     pub s3: Option<S3Args>,
 
-    /// Token header to use for both edge authorization and communication with the upstream server.
-    #[clap(long, env, global = true, default_value = "Authorization")]
-    pub token_header: TokenHeader,
-
     /// If set to true, Edge starts with strict behavior. Strict behavior means that Edge will refuse tokens outside the scope of the startup tokens
     #[clap(long, env, default_value_t = false)]
     pub strict: bool,
@@ -340,19 +337,62 @@ pub struct InternalBackstageArgs {
     pub disable_instance_data_endpoint: bool,
 }
 
-#[derive(Args, Debug, Clone)]
-pub struct TokenHeader {
-    /// Token header to use for edge authorization.
-    #[clap(long, env, global = true, default_value = "Authorization")]
-    pub token_header: String,
+#[derive(Debug, Clone, Args)]
+pub struct AuthHeaders {
+    /// Header to use for edge authorization
+    #[clap(long, env, global = true, conflicts_with = "token_header")]
+    pub edge_auth_header: Option<String>,
+    /// Header to use for upstream authorization
+    #[clap(long, env, global = true, conflicts_with = "token_header")]
+    pub upstream_auth_header: Option<String>,
 }
 
-impl FromStr for TokenHeader {
-    type Err = clap::Error;
+impl Default for AuthHeaders {
+    fn default() -> Self {
+        Self {
+            edge_auth_header: Some("Authorization".to_string()),
+            upstream_auth_header: Some("Authorization".to_string()),
+        }
+    }
+}
+
+impl FromStr for AuthHeaders {
+    type Err = EdgeError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let token_header = s.to_owned();
-        Ok(TokenHeader { token_header })
+        Ok(Self::from_token_header(s))
+    }
+}
+
+impl From<&CliArgs> for AuthHeaders {
+    fn from(value: &CliArgs) -> Self {
+        match value.token_header.clone() {
+            Some(header) => AuthHeaders::from_token_header(&header),
+            None => value.auth_headers.clone(),
+        }
+    }
+}
+
+impl AuthHeaders {
+    pub fn from_token_header(header: &str) -> Self {
+        Self {
+            edge_auth_header: Some(header.to_string()),
+            upstream_auth_header: Some(header.to_string()),
+        }
+    }
+
+    pub fn custom_upstream_header(header: &str) -> Self {
+        Self {
+            upstream_auth_header: Some(header.to_string()),
+            ..Default::default()
+        }
+    }
+
+    pub fn custom_edge_authorization_header(header: &str) -> Self {
+        Self {
+            edge_auth_header: Some(header.to_string()),
+            ..Default::default()
+        }
     }
 }
 
@@ -413,9 +453,12 @@ pub struct CliArgs {
     #[clap(short, long, env, global = true, value_enum, default_value_t = LogFormat::Plain)]
     pub log_format: LogFormat,
 
+    #[clap(flatten)]
+    pub auth_headers: AuthHeaders,
+
     /// token header to use for edge authorization.
-    #[clap(long, env, global = true, default_value = "Authorization")]
-    pub token_header: TokenHeader,
+    #[clap(long, env, global = true)]
+    pub token_header: Option<String>,
 
     #[clap(flatten)]
     pub internal_backstage: InternalBackstageArgs,
@@ -1010,5 +1053,81 @@ mod tests {
             args.unwrap().http.deny_list.unwrap().first(),
             IpNet::from_str("192.168.0.0/16").ok().as_ref()
         );
+    }
+
+    #[test]
+    pub fn token_header_is_mutually_exclusive_with_edge_auth_header() {
+        let args = vec![
+            "unleash-edge",
+            "--token-header",
+            "My-Auth",
+            "--edge-auth-header",
+            "X-Edge-Auth",
+            "edge",
+            "-u",
+            "http://localhost:4242",
+        ];
+        let args = CliArgs::try_parse_from(args);
+        assert!(args.is_err());
+    }
+
+    #[test]
+    pub fn token_header_is_mutually_exclusive_with_upstream_auth_header() {
+        let args = vec![
+            "unleash-edge",
+            "--token-header",
+            "My-Auth",
+            "--upstream-auth-header",
+            "X-Edge-Auth",
+            "edge",
+            "-u",
+            "http://localhost:4242",
+        ];
+        let args = CliArgs::try_parse_from(args);
+        assert!(args.is_err());
+    }
+
+    #[test]
+    pub fn can_pass_edge_auth_header_and_upstream_auth_header() {
+        let args = vec![
+            "unleash-edge",
+            "--upstream-auth-header",
+            "My-Auth",
+            "--edge-auth-header",
+            "X-Edge-Auth",
+            "edge",
+            "-u",
+            "http://localhost:4242",
+        ];
+        let args = CliArgs::try_parse_from(args);
+        assert!(args.is_ok());
+    }
+
+    #[test]
+    pub fn can_pass_edge_auth_header() {
+        let args = vec![
+            "unleash-edge",
+            "--edge-auth-header",
+            "X-Edge-Auth",
+            "edge",
+            "-u",
+            "http://localhost:4242",
+        ];
+        let args = CliArgs::try_parse_from(args);
+        assert!(args.is_ok());
+    }
+
+    #[test]
+    pub fn can_pass_upstream_auth_header() {
+        let args = vec![
+            "unleash-edge",
+            "--upstream-auth-header",
+            "My-Auth",
+            "edge",
+            "-u",
+            "http://localhost:4242",
+        ];
+        let args = CliArgs::try_parse_from(args);
+        assert!(args.is_ok());
     }
 }

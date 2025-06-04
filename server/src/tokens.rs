@@ -9,8 +9,8 @@ use actix_web::http::header::HeaderValue;
 use actix_web::web::Data;
 use dashmap::DashMap;
 
+use crate::cli::AuthHeaders;
 use crate::cli::EdgeMode;
-use crate::cli::TokenHeader;
 use crate::error::EdgeError;
 use crate::types::EdgeToken;
 use crate::types::TokenRefresh;
@@ -114,10 +114,11 @@ impl FromRequest for EdgeToken {
     type Future = Ready<EdgeResult<Self>>;
 
     fn from_request(req: &HttpRequest, _payload: &mut Payload) -> Self::Future {
-        let token_header = match req.app_data::<Data<TokenHeader>>() {
-            Some(data) => data.clone().into_inner().token_header.clone(),
-            None => "Authorization".to_string(),
-        };
+        let token_header = match req.app_data::<Data<AuthHeaders>>() {
+            Some(data) => data.clone().into_inner().edge_auth_header.clone(),
+            None => Some("Authorization".to_string()),
+        }
+        .unwrap_or("Authorization".to_string());
         let value = req.headers().get(token_header);
 
         if let (Some(value), Some(token_cache)) =
@@ -266,8 +267,8 @@ fn parse_legacy_token(token_string: &str) -> EdgeResult<(String, EdgeToken)> {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
     use super::*;
+    use std::str::FromStr;
 
     use actix_http::header::AUTHORIZATION;
     use actix_web::{

@@ -10,7 +10,7 @@ use tracing::{debug, error, warn};
 use unleash_types::client_features::ClientFeatures;
 use unleash_yggdrasil::{EngineState, UpdateMessage};
 
-use crate::cli::RedisMode;
+use crate::cli::{AuthHeaders, RedisMode};
 use crate::delta_cache_manager::DeltaCacheManager;
 use crate::feature_cache::FeatureCache;
 use crate::http::refresher::feature_refresher::{FeatureRefreshConfig, FeatureRefresherMode};
@@ -67,12 +67,12 @@ async fn hydrate_from_persistent_storage(cache: CacheContainer, storage: Arc<dyn
         Default::default()
     });
     for token in tokens {
-        tracing::debug!("Hydrating tokens {token:?}");
+        debug!("Hydrating tokens {token:?}");
         token_cache.insert(token.token.clone(), token);
     }
 
     for (key, features) in features {
-        tracing::debug!("Hydrating features for {key:?}");
+        debug!("Hydrating features for {key:?}");
         features_cache.insert(key.clone(), features.clone());
         let mut engine_state = EngineState::default();
 
@@ -232,6 +232,7 @@ async fn get_data_source(args: &EdgeArgs) -> Option<Arc<dyn EdgePersistence>> {
 async fn build_edge(
     args: &EdgeArgs,
     client_meta_information: ClientMetaInformation,
+    auth_headers: AuthHeaders,
 ) -> EdgeResult<EdgeInfo> {
     if !args.strict {
         if !args.dynamic {
@@ -267,7 +268,10 @@ async fn build_edge(
         .map(|url| {
             UnleashClient::from_url(
                 url,
-                args.token_header.token_header.clone(),
+                auth_headers
+                    .upstream_auth_header
+                    .clone()
+                    .unwrap_or("Authorization".to_string()),
                 http_client,
                 client_meta_information.clone(),
             )
@@ -354,6 +358,7 @@ pub async fn build_caches_and_refreshers(
     args: CliArgs,
     connection_id: String,
 ) -> EdgeResult<EdgeInfo> {
+    let auth_headers = AuthHeaders::from(&args);
     match args.mode {
         EdgeMode::Offline(offline_args) => {
             build_offline(offline_args).map(|cache| (cache, None, None, None))
@@ -366,6 +371,7 @@ pub async fn build_caches_and_refreshers(
                     instance_id: args.instance_id,
                     connection_id,
                 },
+                auth_headers,
             )
             .await
         }
@@ -377,7 +383,7 @@ pub async fn build_caches_and_refreshers(
 mod tests {
     use crate::{
         builder::{build_edge, build_offline},
-        cli::{EdgeArgs, OfflineArgs, TokenHeader},
+        cli::{AuthHeaders, EdgeArgs, OfflineArgs},
         http::unleash_client::ClientMetaInformation,
     };
 
@@ -417,9 +423,6 @@ mod tests {
             upstream_request_timeout: Default::default(),
             upstream_socket_timeout: Default::default(),
             custom_client_headers: Default::default(),
-            token_header: TokenHeader {
-                token_header: "Authorization".into(),
-            },
             upstream_certificate_file: Default::default(),
             token_revalidation_interval_seconds: Default::default(),
             prometheus_push_interval: 60,
@@ -440,6 +443,7 @@ mod tests {
                 instance_id: "test-instance-id".into(),
                 connection_id: "test-connection-id".into(),
             },
+            AuthHeaders::default(),
         )
         .await;
         assert!(result.is_err());
