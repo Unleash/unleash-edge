@@ -450,46 +450,46 @@ impl EdgeInstanceData {
         let mut no_change = HashMap::default();
 
         for family in registry.gather().iter() {
-            match family.get_name() {
+            match family.name() {
                 crate::metrics::actix_web_prometheus_metrics::HTTP_REQUESTS_DURATION => {
                     family
                         .get_metric()
                         .iter()
                         .filter(|m| {
-                            m.has_histogram() && m.get_label().iter().any(|l| {
-                                l.get_name()
+                            m.get_label().iter().any(|l| {
+                                l.name()
                                     == crate::metrics::actix_web_prometheus_metrics::ENDPOINT_LABEL
                                     && DESIRED_URLS
                                         .iter()
-                                        .any(|desired| l.get_value().ends_with(desired))
+                                        .any(|desired| l.value().ends_with(desired))
                             }) && m.get_label().iter().any(|l| {
-                                l.get_name()
+                                l.name()
                                     == crate::metrics::actix_web_prometheus_metrics::STATUS_LABEL
-                                    && l.get_value() == "200"
-                                    || l.get_value() == "202"
-                                    || l.get_value() == "304"
-                                    || l.get_value() == "403"
+                                    && (l.value() == "200"
+                                        || l.value() == "202"
+                                        || l.value() == "304"
+                                        || l.value() == "403")
                             })
                         })
                         .for_each(|m| {
                             let labels = m.get_label();
                             let path = labels
                                 .iter()
-                                .find(|l| l.get_name() == crate::metrics::actix_web_prometheus_metrics::ENDPOINT_LABEL)
+                                .find(|l| l.name() == crate::metrics::actix_web_prometheus_metrics::ENDPOINT_LABEL)
                                 .unwrap()
-                                .get_value()
+                                .value()
                                 .strip_prefix(base_path)
                                 .unwrap();
                             let method = labels
                                 .iter()
-                                .find(|l| l.get_name() == crate::metrics::actix_web_prometheus_metrics::METHOD_LABEL)
+                                .find(|l| l.name() == crate::metrics::actix_web_prometheus_metrics::METHOD_LABEL)
                                 .unwrap()
-                                .get_value();
+                                .value();
                             let status = labels
                                 .iter()
-                                .find(|l| l.get_name() == crate::metrics::actix_web_prometheus_metrics::STATUS_LABEL)
+                                .find(|l| l.name() == crate::metrics::actix_web_prometheus_metrics::STATUS_LABEL)
                                 .unwrap()
-                                .get_value();
+                                .value();
                             let latency = match status {
                                 "200" | "202" => {
                                     if method == "GET" {
@@ -529,12 +529,12 @@ impl EdgeInstanceData {
                 }
                 "process_cpu_seconds_total" => {
                     if let Some(cpu_second_metric) = family.get_metric().last() {
-                        cpu_seconds = cpu_second_metric.get_counter().get_value() as u64;
+                        cpu_seconds = cpu_second_metric.get_counter().value() as u64;
                     }
                 }
                 "process_resident_memory_bytes" => {
                     if let Some(resident_memory_metric) = family.get_metric().last() {
-                        resident_memory = resident_memory_metric.get_gauge().get_value() as u64;
+                        resident_memory = resident_memory_metric.get_gauge().value() as u64;
                     }
                 }
                 "client_metrics_upload" => {
@@ -596,7 +596,7 @@ impl EdgeInstanceData {
                 "connected_streaming_clients" => {
                     if let Some(connected_streaming_clients) = family.get_metric().last() {
                         observed.connected_streaming_clients =
-                            connected_streaming_clients.get_gauge().get_value() as u64;
+                            connected_streaming_clients.get_gauge().value() as u64;
                     }
                 }
                 _ => {}
@@ -624,17 +624,17 @@ fn get_percentile(percentile: u64, count: u64, buckets: &[prometheus::proto::Buc
     let mut previous_upper_bound = 0.0;
     let mut previous_count = 0;
     for bucket in buckets {
-        if bucket.get_cumulative_count() as f64 >= target {
-            let nth_count = bucket.get_cumulative_count() - previous_count;
+        if bucket.cumulative_count() as f64 >= target {
+            let nth_count = bucket.cumulative_count() - previous_count;
             let observation_in_range = target - previous_count as f64;
             return round_to_3_decimals(
                 previous_upper_bound
                     + ((observation_in_range / nth_count as f64)
-                        * (bucket.get_upper_bound() - previous_upper_bound)),
+                        * (bucket.upper_bound() - previous_upper_bound)),
             );
         }
-        previous_upper_bound = bucket.get_upper_bound();
-        previous_count = bucket.get_cumulative_count();
+        previous_upper_bound = bucket.upper_bound();
+        previous_count = bucket.cumulative_count();
     }
     0.0
 }
@@ -665,7 +665,7 @@ mod tests {
         fifty_ms.set_cumulative_count(5000);
         fifty_ms.set_upper_bound(50.0);
         let buckets = vec![one_ms, five_ms, ten_ms, twenty_ms, fifty_ms];
-        let result = super::get_percentile(99, 5000, &buckets);
+        let result = get_percentile(99, 5000, &buckets);
         assert_eq!(result, 48.5);
     }
 
@@ -687,7 +687,7 @@ mod tests {
         fifty_ms.set_cumulative_count(5000);
         fifty_ms.set_upper_bound(50.0);
         let buckets = vec![one_ms, five_ms, ten_ms, twenty_ms, fifty_ms];
-        let result = super::get_percentile(50, 5000, &buckets);
+        let result = get_percentile(50, 5000, &buckets);
         assert_eq!(result, 7.5);
     }
 
