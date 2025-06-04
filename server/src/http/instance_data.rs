@@ -57,7 +57,10 @@ impl InstanceDataSending {
                             .map(|url| {
                                 UnleashClient::from_url(
                                     url,
-                                    args.token_header.token_header.clone(),
+                                    args.auth_headers
+                                        .upstream_auth_header
+                                        .clone()
+                                        .unwrap_or("Authorization".to_string()),
                                     http_client,
                                     client_meta_information.clone(),
                                 )

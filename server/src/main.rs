@@ -14,7 +14,7 @@ use utoipa_swagger_ui::SwaggerUi;
 
 use tracing::info;
 use unleash_edge::builder::build_caches_and_refreshers;
-use unleash_edge::cli::{CliArgs, EdgeMode};
+use unleash_edge::cli::{AuthHeaders, CliArgs, EdgeMode};
 use unleash_edge::feature_cache::FeatureCache;
 use unleash_edge::http::background_send_metrics::send_metrics_one_shot;
 use unleash_edge::http::broadcaster::Broadcaster;
@@ -78,7 +78,7 @@ async fn main() -> Result<(), anyhow::Error> {
         EdgeMode::Edge(ref edge) => edge.custom_client_headers.clone(),
         _ => vec![],
     };
-
+    let custom_auth_header = Arc::new(AuthHeaders::from(&args));
     let internal_backstage_args = args.internal_backstage.clone();
 
     let (
@@ -131,6 +131,7 @@ async fn main() -> Result<(), anyhow::Error> {
             .app_data(web::Data::from(features_cache.clone()))
             .app_data(web::Data::from(engine_cache.clone()))
             .app_data(web::Data::from(broadcaster.clone()))
+            .app_data(web::Data::from(custom_auth_header.clone()))
             .app_data(web::Data::from(
                 instance_data_sender_for_app_context.clone(),
             ))
