@@ -29,7 +29,7 @@ jobs:
       - name: Install rust
         run: |
           rustup set auto-self-update disable
-          rustup toolchain install stable --profile minimal
+          rustup toolchain install 1.87.0 --profile minimal
           rustup show
       - uses: Swatinem/rust-cache@v2
         with:
