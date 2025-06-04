@@ -465,10 +465,10 @@ impl EdgeInstanceData {
                             }) && m.get_label().iter().any(|l| {
                                 l.name()
                                     == crate::metrics::actix_web_prometheus_metrics::STATUS_LABEL
-                                    && l.value() == "200"
-                                    || l.value() == "202"
-                                    || l.value() == "304"
-                                    || l.value() == "403"
+                                    && (l.value() == "200"
+                                        || l.value() == "202"
+                                        || l.value() == "304"
+                                        || l.value() == "403")
                             })
                         })
                         .for_each(|m| {
