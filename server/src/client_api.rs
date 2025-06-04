@@ -452,10 +452,10 @@ mod tests {
     use unleash_types::client_features::{
         ClientFeature, Constraint, DeltaEvent, Operator, Strategy, StrategyVariant,
     };
+    use unleash_types::client_metrics::SdkType::Backend;
     use unleash_types::client_metrics::{
         ClientMetricsEnv, ConnectViaBuilder, MetricBucket, MetricsMetadata, ToggleStats,
     };
-    use unleash_types::client_metrics::SdkType::Backend;
     use unleash_yggdrasil::EngineState;
 
     async fn make_metrics_post_request() -> Request {

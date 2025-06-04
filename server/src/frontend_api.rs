@@ -4,7 +4,7 @@ use actix_service::ServiceFactory;
 use itertools::Itertools;
 use std::collections::HashMap;
 
-use actix_web::dev::{ServiceRequest, ServiceResponse, Payload};
+use actix_web::dev::{Payload, ServiceRequest, ServiceResponse};
 use actix_web::{
     HttpRequest, HttpResponse, Scope, get, post,
     web::{self, Data, Json, Path},
@@ -30,7 +30,7 @@ use crate::{
 };
 
 use actix_web::FromRequest;
-use std::future::{ready, Ready};
+use std::future::{Ready, ready};
 
 #[derive(Debug, Clone)]
 pub struct UnleashSdkHeader(pub Option<String>);
