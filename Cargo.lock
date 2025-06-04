@@ -5199,7 +5199,7 @@ dependencies = [
  "unleash-yggdrasil",
  "utoipa",
  "utoipa-swagger-ui",
- "zip 2.6.1",
+ "zip",
 ]
 
 [[package]]
@@ -5320,7 +5320,7 @@ dependencies = [
  "serde_json",
  "url",
  "utoipa",
- "zip 3.0.0",
+ "zip",
 ]
 
 [[package]]
@@ -5945,16 +5945,15 @@ dependencies = [
 
 [[package]]
 name = "zip"
-version = "2.6.1"
+version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1dcb24d0152526ae49b9b96c1dcf71850ca1e0b882e4e28ed898a93c41334744"
+checksum = "12598812502ed0105f607f941c386f43d441e00148fce9dec3ca5ffb0bde9308"
 dependencies = [
  "aes",
  "arbitrary",
  "bzip2",
  "constant_time_eq",
  "crc32fast",
- "crossbeam-utils",
  "deflate64",
  "flate2",
  "getrandom 0.3.2",
@@ -5969,20 +5968,6 @@ dependencies = [
  "zeroize",
  "zopfli",
  "zstd",
-]
-
-[[package]]
-name = "zip"
-version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12598812502ed0105f607f941c386f43d441e00148fce9dec3ca5ffb0bde9308"
-dependencies = [
- "arbitrary",
- "crc32fast",
- "flate2",
- "indexmap 2.9.0",
- "memchr",
- "zopfli",
 ]
 
 [[package]]
