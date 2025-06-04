@@ -266,8 +266,8 @@ fn parse_legacy_token(token_string: &str) -> EdgeResult<(String, EdgeToken)> {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
     use super::*;
+    use std::str::FromStr;
 
     use actix_http::header::AUTHORIZATION;
     use actix_web::{
