@@ -32,12 +32,10 @@ jobs:
       - name: Install rust
         run: |
           rustup set auto-self-update disable
-          rustup toolchain install stable --profile default
+          rustup toolchain install 1.85.0 --profile default
           rustup show
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
-      - name: Install required cargo packages for reporting format
-        run: cargo install clippy-sarif sarif-fmt
       - name: Run rust-clippy
         run: |
           cargo clippy --all-features -- -D warnings
