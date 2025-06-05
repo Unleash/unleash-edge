@@ -106,7 +106,7 @@ unleash-types = { version = "0.15.14", features = ["openapi", "hashes"] }
 unleash-yggdrasil = { version = "0.17.5" }
 utoipa = { version = "5.3.1", features = ["actix_extras", "chrono"] }
 utoipa-swagger-ui = { version = "9.0.2", features = ["actix-web"] }
-zip = { version = "3.0.0" }
+zip = { version = "4.0.0" }
 [dev-dependencies]
 actix-http = "3.11.0"
 actix-http-test = "3.2.0"
