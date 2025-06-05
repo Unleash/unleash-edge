@@ -180,7 +180,7 @@ pub struct EdgeArgs {
     #[clap(short, long, env, value_delimiter = ',', value_parser = parse_trusted_token_pair)]
     pub pretrusted_tokens: Option<Vec<(String, EdgeToken)>>,
 
-    /// Expects curl header format (-H <HEADERNAME>: <HEADERVALUE>)
+    /// Expects curl header format (`-H <HEADERNAME>: <HEADERVALUE>`)
     /// for instance `-H X-Api-Key: mysecretapikey`
     #[clap(short = 'H', long, env, value_delimiter = ',', value_parser = string_to_header_tuple)]
     pub custom_client_headers: Vec<(String, String)>,
