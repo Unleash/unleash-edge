@@ -203,13 +203,12 @@ impl Broadcaster {
     }
 
     fn get_query_filters(query: &StreamingQuery) -> FeatureFilterSet {
-        let filter_set = if let Some(name_prefix) = &query.name_prefix {
+        if let Some(name_prefix) = &query.name_prefix {
             FeatureFilterSet::from(Box::new(name_prefix_filter(name_prefix.clone())))
         } else {
             FeatureFilterSet::default()
         }
-        .with_filter(project_filter_from_projects(query.projects.clone()));
-        filter_set
+        .with_filter(project_filter_from_projects(query.projects.clone()))
     }
 
     async fn resolve_last_event_id(&self, query: StreamingQuery) -> Option<u32> {
