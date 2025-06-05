@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [19.11.1](https://github.com/Unleash/unleash-edge/compare/v19.11.0...v19.11.1) - 2025-06-05
+
+### ⚙️ Miscellaneous Tasks
+- *(docs)* Add backtick to definition of curl header format (by @chriswk)
+- *(clippy)* remove unnecessary let (by @chriswk)
+
+### Contributors
+
+* @chriswk
+
 ## [19.11.0](https://github.com/Unleash/unleash-edge/compare/v19.10.1...v19.11.0) - 2025-06-04
 
 ### 🚀 Features
