@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [19.11.1](https://github.com/Unleash/unleash-edge/compare/v19.11.0...v19.11.1) - 2025-06-09
+
+### Dependency updates
+- bump redis from 0.31.0 to 0.32.0 ([#978](https://github.com/unleash/unleash-edge/issues/978)) (by @dependabot[bot]) - #978
+- bump aws-sdk-s3 from 1.90.0 to 1.91.0 ([#976](https://github.com/unleash/unleash-edge/issues/976)) (by @dependabot[bot]) - #976
+
+### ⚙️ Miscellaneous Tasks
+- *(docs)* Add backtick to definition of curl header format (by @chriswk)
+- *(clippy)* remove unnecessary let (by @chriswk)
+
+### Contributors
+
+* @dependabot[bot]
+* @chriswk
+
 ## [19.11.0](https://github.com/Unleash/unleash-edge/compare/v19.10.1...v19.11.0) - 2025-06-04
 
 ### 🚀 Features
