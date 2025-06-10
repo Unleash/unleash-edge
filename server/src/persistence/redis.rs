@@ -40,14 +40,14 @@ impl RedisPersister {
         read_timeout: Duration,
         write_timeout: Duration,
     ) -> Result<RedisPersister, EdgeError> {
-        let client = Client::open(url)?;
-        let addr = client.get_connection_info().addr.clone();
         if let Err(err) = rustls::crypto::ring::default_provider().install_default() {
             info!(
                 "Failed to install default crypto provider, this is likely because another system has already installed it: {:?}",
                 err
             );
         }
+        let client = Client::open(url)?;
+        let addr = client.get_connection_info().addr.clone();
         info!("[REDIS Persister]: Configured single node client {addr:?}");
         Ok(Self {
             redis_client: Arc::new(RwLock::new(Single(client))),
@@ -60,6 +60,12 @@ impl RedisPersister {
         read_timeout: Duration,
         write_timeout: Duration,
     ) -> Result<RedisPersister, EdgeError> {
+        if let Err(err) = rustls::crypto::ring::default_provider().install_default() {
+            info!(
+                "Failed to install default crypto provider, this is likely because another system has already installed it: {:?}",
+                err
+            );
+        }
         info!("[REDIS Persister]: Configuring cluster client against {urls:?}");
         let client = ClusterClient::builder(urls)
             .connection_timeout(read_timeout)
