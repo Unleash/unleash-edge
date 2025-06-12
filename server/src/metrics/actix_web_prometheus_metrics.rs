@@ -380,7 +380,7 @@ impl PrometheusMetrics {
             return;
         }
 
-        let label_values = if status.is_success() {
+        let label_values = if status.is_success() || status == StatusCode::NOT_MODIFIED {
             [path, method.as_str(), status.as_str()]
         } else {
             ["/{unknown}", method.as_str(), status.as_str()]
