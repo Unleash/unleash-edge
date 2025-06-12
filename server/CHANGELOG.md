@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [19.11.2](https://github.com/Unleash/unleash-edge/compare/v19.11.1...v19.11.2) - 2025-06-12
+
+### 🐛 Bug Fixes
+- track path for 304/NOT_MODIFIED ([#988](https://github.com/unleash/unleash-edge/issues/988)) (by @chriswk) - #988
+
+### Dependency updates
+- bump shadow-rs from 1.1.1 to 1.2.0 ([#986](https://github.com/unleash/unleash-edge/issues/986)) (by @dependabot[bot]) - #986
+
+### Contributors
+
+* @chriswk
+* @dependabot[bot]
+
 ## [19.11.1](https://github.com/Unleash/unleash-edge/compare/v19.11.0...v19.11.1) - 2025-06-10
 
 ### 🐛 Bug Fixes
