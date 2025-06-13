@@ -6,31 +6,44 @@ use crate::metrics::edge_metrics::EdgeInstanceData;
 #[cfg(target_os = "linux")]
 use prometheus::process_collector::ProcessCollector;
 use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, Registry};
 
 use crate::http::background_send_metrics;
+
+pub fn setup_collector(log_format: &LogFormat, env_filter: EnvFilter) {
+    tracing_subscriber::Registry::default()
+            .with(sentry::integrations::tracing::layer())
+            .init();
+}
+
+// #[cfg(not(feature = "sentry"))]
+// pub fn setup_collector(log_format: &LogFormat, env_filter: EnvFilter) {
+//     match log_format {
+//         LogFormat::Plain => {
+//             let logger = tracing_subscriber::fmt::layer();
+//             let collector = Registry::default().with(logger).with(env_filter);
+//             tracing::subscriber::set_global_default(collector).unwrap();
+//         }
+//         LogFormat::Json => {
+//             let logger = tracing_subscriber::fmt::layer().json();
+//             let collector = Registry::default().with(logger).with(env_filter);
+//             tracing::subscriber::set_global_default(collector).unwrap();
+//         }
+//         LogFormat::Pretty => {
+//             let logger = tracing_subscriber::fmt::layer().pretty();
+//             let collector = Registry::default().with(logger).with(env_filter);
+//             tracing::subscriber::set_global_default(collector).unwrap();
+//         }
+//     };
+// }
 
 fn instantiate_tracing_and_logging(log_format: &LogFormat) {
     let env_filter = EnvFilter::try_from_default_env()
         .or_else(|_| EnvFilter::try_new("info"))
         .unwrap();
-    match log_format {
-        LogFormat::Plain => {
-            let logger = tracing_subscriber::fmt::layer();
-            let collector = Registry::default().with(logger).with(env_filter);
-            tracing::subscriber::set_global_default(collector).unwrap();
-        }
-        LogFormat::Json => {
-            let logger = tracing_subscriber::fmt::layer().json();
-            let collector = Registry::default().with(logger).with(env_filter);
-            tracing::subscriber::set_global_default(collector).unwrap();
-        }
-        LogFormat::Pretty => {
-            let logger = tracing_subscriber::fmt::layer().pretty();
-            let collector = Registry::default().with(logger).with(env_filter);
-            tracing::subscriber::set_global_default(collector).unwrap();
-        }
-    };
+
+    setup_collector(log_format, env_filter);
 }
 
 pub fn instantiate(

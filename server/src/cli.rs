@@ -462,6 +462,16 @@ pub struct CliArgs {
 
     #[clap(flatten)]
     pub internal_backstage: InternalBackstageArgs,
+
+    #[clap(flatten)]
+    pub sentry: SentryArgs,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct SentryArgs {
+
+    #[arg(long, env, global = true)]
+    pub sentry_url: Option<String>,
 }
 
 #[derive(Args, Debug, Clone)]

@@ -38,6 +38,16 @@ async fn main() -> Result<(), anyhow::Error> {
     };
 
     let args = CliArgs::parse();
+        let _guard = sentry::init((args.sentry.sentry_url.clone().unwrap(), sentry::ClientOptions {
+            send_default_pii: true,
+            release: sentry::release_name!(),
+            traces_sample_rate: 1.0,
+            session_mode: sentry::SessionMode::Request,
+            auto_session_tracking: true,
+            ..Default::default()
+        }));
+
+
     let disable_all_endpoint = args.disable_all_endpoint;
     if args.markdown_help {
         clap_markdown::print_help_markdown::<CliArgs>();
@@ -146,6 +156,7 @@ async fn main() -> Result<(), anyhow::Error> {
             Some(refresher) => app.app_data(web::Data::from(refresher)),
             None => app,
         };
+
         app.service(
             web::scope(&base_path)
                 .wrap(Etag)
@@ -154,6 +165,7 @@ async fn main() -> Result<(), anyhow::Error> {
                 .wrap(cors_middleware)
                 .wrap(metrics_middleware.clone())
                 .wrap(Logger::default())
+                .wrap(sentry_actix::Sentry::new())
                 .service(web::scope("/internal-backstage").configure(|service_cfg| {
                     internal_backstage::configure_internal_backstage(
                         service_cfg,

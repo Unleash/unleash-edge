@@ -55,13 +55,14 @@ itertools = "0.14.0"
 json-structural-diff = "0.2.0"
 lazy_static = "1.5.0"
 num_cpus = "1.17.0"
-opentelemetry = { version = "0.30.0", features = ["trace", "metrics"] }
+opentelemetry = { version = "0.29.0", features = ["trace", "metrics"] }
 opentelemetry-prometheus = "0.29.1"
-opentelemetry-semantic-conventions = "0.30.0"
-opentelemetry_sdk = { version = "0.30.0", features = [
+opentelemetry-semantic-conventions = "0.29.0"
+opentelemetry_sdk = { version = "0.29.0", features = [
     "metrics",
     "serde",
     "serde_json",
+    "trace",
     "logs",
 ] }
 p12-keystore = "0.1.5"
@@ -76,7 +77,7 @@ redis = { version = "0.32.0", features = [
     "tokio-rustls-comp",
     "cluster",
 ] }
-reqwest = { version = "0.12.19", default-features = false, features = [
+reqwest = { version = "0.12.20", default-features = false, features = [
     "json",
     "rustls-tls"
 ] }
@@ -88,6 +89,8 @@ rustls = { version = "0.23.27", default-features = false, features = [
 rustls-pemfile = "2.2.0"
 rustls-pki-types = "1.12.0"
 semver = "1.0.26"
+sentry = { version = "0.39.0", features = ["actix", "tracing", "logs", "opentelemetry"] }
+sentry-actix = { version = "0.39.0" }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 serde_qs = { version = "0.15.0", features = ["actix4", "tracing"] }
@@ -106,7 +109,7 @@ unleash-types = { version = "0.15.14", features = ["openapi", "hashes"] }
 unleash-yggdrasil = { version = "0.17.5" }
 utoipa = { version = "5.3.1", features = ["actix_extras", "chrono"] }
 utoipa-swagger-ui = { version = "9.0.2", features = ["actix-web"] }
-zip = { version = "3.0.0" }
+zip = { version = "4.0.0" }
 [dev-dependencies]
 actix-http = "3.11.0"
 actix-http-test = "3.2.0"

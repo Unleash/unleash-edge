@@ -15,6 +15,7 @@ use reqwest::header::{HeaderMap, HeaderName};
 use reqwest::{Client, header};
 use reqwest::{ClientBuilder, Identity, RequestBuilder, StatusCode, Url};
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 use tracing::{debug, error};
 use tracing::{info, trace, warn};
 use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta};
@@ -401,6 +402,7 @@ impl UnleashClient {
         }
     }
 
+    #[instrument(skip(self, api_key, application))]
     pub async fn register_as_client(
         &self,
         api_key: String,
@@ -433,6 +435,7 @@ impl UnleashClient {
             })
     }
 
+    #[instrument(skip(self, request))]
     pub async fn get_client_features(
         &self,
         request: ClientFeaturesRequest,

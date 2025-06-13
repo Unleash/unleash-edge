@@ -1,5 +1,6 @@
 use crate::types::EdgeToken;
 use dashmap::mapref::one::Ref;
+use tracing::instrument;
 use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
 pub type FeatureFilter = Box<dyn Fn(&ClientFeature) -> bool>;
@@ -26,6 +27,7 @@ impl FeatureFilterSet {
     }
 }
 
+#[instrument(skip(feature_cache, filters))]
 fn filter_features(
     feature_cache: &Ref<'_, String, ClientFeatures>,
     filters: &FeatureFilterSet,
@@ -38,6 +40,7 @@ fn filter_features(
         .collect::<Vec<ClientFeature>>()
 }
 
+#[instrument(skip(feature_cache, filters))]
 pub(crate) fn filter_client_features(
     feature_cache: &Ref<'_, String, ClientFeatures>,
     filters: &FeatureFilterSet,
@@ -51,14 +54,17 @@ pub(crate) fn filter_client_features(
     }
 }
 
+#[instrument(skip(name_prefix))]
 pub(crate) fn name_prefix_filter(name_prefix: String) -> FeatureFilter {
     Box::new(move |f| f.name.starts_with(&name_prefix))
 }
 
+#[instrument(skip(name_prefix))]
 pub(crate) fn name_match_filter(name_prefix: String) -> FeatureFilter {
     Box::new(move |f| f.name.starts_with(&name_prefix))
 }
 
+#[instrument(skip(projects))]
 pub(crate) fn project_filter_from_projects(projects: Vec<String>) -> FeatureFilter {
     Box::new(move |feature| {
         if let Some(feature_project) = &feature.project {
@@ -71,6 +77,7 @@ pub(crate) fn project_filter_from_projects(projects: Vec<String>) -> FeatureFilt
     })
 }
 
+#[instrument(skip(token))]
 pub(crate) fn project_filter(token: &EdgeToken) -> FeatureFilter {
     project_filter_from_projects(token.projects.clone())
 }

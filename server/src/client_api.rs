@@ -36,6 +36,7 @@ use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ConnectVia
     )
 )]
 #[get("/features")]
+#[instrument(skip(edge_token, features_cache, token_cache, filter_query, req))]
 pub async fn get_features(
     edge_token: EdgeToken,
     features_cache: Data<FeatureCache>,
@@ -127,6 +128,7 @@ pub async fn post_features(
     resolve_features(edge_token, features_cache, token_cache, filter_query, req).await
 }
 
+#[instrument(skip(edge_token, token_cache, filter_query))]
 fn get_feature_filter(
     edge_token: &EdgeToken,
     token_cache: &Data<DashMap<String, EdgeToken>>,
@@ -182,6 +184,7 @@ fn get_delta_filter(
     Ok(delta_filter_set)
 }
 
+#[instrument(skip(edge_token, features_cache, token_cache, filter_query, req))]
 async fn resolve_features(
     edge_token: EdgeToken,
     features_cache: Data<FeatureCache>,
