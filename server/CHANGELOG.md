@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [19.11.3](https://github.com/Unleash/unleash-edge/compare/v19.11.2...v19.11.3) - 2025-06-13
+
+### Dependency updates
+- bump aws-config from 1.6.3 to 1.8.0 ([#989](https://github.com/unleash/unleash-edge/issues/989)) (by @dependabot[bot]) - #989
+
+### Contributors
+
+* @dependabot[bot]
+
 ## [19.11.2](https://github.com/Unleash/unleash-edge/compare/v19.11.1...v19.11.2) - 2025-06-12
 
 ### 🐛 Bug Fixes
