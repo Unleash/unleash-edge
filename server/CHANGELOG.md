@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [19.11.3](https://github.com/Unleash/unleash-edge/compare/v19.11.2...v19.11.3) - 2025-06-20
+
+### 🐛 Bug Fixes
+- make cors arguments global ([#1000](https://github.com/unleash/unleash-edge/issues/1000)) (by @chriswk) - #1000
+
+### Dependency updates
+- bump redis from 0.32.0 to 0.32.1 ([#998](https://github.com/unleash/unleash-edge/issues/998)) (by @dependabot[bot]) - #998
+- bump aws-sdk-s3 from 1.92.0 to 1.93.0 ([#997](https://github.com/unleash/unleash-edge/issues/997)) (by @dependabot[bot]) - #997
+- bump utoipa from 5.3.1 to 5.4.0 ([#995](https://github.com/unleash/unleash-edge/issues/995)) (by @dependabot[bot]) - #995
+- bump rustls from 0.23.27 to 0.23.28 ([#994](https://github.com/unleash/unleash-edge/issues/994)) (by @dependabot[bot]) - #994
+- bump aws-sdk-s3 from 1.91.0 to 1.92.0 ([#990](https://github.com/unleash/unleash-edge/issues/990)) (by @dependabot[bot]) - #990
+- bump aws-config from 1.6.3 to 1.8.0 ([#989](https://github.com/unleash/unleash-edge/issues/989)) (by @dependabot[bot]) - #989
+
+### Contributors
+
+* @chriswk
+* @dependabot[bot]
+
 ## [19.11.2](https://github.com/Unleash/unleash-edge/compare/v19.11.1...v19.11.2) - 2025-06-12
 
 ### 🐛 Bug Fixes
