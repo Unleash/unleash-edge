@@ -487,19 +487,19 @@ pub fn parse_http_method(value: &str) -> Result<actix_http::Method, String> {
 #[derive(Args, Debug, Clone)]
 pub struct CorsOptions {
     /// Sets the [Access-Control-Allow-Origin](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Origin) header to this value
-    #[clap(env, long, value_delimiter = ',')]
+    #[clap(env, long, value_delimiter = ',', global = true)]
     pub cors_origin: Option<Vec<String>>,
     /// Sets the [Access-Control-Allow-Headers](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Headers) header to this value
-    #[clap(env, long, value_delimiter = ',')]
+    #[clap(env, long, value_delimiter = ',', global = true)]
     pub cors_allowed_headers: Option<Vec<String>>,
     /// Sets the [Access-Control-Max-Age](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Max-Age) header to this value
-    #[clap(env, long, default_value_t = 172800)]
+    #[clap(env, long, default_value_t = 172800, global = true)]
     pub cors_max_age: usize,
     /// Sets the [Access-Control-Expose-Headers](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Expose-Headers) header to this value
-    #[clap(env, long, value_delimiter = ',')]
+    #[clap(env, long, value_delimiter = ',', global = true)]
     pub cors_exposed_headers: Option<Vec<String>>,
     /// Sets the [Access-Control-Allow-Methods](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Methods) header to this value
-    #[clap(env, long, value_delimiter = ',', value_parser = parse_http_method)]
+    #[clap(env, long, value_delimiter = ',', value_parser = parse_http_method, global = true)]
     pub cors_methods: Option<Vec<actix_http::Method>>,
 }
 
