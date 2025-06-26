@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [19.11.4](https://github.com/Unleash/unleash-edge/compare/v19.11.3...v19.11.4) - 2025-06-26
+
+### Dependency updates
+- bump aws-sdk-s3 from 1.93.0 to 1.94.0 ([#1005](https://github.com/unleash/unleash-edge/issues/1005)) (by @dependabot[bot]) - #1005
+- bump redis from 0.32.1 to 0.32.2 ([#1002](https://github.com/unleash/unleash-edge/issues/1002)) (by @dependabot[bot]) - #1002
+
+### Contributors
+
+* @dependabot[bot]
+
 ## [19.11.3](https://github.com/Unleash/unleash-edge/compare/v19.11.2...v19.11.3) - 2025-06-20
 
 ### 🐛 Bug Fixes
