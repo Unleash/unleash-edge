@@ -454,7 +454,7 @@ mod tests {
     };
     use unleash_types::client_metrics::SdkType::Backend;
     use unleash_types::client_metrics::{
-        ClientMetricsEnv, ConnectViaBuilder, MetricBucket, MetricsMetadata, ToggleStats,
+        ClientMetricsEnv, ConnectViaBuilder, ImpactMetric, MetricBucket, MetricSample, MetricsMetadata, ToggleStats,
     };
     use unleash_yggdrasil::EngineState;
 
@@ -482,6 +482,22 @@ mod tests {
                     },
                 },
                 environment: Some("development".into()),
+                impact_metrics: Some(vec![
+                    ImpactMetric {
+                        name: "test_counter".into(),
+                        help: "Test counter metric".into(),
+                        r#type: "counter".into(),
+                        samples: vec![
+                            MetricSample {
+                                value: 1.0,
+                                labels: Some(hashmap! {
+                                    "label1".to_string() => "value1".to_string(),
+                                    "label2".to_string() => "value2".to_string()
+                                }),
+                            },
+                        ],
+                    },
+                ]),
                 metadata: MetricsMetadata {
                     platform_name: Some("test".into()),
                     platform_version: Some("1.0".into()),
@@ -536,6 +552,22 @@ mod tests {
                     yggdrasil_version: None,
                 },
             }],
+            impact_metrics: Some(vec![
+                ImpactMetric {
+                    name: "bulk_test_counter".into(),
+                    help: "Bulk test counter metric".into(),
+                    r#type: "counter".into(),
+                    samples: vec![
+                        MetricSample {
+                            value: 5.0,
+                            labels: Some(hashmap! {
+                                "bulk_label1".to_string() => "bulk_value1".to_string(),
+                                "bulk_label2".to_string() => "bulk_value2".to_string()
+                            }),
+                        },
+                    ],
+                },
+            ]),
         }))
         .to_request()
     }
@@ -629,6 +661,20 @@ mod tests {
         assert_eq!(found_metric.yes, 1);
         assert_eq!(found_metric.no, 0);
         assert_eq!(found_metric.no, expected.no);
+
+        let impact_metrics = cache.impact_metrics.get("some-app").unwrap();
+        assert_eq!(impact_metrics.value().len(), 1);
+
+        let impact_metric = &impact_metrics.value()[0];
+        assert_eq!(impact_metric.name, "test_counter");
+        assert_eq!(impact_metric.help, "Test counter metric");
+        assert_eq!(impact_metric.r#type, "counter");
+        assert_eq!(impact_metric.samples.len(), 1);
+        let sample = &impact_metric.samples[0];
+        assert_eq!(sample.value, 1.0);
+        let labels = sample.labels.as_ref().unwrap();
+        assert_eq!(labels.get("label1").unwrap(), "value1");
+        assert_eq!(labels.get("label2").unwrap(), "value2");
     }
 
     fn cached_client_features() -> ClientFeatures {
@@ -854,6 +900,7 @@ mod tests {
                 serde_json::to_string(&crate::types::BatchMetricsRequestBody {
                     applications: vec![],
                     metrics: vec![],
+                    impact_metrics: None,
                 })
                 .unwrap(),
             )

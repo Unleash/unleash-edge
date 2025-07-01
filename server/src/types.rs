@@ -17,7 +17,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use shadow_rs::shadow;
 use unleash_types::client_features::Context;
 use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta};
-use unleash_types::client_metrics::{ClientApplication, ClientMetricsEnv};
+use unleash_types::client_metrics::{ClientApplication, ClientMetricsEnv, ImpactMetric};
 use unleash_yggdrasil::EngineState;
 use utoipa::{IntoParams, ToSchema};
 
@@ -429,6 +429,8 @@ pub struct BatchMetricsRequest {
 pub struct BatchMetricsRequestBody {
     pub applications: Vec<ClientApplication>,
     pub metrics: Vec<ClientMetricsEnv>,
+    #[serde(default, skip_serializing_if = "Option::is_none", rename = "impactMetrics")]
+    pub impact_metrics: Option<Vec<ImpactMetric>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
