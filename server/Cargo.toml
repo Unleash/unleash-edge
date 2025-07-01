@@ -102,7 +102,7 @@ tokio-stream = { version = "0.1.17" }
 tracing = { version = "0.1.41", features = ["log"] }
 tracing-subscriber = { version = "0.3.19", features = ["json", "env-filter"] }
 ulid = "1.2.1"
-unleash-types = { version = "0.15.14", features = ["openapi", "hashes"] }
+unleash-types = { version = "0.15.15", features = ["openapi", "hashes"] }
 unleash-yggdrasil = { version = "0.17.5" }
 utoipa = { version = "5.4.0", features = ["actix_extras", "chrono"] }
 utoipa-swagger-ui = { version = "9.0.2", features = ["actix-web"] }
