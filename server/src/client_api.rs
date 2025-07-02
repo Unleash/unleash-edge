@@ -8,7 +8,7 @@ use crate::filters::{
 use crate::http::broadcaster::Broadcaster;
 use crate::http::instance_data::InstanceDataSending;
 use crate::http::refresher::feature_refresher::FeatureRefresher;
-use crate::metrics::client_metrics::MetricsCache;
+use crate::metrics::client_metrics::{MetricsCache};
 use crate::metrics::edge_metrics::EdgeInstanceData;
 use crate::tokens::cache_key;
 use crate::types::{
@@ -423,7 +423,7 @@ pub fn configure_experimental_post_features(
 #[cfg(test)]
 mod tests {
 
-    use crate::metrics::client_metrics::{ApplicationKey, MetricsBatch, MetricsKey};
+    use crate::metrics::client_metrics::{ApplicationKey, ImpactMetricsKey, MetricsBatch, MetricsKey};
     use crate::types::{TokenType, TokenValidationStatus};
     use std::collections::HashMap;
     use std::path::PathBuf;
@@ -662,15 +662,19 @@ mod tests {
         assert_eq!(found_metric.no, 0);
         assert_eq!(found_metric.no, expected.no);
 
-        let impact_metrics = cache.impact_metrics.get("some-app").unwrap();
+        let impact_key = ImpactMetricsKey {
+            app_name: "some-app".into(),
+            environment: "development".into(),
+        };
+        let impact_metrics = cache.impact_metrics.get(&impact_key).unwrap();
         assert_eq!(impact_metrics.value().len(), 1);
 
         let impact_metric = &impact_metrics.value()[0];
-        assert_eq!(impact_metric.name, "test_counter");
-        assert_eq!(impact_metric.help, "Test counter metric");
-        assert_eq!(impact_metric.r#type, "counter");
-        assert_eq!(impact_metric.samples.len(), 1);
-        let sample = &impact_metric.samples[0];
+        assert_eq!(impact_metric.impact_metric.name, "test_counter");
+        assert_eq!(impact_metric.impact_metric.help, "Test counter metric");
+        assert_eq!(impact_metric.impact_metric.r#type, "counter");
+        assert_eq!(impact_metric.impact_metric.samples.len(), 1);
+        let sample = &impact_metric.impact_metric.samples[0];
         assert_eq!(sample.value, 1.0);
         let labels = sample.labels.as_ref().unwrap();
         assert_eq!(labels.get("label1").unwrap(), "value1");

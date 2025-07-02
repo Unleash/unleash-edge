@@ -29,7 +29,7 @@ default = ["s3-persistence"]
 s3-persistence = ["aws-sdk-s3", "aws-config"]
 
 [dependencies]
-actix-allow-deny-middleware = "0.1.1"
+actix-allow-deny-middleware = "0.1.2"
 actix-cors = "0.7.1"
 actix-http = "3.11.0"
 actix-middleware-etag = "0.4.4"
@@ -39,8 +39,8 @@ actix-web-lab = { version = "0.24.1" }
 ahash = "0.8.12"
 anyhow = "1.0.98"
 async-trait = "0.1.88"
-aws-config = { version = "1.8.0", optional = true, features = ["behavior-version-latest"] }
-aws-sdk-s3 = { version = "1.94.0", optional = true, features = ["behavior-version-latest"] }
+aws-config = { version = "1.8.1", optional = true, features = ["behavior-version-latest"] }
+aws-sdk-s3 = { version = "1.95.0", optional = true, features = ["behavior-version-latest"] }
 base64 = "0.22.1"
 chrono = { version = "0.4.41", features = ["serde"] }
 cidr = "0.3.1"
@@ -76,7 +76,7 @@ redis = { version = "0.32.3", features = [
     "tokio-rustls-comp",
     "cluster",
 ] }
-reqwest = { version = "0.12.21", default-features = false, features = [
+reqwest = { version = "0.12.22", default-features = false, features = [
     "json",
     "rustls-tls"
 ] }

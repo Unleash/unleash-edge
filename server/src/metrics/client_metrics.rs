@@ -61,12 +61,41 @@ impl From<ClientMetricsEnv> for MetricsKey {
     }
 }
 
+impl From<ImpactMetricEnv> for ImpactMetricsKey {
+    fn from(value: ImpactMetricEnv) -> Self {
+        Self {
+            app_name: value.app_name,
+            environment: value.environment,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Eq, Deserialize, Serialize, ToSchema)]
 pub struct MetricsKey {
     pub app_name: String,
     pub feature_name: String,
     pub environment: String,
     pub timestamp: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Eq, Deserialize, Serialize, ToSchema)]
+pub struct ImpactMetricsKey {
+    pub app_name: String,
+    pub environment: String,
+}
+
+impl Hash for ImpactMetricsKey {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.app_name.hash(state);
+        self.environment.hash(state);
+    }
+}
+
+impl PartialEq for ImpactMetricsKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.app_name == other.app_name
+            && self.environment == other.environment
+    }
 }
 
 impl Hash for MetricsKey {
@@ -94,19 +123,46 @@ impl PartialEq for MetricsKey {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImpactMetricEnv {
+    #[serde(flatten)]
+    pub impact_metric: ImpactMetric,
+    #[serde(skip)]
+    pub app_name: String,
+    #[serde(skip)]
+    pub environment: String,
+}
+
+impl ImpactMetricEnv {
+    pub fn new(impact_metric: ImpactMetric, app_name: String, environment: String) -> Self {
+        Self {
+            impact_metric,
+            app_name,
+            environment,
+        }
+    }
+}
+
+// Helper function to convert Vec<ImpactMetric> to Vec<ExtendedImpactMetric>
+fn convert_to_impact_metrics_env(metrics: Vec<ImpactMetric>, app_name: String, environment: String) -> Vec<ImpactMetricEnv> {
+    metrics.into_iter()
+        .map(|metric| ImpactMetricEnv::new(metric, app_name.clone(), environment.clone()))
+        .collect()
+}
+
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
 pub struct MetricsBatch {
     pub applications: Vec<ClientApplication>,
     pub metrics: Vec<ClientMetricsEnv>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "impactMetrics")]
-    pub impact_metrics: Option<Vec<ImpactMetric>>,
+    pub impact_metrics: Option<Vec<ImpactMetricEnv>>,
 }
 
 #[derive(Default, Debug)]
 pub struct MetricsCache {
     pub(crate) applications: DashMap<ApplicationKey, ClientApplication>,
     pub(crate) metrics: DashMap<MetricsKey, ClientMetricsEnv>,
-    pub(crate) impact_metrics: DashMap<String, Vec<ImpactMetric>>,
+    pub(crate) impact_metrics: DashMap<ImpactMetricsKey, Vec<ImpactMetricEnv>>,
 }
 
 pub(crate) fn size_of_batch(batch: &MetricsBatch) -> usize {
@@ -149,17 +205,25 @@ pub(crate) fn register_client_metrics(
     metrics: ClientMetrics,
     metrics_cache: Data<MetricsCache>,
 ) {
+    let environment = edge_token
+        .environment
+        .clone()
+        .unwrap_or_else(|| "development".into());
+
     let client_metrics_env = unleash_types::client_metrics::from_bucket_app_name_and_env(
         metrics.bucket,
         metrics.app_name.clone(),
-        edge_token
-            .environment
-            .unwrap_or_else(|| "development".into()),
+        environment.clone(),
         metrics.metadata.clone(),
     );
 
     if let Some(impact_metrics) = metrics.impact_metrics {
-        metrics_cache.sink_impact_metrics(metrics.app_name.clone(), impact_metrics);
+        let key = ImpactMetricsKey {
+            app_name: metrics.app_name.clone(),
+            environment: environment.clone(),
+        };
+        let impact_metrics_env = convert_to_impact_metrics_env(impact_metrics, metrics.app_name.clone(), environment);
+        metrics_cache.sink_impact_metrics(key, impact_metrics_env);
     }
 
     metrics_cache.sink_metrics(&client_metrics_env);
@@ -235,7 +299,7 @@ pub(crate) fn cut_into_sendable_batches(batch: MetricsBatch) -> Vec<MetricsBatch
                     impact_metrics_per_batch
                 };
 
-                let selected_metrics: Vec<ImpactMetric> = impact_metrics_iter
+                let selected_metrics: Vec<ImpactMetricEnv> = impact_metrics_iter
                     .skip(counter * impact_metrics_per_batch)
                     .take(impact_metrics_take)
                     .cloned()
@@ -264,27 +328,27 @@ pub(crate) fn cut_into_sendable_batches(batch: MetricsBatch) -> Vec<MetricsBatch
                 impact_metrics,
             }
         })
-        .filter(|b| !b.applications.is_empty() || !b.metrics.is_empty() || b.impact_metrics.as_ref().map_or(false, |metrics| !metrics.is_empty()))
+        .filter(|b| !b.applications.is_empty() || !b.metrics.is_empty() || b.impact_metrics.as_ref().is_some_and(|metrics| !metrics.is_empty()))
         .collect::<Vec<MetricsBatch>>()
 }
 
 impl MetricsCache {
-    pub fn sink_impact_metrics(&self, app_name: String, impact_metrics: Vec<ImpactMetric>) {
-        let existing_metrics = self.impact_metrics.get(&app_name).map(|m| m.value().clone()).unwrap_or_default();
+    pub fn sink_impact_metrics(&self, key: ImpactMetricsKey, impact_metrics: Vec<ImpactMetricEnv>) {
+        let existing_metrics = self.impact_metrics.get(&key).map(|m| m.value().clone()).unwrap_or_default();
 
-        let mut aggregated_metrics: HashMap<String, ImpactMetric> = HashMap::new();
+        let mut aggregated_metrics: HashMap<String, ImpactMetricEnv> = HashMap::new();
 
         for metric in existing_metrics {
-            let key = metric.name.clone();
+            let key = metric.impact_metric.name.clone();
             aggregated_metrics.insert(key, metric);
         }
 
         for mut metric in impact_metrics {
             let mut samples_by_labels: HashMap<String, MetricSample> = HashMap::new();
 
-            for sample in metric.samples {
+            for sample in metric.impact_metric.samples {
                 let labels_key = Self::labels_to_key(&sample.labels);
-                if metric.r#type == "counter" {
+                if metric.impact_metric.r#type == "counter" {
                     if let Some(existing_sample) = samples_by_labels.get_mut(&labels_key) {
                         existing_sample.value += sample.value;
                     } else {
@@ -296,16 +360,16 @@ impl MetricsCache {
                 }
             }
 
-            metric.samples = samples_by_labels.into_values().collect();
+            metric.impact_metric.samples = samples_by_labels.into_values().collect();
 
-            if let Some(existing_metric) = aggregated_metrics.get_mut(&metric.name) {
+            if let Some(existing_metric) = aggregated_metrics.get_mut(&metric.impact_metric.name) {
                 Self::merge_two_metrics(existing_metric, metric);
             } else {
-                aggregated_metrics.insert(metric.name.clone(), metric);
+                aggregated_metrics.insert(metric.impact_metric.name.clone(), metric);
             }
         }
 
-        self.impact_metrics.insert(app_name, aggregated_metrics.into_values().collect());
+        self.impact_metrics.insert(key, aggregated_metrics.into_values().collect());
     }
 
     fn labels_to_key(labels: &Option<HashMap<String, String>>) -> String {
@@ -322,16 +386,16 @@ impl MetricsCache {
         }
     }
 
-    fn merge_two_metrics(existing_metric: &mut ImpactMetric, new_metric: ImpactMetric) {
-        if existing_metric.r#type == "counter" && new_metric.r#type == "counter" {
+    fn merge_two_metrics(existing_metric: &mut ImpactMetricEnv, new_metric: ImpactMetricEnv) {
+        if existing_metric.impact_metric.r#type == "counter" && new_metric.impact_metric.r#type == "counter" {
             let mut samples_by_labels: HashMap<String, MetricSample> = HashMap::new();
 
-            for sample in &existing_metric.samples {
+            for sample in &existing_metric.impact_metric.samples {
                 let labels_key = Self::labels_to_key(&sample.labels);
                 samples_by_labels.insert(labels_key, sample.clone());
             }
 
-            for sample in new_metric.samples {
+            for sample in new_metric.impact_metric.samples {
                 let labels_key = Self::labels_to_key(&sample.labels);
                 if let Some(existing_sample) = samples_by_labels.get_mut(&labels_key) {
                     existing_sample.value += sample.value;
@@ -340,32 +404,32 @@ impl MetricsCache {
                 }
             }
 
-            existing_metric.samples = samples_by_labels.into_values().collect();
+            existing_metric.impact_metric.samples = samples_by_labels.into_values().collect();
         } else {
             let mut samples_by_labels: HashMap<String, MetricSample> = HashMap::new();
 
-            for sample in &existing_metric.samples {
+            for sample in &existing_metric.impact_metric.samples {
                 let labels_key = Self::labels_to_key(&sample.labels);
                 samples_by_labels.insert(labels_key, sample.clone());
             }
 
-            for sample in new_metric.samples {
+            for sample in new_metric.impact_metric.samples {
                 let labels_key = Self::labels_to_key(&sample.labels);
                 samples_by_labels.insert(labels_key, sample);
             }
 
-            existing_metric.samples = samples_by_labels.into_values().collect();
+            existing_metric.impact_metric.samples = samples_by_labels.into_values().collect();
         }
     }
 
-    fn merge_impact_metrics(&self, metrics: Vec<ImpactMetric>) -> Vec<ImpactMetric> {
-        let mut merged_metrics: HashMap<String, ImpactMetric> = HashMap::new();
+    fn merge_impact_metrics(&self, metrics: Vec<ImpactMetricEnv>) -> Vec<ImpactMetricEnv> {
+        let mut merged_metrics: HashMap<String, ImpactMetricEnv> = HashMap::new();
 
         for metric in metrics {
-            if let Some(existing_metric) = merged_metrics.get_mut(&metric.name) {
+            if let Some(existing_metric) = merged_metrics.get_mut(&metric.impact_metric.name) {
                 Self::merge_two_metrics(existing_metric, metric);
             } else {
-                merged_metrics.insert(metric.name.clone(), metric);
+                merged_metrics.insert(metric.impact_metric.name.clone(), metric);
             }
         }
 
@@ -380,25 +444,34 @@ impl MetricsCache {
             .iter()
             .map(|e| e.value().clone())
             .collect::<Vec<ClientApplication>>();
+
+        let mut all_environments = std::collections::HashSet::new();
+
+        for entry in self.metrics.iter() {
+            all_environments.insert(entry.value().environment.clone());
+        }
+
+        for entry in self.impact_metrics.iter() {
+            all_environments.insert(entry.key().environment.clone());
+        }
+
         let data = self
             .metrics
             .iter()
             .map(|e| e.value().clone())
             .collect::<Vec<ClientMetricsEnv>>();
-        let map: HashMap<String, Vec<ClientMetricsEnv>> = data
+        let metrics_by_env: HashMap<String, Vec<ClientMetricsEnv>> = data
             .into_iter()
             .into_group_map_by(|metric| metric.environment.clone());
-        for (environment, metrics) in map {
-            let app_names: std::collections::HashSet<String> = self
-                .impact_metrics
-                .iter()
-                .map(|e| e.key().clone())
-                .collect();
+
+        for environment in all_environments {
+            let metrics = metrics_by_env.get(&environment).cloned().unwrap_or_default();
 
             let mut all_impact_metrics = Vec::new();
-            for app_name in &app_names {
-                if let Some(metrics) = self.impact_metrics.get(app_name) {
-                    all_impact_metrics.extend(metrics.value().clone());
+            for entry in self.impact_metrics.iter() {
+                let key = entry.key();
+                if key.environment == environment {
+                    all_impact_metrics.extend(entry.value().clone());
                 }
             }
 
@@ -425,17 +498,10 @@ impl MetricsCache {
             self.applications.remove(&ApplicationKey::from(app.clone()));
         }
 
-        let app_names: std::collections::HashSet<String> = if batch.impact_metrics.is_some() {
-            self.impact_metrics
-                .iter()
-                .map(|e| e.key().clone())
-                .collect()
-        } else {
-            std::collections::HashSet::new()
-        };
-
-        for app_name in &app_names {
-            self.impact_metrics.remove(app_name);
+        if let Some(impact_metrics) = &batch.impact_metrics {
+            for impact_metric in impact_metrics {
+                self.impact_metrics.remove(&ImpactMetricsKey::from(impact_metric.clone()));
+            }
         }
 
         for metric in batch.metrics.clone() {
@@ -456,17 +522,15 @@ impl MetricsCache {
     /// This is a destructive call. We'll remove all metrics that is due for posting
     /// Called from [crate::http::background_send_metrics::send_metrics_task] which will reinsert on 5xx server failures, but leave 413 and 400 failures on the floor
     pub fn get_appropriately_sized_batches(&self) -> Vec<MetricsBatch> {
-        let app_names: std::collections::HashSet<String> = self
+        let impact_keys: Vec<ImpactMetricsKey> = self
             .impact_metrics
             .iter()
             .map(|e| e.key().clone())
             .collect();
 
         let mut all_impact_metrics = Vec::new();
-        for app_name in &app_names {
-            if let Some(metrics) = self.impact_metrics.get(app_name) {
-                all_impact_metrics.extend(metrics.value().clone());
-            }
+        for entry in self.impact_metrics.iter() {
+            all_impact_metrics.extend(entry.value().clone());
         }
 
         let merged_impact_metrics = self.merge_impact_metrics(all_impact_metrics);
@@ -495,8 +559,8 @@ impl MetricsCache {
             self.applications.remove(&ApplicationKey::from(app.clone()));
         }
 
-        for app_name in &app_names {
-            self.impact_metrics.remove(app_name);
+        for key in &impact_keys {
+            self.impact_metrics.remove(key);
         }
 
         for metric in batch.metrics.clone() {
@@ -521,8 +585,17 @@ impl MetricsCache {
         }
 
         if let Some(impact_metrics) = batch.impact_metrics {
-            for app in batch.metrics.iter().map(|m| m.app_name.clone()).collect::<std::collections::HashSet<String>>() {
-                self.sink_impact_metrics(app, impact_metrics.clone());
+            // Group metrics by app_name and environment to get the environment info
+            let app_env_map: std::collections::HashMap<String, String> = batch.metrics.iter()
+                .map(|m| (m.app_name.clone(), m.environment.clone()))
+                .collect();
+
+            for (app_name, environment) in app_env_map {
+                let key = ImpactMetricsKey {
+                    app_name,
+                    environment,
+                };
+                self.sink_impact_metrics(key, impact_metrics.clone());
             }
         }
 
@@ -537,8 +610,18 @@ impl MetricsCache {
         }
 
         if let Some(impact_metrics) = metrics.impact_metrics {
-            for app in metrics.metrics.iter().map(|m| m.app_name.clone()).collect::<std::collections::HashSet<String>>() {
-                self.sink_impact_metrics(app, impact_metrics.clone());
+            // Group metrics by app_name and environment to get the environment info
+            let app_env_map: std::collections::HashMap<String, String> = metrics.metrics.iter()
+                .map(|m| (m.app_name.clone(), m.environment.clone()))
+                .collect();
+
+            for (app_name, environment) in app_env_map {
+                let key = ImpactMetricsKey {
+                    app_name: app_name.clone(),
+                    environment: environment.clone(),
+                };
+                let impact_metrics_env = convert_to_impact_metrics_env(impact_metrics.clone(), app_name, environment);
+                self.sink_impact_metrics(key, impact_metrics_env);
             }
         }
 
@@ -1143,24 +1226,29 @@ mod test {
             },
         ];
 
-        cache.sink_impact_metrics("test_app".into(), counter_metrics);
-        cache.sink_impact_metrics("test_app".into(), gauge_metrics);
-
-        let aggregated_metrics = cache.impact_metrics.get("test_app").unwrap();
+        let test_key = ImpactMetricsKey {
+            app_name: "test_app".into(),
+            environment: "test_env".into(),
+        };
+        let counter_metrics_env = convert_to_impact_metrics_env(counter_metrics, "test_app".into(), "test_env".into());
+        let gauge_metrics_env = convert_to_impact_metrics_env(gauge_metrics, "test_app".into(), "test_env".into());
+        cache.sink_impact_metrics(test_key.clone(), counter_metrics_env);
+        cache.sink_impact_metrics(test_key.clone(), gauge_metrics_env);
+        let aggregated_metrics = cache.impact_metrics.get(&test_key).unwrap();
 
         assert_eq!(aggregated_metrics.value().len(), 2);
 
         let counter = aggregated_metrics.value().iter()
-            .find(|m| m.name == "test_counter")
+            .find(|m| m.impact_metric.name == "test_counter")
             .unwrap();
 
         let gauge = aggregated_metrics.value().iter()
-            .find(|m| m.name == "test_gauge")
+            .find(|m| m.impact_metric.name == "test_gauge")
             .unwrap();
 
-        assert_eq!(counter.samples.len(), 2); // one sample for each unique label set
+        assert_eq!(counter.impact_metric.samples.len(), 2); // one sample for each unique label set
 
-        let original_labels_sample = counter.samples.iter()
+        let original_labels_sample = counter.impact_metric.samples.iter()
             .find(|s| {
                 if let Some(labels) = &s.labels {
                     labels.get("label1") == Some(&"value1".into()) &&
@@ -1173,7 +1261,7 @@ mod test {
 
         assert_eq!(original_labels_sample.value, 3.0); // 1.0 + 2.0
 
-        let different_labels_sample = counter.samples.iter()
+        let different_labels_sample = counter.impact_metric.samples.iter()
             .find(|s| {
                 if let Some(labels) = &s.labels {
                     labels.get("label1") == Some(&"different".into()) &&
@@ -1185,8 +1273,8 @@ mod test {
             .unwrap();
 
         assert_eq!(different_labels_sample.value, 3.0);
-        assert_eq!(gauge.samples.len(), 1); // Should have 1 sample (last value wins)
-        assert_eq!(gauge.samples[0].value, 2.0);
+        assert_eq!(gauge.impact_metric.samples.len(), 1); // Should have 1 sample (last value wins)
+        assert_eq!(gauge.impact_metric.samples[0].value, 2.0);
     }
 
     #[test]
@@ -1227,16 +1315,24 @@ mod test {
             },
         ];
 
-        cache.impact_metrics.insert("app1".into(), app1_metrics);
-        cache.impact_metrics.insert("app2".into(), app2_metrics);
+        let app1_key = ImpactMetricsKey {
+            app_name: "app1".into(),
+            environment: "default".into(),
+        };
+        let app2_key = ImpactMetricsKey {
+            app_name: "app2".into(),
+            environment: "default".into(),
+        };
 
-        let app_names = vec!["app1".to_string(), "app2".to_string()].into_iter().collect::<std::collections::HashSet<String>>();
+        let app1_metrics_env = convert_to_impact_metrics_env(app1_metrics, "app1".into(), "default".into());
+        let app2_metrics_env = convert_to_impact_metrics_env(app2_metrics, "app2".into(), "default".into());
+
+        cache.impact_metrics.insert(app1_key, app1_metrics_env);
+        cache.impact_metrics.insert(app2_key, app2_metrics_env);
 
         let mut all_impact_metrics = Vec::new();
-        for app_name in &app_names {
-            if let Some(metrics) = cache.impact_metrics.get(app_name) {
-                all_impact_metrics.extend(metrics.value().clone());
-            }
+        for entry in cache.impact_metrics.iter() {
+            all_impact_metrics.extend(entry.value().clone());
         }
 
         let merged_impact_metrics = cache.merge_impact_metrics(all_impact_metrics);
@@ -1244,10 +1340,10 @@ mod test {
         assert_eq!(merged_impact_metrics.len(), 1);
 
         let test_metric = &merged_impact_metrics[0];
-        assert_eq!(test_metric.name, "test");
-        assert_eq!(test_metric.samples.len(), 2);
+        assert_eq!(test_metric.impact_metric.name, "test");
+        assert_eq!(test_metric.impact_metric.samples.len(), 2);
 
-        let app1_sample = test_metric.samples.iter()
+        let app1_sample = test_metric.impact_metric.samples.iter()
             .find(|s| {
                 if let Some(labels) = &s.labels {
                     labels.get("appName") == Some(&"my-application-1".into())
@@ -1258,7 +1354,7 @@ mod test {
             .unwrap();
         assert_eq!(app1_sample.value, 10.0);
 
-        let app2_sample = test_metric.samples.iter()
+        let app2_sample = test_metric.impact_metric.samples.iter()
             .find(|s| {
                 if let Some(labels) = &s.labels {
                     labels.get("appName") == Some(&"my-application-2".into())
@@ -1268,5 +1364,124 @@ mod test {
             })
             .unwrap();
         assert_eq!(app2_sample.value, 1.0);
+    }
+
+    #[test]
+    pub fn get_metrics_by_environment_handles_metrics_and_impact_metrics_independently() {
+        let cache = MetricsCache::default();
+
+        let dev_metric = ClientMetricsEnv {
+            app_name: "dev-app".into(),
+            feature_name: "dev-feature".into(),
+            environment: "development".into(),
+            timestamp: Utc::now(),
+            yes: 5,
+            no: 2,
+            variants: HashMap::new(),
+            metadata: MetricsMetadata {
+                platform_name: None,
+                platform_version: None,
+                sdk_version: None,
+                sdk_type: None,
+                yggdrasil_version: None,
+            },
+        };
+        cache.sink_metrics(&[dev_metric]);
+
+        let prod_impact_key = ImpactMetricsKey {
+            app_name: "prod-app".into(),
+            environment: "production".into(),
+        };
+        let prod_impact_metrics = vec![
+            ImpactMetricEnv::new(
+                ImpactMetric {
+                    name: "prod_counter".into(),
+                    help: "Production counter".into(),
+                    r#type: "counter".into(),
+                    samples: vec![
+                        MetricSample {
+                            value: 10.0,
+                            labels: Some(HashMap::from([
+                                ("env".into(), "production".into()),
+                            ])),
+                        },
+                    ],
+                },
+                "prod-app".into(),
+                "production".into(),
+            )
+        ];
+        cache.sink_impact_metrics(prod_impact_key, prod_impact_metrics);
+
+        let staging_metric = ClientMetricsEnv {
+            app_name: "staging-app".into(),
+            feature_name: "staging-feature".into(),
+            environment: "staging".into(),
+            timestamp: Utc::now(),
+            yes: 3,
+            no: 1,
+            variants: HashMap::new(),
+            metadata: MetricsMetadata {
+                platform_name: None,
+                platform_version: None,
+                sdk_version: None,
+                sdk_type: None,
+                yggdrasil_version: None,
+            },
+        };
+        cache.sink_metrics(&[staging_metric]);
+
+        let staging_impact_key = ImpactMetricsKey {
+            app_name: "staging-app".into(),
+            environment: "staging".into(),
+        };
+        let staging_impact_metrics = vec![
+            ImpactMetricEnv::new(
+                ImpactMetric {
+                    name: "staging_gauge".into(),
+                    help: "Staging gauge".into(),
+                    r#type: "gauge".into(),
+                    samples: vec![
+                        MetricSample {
+                            value: 42.0,
+                            labels: Some(HashMap::from([
+                                ("env".into(), "staging".into()),
+                            ])),
+                        },
+                    ],
+                },
+                "staging-app".into(),
+                "staging".into(),
+            )
+        ];
+        cache.sink_impact_metrics(staging_impact_key, staging_impact_metrics);
+
+        let batches = cache.get_metrics_by_environment();
+
+        assert_eq!(batches.len(), 3);
+        assert!(batches.contains_key("development"));
+        assert!(batches.contains_key("production"));
+        assert!(batches.contains_key("staging"));
+
+        let dev_batch = &batches["development"];
+        assert_eq!(dev_batch.metrics.len(), 1);
+        assert_eq!(dev_batch.metrics[0].app_name, "dev-app");
+        assert_eq!(dev_batch.metrics[0].feature_name, "dev-feature");
+        assert!(dev_batch.impact_metrics.is_none());
+
+        let prod_batch = &batches["production"];
+        assert_eq!(prod_batch.metrics.len(), 0); 
+        assert!(prod_batch.impact_metrics.is_some());
+        let prod_impact = prod_batch.impact_metrics.as_ref().unwrap();
+        assert_eq!(prod_impact.len(), 1);
+        assert_eq!(prod_impact[0].impact_metric.name, "prod_counter");
+
+        let staging_batch = &batches["staging"];
+        assert_eq!(staging_batch.metrics.len(), 1);
+        assert_eq!(staging_batch.metrics[0].app_name, "staging-app");
+        assert!(staging_batch.impact_metrics.is_some());
+        let staging_impact = staging_batch.impact_metrics.as_ref().unwrap();
+        assert_eq!(staging_impact.len(), 1);
+        assert_eq!(staging_impact[0].impact_metric.name, "staging_gauge");
     }
 }
