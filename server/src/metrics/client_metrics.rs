@@ -559,20 +559,7 @@ impl MetricsCache {
             )
         }
 
-        if let Some(impact_metrics) = metrics.impact_metrics {
-            let app_env_map: std::collections::HashMap<String, String> = metrics.metrics.iter()
-                .map(|m| (m.app_name.clone(), m.environment.clone()))
-                .collect();
-
-            for (app_name, environment) in app_env_map {
-                let key = ImpactMetricsKey {
-                    app_name: app_name.clone(),
-                    environment: environment.clone(),
-                };
-                let impact_metrics_env = convert_to_impact_metrics_env(impact_metrics.clone(), app_name, environment);
-                self.sink_impact_metrics(key, impact_metrics_env);
-            }
-        }
+        // TODO: sink impact metrics
 
         self.sink_metrics(&metrics.metrics)
     }
