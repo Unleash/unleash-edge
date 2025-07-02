@@ -4,9 +4,9 @@ version = 4
 
 [[package]]
 name = "actix-allow-deny-middleware"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "442087d0c853a7adb6633c0b0a37304ca419daff8f7a1f66f81cd3c0592599f4"
+checksum = "9db736c48e0028b4cb77126045b3ceb00f0e2b842e4456db85d7b859a6d1abe0"
 dependencies = [
  "actix-service",
  "actix-web",
