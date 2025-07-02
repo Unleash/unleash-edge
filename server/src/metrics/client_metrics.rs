@@ -564,7 +564,6 @@ impl MetricsCache {
         }
 
         if let Some(impact_metrics) = batch.impact_metrics {
-            // Group metrics by app_name and environment to get the environment info
             let app_env_map: std::collections::HashMap<String, String> = batch.metrics.iter()
                 .map(|m| (m.app_name.clone(), m.environment.clone()))
                 .collect();
@@ -589,7 +588,6 @@ impl MetricsCache {
         }
 
         if let Some(impact_metrics) = metrics.impact_metrics {
-            // Group metrics by app_name and environment to get the environment info
             let app_env_map: std::collections::HashMap<String, String> = metrics.metrics.iter()
                 .map(|m| (m.app_name.clone(), m.environment.clone()))
                 .collect();
