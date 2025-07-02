@@ -29,7 +29,7 @@ default = ["s3-persistence"]
 s3-persistence = ["aws-sdk-s3", "aws-config"]
 
 [dependencies]
-actix-allow-deny-middleware = "0.1.1"
+actix-allow-deny-middleware = "0.1.2"
 actix-cors = "0.7.1"
 actix-http = "3.11.0"
 actix-middleware-etag = "0.4.4"
