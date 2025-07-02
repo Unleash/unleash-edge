@@ -133,8 +133,8 @@ fn convert_to_impact_metrics_env(metrics: Vec<ImpactMetric>, app_name: String, e
 pub struct MetricsBatch {
     pub applications: Vec<ClientApplication>,
     pub metrics: Vec<ClientMetricsEnv>,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "impactMetrics")]
-    pub impact_metrics: Option<Vec<ImpactMetricEnv>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty", rename = "impactMetrics")]
+    pub impact_metrics: Vec<ImpactMetricEnv>,
 }
 
 #[derive(Default, Debug)]
@@ -249,7 +249,7 @@ pub(crate) fn cut_into_sendable_batches(batch: MetricsBatch) -> Vec<MetricsBatch
     let metrics_count = batch.metrics.len();
     let metrics_per_batch = metrics_count / batch_count;
 
-    let impact_metrics_count = batch.impact_metrics.as_ref().map_or(0, |metrics| metrics.len());
+    let impact_metrics_count = batch.impact_metrics.len();
     let impact_metrics_per_batch = if impact_metrics_count > 0 { impact_metrics_count / batch_count } else { 0 };
 
     debug!(
@@ -270,27 +270,11 @@ pub(crate) fn cut_into_sendable_batches(batch: MetricsBatch) -> Vec<MetricsBatch
                 metrics_per_batch
             };
 
-            let impact_metrics = if let Some(metrics) = &batch.impact_metrics {
-                let impact_metrics_iter = metrics.iter();
-                let impact_metrics_take = if impact_metrics_per_batch == 0 && counter == 0 {
-                    impact_metrics_count
-                } else {
-                    impact_metrics_per_batch
-                };
-
-                let selected_metrics: Vec<ImpactMetricEnv> = impact_metrics_iter
-                    .skip(counter * impact_metrics_per_batch)
-                    .take(impact_metrics_take)
-                    .cloned()
-                    .collect();
-
-                if selected_metrics.is_empty() {
-                    None
-                } else {
-                    Some(selected_metrics)
-                }
+            let impact_metrics_iter = batch.impact_metrics.iter();
+            let impact_metrics_take = if impact_metrics_per_batch == 0 && counter == 0 {
+                impact_metrics_count
             } else {
-                None
+                impact_metrics_per_batch
             };
 
             MetricsBatch {
@@ -304,10 +288,14 @@ pub(crate) fn cut_into_sendable_batches(batch: MetricsBatch) -> Vec<MetricsBatch
                     .take(apps_take)
                     .cloned()
                     .collect(),
-                impact_metrics,
+                impact_metrics: impact_metrics_iter
+                    .skip(counter * impact_metrics_per_batch)
+                    .take(impact_metrics_take)
+                    .cloned()
+                    .collect()
             }
         })
-        .filter(|b| !b.applications.is_empty() || !b.metrics.is_empty() || b.impact_metrics.as_ref().is_some_and(|metrics| !metrics.is_empty()))
+        .filter(|b| !b.applications.is_empty() || !b.metrics.is_empty() || !b.impact_metrics.is_empty())
         .collect::<Vec<MetricsBatch>>()
 }
 
@@ -456,16 +444,10 @@ impl MetricsCache {
 
             let merged_impact_metrics = self.merge_impact_metrics(all_impact_metrics);
 
-            let impact_metrics_option = if merged_impact_metrics.is_empty() {
-                None
-            } else {
-                Some(merged_impact_metrics)
-            };
-
             let batch = MetricsBatch {
                 applications: applications.clone(),
                 metrics,
-                impact_metrics: impact_metrics_option,
+                impact_metrics: merged_impact_metrics,
             };
             batches_by_environment.insert(environment, batch);
         }
@@ -477,10 +459,8 @@ impl MetricsCache {
             self.applications.remove(&ApplicationKey::from(app.clone()));
         }
 
-        if let Some(impact_metrics) = &batch.impact_metrics {
-            for impact_metric in impact_metrics {
-                self.impact_metrics.remove(&ImpactMetricsKey::from(impact_metric.clone()));
-            }
+        for impact_metric in batch.impact_metrics.clone() {
+            self.impact_metrics.remove(&ImpactMetricsKey::from(impact_metric.clone()));
         }
 
         for metric in batch.metrics.clone() {
@@ -514,12 +494,6 @@ impl MetricsCache {
 
         let merged_impact_metrics = self.merge_impact_metrics(all_impact_metrics);
 
-        let impact_metrics_option = if merged_impact_metrics.is_empty() {
-            None
-        } else {
-            Some(merged_impact_metrics)
-        };
-
         let batch = MetricsBatch {
             applications: self
                 .applications
@@ -532,7 +506,7 @@ impl MetricsCache {
                 .map(|e| e.value().clone())
                 .filter(|m| m.yes > 0 || m.no > 0) // Makes sure that we only return buckets that have values. We should have a test for this :P
                 .collect(),
-            impact_metrics: impact_metrics_option,
+            impact_metrics: merged_impact_metrics,
         };
         for app in batch.applications.clone() {
             self.applications.remove(&ApplicationKey::from(app.clone()));
@@ -563,18 +537,16 @@ impl MetricsCache {
             self.register_application(application);
         }
 
-        if let Some(impact_metrics) = batch.impact_metrics {
-            let app_env_map: std::collections::HashMap<String, String> = batch.metrics.iter()
-                .map(|m| (m.app_name.clone(), m.environment.clone()))
-                .collect();
+        let app_env_map: std::collections::HashMap<String, String> = batch.impact_metrics.iter()
+            .map(|m| (m.app_name.clone(), m.environment.clone()))
+            .collect();
 
-            for (app_name, environment) in app_env_map {
-                let key = ImpactMetricsKey {
-                    app_name,
-                    environment,
-                };
-                self.sink_impact_metrics(key, impact_metrics.clone());
-            }
+        for (app_name, environment) in app_env_map {
+            let key = ImpactMetricsKey {
+                app_name,
+                environment,
+            };
+            self.sink_impact_metrics(key, batch.impact_metrics.clone());
         }
 
         self.sink_metrics(&batch.metrics);
@@ -1191,12 +1163,12 @@ mod test {
         ];
 
         cache.sink_impact_metrics(
-            test_key.clone(), 
-            convert_to_impact_metrics_env(counter_metrics, app.into(), env.into())
+            test_key.clone(),
+            convert_to_impact_metrics_env(counter_metrics, app.into(), env.into()),
         );
         cache.sink_impact_metrics(
-            test_key.clone(), 
-            convert_to_impact_metrics_env(gauge_metrics, app.into(), env.into())
+            test_key.clone(),
+            convert_to_impact_metrics_env(gauge_metrics, app.into(), env.into()),
         );
 
         let aggregated_metrics = cache.impact_metrics.get(&test_key).unwrap();
@@ -1322,16 +1294,14 @@ mod test {
 
         let dev_batch = &batches[dev_env];
         assert_eq!(dev_batch.metrics.len(), 1);
-        assert!(dev_batch.impact_metrics.is_none());
+        assert_eq!(dev_batch.impact_metrics.len(), 0);
 
         let prod_batch = &batches[prod_env];
         assert_eq!(prod_batch.metrics.len(), 0);
-        assert!(prod_batch.impact_metrics.is_some());
-        assert_eq!(prod_batch.impact_metrics.as_ref().unwrap()[0].impact_metric.name, "counter");
+        assert_eq!(prod_batch.impact_metrics[0].impact_metric.name, "counter");
 
         let staging_batch = &batches[staging_env];
         assert_eq!(staging_batch.metrics.len(), 1);
-        assert!(staging_batch.impact_metrics.is_some());
-        assert_eq!(staging_batch.impact_metrics.as_ref().unwrap()[0].impact_metric.name, "gauge");
+        assert_eq!(staging_batch.impact_metrics[0].impact_metric.name, "gauge");
     }
 }

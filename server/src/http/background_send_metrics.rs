@@ -78,7 +78,7 @@ pub async fn send_metrics_one_shot(
         let batches = metrics_cache.get_appropriately_sized_env_batches(batch);
         trace!("Posting {} batches for {env}", batches.len());
         for batch in batches {
-            if !batch.applications.is_empty() || !batch.metrics.is_empty() || batch.impact_metrics.as_ref().is_some_and(|metrics| !metrics.is_empty()) {
+            if !batch.applications.is_empty() || !batch.metrics.is_empty() || !batch.impact_metrics.is_empty() {
                 let result = if use_new_endpoint {
                     feature_refresher
                         .unleash_client
@@ -114,7 +114,7 @@ pub async fn send_metrics_task(
             let batches = metrics_cache.get_appropriately_sized_env_batches(batch);
             trace!("Posting {} batches for {env}", batches.len());
             for batch in batches {
-                if !batch.applications.is_empty() || !batch.metrics.is_empty() || batch.impact_metrics.as_ref().is_some_and(|metrics| !metrics.is_empty()) {
+                if !batch.applications.is_empty() || !batch.metrics.is_empty() || !batch.impact_metrics.is_empty() {
                     let result = if use_new_endpoint {
                         feature_refresher
                             .unleash_client
