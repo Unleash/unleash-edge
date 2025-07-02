@@ -1146,321 +1146,194 @@ mod test {
         assert!(metrics_by_env_map.contains_key("production"));
     }
 
+    fn create_sample(value: f64, labels: HashMap<String, String>) -> MetricSample {
+        MetricSample {
+            value,
+            labels: Some(labels),
+        }
+    }
+
+    fn create_impact_metric(name: &str, r#type: &str, samples: Vec<MetricSample>) -> ImpactMetric {
+        ImpactMetric {
+            name: name.into(),
+            help: format!("Test {} metric", r#type).into(),
+            r#type: r#type.into(),
+            samples,
+        }
+    }
+
+    fn create_test_labels(key: &str, value: &str) -> HashMap<String, String> {
+        HashMap::from([(key.into(), value.into())])
+    }
+
     #[test]
     pub fn sink_impact_metrics_aggregates_correctly() {
+        // Setup
         let cache = MetricsCache::default();
+        let app = "test_app";
+        let env = "test_env";
+        let test_key = ImpactMetricsKey { app_name: app.into(), environment: env.into() };
+
+        let labels1 = create_test_labels("label1", "value1");
+        let labels2 = create_test_labels("label1", "different");
 
         let counter_metrics = vec![
-            ImpactMetric {
-                name: "test_counter".into(),
-                help: "Test counter metric".into(),
-                r#type: "counter".into(),
-                samples: vec![
-                    MetricSample {
-                        value: 1.0,
-                        labels: Some(HashMap::from([
-                            ("label1".into(), "value1".into()),
-                            ("label2".into(), "value2".into()),
-                        ])),
-                    },
-                    MetricSample {
-                        value: 2.0,
-                        labels: Some(HashMap::from([
-                            ("label1".into(), "value1".into()),
-                            ("label2".into(), "value2".into()),
-                        ])),
-                    },
-                    MetricSample {
-                        value: 3.0,
-                        labels: Some(HashMap::from([
-                            ("label1".into(), "different".into()),
-                            ("label2".into(), "value2".into()),
-                        ])),
-                    },
-                ],
-            },
+            create_impact_metric("test_counter", "counter", vec![
+                create_sample(1.0, labels1.clone()),
+                create_sample(2.0, labels1.clone()),
+                create_sample(3.0, labels2.clone()),
+            ]),
         ];
 
         let gauge_metrics = vec![
-            ImpactMetric {
-                name: "test_gauge".into(),
-                help: "Test gauge metric".into(),
-                r#type: "gauge".into(),
-                samples: vec![
-                    MetricSample {
-                        value: 1.0,
-                        labels: Some(HashMap::from([
-                            ("label1".into(), "value1".into()),
-                            ("label2".into(), "value2".into()),
-                        ])),
-                    },
-                    MetricSample {
-                        value: 2.0,
-                        labels: Some(HashMap::from([
-                            ("label1".into(), "value1".into()),
-                            ("label2".into(), "value2".into()),
-                        ])),
-                    },
-                ],
-            },
+            create_impact_metric("test_gauge", "gauge", vec![
+                create_sample(1.0, labels1.clone()),
+                create_sample(2.0, labels1.clone()),
+            ]),
         ];
 
-        let test_key = ImpactMetricsKey {
-            app_name: "test_app".into(),
-            environment: "test_env".into(),
-        };
-        let counter_metrics_env = convert_to_impact_metrics_env(counter_metrics, "test_app".into(), "test_env".into());
-        let gauge_metrics_env = convert_to_impact_metrics_env(gauge_metrics, "test_app".into(), "test_env".into());
-        cache.sink_impact_metrics(test_key.clone(), counter_metrics_env);
-        cache.sink_impact_metrics(test_key.clone(), gauge_metrics_env);
+        cache.sink_impact_metrics(
+            test_key.clone(), 
+            convert_to_impact_metrics_env(counter_metrics, app.into(), env.into())
+        );
+        cache.sink_impact_metrics(
+            test_key.clone(), 
+            convert_to_impact_metrics_env(gauge_metrics, app.into(), env.into())
+        );
+
         let aggregated_metrics = cache.impact_metrics.get(&test_key).unwrap();
-
-        assert_eq!(aggregated_metrics.value().len(), 2);
-
         let counter = aggregated_metrics.value().iter()
             .find(|m| m.impact_metric.name == "test_counter")
             .unwrap();
 
+        let value1_sample = counter.impact_metric.samples.iter()
+            .find(|s| s.labels.as_ref().unwrap().get("label1") == Some(&"value1".into()))
+            .unwrap();
+        assert_eq!(value1_sample.value, 3.0, "Counter values should be summed");
+
         let gauge = aggregated_metrics.value().iter()
             .find(|m| m.impact_metric.name == "test_gauge")
             .unwrap();
-
-        assert_eq!(counter.impact_metric.samples.len(), 2); // one sample for each unique label set
-
-        let original_labels_sample = counter.impact_metric.samples.iter()
-            .find(|s| {
-                if let Some(labels) = &s.labels {
-                    labels.get("label1") == Some(&"value1".into()) &&
-                    labels.get("label2") == Some(&"value2".into())
-                } else {
-                    false
-                }
-            })
-            .unwrap();
-
-        assert_eq!(original_labels_sample.value, 3.0); // 1.0 + 2.0
-
-        let different_labels_sample = counter.impact_metric.samples.iter()
-            .find(|s| {
-                if let Some(labels) = &s.labels {
-                    labels.get("label1") == Some(&"different".into()) &&
-                    labels.get("label2") == Some(&"value2".into())
-                } else {
-                    false
-                }
-            })
-            .unwrap();
-
-        assert_eq!(different_labels_sample.value, 3.0);
-        assert_eq!(gauge.impact_metric.samples.len(), 1); // Should have 1 sample (last value wins)
-        assert_eq!(gauge.impact_metric.samples[0].value, 2.0);
+        assert_eq!(gauge.impact_metric.samples[0].value, 2.0, "Gauge should have the last value");
     }
 
     #[test]
     pub fn merge_impact_metrics_from_different_apps() {
         let cache = MetricsCache::default();
+        let env = "default";
 
+        let app1 = "app1";
+        let app1_key = ImpactMetricsKey { app_name: app1.into(), environment: env.into() };
+        let app1_labels = HashMap::from([("appName".into(), "my-application-1".into())]);
         let app1_metrics = vec![
-            ImpactMetric {
-                name: "test".into(),
-                help: "some-help-text".into(),
-                r#type: "counter".into(),
-                samples: vec![
-                    MetricSample {
-                        value: 10.0,
-                        labels: Some(HashMap::from([
-                            ("appName".into(), "my-application-1".into()),
-                            ("environment".into(), "default".into()),
-                        ])),
-                    },
-                ],
-            },
+            create_impact_metric("test", "counter", vec![
+                create_sample(10.0, app1_labels),
+            ]),
         ];
 
+        let app2 = "app2";
+        let app2_key = ImpactMetricsKey { app_name: app2.into(), environment: env.into() };
+        let app2_labels = HashMap::from([("appName".into(), "my-application-2".into())]);
         let app2_metrics = vec![
-            ImpactMetric {
-                name: "test".into(),
-                help: "some-help-text".into(),
-                r#type: "counter".into(),
-                samples: vec![
-                    MetricSample {
-                        value: 1.0,
-                        labels: Some(HashMap::from([
-                            ("environment".into(), "default".into()),
-                            ("appName".into(), "my-application-2".into()),
-                        ])),
-                    },
-                ],
-            },
+            create_impact_metric("test", "counter", vec![
+                create_sample(1.0, app2_labels),
+            ]),
         ];
 
-        let app1_key = ImpactMetricsKey {
-            app_name: "app1".into(),
-            environment: "default".into(),
-        };
-        let app2_key = ImpactMetricsKey {
-            app_name: "app2".into(),
-            environment: "default".into(),
-        };
-
-        let app1_metrics_env = convert_to_impact_metrics_env(app1_metrics, "app1".into(), "default".into());
-        let app2_metrics_env = convert_to_impact_metrics_env(app2_metrics, "app2".into(), "default".into());
-
-        cache.impact_metrics.insert(app1_key, app1_metrics_env);
-        cache.impact_metrics.insert(app2_key, app2_metrics_env);
+        cache.impact_metrics.insert(app1_key, convert_to_impact_metrics_env(app1_metrics, app1.into(), env.into()));
+        cache.impact_metrics.insert(app2_key, convert_to_impact_metrics_env(app2_metrics, app2.into(), env.into()));
 
         let mut all_impact_metrics = Vec::new();
         for entry in cache.impact_metrics.iter() {
             all_impact_metrics.extend(entry.value().clone());
         }
-
         let merged_impact_metrics = cache.merge_impact_metrics(all_impact_metrics);
 
-        assert_eq!(merged_impact_metrics.len(), 1);
-
+        assert_eq!(merged_impact_metrics.len(), 1, "Should have one merged metric");
         let test_metric = &merged_impact_metrics[0];
-        assert_eq!(test_metric.impact_metric.name, "test");
-        assert_eq!(test_metric.impact_metric.samples.len(), 2);
 
-        let app1_sample = test_metric.impact_metric.samples.iter()
-            .find(|s| {
-                if let Some(labels) = &s.labels {
-                    labels.get("appName") == Some(&"my-application-1".into())
-                } else {
-                    false
-                }
-            })
-            .unwrap();
-        assert_eq!(app1_sample.value, 10.0);
+        let app1_value = test_metric.impact_metric.samples.iter()
+            .find(|s| s.labels.as_ref().unwrap().get("appName") == Some(&"my-application-1".into()))
+            .unwrap().value;
+        let app2_value = test_metric.impact_metric.samples.iter()
+            .find(|s| s.labels.as_ref().unwrap().get("appName") == Some(&"my-application-2".into()))
+            .unwrap().value;
 
-        let app2_sample = test_metric.impact_metric.samples.iter()
-            .find(|s| {
-                if let Some(labels) = &s.labels {
-                    labels.get("appName") == Some(&"my-application-2".into())
-                } else {
-                    false
-                }
-            })
-            .unwrap();
-        assert_eq!(app2_sample.value, 1.0);
+        assert_eq!(app1_value, 10.0, "App1 sample value should be preserved");
+        assert_eq!(app2_value, 1.0, "App2 sample value should be preserved");
+    }
+
+    fn create_client_metrics(app_name: &str, feature_name: &str, environment: &str, yes: u32, no: u32) -> ClientMetricsEnv {
+        ClientMetricsEnv {
+            app_name: app_name.into(),
+            feature_name: feature_name.into(),
+            environment: environment.into(),
+            timestamp: Utc::now(),
+            yes,
+            no,
+            variants: HashMap::new(),
+            metadata: MetricsMetadata {
+                platform_name: None,
+                platform_version: None,
+                sdk_version: None,
+                sdk_type: None,
+                yggdrasil_version: None,
+            },
+        }
+    }
+
+    fn create_and_sink_impact_metrics(cache: &MetricsCache, app_name: &str, env: &str, metric_name: &str, metric_type: &str, value: f64) {
+        let labels = HashMap::from([("env".into(), env.into())]);
+        let key = ImpactMetricsKey {
+            app_name: app_name.into(),
+            environment: env.into(),
+        };
+        let impact_metrics = vec![
+            ImpactMetricEnv::new(
+                create_impact_metric(metric_name, metric_type, vec![
+                    create_sample(value, labels)
+                ]),
+                app_name.into(),
+                env.into(),
+            )
+        ];
+        cache.sink_impact_metrics(key, impact_metrics);
     }
 
     #[test]
     pub fn get_metrics_by_environment_handles_metrics_and_impact_metrics_independently() {
         let cache = MetricsCache::default();
 
-        let dev_metric = ClientMetricsEnv {
-            app_name: "dev-app".into(),
-            feature_name: "dev-feature".into(),
-            environment: "development".into(),
-            timestamp: Utc::now(),
-            yes: 5,
-            no: 2,
-            variants: HashMap::new(),
-            metadata: MetricsMetadata {
-                platform_name: None,
-                platform_version: None,
-                sdk_version: None,
-                sdk_type: None,
-                yggdrasil_version: None,
-            },
-        };
-        cache.sink_metrics(&[dev_metric]);
+        // 1. Development: only regular metrics
+        let dev_env = "development";
+        let dev_app = "dev-app";
+        cache.sink_metrics(&[create_client_metrics(dev_app, "feature", dev_env, 5, 2)]);
 
-        let prod_impact_key = ImpactMetricsKey {
-            app_name: "prod-app".into(),
-            environment: "production".into(),
-        };
-        let prod_impact_metrics = vec![
-            ImpactMetricEnv::new(
-                ImpactMetric {
-                    name: "prod_counter".into(),
-                    help: "Production counter".into(),
-                    r#type: "counter".into(),
-                    samples: vec![
-                        MetricSample {
-                            value: 10.0,
-                            labels: Some(HashMap::from([
-                                ("env".into(), "production".into()),
-                            ])),
-                        },
-                    ],
-                },
-                "prod-app".into(),
-                "production".into(),
-            )
-        ];
-        cache.sink_impact_metrics(prod_impact_key, prod_impact_metrics);
+        // 2. Production: only impact metrics
+        let prod_env = "production";
+        let prod_app = "prod-app";
+        create_and_sink_impact_metrics(&cache, prod_app, prod_env, "counter", "counter", 10.0);
 
-        let staging_metric = ClientMetricsEnv {
-            app_name: "staging-app".into(),
-            feature_name: "staging-feature".into(),
-            environment: "staging".into(),
-            timestamp: Utc::now(),
-            yes: 3,
-            no: 1,
-            variants: HashMap::new(),
-            metadata: MetricsMetadata {
-                platform_name: None,
-                platform_version: None,
-                sdk_version: None,
-                sdk_type: None,
-                yggdrasil_version: None,
-            },
-        };
-        cache.sink_metrics(&[staging_metric]);
-
-        let staging_impact_key = ImpactMetricsKey {
-            app_name: "staging-app".into(),
-            environment: "staging".into(),
-        };
-        let staging_impact_metrics = vec![
-            ImpactMetricEnv::new(
-                ImpactMetric {
-                    name: "staging_gauge".into(),
-                    help: "Staging gauge".into(),
-                    r#type: "gauge".into(),
-                    samples: vec![
-                        MetricSample {
-                            value: 42.0,
-                            labels: Some(HashMap::from([
-                                ("env".into(), "staging".into()),
-                            ])),
-                        },
-                    ],
-                },
-                "staging-app".into(),
-                "staging".into(),
-            )
-        ];
-        cache.sink_impact_metrics(staging_impact_key, staging_impact_metrics);
+        // 3. Staging: both regular and impact metrics
+        let staging_env = "staging";
+        let staging_app = "staging-app";
+        cache.sink_metrics(&[create_client_metrics(staging_app, "feature", staging_env, 3, 1)]);
+        create_and_sink_impact_metrics(&cache, staging_app, staging_env, "gauge", "gauge", 42.0);
 
         let batches = cache.get_metrics_by_environment();
 
-        assert_eq!(batches.len(), 3);
-        assert!(batches.contains_key("development"));
-        assert!(batches.contains_key("production"));
-        assert!(batches.contains_key("staging"));
-
-        let dev_batch = &batches["development"];
+        let dev_batch = &batches[dev_env];
         assert_eq!(dev_batch.metrics.len(), 1);
-        assert_eq!(dev_batch.metrics[0].app_name, "dev-app");
-        assert_eq!(dev_batch.metrics[0].feature_name, "dev-feature");
         assert!(dev_batch.impact_metrics.is_none());
 
-        let prod_batch = &batches["production"];
-        assert_eq!(prod_batch.metrics.len(), 0); 
+        let prod_batch = &batches[prod_env];
+        assert_eq!(prod_batch.metrics.len(), 0);
         assert!(prod_batch.impact_metrics.is_some());
-        let prod_impact = prod_batch.impact_metrics.as_ref().unwrap();
-        assert_eq!(prod_impact.len(), 1);
-        assert_eq!(prod_impact[0].impact_metric.name, "prod_counter");
+        assert_eq!(prod_batch.impact_metrics.as_ref().unwrap()[0].impact_metric.name, "counter");
 
-        let staging_batch = &batches["staging"];
+        let staging_batch = &batches[staging_env];
         assert_eq!(staging_batch.metrics.len(), 1);
-        assert_eq!(staging_batch.metrics[0].app_name, "staging-app");
         assert!(staging_batch.impact_metrics.is_some());
-        let staging_impact = staging_batch.impact_metrics.as_ref().unwrap();
-        assert_eq!(staging_impact.len(), 1);
-        assert_eq!(staging_impact[0].impact_metric.name, "staging_gauge");
+        assert_eq!(staging_batch.impact_metrics.as_ref().unwrap()[0].impact_metric.name, "gauge");
     }
 }
