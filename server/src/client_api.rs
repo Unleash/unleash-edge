@@ -8,7 +8,7 @@ use crate::filters::{
 use crate::http::broadcaster::Broadcaster;
 use crate::http::instance_data::InstanceDataSending;
 use crate::http::refresher::feature_refresher::FeatureRefresher;
-use crate::metrics::client_metrics::{MetricsCache};
+use crate::metrics::client_metrics::MetricsCache;
 use crate::metrics::edge_metrics::EdgeInstanceData;
 use crate::tokens::cache_key;
 use crate::types::{
