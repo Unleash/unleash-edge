@@ -4,9 +4,9 @@ version = 4
 
 [[package]]
 name = "actix-allow-deny-middleware"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "442087d0c853a7adb6633c0b0a37304ca419daff8f7a1f66f81cd3c0592599f4"
+checksum = "9db736c48e0028b4cb77126045b3ceb00f0e2b842e4456db85d7b859a6d1abe0"
 dependencies = [
  "actix-service",
  "actix-web",
@@ -664,9 +664,9 @@ dependencies = [
 
 [[package]]
 name = "aws-sdk-s3"
-version = "1.94.0"
+version = "1.95.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc24d9d761bd464534d9e477a9f724c118ca2557a95444097cf6ce71f3229a72"
+checksum = "a316e3c4c38837084dfbf87c0fc6ea016b3dc3e1f867d9d7f5eddfe47e5cae37"
 dependencies = [
  "aws-credential-types",
  "aws-runtime",
