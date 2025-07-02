@@ -12,7 +12,7 @@ use std::{
 };
 use tracing::{debug, instrument};
 use unleash_types::client_metrics::SdkType::Backend;
-use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ClientMetricsEnv, ConnectVia, ImpactMetric, MetricSample, MetricsMetadata};
+use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ClientMetricsEnv, ConnectVia, ImpactMetric, ImpactMetricEnv, MetricSample, MetricsMetadata};
 use utoipa::ToSchema;
 
 pub const UPSTREAM_MAX_BODY_SIZE: usize = 100 * 1024;
@@ -123,27 +123,6 @@ impl PartialEq for MetricsKey {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ImpactMetricEnv {
-    #[serde(flatten)]
-    pub impact_metric: ImpactMetric,
-    #[serde(skip)]
-    pub app_name: String,
-    #[serde(skip)]
-    pub environment: String,
-}
-
-impl ImpactMetricEnv {
-    pub fn new(impact_metric: ImpactMetric, app_name: String, environment: String) -> Self {
-        Self {
-            impact_metric,
-            app_name,
-            environment,
-        }
-    }
-}
-
-// Helper function to convert Vec<ImpactMetric> to Vec<ExtendedImpactMetric>
 fn convert_to_impact_metrics_env(metrics: Vec<ImpactMetric>, app_name: String, environment: String) -> Vec<ImpactMetricEnv> {
     metrics.into_iter()
         .map(|metric| ImpactMetricEnv::new(metric, app_name.clone(), environment.clone()))
