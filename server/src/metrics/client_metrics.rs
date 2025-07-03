@@ -78,24 +78,10 @@ pub struct MetricsKey {
     pub timestamp: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Eq, Deserialize, Serialize, ToSchema)]
+#[derive(Debug, Clone, Eq, Deserialize, Serialize, ToSchema, Hash, PartialEq)]
 pub struct ImpactMetricsKey {
     pub app_name: String,
     pub environment: String,
-}
-
-impl Hash for ImpactMetricsKey {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.app_name.hash(state);
-        self.environment.hash(state);
-    }
-}
-
-impl PartialEq for ImpactMetricsKey {
-    fn eq(&self, other: &Self) -> bool {
-        self.app_name == other.app_name
-            && self.environment == other.environment
-    }
 }
 
 impl Hash for MetricsKey {
