@@ -12,7 +12,8 @@ use std::{
 };
 use tracing::{debug, instrument};
 use unleash_types::client_metrics::SdkType::Backend;
-use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ClientMetricsEnv, ConnectVia, ImpactMetric, ImpactMetricEnv, MetricSample, MetricsMetadata};
+use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ClientMetricsEnv, ConnectVia, ImpactMetric, ImpactMetricEnv, MetricsMetadata};
+use unleash_types::Merge;
 use utoipa::ToSchema;
 
 pub const UPSTREAM_MAX_BODY_SIZE: usize = 100 * 1024;
@@ -281,89 +282,61 @@ pub(crate) fn cut_into_sendable_batches(batch: MetricsBatch) -> Vec<MetricsBatch
         .collect::<Vec<MetricsBatch>>()
 }
 
+fn group_by_key(impact_metrics: Vec<ImpactMetricEnv>) -> HashMap<ImpactMetricsKey, Vec<ImpactMetricEnv>> {
+    impact_metrics
+        .into_iter()
+        .chunk_by(|m| ImpactMetricsKey::from(m.clone()))
+        .into_iter()
+        .map(|(k, group)| (k, group.collect()))
+        .collect()
+}
+
+fn index_by_name(metrics: Vec<ImpactMetricEnv>) -> HashMap<String, ImpactMetricEnv> {
+    let mut indexed_metrics = HashMap::new();
+    for metric in metrics {
+        indexed_metrics.insert(metric.impact_metric.name.clone(), metric);
+    }
+    indexed_metrics
+}
+
+
+fn reduce_metrics_samples(metric: ImpactMetricEnv) -> ImpactMetricEnv {
+    let empty_metric = ImpactMetricEnv::new(
+        ImpactMetric {
+            name: metric.impact_metric.name.clone(),
+            help: metric.impact_metric.help.clone(),
+            r#type: metric.impact_metric.r#type.clone(),
+            samples: vec![],
+        },
+        metric.app_name.clone(),
+        metric.environment.clone(),
+    );
+
+    empty_metric.merge(metric)
+}
+
 impl MetricsCache {
     pub fn sink_impact_metrics(&self, impact_metrics: Vec<ImpactMetricEnv>) {
-        let metrics_by_key: HashMap<ImpactMetricsKey, Vec<ImpactMetricEnv>> = impact_metrics
-            .into_iter()
-            .chunk_by(|m| ImpactMetricsKey::from(m.clone()))
-            .into_iter()
-            .map(|(k, group)| (k, group.collect()))
-            .collect();
+        let metrics_by_key = group_by_key(impact_metrics);
 
         for (key, metrics) in metrics_by_key {
             let existing_metrics = self.impact_metrics.get(&key).map(|m| m.value().clone()).unwrap_or_default();
 
-            let mut aggregated_metrics: HashMap<String, ImpactMetricEnv> = HashMap::new();
+            let mut aggregated_metrics = index_by_name(existing_metrics);
 
-            for metric in existing_metrics {
-                aggregated_metrics.insert(metric.impact_metric.name.clone(), metric);
-            }
+            for metric in metrics {
+                let reduced_metric = reduce_metrics_samples(metric);
 
-            for mut metric in metrics {
-                let mut samples_by_labels: HashMap<String, MetricSample> = HashMap::new();
-                for sample in metric.impact_metric.samples {
-                    let labels_key = Self::labels_to_key(&sample.labels);
-                    if metric.impact_metric.r#type == "counter" {
-                        if let Some(existing_sample) = samples_by_labels.get_mut(&labels_key) {
-                            existing_sample.value += sample.value;
-                        } else {
-                            samples_by_labels.insert(labels_key, sample);
-                        }
-                    } else {
-                        // For non-counter metrics (like gauge), last value wins
-                        samples_by_labels.insert(labels_key, sample);
-                    }
-                }
-                metric.impact_metric.samples = samples_by_labels.into_values().collect();
-
-                if let Some(existing_metric) = aggregated_metrics.get_mut(&metric.impact_metric.name) {
-                    Self::merge_two_metrics(existing_metric, metric);
+                if let Some(existing_metric) = aggregated_metrics.get_mut(&reduced_metric.impact_metric.name) {
+                    let merged = existing_metric.clone().merge(reduced_metric);
+                    *existing_metric = merged;
                 } else {
-                    aggregated_metrics.insert(metric.impact_metric.name.clone(), metric);
+                    aggregated_metrics.insert(reduced_metric.impact_metric.name.clone(), reduced_metric);
                 }
             }
 
             self.impact_metrics.insert(key, aggregated_metrics.into_values().collect());
         }
-    }
-    fn labels_to_key(labels: &Option<HashMap<String, String>>) -> String {
-        match labels {
-            Some(labels_map) => {
-                let mut sorted_entries: Vec<(&String, &String)> = labels_map.iter().collect();
-                sorted_entries.sort_by(|a, b| a.0.cmp(b.0));
-                sorted_entries.iter()
-                    .map(|(k, v)| format!("{}:{}", k, v))
-                    .collect::<Vec<String>>()
-                    .join(",")
-            }
-            None => "".to_string(),
-        }
-    }
-
-    fn merge_two_metrics(existing_metric: &mut ImpactMetricEnv, new_metric: ImpactMetricEnv) {
-        let mut samples_by_labels: HashMap<String, MetricSample> = HashMap::new();
-        let is_counter = existing_metric.impact_metric.r#type == "counter" && new_metric.impact_metric.r#type == "counter";
-
-        for sample in &existing_metric.impact_metric.samples {
-            let labels_key = Self::labels_to_key(&sample.labels);
-            samples_by_labels.insert(labels_key, sample.clone());
-        }
-
-        for sample in new_metric.impact_metric.samples {
-            let labels_key = Self::labels_to_key(&sample.labels);
-            if is_counter {
-                if let Some(existing_sample) = samples_by_labels.get_mut(&labels_key) {
-                    existing_sample.value += sample.value;
-                } else {
-                    samples_by_labels.insert(labels_key, sample);
-                }
-            } else {
-                // For non-counter metrics (like gauge), last value wins
-                samples_by_labels.insert(labels_key, sample);
-            }
-        }
-
-        existing_metric.impact_metric.samples = samples_by_labels.into_values().collect();
     }
 
     fn merge_impact_metrics(&self, metrics: Vec<ImpactMetricEnv>) -> Vec<ImpactMetricEnv> {
@@ -377,7 +350,8 @@ impl MetricsCache {
             let metric_name = metric.impact_metric.name.clone();
 
             if let Some(existing_metric) = merged_metrics.get_mut(&metric_name) {
-                Self::merge_two_metrics(existing_metric, metric);
+                let merged = existing_metric.clone().merge(metric);
+                *existing_metric = merged;
             } else {
                 merged_metrics.insert(metric_name, metric);
             }
@@ -599,9 +573,7 @@ mod test {
     use std::str::FromStr;
     use test_case::test_case;
     use unleash_types::client_metrics::SdkType::Backend;
-    use unleash_types::client_metrics::{
-        ClientMetricsEnv, ConnectVia, ConnectViaBuilder, MetricsMetadata,
-    };
+    use unleash_types::client_metrics::{ClientMetricsEnv, ConnectVia, ConnectViaBuilder, MetricSample, MetricsMetadata};
 
     #[test]
     fn cache_aggregates_data_correctly() {

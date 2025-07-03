@@ -453,9 +453,7 @@ mod tests {
         ClientFeature, Constraint, DeltaEvent, Operator, Strategy, StrategyVariant,
     };
     use unleash_types::client_metrics::SdkType::Backend;
-    use unleash_types::client_metrics::{
-        ClientMetricsEnv, ConnectViaBuilder, ImpactMetric, MetricBucket, MetricSample, MetricsMetadata, ToggleStats,
-    };
+    use unleash_types::client_metrics::{ClientMetricsEnv, ConnectViaBuilder, ImpactMetric, MetricBucket, MetricSample, MetricType, MetricsMetadata, ToggleStats};
     use unleash_yggdrasil::EngineState;
 
     async fn make_metrics_post_request() -> Request {
@@ -670,15 +668,23 @@ mod tests {
         assert_eq!(impact_metrics.value().len(), 1);
 
         let impact_metric = &impact_metrics.value()[0];
-        assert_eq!(impact_metric.impact_metric.name, "test_counter");
-        assert_eq!(impact_metric.impact_metric.help, "Test counter metric");
-        assert_eq!(impact_metric.impact_metric.r#type, "counter");
-        assert_eq!(impact_metric.impact_metric.samples.len(), 1);
-        let sample = &impact_metric.impact_metric.samples[0];
-        assert_eq!(sample.value, 1.0);
-        let labels = sample.labels.as_ref().unwrap();
-        assert_eq!(labels.get("label1").unwrap(), "value1");
-        assert_eq!(labels.get("label2").unwrap(), "value2");
+
+        let expected_impact_metric = ImpactMetric {
+            name: "test_counter".into(),
+            help: "Test counter metric".into(),
+            r#type: MetricType::Counter,
+            samples: vec![
+                MetricSample {
+                    value: 1.0,
+                    labels: Some(hashmap! {
+                        "label1".to_string() => "value1".to_string(),
+                        "label2".to_string() => "value2".to_string()
+                    }),
+                },
+            ],
+        };
+
+        assert_eq!(impact_metric.impact_metric, expected_impact_metric);
     }
 
     fn cached_client_features() -> ClientFeatures {
