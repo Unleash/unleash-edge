@@ -292,11 +292,10 @@ fn group_by_key(impact_metrics: Vec<ImpactMetricEnv>) -> HashMap<ImpactMetricsKe
 }
 
 fn index_by_name(metrics: Vec<ImpactMetricEnv>) -> HashMap<String, ImpactMetricEnv> {
-    let mut indexed_metrics = HashMap::new();
-    for metric in metrics {
-        indexed_metrics.insert(metric.impact_metric.name.clone(), metric);
-    }
-    indexed_metrics
+    metrics
+        .into_iter()
+        .map(|metric| (metric.impact_metric.name.clone(), metric))
+        .collect()
 }
 
 
@@ -313,6 +312,27 @@ fn reduce_metrics_samples(metric: ImpactMetricEnv) -> ImpactMetricEnv {
     );
 
     empty_metric.merge(metric)
+}
+
+fn merge_impact_metrics(metrics: Vec<ImpactMetricEnv>) -> Vec<ImpactMetricEnv> {
+    if metrics.is_empty() {
+        return Vec::new();
+    }
+
+    let mut merged_metrics: HashMap<String, ImpactMetricEnv> = HashMap::with_capacity(metrics.len());
+
+    for metric in metrics {
+        let metric_name = metric.impact_metric.name.clone();
+
+        if let Some(existing_metric) = merged_metrics.get_mut(&metric_name) {
+            let merged = existing_metric.clone().merge(metric);
+            *existing_metric = merged;
+        } else {
+            merged_metrics.insert(metric_name, metric);
+        }
+    }
+
+    merged_metrics.into_values().collect()
 }
 
 impl MetricsCache {
@@ -337,27 +357,6 @@ impl MetricsCache {
 
             self.impact_metrics.insert(key, aggregated_metrics.into_values().collect());
         }
-    }
-
-    fn merge_impact_metrics(&self, metrics: Vec<ImpactMetricEnv>) -> Vec<ImpactMetricEnv> {
-        if metrics.is_empty() {
-            return Vec::new();
-        }
-
-        let mut merged_metrics: HashMap<String, ImpactMetricEnv> = HashMap::with_capacity(metrics.len());
-
-        for metric in metrics {
-            let metric_name = metric.impact_metric.name.clone();
-
-            if let Some(existing_metric) = merged_metrics.get_mut(&metric_name) {
-                let merged = existing_metric.clone().merge(metric);
-                *existing_metric = merged;
-            } else {
-                merged_metrics.insert(metric_name, metric);
-            }
-        }
-
-        merged_metrics.into_values().collect()
     }
 
     pub fn get_metrics_by_environment(&self) -> HashMap<String, MetricsBatch> {
@@ -399,7 +398,7 @@ impl MetricsCache {
                 }
             }
 
-            let merged_impact_metrics = self.merge_impact_metrics(all_impact_metrics);
+            let merged_impact_metrics = merge_impact_metrics(all_impact_metrics);
 
             let batch = MetricsBatch {
                 applications: applications.clone(),
@@ -449,7 +448,7 @@ impl MetricsCache {
             all_impact_metrics.extend(entry.value().clone());
         }
 
-        let merged_impact_metrics = self.merge_impact_metrics(all_impact_metrics);
+        let merged_impact_metrics = merge_impact_metrics(all_impact_metrics);
 
         let batch = MetricsBatch {
             applications: self
@@ -1147,7 +1146,7 @@ mod test {
         for entry in cache.impact_metrics.iter() {
             all_impact_metrics.extend(entry.value().clone());
         }
-        let merged_impact_metrics = cache.merge_impact_metrics(all_impact_metrics);
+        let merged_impact_metrics = merge_impact_metrics(all_impact_metrics);
 
         assert_eq!(merged_impact_metrics.len(), 1, "Should have one merged metric");
         let test_metric = &merged_impact_metrics[0];
