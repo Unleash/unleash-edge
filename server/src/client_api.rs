@@ -423,7 +423,7 @@ pub fn configure_experimental_post_features(
 #[cfg(test)]
 mod tests {
 
-    use crate::metrics::client_metrics::{ApplicationKey, ImpactMetricsKey, MetricsBatch, MetricsKey};
+    use crate::metrics::client_metrics::{ApplicationKey, MetricsKey, MetricsBatch};
     use crate::types::{TokenType, TokenValidationStatus};
     use std::collections::HashMap;
     use std::path::PathBuf;
@@ -455,6 +455,7 @@ mod tests {
     use unleash_types::client_metrics::SdkType::Backend;
     use unleash_types::client_metrics::{ClientMetricsEnv, ConnectViaBuilder, ImpactMetric, MetricBucket, MetricSample, MetricType, MetricsMetadata, ToggleStats};
     use unleash_yggdrasil::EngineState;
+    use crate::metrics::client_impact_metrics::ImpactMetricsKey;
 
     async fn make_metrics_post_request() -> Request {
         test::TestRequest::post()

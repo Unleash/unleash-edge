@@ -1,3 +1,4 @@
+use crate::metrics::client_impact_metrics::{convert_to_impact_metrics_env, ImpactMetricsKey, merge_impact_metrics};
 use crate::types::{BatchMetricsRequestBody, EdgeToken};
 use actix_web::web::Data;
 use chrono::{DateTime, Utc};
@@ -12,8 +13,7 @@ use std::{
 };
 use tracing::{debug, instrument};
 use unleash_types::client_metrics::SdkType::Backend;
-use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ClientMetricsEnv, ConnectVia, ImpactMetric, ImpactMetricEnv, MetricsMetadata};
-use unleash_types::Merge;
+use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ClientMetricsEnv, ConnectVia, ImpactMetricEnv, MetricsMetadata};
 use utoipa::ToSchema;
 
 pub const UPSTREAM_MAX_BODY_SIZE: usize = 100 * 1024;
@@ -62,14 +62,6 @@ impl From<ClientMetricsEnv> for MetricsKey {
     }
 }
 
-impl From<ImpactMetricEnv> for ImpactMetricsKey {
-    fn from(value: ImpactMetricEnv) -> Self {
-        Self {
-            app_name: value.app_name,
-            environment: value.environment,
-        }
-    }
-}
 
 #[derive(Debug, Clone, Eq, Deserialize, Serialize, ToSchema)]
 pub struct MetricsKey {
@@ -79,11 +71,6 @@ pub struct MetricsKey {
     pub timestamp: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Eq, Deserialize, Serialize, ToSchema, Hash, PartialEq)]
-pub struct ImpactMetricsKey {
-    pub app_name: String,
-    pub environment: String,
-}
 
 impl Hash for MetricsKey {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -108,12 +95,6 @@ impl PartialEq for MetricsKey {
             && self.environment == other.environment
             && self_hour_bin == other_hour_bin
     }
-}
-
-fn convert_to_impact_metrics_env(metrics: Vec<ImpactMetric>, app_name: String, environment: String) -> Vec<ImpactMetricEnv> {
-    metrics.into_iter()
-        .map(|metric| ImpactMetricEnv::new(metric, app_name.clone(), environment.clone()))
-        .collect()
 }
 
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
@@ -282,83 +263,7 @@ pub(crate) fn cut_into_sendable_batches(batch: MetricsBatch) -> Vec<MetricsBatch
         .collect::<Vec<MetricsBatch>>()
 }
 
-fn group_by_key(impact_metrics: Vec<ImpactMetricEnv>) -> HashMap<ImpactMetricsKey, Vec<ImpactMetricEnv>> {
-    impact_metrics
-        .into_iter()
-        .chunk_by(|m| ImpactMetricsKey::from(m.clone()))
-        .into_iter()
-        .map(|(k, group)| (k, group.collect()))
-        .collect()
-}
-
-fn index_by_name(metrics: Vec<ImpactMetricEnv>) -> HashMap<String, ImpactMetricEnv> {
-    metrics
-        .into_iter()
-        .map(|metric| (metric.impact_metric.name.clone(), metric))
-        .collect()
-}
-
-
-fn reduce_metrics_samples(metric: ImpactMetricEnv) -> ImpactMetricEnv {
-    let empty_metric = ImpactMetricEnv::new(
-        ImpactMetric {
-            name: metric.impact_metric.name.clone(),
-            help: metric.impact_metric.help.clone(),
-            r#type: metric.impact_metric.r#type.clone(),
-            samples: vec![],
-        },
-        metric.app_name.clone(),
-        metric.environment.clone(),
-    );
-
-    empty_metric.merge(metric)
-}
-
-fn merge_impact_metrics(metrics: Vec<ImpactMetricEnv>) -> Vec<ImpactMetricEnv> {
-    if metrics.is_empty() {
-        return Vec::new();
-    }
-
-    let mut merged_metrics: HashMap<String, ImpactMetricEnv> = HashMap::with_capacity(metrics.len());
-
-    for metric in metrics {
-        let metric_name = metric.impact_metric.name.clone();
-
-        if let Some(existing_metric) = merged_metrics.get_mut(&metric_name) {
-            let merged = existing_metric.clone().merge(metric);
-            *existing_metric = merged;
-        } else {
-            merged_metrics.insert(metric_name, metric);
-        }
-    }
-
-    merged_metrics.into_values().collect()
-}
-
 impl MetricsCache {
-    pub fn sink_impact_metrics(&self, impact_metrics: Vec<ImpactMetricEnv>) {
-        let metrics_by_key = group_by_key(impact_metrics);
-
-        for (key, metrics) in metrics_by_key {
-            let existing_metrics = self.impact_metrics.get(&key).map(|m| m.value().clone()).unwrap_or_default();
-
-            let mut aggregated_metrics = index_by_name(existing_metrics);
-
-            for metric in metrics {
-                let reduced_metric = reduce_metrics_samples(metric);
-
-                if let Some(existing_metric) = aggregated_metrics.get_mut(&reduced_metric.impact_metric.name) {
-                    let merged = existing_metric.clone().merge(reduced_metric);
-                    *existing_metric = merged;
-                } else {
-                    aggregated_metrics.insert(reduced_metric.impact_metric.name.clone(), reduced_metric);
-                }
-            }
-
-            self.impact_metrics.insert(key, aggregated_metrics.into_values().collect());
-        }
-    }
-
     pub fn get_metrics_by_environment(&self) -> HashMap<String, MetricsBatch> {
         let mut batches_by_environment = HashMap::new();
 
@@ -572,7 +477,7 @@ mod test {
     use std::str::FromStr;
     use test_case::test_case;
     use unleash_types::client_metrics::SdkType::Backend;
-    use unleash_types::client_metrics::{ClientMetricsEnv, ConnectVia, ConnectViaBuilder, MetricSample, MetricsMetadata};
+    use unleash_types::client_metrics::{ClientMetricsEnv, ConnectVia, ConnectViaBuilder, ImpactMetric, MetricSample, MetricsMetadata};
 
     #[test]
     fn cache_aggregates_data_correctly() {
