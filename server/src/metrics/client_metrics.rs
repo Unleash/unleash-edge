@@ -1,10 +1,11 @@
+use crate::metrics::client_impact_metrics::{convert_to_impact_metrics_env, merge_impact_metrics, ImpactMetricsKey};
 use crate::types::{BatchMetricsRequestBody, EdgeToken};
 use actix_web::web::Data;
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use itertools::Itertools;
 use lazy_static::lazy_static;
-use prometheus::{Histogram, IntCounterVec, register_histogram, register_int_counter_vec};
+use prometheus::{register_histogram, register_int_counter_vec, Histogram, IntCounterVec};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -12,9 +13,7 @@ use std::{
 };
 use tracing::{debug, instrument};
 use unleash_types::client_metrics::SdkType::Backend;
-use unleash_types::client_metrics::{
-    ClientApplication, ClientMetrics, ClientMetricsEnv, ConnectVia, MetricsMetadata,
-};
+use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ClientMetricsEnv, ConnectVia, ImpactMetricEnv, MetricsMetadata};
 use utoipa::ToSchema;
 
 pub const UPSTREAM_MAX_BODY_SIZE: usize = 100 * 1024;
@@ -63,6 +62,7 @@ impl From<ClientMetricsEnv> for MetricsKey {
     }
 }
 
+
 #[derive(Debug, Clone, Eq, Deserialize, Serialize, ToSchema)]
 pub struct MetricsKey {
     pub app_name: String,
@@ -70,6 +70,7 @@ pub struct MetricsKey {
     pub environment: String,
     pub timestamp: DateTime<Utc>,
 }
+
 
 impl Hash for MetricsKey {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -100,12 +101,15 @@ impl PartialEq for MetricsKey {
 pub struct MetricsBatch {
     pub applications: Vec<ClientApplication>,
     pub metrics: Vec<ClientMetricsEnv>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty", rename = "impactMetrics")]
+    pub impact_metrics: Vec<ImpactMetricEnv>,
 }
 
 #[derive(Default, Debug)]
 pub struct MetricsCache {
     pub(crate) applications: DashMap<ApplicationKey, ClientApplication>,
     pub(crate) metrics: DashMap<MetricsKey, ClientMetricsEnv>,
+    pub(crate) impact_metrics: DashMap<ImpactMetricsKey, Vec<ImpactMetricEnv>>,
 }
 
 pub(crate) fn size_of_batch(batch: &MetricsBatch) -> usize {
@@ -148,16 +152,24 @@ pub(crate) fn register_client_metrics(
     metrics: ClientMetrics,
     metrics_cache: Data<MetricsCache>,
 ) {
-    let metrics = unleash_types::client_metrics::from_bucket_app_name_and_env(
+    let environment = edge_token
+        .environment
+        .clone()
+        .unwrap_or_else(|| "development".into());
+
+    let client_metrics_env = unleash_types::client_metrics::from_bucket_app_name_and_env(
         metrics.bucket,
-        metrics.app_name,
-        edge_token
-            .environment
-            .unwrap_or_else(|| "development".into()),
+        metrics.app_name.clone(),
+        environment.clone(),
         metrics.metadata.clone(),
     );
 
-    metrics_cache.sink_metrics(&metrics);
+    if let Some(impact_metrics) = metrics.impact_metrics {
+        let impact_metrics_env = convert_to_impact_metrics_env(impact_metrics, metrics.app_name.clone(), environment);
+        metrics_cache.sink_impact_metrics(impact_metrics_env);
+    }
+
+    metrics_cache.sink_metrics(&client_metrics_env);
 }
 
 /***
@@ -183,6 +195,7 @@ pub(crate) fn register_bulk_metrics(
             })
             .cloned()
             .collect(),
+        impact_metrics: metrics.impact_metrics.clone(),
     };
     metrics_cache.sink_bulk_metrics(updated, connect_via);
 }
@@ -200,8 +213,11 @@ pub(crate) fn cut_into_sendable_batches(batch: MetricsBatch) -> Vec<MetricsBatch
     let metrics_count = batch.metrics.len();
     let metrics_per_batch = metrics_count / batch_count;
 
+    let impact_metrics_count = batch.impact_metrics.len();
+    let impact_metrics_per_batch = if impact_metrics_count > 0 { impact_metrics_count / batch_count } else { 0 };
+
     debug!(
-        "Batch count: {batch_count}. Apps per batch: {apps_per_batch}, Metrics per batch: {metrics_per_batch}"
+        "Batch count: {batch_count}. Apps per batch: {apps_per_batch}, Metrics per batch: {metrics_per_batch}, Impact metrics per batch: {impact_metrics_per_batch}"
     );
     (0..=batch_count)
         .map(|counter| {
@@ -217,6 +233,14 @@ pub(crate) fn cut_into_sendable_batches(batch: MetricsBatch) -> Vec<MetricsBatch
             } else {
                 metrics_per_batch
             };
+
+            let impact_metrics_iter = batch.impact_metrics.iter();
+            let impact_metrics_take = if impact_metrics_per_batch == 0 && counter == 0 {
+                impact_metrics_count
+            } else {
+                impact_metrics_per_batch
+            };
+
             MetricsBatch {
                 metrics: metrics_iter
                     .skip(counter * metrics_per_batch)
@@ -228,9 +252,14 @@ pub(crate) fn cut_into_sendable_batches(batch: MetricsBatch) -> Vec<MetricsBatch
                     .take(apps_take)
                     .cloned()
                     .collect(),
+                impact_metrics: impact_metrics_iter
+                    .skip(counter * impact_metrics_per_batch)
+                    .take(impact_metrics_take)
+                    .cloned()
+                    .collect()
             }
         })
-        .filter(|b| !b.applications.is_empty() || !b.metrics.is_empty())
+        .filter(|b| !b.applications.is_empty() || !b.metrics.is_empty() || !b.impact_metrics.is_empty())
         .collect::<Vec<MetricsBatch>>()
 }
 
@@ -243,18 +272,43 @@ impl MetricsCache {
             .iter()
             .map(|e| e.value().clone())
             .collect::<Vec<ClientApplication>>();
+
+        let mut all_environments = std::collections::HashSet::new();
+
+        for entry in self.metrics.iter() {
+            all_environments.insert(entry.value().environment.clone());
+        }
+
+        for entry in self.impact_metrics.iter() {
+            all_environments.insert(entry.key().environment.clone());
+        }
+
         let data = self
             .metrics
             .iter()
             .map(|e| e.value().clone())
             .collect::<Vec<ClientMetricsEnv>>();
-        let map: HashMap<String, Vec<ClientMetricsEnv>> = data
+        let metrics_by_env: HashMap<String, Vec<ClientMetricsEnv>> = data
             .into_iter()
             .into_group_map_by(|metric| metric.environment.clone());
-        for (environment, metrics) in map {
+
+        for environment in all_environments {
+            let metrics = metrics_by_env.get(&environment).cloned().unwrap_or_default();
+
+            let mut all_impact_metrics = Vec::new();
+            for entry in self.impact_metrics.iter() {
+                let key = entry.key();
+                if key.environment == environment {
+                    all_impact_metrics.extend(entry.value().clone());
+                }
+            }
+
+            let merged_impact_metrics = merge_impact_metrics(all_impact_metrics);
+
             let batch = MetricsBatch {
                 applications: applications.clone(),
                 metrics,
+                impact_metrics: merged_impact_metrics,
             };
             batches_by_environment.insert(environment, batch);
         }
@@ -265,6 +319,11 @@ impl MetricsCache {
         for app in batch.applications.clone() {
             self.applications.remove(&ApplicationKey::from(app.clone()));
         }
+
+        for impact_metric in batch.impact_metrics.clone() {
+            self.impact_metrics.remove(&ImpactMetricsKey::from(impact_metric.clone()));
+        }
+
         for metric in batch.metrics.clone() {
             self.metrics.remove(&MetricsKey::from(metric.clone()));
         }
@@ -283,6 +342,19 @@ impl MetricsCache {
     /// This is a destructive call. We'll remove all metrics that is due for posting
     /// Called from [crate::http::background_send_metrics::send_metrics_task] which will reinsert on 5xx server failures, but leave 413 and 400 failures on the floor
     pub fn get_appropriately_sized_batches(&self) -> Vec<MetricsBatch> {
+        let impact_keys: Vec<ImpactMetricsKey> = self
+            .impact_metrics
+            .iter()
+            .map(|e| e.key().clone())
+            .collect();
+
+        let mut all_impact_metrics = Vec::new();
+        for entry in self.impact_metrics.iter() {
+            all_impact_metrics.extend(entry.value().clone());
+        }
+
+        let merged_impact_metrics = merge_impact_metrics(all_impact_metrics);
+
         let batch = MetricsBatch {
             applications: self
                 .applications
@@ -295,10 +367,16 @@ impl MetricsCache {
                 .map(|e| e.value().clone())
                 .filter(|m| m.yes > 0 || m.no > 0) // Makes sure that we only return buckets that have values. We should have a test for this :P
                 .collect(),
+            impact_metrics: merged_impact_metrics,
         };
         for app in batch.applications.clone() {
             self.applications.remove(&ApplicationKey::from(app.clone()));
         }
+
+        for key in &impact_keys {
+            self.impact_metrics.remove(key);
+        }
+
         for metric in batch.metrics.clone() {
             self.metrics.remove(&MetricsKey::from(metric.clone()));
         }
@@ -319,6 +397,9 @@ impl MetricsCache {
         for application in batch.applications {
             self.register_application(application);
         }
+
+        self.sink_impact_metrics(batch.impact_metrics.clone());
+
         self.sink_metrics(&batch.metrics);
     }
 
@@ -328,12 +409,16 @@ impl MetricsCache {
                 application.connect_via(&connect_via.app_name, &connect_via.instance_id),
             )
         }
+
+        // TODO: sink impact metrics
+
         self.sink_metrics(&metrics.metrics)
     }
 
     pub fn reset_metrics(&self) {
         self.applications.clear();
         self.metrics.clear();
+        self.impact_metrics.clear();
     }
 
     pub fn register_application(&self, application: ClientApplication) {
@@ -392,9 +477,7 @@ mod test {
     use std::str::FromStr;
     use test_case::test_case;
     use unleash_types::client_metrics::SdkType::Backend;
-    use unleash_types::client_metrics::{
-        ClientMetricsEnv, ConnectVia, ConnectViaBuilder, MetricsMetadata,
-    };
+    use unleash_types::client_metrics::{ClientMetricsEnv, ConnectVia, ConnectViaBuilder, MetricsMetadata};
 
     #[test]
     fn cache_aggregates_data_correctly() {
@@ -814,6 +897,7 @@ mod test {
                     },
                 },
             ],
+            impact_metrics: None,
         };
         register_bulk_metrics(
             &metrics_cache,

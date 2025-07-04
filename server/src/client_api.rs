@@ -423,7 +423,7 @@ pub fn configure_experimental_post_features(
 #[cfg(test)]
 mod tests {
 
-    use crate::metrics::client_metrics::{ApplicationKey, MetricsBatch, MetricsKey};
+    use crate::metrics::client_metrics::{ApplicationKey, MetricsKey, MetricsBatch};
     use crate::types::{TokenType, TokenValidationStatus};
     use std::collections::HashMap;
     use std::path::PathBuf;
@@ -453,10 +453,9 @@ mod tests {
         ClientFeature, Constraint, DeltaEvent, Operator, Strategy, StrategyVariant,
     };
     use unleash_types::client_metrics::SdkType::Backend;
-    use unleash_types::client_metrics::{
-        ClientMetricsEnv, ConnectViaBuilder, MetricBucket, MetricsMetadata, ToggleStats,
-    };
+    use unleash_types::client_metrics::{ClientMetricsEnv, ConnectViaBuilder, ImpactMetric, MetricBucket, MetricSample, MetricType, MetricsMetadata, ToggleStats};
     use unleash_yggdrasil::EngineState;
+    use crate::metrics::client_impact_metrics::ImpactMetricsKey;
 
     async fn make_metrics_post_request() -> Request {
         test::TestRequest::post()
@@ -482,6 +481,22 @@ mod tests {
                     },
                 },
                 environment: Some("development".into()),
+                impact_metrics: Some(vec![
+                    ImpactMetric {
+                        name: "test_counter".into(),
+                        help: "Test counter metric".into(),
+                        r#type: "counter".into(),
+                        samples: vec![
+                            MetricSample {
+                                value: 1.0,
+                                labels: Some(hashmap! {
+                                    "label1".to_string() => "value1".to_string(),
+                                    "label2".to_string() => "value2".to_string()
+                                }),
+                            },
+                        ],
+                    },
+                ]),
                 metadata: MetricsMetadata {
                     platform_name: Some("test".into()),
                     platform_version: Some("1.0".into()),
@@ -536,6 +551,22 @@ mod tests {
                     yggdrasil_version: None,
                 },
             }],
+            impact_metrics: Some(vec![
+                ImpactMetric {
+                    name: "bulk_test_counter".into(),
+                    help: "Bulk test counter metric".into(),
+                    r#type: "counter".into(),
+                    samples: vec![
+                        MetricSample {
+                            value: 5.0,
+                            labels: Some(hashmap! {
+                                "bulk_label1".to_string() => "bulk_value1".to_string(),
+                                "bulk_label2".to_string() => "bulk_value2".to_string()
+                            }),
+                        },
+                    ],
+                },
+            ]),
         }))
         .to_request()
     }
@@ -629,6 +660,32 @@ mod tests {
         assert_eq!(found_metric.yes, 1);
         assert_eq!(found_metric.no, 0);
         assert_eq!(found_metric.no, expected.no);
+
+        let impact_key = ImpactMetricsKey {
+            app_name: "some-app".into(),
+            environment: "development".into(),
+        };
+        let impact_metrics = cache.impact_metrics.get(&impact_key).unwrap();
+        assert_eq!(impact_metrics.value().len(), 1);
+
+        let impact_metric = &impact_metrics.value()[0];
+
+        let expected_impact_metric = ImpactMetric {
+            name: "test_counter".into(),
+            help: "Test counter metric".into(),
+            r#type: MetricType::Counter,
+            samples: vec![
+                MetricSample {
+                    value: 1.0,
+                    labels: Some(hashmap! {
+                        "label1".to_string() => "value1".to_string(),
+                        "label2".to_string() => "value2".to_string()
+                    }),
+                },
+            ],
+        };
+
+        assert_eq!(impact_metric.impact_metric, expected_impact_metric);
     }
 
     fn cached_client_features() -> ClientFeatures {
@@ -854,6 +911,7 @@ mod tests {
                 serde_json::to_string(&crate::types::BatchMetricsRequestBody {
                     applications: vec![],
                     metrics: vec![],
+                    impact_metrics: None,
                 })
                 .unwrap(),
             )
