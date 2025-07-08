@@ -1,4 +1,5 @@
 use crate::metrics::client_metrics::MetricsBatch;
+use std::io::{self, Write};
 use tracing::instrument;
 use unleash_types::client_metrics::{ClientApplication, ClientMetricsEnv, ImpactMetricEnv};
 
@@ -10,7 +11,9 @@ pub(crate) fn sendable(batch: &MetricsBatch) -> bool {
 }
 
 pub(crate) fn size_of_batch<T: serde::Serialize>(value: &T) -> usize {
-    serde_json::to_vec(value).map(|s| s.len()).unwrap_or(0)
+    let mut counter = ByteCounter { count: 0 };
+    serde_json::to_writer(&mut counter, &value).unwrap();
+    counter.count
 }
 
 // This is the number of bytes that are not part of the actual items in the batch.
@@ -45,6 +48,20 @@ impl SizedItem {
             size: item.serialized_len(),
             item,
         }
+    }
+}
+struct ByteCounter {
+    count: usize,
+}
+
+impl Write for ByteCounter {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.count += buf.len();
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
     }
 }
 
@@ -271,7 +288,9 @@ mod tests {
         assert_eq!(total_impacts, output_impacts);
 
         for b in batches {
-            let json_size = serde_json::to_vec(&b).unwrap().len();
+            let mut counter = ByteCounter { count: 0 };
+            serde_json::to_writer(&mut counter, &b).unwrap();
+            let json_size = counter.count;
             println!("Batch size: {}, JSON size: {}", batch_size, json_size);
             println!("Batch as bytes:");
             println!("{:02X?}", &b);
