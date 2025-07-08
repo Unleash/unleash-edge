@@ -7,6 +7,7 @@ pub mod actix_web_prometheus_metrics;
 pub mod client_impact_metrics;
 pub mod client_metrics;
 pub mod edge_metrics;
+pub(crate) mod metric_batching;
 pub mod metrics_pusher;
 pub mod route_formatter;
 

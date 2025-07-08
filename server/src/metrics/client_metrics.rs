@@ -1,23 +1,26 @@
-use crate::metrics::client_impact_metrics::{convert_to_impact_metrics_env, merge_impact_metrics, ImpactMetricsKey};
+use crate::metrics::client_impact_metrics::{
+    ImpactMetricsKey, convert_to_impact_metrics_env, merge_impact_metrics,
+};
+use crate::metrics::metric_batching::{cut_into_sendable_batches, sendable, size_of_batch};
 use crate::types::{BatchMetricsRequestBody, EdgeToken};
 use actix_web::web::Data;
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use itertools::Itertools;
 use lazy_static::lazy_static;
-use prometheus::{register_histogram, register_int_counter_vec, Histogram, IntCounterVec};
+use prometheus::{Histogram, IntCounterVec, register_histogram, register_int_counter_vec};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     hash::{Hash, Hasher},
 };
-use tracing::{debug, instrument};
+use tracing::debug;
 use unleash_types::client_metrics::SdkType::Backend;
-use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ClientMetricsEnv, ConnectVia, ImpactMetricEnv, MetricsMetadata};
+use unleash_types::client_metrics::{
+    ClientApplication, ClientMetrics, ClientMetricsEnv, ConnectVia, ImpactMetricEnv,
+    MetricsMetadata,
+};
 use utoipa::ToSchema;
-
-pub const UPSTREAM_MAX_BODY_SIZE: usize = 100 * 1024;
-pub const BATCH_BODY_SIZE: usize = 95 * 1024;
 
 lazy_static! {
     pub static ref METRICS_SIZE_HISTOGRAM: Histogram = register_histogram!(
@@ -62,7 +65,6 @@ impl From<ClientMetricsEnv> for MetricsKey {
     }
 }
 
-
 #[derive(Debug, Clone, Eq, Deserialize, Serialize, ToSchema)]
 pub struct MetricsKey {
     pub app_name: String,
@@ -70,7 +72,6 @@ pub struct MetricsKey {
     pub environment: String,
     pub timestamp: DateTime<Utc>,
 }
-
 
 impl Hash for MetricsKey {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -110,10 +111,6 @@ pub struct MetricsCache {
     pub(crate) applications: DashMap<ApplicationKey, ClientApplication>,
     pub(crate) metrics: DashMap<MetricsKey, ClientMetricsEnv>,
     pub(crate) impact_metrics: DashMap<ImpactMetricsKey, Vec<ImpactMetricEnv>>,
-}
-
-pub(crate) fn size_of_batch(batch: &MetricsBatch) -> usize {
-    serde_json::to_string(batch).map(|s| s.len()).unwrap_or(0)
 }
 
 pub(crate) fn register_client_application(
@@ -198,69 +195,6 @@ pub(crate) fn register_bulk_metrics(
         impact_metrics: metrics.impact_metrics.clone(),
     };
     metrics_cache.sink_bulk_metrics(updated, connect_via);
-}
-
-pub(crate) fn sendable(batch: &MetricsBatch) -> bool {
-    size_of_batch(batch) < UPSTREAM_MAX_BODY_SIZE
-}
-
-#[instrument(skip(batch))]
-pub(crate) fn cut_into_sendable_batches(batch: MetricsBatch) -> Vec<MetricsBatch> {
-    let batch_count = (size_of_batch(&batch) / BATCH_BODY_SIZE) + 1;
-    let apps_count = batch.applications.len();
-    let apps_per_batch = apps_count / batch_count;
-
-    let metrics_count = batch.metrics.len();
-    let metrics_per_batch = metrics_count / batch_count;
-
-    let impact_metrics_count = batch.impact_metrics.len();
-    let impact_metrics_per_batch = if impact_metrics_count > 0 { impact_metrics_count / batch_count } else { 0 };
-
-    debug!(
-        "Batch count: {batch_count}. Apps per batch: {apps_per_batch}, Metrics per batch: {metrics_per_batch}, Impact metrics per batch: {impact_metrics_per_batch}"
-    );
-    (0..=batch_count)
-        .map(|counter| {
-            let apps_iter = batch.applications.iter();
-            let metrics_iter = batch.metrics.iter();
-            let apps_take = if apps_per_batch == 0 && counter == 0 {
-                apps_count
-            } else {
-                apps_per_batch
-            };
-            let metrics_take = if metrics_per_batch == 0 && counter == 0 {
-                metrics_count
-            } else {
-                metrics_per_batch
-            };
-
-            let impact_metrics_iter = batch.impact_metrics.iter();
-            let impact_metrics_take = if impact_metrics_per_batch == 0 && counter == 0 {
-                impact_metrics_count
-            } else {
-                impact_metrics_per_batch
-            };
-
-            MetricsBatch {
-                metrics: metrics_iter
-                    .skip(counter * metrics_per_batch)
-                    .take(metrics_take)
-                    .cloned()
-                    .collect(),
-                applications: apps_iter
-                    .skip(counter * apps_per_batch)
-                    .take(apps_take)
-                    .cloned()
-                    .collect(),
-                impact_metrics: impact_metrics_iter
-                    .skip(counter * impact_metrics_per_batch)
-                    .take(impact_metrics_take)
-                    .cloned()
-                    .collect()
-            }
-        })
-        .filter(|b| !b.applications.is_empty() || !b.metrics.is_empty() || !b.impact_metrics.is_empty())
-        .collect::<Vec<MetricsBatch>>()
 }
 
 impl MetricsCache {
@@ -475,9 +409,9 @@ mod test {
     use chrono::{DateTime, Utc};
     use std::collections::HashMap;
     use std::str::FromStr;
-    use test_case::test_case;
-    use unleash_types::client_metrics::SdkType::Backend;
-    use unleash_types::client_metrics::{ClientMetricsEnv, ConnectVia, ConnectViaBuilder, MetricsMetadata};
+    use unleash_types::client_metrics::{
+        ClientMetricsEnv, ConnectVia, ConnectViaBuilder, MetricsMetadata,
+    };
 
     #[test]
     fn cache_aggregates_data_correctly() {
@@ -734,83 +668,6 @@ mod test {
                 }
             ]
         )
-    }
-
-    #[test_case(10, 100, 1; "10 apps 100 toggles. Will not be split")]
-    #[test_case(1, 10000, 27; "1 app 10k toggles, will be split into 27 batches")]
-    #[test_case(1000, 1000, 8; "1000 apps 1000 toggles, will be split into 8 batches")]
-    #[test_case(500, 5000, 16; "500 apps 5000 toggles, will be split into 16 batches")]
-    #[test_case(5000, 1, 20; "5000 apps 1 metric will be split")]
-    fn splits_successfully_into_sendable_chunks(apps: u64, toggles: u64, batch_count: usize) {
-        let apps: Vec<ClientApplication> = (1..=apps)
-            .map(|app_id| ClientApplication {
-                app_name: format!("app_name_{}", app_id),
-                environment: Some("development".into()),
-                projects: Some(vec![]),
-                instance_id: Some(format!("instance-{}", app_id)),
-                connection_id: Some(format!("connection-{}", app_id)),
-                interval: 10,
-                connect_via: Some(vec![ConnectVia {
-                    app_name: "edge".into(),
-                    instance_id: "some-instance-id".into(),
-                }]),
-                started: DateTime::parse_from_rfc3339("1867-11-07T12:00:00Z")
-                    .unwrap()
-                    .with_timezone(&Utc),
-                strategies: vec![],
-                metadata: MetricsMetadata {
-                    platform_name: None,
-                    platform_version: None,
-                    sdk_version: Some("some-test-sdk".into()),
-                    sdk_type: Some(Backend),
-                    yggdrasil_version: None,
-                },
-            })
-            .collect();
-
-        let toggles: Vec<ClientMetricsEnv> = (1..=toggles)
-            .map(|toggle_id| ClientMetricsEnv {
-                app_name: format!("app_name_{}", toggle_id),
-                feature_name: format!("toggle-{}", toggle_id),
-                environment: "development".into(),
-                timestamp: DateTime::parse_from_rfc3339("1867-11-07T12:00:00Z")
-                    .unwrap()
-                    .with_timezone(&Utc),
-                yes: 1,
-                no: 1,
-                variants: HashMap::new(),
-                metadata: MetricsMetadata {
-                    platform_name: None,
-                    platform_version: None,
-                    sdk_version: None,
-                    sdk_type: None,
-                    yggdrasil_version: None,
-                },
-            })
-            .collect();
-
-        let cache = MetricsCache::default();
-        for app in apps.clone() {
-            cache.applications.insert(
-                ApplicationKey {
-                    app_name: app.app_name.clone(),
-                    instance_id: app.instance_id.clone().unwrap_or_else(|| "unknown".into()),
-                },
-                app,
-            );
-        }
-        cache.sink_metrics(&toggles);
-        let batches = cache.get_appropriately_sized_batches();
-
-        assert_eq!(batches.len(), batch_count);
-        assert!(batches.iter().all(sendable));
-        // Check that we have no duplicates
-        let applications_sent_count = batches.iter().flat_map(|b| b.applications.clone()).count();
-
-        assert_eq!(applications_sent_count, apps.len());
-
-        let metrics_sent_count = batches.iter().flat_map(|b| b.metrics.clone()).count();
-        assert_eq!(metrics_sent_count, toggles.len());
     }
 
     #[test]
