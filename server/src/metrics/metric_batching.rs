@@ -10,8 +10,13 @@ pub(crate) fn sendable(batch: &MetricsBatch) -> bool {
 }
 
 pub(crate) fn size_of_batch<T: serde::Serialize>(value: &T) -> usize {
-    serde_json::to_string(value).map(|s| s.len()).unwrap_or(0)
+    serde_json::to_vec(value).map(|s| s.len()).unwrap_or(0)
 }
+
+// This is the number of bytes that are not part of the actual items in the batch.
+// It includes the opening and closing brackets, commas between items, and the JSON structure overhead.
+// If you patch the MetricsBatch struct, you may need to adjust this value. Prop tests will catch it.
+const EMPTY_BATCH_JSON_OVERHEAD: usize = 51;
 
 struct SizedItem {
     size: usize,
@@ -43,8 +48,7 @@ impl SizedItem {
     }
 }
 
-#[instrument(skip(batch))]
-pub(crate) fn cut_into_sendable_batches(mut batch: MetricsBatch) -> Vec<MetricsBatch> {
+fn partition_batch(mut batch: MetricsBatch, max_batch_size: usize) -> Vec<MetricsBatch> {
     let mut sized_items = Vec::new();
 
     // applications are necessarily first, since Unleash needs to know the application in
@@ -70,12 +74,12 @@ pub(crate) fn cut_into_sendable_batches(mut batch: MetricsBatch) -> Vec<MetricsB
 
     let mut batches = Vec::new();
     let mut current_batch = MetricsBatch::default();
-    let mut current_size = 2; // bit of buffer for braces
+    let mut current_size = EMPTY_BATCH_JSON_OVERHEAD;
 
     for item in sized_items {
         let next_size = current_size + item.size + 1; // for commas separating items
 
-        if next_size > BATCH_BODY_SIZE {
+        if next_size > max_batch_size {
             if !current_batch.applications.is_empty()
                 || !current_batch.metrics.is_empty()
                 || !current_batch.impact_metrics.is_empty()
@@ -83,7 +87,7 @@ pub(crate) fn cut_into_sendable_batches(mut batch: MetricsBatch) -> Vec<MetricsB
                 batches.push(current_batch);
             }
             current_batch = MetricsBatch::default();
-            current_size = 2;
+            current_size = EMPTY_BATCH_JSON_OVERHEAD;
         }
 
         match item.item {
@@ -105,15 +109,18 @@ pub(crate) fn cut_into_sendable_batches(mut batch: MetricsBatch) -> Vec<MetricsB
     batches
 }
 
+#[instrument(skip(batch))]
+pub(crate) fn cut_into_sendable_batches(batch: MetricsBatch) -> Vec<MetricsBatch> {
+    partition_batch(batch, BATCH_BODY_SIZE)
+}
+
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
-    use crate::metrics::client_metrics::{ApplicationKey, MetricsCache};
-
     use super::*;
+    use crate::metrics::client_metrics::{ApplicationKey, MetricsCache};
     use chrono::{DateTime, Utc};
     use proptest::prelude::*;
+    use std::collections::HashMap;
     use test_case::test_case;
     use unleash_types::client_metrics::SdkType::Backend;
     use unleash_types::client_metrics::{
@@ -190,9 +197,9 @@ mod tests {
     }
 
     #[test_case(10, 100, 1; "10 apps 100 toggles. Will not be split")]
-    #[test_case(1, 10000, 26; "1 app 10k toggles, will be split into 27 batches")]
-    #[test_case(1000, 1000, 7; "1000 apps 1000 toggles, will be split into 8 batches")]
-    #[test_case(500, 5000, 15; "500 apps 5000 toggles, will be split into 16 batches")]
+    #[test_case(1, 10000, 26; "1 app 10k toggles, will be split into 26 batches")]
+    #[test_case(1000, 1000, 7; "1000 apps 1000 toggles, will be split into 7 batches")]
+    #[test_case(500, 5000, 15; "500 apps 5000 toggles, will be split into 15 batches")]
     #[test_case(5000, 1, 20; "5000 apps 1 metric will be split")]
     fn splits_successfully_into_sendable_chunks(apps: u64, toggles: u64, batch_count: usize) {
         let apps: Vec<ClientApplication> =
@@ -226,42 +233,77 @@ mod tests {
         assert_eq!(metrics_sent_count, toggles.len());
     }
 
+    fn execute_test(
+        apps: Vec<String>,
+        metrics: Vec<String>,
+        impacts: Vec<String>,
+        batch_size: usize,
+    ) {
+        let apps = apps.into_iter().map(|s| make_client_app(s)).collect();
+        let metrics = metrics.into_iter().map(|s| make_metrics_env(s)).collect();
+        let impacts = impacts
+            .into_iter()
+            .map(|s| make_impact_metric_env(s))
+            .collect();
+
+        let batch = MetricsBatch {
+            applications: apps,
+            metrics,
+            impact_metrics: impacts,
+        };
+
+        let total_apps = batch.applications.len();
+        let total_metrics = batch.metrics.len();
+        let total_impacts = batch.impact_metrics.len();
+
+        let batches = partition_batch(batch, batch_size);
+
+        // Invariants
+        let output_apps = batches.iter().map(|b| b.applications.len()).sum::<usize>();
+        let output_metrics = batches.iter().map(|b| b.metrics.len()).sum::<usize>();
+        let output_impacts = batches
+            .iter()
+            .map(|b| b.impact_metrics.len())
+            .sum::<usize>();
+
+        assert_eq!(total_apps, output_apps);
+        assert_eq!(total_metrics, output_metrics);
+        assert_eq!(total_impacts, output_impacts);
+
+        for b in batches {
+            let json_size = serde_json::to_vec(&b).unwrap().len();
+            println!("Batch size: {}, JSON size: {}", batch_size, json_size);
+            println!("Batch as bytes:");
+            println!("{:02X?}", &b);
+
+            assert!(json_size <= batch_size);
+        }
+    }
+
     proptest! {
         #[test]
         fn prop_batches_obey_size_and_correctness(
-            apps in proptest::collection::vec(any::<String>(), 0..100),
-            metrics in proptest::collection::vec(any::<String>(), 0..100),
-            impacts in proptest::collection::vec(any::<String>(), 0..100)
+            apps in proptest::collection::vec(any::<String>(), 1..100),
+            metrics in proptest::collection::vec(any::<String>(), 1..100),
+            impacts in proptest::collection::vec(any::<String>(), 1..100)
         ) {
-            let apps = apps.into_iter().map(|s| make_client_app(s)).collect();
-            let metrics = metrics.into_iter().map(|s| make_metrics_env(s)).collect();
-            let impacts = impacts.into_iter().map(|s| make_impact_metric_env(s)).collect();
-
-            let batch = MetricsBatch {
-                applications: apps,
-                metrics,
-                impact_metrics: impacts,
-            };
-
-            let total_apps = batch.applications.len();
-            let total_metrics = batch.metrics.len();
-            let total_impacts = batch.impact_metrics.len();
-
-            let batches = cut_into_sendable_batches(batch);
-
-            // Invariants
-            let output_apps = batches.iter().map(|b| b.applications.len()).sum::<usize>();
-            let output_metrics = batches.iter().map(|b| b.metrics.len()).sum::<usize>();
-            let output_impacts = batches.iter().map(|b| b.impact_metrics.len()).sum::<usize>();
-
-            assert_eq!(total_apps, output_apps);
-            assert_eq!(total_metrics, output_metrics);
-            assert_eq!(total_impacts, output_impacts);
-
-            for b in batches {
-                let json_size = serde_json::to_string(&b).unwrap().len();
-                assert!(json_size <= BATCH_BODY_SIZE);
-            }
+            execute_test(apps, metrics, impacts, 2000);
         }
+    }
+
+    #[test]
+    fn invalid_when_container_size_is_2_not_51() {
+        let apps = vec![""].into_iter().map(|x| x.to_string()).collect();
+        let metrics = vec!["", ""].into_iter().map(|x| x.to_string()).collect();
+        let impacts = vec![
+            " 豈豈𑃐𑥐a࿎Σ\\AAﹰ Σ a0🌀ⴧa ጘ𐇐®AAaΣ ",
+            "ຄ𛄲Όຄ𑊊؆ꬠ\"a￼ዂAA ᤰ🠀 aaᝠAA𝈀ﷰa a𝈀 ",
+            "AAaA 🌀\\AA A 🌀AA\"aቘ 🈐🌀🌀  \"00a ಎ",
+            "𐐀  ﹨𑌓 a𞹴 00🠀 aA AA¡  \u{d00}A¡",
+        ]
+        .into_iter()
+        .map(|x| x.to_string())
+        .collect();
+        execute_test(apps, metrics, impacts, 600);
     }
 }
