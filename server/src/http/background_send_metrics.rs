@@ -8,11 +8,9 @@ use prometheus::{IntGauge, IntGaugeVec, Opts, register_int_gauge, register_int_g
 use reqwest::StatusCode;
 use tracing::{error, info, trace, warn};
 
+use crate::metrics::metric_batching::size_of_batch;
 use crate::types::TokenRefresh;
-use crate::{
-    error::EdgeError,
-    metrics::client_metrics::{MetricsCache, size_of_batch},
-};
+use crate::{error::EdgeError, metrics::client_metrics::MetricsCache};
 
 use super::refresher::feature_refresher::FeatureRefresher;
 
