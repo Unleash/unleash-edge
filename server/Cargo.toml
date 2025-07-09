@@ -64,7 +64,7 @@ opentelemetry_sdk = { version = "0.30.0", features = [
     "serde_json",
     "logs",
 ] }
-p12-keystore = "0.1.5"
+p12-keystore = "0.2.0"
 pin-project-lite = "0.2.16"
 pkix = "0.2.4"
 prometheus = { version = "0.14.0", features = ["process"] }
