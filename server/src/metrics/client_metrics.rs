@@ -255,7 +255,7 @@ impl MetricsCache {
         }
 
         for impact_metric in batch.impact_metrics.clone() {
-            self.impact_metrics.remove(&ImpactMetricsKey::from(impact_metric.clone()));
+            self.impact_metrics.remove(&ImpactMetricsKey::from(&impact_metric));
         }
 
         for metric in batch.metrics.clone() {
