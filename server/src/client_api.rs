@@ -423,7 +423,7 @@ pub fn configure_experimental_post_features(
 #[cfg(test)]
 mod tests {
 
-    use crate::metrics::client_metrics::{ApplicationKey, MetricsKey, MetricsBatch};
+    use crate::metrics::client_metrics::{ApplicationKey, MetricsBatch, MetricsKey};
     use crate::types::{TokenType, TokenValidationStatus};
     use std::collections::HashMap;
     use std::path::PathBuf;
@@ -437,6 +437,7 @@ mod tests {
     use crate::delta_cache::{DeltaCache, DeltaHydrationEvent};
     use crate::delta_cache_manager::DeltaCacheManager;
     use crate::http::unleash_client::{ClientMetaInformation, UnleashClient};
+    use crate::metrics::client_impact_metrics::ImpactMetricsKey;
     use crate::middleware;
     use crate::tests::{features_from_disk, upstream_server};
     use actix_http::{Request, StatusCode};
@@ -453,9 +454,11 @@ mod tests {
         ClientFeature, Constraint, DeltaEvent, Operator, Strategy, StrategyVariant,
     };
     use unleash_types::client_metrics::SdkType::Backend;
-    use unleash_types::client_metrics::{ClientMetricsEnv, ConnectViaBuilder, ImpactMetric, MetricBucket, MetricSample, MetricType, MetricsMetadata, ToggleStats};
+    use unleash_types::client_metrics::{
+        ClientMetricsEnv, ConnectViaBuilder, ImpactMetric, MetricBucket, MetricSample, MetricType,
+        MetricsMetadata, ToggleStats,
+    };
     use unleash_yggdrasil::EngineState;
-    use crate::metrics::client_impact_metrics::ImpactMetricsKey;
 
     async fn make_metrics_post_request() -> Request {
         test::TestRequest::post()
@@ -481,22 +484,18 @@ mod tests {
                     },
                 },
                 environment: Some("development".into()),
-                impact_metrics: Some(vec![
-                    ImpactMetric {
-                        name: "test_counter".into(),
-                        help: "Test counter metric".into(),
-                        r#type: "counter".into(),
-                        samples: vec![
-                            MetricSample {
-                                value: 1.0,
-                                labels: Some(hashmap! {
-                                    "label1".to_string() => "value1".to_string(),
-                                    "label2".to_string() => "value2".to_string()
-                                }),
-                            },
-                        ],
-                    },
-                ]),
+                impact_metrics: Some(vec![ImpactMetric {
+                    name: "test_counter".into(),
+                    help: "Test counter metric".into(),
+                    r#type: "counter".into(),
+                    samples: vec![MetricSample {
+                        value: 1.0,
+                        labels: Some(hashmap! {
+                            "label1".to_string() => "value1".to_string(),
+                            "label2".to_string() => "value2".to_string()
+                        }),
+                    }],
+                }]),
                 metadata: MetricsMetadata {
                     platform_name: Some("test".into()),
                     platform_version: Some("1.0".into()),
@@ -551,22 +550,18 @@ mod tests {
                     yggdrasil_version: None,
                 },
             }],
-            impact_metrics: Some(vec![
-                ImpactMetric {
-                    name: "bulk_test_counter".into(),
-                    help: "Bulk test counter metric".into(),
-                    r#type: "counter".into(),
-                    samples: vec![
-                        MetricSample {
-                            value: 5.0,
-                            labels: Some(hashmap! {
-                                "bulk_label1".to_string() => "bulk_value1".to_string(),
-                                "bulk_label2".to_string() => "bulk_value2".to_string()
-                            }),
-                        },
-                    ],
-                },
-            ]),
+            impact_metrics: Some(vec![ImpactMetric {
+                name: "bulk_test_counter".into(),
+                help: "Bulk test counter metric".into(),
+                r#type: "counter".into(),
+                samples: vec![MetricSample {
+                    value: 5.0,
+                    labels: Some(hashmap! {
+                        "bulk_label1".to_string() => "bulk_value1".to_string(),
+                        "bulk_label2".to_string() => "bulk_value2".to_string()
+                    }),
+                }],
+            }]),
         }))
         .to_request()
     }
@@ -674,15 +669,13 @@ mod tests {
             name: "test_counter".into(),
             help: "Test counter metric".into(),
             r#type: MetricType::Counter,
-            samples: vec![
-                MetricSample {
-                    value: 1.0,
-                    labels: Some(hashmap! {
-                        "label1".to_string() => "value1".to_string(),
-                        "label2".to_string() => "value2".to_string()
-                    }),
-                },
-            ],
+            samples: vec![MetricSample {
+                value: 1.0,
+                labels: Some(hashmap! {
+                    "label1".to_string() => "value1".to_string(),
+                    "label2".to_string() => "value2".to_string()
+                }),
+            }],
         };
 
         assert_eq!(impact_metric.impact_metric, expected_impact_metric);

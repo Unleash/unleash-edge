@@ -34,6 +34,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
+      - name: Check formatting with cargo fmt
+        run: cargo fmt --all -- --check
       - name: Build so our integration tests have a binary
         run: |
           cargo build
