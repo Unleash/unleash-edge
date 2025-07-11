@@ -15,6 +15,8 @@ on:
   pull_request:
     branches:
       - main
+env:
+  RUST_VERSION: 1.87.0
 jobs:
   tarpaulin:
     runs-on: ubuntu-latest
@@ -29,7 +31,8 @@ jobs:
       - name: Install rust
         run: |
           rustup set auto-self-update disable
-          rustup toolchain install 1.87.0 --profile minimal
+          rustup toolchain install $RUST_VERSION --profile minimal
+          rustup component add rustfmt --toolchain $RUST_VERSION
           rustup show
       - uses: Swatinem/rust-cache@v2
         with:
