@@ -102,7 +102,11 @@ impl PartialEq for MetricsKey {
 pub struct MetricsBatch {
     pub applications: Vec<ClientApplication>,
     pub metrics: Vec<ClientMetricsEnv>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty", rename = "impactMetrics")]
+    #[serde(
+        default,
+        skip_serializing_if = "Vec::is_empty",
+        rename = "impactMetrics"
+    )]
     pub impact_metrics: Vec<ImpactMetricEnv>,
 }
 
@@ -162,7 +166,8 @@ pub(crate) fn register_client_metrics(
     );
 
     if let Some(impact_metrics) = metrics.impact_metrics {
-        let impact_metrics_env = convert_to_impact_metrics_env(impact_metrics, metrics.app_name.clone(), environment);
+        let impact_metrics_env =
+            convert_to_impact_metrics_env(impact_metrics, metrics.app_name.clone(), environment);
         metrics_cache.sink_impact_metrics(impact_metrics_env);
     }
 
@@ -227,7 +232,10 @@ impl MetricsCache {
             .into_group_map_by(|metric| metric.environment.clone());
 
         for environment in all_environments {
-            let metrics = metrics_by_env.get(&environment).cloned().unwrap_or_default();
+            let metrics = metrics_by_env
+                .get(&environment)
+                .cloned()
+                .unwrap_or_default();
 
             let mut all_impact_metrics = Vec::new();
             for entry in self.impact_metrics.iter() {
@@ -255,7 +263,8 @@ impl MetricsCache {
         }
 
         for impact_metric in batch.impact_metrics.clone() {
-            self.impact_metrics.remove(&ImpactMetricsKey::from(impact_metric.clone()));
+            self.impact_metrics
+                .remove(&ImpactMetricsKey::from(impact_metric.clone()));
         }
 
         for metric in batch.metrics.clone() {
