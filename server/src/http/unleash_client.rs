@@ -172,8 +172,10 @@ fn load_pkcs12(id: &ClientIdentity) -> EdgeResult<Identity> {
                 }
             }
             p12_keystore::KeyStoreEntry::Secret(_) => {
-                info!("Direct secret, skipping. We want chain because client identity needs the private key")
-            },
+                info!(
+                    "Direct secret, skipping. We want chain because client identity needs the private key"
+                )
+            }
         }
     }
 
