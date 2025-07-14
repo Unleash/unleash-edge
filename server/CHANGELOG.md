@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [19.12.1](https://github.com/Unleash/unleash-edge/compare/v19.12.0...v19.12.1) - 2025-07-14
+
+### Dependency updates
+- bump p12-keystore from 0.1.5 to 0.2.0 ([#1027](https://github.com/unleash/unleash-edge/issues/1027)) (by @dependabot[bot]) - #1027
+- bump zip from 3.0.0 to 4.2.0 ([#1004](https://github.com/unleash/unleash-edge/issues/1004)) (by @dependabot[bot]) - #1004
+- bump rustls from 0.23.28 to 0.23.29 ([#1034](https://github.com/unleash/unleash-edge/issues/1034)) (by @dependabot[bot]) - #1034
+- bump clap from 4.5.40 to 4.5.41 ([#1032](https://github.com/unleash/unleash-edge/issues/1032)) (by @dependabot[bot]) - #1032
+
+### ⚡ Performance
+- optimize impact metrics ([#1036](https://github.com/unleash/unleash-edge/issues/1036)) (by @sighphyre) - #1036
+
+### ⚙️ Miscellaneous Tasks
+- apply formatter and enforce in the build ([#1035](https://github.com/unleash/unleash-edge/issues/1035)) (by @sighphyre) - #1035
+
+### Contributors
+
+* @dependabot[bot]
+* @sighphyre
+
 ## [19.12.0](https://github.com/Unleash/unleash-edge/compare/v19.11.3...v19.12.0) - 2025-07-09
 
 ### 🚀 Features
