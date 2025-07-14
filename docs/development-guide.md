@@ -17,6 +17,52 @@ cp hooks/* .git/hooks/
 * We will adhere to [Semantic versioning](https://semver.org/)
 * We use Clippy to ensure that our code follows a consistent format, you can run Clippy using `cargo clippy --fix` once it's installed
 
+### Development Toolchain Installation
+
+For a quicker build/test loop, we provide a `just` setup which takes around a tenth of the time of `cargo build`. You'll need to install a few tools for this to work correctly.
+
+#### Just
+
+Just can be installed with cargo:
+
+```shell
+cargo install just
+```
+
+#### Clang + LLD
+
+Linux (Debian/Ubuntu-based):
+```shell
+sudo apt install clang lld
+```
+
+MacOS
+```shell
+xcode-select --install
+```
+Windows
+Install the "Desktop Development with C++" workload via the Visual Studio Installer. This typically includes clang and lld.
+
+#### Cranelift
+Ensure you're using a nightly Rust toolchain
+
+```shell
+rustup default nightly
+```
+Install cranelift with rustup:
+``` shell
+rustup component add rustc-codegen-cranelift-preview --toolchain nightly
+```
+
+#### Using The Development Build
+
+The just file provides a build and a test, which use a the Cranelift backend + LLD linker. These steps skip the integration tests. This is typically about ten times faster than standard `cargo build`:
+
+``` shell
+just build
+just test
+```
+
 ### Common commands
 
  - `cargo add ...` - Add a dependency to the Cargo.toml file

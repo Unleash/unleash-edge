@@ -429,7 +429,11 @@ pub struct BatchMetricsRequest {
 pub struct BatchMetricsRequestBody {
     pub applications: Vec<ClientApplication>,
     pub metrics: Vec<ClientMetricsEnv>,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "impactMetrics")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "impactMetrics"
+    )]
     pub impact_metrics: Option<Vec<ImpactMetric>>,
 }
 
