@@ -425,7 +425,7 @@ mod tests {
 
     use crate::metrics::client_metrics::{ApplicationKey, MetricsBatch, MetricsKey};
     use crate::types::{TokenType, TokenValidationStatus};
-    use std::collections::HashMap;
+    use std::collections::{BTreeMap, HashMap};
     use std::path::PathBuf;
     use std::str::FromStr;
     use std::sync::Arc;
@@ -490,10 +490,10 @@ mod tests {
                     r#type: "counter".into(),
                     samples: vec![MetricSample {
                         value: 1.0,
-                        labels: Some(hashmap! {
-                            "label1".to_string() => "value1".to_string(),
-                            "label2".to_string() => "value2".to_string()
-                        }),
+                        labels: Some(BTreeMap::from([
+                            ("label1".into(), "value1".into()),
+                            ("label2".into(), "value2".into()),
+                        ])),
                     }],
                 }]),
                 metadata: MetricsMetadata {
@@ -556,10 +556,10 @@ mod tests {
                 r#type: "counter".into(),
                 samples: vec![MetricSample {
                     value: 5.0,
-                    labels: Some(hashmap! {
-                        "bulk_label1".to_string() => "bulk_value1".to_string(),
-                        "bulk_label2".to_string() => "bulk_value2".to_string()
-                    }),
+                    labels: Some(BTreeMap::from([
+                        ("bulk_label1".into(), "bulk_value1".into()),
+                        ("bulk_label2".into(), "bulk_value2".into()),
+                    ])),
                 }],
             }]),
         }))
@@ -671,10 +671,10 @@ mod tests {
             r#type: MetricType::Counter,
             samples: vec![MetricSample {
                 value: 1.0,
-                labels: Some(hashmap! {
-                    "label1".to_string() => "value1".to_string(),
-                    "label2".to_string() => "value2".to_string()
-                }),
+                labels: Some(BTreeMap::from([
+                    ("label1".into(), "value1".into()),
+                    ("label2".into(), "value2".into()),
+                ])),
             }],
         };
 

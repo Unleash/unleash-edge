@@ -3,7 +3,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::hash::Hash;
-use unleash_types::Merge;
+use unleash_types::MergeMut;
 use unleash_types::client_metrics::{ImpactMetric, ImpactMetricEnv};
 use utoipa::ToSchema;
 
@@ -13,11 +13,11 @@ pub struct ImpactMetricsKey {
     pub environment: String,
 }
 
-impl From<ImpactMetricEnv> for ImpactMetricsKey {
-    fn from(value: ImpactMetricEnv) -> Self {
+impl From<&ImpactMetricEnv> for ImpactMetricsKey {
+    fn from(value: &ImpactMetricEnv) -> Self {
         Self {
-            app_name: value.app_name,
-            environment: value.environment,
+            app_name: value.app_name.clone(),
+            environment: value.environment.clone(),
         }
     }
 }
@@ -38,7 +38,7 @@ fn group_by_key(
 ) -> HashMap<ImpactMetricsKey, Vec<ImpactMetricEnv>> {
     impact_metrics
         .into_iter()
-        .chunk_by(|m| ImpactMetricsKey::from(m.clone()))
+        .chunk_by(|m| ImpactMetricsKey::from(m))
         .into_iter()
         .map(|(k, group)| (k, group.collect()))
         .collect()
@@ -52,7 +52,7 @@ fn index_by_name(metrics: Vec<ImpactMetricEnv>) -> HashMap<String, ImpactMetricE
 }
 
 fn reduce_metrics_samples(metric: ImpactMetricEnv) -> ImpactMetricEnv {
-    let empty_metric = ImpactMetricEnv::new(
+    let mut empty_metric = ImpactMetricEnv::new(
         ImpactMetric {
             name: metric.impact_metric.name.clone(),
             help: metric.impact_metric.help.clone(),
@@ -63,7 +63,8 @@ fn reduce_metrics_samples(metric: ImpactMetricEnv) -> ImpactMetricEnv {
         metric.environment.clone(),
     );
 
-    empty_metric.merge(metric)
+    empty_metric.merge(metric);
+    empty_metric
 }
 
 pub fn merge_impact_metrics(metrics: Vec<ImpactMetricEnv>) -> Vec<ImpactMetricEnv> {
@@ -78,8 +79,7 @@ pub fn merge_impact_metrics(metrics: Vec<ImpactMetricEnv>) -> Vec<ImpactMetricEn
         let metric_name = metric.impact_metric.name.clone();
 
         if let Some(existing_metric) = merged_metrics.get_mut(&metric_name) {
-            let merged = existing_metric.clone().merge(metric);
-            *existing_metric = merged;
+            existing_metric.merge(metric);
         } else {
             merged_metrics.insert(metric_name, metric);
         }
@@ -107,14 +107,12 @@ impl MetricsCache {
                 if let Some(existing_metric) =
                     aggregated_metrics.get_mut(&reduced_metric.impact_metric.name)
                 {
-                    let merged = existing_metric.clone().merge(reduced_metric);
-                    *existing_metric = merged;
+                    existing_metric.merge(reduced_metric);
                 } else {
                     aggregated_metrics
                         .insert(reduced_metric.impact_metric.name.clone(), reduced_metric);
                 }
             }
-
             self.impact_metrics
                 .insert(key, aggregated_metrics.into_values().collect());
         }
@@ -126,12 +124,12 @@ mod test {
     use super::*;
     use crate::metrics::client_metrics::MetricsCache;
     use chrono::Utc;
-    use std::collections::HashMap;
+    use std::collections::{BTreeMap, HashMap};
     use unleash_types::client_metrics::{ClientMetricsEnv, MetricsMetadata};
 
     fn create_sample(
         value: f64,
-        labels: HashMap<String, String>,
+        labels: BTreeMap<String, String>,
     ) -> unleash_types::client_metrics::MetricSample {
         unleash_types::client_metrics::MetricSample {
             value,
@@ -152,8 +150,8 @@ mod test {
         }
     }
 
-    fn create_test_labels(key: &str, value: &str) -> HashMap<String, String> {
-        HashMap::from([(key.into(), value.into())])
+    fn create_test_labels(key: &str, value: &str) -> BTreeMap<String, String> {
+        BTreeMap::from([(key.into(), value.into())])
     }
 
     fn create_and_sink_impact_metrics(
@@ -164,7 +162,7 @@ mod test {
         metric_type: &str,
         value: f64,
     ) {
-        let labels = HashMap::from([("env".into(), env.into())]);
+        let labels = BTreeMap::from([("env".into(), env.into())]);
         let impact_metrics = vec![ImpactMetricEnv::new(
             create_impact_metric(metric_name, metric_type, vec![create_sample(value, labels)]),
             app_name.into(),
@@ -278,7 +276,7 @@ mod test {
             app_name: app1.into(),
             environment: env.into(),
         };
-        let app1_labels = HashMap::from([("appName".into(), "my-application-1".into())]);
+        let app1_labels = BTreeMap::from([("appName".into(), "my-application-1".into())]);
         let app1_metrics = vec![create_impact_metric(
             "test",
             "counter",
@@ -290,7 +288,7 @@ mod test {
             app_name: app2.into(),
             environment: env.into(),
         };
-        let app2_labels = HashMap::from([("appName".into(), "my-application-2".into())]);
+        let app2_labels = BTreeMap::from([("appName".into(), "my-application-2".into())]);
         let app2_metrics = vec![create_impact_metric(
             "test",
             "counter",
