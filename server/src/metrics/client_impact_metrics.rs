@@ -3,8 +3,8 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::hash::Hash;
+use unleash_types::MergeMut;
 use unleash_types::client_metrics::{ImpactMetric, ImpactMetricEnv};
-use unleash_types::{Merge, MergeMut};
 use utoipa::ToSchema;
 
 #[derive(Debug, Clone, Eq, Deserialize, Serialize, ToSchema, Hash, PartialEq)]

@@ -28,9 +28,6 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }
 default = ["s3-persistence"]
 s3-persistence = ["aws-sdk-s3", "aws-config"]
 
-[profile.release]
-debug = true
-
 [dependencies]
 actix-allow-deny-middleware = "0.1.2"
 actix-cors = "0.7.1"
@@ -105,8 +102,8 @@ tokio-stream = { version = "0.1.17" }
 tracing = { version = "0.1.41", features = ["log"] }
 tracing-subscriber = { version = "0.3.19", features = ["json", "env-filter"] }
 ulid = "1.2.1"
-unleash-types = { path = "../../unleash-domain/unleash-types-rs", features = ["openapi", "hashes"] }
-unleash-yggdrasil = { path = "../../yggdrasil/unleash-yggdrasil" }
+unleash-types = { version = "0.15.19", features = ["openapi", "hashes"] }
+unleash-yggdrasil = { version = "0.17.5" }
 utoipa = { version = "5.4.0", features = ["actix_extras", "chrono"] }
 utoipa-swagger-ui = { version = "9.0.2", features = ["actix-web"] }
 zip = { version = "3.0.0" }
