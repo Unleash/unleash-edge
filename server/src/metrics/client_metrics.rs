@@ -245,12 +245,10 @@ impl MetricsCache {
                 }
             }
 
-            let merged_impact_metrics = merge_impact_metrics(all_impact_metrics);
-
             let batch = MetricsBatch {
                 applications: applications.clone(),
                 metrics,
-                impact_metrics: merged_impact_metrics,
+                impact_metrics: all_impact_metrics,
             };
             batches_by_environment.insert(environment, batch);
         }
