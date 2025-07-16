@@ -103,7 +103,6 @@ pub async fn send_metrics_task(
     metrics_cache: Arc<MetricsCache>,
     feature_refresher: Arc<FeatureRefresher>,
     send_interval: i64,
-    instance_id: String,
 ) {
     let mut failures = 0;
     let mut interval = Duration::seconds(send_interval);
@@ -170,7 +169,7 @@ pub async fn send_metrics_task(
                                             "Upstream said it was too busy, backing off to {} seconds",
                                             interval.num_seconds()
                                         );
-                                        metrics_cache.reinsert_batch(batch, instance_id.clone());
+                                        metrics_cache.reinsert_batch(batch);
                                     }
                                     StatusCode::INTERNAL_SERVER_ERROR
                                     | StatusCode::BAD_GATEWAY
@@ -183,13 +182,13 @@ pub async fn send_metrics_task(
                                             status_code,
                                             interval.num_seconds()
                                         );
-                                        metrics_cache.reinsert_batch(batch, instance_id.clone());
+                                        metrics_cache.reinsert_batch(batch);
                                     }
                                     _ => {
                                         warn!(
                                             "Failed to send metrics. Status code was {status_code}. Will reinsert metrics for next attempt"
                                         );
-                                        metrics_cache.reinsert_batch(batch, instance_id.clone());
+                                        metrics_cache.reinsert_batch(batch);
                                     }
                                 }
                             }
