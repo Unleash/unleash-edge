@@ -89,7 +89,7 @@ pub fn merge_impact_metrics(metrics: Vec<ImpactMetricEnv>) -> Vec<ImpactMetricEn
 }
 
 impl MetricsCache {
-    pub fn sink_impact_metrics(&self, impact_metrics: Vec<ImpactMetricEnv>, instance_id: String) {
+    pub fn sink_impact_metrics(&self, impact_metrics: Vec<ImpactMetricEnv>) {
         let metrics_by_key = group_by_key(impact_metrics);
 
         for (key, metrics) in metrics_by_key {
@@ -118,18 +118,10 @@ impl MetricsCache {
                 .map(|mut metric| {
                     for sample in &mut metric.impact_metric.samples {
                         if let Some(labels) = &mut sample.labels {
-                            labels.insert("connected_via".to_string(), instance_id.clone());
                             labels.insert("origin".to_string(), "edge".into());
                         } else {
-                            sample.labels = Some(BTreeMap::from([(
-                                "connected_via".into(),
-                                instance_id.clone(),
-                            )]));
-                            sample
-                                .labels
-                                .as_mut()
-                                .unwrap()
-                                .insert("origin".into(), "edge".into());
+                            sample.labels =
+                                Some(BTreeMap::from([("origin".into(), "edge".into())]));
                         }
                     }
                     metric
@@ -190,7 +182,7 @@ mod test {
             app_name.into(),
             env.into(),
         )];
-        cache.sink_impact_metrics(impact_metrics, "".into());
+        cache.sink_impact_metrics(impact_metrics);
     }
 
     fn create_client_metrics(
@@ -251,14 +243,16 @@ mod test {
             ],
         )];
 
-        cache.sink_impact_metrics(
-            convert_to_impact_metrics_env(counter_metrics, app.into(), env.into()),
-            "".into(),
-        );
-        cache.sink_impact_metrics(
-            convert_to_impact_metrics_env(gauge_metrics, app.into(), env.into()),
-            "".into(),
-        );
+        cache.sink_impact_metrics(convert_to_impact_metrics_env(
+            counter_metrics,
+            app.into(),
+            env.into(),
+        ));
+        cache.sink_impact_metrics(convert_to_impact_metrics_env(
+            gauge_metrics,
+            app.into(),
+            env.into(),
+        ));
 
         let aggregated_metrics = cache.impact_metrics.get(&test_key).unwrap();
         let counter = aggregated_metrics
@@ -398,11 +392,10 @@ mod test {
     }
 
     #[test]
-    pub fn sink_impact_metrics_injects_connected_via_label() {
+    pub fn sink_impact_metrics_injects_origin_label() {
         let cache = MetricsCache::default();
         let app = "test_app";
         let env = "test_env";
-        let instance_id = "proxy-123";
 
         let test_key = ImpactMetricsKey {
             app_name: app.into(),
@@ -417,10 +410,11 @@ mod test {
             vec![create_sample(5.0, labels.clone())],
         )];
 
-        cache.sink_impact_metrics(
-            convert_to_impact_metrics_env(metrics, app.into(), env.into()),
-            instance_id.into(),
-        );
+        cache.sink_impact_metrics(convert_to_impact_metrics_env(
+            metrics,
+            app.into(),
+            env.into(),
+        ));
 
         let stored_metrics = cache.impact_metrics.get(&test_key).unwrap();
         let metric = stored_metrics
@@ -433,9 +427,9 @@ mod test {
         let sample_labels = sample.labels.as_ref().expect("Sample should have labels");
 
         assert_eq!(
-            sample_labels.get("connected_via"),
-            Some(&instance_id.to_string()),
-            "Should inject 'connected_via' label with instance_id"
+            sample_labels.get("origin"),
+            Some(&"edge".to_string()),
+            "Should inject 'origin' label with edge value"
         );
 
         // double check original labels are preserved
