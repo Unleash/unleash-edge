@@ -118,10 +118,10 @@ impl MetricsCache {
                 .map(|mut metric| {
                     for sample in &mut metric.impact_metric.samples {
                         if let Some(labels) = &mut sample.labels {
-                            labels.insert("connected-via".to_string(), instance_id.clone());
+                            labels.insert("connected_via".to_string(), instance_id.clone());
                         } else {
                             sample.labels = Some(BTreeMap::from([(
-                                "connected-via".into(),
+                                "connected_via".into(),
                                 instance_id.clone(),
                             )]));
                         }
@@ -427,9 +427,9 @@ mod test {
         let sample_labels = sample.labels.as_ref().expect("Sample should have labels");
 
         assert_eq!(
-            sample_labels.get("connected-via"),
+            sample_labels.get("connected_via"),
             Some(&instance_id.to_string()),
-            "Should inject 'connected-via' label with instance_id"
+            "Should inject 'connected_via' label with instance_id"
         );
 
         // double check original labels are preserved

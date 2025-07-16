@@ -677,7 +677,7 @@ mod tests {
                 labels: Some(BTreeMap::from([
                     ("label1".into(), "value1".into()),
                     ("label2".into(), "value2".into()),
-                    ("connected-via".into(), instance_id.clone()),
+                    ("connected_via".into(), instance_id.clone()),
                 ])),
             }],
         };
