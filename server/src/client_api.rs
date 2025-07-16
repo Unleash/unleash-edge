@@ -678,6 +678,7 @@ mod tests {
                     ("label1".into(), "value1".into()),
                     ("label2".into(), "value2".into()),
                     ("connected_via".into(), instance_id.clone()),
+                    ("origin".into(), "edge".into()),
                 ])),
             }],
         };

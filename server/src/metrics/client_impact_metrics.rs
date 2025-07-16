@@ -119,11 +119,17 @@ impl MetricsCache {
                     for sample in &mut metric.impact_metric.samples {
                         if let Some(labels) = &mut sample.labels {
                             labels.insert("connected_via".to_string(), instance_id.clone());
+                            labels.insert("origin".to_string(), "edge".into());
                         } else {
                             sample.labels = Some(BTreeMap::from([(
                                 "connected_via".into(),
                                 instance_id.clone(),
                             )]));
+                            sample
+                                .labels
+                                .as_mut()
+                                .unwrap()
+                                .insert("origin".into(), "edge".into());
                         }
                     }
                     metric
