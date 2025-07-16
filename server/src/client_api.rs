@@ -338,11 +338,13 @@ pub async fn metrics(
     edge_token: EdgeToken,
     metrics: Json<ClientMetrics>,
     metrics_cache: Data<MetricsCache>,
+    connect_via: Data<ConnectVia>,
 ) -> EdgeResult<HttpResponse> {
     crate::metrics::client_metrics::register_client_metrics(
         edge_token,
         metrics.into_inner(),
         metrics_cache,
+        connect_via.instance_id.clone(),
     );
     Ok(HttpResponse::Accepted().finish())
 }
@@ -603,12 +605,13 @@ mod tests {
     #[actix_web::test]
     async fn metrics_endpoint_correctly_aggregates_data() {
         let metrics_cache = Arc::new(MetricsCache::default());
+        let instance_id = Ulid::new().to_string();
 
         let app = test::init_service(
             App::new()
                 .app_data(Data::new(ConnectVia {
                     app_name: "test".into(),
-                    instance_id: Ulid::new().to_string(),
+                    instance_id: instance_id.clone(),
                 }))
                 .app_data(Data::from(metrics_cache.clone()))
                 .service(web::scope("/api/client").service(metrics)),
@@ -674,6 +677,7 @@ mod tests {
                 labels: Some(BTreeMap::from([
                     ("label1".into(), "value1".into()),
                     ("label2".into(), "value2".into()),
+                    ("connected-via".into(), instance_id.clone()),
                 ])),
             }],
         };
