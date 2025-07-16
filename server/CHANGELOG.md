@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [19.12.2](https://github.com/Unleash/unleash-edge/compare/v19.12.1...v19.12.2) - 2025-07-16
+
+### 🐛 Bug Fixes
+- stop merging samples for impact metrics ([#1037](https://github.com/unleash/unleash-edge/issues/1037)) (by @kwasniew) - #1037
+
+### Dependency updates
+- bump aws-config from 1.8.1 to 1.8.2 ([#1039](https://github.com/unleash/unleash-edge/issues/1039)) (by @dependabot[bot]) - #1039
+
+### ⚙️ Miscellaneous Tasks
+- add connect via + origin labels for all ingested impact metrics ([#1040](https://github.com/unleash/unleash-edge/issues/1040)) (by @sighphyre) - #1040
+
+### Contributors
+
+* @sighphyre
+* @dependabot[bot]
+* @kwasniew
+
 ## [19.12.1](https://github.com/Unleash/unleash-edge/compare/v19.12.0...v19.12.1) - 2025-07-14
 
 ### Dependency updates
