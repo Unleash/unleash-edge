@@ -56,11 +56,18 @@ rustup component add rustc-codegen-cranelift-preview --toolchain nightly
 
 #### Using The Development Build
 
-The just file provides a build and a test, which use a the Cranelift backend + LLD linker. These steps skip the integration tests. This is typically about ten times faster than standard `cargo build`:
+The just file provides fast build and test commands using the Cranelift backend and LLD linker. These steps skip integration tests and are typically ~10x faster than a full cargo build.
 
 ``` shell
 just build
 just test
+```
+
+If you're unable to use LLD (due to system configuration, linker errors, or platform limitations), use the system linker instead:
+
+```shell
+just sysbuild
+just systest
 ```
 
 ### Common commands
