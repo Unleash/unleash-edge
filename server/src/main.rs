@@ -66,6 +66,7 @@ async fn main() -> Result<(), anyhow::Error> {
         app_name: args.clone().app_name,
         instance_id: our_instance_data_for_app_context.identifier.clone(),
     };
+    let instance_id = connect_via.instance_id.clone();
     let our_instance_data = our_instance_data_for_app_context.clone();
     let identifier = our_instance_data_for_app_context.identifier.clone();
     let metrics_middleware = prom_metrics::instantiate(
@@ -266,7 +267,7 @@ async fn main() -> Result<(), anyhow::Error> {
                 _ = refresher.start_refresh_features_background_task() => {
                     info!("Feature refresher unexpectedly shut down");
                 }
-                _ = unleash_edge::http::background_send_metrics::send_metrics_task(metrics_cache_clone.clone(), refresher.clone(), edge.metrics_interval_seconds.try_into().unwrap()) => {
+                _ = unleash_edge::http::background_send_metrics::send_metrics_task(metrics_cache_clone.clone(), refresher.clone(), edge.metrics_interval_seconds.try_into().unwrap(), instance_id) => {
                     info!("Metrics poster unexpectedly shut down");
                 }
                 _ = persist_data(persistence.clone(), lazy_token_cache.clone(), lazy_feature_cache.clone()) => {

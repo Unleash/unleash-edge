@@ -153,11 +153,13 @@ async fn post_all_proxy_metrics(
     edge_token: EdgeToken,
     metrics: Json<ClientMetrics>,
     metrics_cache: Data<MetricsCache>,
+    connect_via: Data<ConnectVia>,
 ) -> EdgeResult<HttpResponse> {
     crate::metrics::client_metrics::register_client_metrics(
         edge_token,
         metrics.into_inner(),
         metrics_cache,
+        connect_via.instance_id.clone(),
     );
 
     Ok(HttpResponse::Accepted().finish())
@@ -179,11 +181,13 @@ async fn post_all_frontend_metrics(
     edge_token: EdgeToken,
     metrics: Json<ClientMetrics>,
     metrics_cache: Data<MetricsCache>,
+    connect_via: Data<ConnectVia>,
 ) -> EdgeResult<HttpResponse> {
     crate::metrics::client_metrics::register_client_metrics(
         edge_token,
         metrics.into_inner(),
         metrics_cache,
+        connect_via.instance_id.clone(),
     );
 
     Ok(HttpResponse::Accepted().finish())
@@ -571,6 +575,7 @@ async fn post_proxy_metrics(
         edge_token,
         metrics.into_inner(),
         metrics_cache,
+        "".into(),
     );
 
     Ok(HttpResponse::Accepted().finish())
@@ -625,6 +630,7 @@ async fn post_frontend_metrics(
         edge_token,
         metrics.into_inner(),
         metrics_cache,
+        "".into(),
     );
 
     Ok(HttpResponse::Accepted().finish())
@@ -843,7 +849,7 @@ mod tests {
     use std::str::FromStr;
     use std::sync::Arc;
     use tracing_test::traced_test;
-    use unleash_types::client_metrics::{ClientMetricsEnv, MetricsMetadata};
+    use unleash_types::client_metrics::{ClientMetricsEnv, ConnectVia, MetricsMetadata};
     use unleash_types::{
         client_features::{ClientFeature, ClientFeatures, Constraint, Operator, Strategy},
         frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult},
@@ -1277,10 +1283,15 @@ mod tests {
     #[actix_web::test]
     async fn metrics_all_does_the_same_thing_as_base_metrics() {
         let metrics_cache = Arc::new(MetricsCache::default());
+        let connect_via = Arc::new(ConnectVia {
+            app_name: "some-app".into(),
+            instance_id: "some-instance".into(),
+        });
 
         let app = test::init_service(
             App::new()
                 .app_data(Data::from(metrics_cache.clone()))
+                .app_data(Data::from(connect_via.clone()))
                 .service(web::scope("/api/proxy").service(super::post_proxy_metrics))
                 .service(web::scope("/api/frontend").service(super::post_all_frontend_metrics)),
         )
