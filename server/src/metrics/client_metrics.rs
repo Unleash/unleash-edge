@@ -152,6 +152,7 @@ pub(crate) fn register_client_metrics(
     edge_token: EdgeToken,
     metrics: ClientMetrics,
     metrics_cache: Data<MetricsCache>,
+    instance_id: String,
 ) {
     let environment = edge_token
         .environment
@@ -168,7 +169,7 @@ pub(crate) fn register_client_metrics(
     if let Some(impact_metrics) = metrics.impact_metrics {
         let impact_metrics_env =
             convert_to_impact_metrics_env(impact_metrics, metrics.app_name.clone(), environment);
-        metrics_cache.sink_impact_metrics(impact_metrics_env);
+        metrics_cache.sink_impact_metrics(impact_metrics_env, instance_id);
     }
 
     metrics_cache.sink_metrics(&client_metrics_env);
@@ -334,12 +335,12 @@ impl MetricsCache {
         }
     }
 
-    pub fn reinsert_batch(&self, batch: MetricsBatch) {
+    pub fn reinsert_batch(&self, batch: MetricsBatch, instance_id: String) {
         for application in batch.applications {
             self.register_application(application);
         }
 
-        self.sink_impact_metrics(batch.impact_metrics.clone());
+        self.sink_impact_metrics(batch.impact_metrics.clone(), instance_id);
 
         self.sink_metrics(&batch.metrics);
     }

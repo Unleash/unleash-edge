@@ -1,7 +1,7 @@
 use crate::metrics::client_metrics::MetricsCache;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
 use unleash_types::MergeMut;
 use unleash_types::client_metrics::{ImpactMetric, ImpactMetricEnv};
@@ -89,7 +89,7 @@ pub fn merge_impact_metrics(metrics: Vec<ImpactMetricEnv>) -> Vec<ImpactMetricEn
 }
 
 impl MetricsCache {
-    pub fn sink_impact_metrics(&self, impact_metrics: Vec<ImpactMetricEnv>) {
+    pub fn sink_impact_metrics(&self, impact_metrics: Vec<ImpactMetricEnv>, instance_id: String) {
         let metrics_by_key = group_by_key(impact_metrics);
 
         for (key, metrics) in metrics_by_key {
@@ -113,8 +113,30 @@ impl MetricsCache {
                         .insert(reduced_metric.impact_metric.name.clone(), reduced_metric);
                 }
             }
-            self.impact_metrics
-                .insert(key, aggregated_metrics.into_values().collect());
+            let layered_metrics = aggregated_metrics
+                .into_values()
+                .map(|mut metric| {
+                    for sample in &mut metric.impact_metric.samples {
+                        if let Some(labels) = &mut sample.labels {
+                            labels.insert("connected_via".to_string(), instance_id.clone());
+                            labels.insert("origin".to_string(), "edge".into());
+                        } else {
+                            sample.labels = Some(BTreeMap::from([(
+                                "connected_via".into(),
+                                instance_id.clone(),
+                            )]));
+                            sample
+                                .labels
+                                .as_mut()
+                                .unwrap()
+                                .insert("origin".into(), "edge".into());
+                        }
+                    }
+                    metric
+                })
+                .collect::<Vec<_>>();
+
+            self.impact_metrics.insert(key, layered_metrics);
         }
     }
 }
@@ -168,7 +190,7 @@ mod test {
             app_name.into(),
             env.into(),
         )];
-        cache.sink_impact_metrics(impact_metrics);
+        cache.sink_impact_metrics(impact_metrics, "".into());
     }
 
     fn create_client_metrics(
@@ -229,16 +251,14 @@ mod test {
             ],
         )];
 
-        cache.sink_impact_metrics(convert_to_impact_metrics_env(
-            counter_metrics,
-            app.into(),
-            env.into(),
-        ));
-        cache.sink_impact_metrics(convert_to_impact_metrics_env(
-            gauge_metrics,
-            app.into(),
-            env.into(),
-        ));
+        cache.sink_impact_metrics(
+            convert_to_impact_metrics_env(counter_metrics, app.into(), env.into()),
+            "".into(),
+        );
+        cache.sink_impact_metrics(
+            convert_to_impact_metrics_env(gauge_metrics, app.into(), env.into()),
+            "".into(),
+        );
 
         let aggregated_metrics = cache.impact_metrics.get(&test_key).unwrap();
         let counter = aggregated_metrics
@@ -375,5 +395,54 @@ mod test {
         let staging_batch = &batches[staging_env];
         assert_eq!(staging_batch.metrics.len(), 1);
         assert_eq!(staging_batch.impact_metrics[0].impact_metric.name, "gauge");
+    }
+
+    #[test]
+    pub fn sink_impact_metrics_injects_connected_via_label() {
+        let cache = MetricsCache::default();
+        let app = "test_app";
+        let env = "test_env";
+        let instance_id = "proxy-123";
+
+        let test_key = ImpactMetricsKey {
+            app_name: app.into(),
+            environment: env.into(),
+        };
+
+        let labels = create_test_labels("some_label", "some_value");
+
+        let metrics = vec![create_impact_metric(
+            "proxy_metric",
+            "counter",
+            vec![create_sample(5.0, labels.clone())],
+        )];
+
+        cache.sink_impact_metrics(
+            convert_to_impact_metrics_env(metrics, app.into(), env.into()),
+            instance_id.into(),
+        );
+
+        let stored_metrics = cache.impact_metrics.get(&test_key).unwrap();
+        let metric = stored_metrics
+            .value()
+            .iter()
+            .find(|m| m.impact_metric.name == "proxy_metric")
+            .unwrap();
+
+        let sample = &metric.impact_metric.samples[0];
+        let sample_labels = sample.labels.as_ref().expect("Sample should have labels");
+
+        assert_eq!(
+            sample_labels.get("connected_via"),
+            Some(&instance_id.to_string()),
+            "Should inject 'connected_via' label with instance_id"
+        );
+
+        // double check original labels are preserved
+        assert_eq!(
+            sample_labels.get("some_label"),
+            Some(&"some_value".to_string()),
+            "Original labels should be preserved"
+        );
     }
 }
