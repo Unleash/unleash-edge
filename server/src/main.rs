@@ -121,7 +121,7 @@ fn setup_server(
                                 .allow_list
                                 .clone()
                                 .map(|list| AllowList::with_allowed_ipnets(&list))
-                                .unwrap_or(AllowList::default()),
+                                .unwrap_or_default(),
                         ),
                 )
                 .service(
@@ -136,7 +136,7 @@ fn setup_server(
                                 .allow_list
                                 .clone()
                                 .map(|list| AllowList::with_allowed_ipnets(&list))
-                                .unwrap_or(AllowList::default()),
+                                .unwrap_or_default(),
                         ),
                 )
                 .service(
