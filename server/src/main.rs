@@ -9,6 +9,7 @@ use futures::future::join_all;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use ulid::Ulid;
+use unleash_edge::error::EdgeError;
 use unleash_edge::metrics::actix_web_prometheus_metrics::PrometheusMetrics;
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ConnectVia;
@@ -27,7 +28,7 @@ use unleash_edge::metrics::client_metrics::MetricsCache;
 use unleash_edge::metrics::edge_metrics::EdgeInstanceData;
 use unleash_edge::offline::offline_hotload;
 use unleash_edge::persistence::{EdgePersistence, persist_data};
-use unleash_edge::types::{EdgeToken, TokenValidationStatus};
+use unleash_edge::types::{EdgeResult, EdgeToken, TokenValidationStatus};
 use unleash_edge::{client_api, frontend_api, health_checker, openapi, ready_checker};
 use unleash_edge::{edge_api, prom_metrics};
 use unleash_edge::{http::unleash_client::ClientMetaInformation, metrics::metrics_pusher};
@@ -41,7 +42,7 @@ fn setup_server(
     metrics_cache: Arc<MetricsCache>,
     our_instance_data_for_app_context: Arc<EdgeInstanceData>,
     instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>>,
-) -> Result<Server, anyhow::Error> {
+) -> EdgeResult<Server> {
     let http_args = args.clone().http;
     let request_timeout = args.edge_request_timeout;
     let keepalive_timeout = args.edge_keepalive_timeout;
@@ -84,14 +85,13 @@ fn setup_server(
             .app_data(web::Data::from(our_instance_data_for_app_context.clone()))
             .app_data(web::Data::from(instances_observed_for_app_context.clone()));
 
-        app = match token_validator.clone() {
-            Some(v) => app.app_data(web::Data::from(v)),
-            None => app,
-        };
-        app = match feature_refresher.clone() {
-            Some(refresher) => app.app_data(web::Data::from(refresher)),
-            None => app,
-        };
+        if let Some(ref token_validator) = token_validator {
+            app = app.app_data(web::Data::from(token_validator.clone()));
+        }
+        if let Some(ref refresher) = feature_refresher {
+            app = app.app_data(web::Data::from(refresher.clone()));
+        }
+
         app.service(
             web::scope(&args.http.base_path)
                 .wrap(Etag)
@@ -149,12 +149,14 @@ fn setup_server(
         let config = tls::config(http_args.clone().tls)
             .expect("Was expecting to succeed in configuring TLS");
         server
-            .bind_rustls_0_23(http_args.https_server_tuple(), config)?
+            .bind_rustls_0_23(http_args.https_server_tuple(), config)
+            .map_err(|e| EdgeError::TlsError(e.to_string()))?
             .bind(http_args.http_server_tuple())
     } else {
         server.bind(http_args.http_server_tuple())
-    };
-    let server = server?
+    }
+    .map_err(|e| EdgeError::ReadyCheckError(e.to_string()))?;
+    let server = server
         .workers(http_args.workers)
         .shutdown_timeout(5)
         .keep_alive(std::time::Duration::from_secs(keepalive_timeout))
@@ -170,19 +172,16 @@ async fn main() -> Result<(), anyhow::Error> {
         clap_markdown::print_help_markdown::<CliArgs>();
         return Ok(());
     }
-    if let EdgeMode::Health(args) = args.mode {
-        return health_checker::check_health(args)
-            .await
-            .map_err(|e| e.into());
-    };
-    if let EdgeMode::Ready(args) = args.mode {
-        return ready_checker::check_ready(args).await.map_err(|e| e.into());
-    }
 
-    run_server(args).await
+    match args.mode {
+        EdgeMode::Health(health_args) => health_checker::check_health(health_args).await,
+        EdgeMode::Ready(ready_args) => ready_checker::check_ready(ready_args).await,
+        _ => run_server(args).await,
+    }
+    .map_err(|e| e.into())
 }
 
-async fn run_server(args: CliArgs) -> Result<(), anyhow::Error> {
+async fn run_server(args: CliArgs) -> EdgeResult<()> {
     let app_name = args.app_name.clone();
     let app_id = Ulid::new();
     let edge_instance_data = Arc::new(EdgeInstanceData::new(&args.app_name, &app_id));
