@@ -219,12 +219,9 @@ mod tests {
     #[test_case(500, 5000, 15; "500 apps 5000 toggles, will be split into 15 batches")]
     #[test_case(5000, 1, 20; "5000 apps 1 metric will be split")]
     fn splits_successfully_into_sendable_chunks(apps: u64, toggles: u64, batch_count: usize) {
-        let apps: Vec<ClientApplication> =
-            (1..=apps).map(|app_id| make_client_app(app_id)).collect();
+        let apps: Vec<ClientApplication> = (1..=apps).map(make_client_app).collect();
 
-        let toggles: Vec<ClientMetricsEnv> = (1..=toggles)
-            .map(|toggle_id| make_metrics_env(toggle_id))
-            .collect();
+        let toggles: Vec<ClientMetricsEnv> = (1..=toggles).map(make_metrics_env).collect();
 
         let cache = MetricsCache::default();
         for app in apps.clone() {
@@ -256,12 +253,9 @@ mod tests {
         impacts: Vec<String>,
         batch_size: usize,
     ) {
-        let apps = apps.into_iter().map(|s| make_client_app(s)).collect();
-        let metrics = metrics.into_iter().map(|s| make_metrics_env(s)).collect();
-        let impacts = impacts
-            .into_iter()
-            .map(|s| make_impact_metric_env(s))
-            .collect();
+        let apps = apps.into_iter().map(make_client_app).collect();
+        let metrics = metrics.into_iter().map(make_metrics_env).collect();
+        let impacts = impacts.into_iter().map(make_impact_metric_env).collect();
 
         let batch = MetricsBatch {
             applications: apps,

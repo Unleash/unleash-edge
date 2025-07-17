@@ -158,7 +158,7 @@ mod test {
     ) -> ImpactMetric {
         ImpactMetric {
             name: name.into(),
-            help: format!("Test {} metric", r#type).into(),
+            help: format!("Test {} metric", r#type),
             r#type: r#type.into(),
             samples,
         }

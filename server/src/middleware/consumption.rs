@@ -100,10 +100,11 @@ mod tests {
     use crate::metrics::edge_metrics::EdgeInstanceData;
     use crate::middleware::as_async_middleware::as_async_middleware;
     use actix_web::{App, HttpResponse, test};
+    use ulid::Ulid;
 
     #[test]
     async fn test_backend_consumption() {
-        let instance_data = EdgeInstanceData::new("test");
+        let instance_data = EdgeInstanceData::new("test", &Ulid::new());
         let app = test::init_service(
             App::new()
                 .app_data(Data::new(instance_data.clone()))
@@ -124,7 +125,7 @@ mod tests {
 
     #[test]
     async fn test_frontend_consumption() {
-        let instance_data = EdgeInstanceData::new("test");
+        let instance_data = EdgeInstanceData::new("test", &Ulid::new());
         let app = test::init_service(
             App::new()
                 .app_data(Data::new(instance_data.clone()))
