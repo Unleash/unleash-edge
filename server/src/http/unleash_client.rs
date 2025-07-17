@@ -311,6 +311,7 @@ impl UnleashClient {
         }
     }
 
+    #[cfg(test)]
     pub fn new(server_url: &str, instance_id_opt: Option<String>) -> Result<Self, EdgeError> {
         use ulid::Ulid;
 

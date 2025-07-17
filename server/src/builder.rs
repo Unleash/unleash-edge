@@ -35,7 +35,8 @@ type CacheContainer = (
     Arc<DeltaCacheManager>,
     Arc<DashMap<String, EngineState>>,
 );
-type EdgeInfo = (
+
+pub type EdgeInfo = (
     CacheContainer,
     Option<Arc<TokenValidator>>,
     Option<Arc<FeatureRefresher>>,
