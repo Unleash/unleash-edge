@@ -213,7 +213,7 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
 
             let auth_headers = AuthHeaders::from(&args);
             let caches = build_edge(
-                &edge_args,
+                edge_args,
                 client_meta_information.clone(),
                 auth_headers,
                 client.clone(),
