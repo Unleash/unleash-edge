@@ -233,7 +233,7 @@ pub struct EdgeArgs {
     pub consumption: bool,
 
     /// Sets the keep-alive timeout for connections from Edge to upstream
-    #[clap(long, env, default_value_t = 15, requires = "strict")]
+    #[clap(long, env, default_value_t = 15)]
     pub client_keepalive_timeout: i64,
 
     /// If set to true, it compares features payload with delta payload and logs diff. This flag is for internal testing only. Do not turn this on for production configurations
