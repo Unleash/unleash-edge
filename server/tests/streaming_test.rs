@@ -206,30 +206,7 @@ mod streaming_test {
             let edge_mode = EdgeMode::Edge(EdgeArgs {
                 streaming: true,
                 upstream_url: "".into(),
-                backup_folder: None,
-                metrics_interval_seconds: 60,
-                features_refresh_interval_seconds: 60,
-                token_revalidation_interval_seconds: 60,
-                tokens: vec!["".into()],
-                pretrusted_tokens: None,
-                custom_client_headers: vec![],
-                skip_ssl_verification: false,
-                client_identity: None,
-                upstream_certificate_file: None,
-                upstream_request_timeout: 5,
-                upstream_socket_timeout: 5,
-                redis: None,
-                s3: None,
-                strict: true,
-                dynamic: false,
-                delta: false,
-                delta_diff: false,
-                consumption: false,
-                prometheus_remote_write_url: None,
-                prometheus_push_interval: 60,
-                prometheus_username: None,
-                prometheus_password: None,
-                prometheus_user_id: None,
+                ..Default::default()
             });
 
             let config = serde_qs::actix::QsQueryConfig::default()

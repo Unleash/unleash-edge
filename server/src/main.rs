@@ -11,7 +11,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use ulid::Ulid;
 use unleash_edge::error::EdgeError;
-use unleash_edge::http::unleash_client::new_reqwest_client;
+use unleash_edge::http::unleash_client::{HttpClientArgs, new_reqwest_client};
 use unleash_edge::metrics::actix_web_prometheus_metrics::PrometheusMetrics;
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ConnectVia;
@@ -202,14 +202,15 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
 
     let (edge_info, instance_data_sender) = match &args.mode {
         EdgeMode::Edge(edge_args) => {
-            let client = new_reqwest_client(
-                edge_args.skip_ssl_verification,
-                edge_args.client_identity.clone(),
-                edge_args.upstream_certificate_file.clone(),
-                Duration::seconds(edge_args.upstream_request_timeout),
-                Duration::seconds(edge_args.upstream_socket_timeout),
-                client_meta_information.clone(),
-            )?;
+            let client = new_reqwest_client(HttpClientArgs {
+                skip_ssl_verification: edge_args.skip_ssl_verification,
+                client_identity: edge_args.client_identity.clone(),
+                upstream_certificate_file: edge_args.upstream_certificate_file.clone(),
+                connect_timeout: Duration::seconds(edge_args.upstream_request_timeout),
+                socket_timeout: Duration::seconds(edge_args.upstream_socket_timeout),
+                keep_alive_timeout: Duration::seconds(edge_args.client_keepalive_timeout),
+                client_meta_information: client_meta_information.clone(),
+            })?;
 
             let auth_headers = AuthHeaders::from(&args);
             let caches = build_edge(

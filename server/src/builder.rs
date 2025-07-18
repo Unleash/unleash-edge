@@ -354,7 +354,7 @@ mod tests {
     use crate::{
         builder::{build_edge, build_offline},
         cli::{AuthHeaders, EdgeArgs, OfflineArgs},
-        http::unleash_client::{ClientMetaInformation, new_reqwest_client},
+        http::unleash_client::{ClientMetaInformation, HttpClientArgs, new_reqwest_client},
     };
 
     #[test]
@@ -378,32 +378,9 @@ mod tests {
     #[tokio::test]
     async fn should_fail_with_empty_tokens_when_strict() {
         let args = EdgeArgs {
-            upstream_url: Default::default(),
-            backup_folder: None,
-            metrics_interval_seconds: Default::default(),
-            features_refresh_interval_seconds: Default::default(),
             strict: true,
-            dynamic: false,
             tokens: vec![],
-            pretrusted_tokens: None,
-            redis: None,
-            s3: None,
-            client_identity: Default::default(),
-            skip_ssl_verification: false,
-            upstream_request_timeout: Default::default(),
-            upstream_socket_timeout: Default::default(),
-            custom_client_headers: Default::default(),
-            upstream_certificate_file: Default::default(),
-            token_revalidation_interval_seconds: Default::default(),
-            prometheus_push_interval: 60,
-            prometheus_remote_write_url: None,
-            prometheus_user_id: None,
-            prometheus_password: None,
-            prometheus_username: None,
-            streaming: false,
-            delta: false,
-            delta_diff: false,
-            consumption: false,
+            ..Default::default()
         };
 
         let client_meta_information = ClientMetaInformation {
@@ -412,15 +389,7 @@ mod tests {
             connection_id: "test-connection-id".into(),
         };
 
-        let client = new_reqwest_client(
-            args.skip_ssl_verification,
-            args.client_identity.clone(),
-            args.upstream_certificate_file.clone(),
-            Duration::seconds(args.upstream_request_timeout),
-            Duration::seconds(args.upstream_socket_timeout),
-            client_meta_information.clone(),
-        )
-        .unwrap();
+        let client = new_reqwest_client(HttpClientArgs::default()).unwrap();
 
         let result = build_edge(
             &args,

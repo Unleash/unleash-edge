@@ -132,6 +132,36 @@ impl ClientMetaInformation {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct HttpClientArgs {
+    pub skip_ssl_verification: bool,
+    pub client_identity: Option<ClientIdentity>,
+    pub upstream_certificate_file: Option<PathBuf>,
+    pub connect_timeout: Duration,
+    pub socket_timeout: Duration,
+    pub keep_alive_timeout: Duration,
+    pub client_meta_information: ClientMetaInformation,
+}
+
+#[cfg(test)]
+impl Default for HttpClientArgs {
+    fn default() -> Self {
+        Self {
+            skip_ssl_verification: false,
+            client_identity: None,
+            upstream_certificate_file: None,
+            connect_timeout: Duration::seconds(5),
+            socket_timeout: Duration::seconds(5),
+            keep_alive_timeout: Duration::seconds(15),
+            client_meta_information: ClientMetaInformation {
+                app_name: "unleash-edge".into(),
+                instance_id: "unleash-edge@default".into(),
+                connection_id: ulid::Ulid::new().to_string(),
+            },
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct UnleashClient {
     pub urls: UnleashUrls,
@@ -244,17 +274,10 @@ fn build_identity(tls: Option<ClientIdentity>) -> EdgeResult<ClientBuilder> {
     )
 }
 
-pub fn new_reqwest_client(
-    skip_ssl_verification: bool,
-    client_identity: Option<ClientIdentity>,
-    upstream_certificate_file: Option<PathBuf>,
-    connect_timeout: Duration,
-    socket_timeout: Duration,
-    client_meta_information: ClientMetaInformation,
-) -> EdgeResult<Client> {
-    build_identity(client_identity)
+pub fn new_reqwest_client(args: HttpClientArgs) -> EdgeResult<Client> {
+    build_identity(args.client_identity)
         .and_then(|builder| {
-            build_upstream_certificate(upstream_certificate_file).map(|cert| match cert {
+            build_upstream_certificate(args.upstream_certificate_file).map(|cert| match cert {
                 Some(c) => builder.add_root_certificate(c),
                 None => builder,
             })
@@ -263,16 +286,16 @@ pub fn new_reqwest_client(
             let mut header_map = HeaderMap::new();
             header_map.insert(
                 UNLEASH_APPNAME_HEADER,
-                header::HeaderValue::from_str(&client_meta_information.app_name)
+                header::HeaderValue::from_str(&args.client_meta_information.app_name)
                     .expect("Could not add app name as a header"),
             );
             header_map.insert(
                 UNLEASH_INSTANCE_ID_HEADER,
-                header::HeaderValue::from_str(&client_meta_information.instance_id).unwrap(),
+                header::HeaderValue::from_str(&args.client_meta_information.instance_id).unwrap(),
             );
             header_map.insert(
                 UNLEASH_CONNECTION_ID_HEADER,
-                header::HeaderValue::from_str(&client_meta_information.connection_id).unwrap(),
+                header::HeaderValue::from_str(&args.client_meta_information.connection_id).unwrap(),
             );
             header_map.insert(
                 UNLEASH_CLIENT_SPEC_HEADER,
@@ -282,9 +305,10 @@ pub fn new_reqwest_client(
             client
                 .user_agent(format!("unleash-edge-{}", crate::types::build::PKG_VERSION))
                 .default_headers(header_map)
-                .danger_accept_invalid_certs(skip_ssl_verification)
-                .timeout(socket_timeout.to_std().unwrap())
-                .connect_timeout(connect_timeout.to_std().unwrap())
+                .danger_accept_invalid_certs(args.skip_ssl_verification)
+                .timeout(args.socket_timeout.to_std().unwrap())
+                .connect_timeout(args.connect_timeout.to_std().unwrap())
+                .tcp_keepalive(args.keep_alive_timeout.to_std().unwrap())
                 .build()
                 .map_err(|e| EdgeError::ClientBuildError(format!("Failed to build client {e:?}")))
         })
@@ -324,14 +348,10 @@ impl UnleashClient {
         };
         Ok(Self {
             urls: UnleashUrls::from_str(server_url)?,
-            backing_client: new_reqwest_client(
-                false,
-                None,
-                None,
-                Duration::seconds(5),
-                Duration::seconds(5),
-                client_meta_info.clone(),
-            )
+            backing_client: new_reqwest_client(HttpClientArgs {
+                client_meta_information: client_meta_info.clone(),
+                ..Default::default()
+            })
             .unwrap(),
             custom_headers: Default::default(),
             token_header: "Authorization".to_string(),
@@ -343,14 +363,11 @@ impl UnleashClient {
     pub fn new_insecure(server_url: &str) -> Result<Self, EdgeError> {
         Ok(Self {
             urls: UnleashUrls::from_str(server_url)?,
-            backing_client: new_reqwest_client(
-                true,
-                None,
-                None,
-                Duration::seconds(5),
-                Duration::seconds(5),
-                ClientMetaInformation::test_config(),
-            )
+            backing_client: new_reqwest_client(HttpClientArgs {
+                skip_ssl_verification: true,
+                client_meta_information: ClientMetaInformation::test_config(),
+                ..Default::default()
+            })
             .unwrap(),
             custom_headers: Default::default(),
             token_header: "Authorization".to_string(),
@@ -805,6 +822,7 @@ mod tests {
     use std::str::FromStr;
 
     use crate::cli::ClientIdentity;
+    use crate::http::unleash_client::HttpClientArgs;
     use crate::http::unleash_client::new_reqwest_client;
     use crate::{
         cli::TlsOptions,
@@ -1133,18 +1151,15 @@ mod tests {
             pkcs12_passphrase: Some(passphrase.into()),
             pem_cert_file: None,
         };
-        let client = new_reqwest_client(
-            false,
-            Some(identity),
-            None,
-            Duration::seconds(5),
-            Duration::seconds(5),
-            ClientMetaInformation {
+        let client = new_reqwest_client(HttpClientArgs {
+            client_identity: Some(identity),
+            client_meta_information: ClientMetaInformation {
                 app_name: "test-client".into(),
                 instance_id: "test-pkcs12".into(),
                 connection_id: "test-pkcs12".into(),
             },
-        );
+            ..Default::default()
+        });
         assert!(client.is_ok());
     }
 
@@ -1159,18 +1174,15 @@ mod tests {
             pkcs12_passphrase: Some(passphrase.into()),
             pem_cert_file: None,
         };
-        let client = new_reqwest_client(
-            false,
-            Some(identity),
-            None,
-            Duration::seconds(5),
-            Duration::seconds(5),
-            ClientMetaInformation {
+        let client = new_reqwest_client(HttpClientArgs {
+            client_identity: Some(identity),
+            client_meta_information: ClientMetaInformation {
                 app_name: "test-client".into(),
                 instance_id: "test-pkcs12".into(),
                 connection_id: "test-pkcs12".into(),
             },
-        );
+            ..Default::default()
+        });
         assert!(client.is_err());
     }
 
@@ -1185,18 +1197,15 @@ mod tests {
             pkcs12_passphrase: None,
             pem_cert_file: None,
         };
-        let client = new_reqwest_client(
-            false,
-            Some(identity),
-            None,
-            Duration::seconds(5),
-            Duration::seconds(5),
-            ClientMetaInformation {
+        let client = new_reqwest_client(HttpClientArgs {
+            client_identity: Some(identity),
+            client_meta_information: ClientMetaInformation {
                 app_name: "test-client".into(),
                 instance_id: "test-pkcs8".into(),
                 connection_id: "test-pkcs8".into(),
             },
-        );
+            ..Default::default()
+        });
         assert!(client.is_ok());
     }
 
@@ -1210,18 +1219,15 @@ mod tests {
             pkcs12_passphrase: None,
             pem_cert_file: Some(cert.into()),
         };
-        let client = new_reqwest_client(
-            false,
-            Some(identity),
-            None,
-            Duration::seconds(5),
-            Duration::seconds(5),
-            ClientMetaInformation {
+        let client = new_reqwest_client(HttpClientArgs {
+            client_identity: Some(identity),
+            client_meta_information: ClientMetaInformation {
                 app_name: "test-client".into(),
-                instance_id: "test-pkcs8".into(),
-                connection_id: "test-pkcs8".into(),
+                instance_id: "test-pem".into(),
+                connection_id: "test-pem".into(),
             },
-        );
+            ..Default::default()
+        });
         assert!(client.is_ok());
     }
 }
