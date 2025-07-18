@@ -1,11 +1,10 @@
-use chrono::Duration;
 use reqwest::{StatusCode, Url};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::cli::{CliArgs, EdgeMode};
 use crate::error::EdgeError;
-use crate::http::unleash_client::{ClientMetaInformation, UnleashClient, new_reqwest_client};
+use crate::http::unleash_client::{ClientMetaInformation, UnleashClient};
 use crate::metrics::edge_metrics::EdgeInstanceData;
 use prometheus::Registry;
 use tracing::{debug, warn};
@@ -27,65 +26,43 @@ pub enum InstanceDataSending {
 impl InstanceDataSending {
     pub fn from_args(
         args: CliArgs,
-        instance_data: Arc<EdgeInstanceData>,
+        client_meta_information: &ClientMetaInformation,
+        http_client: reqwest::Client,
         registry: Registry,
     ) -> Result<Self, EdgeError> {
         match args.mode {
-            EdgeMode::Edge(edge_args) => {
-                let identifier = instance_data.identifier.clone();
-                edge_args
-                    .tokens
-                    .first()
-                    .map(|token| {
-                        let client_meta_information = ClientMetaInformation {
-                            app_name: args.app_name,
-                            instance_id: identifier.clone(),
-                            connection_id: identifier,
-                        };
-                        let http_client = new_reqwest_client(
-                            edge_args.skip_ssl_verification,
-                            edge_args.client_identity.clone(),
-                            edge_args.upstream_certificate_file.clone(),
-                            Duration::seconds(edge_args.upstream_request_timeout),
-                            Duration::seconds(edge_args.upstream_socket_timeout),
-                            client_meta_information.clone(),
-                        )
-                        .expect(
-                            "Could not construct reqwest client for posting observability data",
-                        );
-                        let unleash_client = Url::parse(&edge_args.upstream_url.clone())
-                            .map(|url| {
-                                UnleashClient::from_url(
-                                    url,
-                                    args.auth_headers
-                                        .upstream_auth_header
-                                        .clone()
-                                        .unwrap_or("Authorization".to_string()),
-                                    http_client,
-                                    client_meta_information.clone(),
-                                )
-                            })
-                            .map(|c| {
-                                c.with_custom_client_headers(
-                                    edge_args.custom_client_headers.clone(),
-                                )
-                            })
-                            .map(Arc::new)
-                            .map_err(|_| {
-                                EdgeError::InvalidServerUrl(edge_args.upstream_url.clone())
-                            })
-                            .expect("Could not construct UnleashClient");
-                        let instance_data_sender = InstanceDataSender {
-                            unleash_client,
-                            token: token.clone(),
-                            base_path: args.http.base_path.clone(),
-                            registry,
-                        };
-                        InstanceDataSending::SendInstanceData(instance_data_sender)
-                    })
-                    .map(Ok)
-                    .unwrap_or(Ok(InstanceDataSending::SendNothing))
-            }
+            EdgeMode::Edge(edge_args) => edge_args
+                .tokens
+                .first()
+                .map(|token| {
+                    let unleash_client = Url::parse(&edge_args.upstream_url.clone())
+                        .map(|url| {
+                            UnleashClient::from_url(
+                                url,
+                                args.auth_headers
+                                    .upstream_auth_header
+                                    .clone()
+                                    .unwrap_or("Authorization".to_string()),
+                                http_client,
+                                client_meta_information.clone(),
+                            )
+                        })
+                        .map(|c| {
+                            c.with_custom_client_headers(edge_args.custom_client_headers.clone())
+                        })
+                        .map(Arc::new)
+                        .map_err(|_| EdgeError::InvalidServerUrl(edge_args.upstream_url.clone()))
+                        .expect("Could not construct UnleashClient");
+                    let instance_data_sender = InstanceDataSender {
+                        unleash_client,
+                        token: token.clone(),
+                        base_path: args.http.base_path.clone(),
+                        registry,
+                    };
+                    InstanceDataSending::SendInstanceData(instance_data_sender)
+                })
+                .map(Ok)
+                .unwrap_or(Ok(InstanceDataSending::SendNothing)),
             _ => Ok(InstanceDataSending::SendNothing),
         }
     }

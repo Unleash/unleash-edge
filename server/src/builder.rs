@@ -14,7 +14,7 @@ use crate::cli::{AuthHeaders, RedisMode};
 use crate::delta_cache_manager::DeltaCacheManager;
 use crate::feature_cache::FeatureCache;
 use crate::http::refresher::feature_refresher::{FeatureRefreshConfig, FeatureRefresherMode};
-use crate::http::unleash_client::{ClientMetaInformation, new_reqwest_client};
+use crate::http::unleash_client::ClientMetaInformation;
 use crate::offline::offline_hotload::{load_bootstrap, load_offline_engine_cache};
 use crate::persistence::EdgePersistence;
 use crate::persistence::file::FilePersister;
@@ -23,7 +23,7 @@ use crate::persistence::redis::RedisPersister;
 use crate::persistence::s3::s3_persister::S3Persister;
 use crate::{
     auth::token_validator::TokenValidator,
-    cli::{CliArgs, EdgeArgs, EdgeMode, OfflineArgs},
+    cli::{EdgeArgs, OfflineArgs},
     error::EdgeError,
     http::{refresher::feature_refresher::FeatureRefresher, unleash_client::UnleashClient},
     types::{EdgeResult, EdgeToken, TokenType},
@@ -150,7 +150,7 @@ pub(crate) fn build_offline_mode(
     ))
 }
 
-fn build_offline(offline_args: OfflineArgs) -> EdgeResult<CacheContainer> {
+pub fn build_offline(offline_args: OfflineArgs) -> EdgeResult<CacheContainer> {
     if offline_args.tokens.is_empty() && offline_args.client_tokens.is_empty() {
         return Err(EdgeError::NoTokens(
             "No tokens provided. Tokens must be specified when running in offline mode".into(),
@@ -230,10 +230,11 @@ async fn get_data_source(args: &EdgeArgs) -> Option<Arc<dyn EdgePersistence>> {
     None
 }
 
-async fn build_edge(
+pub async fn build_edge(
     args: &EdgeArgs,
     client_meta_information: ClientMetaInformation,
     auth_headers: AuthHeaders,
+    http_client: reqwest::Client,
 ) -> EdgeResult<EdgeInfo> {
     if !args.strict {
         if !args.dynamic {
@@ -255,15 +256,6 @@ async fn build_edge(
     let (token_cache, feature_cache, delta_cache, engine_cache) = build_caches();
 
     let persistence = get_data_source(args).await;
-
-    let http_client = new_reqwest_client(
-        args.skip_ssl_verification,
-        args.client_identity.clone(),
-        args.upstream_certificate_file.clone(),
-        Duration::seconds(args.upstream_request_timeout),
-        Duration::seconds(args.upstream_socket_timeout),
-        client_meta_information.clone(),
-    )?;
 
     let unleash_client = Url::parse(&args.upstream_url.clone())
         .map(|url| {
@@ -355,37 +347,14 @@ async fn build_edge(
     ))
 }
 
-pub async fn build_caches_and_refreshers(
-    args: CliArgs,
-    connection_id: String,
-) -> EdgeResult<EdgeInfo> {
-    let auth_headers = AuthHeaders::from(&args);
-    match args.mode {
-        EdgeMode::Offline(offline_args) => {
-            build_offline(offline_args).map(|cache| (cache, None, None, None))
-        }
-        EdgeMode::Edge(edge_args) => {
-            build_edge(
-                &edge_args,
-                ClientMetaInformation {
-                    app_name: args.app_name,
-                    instance_id: args.instance_id,
-                    connection_id,
-                },
-                auth_headers,
-            )
-            .await
-        }
-        _ => unreachable!(),
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use chrono::Duration;
+
     use crate::{
         builder::{build_edge, build_offline},
         cli::{AuthHeaders, EdgeArgs, OfflineArgs},
-        http::unleash_client::ClientMetaInformation,
+        http::unleash_client::{ClientMetaInformation, new_reqwest_client},
     };
 
     #[test]
@@ -437,14 +406,27 @@ mod tests {
             consumption: false,
         };
 
+        let client_meta_information = ClientMetaInformation {
+            app_name: "test-app".into(),
+            instance_id: "test-instance-id".into(),
+            connection_id: "test-connection-id".into(),
+        };
+
+        let client = new_reqwest_client(
+            args.skip_ssl_verification,
+            args.client_identity.clone(),
+            args.upstream_certificate_file.clone(),
+            Duration::seconds(args.upstream_request_timeout),
+            Duration::seconds(args.upstream_socket_timeout),
+            client_meta_information.clone(),
+        )
+        .unwrap();
+
         let result = build_edge(
             &args,
-            ClientMetaInformation {
-                app_name: "test-app".into(),
-                instance_id: "test-instance-id".into(),
-                connection_id: "test-connection-id".into(),
-            },
+            client_meta_information,
             AuthHeaders::default(),
+            client,
         )
         .await;
         assert!(result.is_err());

@@ -3,6 +3,7 @@ use actix_middleware_etag::Etag;
 use actix_web::dev::Server;
 use actix_web::middleware::Logger;
 use actix_web::{App, HttpServer, web};
+use chrono::Duration;
 use clap::Parser;
 use dashmap::DashMap;
 use futures::future::join_all;
@@ -10,6 +11,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use ulid::Ulid;
 use unleash_edge::error::EdgeError;
+use unleash_edge::http::unleash_client::new_reqwest_client;
 use unleash_edge::metrics::actix_web_prometheus_metrics::PrometheusMetrics;
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ConnectVia;
@@ -17,7 +19,7 @@ use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
 use tracing::info;
-use unleash_edge::builder::{EdgeInfo, build_caches_and_refreshers};
+use unleash_edge::builder::{EdgeInfo, build_edge, build_offline};
 use unleash_edge::cli::{AuthHeaders, CliArgs, EdgeMode};
 use unleash_edge::feature_cache::FeatureCache;
 use unleash_edge::http::background_send_metrics::send_metrics_one_shot;
@@ -198,15 +200,43 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
         &edge_instance_data.clone(),
     );
 
-    let custom_headers = if let EdgeMode::Edge(edge) = &args.mode {
-        edge.custom_client_headers.clone()
-    } else {
-        vec![]
-    };
+    let (edge_info, instance_data_sender) = match &args.mode {
+        EdgeMode::Edge(edge_args) => {
+            let client = new_reqwest_client(
+                edge_args.skip_ssl_verification,
+                edge_args.client_identity.clone(),
+                edge_args.upstream_certificate_file.clone(),
+                Duration::seconds(edge_args.upstream_request_timeout),
+                Duration::seconds(edge_args.upstream_socket_timeout),
+                client_meta_information.clone(),
+            )?;
 
-    let edge_info = build_caches_and_refreshers(args.clone(), app_id.to_string())
-        .await
-        .unwrap();
+            let auth_headers = AuthHeaders::from(&args);
+            let caches = build_edge(
+                edge_args,
+                client_meta_information.clone(),
+                auth_headers,
+                client.clone(),
+            )
+            .await?;
+
+            let instance_data_sender: Arc<InstanceDataSending> =
+                Arc::new(InstanceDataSending::from_args(
+                    args.clone(),
+                    &client_meta_information,
+                    client,
+                    metrics_middleware.registry.clone(),
+                )?);
+
+            (caches, instance_data_sender)
+        }
+        EdgeMode::Offline(offline_args) => {
+            let caches =
+                build_offline(offline_args.clone()).map(|cache| (cache, None, None, None))?;
+            (caches, Arc::new(InstanceDataSending::SendNothing))
+        }
+        _ => unreachable!(),
+    };
 
     let (
         (token_cache, features_cache, _, engine_cache),
@@ -215,11 +245,6 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
         persistence,
     ) = edge_info.clone();
 
-    let instance_data_sender: Arc<InstanceDataSending> = Arc::new(InstanceDataSending::from_args(
-        args.clone(),
-        edge_instance_data.clone(),
-        metrics_middleware.registry.clone(),
-    )?);
     let instance_data_sender_for_app_context = instance_data_sender.clone();
     let lazy_feature_cache = features_cache.clone();
     let lazy_token_cache = token_cache.clone();
@@ -245,7 +270,7 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
         EdgeMode::Edge(edge) => {
             let refresher_for_background = feature_refresher.clone().unwrap();
             if edge.streaming {
-                let custom_headers = custom_headers.clone();
+                let custom_headers = edge.custom_client_headers.clone();
                 if edge.delta {
                     tokio::spawn(async move {
                         let _ = refresher_for_background
