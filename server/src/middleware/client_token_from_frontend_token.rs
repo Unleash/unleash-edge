@@ -66,7 +66,7 @@ mod tests {
     use crate::delta_cache_manager::DeltaCacheManager;
     use crate::feature_cache::FeatureCache;
     use crate::http::refresher::feature_refresher::FeatureRefresher;
-    use crate::http::unleash_client::{UnleashClient, new_reqwest_client};
+    use crate::http::unleash_client::{HttpClientArgs, UnleashClient, new_reqwest_client};
     use crate::tests::upstream_server;
     use crate::types::{EdgeToken, TokenType, TokenValidationStatus};
 
@@ -136,14 +136,10 @@ mod tests {
         .await;
 
         let meta_information = crate::http::unleash_client::ClientMetaInformation::test_config();
-        let http_client = new_reqwest_client(
-            false,
-            None,
-            None,
-            Duration::seconds(5),
-            Duration::seconds(5),
-            meta_information.clone(),
-        )
+        let http_client = new_reqwest_client(HttpClientArgs {
+            client_meta_information: meta_information.clone(),
+            ..Default::default()
+        })
         .expect("Failed to create client");
 
         let unleash_client = UnleashClient::from_url(

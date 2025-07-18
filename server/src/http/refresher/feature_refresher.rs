@@ -693,7 +693,7 @@ mod tests {
 
     use crate::feature_cache::{FeatureCache, update_projects_from_feature_update};
     use crate::filters::{FeatureFilterSet, project_filter};
-    use crate::http::unleash_client::{ClientMetaInformation, new_reqwest_client};
+    use crate::http::unleash_client::{ClientMetaInformation, HttpClientArgs, new_reqwest_client};
     use crate::tests::features_from_disk;
     use crate::tokens::cache_key;
     use crate::types::TokenValidationStatus::Validated;
@@ -715,14 +715,10 @@ mod tests {
     }
 
     fn create_test_client() -> UnleashClient {
-        let http_client = new_reqwest_client(
-            false,
-            None,
-            None,
-            Duration::seconds(5),
-            Duration::seconds(5),
-            ClientMetaInformation::test_config(),
-        )
+        let http_client = new_reqwest_client(HttpClientArgs {
+            client_meta_information: ClientMetaInformation::test_config(),
+            ..Default::default()
+        })
         .expect("Failed to create client");
 
         UnleashClient::from_url(
