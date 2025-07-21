@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [19.13.0](https://github.com/Unleash/unleash-edge/compare/v19.12.1...v19.13.0) - 2025-07-21
+
+### 🚀 Features
+- add an option for setting upstream keep alive timeout ([#1047](https://github.com/unleash/unleash-edge/issues/1047)) (by @sighphyre) - #1047
+
+### 🐛 Bug Fixes
+- shared reqwest client so keep alive timeout is not exceeded ([#1045](https://github.com/unleash/unleash-edge/issues/1045)) (by @sighphyre) - #1045
+- stop merging samples for impact metrics ([#1037](https://github.com/unleash/unleash-edge/issues/1037)) (by @kwasniew) - #1037
+
+### Dependency updates
+- bump serde_json from 1.0.140 to 1.0.141 ([#1048](https://github.com/unleash/unleash-edge/issues/1048)) (by @dependabot[bot]) - #1048
+- bump aws-config from 1.8.1 to 1.8.2 ([#1039](https://github.com/unleash/unleash-edge/issues/1039)) (by @dependabot[bot]) - #1039
+
+### 🚜 Refactor
+- clean up main ([#1044](https://github.com/unleash/unleash-edge/issues/1044)) (by @sighphyre) - #1044
+
+### ⚙️ Miscellaneous Tasks
+- remove connect via label, it's done its job and no longer needed ([#1042](https://github.com/unleash/unleash-edge/issues/1042)) (by @sighphyre) - #1042
+- add connect via + origin labels for all ingested impact metrics ([#1040](https://github.com/unleash/unleash-edge/issues/1040)) (by @sighphyre) - #1040
+
+### Contributors
+
+* @dependabot[bot]
+* @sighphyre
+* @kwasniew
+
 ## [19.12.1](https://github.com/Unleash/unleash-edge/compare/v19.12.0...v19.12.1) - 2025-07-14
 
 ### Dependency updates
