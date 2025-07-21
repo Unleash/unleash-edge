@@ -70,7 +70,7 @@ pkix = "0.2.4"
 prometheus = { version = "0.14.0", features = ["process"] }
 prometheus-reqwest-remote-write = { version = "0.4.0" }
 prometheus-static-metric = "0.5.1"
-rand = "0.9.1"
+rand = "0.9.2"
 redis = { version = "0.32.3", features = [
     "tokio-comp",
     "tokio-rustls-comp",
@@ -115,7 +115,7 @@ capture-logger = "0.1.1"
 env_logger = "0.11.8"
 maplit = "1.0.2"
 proptest = "1.7.0"
-rand = "0.9.1"
+rand = "0.9.2"
 test-case = "3.3.1"
 testcontainers = "0.24.0"
 testcontainers-modules = { version = "0.12.1", features = [
