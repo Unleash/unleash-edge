@@ -5353,20 +5353,22 @@ dependencies = [
 
 [[package]]
 name = "unleash-yggdrasil"
-version = "0.17.5"
+version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b0a70a6d50cce9cd86c19df9f05acfecb1a85e4736490cf2dd5e92ca0705b62"
+checksum = "ed8549c6bd07547309153a6a94b0d96c167f2efc37fea93d2ee67d08e7e93e8e"
 dependencies = [
+ "ahash",
  "chrono",
  "convert_case",
  "dashmap",
+ "hashbrown 0.15.4",
  "ipnet",
  "ipnetwork",
  "lazy_static",
  "murmur3",
  "pest",
  "pest_derive",
- "rand 0.8.5",
+ "rand 0.9.2",
  "semver",
  "serde",
  "serde_json",
