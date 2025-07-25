@@ -345,11 +345,11 @@ mod tests {
             unleash_client: arc_unleash_client.clone(),
             ..Default::default()
         };
-        let token_validator = TokenValidator {
-            unleash_client: arc_unleash_client.clone(),
-            token_cache: Arc::new(DashMap::default()),
-            persistence: None,
-        };
+        let token_validator = TokenValidator::new(
+            arc_unleash_client.clone(),
+            Arc::new(DashMap::default()),
+            None,
+        );
         let token_cache: DashMap<String, EdgeToken> = DashMap::default();
         let app = test::init_service(
             App::new()
@@ -405,11 +405,11 @@ mod tests {
             strict: false,
             ..Default::default()
         });
-        let token_validator = Arc::new(TokenValidator {
-            unleash_client: unleash_client.clone(),
-            token_cache: token_cache.clone(),
-            persistence: None,
-        });
+        let token_validator = Arc::new(TokenValidator::new(
+            unleash_client.clone(),
+            token_cache.clone(),
+            None,
+        ));
         let local_app = test::init_service(
             App::new()
                 .app_data(web::Data::from(token_validator.clone()))
@@ -478,11 +478,11 @@ mod tests {
             refresh_interval: Duration::seconds(6000),
             ..Default::default()
         });
-        let token_validator = Arc::new(TokenValidator {
-            unleash_client: unleash_client.clone(),
-            token_cache: token_cache.clone(),
-            persistence: None,
-        });
+        let token_validator = Arc::new(TokenValidator::new(
+            unleash_client,
+            token_cache.clone(),
+            None,
+        ));
         let local_app = test::init_service(
             App::new()
                 .app_data(web::Data::from(token_validator.clone()))

@@ -128,11 +128,8 @@ mod tests {
     #[tokio::test]
     pub async fn adding_a_token_validator_filters_so_only_validated_tokens_are_returned() {
         let token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
-        let token_validator = TokenValidator {
-            unleash_client: Arc::new(Default::default()),
-            token_cache: token_cache.clone(),
-            persistence: None,
-        };
+        let token_validator =
+            TokenValidator::new(Arc::new(Default::default()), token_cache.clone(), None);
         let app = test::init_service(
             App::new()
                 .app_data(web::Data::from(token_cache.clone()))

@@ -195,11 +195,11 @@ mod streaming_test {
         upstream_engine_cache: Arc<DashMap<String, EngineState>>,
         upstream_broadcaster: Arc<Broadcaster>,
     ) -> TestServer {
-        let token_validator = Arc::new(TokenValidator {
-            unleash_client: Arc::new(Default::default()),
-            token_cache: upstream_token_cache.clone(),
-            persistence: None,
-        });
+        let token_validator = Arc::new(TokenValidator::new(
+            Arc::new(Default::default()),
+            upstream_token_cache.clone(),
+            None,
+        ));
 
         test_server(move || {
             // the streaming endpoint doesn't work unless app data contains an EdgeMode::Edge with streaming: true

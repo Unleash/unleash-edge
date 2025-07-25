@@ -67,11 +67,11 @@ mod tests {
         upstream_delta_cache_manager: Arc<DeltaCacheManager>,
         upstream_engine_cache: Arc<DashMap<String, EngineState>>,
     ) -> TestServer {
-        let token_validator = Arc::new(TokenValidator {
-            unleash_client: Arc::new(Default::default()),
-            token_cache: upstream_token_cache.clone(),
-            persistence: None,
-        });
+        let token_validator = Arc::new(TokenValidator::new(
+            Arc::new(Default::default()),
+            upstream_token_cache.clone(),
+            None,
+        ));
 
         test_server(move || {
             let config = serde_qs::actix::QsQueryConfig::default()

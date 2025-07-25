@@ -13,9 +13,9 @@ use crate::types::{
 
 #[derive(Clone)]
 pub struct TokenValidator {
-    pub unleash_client: Arc<UnleashClient>,
+    unleash_client: Arc<UnleashClient>,
     pub token_cache: Arc<DashMap<String, EdgeToken>>,
-    pub persistence: Option<Arc<dyn EdgePersistence>>,
+    persistence: Option<Arc<dyn EdgePersistence>>,
 }
 
 pub(crate) trait TokenRegister {
@@ -34,6 +34,18 @@ impl TokenRegister for TokenValidator {
 }
 
 impl TokenValidator {
+    pub fn new(
+        unleash_client: Arc<UnleashClient>,
+        token_cache: Arc<DashMap<String, EdgeToken>>,
+        persistence: Option<Arc<dyn EdgePersistence>>,
+    ) -> Self {
+        TokenValidator {
+            unleash_client,
+            token_cache,
+            persistence,
+        }
+    }
+
     async fn get_unknown_and_known_tokens(
         &self,
         tokens: Vec<String>,
