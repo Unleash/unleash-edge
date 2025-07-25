@@ -6,7 +6,7 @@ use actix_web_lab::sse::Event;
 use serde::Serialize;
 use serde_json::json;
 use tokio::sync::mpsc::error::SendError;
-use tracing::debug;
+use tracing::{debug, info};
 
 use crate::types::{EdgeToken, Status, UnleashBadRequest};
 
@@ -277,33 +277,41 @@ impl ResponseError for EdgeError {
     }
 
     fn error_response(&self) -> actix_web::HttpResponse<actix_web::body::BoxBody> {
+        let status_code = self.status_code();
+
+        if status_code.is_client_error() {
+            info!("Client error: {status_code}: {self}");
+        } else if status_code.is_server_error() {
+            info!("Server error: {status_code}: {self}");
+        }
+
         match self {
             EdgeError::FrontendNotYetHydrated(hydration_info) => {
-                HttpResponseBuilder::new(self.status_code()).json(json!({
+                HttpResponseBuilder::new(status_code).json(json!({
                     "explanation": "Edge does not yet have data for this token. Please make a call against /api/client/features with a client token that has the same access as your token",
                     "access": hydration_info
                 }))
             },
             EdgeError::TokenParseError(token) => {
                 debug!("Failed to parse token: {}", token);
-                HttpResponseBuilder::new(self.status_code()).json(json!({
+                HttpResponseBuilder::new(status_code).json(json!({
                     "explanation": format!("Edge could not parse token: {}", token),
                 }))
             },
-            EdgeError::TokenValidationError(status_code) => {
+            EdgeError::TokenValidationError(upstream_status_code) => {
                 debug!("Failed to validate token upstream");
-                HttpResponseBuilder::new(self.status_code()).json(json!({
+                HttpResponseBuilder::new(status_code).json(json!({
                     "explanation": format!("Received a non 200 status code when trying to validate token upstream"),
-                    "status_code": status_code.as_str()
+                    "status_code": upstream_status_code.as_str()
                 }))
             }
             EdgeError::NotReady => {
-                HttpResponseBuilder::new(self.status_code()).json(json!({
+                HttpResponseBuilder::new(status_code).json(json!({
                     "error": "Edge is not ready to serve requests",
                     "status": Status::NotReady
                 }))
             }
-            _ => HttpResponseBuilder::new(self.status_code()).json(json!({
+            _ => HttpResponseBuilder::new(status_code).json(json!({
                 "error": self.to_string()
             }))
         }
