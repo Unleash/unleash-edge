@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [19.13.0](https://github.com/Unleash/unleash-edge/compare/v19.12.1...v19.13.0) - 2025-07-25
+
+### 🚀 Features
+- add an option for setting upstream keep alive timeout ([#1047](https://github.com/unleash/unleash-edge/issues/1047)) (by @sighphyre) - #1047
+
+### 🐛 Bug Fixes
+- shared reqwest client so keep alive timeout is not exceeded ([#1045](https://github.com/unleash/unleash-edge/issues/1045)) (by @sighphyre) - #1045
+- stop merging samples for impact metrics ([#1037](https://github.com/unleash/unleash-edge/issues/1037)) (by @kwasniew) - #1037
+
+### Dependency updates
+- bump aws-config from 1.8.2 to 1.8.3 ([#1054](https://github.com/unleash/unleash-edge/issues/1054)) (by @dependabot[bot]) - #1054
+- bump unleash-yggdrasil from 0.17.5 to 0.18.0 ([#1052](https://github.com/unleash/unleash-edge/issues/1052)) (by @dependabot[bot]) - #1052
+- bump rand from 0.9.1 to 0.9.2 ([#1049](https://github.com/unleash/unleash-edge/issues/1049)) (by @dependabot[bot]) - #1049
+- bump serde_json from 1.0.140 to 1.0.141 ([#1048](https://github.com/unleash/unleash-edge/issues/1048)) (by @dependabot[bot]) - #1048
+- bump aws-config from 1.8.1 to 1.8.2 ([#1039](https://github.com/unleash/unleash-edge/issues/1039)) (by @dependabot[bot]) - #1039
+
+### 🚜 Refactor
+- clean up main ([#1044](https://github.com/unleash/unleash-edge/issues/1044)) (by @sighphyre) - #1044
+
+### ⚙️ Miscellaneous Tasks
+- add info logging for all 400/500 errors ([#1055](https://github.com/unleash/unleash-edge/issues/1055)) (by @sighphyre) - #1055
+- remove connect via label, it's done its job and no longer needed ([#1042](https://github.com/unleash/unleash-edge/issues/1042)) (by @sighphyre) - #1042
+- add connect via + origin labels for all ingested impact metrics ([#1040](https://github.com/unleash/unleash-edge/issues/1040)) (by @sighphyre) - #1040
+
+### Contributors
+
+* @sighphyre
+* @dependabot[bot]
+* @kwasniew
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 ## [19.12.1](https://github.com/Unleash/unleash-edge/compare/v19.12.0...v19.12.1) - 2025-07-14
 
 ### Dependency updates
