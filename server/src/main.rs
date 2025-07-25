@@ -13,6 +13,7 @@ use ulid::Ulid;
 use unleash_edge::error::EdgeError;
 use unleash_edge::http::unleash_client::{HttpClientArgs, new_reqwest_client};
 use unleash_edge::metrics::actix_web_prometheus_metrics::PrometheusMetrics;
+use unleash_edge::middleware::fail_response_logger::LogStatus;
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ConnectVia;
 use utoipa::OpenApi;
@@ -67,6 +68,7 @@ fn setup_server(
 
         let cors_middleware = args.http.cors.middleware();
         let mut app = App::new()
+            .wrap(LogStatus)
             .app_data(qs_config)
             .app_data(web::Data::new(args.token_header.clone()))
             .app_data(web::Data::new(args.trust_proxy.clone()))
