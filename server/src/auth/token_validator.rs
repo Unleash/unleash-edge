@@ -285,6 +285,7 @@ mod tests {
     use actix_web::{App, HttpResponse, dev::AppConfig, web};
     use dashmap::DashMap;
     use serde::{Deserialize, Serialize};
+    use tracing_test::traced_test;
 
     use crate::{
         http::unleash_client::UnleashClient,
@@ -498,6 +499,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[traced_test]
     pub async fn deferred_validation_sends_tokens_to_channel() {
         let upstream_tokens: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let mut valid_token_development =
@@ -526,9 +528,9 @@ mod tests {
             deferred_validation_tx: Some(deferred_validation_tx),
         };
         let token = EdgeToken {
-            token: "invalid:token".into(),
+            token: "*:development.token".into(),
             projects: vec!["*".into()],
-            environment: Some("development".into()),
+            environment: Some("test".into()),
             token_type: Some(TokenType::Client),
             status: TokenValidationStatus::Unknown,
         };
