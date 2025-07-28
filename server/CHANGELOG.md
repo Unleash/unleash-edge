@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [19.14.0](https://github.com/Unleash/unleash-edge/compare/v19.13.0...v19.14.0) - 2025-07-28
+
+### 🚀 Features
+- lazy token validation ([#1059](https://github.com/unleash/unleash-edge/issues/1059)) (by @sighphyre) - #1059
+
+### Dependency updates
+- bump tokio from 1.46.1 to 1.47.0 ([#1057](https://github.com/unleash/unleash-edge/issues/1057)) (by @dependabot[bot]) - #1057
+- bump rustls from 0.23.29 to 0.23.30 ([#1056](https://github.com/unleash/unleash-edge/issues/1056)) (by @dependabot[bot]) - #1056
+
+### ⚙️ Miscellaneous Tasks
+- add a constructor chore: to token validator so we can make some internal changes ([#1060](https://github.com/unleash/unleash-edge/issues/1060)) (by @sighphyre) - #1060
+
+### Contributors
+
+* @sighphyre
+* @dependabot[bot]
+
 ## [19.13.0](https://github.com/Unleash/unleash-edge/compare/v19.12.1...v19.13.0) - 2025-07-25
 
 ### 🚀 Features

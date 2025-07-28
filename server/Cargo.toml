@@ -13,7 +13,7 @@ license = "MIT"
 name = "unleash-edge"
 repository = "https://github.com/Unleash/unleash-edge"
 rust-version = "1.85.0"
-version = "19.13.0"
+version = "19.14.0"
 
 [package.metadata.wix]
 upgrade-guid = "11E5D83A-3034-48BB-9A84-9F589EBD648C"
