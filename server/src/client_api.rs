@@ -1243,11 +1243,11 @@ mod tests {
             delta: false,
             delta_diff: false,
         });
-        let token_validator = Arc::new(TokenValidator {
-            unleash_client: unleash_client.clone(),
-            token_cache: token_cache.clone(),
-            persistence: None,
-        });
+        let token_validator = Arc::new(TokenValidator::new(
+            unleash_client.clone(),
+            token_cache.clone(),
+            None,
+        ));
         let local_app = test::init_service(
             App::new()
                 .app_data(Data::from(token_validator.clone()))
@@ -1304,11 +1304,11 @@ mod tests {
             refresh_interval: Duration::seconds(6000),
             ..Default::default()
         });
-        let token_validator = Arc::new(TokenValidator {
-            unleash_client: unleash_client.clone(),
-            token_cache: token_cache.clone(),
-            persistence: None,
-        });
+        let token_validator = Arc::new(TokenValidator::new(
+            unleash_client.clone(),
+            token_cache.clone(),
+            None,
+        ));
         let local_app = test::init_service(
             App::new()
                 .app_data(Data::from(token_validator.clone()))
@@ -1431,11 +1431,11 @@ mod tests {
             strict: false,
             ..Default::default()
         });
-        let token_validator = Arc::new(TokenValidator {
-            unleash_client: unleash_client.clone(),
-            token_cache: token_cache.clone(),
-            persistence: None,
-        });
+        let token_validator = Arc::new(TokenValidator::new(
+            unleash_client.clone(),
+            token_cache.clone(),
+            None,
+        ));
         let local_app = test::init_service(
             App::new()
                 .app_data(Data::from(token_validator.clone()))

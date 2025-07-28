@@ -76,11 +76,11 @@ mod tests {
         local_features_cache: Arc<FeatureCache>,
         local_engine_cache: Arc<DashMap<String, EngineState>>,
     ) -> TestServer {
-        let token_validator = Arc::new(TokenValidator {
-            unleash_client: unleash_client.clone(),
-            token_cache: local_token_cache.clone(),
-            persistence: None,
-        });
+        let token_validator = Arc::new(TokenValidator::new(
+            unleash_client.clone(),
+            local_token_cache.clone(),
+            None,
+        ));
         let feature_refresher = Arc::new(FeatureRefresher {
             unleash_client: unleash_client.clone(),
             features_cache: local_features_cache.clone(),

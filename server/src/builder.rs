@@ -279,11 +279,11 @@ pub async fn build_edge(
         }
     }
 
-    let token_validator = Arc::new(TokenValidator {
-        token_cache: token_cache.clone(),
-        unleash_client: unleash_client.clone(),
-        persistence: persistence.clone(),
-    });
+    let token_validator = Arc::new(TokenValidator::new(
+        unleash_client.clone(),
+        token_cache.clone(),
+        persistence.clone(),
+    ));
     let refresher_mode = match (args.strict, args.streaming) {
         (_, true) => FeatureRefresherMode::Streaming,
         (true, _) => FeatureRefresherMode::Strict,
