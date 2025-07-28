@@ -1,6 +1,9 @@
+use std::env;
 use std::sync::Arc;
 
 use dashmap::DashMap;
+use lazy_static::lazy_static;
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tracing::trace;
 use unleash_types::Upsert;
 
@@ -11,11 +14,19 @@ use crate::types::{
     EdgeResult, EdgeToken, TokenType, TokenValidationStatus, ValidateTokensRequest,
 };
 
-#[derive(Clone)]
+lazy_static! {
+    pub static ref SHOULD_DEFER_VALIDATION: bool = {
+        env::var("EDGE_DEFER_TOKEN_VALIDATION")
+            .map(|v| v == "true" || v == "1")
+            .unwrap_or(false)
+    };
+}
+
 pub struct TokenValidator {
     unleash_client: Arc<UnleashClient>,
     pub token_cache: Arc<DashMap<String, EdgeToken>>,
     persistence: Option<Arc<dyn EdgePersistence>>,
+    deferred_validation_tx: Option<UnboundedSender<String>>,
 }
 
 pub(crate) trait TokenRegister {
@@ -43,10 +54,25 @@ impl TokenValidator {
             unleash_client,
             token_cache,
             persistence,
+            deferred_validation_tx: None,
         }
     }
 
-    async fn get_unknown_and_known_tokens(
+    pub fn new_lazy(
+        unleash_client: Arc<UnleashClient>,
+        token_cache: Arc<DashMap<String, EdgeToken>>,
+        persistence: Option<Arc<dyn EdgePersistence>>,
+        deferred_validation_tx: Option<UnboundedSender<String>>,
+    ) -> Self {
+        TokenValidator {
+            unleash_client,
+            token_cache,
+            persistence,
+            deferred_validation_tx,
+        }
+    }
+
+    fn get_unknown_and_known_tokens(
         &self,
         tokens: Vec<String>,
     ) -> (Vec<EdgeToken>, Vec<EdgeToken>) {
@@ -71,8 +97,36 @@ impl TokenValidator {
         }
     }
 
-    pub async fn register_tokens(&self, tokens: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
-        let (unknown_tokens, known_tokens) = self.get_unknown_and_known_tokens(tokens).await;
+    pub fn deferred_token_registration(&self, tokens: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
+        let (unknown_tokens, known_tokens) = self.get_unknown_and_known_tokens(tokens);
+        if unknown_tokens.is_empty() {
+            Ok(known_tokens)
+        } else {
+            for token in unknown_tokens.iter() {
+                trace!("Deferring token validation for {}", token.token);
+                let invalid = EdgeToken {
+                    status: TokenValidationStatus::Invalid,
+                    token_type: Some(TokenType::Invalid),
+                    ..token.clone()
+                };
+                self.token_cache
+                    .insert(token.token.clone(), invalid.clone());
+
+                if let Some(sender) = &self.deferred_validation_tx {
+                    let _ = sender.send(token.token.clone());
+                }
+            }
+
+            let updated_tokens = unknown_tokens.upsert(known_tokens);
+            Ok(updated_tokens)
+        }
+    }
+
+    pub async fn immediate_token_registration(
+        &self,
+        tokens: Vec<String>,
+    ) -> EdgeResult<Vec<EdgeToken>> {
+        let (unknown_tokens, known_tokens) = self.get_unknown_and_known_tokens(tokens);
         if unknown_tokens.is_empty() {
             Ok(known_tokens)
         } else {
@@ -115,6 +169,46 @@ impl TokenValidator {
                 let _ = persist.save_tokens(updated_tokens.clone()).await;
             }
             Ok(updated_tokens)
+        }
+    }
+
+    pub async fn register_tokens(&self, tokens: Vec<String>) -> EdgeResult<Vec<EdgeToken>> {
+        if *SHOULD_DEFER_VALIDATION {
+            self.deferred_token_registration(tokens)
+        } else {
+            self.immediate_token_registration(tokens).await
+        }
+    }
+
+    pub async fn schedule_deferred_validation(&self, mut rx: UnboundedReceiver<String>) {
+        let mut batch = Vec::new();
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
+
+        loop {
+            tokio::select! {
+                Some(token) = rx.recv() => {
+                    batch.push(token);
+                },
+                _ = interval.tick() => {
+                    if !batch.is_empty() {
+                        let tokens = std::mem::take(&mut batch);
+                        match self.unleash_client.validate_tokens(ValidateTokensRequest { tokens }).await {
+                            Ok(results) => {
+                                for token in results {
+                                    trace!("Background validated token: {}", token.token);
+                                    self.token_cache.insert(token.token.clone(), EdgeToken {
+                                        status: TokenValidationStatus::Validated,
+                                        ..token
+                                    });
+                                }
+                            },
+                            Err(e) => {
+                                trace!("Background token validation failed: {:?}", e);
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -241,7 +335,9 @@ mod tests {
             token_cache: token_cache.clone(),
             persistence: None,
             unleash_client: Arc::new(UnleashClient::new("http://localhost:4242", None).unwrap()),
+            deferred_validation_tx: None,
         });
+
         test_server(move || {
             HttpService::new(map_config(
                 App::new()
@@ -265,6 +361,7 @@ mod tests {
             unleash_client: Arc::new(unleash_client),
             token_cache: Arc::new(DashMap::default()),
             persistence: None,
+            deferred_validation_tx: None,
         };
 
         let tokens_to_validate = vec![
@@ -297,6 +394,7 @@ mod tests {
             unleash_client: Arc::new(unleash_client),
             token_cache: Arc::new(DashMap::default()),
             persistence: None,
+            deferred_validation_tx: None,
         };
         let invalid_tokens = vec!["jamesbond".into(), "invalidtoken".into()];
         let validated_tokens = validation_holder
@@ -342,6 +440,7 @@ mod tests {
             unleash_client: Arc::new(unleash_client),
             token_cache: local_token_cache.clone(),
             persistence: None,
+            deferred_validation_tx: None,
         };
         let _ = validation_holder.revalidate_known_tokens().await;
         assert!(
@@ -386,6 +485,7 @@ mod tests {
             token_cache: Arc::new(local_tokens),
             unleash_client: Arc::new(client),
             persistence: None,
+            deferred_validation_tx: None,
         };
         let _ = validator.revalidate_known_tokens().await;
         assert_eq!(validator.token_cache.len(), 2);
