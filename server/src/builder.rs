@@ -399,7 +399,7 @@ mod tests {
             client_meta_information,
             AuthHeaders::default(),
             client,
-            None
+            None,
         )
         .await;
         assert!(result.is_err());
