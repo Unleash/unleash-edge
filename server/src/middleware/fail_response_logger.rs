@@ -5,7 +5,7 @@ use actix_web::{
 };
 use futures::future::{LocalBoxFuture, Ready, ok};
 use std::task::{Context, Poll};
-use tracing::info;
+use tracing::debug;
 
 pub struct LogStatus;
 
@@ -55,11 +55,11 @@ where
                 Ok(resp) => {
                     let status = resp.status();
                     if status.is_client_error() || status.is_server_error() {
-                        info!("→ {} {} => {}", method, path, status);
+                        debug!("→ {} {} => {}", method, path, status);
                     }
                 }
                 Err(err) => {
-                    info!("→ {} {} => internal error: {:?}", method, path, err);
+                    debug!("→ {} {} => internal error: {:?}", method, path, err);
                 }
             }
 
