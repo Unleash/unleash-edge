@@ -352,7 +352,6 @@ pub async fn build_edge(
 
 #[cfg(test)]
 mod tests {
-    
 
     use crate::{
         builder::{build_edge, build_offline},
