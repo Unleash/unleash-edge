@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [19.14.1](https://github.com/Unleash/unleash-edge/compare/v19.14.0...v19.14.1) - 2025-07-28
+
+### ⚙️ Miscellaneous Tasks
+- downgrade warn message ([#1061](https://github.com/unleash/unleash-edge/issues/1061)) (by @sighphyre) - #1061
+
+### Contributors
+
+* @sighphyre
+
 ## [19.14.0](https://github.com/Unleash/unleash-edge/compare/v19.13.0...v19.14.0) - 2025-07-28
 
 ### 🚀 Features
