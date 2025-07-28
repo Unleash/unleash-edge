@@ -80,7 +80,7 @@ reqwest = { version = "0.12.22", default-features = false, features = [
     "json",
     "rustls-tls"
 ] }
-rustls = { version = "0.23.29", default-features = false, features = [
+rustls = { version = "0.23.30", default-features = false, features = [
     "logging",
     "ring",
     "std",
@@ -92,7 +92,7 @@ serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.141"
 serde_qs = { version = "0.15.0", features = ["actix4", "tracing"] }
 shadow-rs = { version = "1.2.0" }
-tokio = { version = "1.46.1", features = [
+tokio = { version = "1.47.0", features = [
     "macros",
     "rt-multi-thread",
     "tracing",
