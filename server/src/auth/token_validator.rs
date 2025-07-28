@@ -517,7 +517,8 @@ mod tests {
             valid_token_development.clone(),
         );
 
-        let (deferred_validation_tx, mut deferred_validation_rx) = tokio::sync::mpsc::unbounded_channel();
+        let (deferred_validation_tx, mut deferred_validation_rx) =
+            tokio::sync::mpsc::unbounded_channel();
         let validator = TokenValidator {
             token_cache: Arc::new(local_tokens),
             unleash_client: Arc::new(client),

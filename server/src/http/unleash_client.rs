@@ -843,7 +843,7 @@ mod tests {
         http::header::EntityTag,
         web,
     };
-    
+
     use ulid::Ulid;
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
