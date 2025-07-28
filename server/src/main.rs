@@ -10,6 +10,7 @@ use futures::future::join_all;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use ulid::Ulid;
+use unleash_edge::auth::token_validator::SHOULD_DEFER_VALIDATION;
 use unleash_edge::error::EdgeError;
 use unleash_edge::http::unleash_client::{HttpClientArgs, new_reqwest_client};
 use unleash_edge::metrics::actix_web_prometheus_metrics::PrometheusMetrics;
@@ -202,7 +203,7 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
         &edge_instance_data.clone(),
     );
 
-    let (edge_info, instance_data_sender) = match &args.mode {
+    let (edge_info, instance_data_sender, token_validation_queue) = match &args.mode {
         EdgeMode::Edge(edge_args) => {
             let client = new_reqwest_client(HttpClientArgs {
                 skip_ssl_verification: edge_args.skip_ssl_verification,
@@ -214,12 +215,20 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
                 client_meta_information: client_meta_information.clone(),
             })?;
 
+            let (deferred_validation_tx, deferred_validation_rx) = if *SHOULD_DEFER_VALIDATION {
+                let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+                (Some(tx), Some(rx))
+            } else {
+                (None, None)
+            };
+
             let auth_headers = AuthHeaders::from(&args);
             let caches = build_edge(
                 edge_args,
                 client_meta_information.clone(),
                 auth_headers,
                 client.clone(),
+                deferred_validation_tx,
             )
             .await?;
 
@@ -231,12 +240,12 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
                     metrics_middleware.registry.clone(),
                 )?);
 
-            (caches, instance_data_sender)
+            (caches, instance_data_sender, deferred_validation_rx)
         }
         EdgeMode::Offline(offline_args) => {
             let caches =
                 build_offline(offline_args.clone()).map(|cache| (cache, None, None, None))?;
-            (caches, Arc::new(InstanceDataSending::SendNothing))
+            (caches, Arc::new(InstanceDataSending::SendNothing), None)
         }
         _ => unreachable!(),
     };
@@ -268,6 +277,12 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
         edge_instance_data.clone(),
         instances_observed_for_app_context.clone(),
     )?;
+
+    if let (Some(validator), Some(rx)) = (token_validator.clone(), token_validation_queue) {
+        tokio::spawn(async move {
+            validator.schedule_deferred_validation(rx).await;
+        });
+    }
 
     match &args.mode {
         EdgeMode::Edge(edge) => {

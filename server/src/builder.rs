@@ -6,6 +6,7 @@ use std::sync::Arc;
 use chrono::Duration;
 use dashmap::DashMap;
 use reqwest::Url;
+use tokio::sync::mpsc::UnboundedSender;
 use tracing::{debug, error, warn};
 use unleash_types::client_features::ClientFeatures;
 use unleash_yggdrasil::{EngineState, UpdateMessage};
@@ -235,6 +236,7 @@ pub async fn build_edge(
     client_meta_information: ClientMetaInformation,
     auth_headers: AuthHeaders,
     http_client: reqwest::Client,
+    tx: Option<UnboundedSender<String>>,
 ) -> EdgeResult<EdgeInfo> {
     if !args.strict {
         if !args.dynamic {
@@ -279,10 +281,11 @@ pub async fn build_edge(
         }
     }
 
-    let token_validator = Arc::new(TokenValidator::new(
+    let token_validator = Arc::new(TokenValidator::new_lazy(
         unleash_client.clone(),
         token_cache.clone(),
         persistence.clone(),
+        tx,
     ));
     let refresher_mode = match (args.strict, args.streaming) {
         (_, true) => FeatureRefresherMode::Streaming,
@@ -349,7 +352,6 @@ pub async fn build_edge(
 
 #[cfg(test)]
 mod tests {
-    use chrono::Duration;
 
     use crate::{
         builder::{build_edge, build_offline},
@@ -396,6 +398,7 @@ mod tests {
             client_meta_information,
             AuthHeaders::default(),
             client,
+            None,
         )
         .await;
         assert!(result.is_err());
