@@ -194,12 +194,12 @@ impl TokenValidator {
                         let tokens = std::mem::take(&mut batch);
                         match self.unleash_client.validate_tokens(ValidateTokensRequest { tokens }).await {
                             Ok(results) => {
-                                for token in results {
+                                for token in results.iter() {
                                     trace!("Background validated token: {}", token.token);
-                                    self.token_cache.insert(token.token.clone(), EdgeToken {
-                                        status: TokenValidationStatus::Validated,
-                                        ..token
-                                    });
+                                    self.token_cache.insert(token.token.clone(), token.clone());
+                                }
+                                if let Some(persist) = self.persistence.clone() {
+                                    let _ = persist.save_tokens(results).await;
                                 }
                             },
                             Err(e) => {
@@ -495,5 +495,47 @@ mod tests {
                 .iter()
                 .all(|t| t.value().status == TokenValidationStatus::Validated)
         );
+    }
+
+    #[tokio::test]
+    pub async fn deferred_validation_sends_tokens_to_channel() {
+        let upstream_tokens: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
+        let mut valid_token_development =
+            EdgeToken::try_from("*:development.secret123".to_string()).expect("Bad Test Data");
+        valid_token_development.status = TokenValidationStatus::Validated;
+        valid_token_development.token_type = Some(TokenType::Client);
+        upstream_tokens.insert(
+            valid_token_development.token.clone(),
+            valid_token_development.clone(),
+        );
+
+        let server = validation_server_with_valid_tokens(upstream_tokens).await;
+        let client = UnleashClient::new(server.url("/").as_str(), None).unwrap();
+        let local_tokens: DashMap<String, EdgeToken> = DashMap::default();
+        local_tokens.insert(
+            valid_token_development.token.clone(),
+            valid_token_development.clone(),
+        );
+
+        let (deferred_validation_tx, mut deferred_validation_rx) = tokio::sync::mpsc::unbounded_channel();
+        let validator = TokenValidator {
+            token_cache: Arc::new(local_tokens),
+            unleash_client: Arc::new(client),
+            persistence: None,
+            deferred_validation_tx: Some(deferred_validation_tx),
+        };
+        let token = EdgeToken {
+            token: "invalid:token".into(),
+            projects: vec!["*".into()],
+            environment: Some("development".into()),
+            token_type: Some(TokenType::Client),
+            status: TokenValidationStatus::Unknown,
+        };
+
+        validator
+            .deferred_token_registration(vec![token.token.clone()])
+            .expect("Couldn't register token");
+
+        assert!(deferred_validation_rx.recv().await.is_some());
     }
 }
