@@ -1,4 +1,3 @@
-use actix_web::http;
 use actix_web::http::header::EntityTag;
 use chrono::Duration;
 use chrono::Utc;
