@@ -80,7 +80,7 @@ reqwest = { version = "0.12.22", default-features = false, features = [
     "json",
     "rustls-tls"
 ] }
-rustls = { version = "0.23.30", default-features = false, features = [
+rustls = { version = "0.23.31", default-features = false, features = [
     "logging",
     "ring",
     "std",
