@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::env;
 use std::sync::Arc;
 
@@ -181,17 +182,17 @@ impl TokenValidator {
     }
 
     pub async fn schedule_deferred_validation(&self, mut rx: UnboundedReceiver<String>) {
-        let mut batch = Vec::new();
+        let mut batch = HashSet::new();
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
 
         loop {
             tokio::select! {
                 Some(token) = rx.recv() => {
-                    batch.push(token);
+                    batch.insert(token);
                 },
                 _ = interval.tick() => {
                     if !batch.is_empty() {
-                        let tokens = std::mem::take(&mut batch);
+                        let tokens: Vec<String> = batch.drain().collect();
                         match self.unleash_client.validate_tokens(ValidateTokensRequest { tokens }).await {
                             Ok(results) => {
                                 for token in results.iter() {
