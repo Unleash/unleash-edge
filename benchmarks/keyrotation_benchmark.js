@@ -23,11 +23,10 @@ export default function () {
         Authorization: randomToken(),
         // Authorization: TOKEN,
     };
-    const res = http.post(`${__ENV.URL}api/client/metrics`, {
+    const res = http.post(`${__ENV.URL}api/client/features`, {
         headers,
         timeout: '10s',
     });
-    console.log(`Response status: ${res.status}`);
     check(res, {
         'status is 403': (r) => r.status === 403,
     });

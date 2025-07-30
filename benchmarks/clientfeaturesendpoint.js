@@ -12,5 +12,5 @@ export const options = {
 };
 
 export default function () {
-    http.get(`${__ENV.URL}/api/client/features`, {'headers': {'Authorization': `${__ENV.TOKEN}`}});
+    http.get(`${__ENV.URL}api/client/features`, {'headers': {'Authorization': `${__ENV.TOKEN}`}});
 }
