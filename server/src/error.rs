@@ -131,7 +131,7 @@ pub enum EdgeError {
     SseError(String),
     TlsError(String),
     TokenParseError(String),
-    TokenValidationError(reqwest::StatusCode),
+    TokenValidationError(StatusCode),
 }
 
 impl Error for EdgeError {}
@@ -253,7 +253,7 @@ impl ResponseError for EdgeError {
             EdgeError::JsonParseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::EdgeTokenError => StatusCode::BAD_REQUEST,
             EdgeError::EdgeTokenParseError => StatusCode::BAD_REQUEST,
-            EdgeError::TokenValidationError(_) => StatusCode::BAD_REQUEST,
+            EdgeError::TokenValidationError(status_code) => *status_code,
             EdgeError::AuthorizationPending => StatusCode::UNAUTHORIZED,
             EdgeError::FeatureNotFound(_) => StatusCode::NOT_FOUND,
             EdgeError::EdgeMetricsError => StatusCode::BAD_REQUEST,
