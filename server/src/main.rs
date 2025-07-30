@@ -104,7 +104,6 @@ fn setup_server(
                 .wrap(actix_web::middleware::NormalizePath::default())
                 .wrap(cors_middleware)
                 .wrap(metrics_middleware.clone())
-                .wrap(Logger::default())
                 .service(web::scope("/internal-backstage").configure(|service_cfg| {
                     internal_backstage::configure_internal_backstage(
                         service_cfg,
