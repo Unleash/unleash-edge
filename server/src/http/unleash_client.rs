@@ -1,11 +1,3 @@
-use std::collections::HashMap;
-use std::fs;
-use std::fs::File;
-use std::io::BufReader;
-use std::io::Read;
-use std::path::PathBuf;
-use std::str::FromStr;
-
 use actix_web::http::header::EntityTag;
 use chrono::Duration;
 use chrono::Utc;
@@ -15,6 +7,13 @@ use reqwest::header::{HeaderMap, HeaderName};
 use reqwest::{Client, header};
 use reqwest::{ClientBuilder, Identity, RequestBuilder, StatusCode, Url};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fs;
+use std::fs::File;
+use std::io::BufReader;
+use std::io::Read;
+use std::path::PathBuf;
+use std::str::FromStr;
 use tracing::{debug, error};
 use tracing::{info, trace, warn};
 use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta};
@@ -809,7 +808,7 @@ impl UnleashClient {
                 );
                 check_api_suffix();
                 Err(EdgeError::TokenValidationError(
-                    reqwest::StatusCode::from_u16(s.as_u16()).unwrap(),
+                    actix_web::http::StatusCode::from_u16(s.as_u16()).unwrap(),
                 ))
             }
         }
