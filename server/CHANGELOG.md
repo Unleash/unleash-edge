@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [19.14.2](https://github.com/Unleash/unleash-edge/compare/v19.14.1...v19.14.2) - 2025-08-01
+
+### 🐛 Bug Fixes
+- use types deserializer instead, makes Edge work the same as frontend API for contexts([#1071](https://github.com/unleash/unleash-edge/issues/1071)) (by @sighphyre) - #1071
+
+### Dependency updates
+- bump serde_json from 1.0.141 to 1.0.142 ([#1072](https://github.com/unleash/unleash-edge/issues/1072)) (by @dependabot[bot]) - #1072
+
+### Contributors
+
+* @sighphyre
+* @dependabot[bot]
+
 ## [19.14.1](https://github.com/Unleash/unleash-edge/compare/v19.14.0...v19.14.1) - 2025-07-30
 
 ### 🐛 Bug Fixes
