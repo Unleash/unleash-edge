@@ -1,7 +1,6 @@
 use actix_allow_deny_middleware::{AllowList, DenyList};
 use actix_middleware_etag::Etag;
 use actix_web::dev::Server;
-use actix_web::middleware::Logger;
 use actix_web::{App, HttpServer, web};
 use chrono::Duration;
 use clap::Parser;

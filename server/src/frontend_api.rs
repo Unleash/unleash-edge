@@ -21,7 +21,7 @@ use unleash_types::{
 };
 use unleash_yggdrasil::{EngineState, ResolvedToggle};
 
-use crate::types::{ClientIp, IncomingContext, PostContext};
+use crate::types::ClientIp;
 use crate::{
     error::{EdgeError, FrontendHydrationMissing},
     metrics::client_metrics::MetricsCache,
@@ -68,7 +68,7 @@ pub async fn get_proxy_all_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: QsQuery<IncomingContext>,
+    context: QsQuery<Context>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
     get_all_features(
@@ -96,7 +96,7 @@ pub async fn get_frontend_all_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: QsQuery<IncomingContext>,
+    context: QsQuery<Context>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
     get_all_features(
@@ -125,7 +125,7 @@ async fn post_proxy_all_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: Json<PostContext>,
+    context: Json<Context>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
     post_all_features(
@@ -206,7 +206,7 @@ async fn post_frontend_all_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: Json<PostContext>,
+    context: Json<Context>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
     post_all_features(
@@ -222,7 +222,7 @@ fn post_all_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    incoming_context: Json<PostContext>,
+    incoming_context: Json<Context>,
     client_ip: Option<&ClientIp>,
 ) -> EdgeJsonResult<FrontendResult> {
     let context: Context = incoming_context.into_inner().into();
@@ -267,7 +267,7 @@ async fn get_enabled_proxy(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: QsQuery<IncomingContext>,
+    context: QsQuery<Context>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
     get_enabled_features(
@@ -296,7 +296,7 @@ async fn get_enabled_frontend(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: QsQuery<IncomingContext>,
+    context: QsQuery<Context>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
     debug!("getting enabled features");
@@ -314,7 +314,7 @@ fn get_enabled_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    incoming_context: IncomingContext,
+    incoming_context: Context,
     client_ip: Option<ClientIp>,
 ) -> EdgeJsonResult<FrontendResult> {
     let context: Context = incoming_context.into();
@@ -363,7 +363,7 @@ async fn post_proxy_enabled_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: Json<PostContext>,
+    context: Json<Context>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
     let client_ip = req.extensions().get::<ClientIp>().cloned();
@@ -387,7 +387,7 @@ async fn post_frontend_enabled_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: Json<PostContext>,
+    context: Json<Context>,
     req: HttpRequest,
 ) -> EdgeJsonResult<FrontendResult> {
     let client_ip = req.extensions().get::<ClientIp>().cloned();
@@ -412,7 +412,7 @@ security(
 pub async fn post_frontend_evaluate_single_feature(
     edge_token: EdgeToken,
     feature_name: Path<String>,
-    context: Json<PostContext>,
+    context: Json<Context>,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
     req: HttpRequest,
@@ -448,7 +448,7 @@ security(
 pub async fn get_frontend_evaluate_single_feature(
     edge_token: EdgeToken,
     feature_name: Path<String>,
-    context: QsQuery<IncomingContext>,
+    context: QsQuery<Context>,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
     req: HttpRequest,
@@ -516,10 +516,10 @@ async fn post_enabled_features(
     edge_token: EdgeToken,
     engine_cache: Data<DashMap<String, EngineState>>,
     token_cache: Data<DashMap<String, EdgeToken>>,
-    context: Json<PostContext>,
+    context: Json<Context>,
     client_ip: Option<ClientIp>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let context: Context = context.into_inner().into();
+    let context: Context = context.into_inner();
     let context_with_ip = if context.remote_address.is_none() {
         Context {
             remote_address: client_ip.map(|ip| ip.to_string()),
@@ -1432,37 +1432,6 @@ mod tests {
             .to_request();
         let res = test::call_service(&app, req).await;
         assert_eq!(res.status(), StatusCode::FORBIDDEN);
-    }
-
-    #[tokio::test]
-    async fn using_a_string_for_properties_gives_400() {
-        let client_features = crate::tests::features_from_disk("../examples/hostedexample.json");
-        let (token_cache, feature_cache, _delta_cache, engine_cache) = build_offline_mode(
-            client_features,
-            vec!["dx:development.secret123".to_string()],
-            vec![],
-            vec![],
-        )
-        .unwrap();
-        let app = test::init_service(
-            App::new()
-                .app_data(Data::from(token_cache))
-                .app_data(Data::from(feature_cache))
-                .app_data(Data::from(engine_cache))
-                .service(
-                    web::scope("/api").configure(|cfg| super::configure_frontend_api(cfg, false)),
-                ),
-        )
-        .await;
-
-        let req = test::TestRequest::get()
-            .uri("/api/frontend?properties=string")
-            .insert_header(ContentType::json())
-            .insert_header(("Authorization", "dx:development.secret123"))
-            .to_request();
-
-        let result = test::call_service(&app, req).await;
-        assert_eq!(result.status(), 400);
     }
 
     #[tokio::test]
