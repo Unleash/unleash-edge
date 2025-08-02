@@ -1,0 +1,15 @@
+[package]
+name = "unleash-edge-delta"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+documentation.workspace = true
+edition.workspace = true
+
+[dependencies]
+dashmap = { workspace = true }
+tokio = { workspace = true }
+unleash-edge-types = { path = "../unleash-edge-types" }
+unleash-types = { workspace = true }
+unleash-yggdrasil = { workspace = true}
+tracing = { workspace = true}
