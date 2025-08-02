@@ -1,18 +1,18 @@
-use std::collections::HashMap;
+use ahash::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
+use super::EdgePersistence;
+use crate::redis::RedisClientOptions::{Cluster, Single};
 use async_trait::async_trait;
 use redis::cluster::ClusterClient;
 use redis::{AsyncCommands, Client, Commands, RedisError};
 use tokio::sync::RwLock;
 use tracing::{debug, info};
-use unleash_types::client_features::ClientFeatures;
 use unleash_edge_types::EdgeResult;
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::tokens::EdgeToken;
-use crate::redis::RedisClientOptions::{Cluster, Single};
-use super::EdgePersistence;
+use unleash_types::client_features::ClientFeatures;
 
 pub const FEATURES_KEY: &str = "unleash-features";
 pub const TOKENS_KEY: &str = "unleash-tokens";

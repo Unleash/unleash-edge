@@ -1,14 +1,13 @@
-
+use crate::tokens::EdgeToken;
+use crate::{Status, UnleashBadRequest};
 use axum::body::Body;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
+use redis::RedisError;
 use serde::Serialize;
 use serde_json::json;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
-use redis::RedisError;
-use crate::{Status, UnleashBadRequest};
-use crate::tokens::EdgeToken;
 
 pub const TRUST_PROXY_PARSE_ERROR: &str =
     "needs to be a valid ip address (ipv4 or ipv6) or a valid cidr (ipv4 or ipv6)";
@@ -296,7 +295,7 @@ impl IntoResponse for EdgeError {
     }
 }
 impl EdgeError {
-    fn status_code(&self) -> axum::http::StatusCode {
+    pub fn status_code(&self) -> axum::http::StatusCode {
         match self {
             EdgeError::InvalidBackupFile(_, _) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::TlsError(_) => StatusCode::INTERNAL_SERVER_ERROR,

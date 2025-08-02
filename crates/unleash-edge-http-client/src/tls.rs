@@ -45,7 +45,7 @@ pub fn config(tls_config: TlsOptions) -> Result<ServerConfig, EdgeError> {
                 .expect("No TLS server cert")
                 .as_path(),
         )
-            .map_err(|_| EdgeError::TlsError("Failed to open certfile".to_string()))?,
+        .map_err(|_| EdgeError::TlsError("Failed to open certfile".to_string()))?,
     );
     let mut key_file = BufReader::new(
         File::open(tls_config.tls_server_key.expect("No server key").as_path())

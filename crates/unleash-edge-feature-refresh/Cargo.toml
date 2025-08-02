@@ -22,6 +22,14 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 unleash-types = { workspace = true }
 unleash-edge-delta = { path = "../unleash-edge-delta" }
-unleash-edge-http-client= { path = "../unleash-edge-http-client" }
+unleash-edge-feature-cache = { path = "../unleash-edge-feature-cache" }
+unleash-edge-feature-filters = { path = "../unleash-edge-feature-filters" }
+unleash-edge-http-client = { path = "../unleash-edge-http-client" }
+unleash-edge-persistence = { path = "../unleash-edge-persistence" }
 unleash-edge-types = { path = "../unleash-edge-types" }
 unleash-yggdrasil = { workspace = true}
+
+[dev-dependencies]
+axum-test = { workspace = true }
+test-case = { workspace = true }
+tracing-test = { workspace = true }

@@ -1,15 +1,19 @@
+use axum::http::{HeaderName, HeaderValue, Method};
+use cidr::{Ipv4Cidr, Ipv6Cidr};
+use clap::{ArgGroup, Args, Parser, Subcommand, ValueEnum};
+use ipnet::IpNet;
 use std::fmt::{Display, Formatter};
 use std::net::IpAddr;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
-use axum::http::{HeaderName, HeaderValue, Method};
-use cidr::{Ipv4Cidr, Ipv6Cidr};
-use clap::{Args, Subcommand, ArgGroup, ValueEnum, Parser};
-use ipnet::IpNet;
-use tower_http::cors::{AllowHeaders, AllowMethods, AllowOrigin, Any, CorsLayer, ExposeHeaders, MaxAge};
-use unleash_edge_types::{tokens::EdgeToken, tokens::parse_trusted_token_pair};
+use axum::http::header::AUTHORIZATION;
+use tower_http::cors::{
+    AllowHeaders, AllowMethods, AllowOrigin, Any, CorsLayer, ExposeHeaders, MaxAge,
+};
 use unleash_edge_types::errors::{EdgeError, TRUST_PROXY_PARSE_ERROR};
+use unleash_edge_types::{tokens::EdgeToken, tokens::parse_trusted_token_pair};
+use crate::EdgeMode::Edge;
 
 #[derive(Subcommand, Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
@@ -22,6 +26,12 @@ pub enum EdgeMode {
     Health(HealthCheckArgs),
     /// Perform a ready check against a running edge instance
     Ready(ReadyCheckArgs),
+}
+
+impl Default for EdgeMode {
+    fn default() -> Self {
+        Edge(EdgeArgs::default())
+    }
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -395,6 +405,14 @@ impl AuthHeaders {
             ..Default::default()
         }
     }
+
+    pub fn edge_header_name(&self) -> HeaderName {
+        self.edge_auth_header.clone().and_then(|h| HeaderName::from_bytes(h.as_bytes()).ok()).unwrap_or(AUTHORIZATION)
+    }
+
+    pub fn upstream_header_name(&self) -> HeaderName {
+        self.upstream_auth_header.clone().and_then(|h| HeaderName::from_bytes(h.as_bytes()).ok()).unwrap_or(AUTHORIZATION)
+    }
 }
 
 #[derive(Args, Debug, Clone)]
@@ -517,24 +535,28 @@ impl CorsOptions {
     fn expose_headers(&self) -> ExposeHeaders {
         match self.cors_exposed_headers.clone() {
             Some(headers) => {
-                let list = headers.iter().cloned().filter_map(|header| HeaderName::from_str(&header).ok());
+                let list = headers
+                    .iter()
+                    .cloned()
+                    .filter_map(|header| HeaderName::from_str(&header).ok());
                 ExposeHeaders::list(list)
             }
-            None => ExposeHeaders::any()
+            None => ExposeHeaders::any(),
         }
     }
     fn methods(&self) -> AllowMethods {
         match self.cors_methods.clone() {
-            Some(methods) => {
-                AllowMethods::list(methods)
-            },
+            Some(methods) => AllowMethods::list(methods),
             None => AllowMethods::any(),
         }
     }
     fn origins(&self) -> AllowOrigin {
         match self.cors_origin.clone() {
             Some(origins) => {
-                let list = origins.iter().cloned().filter_map(|origin| HeaderValue::from_str(&origin).ok());
+                let list = origins
+                    .iter()
+                    .cloned()
+                    .filter_map(|origin| HeaderValue::from_str(&origin).ok());
                 AllowOrigin::list(list)
             }
             None => AllowOrigin::any(),
@@ -544,10 +566,13 @@ impl CorsOptions {
     fn allowed_headers(&self) -> AllowHeaders {
         match self.cors_allowed_headers.clone() {
             Some(headers) => {
-                let list = headers.iter().cloned().filter_map(|header| HeaderName::from_str(&header).ok());
+                let list = headers
+                    .iter()
+                    .cloned()
+                    .filter_map(|header| HeaderName::from_str(&header).ok());
                 AllowHeaders::list(list)
-            },
-            None => AllowHeaders::any()
+            }
+            None => AllowHeaders::any(),
         }
     }
 }
@@ -634,14 +659,14 @@ impl HttpServerArgs {
 
 #[cfg(test)]
 mod tests {
+    use super::{CliArgs, EdgeMode, NetworkAddr};
+    use axum::http;
     use clap::Parser;
     use ipnet::IpNet;
     use std::str::FromStr;
-    use axum::http;
     use tracing::info;
     use tracing_test::traced_test;
     use unleash_edge_types::errors::TRUST_PROXY_PARSE_ERROR;
-    use super::{CliArgs, EdgeMode, NetworkAddr};
 
     #[test]
     pub fn can_parse_multiple_client_headers() {

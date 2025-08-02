@@ -4,10 +4,8 @@ use tracing::trace;
 
 pub mod client_impact_metrics;
 pub mod client_metrics;
-pub mod edge_metrics;
 pub(crate) mod metric_batching;
 pub mod metrics_pusher;
-pub mod route_formatter;
 
 const EDGE_REQUIREMENT: &str = ">=17.0.0";
 const UNLEASH_REQUIREMENT: &str = ">=5.9.0";
@@ -32,9 +30,9 @@ pub fn version_is_new_enough_for_client_bulk(upstream: &str, version: &str) -> b
             let unleash_version = Version::parse(version).unwrap();
             UNLEASH_VERSION_REQ.matches(&unleash_version)
                 || (unleash_version.major == 5
-                && unleash_version.minor == 8
-                && unleash_version.patch == 0
-                && unleash_version.build.contains("main"))
+                    && unleash_version.minor == 8
+                    && unleash_version.patch == 0
+                    && unleash_version.build.contains("main"))
         }
         _ => false,
     }

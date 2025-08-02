@@ -2,12 +2,12 @@ use reqwest::{StatusCode, Url};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+use crate::{ClientMetaInformation, UnleashClient};
 use prometheus::Registry;
 use tracing::{debug, warn};
 use unleash_edge_cli::{CliArgs, EdgeMode};
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
-use crate::{ClientMetaInformation, UnleashClient};
 
 #[derive(Debug, Clone)]
 pub struct InstanceDataSender {
@@ -104,7 +104,7 @@ pub async fn loop_send_instance_data(
                     our_instance_data.clone(),
                     downstream_instance_data.clone(),
                 )
-                    .await;
+                .await;
                 if let Err(e) = status {
                     match e {
                         EdgeError::EdgeMetricsRequestError(status, _) => {
