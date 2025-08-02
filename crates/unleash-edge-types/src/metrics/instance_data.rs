@@ -1,11 +1,16 @@
-use std::sync::atomic::{AtomicU64, Ordering};
+use crate::metrics::{
+    BUCKET_SIZE_FEATURES, BUCKET_SIZE_METRICS, ConnectionConsumptionData, ConnectionMetricsType,
+    DEFAULT_FEATURES_INTERVAL, DEFAULT_METRICS_INTERVAL, DESIRED_URLS, DataPoint, InstanceTraffic,
+    LatencyMetrics, MAX_BUCKET_INTERVAL, ProcessMetrics, RequestConsumptionData, RequestStats,
+    UpstreamLatency,
+};
+use crate::{BuildInfo, ENDPOINT_LABEL, METHOD_LABEL, STATUS_LABEL};
 use ahash::HashMap;
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicU64, Ordering};
 use ulid::Ulid;
-use crate::{BuildInfo, ENDPOINT_LABEL, METHOD_LABEL, STATUS_LABEL};
-use crate::metrics::{ConnectionConsumptionData, ConnectionMetricsType, DataPoint, InstanceTraffic, LatencyMetrics, ProcessMetrics, RequestConsumptionData, RequestStats, UpstreamLatency, BUCKET_SIZE_FEATURES, BUCKET_SIZE_METRICS, DEFAULT_FEATURES_INTERVAL, DEFAULT_METRICS_INTERVAL, DESIRED_URLS, MAX_BUCKET_INTERVAL};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -173,18 +178,16 @@ impl EdgeInstanceData {
                         .iter()
                         .filter(|m| {
                             m.get_label().iter().any(|l| {
-                                l.name()
-                                    == ENDPOINT_LABEL
+                                l.name() == ENDPOINT_LABEL
                                     && DESIRED_URLS
-                                    .iter()
-                                    .any(|desired| l.value().ends_with(desired))
+                                        .iter()
+                                        .any(|desired| l.value().ends_with(desired))
                             }) && m.get_label().iter().any(|l| {
-                                l.name()
-                                    == STATUS_LABEL
+                                l.name() == STATUS_LABEL
                                     && (l.value() == "200"
-                                    || l.value() == "202"
-                                    || l.value() == "304"
-                                    || l.value() == "403")
+                                        || l.value() == "202"
+                                        || l.value() == "304"
+                                        || l.value() == "403")
                             })
                         })
                         .for_each(|m| {
@@ -346,7 +349,7 @@ fn get_percentile(percentile: u64, count: u64, buckets: &[prometheus::proto::Buc
             return round_to_3_decimals(
                 previous_upper_bound
                     + ((observation_in_range / nth_count as f64)
-                    * (bucket.upper_bound() - previous_upper_bound)),
+                        * (bucket.upper_bound() - previous_upper_bound)),
             );
         }
         previous_upper_bound = bucket.upper_bound();

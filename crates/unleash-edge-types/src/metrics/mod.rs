@@ -1,11 +1,13 @@
-use std::sync::atomic::{AtomicU64, Ordering};
+use crate::MetricsKey;
 use ahash::HashMap;
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicU64, Ordering};
+use unleash_types::client_metrics::{ClientApplication, ClientMetricsEnv, ConnectVia, ImpactMetricEnv};
 use utoipa::ToSchema;
 
-pub mod instance_data;
 pub mod batching;
+pub mod instance_data;
 
 #[derive(Debug, Default, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -292,3 +294,51 @@ pub const DESIRED_URLS: [&str; 6] = [
     "/api/frontend",
     "/api/proxy",
 ];
+
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct ApplicationKey {
+    pub app_name: String,
+    pub instance_id: String,
+}
+
+impl From<ClientApplication> for ApplicationKey {
+    fn from(value: ClientApplication) -> Self {
+        Self {
+            app_name: value.app_name,
+            instance_id: value.instance_id.unwrap_or_else(|| "default".into()),
+        }
+    }
+}
+
+impl From<ClientMetricsEnv> for MetricsKey {
+    fn from(value: ClientMetricsEnv) -> Self {
+        Self {
+            app_name: value.app_name,
+            feature_name: value.feature_name,
+            timestamp: value.timestamp,
+            environment: value.environment,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Eq, Deserialize, Serialize, ToSchema, Hash, PartialEq)]
+pub struct ImpactMetricsKey {
+    pub app_name: String,
+    pub environment: String,
+}
+
+impl From<&ImpactMetricEnv> for ImpactMetricsKey {
+    fn from(value: &ImpactMetricEnv) -> Self {
+        Self {
+            app_name: value.app_name.clone(),
+            environment: value.environment.clone(),
+        }
+    }
+}
+
+#[derive(Default, Debug)]
+pub struct MetricsCache {
+    pub applications: DashMap<ApplicationKey, ClientApplication>,
+    pub metrics: DashMap<MetricsKey, ClientMetricsEnv>,
+    pub impact_metrics: DashMap<ImpactMetricsKey, Vec<ImpactMetricEnv>>,
+}

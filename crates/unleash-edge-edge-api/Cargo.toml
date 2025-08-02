@@ -1,0 +1,14 @@
+[package]
+name = "unleash-edge-edge-api"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+documentation.workspace = true
+edition.workspace = true
+
+[dependencies]
+axum = { workspace = true }
+unleash-edge-appstate = { path = "../unleash-edge-appstate" }
+unleash-edge-types = { path = "../unleash-edge-types" }
+utoipa = { workspace = true }
+tracing = { workspace = true}

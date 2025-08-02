@@ -1,11 +1,12 @@
 #![cfg(feature = "s3-persistence")]
 pub mod s3_persister {
 
-    use std::collections::HashMap;
+    use ahash::HashMap;
 
     use async_trait::async_trait;
     use unleash_types::client_features::ClientFeatures;
 
+    use crate::EdgePersistence;
     use aws_sdk_s3::{
         self as s3,
         primitives::{ByteStream, SdkBody},
@@ -13,7 +14,6 @@ pub mod s3_persister {
     use unleash_edge_types::EdgeResult;
     use unleash_edge_types::errors::EdgeError;
     use unleash_edge_types::tokens::EdgeToken;
-    use crate::EdgePersistence;
 
     pub const FEATURES_KEY: &str = "/unleash-features.json";
     pub const TOKENS_KEY: &str = "/unleash-tokens.json";
@@ -51,7 +51,8 @@ pub mod s3_persister {
                 .key(TOKENS_KEY)
                 .response_content_type("application/json")
                 .send()
-                .await.map_err(|_| EdgeError::PersistenceError("Failed to GET tokens".to_string()))?;
+                .await
+                .map_err(|_| EdgeError::PersistenceError("Failed to GET tokens".to_string()))?;
             let data = response.body.collect().await.expect("Failed data");
             serde_json::from_slice(&data.to_vec()).map_err(|_| {
                 EdgeError::PersistenceError("Failed to deserialize tokens".to_string())
@@ -103,7 +104,7 @@ pub mod s3_persister {
                         .cloned()
                         .collect::<HashMap<String, ClientFeatures>>())
                 }
-                Err(_e) => Ok(HashMap::new()),
+                Err(_e) => Ok(HashMap::default()),
             }
         }
 

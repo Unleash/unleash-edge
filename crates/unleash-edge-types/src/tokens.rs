@@ -1,13 +1,16 @@
+use crate::errors::EdgeError;
+use crate::{ClientTokenRequest, EdgeResult, TokenRefresh, TokenType, TokenValidationStatus};
+use axum::http::HeaderValue;
+use chrono::{DateTime, Duration, Utc};
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
-use axum::http::HeaderValue;
-use chrono::{DateTime, Duration, Utc};
-use serde::{Deserialize, Serialize};
+use ahash::HashSet;
+use axum::extract::FromRequestParts;
+use http::request::Parts;
 use utoipa::ToSchema;
-use crate::{ClientTokenRequest, EdgeResult, TokenType, TokenValidationStatus};
-use crate::errors::EdgeError;
 
 #[derive(Clone, Default, Serialize, Deserialize, Eq, ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -19,6 +22,13 @@ pub struct EdgeToken {
     pub projects: Vec<String>,
     #[serde(default = "valid_status")]
     pub status: TokenValidationStatus,
+}
+
+pub fn cache_key(token: &EdgeToken) -> String {
+    token
+        .environment
+        .clone()
+        .unwrap_or_else(|| token.token.clone())
 }
 
 impl Debug for EdgeToken {
@@ -179,14 +189,11 @@ impl EdgeToken {
             && self.same_environment_and_broader_or_equal_project_access(other)
     }
 
-    pub fn same_environment_and_broader_or_equal_project_access(
-        &self,
-        other: &EdgeToken,
-    ) -> bool {
+    pub fn same_environment_and_broader_or_equal_project_access(&self, other: &EdgeToken) -> bool {
         self.environment == other.environment
             && (self.projects.contains(&"*".into())
-            || (self.projects.len() >= other.projects.len()
-            && other.projects.iter().all(|p| self.projects.contains(p))))
+                || (self.projects.len() >= other.projects.len()
+                    && other.projects.iter().all(|p| self.projects.contains(p))))
     }
     pub fn offline_token(s: &str) -> Self {
         let mut token = EdgeToken::try_from(s.to_string())
@@ -267,3 +274,60 @@ fn parse_legacy_token(token_string: &str) -> EdgeResult<(String, EdgeToken)> {
     }
 }
 
+pub fn simplify(tokens: &[TokenRefresh]) -> Vec<TokenRefresh> {
+    let uniques = filter_unique_tokens(tokens);
+    uniques
+        .iter()
+        .filter_map(|token| {
+            uniques.iter().try_fold(token, |acc, current| {
+                if current.token.token != acc.token.token && current.token.subsumes(&acc.token) {
+                    None
+                } else {
+                    Some(acc)
+                }
+            })
+        })
+        .cloned()
+        .collect()
+}
+
+fn filter_unique_tokens(tokens: &[TokenRefresh]) -> Vec<TokenRefresh> {
+    let mut unique_tokens = Vec::new();
+    let mut unique_keys = HashSet::default();
+
+    for token in tokens {
+        let key = (
+            token.token.projects.clone(),
+            token.token.environment.clone(),
+        );
+        if !unique_keys.contains(&key) {
+            unique_tokens.push(token.clone());
+            unique_keys.insert(key);
+        }
+    }
+
+    unique_tokens
+}
+
+pub fn anonymize_token(edge_token: &EdgeToken) -> EdgeToken {
+    let mut iterator = edge_token.token.split('.');
+    let project_and_environment = iterator.next();
+    let maybe_hash = iterator.next();
+    match (project_and_environment, maybe_hash) {
+        (Some(p_and_e), Some(hash)) => {
+            let safe_hash = clean_hash(hash);
+            EdgeToken {
+                token: format!("{}.{}", p_and_e, safe_hash),
+                ..edge_token.clone()
+            }
+        }
+        _ => edge_token.clone(),
+    }
+}
+fn clean_hash(hash: &str) -> String {
+    format!(
+        "{}****{}",
+        &hash[..6].to_string(),
+        &hash[hash.len() - 6..].to_string()
+    )
+}

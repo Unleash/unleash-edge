@@ -117,8 +117,8 @@ impl DeltaCache {
 
 #[cfg(test)]
 mod tests {
-    use unleash_types::client_features::{ClientFeature, DeltaEvent, Segment};
     use crate::cache::{DeltaCache, DeltaHydrationEvent};
+    use unleash_types::client_features::{ClientFeature, DeltaEvent, Segment};
 
     #[test]
     fn test_update_hydration_event_and_remove_event_when_over_limit() {

@@ -1,13 +1,13 @@
-use std::sync::Arc;
-use std::time::Duration;
 use ahash::HashMap;
 use async_trait::async_trait;
 use dashmap::DashMap;
+use std::sync::Arc;
+use std::time::Duration;
 use tracing::{debug, warn};
-use unleash_types::client_features::ClientFeatures;
 use unleash_edge_feature_cache::FeatureCache;
-use unleash_edge_types::{EdgeResult, TokenValidationStatus};
 use unleash_edge_types::tokens::EdgeToken;
+use unleash_edge_types::{EdgeResult, TokenValidationStatus};
+use unleash_types::client_features::ClientFeatures;
 
 pub mod file;
 pub mod redis;
@@ -21,7 +21,6 @@ pub trait EdgePersistence: Send + Sync {
     async fn save_features(&self, features: Vec<(String, ClientFeatures)>) -> EdgeResult<()>;
 }
 
-#[cfg(not(tarpaulin_include))]
 pub async fn persist_data(
     persistence: Option<Arc<dyn EdgePersistence>>,
     token_cache: Arc<DashMap<String, EdgeToken>>,

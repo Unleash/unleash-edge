@@ -1,14 +1,13 @@
-use std::collections::HashMap;
 use std::path::Path;
 use std::{path::PathBuf, str::FromStr};
-
+use ahash::HashMap;
 use async_trait::async_trait;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
-use unleash_types::client_features::ClientFeatures;
 use unleash_edge_types::EdgeResult;
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::tokens::EdgeToken;
+use unleash_types::client_features::ClientFeatures;
 
 use super::EdgePersistence;
 
@@ -94,9 +93,9 @@ impl EdgePersistence for FilePersister {
                 EdgeError::PersistenceError("Failed to serialize tokens".to_string())
             })?,
         )
-            .await
-            .map_err(|_| EdgeError::PersistenceError("Could not serialize tokens to disc".to_string()))
-            .map(|_| ())
+        .await
+        .map_err(|_| EdgeError::PersistenceError("Could not serialize tokens to disc".to_string()))
+        .map(|_| ())
     }
 
     async fn load_features(&self) -> EdgeResult<HashMap<String, ClientFeatures>> {
@@ -138,9 +137,9 @@ impl EdgePersistence for FilePersister {
                 EdgeError::PersistenceError("Failed to serialize features".to_string())
             })?,
         )
-            .await
-            .map_err(|_| EdgeError::PersistenceError("Could not serialize tokens to disc".to_string()))
-            .map(|_| ())
+        .await
+        .map_err(|_| EdgeError::PersistenceError("Could not serialize tokens to disc".to_string()))
+        .map(|_| ())
     }
 }
 
@@ -148,11 +147,11 @@ impl EdgePersistence for FilePersister {
 mod tests {
     use std::env::temp_dir;
 
-    use unleash_types::client_features::{ClientFeature, ClientFeatures};
-    use unleash_edge_types::tokens::EdgeToken;
-    use unleash_edge_types::{TokenType, TokenValidationStatus};
     use crate::EdgePersistence;
     use crate::file::FilePersister;
+    use unleash_edge_types::tokens::EdgeToken;
+    use unleash_edge_types::{TokenType, TokenValidationStatus};
+    use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
     #[tokio::test]
     async fn file_persister_can_save_and_load_features() {

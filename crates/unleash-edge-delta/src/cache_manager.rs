@@ -1,8 +1,8 @@
+use crate::cache::DeltaCache;
 use dashmap::DashMap;
 use tokio::sync::broadcast;
 use tracing::error;
 use unleash_types::client_features::DeltaEvent;
-use crate::cache::DeltaCache;
 
 #[derive(Debug, Clone)]
 pub enum DeltaCacheUpdate {
@@ -69,8 +69,8 @@ impl DeltaCacheManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use unleash_types::client_features::{ClientFeature, DeltaEvent, Segment};
     use crate::cache::{DeltaCache, DeltaHydrationEvent};
+    use unleash_types::client_features::{ClientFeature, DeltaEvent, Segment};
 
     #[test]
     fn test_insert_and_update_delta_cache() {

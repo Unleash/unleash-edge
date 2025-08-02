@@ -1,11 +1,11 @@
 use dashmap::DashMap;
 use tokio::sync::broadcast;
+use unleash_edge_types::tokens::EdgeToken;
 use unleash_types::client_features::ClientFeaturesDelta;
 use unleash_types::{
     Deduplicate,
     client_features::{ClientFeature, ClientFeatures, Segment},
 };
-use unleash_edge_types::tokens::EdgeToken;
 
 #[derive(Debug, Clone)]
 pub enum UpdateType {
@@ -113,7 +113,7 @@ fn update_client_features(
     }
 }
 
-pub(crate) fn update_projects_from_feature_update(
+pub fn update_projects_from_feature_update(
     token: &EdgeToken,
     original: &[ClientFeature],
     updated: &[ClientFeature],
