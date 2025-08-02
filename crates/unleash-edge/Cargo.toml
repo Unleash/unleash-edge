@@ -1,0 +1,14 @@
+[package]
+name = "unleash-edge"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+documentation.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+axum = { workspace = true }
+clap = { workspace = true }
+tokio = { workspace = true }
+unleash-edge-cli = { path = "../unleash-edge-cli" }

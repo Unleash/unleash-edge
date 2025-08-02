@@ -1,0 +1,15 @@
+[package]
+name = "unleash-edge-metrics"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+documentation.workspace = true
+edition.workspace = true
+
+[dependencies]
+lazy_static = { workspace = true }
+semver = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+traced-test = "1.0.4"
