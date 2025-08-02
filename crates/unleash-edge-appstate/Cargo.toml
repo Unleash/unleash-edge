@@ -1,0 +1,14 @@
+[package]
+name = "unleash-edge-appstate"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+documentation.workspace = true
+edition.workspace = true
+
+[dependencies]
+axum = { workspace = true }
+unleash-edge-cli = { path = "../unleash-edge-cli" }
+unleash-edge-feature-cache = { path = "../unleash-edge-feature-cache" }
+unleash-edge-feature-refresh = { path = "../unleash-edge-feature-refresh" }
+unleash-edge-types = { path = "../unleash-edge-types" }
