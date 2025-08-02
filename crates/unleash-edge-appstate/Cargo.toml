@@ -8,7 +8,11 @@ edition.workspace = true
 
 [dependencies]
 axum = { workspace = true }
+dashmap = { workspace = true }
+ulid = { workspace = true }
+unleash-edge-auth = { path = "../unleash-edge-auth" }
 unleash-edge-cli = { path = "../unleash-edge-cli" }
 unleash-edge-feature-cache = { path = "../unleash-edge-feature-cache" }
 unleash-edge-feature-refresh = { path = "../unleash-edge-feature-refresh" }
 unleash-edge-types = { path = "../unleash-edge-types" }
+unleash-types = { workspace = true }

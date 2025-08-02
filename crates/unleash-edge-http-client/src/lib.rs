@@ -1,34 +1,40 @@
-use std::fs;
-use std::fs::File;
-use std::io::{BufReader, Read};
-use std::path::PathBuf;
-use std::str::FromStr;
+use crate::tls::build_upstream_certificate;
 use ahash::HashMap;
 use axum::http::{HeaderName, StatusCode};
 use chrono::{Duration, Utc};
 use etag::EntityTag;
 use lazy_static::lazy_static;
-use prometheus::{register_histogram_vec, register_int_gauge_vec, HistogramVec, IntGaugeVec, Opts};
-use reqwest::{header, Client, ClientBuilder, Identity, RequestBuilder};
+use prometheus::{HistogramVec, IntGaugeVec, Opts, register_histogram_vec, register_int_gauge_vec};
 use reqwest::header::HeaderMap;
+use reqwest::{Client, ClientBuilder, Identity, RequestBuilder, header};
 use serde::{Deserialize, Serialize};
+use std::fs;
+use std::fs::File;
+use std::io::{BufReader, Read};
+use std::path::PathBuf;
+use std::str::FromStr;
 use tracing::{debug, error, info, trace, warn};
-use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta};
-use unleash_types::client_metrics::ClientApplication;
-use url::Url;
 use unleash_edge_cli::ClientIdentity;
-use unleash_edge_types::{build, ClientFeaturesDeltaResponse, ClientFeaturesRequest, ClientFeaturesResponse, EdgeResult, EdgeTokens, TokenValidationStatus, ValidateTokensRequest};
-use unleash_edge_types::errors::{CertificateError, EdgeError, FeatureError};
 use unleash_edge_types::errors::EdgeError::EdgeMetricsRequestError;
-use unleash_edge_types::headers::{UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_CONNECTION_ID_HEADER, UNLEASH_INSTANCE_ID_HEADER, UNLEASH_INTERVAL};
+use unleash_edge_types::errors::{CertificateError, EdgeError, FeatureError};
+use unleash_edge_types::headers::{
+    UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_CONNECTION_ID_HEADER,
+    UNLEASH_INSTANCE_ID_HEADER, UNLEASH_INTERVAL,
+};
 use unleash_edge_types::metrics::batching::MetricsBatch;
 use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
 use unleash_edge_types::tokens::EdgeToken;
 use unleash_edge_types::urls::UnleashUrls;
-use crate::tls::build_upstream_certificate;
+use unleash_edge_types::{
+    ClientFeaturesDeltaResponse, ClientFeaturesRequest, ClientFeaturesResponse, EdgeResult,
+    EdgeTokens, TokenValidationStatus, ValidateTokensRequest, build,
+};
+use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta};
+use unleash_types::client_metrics::ClientApplication;
+use url::Url;
 
-pub mod tls;
 pub mod instance_data;
+pub mod tls;
 
 lazy_static! {
     pub static ref CLIENT_REGISTER_FAILURES: IntGaugeVec = register_int_gauge_vec!(
@@ -136,7 +142,6 @@ pub struct HttpClientArgs {
     pub client_meta_information: ClientMetaInformation,
 }
 
-#[cfg(test)]
 impl Default for HttpClientArgs {
     fn default() -> Self {
         Self {
@@ -323,7 +328,6 @@ impl UnleashClient {
         }
     }
 
-    #[cfg(test)]
     pub fn new(server_url: &str, instance_id_opt: Option<String>) -> Result<Self, EdgeError> {
         use ulid::Ulid;
 
@@ -340,7 +344,7 @@ impl UnleashClient {
                 client_meta_information: client_meta_info.clone(),
                 ..Default::default()
             })
-                .unwrap(),
+            .unwrap(),
             custom_headers: Default::default(),
             token_header: "Authorization".to_string(),
             meta_info: client_meta_info.clone(),
@@ -356,7 +360,7 @@ impl UnleashClient {
                 client_meta_information: ClientMetaInformation::test_config(),
                 ..Default::default()
             })
-                .unwrap(),
+            .unwrap(),
             custom_headers: Default::default(),
             token_header: "Authorization".to_string(),
             meta_info: ClientMetaInformation::test_config(),
@@ -796,7 +800,8 @@ impl UnleashClient {
                     s
                 );
                 check_api_suffix();
-                Err(EdgeError::TokenValidationError(StatusCode::from_u16(s.as_u16()).unwrap()
+                Err(EdgeError::TokenValidationError(
+                    StatusCode::from_u16(s.as_u16()).unwrap(),
                 ))
             }
         }

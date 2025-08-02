@@ -1,12 +1,13 @@
 use std::sync::Arc;
-
 use dashmap::DashMap;
+use ulid::Ulid;
+use unleash_types::client_metrics::ConnectVia;
+use unleash_edge_auth::token_validator::TokenValidator;
 use unleash_edge_cli::{AuthHeaders, EdgeMode};
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_refresh::FeatureRefresher;
-use unleash_edge_types::{EngineCache, TokenCache, TokenValidator};
-use crate::feature_cache::FeatureCache;
-use crate::{EngineCache, TokenCache};
+use unleash_edge_types::{EngineCache, TokenCache};
+use unleash_edge_types::metrics::MetricsCache;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -19,6 +20,7 @@ pub struct AppState {
     pub offline_mode: bool,
     pub auth_headers: AuthHeaders,
     pub edge_mode: EdgeMode,
+    pub connect_via: ConnectVia
 }
 
 impl AppState {
@@ -37,6 +39,7 @@ pub struct AppStateBuilder {
     offline_mode: bool,
     auth_headers: AuthHeaders,
     edge_mode: EdgeMode,
+    connect_via: ConnectVia
 }
 
 impl AppStateBuilder {
@@ -51,6 +54,10 @@ impl AppStateBuilder {
             offline_mode: false,
             auth_headers: AuthHeaders::default(),
             edge_mode: EdgeMode::default(),
+            connect_via: ConnectVia {
+                app_name: "unleash-edge".to_string(),
+                instance_id: Ulid::new().to_string()
+            }
         }
     }
 
@@ -74,7 +81,10 @@ impl AppStateBuilder {
         self
     }
 
-    pub fn with_feature_refresher(mut self, feature_refresher: Arc<Option<FeatureRefresher>>) -> Self {
+    pub fn with_feature_refresher(
+        mut self,
+        feature_refresher: Arc<Option<FeatureRefresher>>,
+    ) -> Self {
         self.feature_refresher = feature_refresher;
         self
     }
@@ -110,6 +120,9 @@ impl AppStateBuilder {
             offline_mode: self.offline_mode,
             auth_headers: self.auth_headers,
             edge_mode: self.edge_mode,
+            connect_via: self.connect_via
         }
     }
 }
+
+pub mod edge_token_extractor;

@@ -1,7 +1,7 @@
-use reqwest::Url;
-use std::str::FromStr;
 use crate::EdgeResult;
 use crate::errors::EdgeError;
+use reqwest::Url;
+use std::str::FromStr;
 
 #[derive(Clone, Debug)]
 pub struct UnleashUrls {

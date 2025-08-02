@@ -1,4 +1,3 @@
-
 use std::cmp::min;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
@@ -10,12 +9,13 @@ use std::{
     str::FromStr,
 };
 
-use async_trait::async_trait;
-use axum::http::HeaderValue;
 use axum::Json;
+use axum::http::HeaderValue;
+use axum::response::{IntoResponse, Response};
 use chrono::{DateTime, Duration, Utc};
 use dashmap::DashMap;
 use etag::EntityTag;
+use http::StatusCode;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use shadow_rs::shadow;
 use unleash_types::client_features::Context;
@@ -35,18 +35,31 @@ use crate::tokens::EdgeToken;
 
 pub type EdgeJsonResult<T> = Result<Json<T>, EdgeError>;
 pub type EdgeResult<T> = Result<T, EdgeError>;
-
-pub(crate) const HTTP_REQUESTS_TOTAL: &str = "http_requests_total";
-pub(crate) const HTTP_REQUESTS_DURATION: &str = "http_server_duration_milliseconds";
-pub(crate) const HTTP_RESPONSE_SIZE: &str = "http_response_size";
-pub(crate) const ENDPOINT_LABEL: &str = "endpoint";
-pub(crate) const METHOD_LABEL: &str = "method";
-pub(crate) const STATUS_LABEL: &str = "status";
-
+pub type EdgeAcceptedJsonResult<T> = Result<AcceptedJson<T>, EdgeError>;
+pub struct AcceptedJson<T>
+where
+    T: Serialize,
+{
+    pub body: T,
+}
+impl<T> IntoResponse for AcceptedJson<T>
+where
+    T: Serialize,
+{
+    fn into_response(self) -> Response {
+        (StatusCode::ACCEPTED, Json(self.body)).into_response()
+    }
+}
+pub const HTTP_REQUESTS_TOTAL: &str = "http_requests_total";
+pub const HTTP_REQUESTS_DURATION: &str = "http_server_duration_milliseconds";
+pub const HTTP_RESPONSE_SIZE: &str = "http_response_size";
+pub const ENDPOINT_LABEL: &str = "endpoint";
+pub const METHOD_LABEL: &str = "method";
+pub const STATUS_LABEL: &str = "status";
 
 pub type TokenCache = DashMap<String, EdgeToken>;
 pub type EngineCache = DashMap<String, EngineState>;
-pub(crate) fn entity_tag_to_header_value(etag: EntityTag) -> HeaderValue {
+pub fn entity_tag_to_header_value(etag: EntityTag) -> HeaderValue {
     HeaderValue::from_str(&etag.to_string()).expect("Failed to convert ETag to HeaderValue")
 }
 
@@ -95,7 +108,7 @@ impl From<PostContext> for Context {
                 context: input.flattened_context.unwrap_or_default(),
                 extra_properties: input.extra_properties,
             }
-                .into()
+            .into()
         }
     }
 }
@@ -154,8 +167,6 @@ pub struct ValidateTokensRequest {
     pub tokens: Vec<String>,
 }
 
-
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClientIp {
     pub ip: IpAddr,
@@ -180,6 +191,15 @@ pub struct TokenRefresh {
     pub last_feature_count: Option<usize>,
     pub last_check: Option<DateTime<Utc>>,
     pub failure_count: u32,
+}
+
+impl PartialEq for TokenRefresh {
+    fn eq(&self, other: &Self) -> bool {
+        self.token == other.token
+            && self.etag == other.etag
+            && self.last_refreshed == other.last_refreshed
+            && self.last_check == other.last_check
+    }
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
@@ -313,7 +333,10 @@ where
 }
 
 pub fn into_entity_tag(client_features: ClientFeatures) -> Option<EntityTag> {
-    client_features.xx3_hash().ok().map(|hash| EntityTag::new(true, &hash))
+    client_features
+        .xx3_hash()
+        .ok()
+        .map(|hash| EntityTag::new(true, &hash))
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -343,13 +366,6 @@ pub struct ClientTokenRequest {
     pub projects: Vec<String>,
     pub environment: String,
     pub expires_at: DateTime<Utc>,
-}
-
-#[async_trait]
-pub trait TokenValidator {
-    /// Will validate upstream, and add tokens with status from upstream to token cache.
-    /// Will block until verified with upstream
-    async fn register_tokens(&mut self, tokens: Vec<String>) -> EdgeResult<Vec<EdgeToken>>;
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -477,7 +493,7 @@ mod tests {
         EdgeToken::from_str(
             &(token.to_owned() + ".614a75cf68bef8703aa1bd8304938a81ec871f86ea40c975468eabd6"),
         )
-            .unwrap()
+        .unwrap()
     }
 
     fn test_token(env: Option<&str>, projects: Vec<&str>) -> EdgeToken {
