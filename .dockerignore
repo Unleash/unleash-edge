@@ -4,3 +4,4 @@
 !server
 !Cargo.toml
 !Cargo.lock
+!nginx.conf
