@@ -83,7 +83,7 @@ This document contains the help content for the `unleash-edge` command-line prog
 * `--disable-all-endpoint` — Set this flag to true if you want to disable /api/proxy/all and /api/frontend/all Because
   returning all toggles regardless of their state is a potential security vulnerability, these endpoints can be disabled
 
-  Default value: `false`
+  Default value: `5`
 * `--edge-request-timeout <EDGE_REQUEST_TIMEOUT>` — Timeout for requests to Edge
 
   Default value: `5`
