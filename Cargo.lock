@@ -4413,15 +4413,19 @@ dependencies = [
  "axum-test",
  "clap",
  "clap-markdown",
+ "dashmap",
  "reqwest",
  "rustls 0.23.31",
  "rustls-pemfile 2.2.0",
  "tokio",
  "tracing",
+ "unleash-edge-appstate",
  "unleash-edge-backstage",
  "unleash-edge-cli",
  "unleash-edge-client-api",
+ "unleash-edge-feature-cache",
  "unleash-edge-types",
+ "unleash-types",
  "url",
 ]
 
@@ -4431,6 +4435,7 @@ version = "20.0.0"
 dependencies = [
  "axum",
  "dashmap",
+ "tokio",
  "ulid",
  "unleash-edge-auth",
  "unleash-edge-cli",

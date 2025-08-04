@@ -1,5 +1,3 @@
-use crate::cli::HealthCheckArgs;
-use crate::error::EdgeError;
 use crate::tls::build_upstream_certificate;
 use reqwest::{ClientBuilder, Url};
 use unleash_edge_cli::HealthCheckArgs;
@@ -77,7 +75,7 @@ mod tests {
     }
 
     async fn conflict() -> impl IntoResponse {
-        Response::builder().status(StatusCode::CONFLICT).body(Body::empty())
+        Response::builder().status(StatusCode::CONFLICT).body(Body::empty()).unwrap()
     }
 
     #[tokio::test]

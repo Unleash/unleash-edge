@@ -23,6 +23,7 @@ lazy_static! {
     };
 }
 
+#[derive(Clone)]
 pub struct TokenValidator {
     pub unleash_client: Arc<UnleashClient>,
     pub token_cache: Arc<TokenCache>,
