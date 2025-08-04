@@ -6,6 +6,8 @@ use chrono::Duration;
 use clap::Parser;
 use dashmap::DashMap;
 use futures::future::join_all;
+use lazy_static::lazy_static;
+use std::env;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use ulid::Ulid;
@@ -36,6 +38,14 @@ use unleash_edge::{client_api, frontend_api, health_checker, openapi, ready_chec
 use unleash_edge::{edge_api, prom_metrics};
 use unleash_edge::{http::unleash_client::ClientMetaInformation, metrics::metrics_pusher};
 use unleash_edge::{internal_backstage, tls};
+
+lazy_static! {
+    pub static ref SHOULD_FORCE_STRONG_ETAGS: bool = {
+        env::var("EDGE_FORCE_STRONG_ETAGS")
+            .map(|v| v == "true" || v == "1")
+            .unwrap_or(false)
+    };
+}
 
 fn setup_server(
     args: CliArgs,
@@ -98,7 +108,9 @@ fn setup_server(
 
         app.service(
             web::scope(&args.http.base_path)
-                .wrap(Etag)
+                .wrap(Etag {
+                    force_strong_etag: *SHOULD_FORCE_STRONG_ETAGS,
+                })
                 .wrap(actix_web::middleware::Compress::default())
                 .wrap(actix_web::middleware::NormalizePath::default())
                 .wrap(cors_middleware)
