@@ -13,14 +13,20 @@ use reqwest::StatusCode;
 use tracing::{debug, info, warn};
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
-use unleash_edge_feature_filters::delta_filters::{filter_delta_events, DeltaFilterSet};
-use unleash_edge_feature_filters::{filter_client_features, FeatureFilterSet};
+use unleash_edge_feature_filters::delta_filters::{DeltaFilterSet, filter_delta_events};
+use unleash_edge_feature_filters::{FeatureFilterSet, filter_client_features};
 use unleash_edge_http_client::{ClientMetaInformation, UnleashClient};
 use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_types::errors::{EdgeError, FeatureError};
-use unleash_edge_types::headers::{UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_CONNECTION_ID_HEADER, UNLEASH_INSTANCE_ID_HEADER};
-use unleash_edge_types::tokens::{cache_key, simplify, EdgeToken};
-use unleash_edge_types::{build, ClientFeaturesDeltaResponse, ClientFeaturesRequest, ClientFeaturesResponse, EdgeResult, TokenRefresh, TokenType, TokenValidationStatus};
+use unleash_edge_types::headers::{
+    UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_CONNECTION_ID_HEADER,
+    UNLEASH_INSTANCE_ID_HEADER,
+};
+use unleash_edge_types::tokens::{EdgeToken, cache_key, simplify};
+use unleash_edge_types::{
+    ClientFeaturesDeltaResponse, ClientFeaturesRequest, ClientFeaturesResponse, EdgeResult,
+    TokenRefresh, TokenType, TokenValidationStatus, build,
+};
 use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta, DeltaEvent};
 use unleash_types::client_metrics::{ClientApplication, MetricsMetadata, SdkType};
 use unleash_yggdrasil::{EngineState, UpdateMessage};
@@ -189,10 +195,7 @@ impl FeatureRefresher {
             .any(|t| t.token.subsumes(token))
     }
 
-    pub fn frontend_token_is_covered_by_client_token(
-        &self,
-        frontend_token: &EdgeToken,
-    ) -> bool {
+    pub fn frontend_token_is_covered_by_client_token(&self, frontend_token: &EdgeToken) -> bool {
         frontend_token_is_covered_by_tokens(frontend_token, self.tokens_to_refresh.clone())
     }
 
@@ -204,10 +207,7 @@ impl FeatureRefresher {
         self.hydrate_new_tokens().await;
     }
 
-    pub async fn create_client_token_for_fe_token(
-        &self,
-        token: EdgeToken,
-    ) -> EdgeResult<()> {
+    pub async fn create_client_token_for_fe_token(&self, token: EdgeToken) -> EdgeResult<()> {
         if token.status == TokenValidationStatus::Validated
             && token.token_type == Some(TokenType::Frontend)
         {
@@ -232,12 +232,10 @@ impl FeatureRefresher {
         match self.get_features_by_filter(&token, &filters) {
             Some(features) if self.token_is_subsumed(&token) => Ok(features),
             _ => {
-
-                    debug!(
-                        "Strict behavior: Token is not subsumed by any registered tokens. Returning error"
-                    );
-                    Err(EdgeError::InvalidTokenWithStrictBehavior)
-
+                debug!(
+                    "Strict behavior: Token is not subsumed by any registered tokens. Returning error"
+                );
+                Err(EdgeError::InvalidTokenWithStrictBehavior)
             }
         }
     }
@@ -252,12 +250,10 @@ impl FeatureRefresher {
         match self.get_delta_events_by_filter(&token, &feature_filters, &delta_filters, revision) {
             Some(features) if self.token_is_subsumed(&token) => Ok(features),
             _ => {
-
-                    debug!(
-                        "Strict behavior: Token is not subsumed by any registered tokens. Returning error"
-                    );
-                    Err(EdgeError::InvalidTokenWithStrictBehavior)
-
+                debug!(
+                    "Strict behavior: Token is not subsumed by any registered tokens. Returning error"
+                );
+                Err(EdgeError::InvalidTokenWithStrictBehavior)
             }
         }
     }
@@ -653,9 +649,11 @@ mod tests {
     use reqwest::Url;
     use std::sync::Arc;
     use unleash_edge_feature_cache::FeatureCache;
-    use unleash_edge_http_client::{new_reqwest_client, ClientMetaInformation, HttpClientArgs, UnleashClient};
-    use unleash_edge_types::tokens::EdgeToken;
+    use unleash_edge_http_client::{
+        ClientMetaInformation, HttpClientArgs, UnleashClient, new_reqwest_client,
+    };
     use unleash_edge_types::TokenRefresh;
+    use unleash_edge_types::tokens::EdgeToken;
 
     fn create_test_client() -> UnleashClient {
         let http_client = new_reqwest_client(HttpClientArgs {
@@ -991,6 +989,4 @@ mod tests {
         assert!(tokens_to_refresh.contains(&etag_but_last_refreshed_ten_seconds_ago));
         assert!(tokens_to_refresh.contains(&no_etag_so_is_due_for_refresh));
     }
-
-
 }

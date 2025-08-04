@@ -1,3 +1,5 @@
+use crate::EdgeMode::Edge;
+use axum::http::header::AUTHORIZATION;
 use axum::http::{HeaderName, HeaderValue, Method};
 use cidr::{Ipv4Cidr, Ipv6Cidr};
 use clap::{ArgGroup, Args, Parser, Subcommand, ValueEnum};
@@ -7,13 +9,11 @@ use std::net::IpAddr;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
-use axum::http::header::AUTHORIZATION;
 use tower_http::cors::{
     AllowHeaders, AllowMethods, AllowOrigin, Any, CorsLayer, ExposeHeaders, MaxAge,
 };
 use unleash_edge_types::errors::{EdgeError, TRUST_PROXY_PARSE_ERROR};
 use unleash_edge_types::{tokens::EdgeToken, tokens::parse_trusted_token_pair};
-use crate::EdgeMode::Edge;
 
 #[derive(Subcommand, Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
@@ -403,11 +403,17 @@ impl AuthHeaders {
     }
 
     pub fn edge_header_name(&self) -> HeaderName {
-        self.edge_auth_header.clone().and_then(|h| HeaderName::from_bytes(h.as_bytes()).ok()).unwrap_or(AUTHORIZATION)
+        self.edge_auth_header
+            .clone()
+            .and_then(|h| HeaderName::from_bytes(h.as_bytes()).ok())
+            .unwrap_or(AUTHORIZATION)
     }
 
     pub fn upstream_header_name(&self) -> HeaderName {
-        self.upstream_auth_header.clone().and_then(|h| HeaderName::from_bytes(h.as_bytes()).ok()).unwrap_or(AUTHORIZATION)
+        self.upstream_auth_header
+            .clone()
+            .and_then(|h| HeaderName::from_bytes(h.as_bytes()).ok())
+            .unwrap_or(AUTHORIZATION)
     }
 }
 

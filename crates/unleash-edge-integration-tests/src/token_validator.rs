@@ -21,7 +21,7 @@ mod tests {
 
     async fn return_validated_tokens() -> impl IntoResponse {
         let tokens = EdgeTokens {
-            tokens: valid_tokens().clone()
+            tokens: valid_tokens().clone(),
         };
         Json(tokens)
     }
@@ -38,7 +38,10 @@ mod tests {
 
     async fn test_validation_server() -> TestServer {
         let router = Router::new().route("/edge/validate", post(return_validated_tokens));
-        TestServer::builder().http_transport().build(router).unwrap()
+        TestServer::builder()
+            .http_transport()
+            .build(router)
+            .unwrap()
     }
 
     async fn validation_server_with_valid_tokens(
@@ -50,19 +53,23 @@ mod tests {
             unleash_client: Arc::new(UnleashClient::new("http://localhost:4242", None).unwrap()),
             deferred_validation_tx: None,
         };
-        let app_state = AppState::builder().with_token_validator(Arc::new(Some(token_validator))).build();
+        let app_state = AppState::builder()
+            .with_token_validator(Arc::new(Some(token_validator)))
+            .build();
         let router = Router::new()
             .nest("/edge", unleash_edge_edge_api::router())
             .with_state(app_state);
-        TestServer::builder().http_transport().build(router).unwrap()
+        TestServer::builder()
+            .http_transport()
+            .build(router)
+            .unwrap()
     }
 
     #[tokio::test]
     pub async fn can_validate_tokens() {
         let srv = test_validation_server().await;
-        let unleash_client =
-            UnleashClient::from_url(srv.server_url("/").unwrap(), None)
-                .expect("Couldn't build client");
+        let unleash_client = UnleashClient::from_url(srv.server_url("/").unwrap(), None)
+            .expect("Couldn't build client");
         let validation_holder = TokenValidator {
             unleash_client: Arc::new(unleash_client),
             token_cache: Arc::new(DashMap::default()),
@@ -94,8 +101,8 @@ mod tests {
     #[tokio::test]
     pub async fn tokens_with_wrong_format_is_not_included() {
         let srv = test_validation_server().await;
-        let unleash_client =
-            UnleashClient::from_url(srv.server_url("/").unwrap(), None).expect("Couldn't build client");
+        let unleash_client = UnleashClient::from_url(srv.server_url("/").unwrap(), None)
+            .expect("Couldn't build client");
         let validation_holder = TokenValidator {
             unleash_client: Arc::new(unleash_client),
             token_cache: Arc::new(DashMap::default()),
@@ -131,9 +138,8 @@ mod tests {
         );
 
         let srv = validation_server_with_valid_tokens(upstream_tokens).await;
-        let unleash_client =
-            UnleashClient::from_url(srv.server_url("/").unwrap(), None)
-                .expect("Couldn't build client");
+        let unleash_client = UnleashClient::from_url(srv.server_url("/").unwrap(), None)
+            .expect("Couldn't build client");
 
         let local_token_cache = Arc::new(DashMap::default());
         let mut previously_valid_token = no_longer_valid_token.clone();

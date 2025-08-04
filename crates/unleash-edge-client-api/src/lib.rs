@@ -1,13 +1,13 @@
-use axum::extract::{Query};
 use axum::Router;
+use axum::extract::Query;
 use unleash_edge_appstate::AppState;
-use unleash_edge_feature_filters::{name_prefix_filter, project_filter, FeatureFilterSet};
+use unleash_edge_feature_filters::{FeatureFilterSet, name_prefix_filter, project_filter};
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::tokens::EdgeToken;
 use unleash_edge_types::{EdgeResult, FeatureFilters, TokenCache};
 
-pub mod features;
 pub mod delta;
+pub mod features;
 pub mod metrics;
 pub mod register;
 
@@ -39,7 +39,7 @@ fn get_feature_filter(
     } else {
         FeatureFilterSet::default()
     }
-        .with_filter(project_filter(&validated_token));
+    .with_filter(project_filter(&validated_token));
 
     Ok((validated_token, filter_set, query))
 }

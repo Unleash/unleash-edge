@@ -1,4 +1,6 @@
-use crate::client_impact_metrics::{convert_to_impact_metrics_env, merge_impact_metrics, sink_impact_metrics};
+use crate::client_impact_metrics::{
+    convert_to_impact_metrics_env, merge_impact_metrics, sink_impact_metrics,
+};
 use crate::metric_batching::{cut_into_sendable_batches, sendable, size_of_batch};
 use itertools::Itertools;
 use lazy_static::lazy_static;
@@ -8,10 +10,12 @@ use std::sync::Arc;
 use tracing::debug;
 use unleash_edge_types::metrics::batching::MetricsBatch;
 use unleash_edge_types::metrics::{ApplicationKey, ImpactMetricsKey, MetricsCache};
-use unleash_edge_types::{BatchMetricsRequestBody, MetricsKey};
-use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ClientMetricsEnv, ConnectVia, MetricsMetadata};
-use unleash_types::client_metrics::SdkType::Backend;
 use unleash_edge_types::tokens::EdgeToken;
+use unleash_edge_types::{BatchMetricsRequestBody, MetricsKey};
+use unleash_types::client_metrics::SdkType::Backend;
+use unleash_types::client_metrics::{
+    ClientApplication, ClientMetrics, ClientMetricsEnv, ConnectVia, MetricsMetadata,
+};
 
 lazy_static! {
     pub static ref METRICS_SIZE_HISTOGRAM: Histogram = register_histogram!(
