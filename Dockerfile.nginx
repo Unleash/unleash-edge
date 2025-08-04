@@ -134,9 +134,9 @@ RUN apt-get update && apt-get install -y nginx && rm -rf /var/lib/apt/lists/*
 
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/nginx.conf
-
+COPY start.sh /app/start.sh
 # Expose the port that the application listens on.
 EXPOSE 3000
 
 # Start unleash-edge in the background and nginx in the foreground
-CMD sh -c '/app/unleash-edge edge & nginx -g "daemon off;"'
+CMD ["/app/start.sh"]
