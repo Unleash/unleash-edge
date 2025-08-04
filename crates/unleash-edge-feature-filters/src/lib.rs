@@ -1,6 +1,6 @@
 use dashmap::mapref::one::Ref;
-use unleash_types::client_features::{ClientFeature, ClientFeatures};
 use unleash_edge_types::tokens::EdgeToken;
+use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
 pub mod delta_filters;
 

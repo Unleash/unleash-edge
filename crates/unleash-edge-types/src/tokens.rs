@@ -1,5 +1,6 @@
 use crate::errors::EdgeError;
 use crate::{ClientTokenRequest, EdgeResult, TokenRefresh, TokenType, TokenValidationStatus};
+use ahash::HashSet;
 use axum::http::HeaderValue;
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -7,7 +8,6 @@ use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
-use ahash::HashSet;
 use utoipa::ToSchema;
 
 #[derive(Clone, Default, Serialize, Deserialize, Eq, ToSchema)]

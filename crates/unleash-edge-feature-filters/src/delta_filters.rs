@@ -1,6 +1,6 @@
-use unleash_types::client_features::{ClientFeature, ClientFeaturesDelta, DeltaEvent};
-use unleash_edge_delta::cache::DeltaCache;
 use crate::FeatureFilterSet;
+use unleash_edge_delta::cache::DeltaCache;
+use unleash_types::client_features::{ClientFeature, ClientFeaturesDelta, DeltaEvent};
 
 pub type DeltaFilter = Box<dyn Fn(&DeltaEvent) -> bool>;
 

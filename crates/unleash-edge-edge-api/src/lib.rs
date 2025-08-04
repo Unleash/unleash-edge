@@ -1,10 +1,10 @@
 use axum::extract::State;
-use axum::{Json, Router};
 use axum::routing::post;
+use axum::{Json, Router};
 use tracing::instrument;
 use unleash_edge_appstate::AppState;
-use unleash_edge_types::{EdgeJsonResult, TokenValidationStatus};
 use unleash_edge_types::tokens::{EdgeToken, TokenStrings, ValidatedTokens};
+use unleash_edge_types::{EdgeJsonResult, TokenValidationStatus};
 
 #[utoipa::path(
     post,
@@ -17,15 +17,18 @@ use unleash_edge_types::tokens::{EdgeToken, TokenStrings, ValidatedTokens};
 #[instrument(skip(app_state, tokens))]
 pub async fn validate(
     app_state: State<AppState>,
-    tokens: Json<TokenStrings>
+    tokens: Json<TokenStrings>,
 ) -> EdgeJsonResult<ValidatedTokens> {
     match *app_state.token_validator {
         Some(ref validator) => {
             let known_tokens = validator.register_tokens(tokens.tokens.clone()).await?;
             Ok(Json(ValidatedTokens {
-                tokens: known_tokens.into_iter().filter(|t| t.status == TokenValidationStatus::Validated).collect(),
+                tokens: known_tokens
+                    .into_iter()
+                    .filter(|t| t.status == TokenValidationStatus::Validated)
+                    .collect(),
             }))
-        },
+        }
         None => {
             let tokens_to_check = tokens.tokens.clone();
             let valid_tokens: Vec<EdgeToken> = tokens_to_check
@@ -39,8 +42,6 @@ pub async fn validate(
     }
 }
 
-
 pub fn router() -> Router<AppState> {
-    Router::new()
-        .route("/validate", post(validate))
+    Router::new().route("/validate", post(validate))
 }

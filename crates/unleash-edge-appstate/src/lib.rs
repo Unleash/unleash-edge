@@ -1,13 +1,13 @@
-use std::sync::Arc;
 use dashmap::DashMap;
+use std::sync::Arc;
 use ulid::Ulid;
-use unleash_types::client_metrics::ConnectVia;
 use unleash_edge_auth::token_validator::TokenValidator;
 use unleash_edge_cli::{AuthHeaders, EdgeMode};
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_refresh::FeatureRefresher;
-use unleash_edge_types::{EngineCache, TokenCache};
 use unleash_edge_types::metrics::MetricsCache;
+use unleash_edge_types::{EngineCache, TokenCache};
+use unleash_types::client_metrics::ConnectVia;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -20,7 +20,7 @@ pub struct AppState {
     pub offline_mode: bool,
     pub auth_headers: AuthHeaders,
     pub edge_mode: EdgeMode,
-    pub connect_via: ConnectVia
+    pub connect_via: ConnectVia,
 }
 
 impl AppState {
@@ -39,7 +39,7 @@ pub struct AppStateBuilder {
     offline_mode: bool,
     auth_headers: AuthHeaders,
     edge_mode: EdgeMode,
-    connect_via: ConnectVia
+    connect_via: ConnectVia,
 }
 
 impl AppStateBuilder {
@@ -56,8 +56,8 @@ impl AppStateBuilder {
             edge_mode: EdgeMode::default(),
             connect_via: ConnectVia {
                 app_name: "unleash-edge".to_string(),
-                instance_id: Ulid::new().to_string()
-            }
+                instance_id: Ulid::new().to_string(),
+            },
         }
     }
 
@@ -120,7 +120,7 @@ impl AppStateBuilder {
             offline_mode: self.offline_mode,
             auth_headers: self.auth_headers,
             edge_mode: self.edge_mode,
-            connect_via: self.connect_via
+            connect_via: self.connect_via,
         }
     }
 }

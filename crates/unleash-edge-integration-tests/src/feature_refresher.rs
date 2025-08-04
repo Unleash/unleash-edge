@@ -5,19 +5,19 @@ mod tests {
     use axum_test::TestServer;
     use chrono::Duration;
     use dashmap::DashMap;
+    use pretty_assertions::assert_eq;
     use std::str::FromStr;
     use std::sync::Arc;
     use unleash_edge_appstate::AppState;
-    use unleash_edge_feature_cache::{update_projects_from_feature_update, FeatureCache};
-    use unleash_edge_feature_filters::{project_filter, FeatureFilterSet};
-    use unleash_edge_feature_refresh::{frontend_token_is_covered_by_tokens, FeatureRefresher};
+    use unleash_edge_feature_cache::{FeatureCache, update_projects_from_feature_update};
+    use unleash_edge_feature_filters::{FeatureFilterSet, project_filter};
+    use unleash_edge_feature_refresh::{FeatureRefresher, frontend_token_is_covered_by_tokens};
     use unleash_edge_http_client::UnleashClient;
-    use unleash_edge_types::tokens::{cache_key, EdgeToken};
     use unleash_edge_types::TokenValidationStatus::Validated;
+    use unleash_edge_types::tokens::{EdgeToken, cache_key};
     use unleash_edge_types::{EngineCache, TokenCache, TokenRefresh, TokenType};
     use unleash_types::client_features::ClientFeature;
     use unleash_yggdrasil::{EngineState, UpdateMessage};
-    use pretty_assertions::assert_eq;
 
     async fn client_api_test_server(
         upstream_token_cache: Arc<TokenCache>,
@@ -48,8 +48,9 @@ mod tests {
             upstream_features_cache,
             upstream_engine_cache,
         )
-            .await;
-        let unleash_client = UnleashClient::from_url(server.server_url("/").unwrap(), None).unwrap();
+        .await;
+        let unleash_client =
+            UnleashClient::from_url(server.server_url("/").unwrap(), None).unwrap();
         let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let engine_cache: Arc<EngineCache> = Arc::new(DashMap::default());
         let feature_refresher = FeatureRefresher {
@@ -94,8 +95,9 @@ mod tests {
             upstream_features_cache,
             upstream_engine_cache,
         )
-            .await;
-        let unleash_client = UnleashClient::from_url(server.server_url("/").unwrap(), None).unwrap();
+        .await;
+        let unleash_client =
+            UnleashClient::from_url(server.server_url("/").unwrap(), None).unwrap();
         let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let feature_refresher = FeatureRefresher {
@@ -150,8 +152,9 @@ mod tests {
             upstream_features_cache,
             upstream_engine_cache,
         )
-            .await;
-        let unleash_client = UnleashClient::from_url(server.server_url("/").unwrap(), None).unwrap();
+        .await;
+        let unleash_client =
+            UnleashClient::from_url(server.server_url("/").unwrap(), None).unwrap();
         let mut feature_refresher = FeatureRefresher::with_client(Arc::new(unleash_client));
         feature_refresher.refresh_interval = Duration::seconds(0);
         feature_refresher
@@ -171,7 +174,7 @@ mod tests {
 
     #[tokio::test]
     pub async fn removing_one_of_multiple_keys_from_same_environment_does_not_remove_feature_and_engine_caches()
-    {
+     {
         let upstream_features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
@@ -196,8 +199,9 @@ mod tests {
             upstream_features_cache,
             upstream_engine_cache,
         )
-            .await;
-        let unleash_client = UnleashClient::from_url(server.server_url("/").unwrap(), None).unwrap();
+        .await;
+        let unleash_client =
+            UnleashClient::from_url(server.server_url("/").unwrap(), None).unwrap();
         let mut feature_refresher = FeatureRefresher::with_client(Arc::new(unleash_client));
         feature_refresher.refresh_interval = Duration::seconds(0);
         feature_refresher
@@ -275,9 +279,10 @@ mod tests {
             upstream_features_cache.clone(),
             upstream_engine_cache,
         )
-            .await;
+        .await;
         let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
-        let unleash_client = UnleashClient::from_url(server.server_url("/").unwrap(), None).unwrap();
+        let unleash_client =
+            UnleashClient::from_url(server.server_url("/").unwrap(), None).unwrap();
         let feature_refresher = FeatureRefresher {
             unleash_client: Arc::new(unleash_client),
             features_cache: features_cache.clone(),
@@ -308,14 +313,15 @@ mod tests {
 
     #[test]
     pub fn an_update_with_one_feature_removed_from_one_project_removes_the_feature_from_the_feature_list()
-    {
+     {
         let features = features_from_disk("../../examples/hostedexample.json").features;
-        let mut dx_data: Vec<ClientFeature> = features_from_disk("../../examples/hostedexample.json")
-            .features
-            .iter()
-            .filter(|f| f.project == Some("dx".into()))
-            .cloned()
-            .collect();
+        let mut dx_data: Vec<ClientFeature> =
+            features_from_disk("../../examples/hostedexample.json")
+                .features
+                .iter()
+                .filter(|f| f.project == Some("dx".into()))
+                .cloned()
+                .collect();
         dx_data.remove(0);
         let mut token = EdgeToken::from_str("[]:development.somesecret").unwrap();
         token.status = Validated;
@@ -373,7 +379,7 @@ mod tests {
 
     #[test]
     pub fn if_project_is_removed_but_token_has_access_to_project_update_should_remove_cached_project()
-    {
+     {
         let features = features_from_disk("../../examples/hostedexample.json").features;
         let edge_token = EdgeToken {
             token: "".to_string(),
@@ -467,7 +473,7 @@ mod tests {
 
     #[test]
     pub fn token_with_access_to_different_project_than_exists_in_cache_should_never_delete_features_from_other_projects()
-    {
+     {
         // Added after customer issue in May '24 when tokens unrelated to projects in cache with no actual features connected to them removed existing features in cache for unrelated projects
         let features = vec![
             ClientFeature {
@@ -516,7 +522,7 @@ mod tests {
     }
     #[test]
     pub fn token_with_access_to_both_a_different_project_than_exists_in_cache_and_the_cached_project_should_delete_features_from_both_projects()
-    {
+     {
         // Added after customer issue in May '24 when tokens unrelated to projects in cache with no actual features connected to them removed existing features in cache for unrelated projects
         let features = vec![
             ClientFeature {

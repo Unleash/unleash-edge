@@ -1,18 +1,21 @@
+use crate::FeatureRefresher;
+use etag::EntityTag;
 use eventsource_client::Client;
 use futures::TryStreamExt;
 use reqwest::StatusCode;
 use std::time::Duration;
-use etag::EntityTag;
 use tracing::{debug, info, warn};
-use unleash_types::client_features::{ClientFeaturesDelta, DeltaEvent};
-use unleash_yggdrasil::EngineState;
 use unleash_edge_delta::cache::{DeltaCache, DeltaHydrationEvent};
 use unleash_edge_http_client::ClientMetaInformation;
-use unleash_edge_types::{ClientFeaturesDeltaResponse, ClientFeaturesRequest, TokenRefresh};
 use unleash_edge_types::errors::{EdgeError, FeatureError};
-use unleash_edge_types::headers::{UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_CONNECTION_ID_HEADER, UNLEASH_INSTANCE_ID_HEADER};
-use unleash_edge_types::tokens::{cache_key, EdgeToken};
-use crate::FeatureRefresher;
+use unleash_edge_types::headers::{
+    UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_CONNECTION_ID_HEADER,
+    UNLEASH_INSTANCE_ID_HEADER,
+};
+use unleash_edge_types::tokens::{EdgeToken, cache_key};
+use unleash_edge_types::{ClientFeaturesDeltaResponse, ClientFeaturesRequest, TokenRefresh};
+use unleash_types::client_features::{ClientFeaturesDelta, DeltaEvent};
+use unleash_yggdrasil::EngineState;
 
 pub type Environment = String;
 
@@ -37,10 +40,10 @@ impl FeatureRefresher {
         if let Some(mut _entry) = self.delta_cache_manager.get(&key) {
             self.delta_cache_manager.update_cache(&key, &delta.events);
         } else if let Some(DeltaEvent::Hydration {
-                               event_id,
-                               features,
-                               segments,
-                           }) = delta.events.clone().into_iter().next()
+            event_id,
+            features,
+            segments,
+        }) = delta.events.clone().into_iter().next()
         {
             self.delta_cache_manager.insert_cache(
                 &key,
@@ -271,31 +274,35 @@ impl FeatureRefresher {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use crate::FeatureRefresher;
+    use axum::Router;
     use axum::body::Body;
     use axum::extract::Request;
     use axum::response::{IntoResponse, Response};
-    use axum::Router;
     use axum::routing::get;
     use axum_test::TestServer;
     use chrono::Duration;
     use dashmap::DashMap;
     use etag::EntityTag;
     use http::StatusCode;
-    use unleash_types::client_features::{ClientFeature, ClientFeatures, ClientFeaturesDelta, Constraint, DeltaEvent, Operator, Segment};
-    use unleash_yggdrasil::EngineState;
+    use std::sync::Arc;
     use unleash_edge_delta::cache_manager::DeltaCacheManager;
     use unleash_edge_feature_cache::FeatureCache;
     use unleash_edge_http_client::{ClientMetaInformation, UnleashClient};
     use unleash_edge_types::entity_tag_to_header_value;
     use unleash_edge_types::tokens::EdgeToken;
-    use crate::FeatureRefresher;
+    use unleash_types::client_features::{
+        ClientFeature, ClientFeatures, ClientFeaturesDelta, Constraint, DeltaEvent, Operator,
+        Segment,
+    };
+    use unleash_yggdrasil::EngineState;
 
     #[tokio::test]
     #[tracing_test::traced_test]
     async fn test_delta() {
         let srv = test_features_server().await;
-        let unleash_client = Arc::new(UnleashClient::new(srv.server_url("/").unwrap().as_str(), None).unwrap());
+        let unleash_client =
+            Arc::new(UnleashClient::new(srv.server_url("/").unwrap().as_str(), None).unwrap());
         let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let delta_cache_manager: Arc<DeltaCacheManager> = Arc::new(DeltaCacheManager::new());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
@@ -409,27 +416,47 @@ mod tests {
     async fn return_client_features_delta(etag_header: Option<String>) -> impl IntoResponse {
         match etag_header {
             Some(value) => match value.as_str() {
-                "\"1\"" => Response::builder().status(StatusCode::OK)
-                    .header(http::header::ETAG, entity_tag_to_header_value(EntityTag::new(false, "2")))
-                    .body(Body::from(serde_json::to_vec(&revision(2)).unwrap())).unwrap(),
-                "\"2\"" => Response::builder().status(StatusCode::NOT_MODIFIED).body(Body::empty()).unwrap(),
-                _ => Response::builder().status(StatusCode::NOT_MODIFIED).body(Body::empty()).unwrap(),
+                "\"1\"" => Response::builder()
+                    .status(StatusCode::OK)
+                    .header(
+                        http::header::ETAG,
+                        entity_tag_to_header_value(EntityTag::new(false, "2")),
+                    )
+                    .body(Body::from(serde_json::to_vec(&revision(2)).unwrap()))
+                    .unwrap(),
+                "\"2\"" => Response::builder()
+                    .status(StatusCode::NOT_MODIFIED)
+                    .body(Body::empty())
+                    .unwrap(),
+                _ => Response::builder()
+                    .status(StatusCode::NOT_MODIFIED)
+                    .body(Body::empty())
+                    .unwrap(),
             },
             None => Response::builder()
                 .status(StatusCode::OK)
-                .header(http::header::ETAG, entity_tag_to_header_value(EntityTag::new(false, "1")))
-                .body(Body::from(serde_json::to_vec(&revision(1)).unwrap())).unwrap(),
+                .header(
+                    http::header::ETAG,
+                    entity_tag_to_header_value(EntityTag::new(false, "1")),
+                )
+                .body(Body::from(serde_json::to_vec(&revision(1)).unwrap()))
+                .unwrap(),
         }
     }
 
     async fn test_features_server() -> TestServer {
-        let router = Router::new()
-            .route("/api/client/delta", get(delta_handler));
-        TestServer::builder().http_transport().build(router).unwrap()
+        let router = Router::new().route("/api/client/delta", get(delta_handler));
+        TestServer::builder()
+            .http_transport()
+            .build(router)
+            .unwrap()
     }
 
     async fn delta_handler(request: Request) -> impl IntoResponse {
-        let etag_header = request.headers().get(http::header::IF_NONE_MATCH).and_then(|h| h.to_str().ok());
+        let etag_header = request
+            .headers()
+            .get(http::header::IF_NONE_MATCH)
+            .and_then(|h| h.to_str().ok());
         return_client_features_delta(etag_header.map(|s| s.to_string())).await
     }
 }

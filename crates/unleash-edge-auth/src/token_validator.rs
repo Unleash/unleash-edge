@@ -6,12 +6,14 @@ use dashmap::DashMap;
 use lazy_static::lazy_static;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tracing::trace;
-use unleash_types::Upsert;
 use unleash_edge_feature_refresh::FeatureRefresher;
 use unleash_edge_http_client::UnleashClient;
 use unleash_edge_persistence::EdgePersistence;
-use unleash_edge_types::{EdgeResult, TokenCache, TokenType, TokenValidationStatus, ValidateTokensRequest};
 use unleash_edge_types::tokens::EdgeToken;
+use unleash_edge_types::{
+    EdgeResult, TokenCache, TokenType, TokenValidationStatus, ValidateTokensRequest,
+};
+use unleash_types::Upsert;
 
 lazy_static! {
     pub static ref SHOULD_DEFER_VALIDATION: bool = {
@@ -273,5 +275,3 @@ impl TokenValidator {
         Ok(())
     }
 }
-
-

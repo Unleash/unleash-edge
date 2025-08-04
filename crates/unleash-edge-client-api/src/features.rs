@@ -1,12 +1,14 @@
 use axum::extract::{Query, State};
-use axum::{Json, Router};
 use axum::routing::get;
-use unleash_types::client_features::ClientFeatures;
+use axum::{Json, Router};
 use unleash_edge_appstate::AppState;
-use unleash_edge_feature_filters::{filter_client_features, name_prefix_filter, project_filter, FeatureFilterSet};
-use unleash_edge_types::{EdgeJsonResult, EdgeResult, FeatureFilters, TokenCache};
+use unleash_edge_feature_filters::{
+    FeatureFilterSet, filter_client_features, name_prefix_filter, project_filter,
+};
 use unleash_edge_types::errors::EdgeError;
-use unleash_edge_types::tokens::{cache_key, EdgeToken};
+use unleash_edge_types::tokens::{EdgeToken, cache_key};
+use unleash_edge_types::{EdgeJsonResult, EdgeResult, FeatureFilters, TokenCache};
+use unleash_types::client_features::ClientFeatures;
 
 #[utoipa::path(
     get,
@@ -22,7 +24,11 @@ use unleash_edge_types::tokens::{cache_key, EdgeToken};
         ("Authorization" = [])
     )
 )]
-pub async fn get_features(app_state: State<AppState>, edge_token: EdgeToken, filter_query: Query<FeatureFilters>) -> EdgeJsonResult<ClientFeatures> {
+pub async fn get_features(
+    app_state: State<AppState>,
+    edge_token: EdgeToken,
+    filter_query: Query<FeatureFilters>,
+) -> EdgeJsonResult<ClientFeatures> {
     resolve_features(&app_state, edge_token.clone(), filter_query.0.clone()).await
 }
 
@@ -41,7 +47,11 @@ pub async fn get_features(app_state: State<AppState>, edge_token: EdgeToken, fil
     )
 )]
 #[axum::debug_handler]
-pub async fn post_features(app_state: State<AppState>, edge_token: EdgeToken, filter_query: Query<FeatureFilters>) -> EdgeJsonResult<ClientFeatures> {
+pub async fn post_features(
+    app_state: State<AppState>,
+    edge_token: EdgeToken,
+    filter_query: Query<FeatureFilters>,
+) -> EdgeJsonResult<ClientFeatures> {
     resolve_features(&app_state, edge_token, filter_query.0).await
 }
 
@@ -54,11 +64,9 @@ async fn resolve_features(
         get_feature_filter(&edge_token, &app_state.token_cache, filter_query)?;
 
     let client_features = match *app_state.feature_refresher {
-        Some(ref refresher) => {
-            refresher
-                .features_for_filter(validated_token.clone(), &filter_set)
-        }
-        None => app_state.features_cache
+        Some(ref refresher) => refresher.features_for_filter(validated_token.clone(), &filter_set),
+        None => app_state
+            .features_cache
             .get(&cache_key(&validated_token))
             .map(|client_features| filter_client_features(&client_features, &filter_set))
             .ok_or(EdgeError::ClientCacheError),
@@ -97,12 +105,11 @@ fn get_feature_filter(
     } else {
         FeatureFilterSet::default()
     }
-        .with_filter(project_filter(&validated_token));
+    .with_filter(project_filter(&validated_token));
 
     Ok((validated_token, filter_set, query))
 }
 
 pub fn router() -> Router<AppState> {
-    Router::new()
-        .route("/features", get(get_features).post(post_features))
+    Router::new().route("/features", get(get_features).post(post_features))
 }

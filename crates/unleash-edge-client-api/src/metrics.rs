@@ -22,11 +22,13 @@ use unleash_types::client_metrics::ClientMetrics;
     )
 )]
 #[axum::debug_handler]
-pub async fn post_metrics(app_state: State<AppState>, edge_token: EdgeToken, metrics: Json<ClientMetrics>) -> EdgeAcceptedJsonResult<()> {
+pub async fn post_metrics(
+    app_state: State<AppState>,
+    edge_token: EdgeToken,
+    metrics: Json<ClientMetrics>,
+) -> EdgeAcceptedJsonResult<()> {
     register_client_metrics(edge_token, metrics.0, app_state.metrics_cache.clone());
-    Ok(AcceptedJson {
-        body: ()
-    })
+    Ok(AcceptedJson { body: () })
 }
 
 #[utoipa::path(
@@ -43,11 +45,18 @@ security(
 )
 )]
 #[instrument(skip(app_state, edge_token, bulk_metrics))]
-pub async fn post_bulk_metrics(app_state: State<AppState>, edge_token: EdgeToken, bulk_metrics: Json<BatchMetricsRequestBody>) -> EdgeAcceptedJsonResult<()> {
-    register_bulk_metrics(&app_state.metrics_cache, &app_state.connect_via, &edge_token, bulk_metrics.0);
-    Ok(AcceptedJson {
-        body: ()
-    })
+pub async fn post_bulk_metrics(
+    app_state: State<AppState>,
+    edge_token: EdgeToken,
+    bulk_metrics: Json<BatchMetricsRequestBody>,
+) -> EdgeAcceptedJsonResult<()> {
+    register_bulk_metrics(
+        &app_state.metrics_cache,
+        &app_state.connect_via,
+        &edge_token,
+        bulk_metrics.0,
+    );
+    Ok(AcceptedJson { body: () })
 }
 
 pub fn router() -> Router<AppState> {
