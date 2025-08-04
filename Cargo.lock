@@ -123,9 +123,9 @@ dependencies = [
 
 [[package]]
 name = "actix-middleware-etag"
-version = "0.4.4"
+version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf947271526f363aba604e2a735fb2792f63768c6ebdd06a30bf6df74a5ba06c"
+checksum = "b915b8743bbcb25df65d8353f7353604befce3a4266c6e50158f9df844471ee3"
 dependencies = [
  "actix-service",
  "actix-web",

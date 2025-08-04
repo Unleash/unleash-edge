@@ -32,7 +32,7 @@ s3-persistence = ["aws-sdk-s3", "aws-config"]
 actix-allow-deny-middleware = "0.1.2"
 actix-cors = "0.7.1"
 actix-http = "3.11.0"
-actix-middleware-etag = "0.4.4"
+actix-middleware-etag = "0.4.6"
 actix-service = "2.0.3"
 actix-web = { version = "4.11.0", features = ["rustls-0_23", "compress-zstd"] }
 actix-web-lab = { version = "0.24.1" }

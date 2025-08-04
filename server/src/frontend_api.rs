@@ -1751,7 +1751,7 @@ mod tests {
                 .app_data(Data::from(token_cache))
                 .app_data(Data::from(feature_cache))
                 .app_data(Data::from(engine_cache))
-                .wrap(Etag)
+                .wrap(Etag::default())
                 .service(
                     web::scope("/api").configure(|cfg| super::configure_frontend_api(cfg, false)),
                 ),
