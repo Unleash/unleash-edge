@@ -22,7 +22,6 @@ use unleash_edge_types::tokens::{cache_key, EdgeToken};
         ("Authorization" = [])
     )
 )]
-#[axum::debug_handler]
 pub async fn get_features(app_state: State<AppState>, edge_token: EdgeToken, filter_query: Query<FeatureFilters>) -> EdgeJsonResult<ClientFeatures> {
     resolve_features(&app_state, edge_token.clone(), filter_query.0.clone()).await
 }
@@ -41,6 +40,7 @@ pub async fn get_features(app_state: State<AppState>, edge_token: EdgeToken, fil
         ("Authorization" = [])
     )
 )]
+#[axum::debug_handler]
 pub async fn post_features(app_state: State<AppState>, edge_token: EdgeToken, filter_query: Query<FeatureFilters>) -> EdgeJsonResult<ClientFeatures> {
     resolve_features(&app_state, edge_token, filter_query.0).await
 }
@@ -57,7 +57,6 @@ async fn resolve_features(
         Some(ref refresher) => {
             refresher
                 .features_for_filter(validated_token.clone(), &filter_set)
-                .await
         }
         None => app_state.features_cache
             .get(&cache_key(&validated_token))

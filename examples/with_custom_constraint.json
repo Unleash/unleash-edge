@@ -1,0 +1,41 @@
+{
+  "version": 2,
+  "features": [
+    {
+      "strategies": [
+        {
+          "name": "default",
+          "constraints": [
+            {
+              "values": [
+                "bricks"
+              ],
+              "inverted": false,
+              "operator": "IN",
+              "contextName": "companyId",
+              "caseInsensitive": false
+            }
+          ],
+          "parameters": {}
+        }
+      ],
+      "impressionData": false,
+      "enabled": true,
+      "name": "custom.constraint",
+      "description": "",
+      "project": "default",
+      "stale": false,
+      "type": "release",
+      "variants": []
+    }
+  ],
+  "query": {
+    "environment": "development",
+    "inlineSegmentConstraints": true
+  },
+  "meta": {
+    "revisionId": 21,
+    "etag": "\"76d8bb0e:21\"",
+    "queryHash": "76d8bb0e"
+  }
+}

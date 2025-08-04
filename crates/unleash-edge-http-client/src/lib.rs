@@ -313,7 +313,7 @@ pub fn new_reqwest_client(args: HttpClientArgs) -> EdgeResult<Client> {
 }
 
 impl UnleashClient {
-    pub fn from_url(
+    pub fn from_url_with_backing_client(
         server_url: Url,
         token_header: String,
         backing_client: Client,
@@ -326,6 +326,10 @@ impl UnleashClient {
             token_header,
             meta_info: client_meta_information,
         }
+    }
+
+    pub fn from_url(server_url: Url, instance_id_opt: Option<String>) -> Result<Self, EdgeError> {
+        UnleashClient::new(server_url.as_str(), instance_id_opt)
     }
 
     pub fn new(server_url: &str, instance_id_opt: Option<String>) -> Result<Self, EdgeError> {

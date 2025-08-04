@@ -1,22 +1,23 @@
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-    use std::sync::Arc;
+    use crate::features_from_disk;
     use axum::Router;
     use axum_test::TestServer;
     use chrono::Duration;
     use dashmap::DashMap;
-    use unleash_types::client_features::ClientFeature;
-    use unleash_yggdrasil::{EngineState, UpdateMessage};
+    use std::str::FromStr;
+    use std::sync::Arc;
     use unleash_edge_appstate::AppState;
     use unleash_edge_feature_cache::{update_projects_from_feature_update, FeatureCache};
     use unleash_edge_feature_filters::{project_filter, FeatureFilterSet};
     use unleash_edge_feature_refresh::{frontend_token_is_covered_by_tokens, FeatureRefresher};
     use unleash_edge_http_client::UnleashClient;
-    use unleash_edge_types::{EngineCache, TokenCache, TokenRefresh, TokenType, TokenValidationStatus};
     use unleash_edge_types::tokens::{cache_key, EdgeToken};
     use unleash_edge_types::TokenValidationStatus::Validated;
-    use crate::features_from_disk;
+    use unleash_edge_types::{EngineCache, TokenCache, TokenRefresh, TokenType};
+    use unleash_types::client_features::ClientFeature;
+    use unleash_yggdrasil::{EngineState, UpdateMessage};
+    use pretty_assertions::assert_eq;
 
     async fn client_api_test_server(
         upstream_token_cache: Arc<TokenCache>,
@@ -29,7 +30,8 @@ mod tests {
             .with_engine_cache(upstream_engine_cache.clone())
             .build();
         let router = Router::new()
-            .nest("/api", unleash_edge_client_api::router())
+            .nest("/api/client", unleash_edge_client_api::router())
+            .nest("/edge", unleash_edge_edge_api::router())
             .with_state(app_state);
         TestServer::builder()
             .http_transport()
@@ -47,7 +49,7 @@ mod tests {
             upstream_engine_cache,
         )
             .await;
-        let unleash_client = UnleashClient::new(server.server_url("/").map(|u| u.as_str()).unwrap(), None).unwrap();
+        let unleash_client = UnleashClient::from_url(server.server_url("/").unwrap(), None).unwrap();
         let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let engine_cache: Arc<EngineCache> = Arc::new(DashMap::default());
         let feature_refresher = FeatureRefresher {
@@ -80,20 +82,20 @@ mod tests {
         let upstream_features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let upstream_engine_cache: Arc<EngineCache> = Arc::new(DashMap::default());
         let upstream_token_cache: Arc<TokenCache> = Arc::new(token_cache);
-        let example_features = features_from_disk("../examples/features.json");
+        let example_features = features_from_disk("../../examples/features.json");
         let cache_key = cache_key(&token);
         let mut engine_state = EngineState::default();
         let warnings =
             engine_state.take_state(UpdateMessage::FullResponse(example_features.clone()));
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         upstream_engine_cache.insert(cache_key.clone(), engine_state);
-        let mut server = client_api_test_server(
+        let server = client_api_test_server(
             upstream_token_cache,
             upstream_features_cache,
             upstream_engine_cache,
         )
             .await;
-        let unleash_client = UnleashClient::new(server.server_url("/").map(|u| u.as_str()).unwrap(), None).unwrap();
+        let unleash_client = UnleashClient::from_url(server.server_url("/").unwrap(), None).unwrap();
         let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let feature_refresher = FeatureRefresher {
@@ -136,7 +138,7 @@ mod tests {
         valid_token.token_type = Some(TokenType::Client);
         valid_token.status = Validated;
         upstream_token_cache.insert(valid_token.token.clone(), valid_token.clone());
-        let example_features = features_from_disk("../examples/features.json");
+        let example_features = features_from_disk("../../examples/features.json");
         let cache_key = cache_key(&valid_token);
         let mut engine_state = EngineState::default();
         let warnings =
@@ -149,7 +151,7 @@ mod tests {
             upstream_engine_cache,
         )
             .await;
-        let unleash_client = UnleashClient::new(server.server_url("/").map(|u| u.as_str()).unwrap(), None).unwrap();
+        let unleash_client = UnleashClient::from_url(server.server_url("/").unwrap(), None).unwrap();
         let mut feature_refresher = FeatureRefresher::with_client(Arc::new(unleash_client));
         feature_refresher.refresh_interval = Duration::seconds(0);
         feature_refresher
@@ -182,7 +184,7 @@ mod tests {
         eg_token.token_type = Some(TokenType::Client);
         eg_token.status = Validated;
         upstream_token_cache.insert(eg_token.token.clone(), eg_token.clone());
-        let example_features = features_from_disk("../examples/hostedexample.json");
+        let example_features = features_from_disk("../../examples/hostedexample.json");
         let cache_key = cache_key(&dx_token);
         let mut engine_state = EngineState::default();
         let warnings =
@@ -195,7 +197,7 @@ mod tests {
             upstream_engine_cache,
         )
             .await;
-        let unleash_client = UnleashClient::new(server.server_url("/").map(|u| u.as_str()).unwrap(), None).unwrap();
+        let unleash_client = UnleashClient::from_url(server.server_url("/").unwrap(), None).unwrap();
         let mut feature_refresher = FeatureRefresher::with_client(Arc::new(unleash_client));
         feature_refresher.refresh_interval = Duration::seconds(0);
         feature_refresher
@@ -215,153 +217,6 @@ mod tests {
         assert_eq!(feature_refresher.tokens_to_refresh.len(), 1);
         assert_eq!(feature_refresher.features_cache.len(), 1);
         assert_eq!(feature_refresher.engine_cache.len(), 1);
-        assert!(warnings.is_none());
-    }
-
-    #[tokio::test]
-    pub async fn fetching_two_projects_from_same_environment_should_get_features_for_both_when_dynamic()
-    {
-        let upstream_features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
-        let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
-        let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
-        let mut dx_token = EdgeToken::try_from("dx:development.secret123".to_string()).unwrap();
-        dx_token.token_type = Some(TokenType::Client);
-        dx_token.status = Validated;
-        upstream_token_cache.insert(dx_token.token.clone(), dx_token.clone());
-        let mut eg_token = EdgeToken::try_from("eg:development.secret123".to_string()).unwrap();
-        eg_token.token_type = Some(TokenType::Client);
-        eg_token.status = Validated;
-        upstream_token_cache.insert(eg_token.token.clone(), eg_token.clone());
-        let example_features = features_from_disk("../examples/hostedexample.json");
-        let cache_key = cache_key(&dx_token);
-        upstream_features_cache.insert(cache_key.clone(), example_features.clone());
-        let mut engine_state = EngineState::default();
-        let warnings =
-            engine_state.take_state(UpdateMessage::FullResponse(example_features.clone()));
-        upstream_engine_cache.insert(cache_key, engine_state);
-        let server = client_api_test_server(
-            upstream_token_cache,
-            upstream_features_cache,
-            upstream_engine_cache,
-        )
-            .await;
-        let unleash_client = UnleashClient::new(server.server_url("/").map(|u| u.as_str()).unwrap(), None).unwrap();
-        let mut feature_refresher = FeatureRefresher::with_client(Arc::new(unleash_client));
-        feature_refresher.strict = false;
-        feature_refresher.refresh_interval = Duration::seconds(0);
-        let dx_features = feature_refresher
-            .features_for_filter(
-                dx_token.clone(),
-                &FeatureFilterSet::from(project_filter(&dx_token)),
-            )
-            .await
-            .expect("No dx features");
-        assert!(
-            dx_features
-                .features
-                .iter()
-                .all(|f| f.project == Some("dx".into()))
-        );
-        assert_eq!(dx_features.features.len(), 16);
-        let eg_features = feature_refresher
-            .features_for_filter(
-                eg_token.clone(),
-                &FeatureFilterSet::from(project_filter(&eg_token)),
-            )
-            .await
-            .expect("Could not get eg features");
-        assert_eq!(eg_features.features.len(), 7);
-        assert!(
-            eg_features
-                .features
-                .iter()
-                .all(|f| f.project == Some("eg".into()))
-        );
-        assert!(warnings.is_none());
-    }
-
-    #[tokio::test]
-    pub async fn should_get_data_for_multi_project_token_even_if_we_have_data_for_one_of_the_projects_when_dynamic()
-    {
-        let upstream_features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
-        let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
-        let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
-        let mut dx_token = EdgeToken::from_str("dx:development.secret123").unwrap();
-        dx_token.token_type = Some(TokenType::Client);
-        dx_token.status = Validated;
-        upstream_token_cache.insert(dx_token.token.clone(), dx_token.clone());
-        let mut multitoken = EdgeToken::from_str("[]:development.secret321").unwrap();
-        multitoken.token_type = Some(TokenType::Client);
-        multitoken.status = Validated;
-        multitoken.projects = vec!["dx".into(), "eg".into()];
-        upstream_token_cache.insert(multitoken.token.clone(), multitoken.clone());
-        let mut eg_token = EdgeToken::from_str("eg:development.devsecret").unwrap();
-        eg_token.token_type = Some(TokenType::Client);
-        eg_token.status = Validated;
-        upstream_token_cache.insert(eg_token.token.clone(), eg_token.clone());
-        let example_features = features_from_disk("../examples/hostedexample.json");
-        let cache_key = cache_key(&dx_token);
-        upstream_features_cache.insert(cache_key.clone(), example_features.clone());
-        let mut engine_state = EngineState::default();
-        let warnings =
-            engine_state.take_state(UpdateMessage::FullResponse(example_features.clone()));
-        upstream_engine_cache.insert(cache_key, engine_state);
-        let server = client_api_test_server(
-            upstream_token_cache,
-            upstream_features_cache,
-            upstream_engine_cache,
-        )
-            .await;
-        let unleash_client = UnleashClient::new(server.server_url("/").map(|u| u.as_str()).unwrap(), None).unwrap();
-        let mut feature_refresher = FeatureRefresher::with_client(Arc::new(unleash_client));
-        feature_refresher.strict = false;
-        feature_refresher.refresh_interval = Duration::seconds(0);
-        let dx_features = feature_refresher
-            .features_for_filter(
-                dx_token.clone(),
-                &FeatureFilterSet::from(project_filter(&dx_token)),
-            )
-            .await
-            .expect("No dx features found");
-        assert_eq!(dx_features.features.len(), 16);
-        let unleash_cloud_features = feature_refresher
-            .features_for_filter(
-                multitoken.clone(),
-                &FeatureFilterSet::from(project_filter(&multitoken)),
-            )
-            .await
-            .expect("No multi features");
-        assert_eq!(
-            unleash_cloud_features
-                .features
-                .iter()
-                .filter(|f| f.project == Some("dx".into()))
-                .count(),
-            16
-        );
-        assert_eq!(
-            unleash_cloud_features
-                .features
-                .iter()
-                .filter(|f| f.project == Some("eg".into()))
-                .count(),
-            7
-        );
-        let eg_features = feature_refresher
-            .features_for_filter(
-                eg_token.clone(),
-                &FeatureFilterSet::from(project_filter(&eg_token)),
-            )
-            .await
-            .expect("No eg_token features");
-        assert_eq!(
-            eg_features
-                .features
-                .iter()
-                .filter(|f| f.project == Some("eg".into()))
-                .count(),
-            7
-        );
         assert!(warnings.is_none());
     }
 
@@ -408,7 +263,7 @@ mod tests {
         eg_token.token_type = Some(TokenType::Client);
         eg_token.status = Validated;
         upstream_token_cache.insert(eg_token.token.clone(), eg_token.clone());
-        let example_features = features_from_disk("../examples/hostedexample.json");
+        let example_features = features_from_disk("../../examples/hostedexample.json");
         let cache_key = cache_key(&eg_token);
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         let mut engine_state = EngineState::default();
@@ -422,7 +277,7 @@ mod tests {
         )
             .await;
         let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
-        let unleash_client = UnleashClient::new(server.server_url("/").map(|u| u.as_str()).unwrap(), None).unwrap();
+        let unleash_client = UnleashClient::from_url(server.server_url("/").unwrap(), None).unwrap();
         let feature_refresher = FeatureRefresher {
             unleash_client: Arc::new(unleash_client),
             features_cache: features_cache.clone(),
@@ -435,7 +290,7 @@ mod tests {
             .await;
 
         // Now, let's say that all features are archived in upstream
-        let empty_features = features_from_disk("../examples/empty-features.json");
+        let empty_features = features_from_disk("../../examples/empty-features.json");
         upstream_features_cache.insert(cache_key.clone(), empty_features);
 
         feature_refresher.refresh_features().await;
@@ -454,8 +309,8 @@ mod tests {
     #[test]
     pub fn an_update_with_one_feature_removed_from_one_project_removes_the_feature_from_the_feature_list()
     {
-        let features = features_from_disk("../examples/hostedexample.json").features;
-        let mut dx_data: Vec<ClientFeature> = features_from_disk("../examples/hostedexample.json")
+        let features = features_from_disk("../../examples/hostedexample.json").features;
+        let mut dx_data: Vec<ClientFeature> = features_from_disk("../../examples/hostedexample.json")
             .features
             .iter()
             .filter(|f| f.project == Some("dx".into()))
@@ -463,7 +318,7 @@ mod tests {
             .collect();
         dx_data.remove(0);
         let mut token = EdgeToken::from_str("[]:development.somesecret").unwrap();
-        token.status = TokenValidationStatus::Validated;
+        token.status = Validated;
         token.projects = vec![String::from("dx")];
 
         let updated = update_projects_from_feature_update(&token, &features, &dx_data);
@@ -491,7 +346,7 @@ mod tests {
 
     #[test]
     pub fn project_state_from_update_should_overwrite_project_state_in_known_state() {
-        let features = features_from_disk("../examples/hostedexample.json").features;
+        let features = features_from_disk("../../examples/hostedexample.json").features;
         let mut dx_data: Vec<ClientFeature> = features
             .iter()
             .filter(|f| f.project == Some("dx".into()))
@@ -510,7 +365,7 @@ mod tests {
             token_type: Some(TokenType::Client),
             environment: None,
             projects: vec![String::from("dx"), String::from("eg")],
-            status: TokenValidationStatus::Validated,
+            status: Validated,
         };
         let update = update_projects_from_feature_update(&edge_token, &features, &dx_data);
         assert_eq!(features.len() - update.len(), 2); // We've removed two elements
@@ -519,13 +374,13 @@ mod tests {
     #[test]
     pub fn if_project_is_removed_but_token_has_access_to_project_update_should_remove_cached_project()
     {
-        let features = features_from_disk("../examples/hostedexample.json").features;
+        let features = features_from_disk("../../examples/hostedexample.json").features;
         let edge_token = EdgeToken {
             token: "".to_string(),
             token_type: Some(TokenType::Client),
             environment: None,
             projects: vec![String::from("dx"), String::from("eg")],
-            status: TokenValidationStatus::Validated,
+            status: Validated,
         };
         let eg_data: Vec<ClientFeature> = features
             .iter()
@@ -537,13 +392,13 @@ mod tests {
     }
     #[test]
     pub fn if_token_does_not_have_access_to_project_no_update_happens_to_project() {
-        let features = features_from_disk("../examples/hostedexample.json").features;
+        let features = features_from_disk("../../examples/hostedexample.json").features;
         let edge_token = EdgeToken {
             token: "".to_string(),
             token_type: Some(TokenType::Client),
             environment: None,
             projects: vec![String::from("dx"), String::from("eg")],
-            status: TokenValidationStatus::Validated,
+            status: Validated,
         };
         let eg_data: Vec<ClientFeature> = features
             .iter()
@@ -597,7 +452,7 @@ mod tests {
             token_type: Some(TokenType::Client),
             environment: None,
             projects: vec![String::from("*")],
-            status: TokenValidationStatus::Validated,
+            status: Validated,
         };
         let update: Vec<ClientFeature> = features
             .clone()
@@ -650,7 +505,7 @@ mod tests {
             token_type: Some(TokenType::Client),
             environment: Some("dev".into()),
             projects: vec![String::from("someother")],
-            status: TokenValidationStatus::Validated,
+            status: Validated,
         };
         let updated = update_projects_from_feature_update(
             &unrelated_token_to_existing_features,

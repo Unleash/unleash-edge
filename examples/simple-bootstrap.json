@@ -1,0 +1,13 @@
+{
+  "featureOne": {
+    "enabled": true,
+    "variant": "variantOne"
+  },
+  "featureTwo": {
+    "enabled": false,
+    "variant": "variantTwo"
+  },
+  "featureThree": {
+    "enabled": true
+  }
+}

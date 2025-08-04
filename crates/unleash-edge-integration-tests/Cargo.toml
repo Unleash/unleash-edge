@@ -13,9 +13,11 @@ dashmap = { workspace = true }
 serde = { workspace = true }
 serde_json = {  workspace = true }
 tokio = { workspace = true }
+tracing = { workspace = true }
 unleash-edge-appstate = { path = "../unleash-edge-appstate" }
 unleash-edge-auth = { path = "../unleash-edge-auth" }
 unleash-edge-client-api = { path = "../unleash-edge-client-api" }
+unleash-edge-edge-api = { path = "../unleash-edge-edge-api" }
 unleash-edge-feature-cache = { path = "../unleash-edge-feature-cache" }
 unleash-edge-feature-filters = { path = "../unleash-edge-feature-filters"}
 unleash-edge-feature-refresh = { path = "../unleash-edge-feature-refresh" }
@@ -26,5 +28,6 @@ unleash-yggdrasil = { workspace = true }
 
 [dev-dependencies]
 axum-test = { workspace = true }
+pretty_assertions = { workspace = true }
 test-case = { workspace = true }
 tracing-test = { workspace = true }

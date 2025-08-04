@@ -1,16 +1,12 @@
 use axum::extract::State;
+use axum::routing::post;
 use axum::{Json, Router};
-use axum::body::Body;
-use axum::http::{Response, StatusCode};
-use axum::response::IntoResponse;
-use axum::routing::{get, post};
 use tracing::instrument;
-use unleash_types::client_metrics::ClientMetrics;
-use unleash_yggdrasil::strategy_parsing::Rule::app_name;
 use unleash_edge_appstate::AppState;
 use unleash_edge_metrics::client_metrics::{register_bulk_metrics, register_client_metrics};
-use unleash_edge_types::{AcceptedJson, BatchMetricsRequestBody, EdgeAcceptedJsonResult};
 use unleash_edge_types::tokens::EdgeToken;
+use unleash_edge_types::{AcceptedJson, BatchMetricsRequestBody, EdgeAcceptedJsonResult};
+use unleash_types::client_metrics::ClientMetrics;
 
 #[utoipa::path(
     post,

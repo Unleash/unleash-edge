@@ -62,6 +62,7 @@ tower-http = { version = "0.6.6", features = ["cors", "normalize-path", "tracing
 tracing = { version = "0.1.41"}
 tracing-subscriber = { version = "0.3.19" }
 tracing-test = {version = "0.2.5" }
+traced-test = { version = "1.0.4" }
 ulid = { version = "1.2.1", features = ["serde"] }
 unleash-types = { version = "0.15.20", features = ["hashes", "openapi"] }
 unleash-yggdrasil = { version = "0.18.0" }

@@ -1,12 +1,10 @@
-use axum::extract::{FromRequestParts, Query};
-use axum::http::request::Parts;
+use axum::extract::{Query};
 use axum::Router;
-use unleash_types::client_metrics::ConnectVia;
 use unleash_edge_appstate::AppState;
 use unleash_edge_feature_filters::{name_prefix_filter, project_filter, FeatureFilterSet};
 use unleash_edge_types::errors::EdgeError;
-use unleash_edge_types::{EdgeResult, FeatureFilters, TokenCache};
 use unleash_edge_types::tokens::EdgeToken;
+use unleash_edge_types::{EdgeResult, FeatureFilters, TokenCache};
 
 pub mod features;
 pub mod delta;
@@ -48,8 +46,8 @@ fn get_feature_filter(
 
 pub fn router() -> Router<AppState> {
     Router::new()
-        .nest("/features", features::router())
-        .nest("/delta", delta::router())
-        .nest("/metrics", metrics::router())
-        .nest("/register", register::router())
+        .merge(features::router())
+        .merge(delta::router())
+        .merge(metrics::router())
+        .merge(register::router())
 }
