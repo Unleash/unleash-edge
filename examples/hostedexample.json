@@ -1,0 +1,666 @@
+{
+  "version": 2,
+  "features": [
+    {
+      "strategies": [
+        {
+          "name": "flexibleRollout",
+          "constraints": [],
+          "parameters": {
+            "groupId": "projectStatusApi",
+            "rollout": "25",
+            "stickiness": "clientId"
+          }
+        },
+        {
+          "name": "flexibleRollout",
+          "constraints": [],
+          "parameters": {
+            "groupId": "projectStatusApi",
+            "rollout": "100",
+            "stickiness": "default"
+          }
+        }
+      ],
+      "impressionData": false,
+      "enabled": true,
+      "name": "projectStatusApi",
+      "description": "",
+      "project": "dx",
+      "stale": false,
+      "type": "release",
+      "variants": []
+    },
+    {
+      "strategies": [
+        {
+          "name": "flexibleRollout",
+          "constraints": [],
+          "parameters": {
+            "groupId": "showProjectApiAccess",
+            "rollout": "25",
+            "stickiness": "clientId"
+          }
+        }
+      ],
+      "impressionData": false,
+      "enabled": true,
+      "name": "showProjectApiAccess",
+      "description": "Turns on Project API tokens",
+      "project": "dx",
+      "stale": false,
+      "type": "release",
+      "variants": []
+    },
+    {
+      "strategies": [],
+      "impressionData": false,
+      "enabled": false,
+      "name": "maintenanceMode",
+      "description": "This toggle forces customer's Unleash into maintenance mode.",
+      "project": "dx",
+      "stale": false,
+      "type": "kill-switch",
+      "variants": []
+    },
+    {
+      "strategies": [],
+      "impressionData": false,
+      "enabled": false,
+      "name": "caseInsensitiveInOperators",
+      "description": "Allow case insensitive LIST operator",
+      "project": "dx",
+      "stale": false,
+      "type": "release",
+      "variants": []
+    },
+    {
+      "strategies": [
+        {
+          "name": "default",
+          "constraints": [
+            {
+              "values": [
+                "hosted"
+              ],
+              "inverted": false,
+              "operator": "IN",
+              "contextName": "clientId",
+              "caseInsensitive": false
+            }
+          ],
+          "parameters": {}
+        }
+      ],
+      "impressionData": false,
+      "enabled": true,
+      "name": "newProjectOverview",
+      "description": "",
+      "project": "dx",
+      "stale": false,
+      "type": "release",
+      "variants": []
+    },
+    {
+      "strategies": [],
+      "impressionData": false,
+      "enabled": false,
+      "name": "bulkOperations",
+      "description": "This flag enabled/disables all the bulk operations.",
+      "project": "dx",
+      "stale": false,
+      "type": "release",
+      "variants": []
+    },
+    {
+      "strategies": [
+        {
+          "name": "flexibleRollout",
+          "constraints": [],
+          "parameters": {
+            "groupId": "serviceAccounts",
+            "rollout": "100",
+            "stickiness": "default"
+          }
+        },
+        {
+          "name": "default",
+          "constraints": [
+            {
+              "values": [
+              ],
+              "inverted": false,
+              "operator": "IN",
+              "contextName": "clientId",
+              "caseInsensitive": false
+            }
+          ],
+          "parameters": {}
+        }
+      ],
+      "impressionData": false,
+      "enabled": true,
+      "name": "serviceAccounts",
+      "description": "Controls the release of \"service account\" feature. This is an enterprise-only feature for now",
+      "project": "eg",
+      "stale": false,
+      "type": "release",
+      "variants": []
+    },
+    {
+      "strategies": [
+        {
+          "name": "default",
+          "constraints": [
+            {
+              "values": [
+              ],
+              "inverted": false,
+              "operator": "IN",
+              "contextName": "clientId",
+              "caseInsensitive": false
+            }
+          ],
+          "parameters": {}
+        }
+      ],
+      "impressionData": false,
+      "enabled": true,
+      "name": "crOnVariants",
+      "description": "This controls whether Change Requests include variants or not",
+      "project": "eg",
+      "stale": false,
+      "type": "release",
+      "variants": []
+    },
+    {
+      "strategies": [
+        {
+          "name": "default",
+          "constraints": [
+            {
+              "values": [
+              ],
+              "inverted": false,
+              "operator": "IN",
+              "contextName": "clientId",
+              "caseInsensitive": false
+            }
+          ],
+          "parameters": {}
+        },
+        {
+          "name": "default",
+          "constraints": [
+            {
+              "values": [
+              ],
+              "inverted": false,
+              "operator": "NOT_IN",
+              "contextName": "clientId",
+              "caseInsensitive": false
+            }
+          ],
+          "parameters": {}
+        }
+      ],
+      "impressionData": false,
+      "enabled": true,
+      "name": "responseTimeWithAppName",
+      "description": "Add \"appName\" to the response time metric in promethues for /api/client calls. ",
+      "project": "eg",
+      "stale": false,
+      "type": "permission",
+      "variants": []
+    },
+    {
+      "strategies": [
+        {
+          "name": "default",
+          "constraints": [],
+          "parameters": {}
+        }
+      ],
+      "impressionData": false,
+      "enabled": true,
+      "name": "maintenance",
+      "description": "This toggle enables if the maintenance features is enabled for customer.",
+      "project": "dx",
+      "stale": false,
+      "type": "release",
+      "variants": []
+    },
+    {
+      "strategies": [
+        {
+          "name": "flexibleRollout",
+          "constraints": [
+            {
+              "values": [
+                "ushosted"
+              ],
+              "inverted": false,
+              "operator": "IN",
+              "contextName": "clientId",
+              "caseInsensitive": false
+            }
+          ],
+          "parameters": {
+            "groupId": "ENABLE_DARK_MODE_SUPPORT",
+            "rollout": "100",
+            "stickiness": "default"
+          }
+        }
+      ],
+      "impressionData": false,
+      "enabled": true,
+      "name": "ENABLE_DARK_MODE_SUPPORT",
+      "description": "",
+      "project": "dx",
+      "stale": false,
+      "type": "release",
+      "variants": []
+    },
+    {
+      "strategies": [],
+      "impressionData": false,
+      "enabled": false,
+      "name": "anonymiseEventLog",
+      "description": "Used to annomise the event log in Unleash Cloud offering. ",
+      "project": "unleash-cloud",
+      "stale": false,
+      "type": "permission",
+      "variants": []
+    },
+    {
+      "strategies": [],
+      "impressionData": false,
+      "enabled": false,
+      "name": "projectScopedSegments",
+      "description": "Controls the rollout of segments scoped to a project which gives the ability to create a segment that's only available in a specific project",
+      "project": "eg",
+      "stale": false,
+      "type": "release",
+      "variants": []
+    },
+    {
+      "strategies": [
+        {
+          "name": "default",
+          "constraints": [
+            {
+              "values": [
+              ],
+              "inverted": false,
+              "operator": "IN",
+              "contextName": "clientId",
+              "caseInsensitive": false
+            }
+          ],
+          "parameters": {}
+        }
+      ],
+      "impressionData": false,
+      "enabled": true,
+      "name": "responseTimeWithAppNameKillSwitch",
+      "description": "Disables \"appName\" to the response time metric in promethues for /api/client calls. ",
+      "project": "eg",
+      "stale": false,
+      "type": "kill-switch",
+      "variants": []
+    },
+    {
+      "strategies": [
+        {
+          "name": "default",
+          "constraints": [
+            {
+              "values": [
+              ],
+              "inverted": false,
+              "operator": "IN",
+              "contextName": "clientId",
+              "caseInsensitive": false
+            }
+          ],
+          "parameters": {}
+        },
+        {
+          "name": "flexibleRollout",
+          "constraints": [],
+          "parameters": {
+            "groupId": "featuresExportImport",
+            "rollout": "100",
+            "stickiness": "default"
+          }
+        }
+      ],
+      "impressionData": false,
+      "enabled": true,
+      "name": "featuresExportImport",
+      "description": "",
+      "project": "dx",
+      "stale": false,
+      "type": "release",
+      "variants": []
+    },
+    {
+      "strategies": [
+        {
+          "name": "default",
+          "constraints": [],
+          "parameters": {}
+        },
+        {
+          "name": "default",
+          "constraints": [
+            {
+              "values": [
+                "eudd",
+                "euee",
+                "usgg"
+              ],
+              "inverted": false,
+              "operator": "STR_STARTS_WITH",
+              "contextName": "clientId",
+              "caseInsensitive": false
+            }
+          ],
+          "parameters": {}
+        },
+        {
+          "name": "default",
+          "constraints": [
+            {
+              "values": [
+              ],
+              "inverted": false,
+              "operator": "IN",
+              "contextName": "clientId",
+              "caseInsensitive": false
+            }
+          ],
+          "parameters": {}
+        }
+      ],
+      "impressionData": false,
+      "enabled": true,
+      "name": "batchMetrics",
+      "description": "",
+      "project": "dx",
+      "stale": false,
+      "type": "release",
+      "variants": []
+    },
+    {
+      "strategies": [
+        {
+          "name": "default",
+          "constraints": [
+            {
+              "values": [
+                "eudd",
+                "euee",
+                "usgg"
+              ],
+              "inverted": false,
+              "operator": "STR_STARTS_WITH",
+              "contextName": "clientId",
+              "caseInsensitive": false
+            }
+          ],
+          "parameters": {}
+        },
+        {
+          "name": "default",
+          "constraints": [],
+          "parameters": {}
+        }
+      ],
+      "impressionData": false,
+      "enabled": true,
+      "name": "embedProxy",
+      "description": "This toggle is defaulted to true, but we need to have it because we turn it off for selected enterprise customers with an environment variable. We can archive and remove these feature flags once all enterprise customers are migrated to new contracts.",
+      "project": "dx",
+      "stale": false,
+      "type": "kill-switch",
+      "variants": []
+    },
+    {
+      "strategies": [
+        {
+          "name": "default",
+          "constraints": [],
+          "parameters": {}
+        },
+        {
+          "name": "default",
+          "constraints": [
+            {
+              "values": [
+                "eudd",
+                "euee",
+                "usgg"
+              ],
+              "inverted": false,
+              "operator": "STR_STARTS_WITH",
+              "contextName": "clientId",
+              "caseInsensitive": false
+            }
+          ],
+          "parameters": {}
+        }
+      ],
+      "impressionData": false,
+      "enabled": true,
+      "name": "embedProxyFrontend",
+      "description": "This toggle is defaulted to true, but we need to have it because we turn it off for selected enterprise customers with an environment variable. We can archive and remove these feature flags once all enterprise customers are migrated to new contracts.",
+      "project": "dx",
+      "stale": false,
+      "type": "kill-switch",
+      "variants": []
+    },
+    {
+      "strategies": [
+        {
+          "name": "default",
+          "constraints": [
+            {
+              "values": [
+              ],
+              "inverted": false,
+              "operator": "IN",
+              "contextName": "clientId",
+              "caseInsensitive": false
+            }
+          ],
+          "parameters": {}
+        },
+        {
+          "name": "flexibleRollout",
+          "constraints": [
+            {
+              "values": [
+                "pro"
+              ],
+              "inverted": false,
+              "operator": "IN",
+              "contextName": "plan",
+              "caseInsensitive": false
+            }
+          ],
+          "parameters": {
+            "groupId": "variantsPerEnvironment",
+            "rollout": "100",
+            "stickiness": "clientId"
+          }
+        }
+      ],
+      "impressionData": false,
+      "enabled": true,
+      "name": "variantsPerEnvironment",
+      "description": "Controls the release of variants per environment",
+      "project": "eg",
+      "stale": false,
+      "type": "release",
+      "variants": []
+    },
+    {
+      "strategies": [
+        {
+          "name": "flexibleRollout",
+          "constraints": [],
+          "parameters": {
+            "groupId": "networkView",
+            "rollout": "100",
+            "stickiness": "clientId"
+          }
+        }
+      ],
+      "impressionData": false,
+      "enabled": true,
+      "name": "networkView",
+      "description": "This feature controls the display of the new traffic tab under instance configuration. It also requires an environment variable PROMETHEUS_API to be configured for this feature to work properly",
+      "project": "eg",
+      "stale": false,
+      "type": "release",
+      "variants": []
+    },
+    {
+      "strategies": [
+        {
+          "name": "flexibleRollout",
+          "constraints": [
+            {
+              "values": [
+                "ushosted",
+                "hosted"
+              ],
+              "inverted": false,
+              "operator": "IN",
+              "contextName": "clientId",
+              "caseInsensitive": false
+            }
+          ],
+          "parameters": {
+            "groupId": "notifications",
+            "rollout": "100",
+            "stickiness": "default"
+          }
+        },
+        {
+          "name": "flexibleRollout",
+          "constraints": [],
+          "parameters": {
+            "groupId": "notifications",
+            "rollout": "25",
+            "stickiness": "clientId"
+          }
+        }
+      ],
+      "impressionData": true,
+      "enabled": true,
+      "name": "notifications",
+      "description": "User specific notifications experimental feature",
+      "project": "dx",
+      "stale": false,
+      "type": "release",
+      "variants": []
+    },
+    {
+      "strategies": [
+        {
+          "name": "default",
+          "constraints": [
+            {
+              "values": [
+              ],
+              "inverted": false,
+              "operator": "NOT_IN",
+              "contextName": "clientId",
+              "caseInsensitive": false
+            }
+          ],
+          "parameters": {}
+        }
+      ],
+      "impressionData": true,
+      "enabled": true,
+      "name": "proPlanAutoCharge",
+      "description": "Display auto-charge UI in Unleash.",
+      "project": "dx",
+      "stale": false,
+      "type": "release",
+      "variants": []
+    },
+    {
+      "strategies": [
+        {
+          "name": "default",
+          "constraints": [
+            {
+              "values": [
+              ],
+              "inverted": false,
+              "operator": "NOT_IN",
+              "contextName": "clientId",
+              "caseInsensitive": false
+            },
+            {
+              "value": "15",
+              "values": [],
+              "inverted": false,
+              "operator": "NUM_LTE",
+              "contextName": "authAppExtraUsers",
+              "caseInsensitive": false
+            }
+          ],
+          "parameters": {}
+        }
+      ],
+      "impressionData": false,
+      "enabled": true,
+      "name": "proPlanAutoChargeSubscriptions",
+      "description": "This flag checks based on context field, if it is possible to update customers stripe subscription.",
+      "project": "dx",
+      "stale": false,
+      "type": "operational",
+      "variants": []
+    },
+    {
+      "strategies": [
+        {
+          "name": "flexibleRollout",
+          "constraints": [],
+          "parameters": {
+            "groupId": "proxyReturnAllToggles",
+            "rollout": "25",
+            "stickiness": "clientId"
+          }
+        }
+      ],
+      "impressionData": false,
+      "enabled": false,
+      "name": "proxyReturnAllToggles",
+      "description": "Return all feature toggles",
+      "project": "dx",
+      "stale": false,
+      "type": "release",
+      "variants": []
+    }
+  ],
+  "query": {
+    "project": [
+      "eg",
+      "unleash-cloud",
+      "dx"
+    ],
+    "environment": "production",
+    "inlineSegmentConstraints": true
+  },
+  "meta": {
+    "revisionId": 21,
+    "etag": "\"76d8bb0e:21\"",
+    "queryHash": "76d8bb0e"
+  }
+}

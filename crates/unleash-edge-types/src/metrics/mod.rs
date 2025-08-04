@@ -3,7 +3,7 @@ use ahash::HashMap;
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU64, Ordering};
-use unleash_types::client_metrics::{ClientApplication, ClientMetricsEnv, ConnectVia, ImpactMetricEnv};
+use unleash_types::client_metrics::{ClientApplication, ClientMetricsEnv, ImpactMetricEnv};
 use utoipa::ToSchema;
 
 pub mod batching;

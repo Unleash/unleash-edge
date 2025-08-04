@@ -1,0 +1,76 @@
+{
+  "version": 2,
+  "features": [
+    {
+      "name": "my-projects",
+      "type": "release",
+      "enabled": true,
+      "stale": false,
+      "impressionData": false,
+      "project": "default",
+      "strategies": [
+        {
+          "name": "flexibleRollout",
+          "constraints": [],
+          "parameters": {
+            "groupId": "my-projects",
+            "rollout": "100",
+            "stickiness": "default"
+          },
+          "variants": []
+        }
+      ],
+      "variants": []
+    },
+    {
+      "name": "ssp.escalations",
+      "type": "release",
+      "enabled": true,
+      "stale": false,
+      "impressionData": false,
+      "project": "default",
+      "strategies": [
+        {
+          "name": "flexibleRollout",
+          "constraints": [],
+          "parameters": {
+            "groupId": "ssp.escalations",
+            "rollout": "100",
+            "stickiness": "default"
+          },
+          "variants": []
+        }
+      ],
+      "variants": []
+    },
+    {
+      "name": "ssp.user-management",
+      "type": "release",
+      "enabled": true,
+      "stale": false,
+      "impressionData": false,
+      "project": "default",
+      "strategies": [
+        {
+          "name": "flexibleRollout",
+          "constraints": [],
+          "parameters": {
+            "groupId": "ssp.user-management",
+            "rollout": "100",
+            "stickiness": "default"
+          },
+          "variants": []
+        }
+      ],
+      "variants": []
+    }
+  ],
+  "segments": [],
+  "query": {
+    "projects": [
+      "*"
+    ],
+    "environment": "development",
+    "inlineSegmentConstraints": false
+  }
+}

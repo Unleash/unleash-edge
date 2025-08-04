@@ -1,9 +1,10 @@
 use std::sync::Arc;
-use axum::extract::{Query, Request, State};
+use axum::extract::{FromRequestParts, Query, State};
 use axum::response::IntoResponse;
 use axum::{http, Json, Router};
 use axum::body::Body;
-use axum::http::{HeaderMap, Response, StatusCode};
+use axum::http::{Response, StatusCode};
+use axum::http::request::Parts;
 use axum::routing::get;
 use tracing::instrument;
 use unleash_types::client_features::ClientFeaturesDelta;
@@ -15,6 +16,34 @@ use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::tokens::EdgeToken;
 use crate::get_feature_filter;
 
+#[derive(Debug, Clone)]
+pub struct RevisionId {
+    requested_revision_id: u32
+}
+
+impl Default for RevisionId {
+    fn default() -> Self {
+        Self {
+            requested_revision_id: 0
+        }
+    }
+}
+
+impl FromRequestParts<AppState> for RevisionId {
+    type Rejection = EdgeError;
+
+    async fn from_request_parts(parts: &mut Parts, _state: &AppState) -> Result<Self, Self::Rejection> {
+        Ok(parts.headers.get(http::header::IF_NONE_MATCH)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|etag| etag.trim_matches('"').parse::<u32>().ok())
+            .map(|r| {
+                RevisionId {
+                    requested_revision_id: r
+                }
+            }).unwrap_or_default())
+    }
+}
+
 pub struct DeltaResolverArgs {
     pub edge_token: EdgeToken,
     pub token_cache: Arc<TokenCache>,
@@ -22,30 +51,24 @@ pub struct DeltaResolverArgs {
     pub features_refresher: Arc<Option<FeatureRefresher>>,
     pub requested_revision_id: u32,
 }
-#[instrument(skip(app_state, headers, edge_token, filter_query))]
-#[axum::debug_handler]
-pub async fn get_features_delta(app_state: State<AppState>, headers: HeaderMap, edge_token: EdgeToken, filter_query: Query<FeatureFilters>) -> impl IntoResponse {
-    let requested_revision_id = headers.get(http::header::IF_NONE_MATCH)
-        .and_then(|value| value.to_str().ok())
-        .and_then(|etag| etag.trim_matches('"').parse::<u32>().ok())
-        .unwrap_or(0);
-    Response::builder().status(StatusCode::OK).body(Body::empty()).unwrap()
-    /*match resolve_delta(
+#[instrument(skip(app_state, edge_token, filter_query, revision_id))]
+pub async fn get_features_delta(app_state: State<AppState>, edge_token: EdgeToken, revision_id: RevisionId, filter_query: Query<FeatureFilters>) -> impl IntoResponse {
+    match resolve_delta(
         DeltaResolverArgs {
             edge_token,
             token_cache: app_state.token_cache.clone(),
             filter_query,
             features_refresher: app_state.feature_refresher.clone(),
-            requested_revision_id,
+            requested_revision_id: revision_id.requested_revision_id,
         }
     ).await {
         Ok(Json(None)) => Response::builder().status(StatusCode::NOT_MODIFIED).body(Body::empty()).unwrap(),
         Ok(Json(Some(delta))) => {
             let last_event_id = delta.events.last().map(|e| e.get_event_id()).unwrap_or(0);
-            Response::builder().status(StatusCode::OK).header(axum::http::header::ETAG, format!("{}", last_event_id)).body(Body::from(serde_json::to_string(&delta).unwrap())).unwrap()
+            Response::builder().status(StatusCode::OK).header(http::header::ETAG, format!("{}", last_event_id)).body(Body::from(serde_json::to_string(&delta).unwrap())).unwrap()
         }
         Err(e) => Response::builder().status(e.status_code()).body(Body::empty()).unwrap(),
-    }*/
+    }
 }
 
 fn get_delta_filter(
@@ -86,11 +109,10 @@ async fn resolve_delta(args: DeltaResolverArgs) -> EdgeJsonResult<Option<ClientF
             let delta = refresher
                 .delta_events_for_filter(
                     validated_token.clone(),
-                    &filter_set,
-                    &delta_filter_set,
+                    filter_set,
+                    delta_filter_set,
                     args.requested_revision_id,
-                )
-                .await?;
+                )?;
 
             if delta.events.is_empty() {
                 return Ok(Json(None));
@@ -106,5 +128,5 @@ async fn resolve_delta(args: DeltaResolverArgs) -> EdgeJsonResult<Option<ClientF
 
 pub fn router() -> Router<AppState> {
     Router::new()
-        .route("/features", get(get_features_delta))
+        .route("/delta", get(get_features_delta))
 }

@@ -37,7 +37,7 @@ impl InstanceDataSending {
                 .map(|token| {
                     let unleash_client = Url::parse(&edge_args.upstream_url.clone())
                         .map(|url| {
-                            UnleashClient::from_url(
+                            UnleashClient::from_url_with_backing_client(
                                 url,
                                 args.auth_headers
                                     .upstream_auth_header
