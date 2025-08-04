@@ -1,20 +1,18 @@
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-    use axum::body::Body;
-    use axum::response::IntoResponse;
     use axum::http::{Response, StatusCode};
-    use axum::{Json, Router};
+    use axum::response::IntoResponse;
     use axum::routing::post;
+    use axum::{Json, Router};
     use axum_test::TestServer;
     use dashmap::DashMap;
     use serde::{Deserialize, Serialize};
-    use tracing_test::traced_test;
+    use std::sync::Arc;
     use unleash_edge_appstate::AppState;
+    use unleash_edge_auth::token_validator::TokenValidator;
     use unleash_edge_http_client::UnleashClient;
     use unleash_edge_types::tokens::EdgeToken;
     use unleash_edge_types::{TokenType, TokenValidationStatus};
-    use unleash_edge_auth::token_validator::TokenValidator;
 
     #[derive(Clone, Debug, Serialize, Deserialize)]
     pub struct EdgeTokens {
@@ -39,7 +37,7 @@ mod tests {
     }
 
     async fn test_validation_server() -> TestServer {
-        let router = Router::new().route("/edge/validate", post(return_validated_tokens))
+        let router = Router::new().route("/edge/validate", post(return_validated_tokens));
         TestServer::builder().http_transport().build(router).unwrap()
     }
 
@@ -54,26 +52,16 @@ mod tests {
         };
         let app_state = AppState::builder().with_token_validator(Arc::new(Some(token_validator))).build();
         let router = Router::new()
-            .nest("/edge")
-
-        test_server(move || {
-            HttpService::new(map_config(
-                App::new()
-                    .app_data(token_cache_wrapper.clone())
-                    .app_data(token_validator.clone())
-                    .service(web::scope("/edge").service(crate::edge_api::validate)),
-                |_| AppConfig::default(),
-            ))
-                .tcp()
-        })
-            .await
+            .nest("/edge", unleash_edge_edge_api::router())
+            .with_state(app_state);
+        TestServer::builder().http_transport().build(router).unwrap()
     }
 
     #[tokio::test]
     pub async fn can_validate_tokens() {
         let srv = test_validation_server().await;
         let unleash_client =
-            crate::http::unleash_client::UnleashClient::new(srv.url("/").as_str(), None)
+            UnleashClient::from_url(srv.server_url("/").unwrap(), None)
                 .expect("Couldn't build client");
         let validation_holder = TokenValidator {
             unleash_client: Arc::new(unleash_client),
@@ -107,7 +95,7 @@ mod tests {
     pub async fn tokens_with_wrong_format_is_not_included() {
         let srv = test_validation_server().await;
         let unleash_client =
-            UnleashClient::new(srv.url("/").as_str(), None).expect("Couldn't build client");
+            UnleashClient::from_url(srv.server_url("/").unwrap(), None).expect("Couldn't build client");
         let validation_holder = TokenValidator {
             unleash_client: Arc::new(unleash_client),
             token_cache: Arc::new(DashMap::default()),
@@ -144,7 +132,7 @@ mod tests {
 
         let srv = validation_server_with_valid_tokens(upstream_tokens).await;
         let unleash_client =
-            crate::http::unleash_client::UnleashClient::new(srv.url("/").as_str(), None)
+            UnleashClient::from_url(srv.server_url("/").unwrap(), None)
                 .expect("Couldn't build client");
 
         let local_token_cache = Arc::new(DashMap::default());
@@ -189,7 +177,7 @@ mod tests {
             valid_token_production.clone(),
         );
         let server = validation_server_with_valid_tokens(upstream_tokens).await;
-        let client = UnleashClient::new(server.url("/").as_str(), None).unwrap();
+        let client = UnleashClient::from_url(server.server_url("/").unwrap(), None).unwrap();
         let local_tokens: DashMap<String, EdgeToken> = DashMap::default();
         local_tokens.insert(
             valid_token_development.token.clone(),
@@ -216,7 +204,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[traced_test]
+    #[tracing_test::traced_test]
     pub async fn deferred_validation_sends_tokens_to_channel() {
         let upstream_tokens: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let mut valid_token_development =
@@ -229,7 +217,7 @@ mod tests {
         );
 
         let server = validation_server_with_valid_tokens(upstream_tokens).await;
-        let client = UnleashClient::new(server.url("/").as_str(), None).unwrap();
+        let client = UnleashClient::from_url(server.server_url("/").unwrap(), None).unwrap();
         let local_tokens: DashMap<String, EdgeToken> = DashMap::default();
         local_tokens.insert(
             valid_token_development.token.clone(),

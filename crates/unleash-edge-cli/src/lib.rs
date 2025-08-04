@@ -220,12 +220,8 @@ pub struct EdgeArgs {
     pub s3: Option<S3Args>,
 
     /// If set to true, Edge starts with strict behavior. Strict behavior means that Edge will refuse tokens outside the scope of the startup tokens
-    #[clap(long, env, default_value_t = false)]
+    #[clap(long, env, default_value_t = true)]
     pub strict: bool,
-
-    /// If set to true, Edge starts with dynamic behavior. Dynamic behavior means that Edge will accept tokens outside the scope of the startup tokens
-    #[clap(long, env, default_value_t = false, conflicts_with = "strict")]
-    pub dynamic: bool,
 
     /// If set to true, Edge connects to upstream using streaming instead of polling. This is an experimental feature and may change. Changes to this feature may not follow semantic versioning. Requires strict mode
     #[clap(long, env, default_value_t = false, requires = "strict", hide = true)]

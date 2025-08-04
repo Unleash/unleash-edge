@@ -8,8 +8,6 @@ use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 use ahash::HashSet;
-use axum::extract::FromRequestParts;
-use http::request::Parts;
 use utoipa::ToSchema;
 
 #[derive(Clone, Default, Serialize, Deserialize, Eq, ToSchema)]

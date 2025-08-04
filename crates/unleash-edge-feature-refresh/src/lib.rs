@@ -11,11 +11,6 @@ use futures::TryStreamExt;
 use json_structural_diff::JsonDiff;
 use reqwest::StatusCode;
 use tracing::{debug, info, warn};
-use unleash_edge_types::{build, ClientFeaturesDeltaResponse, ClientFeaturesRequest, ClientFeaturesResponse, EdgeResult, TokenRefresh, TokenType, TokenValidationStatus};
-use unleash_edge_types::tokens::{cache_key, simplify, EdgeToken};
-use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta, DeltaEvent};
-use unleash_types::client_metrics::{ClientApplication, MetricsMetadata, SdkType};
-use unleash_yggdrasil::{EngineState, UpdateMessage};
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_filters::delta_filters::{filter_delta_events, DeltaFilterSet};
@@ -24,6 +19,11 @@ use unleash_edge_http_client::{ClientMetaInformation, UnleashClient};
 use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_types::errors::{EdgeError, FeatureError};
 use unleash_edge_types::headers::{UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_CONNECTION_ID_HEADER, UNLEASH_INSTANCE_ID_HEADER};
+use unleash_edge_types::tokens::{cache_key, simplify, EdgeToken};
+use unleash_edge_types::{build, ClientFeaturesDeltaResponse, ClientFeaturesRequest, ClientFeaturesResponse, EdgeResult, TokenRefresh, TokenType, TokenValidationStatus};
+use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta, DeltaEvent};
+use unleash_types::client_metrics::{ClientApplication, MetricsMetadata, SdkType};
+use unleash_yggdrasil::{EngineState, UpdateMessage};
 
 pub fn frontend_token_is_covered_by_tokens(
     frontend_token: &EdgeToken,
@@ -224,62 +224,40 @@ impl FeatureRefresher {
         }
     }
 
-    pub async fn features_for_filter(
+    pub fn features_for_filter(
         &self,
         token: EdgeToken,
         filters: &FeatureFilterSet,
     ) -> EdgeResult<ClientFeatures> {
-        match self.get_features_by_filter(&token, filters) {
+        match self.get_features_by_filter(&token, &filters) {
             Some(features) if self.token_is_subsumed(&token) => Ok(features),
             _ => {
-                if self.strict {
+
                     debug!(
                         "Strict behavior: Token is not subsumed by any registered tokens. Returning error"
                     );
                     Err(EdgeError::InvalidTokenWithStrictBehavior)
-                } else {
-                    debug!(
-                        "Dynamic behavior: Had never seen this environment. Configuring fetcher"
-                    );
-                    self.register_and_hydrate_token(&token).await;
-                    self.get_features_by_filter(&token, filters).ok_or_else(|| {
-                        EdgeError::ClientHydrationFailed(
-                            "Failed to get features by filter after registering and hydrating token (This is very likely an error in Edge. Please report this!)"
-                                .into(),
-                        )
-                    })
-                }
+
             }
         }
     }
 
-    pub async fn delta_events_for_filter(
+    pub fn delta_events_for_filter(
         &self,
         token: EdgeToken,
-        feature_filters: &FeatureFilterSet,
-        delta_filters: &DeltaFilterSet,
+        feature_filters: FeatureFilterSet,
+        delta_filters: DeltaFilterSet,
         revision: u32,
     ) -> EdgeResult<ClientFeaturesDelta> {
-        match self.get_delta_events_by_filter(&token, feature_filters, delta_filters, revision) {
+        match self.get_delta_events_by_filter(&token, &feature_filters, &delta_filters, revision) {
             Some(features) if self.token_is_subsumed(&token) => Ok(features),
             _ => {
-                if self.strict {
+
                     debug!(
                         "Strict behavior: Token is not subsumed by any registered tokens. Returning error"
                     );
                     Err(EdgeError::InvalidTokenWithStrictBehavior)
-                } else {
-                    debug!(
-                        "Dynamic behavior: Had never seen this environment. Configuring fetcher"
-                    );
-                    self.register_and_hydrate_token(&token).await;
-                    self.get_delta_events_by_filter(&token, feature_filters, delta_filters, revision).ok_or_else(|| {
-                        EdgeError::ClientHydrationFailed(
-                            "Failed to get delta events by filter after registering and hydrating token (This is very likely an error in Edge. Please report this!)"
-                                .into(),
-                        )
-                    })
-                }
+
             }
         }
     }
@@ -511,8 +489,7 @@ impl FeatureRefresher {
     }
 
     pub async fn hydrate_new_tokens(&self) {
-        let hydrations = self.get_tokens_never_refreshed();
-        for hydration in hydrations {
+        for hydration in self.get_tokens_never_refreshed() {
             if self.delta {
                 self.refresh_single_delta(hydration).await;
             } else {
@@ -669,21 +646,16 @@ impl FeatureRefresher {
 
 #[cfg(test)]
 mod tests {
-    use axum::Router;
-    use axum_test::TestServer;
+    use super::FeatureRefresher;
     use chrono::{Duration, Utc};
     use dashmap::DashMap;
     use etag::EntityTag;
     use reqwest::Url;
-    use std::str::FromStr;
     use std::sync::Arc;
-    use unleash_types::client_features::ClientFeature;
-    use unleash_yggdrasil::{EngineState, UpdateMessage};
     use unleash_edge_feature_cache::FeatureCache;
     use unleash_edge_http_client::{new_reqwest_client, ClientMetaInformation, HttpClientArgs, UnleashClient};
-    use unleash_edge_types::TokenRefresh;
     use unleash_edge_types::tokens::EdgeToken;
-    use super::{FeatureRefresher, frontend_token_is_covered_by_tokens};
+    use unleash_edge_types::TokenRefresh;
 
     fn create_test_client() -> UnleashClient {
         let http_client = new_reqwest_client(HttpClientArgs {
@@ -692,7 +664,7 @@ mod tests {
         })
         .expect("Failed to create client");
 
-        UnleashClient::from_url(
+        UnleashClient::from_url_with_backing_client(
             Url::parse("http://localhost:4242").unwrap(),
             "Authorization".to_string(),
             http_client,

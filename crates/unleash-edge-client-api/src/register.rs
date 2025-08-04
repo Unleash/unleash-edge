@@ -1,14 +1,14 @@
-use axum::extract::{ConnectInfo, State};
-use axum::{Json, Router};
 use axum::body::Body;
+use axum::extract::State;
 use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::post;
+use axum::{Json, Router};
 use tracing::instrument;
-use unleash_types::client_metrics::{ClientApplication, ConnectVia};
 use unleash_edge_appstate::AppState;
-use unleash_edge_types::EDGE_VERSION;
 use unleash_edge_types::tokens::EdgeToken;
+use unleash_edge_types::EDGE_VERSION;
+use unleash_types::client_metrics::ClientApplication;
 
 #[utoipa::path(
     path = "/register",
