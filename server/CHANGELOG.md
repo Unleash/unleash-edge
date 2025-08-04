@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [19.14.3](https://github.com/Unleash/unleash-edge/compare/v19.14.2...v19.14.3) - 2025-08-04
+
+### Dependency updates
+- bump shadow-rs from 1.2.0 to 1.2.1 ([#1077](https://github.com/unleash/unleash-edge/issues/1077)) (by @dependabot[bot]) - #1077
+
+### Contributors
+
+* @dependabot[bot]
+
 ## [19.14.2](https://github.com/Unleash/unleash-edge/compare/v19.14.1...v19.14.2) - 2025-08-01
 
 ### 🐛 Bug Fixes
