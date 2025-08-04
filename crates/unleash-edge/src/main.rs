@@ -1,5 +1,6 @@
 use clap::Parser;
 use unleash_edge_cli::{CliArgs, EdgeMode};
+use unleash_edge_types::EdgeResult;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -10,11 +11,13 @@ async fn main() -> Result<(), anyhow::Error> {
     }
 
     match args.mode {
-        EdgeMode::Health(health_args) => health_checker::check_health(health_args).await,
-        EdgeMode::Ready(ready_args) => ready_checker::check_ready(ready_args).await,
+        EdgeMode::Health(health_args) => unleash_edge::health_checker::check_health(health_args).await,
+        EdgeMode::Ready(ready_args) => unleash_edge::ready_checker::check_ready(ready_args).await,
         _ => run_server(args).await,
     }
     .map_err(|e| e.into())
 }
 
-async fn run_server(args: CliArgs) -> EdgeResult<()> {}
+async fn run_server(args: CliArgs) -> EdgeResult<()> {
+
+}

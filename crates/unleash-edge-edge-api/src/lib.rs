@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use axum::extract::State;
 use axum::routing::post;
 use axum::{Json, Router};
@@ -16,7 +17,7 @@ use unleash_edge_types::{EdgeJsonResult, TokenValidationStatus};
 )]
 #[instrument(skip(app_state, tokens))]
 pub async fn validate(
-    app_state: State<AppState>,
+    app_state: State<Arc<AppState>>,
     tokens: Json<TokenStrings>,
 ) -> EdgeJsonResult<ValidatedTokens> {
     match *app_state.token_validator {
@@ -42,6 +43,6 @@ pub async fn validate(
     }
 }
 
-pub fn router() -> Router<AppState> {
+pub fn router() -> Router<Arc<AppState>> {
     Router::new().route("/validate", post(validate))
 }

@@ -1,5 +1,6 @@
 use dashmap::DashMap;
-use std::sync::Arc;
+use std::sync::{Arc};
+use tokio::sync::RwLock;
 use ulid::Ulid;
 use unleash_edge_auth::token_validator::TokenValidator;
 use unleash_edge_cli::{AuthHeaders, EdgeMode};
@@ -8,6 +9,7 @@ use unleash_edge_feature_refresh::FeatureRefresher;
 use unleash_edge_types::metrics::MetricsCache;
 use unleash_edge_types::{EngineCache, TokenCache};
 use unleash_types::client_metrics::ConnectVia;
+use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -21,11 +23,17 @@ pub struct AppState {
     pub auth_headers: AuthHeaders,
     pub edge_mode: EdgeMode,
     pub connect_via: ConnectVia,
+    pub edge_instance_data: EdgeInstanceData,
+    pub connected_instances: Arc<RwLock<Vec<EdgeInstanceData>>>
 }
 
 impl AppState {
     pub fn builder() -> AppStateBuilder {
-        AppStateBuilder::new()
+        AppStateBuilder::new("unleash-edge", Ulid::new())
+    }
+
+    pub fn builder_with_app_name_and_ulid(app_name: &str, ulid: Ulid) -> AppStateBuilder {
+        AppStateBuilder::new(app_name, ulid)
     }
 }
 
@@ -40,10 +48,12 @@ pub struct AppStateBuilder {
     auth_headers: AuthHeaders,
     edge_mode: EdgeMode,
     connect_via: ConnectVia,
+    edge_instance_data: EdgeInstanceData,
+    connected_instances: Arc<RwLock<Vec<EdgeInstanceData>>>
 }
 
 impl AppStateBuilder {
-    pub fn new() -> Self {
+    pub fn new(app_name: &str, instance_id: Ulid) -> Self {
         Self {
             token_cache: Arc::new(DashMap::new()),
             features_cache: Arc::new(FeatureCache::new(DashMap::default())),
@@ -55,9 +65,12 @@ impl AppStateBuilder {
             auth_headers: AuthHeaders::default(),
             edge_mode: EdgeMode::default(),
             connect_via: ConnectVia {
-                app_name: "unleash-edge".to_string(),
-                instance_id: Ulid::new().to_string(),
+                app_name: app_name.to_string(),
+                instance_id: instance_id.to_string(),
             },
+            edge_instance_data: EdgeInstanceData::new(app_name, &instance_id),
+            connected_instances: Arc::new(RwLock::new(Vec::new())),
+
         }
     }
 
@@ -121,6 +134,8 @@ impl AppStateBuilder {
             auth_headers: self.auth_headers,
             edge_mode: self.edge_mode,
             connect_via: self.connect_via,
+            edge_instance_data: self.edge_instance_data,
+            connected_instances: self.connected_instances,
         }
     }
 }
