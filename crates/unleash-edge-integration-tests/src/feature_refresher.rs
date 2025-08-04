@@ -32,7 +32,7 @@ mod tests {
         let router = Router::new()
             .nest("/api/client", unleash_edge_client_api::router())
             .nest("/edge", unleash_edge_edge_api::router())
-            .with_state(app_state);
+            .with_state(Arc::new(app_state));
         TestServer::builder()
             .http_transport()
             .build(router)

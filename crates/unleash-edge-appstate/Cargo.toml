@@ -9,6 +9,7 @@ edition.workspace = true
 [dependencies]
 axum = { workspace = true }
 dashmap = { workspace = true }
+tokio = { workspace = true }
 ulid = { workspace = true }
 unleash-edge-auth = { path = "../unleash-edge-auth" }
 unleash-edge-cli = { path = "../unleash-edge-cli" }
