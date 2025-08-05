@@ -4409,6 +4409,8 @@ name = "unleash-edge"
 version = "20.0.0"
 dependencies = [
  "anyhow",
+ "aws-config",
+ "aws-sdk-s3",
  "axum",
  "axum-test",
  "chrono",
@@ -4422,15 +4424,21 @@ dependencies = [
  "tracing",
  "ulid",
  "unleash-edge-appstate",
+ "unleash-edge-auth",
  "unleash-edge-backstage",
  "unleash-edge-cli",
  "unleash-edge-client-api",
+ "unleash-edge-delta",
  "unleash-edge-edge-api",
  "unleash-edge-feature-cache",
+ "unleash-edge-feature-refresh",
  "unleash-edge-frontend-api",
  "unleash-edge-http-client",
+ "unleash-edge-offline",
+ "unleash-edge-persistence",
  "unleash-edge-types",
  "unleash-types",
+ "unleash-yggdrasil",
  "url",
 ]
 
@@ -4704,6 +4712,29 @@ dependencies = [
  "ulid",
  "unleash-edge-types",
  "unleash-types",
+]
+
+[[package]]
+name = "unleash-edge-offline"
+version = "20.0.0"
+dependencies = [
+ "axum",
+ "axum-test",
+ "dashmap",
+ "lazy_static",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-test",
+ "unleash-edge-cli",
+ "unleash-edge-feature-cache",
+ "unleash-edge-feature-refresh",
+ "unleash-edge-http-client",
+ "unleash-edge-persistence",
+ "unleash-edge-types",
+ "unleash-types",
+ "unleash-yggdrasil",
 ]
 
 [[package]]

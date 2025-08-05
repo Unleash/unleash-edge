@@ -1,18 +1,44 @@
 use std::sync::Arc;
 use axum::Router;
 use chrono::Duration;
+use dashmap::DashMap;
 use ulid::Ulid;
+use unleash_yggdrasil::EngineState;
 use unleash_edge_appstate::AppState;
+use unleash_edge_auth::token_validator::TokenValidator;
 use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeMode};
+use unleash_edge_delta::cache_manager::DeltaCacheManager;
+use unleash_edge_feature_cache::FeatureCache;
+use unleash_edge_feature_refresh::FeatureRefresher;
 use unleash_edge_http_client::{new_reqwest_client, ClientMetaInformation, HttpClientArgs};
 use unleash_edge_http_client::instance_data::InstanceDataSending;
+use unleash_edge_persistence::EdgePersistence;
+use unleash_edge_types::EdgeResult;
 use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
+use unleash_edge_types::tokens::EdgeToken;
+use crate::edge_builder::build_edge;
+use crate::offline_builder::build_offline;
 
+pub mod edge_builder;
+pub mod offline_builder;
 pub mod health_checker;
 pub mod ready_checker;
 pub mod tls;
 
-pub fn configure_server(args: CliArgs) -> Router<AppState> {
+type CacheContainer = (
+    Arc<DashMap<String, EdgeToken>>,
+    Arc<FeatureCache>,
+    Arc<DeltaCacheManager>,
+    Arc<DashMap<String, EngineState>>,
+);
+pub type EdgeInfo = (
+    CacheContainer,
+    Option<Arc<TokenValidator>>,
+    Option<Arc<FeatureRefresher>>,
+    Option<Arc<dyn EdgePersistence>>,
+);
+
+pub async fn configure_server(args: CliArgs) -> EdgeResult<Router<AppState>> {
     let app_name = args.app_name.clone();
     let app_id: Ulid = Ulid::new();
     let edge_instance_data = Arc::new(EdgeInstanceData::new(&args.app_name, &app_id));
