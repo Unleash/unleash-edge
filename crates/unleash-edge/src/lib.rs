@@ -5,6 +5,7 @@ use axum::Router;
 use chrono::Duration;
 use std::env;
 use std::sync::{Arc, LazyLock};
+use axum::routing::get;
 use tower::ServiceBuilder;
 use ulid::Ulid;
 use unleash_edge_appstate::AppState;
@@ -15,7 +16,7 @@ use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_refresh::FeatureRefresher;
 use unleash_edge_http_client::instance_data::InstanceDataSending;
 use unleash_edge_http_client::{new_reqwest_client, ClientMetaInformation, HttpClientArgs};
-use unleash_edge_metrics::axum_prometheus_metrics::PrometheusAxumLayer;
+use unleash_edge_metrics::axum_prometheus_metrics::{render_prometheus_metrics, PrometheusAxumLayer};
 use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
 use unleash_edge_types::{EdgeResult, EngineCache, TokenCache};
@@ -131,7 +132,10 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<Router> {
     let top_router: Router = Router::new()
         .nest("/api", api_router)
         .nest("/edge", unleash_edge_edge_api::router())
-        .nest("/internal-backstage", unleash_edge_backstage::router(args.internal_backstage))
+        .nest("/internal-backstage", Router::new()
+                        .route("/metrics", get(render_prometheus_metrics))
+                        .merge(unleash_edge_backstage::router(args.internal_backstage))
+        )
         .layer(ServiceBuilder::new()
             .layer(metrics_middleware)
             .layer(args.http.cors.middleware())
