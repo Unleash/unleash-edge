@@ -27,6 +27,7 @@ async-trait = { version = "0.1.88" }
 aws-config = { version = "1.8.3", features = ["behavior-version-latest"] }
 aws-sdk-s3 = { version = "1.100.0", features = ["behavior-version-latest"] }
 axum = { version = "0.8.4", features = ["macros", "tokio", "json", "query", "tracing"] }
+axum-server = { version = "0.7.2", features = ["tls-rustls"]}
 axum-test = { version = "17.3.0", features = ["pretty-assertions", "reqwest"] }
 chrono = { version = "0.4.41", features = ["serde"] }
 cidr = { version = "0.3.1" }
@@ -58,10 +59,11 @@ serde_json = { version = "1.0.142" }
 shadow-rs = { version = "1.2.1" }
 test-case = { version = "3.3.1" }
 tokio = { version = "1.47.1", features = ["macros", "rt-multi-thread", "tracing", "fs"] }
+tokio-rustls = { version = "0.26.2" }
 tower = { version = "0.5.2" }
 tower-http = { version = "0.6.6", features = ["cors", "normalize-path", "tracing"] }
 tracing = { version = "0.1.41"}
-tracing-subscriber = { version = "0.3.19" }
+tracing-subscriber = { version = "0.3.19", features = ["env-filter", "json"] }
 tracing-test = {version = "0.2.5" }
 traced-test = { version = "1.0.4" }
 ulid = { version = "1.2.1", features = ["serde"] }

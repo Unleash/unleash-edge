@@ -5,7 +5,7 @@ use cidr::{Ipv4Cidr, Ipv6Cidr};
 use clap::{ArgGroup, Args, Parser, Subcommand, ValueEnum};
 use ipnet::IpNet;
 use std::fmt::{Display, Formatter};
-use std::net::IpAddr;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
@@ -657,6 +657,9 @@ impl HttpServerArgs {
     pub fn http_server_addr(&self) -> String { format!("{}:{}", self.interface.clone(), self.port) }
     pub fn https_server_tuple(&self) -> (String, u16) {
         (self.interface.clone(), self.tls.tls_server_port)
+    }
+    pub fn https_server_socket(&self) -> SocketAddr {
+        SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::from_str(&self.interface.clone()).unwrap(), self.tls.tls_server_port))
     }
 }
 

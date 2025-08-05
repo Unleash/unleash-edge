@@ -1,3 +1,4 @@
+use std::net::SocketAddr;
 use axum::extract::{ConnectInfo, Query, State};
 use axum::{Json, Router};
 use axum::body::Body;
@@ -26,8 +27,8 @@ security(
 ("Authorization" = [])
 )
 )]
-pub async fn get_proxy_all_features(app_state: State<AppState>, edge_token: EdgeToken, connect_info: ConnectInfo<ClientIp>, context: Query<Context>) -> EdgeJsonResult<FrontendResult> {
-    all_features(app_state.0, edge_token, &context.0, connect_info.ip)
+pub async fn get_proxy_all_features(app_state: State<AppState>, edge_token: EdgeToken, connect_info: ConnectInfo<SocketAddr>, context: Query<Context>) -> EdgeJsonResult<FrontendResult> {
+    all_features(app_state.0, edge_token, &context.0, connect_info.ip())
 }
 
 #[utoipa::path(
@@ -45,8 +46,8 @@ security(
 )
 )]
 #[axum::debug_handler]
-pub async fn post_proxy_all_features(app_state: State<AppState>, edge_token: EdgeToken, connect_info: ConnectInfo<ClientIp>, context: Json<Context>) -> EdgeJsonResult<FrontendResult> {
-    all_features(app_state.0, edge_token, &context.0, connect_info.ip)
+pub async fn post_proxy_all_features(app_state: State<AppState>, edge_token: EdgeToken, connect_info: ConnectInfo<SocketAddr>, context: Json<Context>) -> EdgeJsonResult<FrontendResult> {
+    all_features(app_state.0, edge_token, &context.0, connect_info.ip())
 }
 
 pub async fn proxy_post_metrics(app_state: State<AppState>, edge_token: EdgeToken, metrics: Json<ClientMetrics>) -> impl IntoResponse {
@@ -59,12 +60,12 @@ pub async fn proxy_register_client(app_state: State<AppState>, edge_token: EdgeT
     Response::builder().status(StatusCode::ACCEPTED).body(Body::empty()).unwrap()
 }
 
-pub async fn proxy_get_enabled_features(app_state: State<AppState>, edge_token: EdgeToken, client_ip: ConnectInfo<ClientIp>, context: Query<Context>) -> EdgeJsonResult<FrontendResult> {
-    enabled_features(app_state.0, edge_token, &context.0, client_ip.ip)
+pub async fn proxy_get_enabled_features(app_state: State<AppState>, edge_token: EdgeToken, client_ip: ConnectInfo<SocketAddr>, context: Query<Context>) -> EdgeJsonResult<FrontendResult> {
+    enabled_features(app_state.0, edge_token, &context.0, client_ip.ip())
 }
 
-pub async fn proxy_post_enabled_features(app_state: State<AppState>, edge_token: EdgeToken, client_ip: ConnectInfo<ClientIp>, context: Json<Context>) -> EdgeJsonResult<FrontendResult> {
-    enabled_features(app_state.0, edge_token, &context.0, client_ip.ip)
+pub async fn proxy_post_enabled_features(app_state: State<AppState>, edge_token: EdgeToken, client_ip: ConnectInfo<SocketAddr>, context: Json<Context>) -> EdgeJsonResult<FrontendResult> {
+    enabled_features(app_state.0, edge_token, &context.0, client_ip.ip())
 }
 
 pub fn router(disable_all_endpoint: bool) -> Router<AppState> {
