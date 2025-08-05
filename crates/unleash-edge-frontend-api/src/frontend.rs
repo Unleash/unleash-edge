@@ -1,16 +1,16 @@
-use axum::extract::{ConnectInfo, Query, State};
-use axum::{Json, Router};
+use crate::{all_features, enabled_features};
 use axum::body::Body;
+use axum::extract::{ConnectInfo, Query, State};
 use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
+use axum::{Json, Router};
+use unleash_edge_appstate::AppState;
+use unleash_edge_types::tokens::EdgeToken;
+use unleash_edge_types::{ClientIp, EdgeJsonResult};
 use unleash_types::client_features::Context;
 use unleash_types::client_metrics::{ClientApplication, ClientMetrics};
 use unleash_types::frontend::FrontendResult;
-use unleash_edge_appstate::AppState;
-use unleash_edge_types::{ClientIp, ClientMetric, EdgeJsonResult};
-use unleash_edge_types::tokens::EdgeToken;
-use crate::{all_features, enabled_features};
 
 #[utoipa::path(
     get,

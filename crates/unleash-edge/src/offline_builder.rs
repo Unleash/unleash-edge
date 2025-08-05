@@ -8,6 +8,7 @@ use unleash_edge_types::{EdgeResult, TokenType};
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::tokens::EdgeToken;
 use crate::CacheContainer;
+use crate::edge_builder::build_caches;
 
 pub(crate) fn build_offline_mode(
     client_features: ClientFeatures,

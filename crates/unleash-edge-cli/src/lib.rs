@@ -654,6 +654,7 @@ impl HttpServerArgs {
         (self.interface.clone(), self.port)
     }
 
+    pub fn http_server_addr(&self) -> String { format!("{}:{}", self.interface.clone(), self.port) }
     pub fn https_server_tuple(&self) -> (String, u16) {
         (self.interface.clone(), self.tls.tls_server_port)
     }

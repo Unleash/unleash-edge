@@ -20,8 +20,10 @@ chrono = { workspace = true }
 clap = { workspace = true }
 clap-markdown = { workspace = true }
 dashmap = { workspace = true }
+ipnet = { workspace = true }
 reqwest = { workspace = true }
 tokio = { workspace = true }
+tower = { workspace = true }
 ulid = { workspace = true }
 unleash-edge-appstate = { path = "../unleash-edge-appstate" }
 unleash-edge-auth = { path = "../unleash-edge-auth" }
@@ -34,6 +36,7 @@ unleash-edge-feature-cache = { path = "../unleash-edge-feature-cache" }
 unleash-edge-feature-refresh = { path = "../unleash-edge-feature-refresh" }
 unleash-edge-frontend-api = { path = "../unleash-edge-frontend-api" }
 unleash-edge-http-client = { path = "../unleash-edge-http-client" }
+unleash-edge-metrics = { path = "../unleash-edge-metrics" }
 unleash-edge-offline = { path = "../unleash-edge-offline" }
 unleash-edge-persistence = { path = "../unleash-edge-persistence" }
 unleash-edge-types = { path = "../unleash-edge-types" }
