@@ -51,7 +51,7 @@ static HTTP_REQUESTS_PENDING_METRIC: LazyLock<GaugeVec> = LazyLock::new(|| {
     ).unwrap()
 });
 
-static EXCLUDED_PATHS: LazyLock<Mutex<Vec<&'static str>>> = LazyLock::new(|| Mutex::new(vec!["/internal-backstage", "/metrics"]));
+static EXCLUDED_PATHS: LazyLock<Mutex<Vec<&'static str>>> = LazyLock::new(|| Mutex::new(vec!["favicon.ico", "/internal-backstage", "/metrics"]));
 
 /// Adds one or more paths to the list of excluded paths for metrics collection, every url that starts with one
 /// of the paths in the list is excluded.
@@ -146,7 +146,7 @@ where
     }
 }
 
-pub async fn render() -> impl IntoResponse {
+pub async fn render_prometheus_metrics() -> impl IntoResponse {
     let metrics = gather();
     let encoder = TextEncoder::new();
     encoder.encode_to_string(&metrics).expect("Failed to encode metrics")
