@@ -46,7 +46,7 @@ pub type EdgeInfo = (
     Option<Arc<dyn EdgePersistence>>,
 );
 
-pub async fn configure_server(args: CliArgs) -> EdgeResult<Router<AppState>> {
+pub async fn configure_server(args: CliArgs) -> EdgeResult<Router> {
     let app_id: Ulid = Ulid::new();
     let edge_instance_data = Arc::new(EdgeInstanceData::new(&args.app_name, &app_id));
     let client_meta_information = ClientMetaInformation {
@@ -128,7 +128,7 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<Router<AppState>> {
                        .layer(from_fn_with_state(app_state.clone(), middleware::consumption::connection_consumption))
             );
 
-    let top_router: Router<AppState> = Router::new()
+    let top_router: Router = Router::new()
         .nest("/api", api_router)
         .nest("/edge", unleash_edge_edge_api::router())
         .nest("/internal-backstage", unleash_edge_backstage::router(args.internal_backstage))
