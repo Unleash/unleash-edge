@@ -4417,10 +4417,12 @@ dependencies = [
  "clap",
  "clap-markdown",
  "dashmap",
+ "ipnet",
  "reqwest",
  "rustls 0.23.31",
  "rustls-pemfile 2.2.0",
  "tokio",
+ "tower",
  "tracing",
  "ulid",
  "unleash-edge-appstate",
@@ -4434,6 +4436,7 @@ dependencies = [
  "unleash-edge-feature-refresh",
  "unleash-edge-frontend-api",
  "unleash-edge-http-client",
+ "unleash-edge-metrics",
  "unleash-edge-offline",
  "unleash-edge-persistence",
  "unleash-edge-types",
@@ -4448,12 +4451,15 @@ version = "20.0.0"
 dependencies = [
  "axum",
  "dashmap",
+ "ipnet",
  "tokio",
  "ulid",
  "unleash-edge-auth",
  "unleash-edge-cli",
  "unleash-edge-feature-cache",
  "unleash-edge-feature-refresh",
+ "unleash-edge-http-client",
+ "unleash-edge-persistence",
  "unleash-edge-types",
  "unleash-types",
 ]
@@ -4695,6 +4701,7 @@ dependencies = [
 name = "unleash-edge-metrics"
 version = "20.0.0"
 dependencies = [
+ "axum",
  "chrono",
  "itertools 0.14.0",
  "lazy_static",
@@ -4707,6 +4714,7 @@ dependencies = [
  "serde_json",
  "test-case",
  "tokio",
+ "tower",
  "tracing",
  "tracing-test",
  "ulid",

@@ -2,6 +2,7 @@ use lazy_static::lazy_static;
 use semver::{Version, VersionReq};
 use tracing::trace;
 
+pub mod axum_prometheus_metrics;
 pub mod client_impact_metrics;
 pub mod client_metrics;
 pub(crate) mod metric_batching;

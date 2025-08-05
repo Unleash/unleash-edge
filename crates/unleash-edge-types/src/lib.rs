@@ -50,12 +50,6 @@ where
         (StatusCode::ACCEPTED, Json(self.body)).into_response()
     }
 }
-pub const HTTP_REQUESTS_TOTAL: &str = "http_requests_total";
-pub const HTTP_REQUESTS_DURATION: &str = "http_server_duration_milliseconds";
-pub const HTTP_RESPONSE_SIZE: &str = "http_response_size";
-pub const ENDPOINT_LABEL: &str = "endpoint";
-pub const METHOD_LABEL: &str = "method";
-pub const STATUS_LABEL: &str = "status";
 
 pub type TokenCache = DashMap<String, EdgeToken>;
 pub type EngineCache = DashMap<String, EngineState>;

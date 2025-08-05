@@ -136,12 +136,12 @@ pub struct DebugEdgeInstanceData {
 
 pub async fn instance_data(app_state: State<AppState>) -> EdgeJsonResult<DebugEdgeInstanceData> {
     Ok(Json(DebugEdgeInstanceData {
-        this_instance: app_state.edge_instance_data.clone(),
+        this_instance: app_state.edge_instance_data.as_ref().clone(),
         connected_instances: app_state.connected_instances.read().await.clone(),
     }))
 }
 
-pub async fn router(internal_backstage_args: InternalBackstageArgs) -> Router<AppState> {
+pub fn router(internal_backstage_args: InternalBackstageArgs) -> Router<AppState> {
     let mut router = Router::new()
         .route("/health", get(health))
         .route("/ready", get(ready));

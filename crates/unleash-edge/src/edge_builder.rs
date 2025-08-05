@@ -1,25 +1,26 @@
-use std::sync::Arc;
+use crate::{CacheContainer, EdgeInfo};
 use chrono::Duration;
 use dashmap::DashMap;
+use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::{debug, error, warn};
-use unleash_yggdrasil::{EngineState, UpdateMessage};
-use url::Url;
 use unleash_edge_auth::token_validator::TokenValidator;
 use unleash_edge_cli::{AuthHeaders, EdgeArgs, RedisMode};
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_refresh::{FeatureRefreshConfig, FeatureRefresher, FeatureRefresherMode};
 use unleash_edge_http_client::{ClientMetaInformation, UnleashClient};
-use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_persistence::file::FilePersister;
 use unleash_edge_persistence::redis::RedisPersister;
-use unleash_edge_types::{EdgeResult, EngineCache, TokenCache, TokenType};
+use unleash_edge_persistence::s3::s3_persister::S3Persister;
+use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::tokens::EdgeToken;
-use crate::{CacheContainer, EdgeInfo};
+use unleash_edge_types::{EdgeResult, EngineCache, TokenCache, TokenType};
+use unleash_yggdrasil::{EngineState, UpdateMessage};
+use url::Url;
 
-fn build_caches() -> CacheContainer {
+pub fn build_caches() -> CacheContainer {
     let token_cache: TokenCache = DashMap::default();
     let features_cache: FeatureCache = FeatureCache::new(DashMap::default());
     let delta_cache_manager = DeltaCacheManager::new();
@@ -148,12 +149,12 @@ pub async fn build_edge(
         }
     }
 
-    let token_validator = Arc::new(TokenValidator::new_lazy(
+    let token_validator = TokenValidator::new_lazy(
         unleash_client.clone(),
         token_cache.clone(),
         persistence.clone(),
         tx,
-    ));
+    );
 
     let refresher_mode = if args.streaming {
         FeatureRefresherMode::Streaming
@@ -168,14 +169,14 @@ pub async fn build_edge(
         args.delta,
         args.delta_diff,
     );
-    let feature_refresher = Arc::new(FeatureRefresher::new(
+    let feature_refresher = FeatureRefresher::new(
         unleash_client,
         feature_cache.clone(),
         delta_cache_manager.clone(),
         engine_cache.clone(),
         persistence.clone(),
         feature_config,
-    ));
+    );
     let _ = token_validator.register_tokens(args.tokens.clone()).await;
     if let Some(persistence) = persistence.clone() {
         hydrate_from_persistent_storage(
@@ -210,8 +211,8 @@ pub async fn build_edge(
             delta_cache_manager,
             engine_cache,
         ),
-        Some(token_validator),
-        Some(feature_refresher),
+        Arc::new(Some(token_validator)),
+        Arc::new(Some(feature_refresher)),
         persistence,
     ))
 }

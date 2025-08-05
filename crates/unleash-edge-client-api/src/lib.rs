@@ -1,8 +1,7 @@
-use std::sync::Arc;
-use axum::Router;
 use axum::extract::Query;
+use axum::Router;
 use unleash_edge_appstate::AppState;
-use unleash_edge_feature_filters::{FeatureFilterSet, name_prefix_filter, project_filter};
+use unleash_edge_feature_filters::{name_prefix_filter, project_filter, FeatureFilterSet};
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::tokens::EdgeToken;
 use unleash_edge_types::{EdgeResult, FeatureFilters, TokenCache};

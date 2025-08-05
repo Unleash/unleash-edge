@@ -1,13 +1,12 @@
-use std::sync::Arc;
 use axum::extract::{Query, State};
 use axum::routing::get;
 use axum::{Json, Router};
 use unleash_edge_appstate::AppState;
 use unleash_edge_feature_filters::{
-    FeatureFilterSet, filter_client_features, name_prefix_filter, project_filter,
+    filter_client_features, name_prefix_filter, project_filter, FeatureFilterSet,
 };
 use unleash_edge_types::errors::EdgeError;
-use unleash_edge_types::tokens::{EdgeToken, cache_key};
+use unleash_edge_types::tokens::{cache_key, EdgeToken};
 use unleash_edge_types::{EdgeJsonResult, EdgeResult, FeatureFilters, TokenCache};
 use unleash_types::client_features::ClientFeatures;
 
