@@ -1,10 +1,5 @@
-use crate::metrics::{
-    BUCKET_SIZE_FEATURES, BUCKET_SIZE_METRICS, ConnectionConsumptionData, ConnectionMetricsType,
-    DEFAULT_FEATURES_INTERVAL, DEFAULT_METRICS_INTERVAL, DESIRED_URLS, DataPoint, InstanceTraffic,
-    LatencyMetrics, MAX_BUCKET_INTERVAL, ProcessMetrics, RequestConsumptionData, RequestStats,
-    UpstreamLatency,
-};
-use crate::{BuildInfo, ENDPOINT_LABEL, METHOD_LABEL, STATUS_LABEL};
+use crate::metrics::{BUCKET_SIZE_FEATURES, BUCKET_SIZE_METRICS, ConnectionConsumptionData, ConnectionMetricsType, DEFAULT_FEATURES_INTERVAL, DEFAULT_METRICS_INTERVAL, DESIRED_URLS, DataPoint, InstanceTraffic, LatencyMetrics, MAX_BUCKET_INTERVAL, ProcessMetrics, RequestConsumptionData, RequestStats, UpstreamLatency, ENDPOINT_LABEL, STATUS_LABEL, METHOD_LABEL};
+use crate::BuildInfo;
 use ahash::HashMap;
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
@@ -172,7 +167,7 @@ impl EdgeInstanceData {
 
         for family in registry.gather().iter() {
             match family.name() {
-                crate::HTTP_REQUESTS_DURATION => {
+                crate::metrics::HTTP_REQUESTS_DURATION => {
                     family
                         .get_metric()
                         .iter()

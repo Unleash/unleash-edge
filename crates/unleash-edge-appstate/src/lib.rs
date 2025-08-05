@@ -1,15 +1,18 @@
 use dashmap::DashMap;
-use std::sync::{Arc};
+use ipnet::IpNet;
+use std::sync::Arc;
 use tokio::sync::RwLock;
 use ulid::Ulid;
 use unleash_edge_auth::token_validator::TokenValidator;
 use unleash_edge_cli::{AuthHeaders, EdgeMode};
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_refresh::FeatureRefresher;
+use unleash_edge_http_client::instance_data::InstanceDataSending;
+use unleash_edge_persistence::EdgePersistence;
+use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
 use unleash_edge_types::metrics::MetricsCache;
 use unleash_edge_types::{EngineCache, TokenCache};
 use unleash_types::client_metrics::ConnectVia;
-use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -23,8 +26,12 @@ pub struct AppState {
     pub auth_headers: AuthHeaders,
     pub edge_mode: EdgeMode,
     pub connect_via: ConnectVia,
-    pub edge_instance_data: EdgeInstanceData,
-    pub connected_instances: Arc<RwLock<Vec<EdgeInstanceData>>>
+    pub edge_instance_data: Arc<EdgeInstanceData>,
+    pub connected_instances: Arc<RwLock<Vec<EdgeInstanceData>>>,
+    pub instance_data_sender: Arc<InstanceDataSending>,
+    pub edge_persistence: Option<Arc<dyn EdgePersistence>>,
+    pub deny_list: Vec<IpNet>,
+    pub allow_list: Vec<IpNet>,
 }
 
 impl AppState {
@@ -48,8 +55,12 @@ pub struct AppStateBuilder {
     auth_headers: AuthHeaders,
     edge_mode: EdgeMode,
     connect_via: ConnectVia,
-    edge_instance_data: EdgeInstanceData,
-    connected_instances: Arc<RwLock<Vec<EdgeInstanceData>>>
+    edge_instance_data: Arc<EdgeInstanceData>,
+    instance_data_sending: Arc<InstanceDataSending>,
+    connected_instances: Arc<RwLock<Vec<EdgeInstanceData>>>,
+    edge_persistence: Option<Arc<dyn EdgePersistence>>,
+    deny_list: Vec<IpNet>,
+    allow_list: Vec<IpNet>,
 }
 
 impl AppStateBuilder {
@@ -68,9 +79,12 @@ impl AppStateBuilder {
                 app_name: app_name.to_string(),
                 instance_id: instance_id.to_string(),
             },
-            edge_instance_data: EdgeInstanceData::new(app_name, &instance_id),
+            instance_data_sending: Arc::new(InstanceDataSending::SendNothing),
+            edge_instance_data: Arc::new(EdgeInstanceData::new(app_name, &instance_id)),
             connected_instances: Arc::new(RwLock::new(Vec::new())),
-
+            edge_persistence: None,
+            deny_list: vec![],
+            allow_list: vec![],
         }
     }
 
@@ -122,6 +136,30 @@ impl AppStateBuilder {
         self
     }
 
+    pub fn with_persistence(mut self, persistence: Option<Arc<dyn EdgePersistence>>) -> Self {
+        self.edge_persistence = persistence;
+        self
+    }
+    pub fn with_deny_list(mut self, deny_list: Vec<IpNet>) -> Self {
+        self.deny_list = deny_list;
+        self
+    }
+
+    pub fn with_allow_list(mut self, allow_list: Vec<IpNet>) -> Self {
+        self.allow_list = allow_list;
+        self
+    }
+
+    pub fn with_instance_sending(mut self, instance_sender: Arc<InstanceDataSending>) -> Self {
+        self.instance_data_sending = instance_sender;
+        self
+    }
+
+    pub fn with_edge_instance_data(mut self, edge_instance_data: Arc<EdgeInstanceData>) -> Self {
+        self.edge_instance_data = edge_instance_data;
+        self
+    }
+
     pub fn build(self) -> AppState {
         AppState {
             token_cache: self.token_cache,
@@ -134,8 +172,12 @@ impl AppStateBuilder {
             auth_headers: self.auth_headers,
             edge_mode: self.edge_mode,
             connect_via: self.connect_via,
+            instance_data_sender: self.instance_data_sending,
             edge_instance_data: self.edge_instance_data,
             connected_instances: self.connected_instances,
+            edge_persistence: self.edge_persistence,
+            deny_list: self.deny_list,
+            allow_list: self.allow_list
         }
     }
 }

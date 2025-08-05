@@ -5,7 +5,7 @@ use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use unleash_types::client_features::Context;
-use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ConnectVia};
+use unleash_types::client_metrics::{ClientApplication, ClientMetrics};
 use unleash_types::frontend::FrontendResult;
 use unleash_edge_appstate::AppState;
 use unleash_edge_types::{ClientIp, EdgeJsonResult};
