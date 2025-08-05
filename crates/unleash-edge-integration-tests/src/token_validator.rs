@@ -1,6 +1,5 @@
 #[cfg(test)]
 mod tests {
-    use axum::http::{Response, StatusCode};
     use axum::response::IntoResponse;
     use axum::routing::post;
     use axum::{Json, Router};
@@ -58,7 +57,7 @@ mod tests {
             .build();
         let router = Router::new()
             .nest("/edge", unleash_edge_edge_api::router())
-            .with_state(Arc::new(app_state));
+            .with_state(app_state);
         TestServer::builder()
             .http_transport()
             .build(router)

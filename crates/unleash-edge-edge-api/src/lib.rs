@@ -17,7 +17,7 @@ use unleash_edge_types::{EdgeJsonResult, TokenValidationStatus};
 )]
 #[instrument(skip(app_state, tokens))]
 pub async fn validate(
-    app_state: State<Arc<AppState>>,
+    app_state: State<AppState>,
     tokens: Json<TokenStrings>,
 ) -> EdgeJsonResult<ValidatedTokens> {
     match *app_state.token_validator {
@@ -43,6 +43,6 @@ pub async fn validate(
     }
 }
 
-pub fn router() -> Router<Arc<AppState>> {
+pub fn router() -> Router<AppState> {
     Router::new().route("/validate", post(validate))
 }
