@@ -1,3 +1,4 @@
+use std::net::SocketAddr;
 use crate::{all_features, enabled_features};
 use axum::body::Body;
 use axum::extract::{ConnectInfo, Query, State};
@@ -25,20 +26,20 @@ use unleash_types::frontend::FrontendResult;
 ("Authorization" = [])
     )
 )]
-pub async fn frontend_get_all_features(app_state: State<AppState>, edge_token: EdgeToken, client_ip: ConnectInfo<ClientIp>, context: Query<Context>) -> EdgeJsonResult<FrontendResult> {
-    all_features(app_state.0, edge_token, &context.0, client_ip.ip)
+pub async fn frontend_get_all_features(app_state: State<AppState>, edge_token: EdgeToken, client_ip: ConnectInfo<SocketAddr>, context: Query<Context>) -> EdgeJsonResult<FrontendResult> {
+    all_features(app_state.0, edge_token, &context.0, client_ip.ip())
 }
 
-pub async fn frontend_post_all_features(app_state: State<AppState>, edge_token: EdgeToken, client_ip: ConnectInfo<ClientIp>, context: Json<Context>)-> EdgeJsonResult<FrontendResult> {
-    all_features(app_state.0, edge_token, &context.0, client_ip.ip)
+pub async fn frontend_post_all_features(app_state: State<AppState>, edge_token: EdgeToken, client_ip: ConnectInfo<SocketAddr>, context: Json<Context>)-> EdgeJsonResult<FrontendResult> {
+    all_features(app_state.0, edge_token, &context.0, client_ip.ip())
 }
 
-pub async fn frontend_get_enabled_features(app_state: State<AppState>, edge_token: EdgeToken, client_ip: ConnectInfo<ClientIp>, context: Query<Context>) -> EdgeJsonResult<FrontendResult> {
-    enabled_features(app_state.0, edge_token, &context.0, client_ip.ip)
+pub async fn frontend_get_enabled_features(app_state: State<AppState>, edge_token: EdgeToken, client_ip: ConnectInfo<SocketAddr>, context: Query<Context>) -> EdgeJsonResult<FrontendResult> {
+    enabled_features(app_state.0, edge_token, &context.0, client_ip.ip())
 }
 
-pub async fn frontend_post_enabled_features(app_state: State<AppState>, edge_token: EdgeToken, client_ip: ConnectInfo<ClientIp>, context: Json<Context>) -> EdgeJsonResult<FrontendResult> {
-    enabled_features(app_state.0, edge_token, &context.0, client_ip.ip)
+pub async fn frontend_post_enabled_features(app_state: State<AppState>, edge_token: EdgeToken, client_ip: ConnectInfo<SocketAddr>, context: Json<Context>) -> EdgeJsonResult<FrontendResult> {
+    enabled_features(app_state.0, edge_token, &context.0, client_ip.ip())
 }
 
 pub async fn frontend_post_metrics(app_state: State<AppState>, edge_token: EdgeToken, metrics: Json<ClientMetrics>) -> impl IntoResponse {

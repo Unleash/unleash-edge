@@ -3,6 +3,7 @@ use rustls::pki_types::PrivateKeyDer;
 use rustls_pemfile::{certs, pkcs8_private_keys};
 use std::path::PathBuf;
 use std::{fs, fs::File, io::BufReader};
+use axum_server::tls_rustls::RustlsConfig;
 use tracing::info;
 use unleash_edge_cli::TlsOptions;
 use unleash_edge_types::EdgeResult;
@@ -29,6 +30,10 @@ pub(crate) fn build_upstream_certificate(
                 .map(Some)
         })
         .unwrap_or(Ok(None))
+}
+pub async fn axum_rustls_config(tls_config: TlsOptions) -> EdgeResult<RustlsConfig> {
+    let config = RustlsConfig::from_pem_file(tls_config.tls_server_cert.expect("No TLS server cert"), tls_config.tls_server_key.expect("No TLS Server key")).await;
+    config.map_err(|e| EdgeError::TlsError(e.to_string()))
 }
 
 pub fn config(tls_config: TlsOptions) -> Result<ServerConfig, EdgeError> {
