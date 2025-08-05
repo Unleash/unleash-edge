@@ -4411,6 +4411,7 @@ dependencies = [
  "anyhow",
  "axum",
  "axum-test",
+ "chrono",
  "clap",
  "clap-markdown",
  "dashmap",
@@ -4419,11 +4420,15 @@ dependencies = [
  "rustls-pemfile 2.2.0",
  "tokio",
  "tracing",
+ "ulid",
  "unleash-edge-appstate",
  "unleash-edge-backstage",
  "unleash-edge-cli",
  "unleash-edge-client-api",
+ "unleash-edge-edge-api",
  "unleash-edge-feature-cache",
+ "unleash-edge-frontend-api",
+ "unleash-edge-http-client",
  "unleash-edge-types",
  "unleash-types",
  "url",
@@ -4601,6 +4606,27 @@ dependencies = [
  "unleash-edge-types",
  "unleash-types",
  "unleash-yggdrasil",
+]
+
+[[package]]
+name = "unleash-edge-frontend-api"
+version = "20.0.0"
+dependencies = [
+ "axum",
+ "dashmap",
+ "itertools 0.14.0",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "unleash-edge-appstate",
+ "unleash-edge-feature-filters",
+ "unleash-edge-feature-refresh",
+ "unleash-edge-metrics",
+ "unleash-edge-types",
+ "unleash-types",
+ "unleash-yggdrasil",
+ "utoipa",
 ]
 
 [[package]]
