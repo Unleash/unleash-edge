@@ -231,9 +231,13 @@ impl FeatureRefresher {
     ) -> EdgeResult<ClientFeatures> {
         match self.get_features_by_filter(&token, &filters) {
             Some(features) if self.token_is_subsumed(&token) => Ok(features),
+            Some(_features) if !self.token_is_subsumed(&token) => {
+                debug!("Strict behavior: Token is not subsumed by any registered tokens. Returning error");
+                Err(EdgeError::InvalidTokenWithStrictBehavior)
+            }
             _ => {
                 debug!(
-                    "Strict behavior: Token is not subsumed by any registered tokens. Returning error"
+                    "No features set available. Edge isn't ready"
                 );
                 Err(EdgeError::InvalidTokenWithStrictBehavior)
             }
@@ -489,6 +493,7 @@ impl FeatureRefresher {
             if self.delta {
                 self.refresh_single_delta(hydration).await;
             } else {
+                info!("Refreshing {hydration:?}");
                 self.refresh_single(hydration).await;
             }
         }
