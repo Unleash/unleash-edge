@@ -3,6 +3,7 @@ use axum::extract::{Request, State};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use reqwest::StatusCode;
+use tracing::info;
 use unleash_edge_appstate::AppState;
 use unleash_edge_auth::token_validator::{TokenRegister, TokenValidator};
 use unleash_edge_types::tokens::EdgeToken;
@@ -59,7 +60,7 @@ async fn validate_with_validator(edge_token: &EdgeToken, path: &str, validator: 
 }
 
 fn check_frontend_path(path: &str) -> Result<(), EdgeError> {
-    if path.contains("/api/frontend") || path.contains("/api/proxy") {
+    if path.contains("/frontend") || path.contains("/proxy") {
         Ok(())
     } else {
         Err(EdgeError::Forbidden("".into()))
@@ -67,7 +68,7 @@ fn check_frontend_path(path: &str) -> Result<(), EdgeError> {
 }
 
 fn check_backend_path(path: &str) -> Result<(), EdgeError> {
-    if path.contains("/api/client") {
+    if path.contains("/client") {
         Ok(())
     } else {
         Err(EdgeError::Forbidden("".into()))

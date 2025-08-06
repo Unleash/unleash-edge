@@ -47,7 +47,7 @@ pub async fn ready(app_state: State<AppState>) -> EdgeJsonResult<EdgeStatus> {
     if !app_state.token_cache.is_empty() && app_state.features_cache.is_empty() {
         Err(EdgeError::NotReady)
     } else {
-        Ok(Json(EdgeStatus::ok()))
+        Ok(Json(EdgeStatus::ready()))
     }
 }
 
