@@ -10,7 +10,6 @@ edition.workspace = true
 default = ["s3-persistence"]
 s3-persistence = ["aws-sdk-s3", "aws-config"]
 
-
 [dependencies]
 ahash = { workspace = true }
 async-trait = { workspace = true }

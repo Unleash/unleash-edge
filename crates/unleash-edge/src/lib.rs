@@ -27,6 +27,7 @@ pub mod offline_builder;
 pub mod health_checker;
 pub mod ready_checker;
 pub mod tls;
+pub mod tracing;
 
 static SHOULD_DEFER_VALIDATION: LazyLock<bool> = LazyLock::new(|| {
     env::var("EDGE_DEFER_TOKEN_VALIDATION")

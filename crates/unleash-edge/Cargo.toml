@@ -7,8 +7,12 @@ documentation.workspace = true
 edition.workspace = true
 
 [features]
-default = ["s3-persistence"]
+default = ["s3-persistence", "all-tracing"]
 s3-persistence = ["aws-sdk-s3", "aws-config"]
+all-tracing = ["tracing-datadog", "tracing-otlp", "tracing-sentry"]
+tracing-datadog = ["opentelemetry-datadog"]
+tracing-otlp = ["opentelemetry-otlp"]
+tracing-sentry = ["sentry", "sentry-opentelemetry"]
 
 
 [dependencies]
@@ -22,9 +26,15 @@ clap = { workspace = true }
 clap-markdown = { workspace = true }
 dashmap = { workspace = true }
 ipnet = { workspace = true }
+opentelemetry = { workspace = true }
+opentelemetry-datadog = { workspace = true, optional = true }
+opentelemetry-otlp = { workspace = true, optional = true }
+opentelemetry_sdk = { workspace = true }
 reqwest = { workspace = true }
 rustls = { workspace = true }
 rustls-pemfile = { workspace = true }
+sentry = { workspace = true, optional = true }
+sentry-opentelemetry = { workspace = true, optional = true }
 tokio = { workspace = true }
 tower = { workspace = true }
 tower-http = { workspace = true }
