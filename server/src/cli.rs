@@ -228,10 +228,6 @@ pub struct EdgeArgs {
     #[clap(long, env, default_value_t = false, requires = "strict", hide = true)]
     pub delta: bool,
 
-    /// When true, Edge will track and report consumption metrics. This is an experimental feature and may change. Changes to this feature may not follow semantic versioning. Requires strict mode
-    #[clap(long, env, default_value_t = true, requires = "strict", hide = true)]
-    pub consumption: bool,
-
     /// Sets the keep-alive timeout for connections from Edge to upstream
     #[clap(long, env, default_value_t = 15)]
     pub client_keepalive_timeout: i64,

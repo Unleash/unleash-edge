@@ -1,8 +1,6 @@
-use crate::cli::{EdgeArgs, EdgeMode};
 use crate::http::headers::UNLEASH_INTERVAL;
 use crate::metrics::edge_metrics::EdgeInstanceData;
 use actix_http::body::MessageBody;
-use actix_web::HttpRequest;
 use actix_web::dev::{ServiceRequest, ServiceResponse};
 use actix_web::web::Data;
 
@@ -18,15 +16,6 @@ fn should_observe_request_consumption(path: &str, status_code: u16) -> bool {
     let is_valid_path = path.starts_with("/api/frontend");
 
     is_valid_path && ((200..300).contains(&status_code) || status_code == 304)
-}
-
-fn get_edge_args(req: &HttpRequest) -> Option<&EdgeArgs> {
-    req.app_data::<Data<EdgeMode>>()
-        .map(|mode| mode.get_ref())
-        .and_then(|mode| match mode {
-            EdgeMode::Edge(args) => Some(args),
-            _ => None,
-        })
 }
 
 pub async fn connection_consumption(
@@ -55,14 +44,11 @@ pub async fn connection_consumption(
     }
 
     let instance_data = resp.request().app_data::<Data<EdgeInstanceData>>();
-    let edge_args = get_edge_args(resp.request());
 
-    if let (Some(instance_data), Some(args)) = (instance_data, edge_args) {
-        if args.consumption {
-            instance_data
-                .get_ref()
-                .observe_connection_consumption(&path, interval);
-        }
+    if let Some(instance_data) = instance_data {
+        instance_data
+            .get_ref()
+            .observe_connection_consumption(&path, interval);
     }
 
     Ok(resp)
@@ -82,12 +68,9 @@ pub async fn request_consumption(
     }
 
     let instance_data = resp.request().app_data::<Data<EdgeInstanceData>>();
-    let edge_args = get_edge_args(resp.request());
 
-    if let (Some(instance_data), Some(args)) = (instance_data, edge_args) {
-        if args.consumption {
-            instance_data.get_ref().observe_request_consumption();
-        }
+    if let Some(instance_data) = instance_data {
+        instance_data.get_ref().observe_request_consumption();
     }
 
     Ok(resp)
