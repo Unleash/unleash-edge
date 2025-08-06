@@ -1,6 +1,7 @@
 use std::net::SocketAddr;
 use axum::ServiceExt;
 use clap::Parser;
+use tower_http::normalize_path::NormalizePathLayer;
 use tracing::info;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -35,7 +36,8 @@ async fn main() -> Result<(), anyhow::Error> {
 async fn run_server(args: CliArgs) -> EdgeResult<()> {
 
     let router = configure_server(args.clone()).await?;
-    let server = router.into_make_service_with_connect_info::<SocketAddr>();
+    let server = router.layer(NormalizePathLayer::trim_trailing_slash()).into_make_service_with_connect_info::<SocketAddr>();
+
     if args.http.tls.tls_enable {
         let config = unleash_edge::tls::axum_rustls_config(args.http.tls.clone()).await?;
         let addr = args.http.https_server_socket();

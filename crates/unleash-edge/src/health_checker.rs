@@ -53,7 +53,7 @@ mod tests {
 
     #[tokio::test]
     pub async fn runs_health_check() {
-        let router = Router::new().route("/internal-backstage", get(unleash_edge_backstage::health));
+        let router = Router::new().route("/internal-backstage/health", get(unleash_edge_backstage::health));
         let srv = TestServer::builder().http_transport().build(router).unwrap();
         let url = srv.server_url("/").unwrap();
         let check_result = check_health(HealthCheckArgs {

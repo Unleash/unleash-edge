@@ -6,6 +6,7 @@ use axum::body::HttpBody;
 use axum::extract::{MatchedPath, Request};
 use axum::response::{IntoResponse, Response};
 use prometheus::{gather, register_gauge_vec, register_histogram_vec, register_int_counter_vec, GaugeVec, HistogramVec, IntCounterVec, Registry, TextEncoder};
+use reqwest::StatusCode;
 use tower::{Layer, Service};
 
 
@@ -39,7 +40,8 @@ static HTTP_RESPONSE_BODY_SIZE: LazyLock<HistogramVec> = LazyLock::new(|| {
     register_histogram_vec!(
         HTTP_RESPONSE_SIZE,
         "Size of HTTP response bodies in bytes",
-        &[METHOD_LABEL, ENDPOINT_LABEL]
+        &[METHOD_LABEL, ENDPOINT_LABEL],
+        vec![0.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0, 2000.0, 5000.0, 10000.0]
     ).unwrap()
 });
 
@@ -134,10 +136,15 @@ where
             let response = service.call(req).await?;
             let status = response.status().as_u16().to_string();
             if !skip {
-                HTTP_REQUESTS_PENDING_METRIC.with_label_values(&[&method, &path]).dec();
-                HTTP_REQUESTS_TOTAL_METRIC.with_label_values(&[&method, &path, &status]).inc();
+                // To prevent all 404s exploding cardinality
+                let used_path = match response.status() {
+                    StatusCode::NOT_FOUND => "/{unknown}",
+                    _ => &path
+                }.to_string();
+                HTTP_REQUESTS_PENDING_METRIC.with_label_values(&[&method, &used_path]).dec();
+                HTTP_REQUESTS_TOTAL_METRIC.with_label_values(&[&method, &used_path, &status]).inc();
                 let elapsed = start.elapsed().as_secs_f64();
-                HTTP_REQUEST_DURATION_SECONDS.with_label_values(&[&method, &path, &status]).observe(elapsed);
+                HTTP_REQUEST_DURATION_SECONDS.with_label_values(&[&method, &used_path, &status]).observe(elapsed);
                 let size = response.body().size_hint().lower();
                 HTTP_RESPONSE_BODY_SIZE.with_label_values(&[&method, &path]).observe(size as f64);
             }
@@ -247,7 +254,7 @@ mod tests {
     async fn test_render_and_path_skipped() {
         let app = Router::new()
             .route("/test_new", routing::get(async || "Hello, World!"))
-            .route("/metrics", routing::get(render))
+            .route("/metrics", routing::get(render_prometheus_metrics))
             .layer(PrometheusAxumLayer::new());
 
         let body_str = call_metrics(app.clone()).await;

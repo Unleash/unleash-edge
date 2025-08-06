@@ -4475,8 +4475,10 @@ dependencies = [
  "rustls-pemfile 2.2.0",
  "tokio",
  "tower",
+ "tower-http",
  "tracing",
  "tracing-subscriber",
+ "tracing-test",
  "ulid",
  "unleash-edge-appstate",
  "unleash-edge-auth",
@@ -4617,8 +4619,10 @@ name = "unleash-edge-edge-api"
 version = "20.0.0"
 dependencies = [
  "axum",
+ "tokio",
  "tracing",
  "unleash-edge-appstate",
+ "unleash-edge-auth",
  "unleash-edge-types",
  "utoipa",
 ]
@@ -4730,6 +4734,7 @@ dependencies = [
  "axum-test",
  "chrono",
  "dashmap",
+ "etag",
  "pretty_assertions",
  "serde",
  "serde_json",
@@ -4740,6 +4745,7 @@ dependencies = [
  "unleash-edge-appstate",
  "unleash-edge-auth",
  "unleash-edge-client-api",
+ "unleash-edge-delta",
  "unleash-edge-edge-api",
  "unleash-edge-feature-cache",
  "unleash-edge-feature-filters",
