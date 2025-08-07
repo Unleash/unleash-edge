@@ -94,6 +94,14 @@ pub enum ConnectionMetricsType {
     Metrics,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize, Eq, PartialEq)]
+pub enum Hosting {
+    #[serde(rename = "self-hosted")]
+    SelfHosted,
+    #[serde(rename = "hosted")]
+    Hosted,
+}
+
 impl ConnectionMetricsType {
     fn from_endpoint(endpoint: &str) -> Option<Self> {
         if endpoint.contains("/features") || endpoint.contains("/delta") {
@@ -294,6 +302,7 @@ impl RequestConsumptionData {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EdgeInstanceData {
+    pub hosting: Hosting,
     pub identifier: String,
     pub app_name: String,
     pub region: Option<String>,
