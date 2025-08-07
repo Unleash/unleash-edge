@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [19.15.0](https://github.com/Unleash/unleash-edge/compare/v19.14.3...v19.15.0) - 2025-08-07
+
+### 🚀 Features
+- Enable consumption metrics by default ([#1081](https://github.com/unleash/unleash-edge/issues/1081)) (by @thomasheartman) - #1081
+
+### Dependency updates
+- bump clap from 4.5.42 to 4.5.43 ([#1085](https://github.com/unleash/unleash-edge/issues/1085)) (by @dependabot[bot]) - #1085
+- bump aws-config from 1.8.3 to 1.8.4 ([#1083](https://github.com/unleash/unleash-edge/issues/1083)) (by @dependabot[bot]) - #1083
+
+### Contributors
+
+* @dependabot[bot]
+* @thomasheartman
+
 ## [19.14.3](https://github.com/Unleash/unleash-edge/compare/v19.14.2...v19.14.3) - 2025-08-04
 
 ### Dependency updates
