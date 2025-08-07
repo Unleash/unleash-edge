@@ -712,7 +712,7 @@ mod tests {
 
     #[test]
     fn can_observe_request_consumption_and_clear_consumption_metrics() {
-        let instance_data = EdgeInstanceData::new("test", &Ulid::new());
+        let instance_data = EdgeInstanceData::new("test", &Ulid::new(), None);
 
         instance_data.observe_request_consumption();
         instance_data.observe_request_consumption();
@@ -746,7 +746,7 @@ mod tests {
 
     #[test]
     fn can_observe_connection_consumption_with_data_points() {
-        let instance_data = EdgeInstanceData::new("test", &Ulid::new());
+        let instance_data = EdgeInstanceData::new("test", &Ulid::new(), None);
 
         instance_data.observe_connection_consumption("/api/client/features", Some(0));
         instance_data.observe_connection_consumption("/api/client/features", Some(0));

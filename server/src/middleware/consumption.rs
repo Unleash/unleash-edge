@@ -87,7 +87,7 @@ mod tests {
 
     #[test]
     async fn test_backend_consumption() {
-        let instance_data = EdgeInstanceData::new("test", &Ulid::new());
+        let instance_data = EdgeInstanceData::new("test", &Ulid::new(), None);
         let app = test::init_service(
             App::new()
                 .app_data(Data::new(instance_data.clone()))
@@ -108,7 +108,7 @@ mod tests {
 
     #[test]
     async fn test_frontend_consumption() {
-        let instance_data = EdgeInstanceData::new("test", &Ulid::new());
+        let instance_data = EdgeInstanceData::new("test", &Ulid::new(), None);
         let app = test::init_service(
             App::new()
                 .app_data(Data::new(instance_data.clone()))
