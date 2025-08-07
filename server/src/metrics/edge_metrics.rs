@@ -331,7 +331,7 @@ impl EdgeInstanceData {
     pub fn new(app_name: &str, identifier: &Ulid, hosting: Option<Hosting>) -> Self {
         let build_info = BuildInfo::default();
         Self {
-            hosting: hosting,
+            hosting,
             identifier: identifier.to_string(),
             app_name: app_name.to_string(),
             region: std::env::var("AWS_REGION").ok(),
