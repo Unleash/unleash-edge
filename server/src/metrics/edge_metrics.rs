@@ -311,7 +311,7 @@ impl RequestConsumptionData {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EdgeInstanceData {
-    pub hosting: Hosting,
+    pub hosting: Option<Hosting>,
     pub identifier: String,
     pub app_name: String,
     pub region: Option<String>,
@@ -328,12 +328,10 @@ pub struct EdgeInstanceData {
 }
 
 impl EdgeInstanceData {
-    pub fn new(app_name: &str, identifier: &Ulid) -> Self {
+    pub fn new(app_name: &str, identifier: &Ulid, hosting: Option<Hosting>) -> Self {
         let build_info = BuildInfo::default();
         Self {
-            hosting: std::env::var("UNLEASH_EDGE_HOSTING")
-                .map(Into::into)
-                .unwrap_or(Hosting::SelfHosted),
+            hosting: hosting,
             identifier: identifier.to_string(),
             app_name: app_name.to_string(),
             region: std::env::var("AWS_REGION").ok(),
