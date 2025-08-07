@@ -94,12 +94,21 @@ pub enum ConnectionMetricsType {
     Metrics,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Deserialize, Serialize, Eq, PartialEq)]
 pub enum Hosting {
     #[serde(rename = "self-hosted")]
     SelfHosted,
     #[serde(rename = "hosted")]
     Hosted,
+}
+
+impl From<String> for Hosting {
+    fn from(value: String) -> Self {
+        match value.as_str() {
+            "hosted" => Hosting::Hosted,
+            _ => Hosting::SelfHosted,
+        }
+    }
 }
 
 impl ConnectionMetricsType {
@@ -322,6 +331,9 @@ impl EdgeInstanceData {
     pub fn new(app_name: &str, identifier: &Ulid) -> Self {
         let build_info = BuildInfo::default();
         Self {
+            hosting: std::env::var("UNLEASH_EDGE_HOSTING")
+                .map(Into::into)
+                .unwrap_or(Hosting::SelfHosted),
             identifier: identifier.to_string(),
             app_name: app_name.to_string(),
             region: std::env::var("AWS_REGION").ok(),
