@@ -173,6 +173,6 @@ pub fn test_instantiate_without_tracing_and_logging(
     instantiate_prometheus_metrics_handler(
         registry,
         false,
-        &EdgeInstanceData::new("test app", &Ulid::new()),
+        &EdgeInstanceData::new("test app", &Ulid::new(), None),
     )
 }
