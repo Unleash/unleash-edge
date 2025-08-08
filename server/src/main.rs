@@ -30,7 +30,7 @@ use unleash_edge::http::broadcaster::Broadcaster;
 use unleash_edge::http::instance_data::InstanceDataSending;
 use unleash_edge::http::refresher::feature_refresher::FeatureRefresher;
 use unleash_edge::metrics::client_metrics::MetricsCache;
-use unleash_edge::metrics::edge_metrics::EdgeInstanceData;
+use unleash_edge::metrics::edge_metrics::{EdgeInstanceData, Hosting};
 use unleash_edge::offline::offline_hotload;
 use unleash_edge::persistence::{EdgePersistence, persist_data};
 use unleash_edge::types::{EdgeResult, EdgeToken, TokenValidationStatus};
@@ -199,7 +199,9 @@ async fn main() -> Result<(), anyhow::Error> {
 async fn run_server(args: CliArgs) -> EdgeResult<()> {
     let app_name = args.app_name.clone();
     let app_id = Ulid::new();
-    let hosting_strategy = std::env::var("EDGE_HOSTING").map(Into::into).ok();
+    let hosting_strategy = std::env::var("EDGE_HOSTING")
+        .map(Into::into)
+        .unwrap_or(Hosting::SelfHosted);
     let edge_instance_data = Arc::new(EdgeInstanceData::new(
         &args.app_name,
         &app_id,
