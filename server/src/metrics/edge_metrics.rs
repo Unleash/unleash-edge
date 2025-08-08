@@ -104,7 +104,7 @@ pub enum Hosting {
 
 impl From<String> for Hosting {
     fn from(value: String) -> Self {
-        match value.as_str() {
+        match value.to_lowercase().as_str() {
             "hosted" => Hosting::Hosted,
             _ => Hosting::SelfHosted,
         }
