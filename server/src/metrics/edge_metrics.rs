@@ -329,10 +329,10 @@ pub struct EdgeInstanceData {
 }
 
 impl EdgeInstanceData {
-    pub fn new(app_name: &str, identifier: &Ulid, hosting: Option<Hosting>) -> Self {
+    pub fn new(app_name: &str, identifier: &Ulid, hosting: Hosting) -> Self {
         let build_info = BuildInfo::default();
         Self {
-            hosting,
+            hosting: Some(hosting),
             identifier: identifier.to_string(),
             app_name: app_name.to_string(),
             region: std::env::var("AWS_REGION").ok(),
@@ -713,7 +713,7 @@ mod tests {
 
     #[test]
     fn can_observe_request_consumption_and_clear_consumption_metrics() {
-        let instance_data = EdgeInstanceData::new("test", &Ulid::new(), None);
+        let instance_data = EdgeInstanceData::new("test", &Ulid::new(), Hosting::SelfHosted);
 
         instance_data.observe_request_consumption();
         instance_data.observe_request_consumption();
@@ -747,7 +747,7 @@ mod tests {
 
     #[test]
     fn can_observe_connection_consumption_with_data_points() {
-        let instance_data = EdgeInstanceData::new("test", &Ulid::new(), None);
+        let instance_data = EdgeInstanceData::new("test", &Ulid::new(), Hosting::SelfHosted);
 
         instance_data.observe_connection_consumption("/api/client/features", Some(0));
         instance_data.observe_connection_consumption("/api/client/features", Some(0));
@@ -893,22 +893,13 @@ mod tests {
 
     #[test]
     fn serializes_hosting_if_and_only_if_present() {
-        let self_hosted = EdgeInstanceData::new("test", &Ulid::new(), Some(Hosting::SelfHosted));
-        let hosted = EdgeInstanceData::new("test", &Ulid::new(), Some(Hosting::Hosted));
-        let no_data = EdgeInstanceData::new("test", &Ulid::new(), None);
+        let self_hosted = EdgeInstanceData::new("test", &Ulid::new(), Hosting::SelfHosted);
+        let hosted = EdgeInstanceData::new("test", &Ulid::new(), Hosting::Hosted);
 
         let serialized_self_hosted = serde_json::to_value(&self_hosted).unwrap();
         assert_eq!(serialized_self_hosted["hosting"], "self-hosted");
 
         let serialized_hosted = serde_json::to_value(&hosted).unwrap();
         assert_eq!(serialized_hosted["hosting"], "hosted");
-
-        let serialized_no_data = serde_json::to_value(&no_data).unwrap();
-
-        if let Some(map) = serialized_no_data.as_object() {
-            assert!(!map.contains_key("hosting"));
-        } else {
-            panic!("Expected JSON value to be an object");
-        }
     }
 }
