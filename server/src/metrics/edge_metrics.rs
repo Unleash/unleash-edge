@@ -329,10 +329,10 @@ pub struct EdgeInstanceData {
 }
 
 impl EdgeInstanceData {
-    pub fn new(app_name: &str, identifier: &Ulid) -> Self {
+    pub fn new(app_name: &str, identifier: &Ulid, hosting: Option<Hosting>) -> Self {
         let build_info = BuildInfo::default();
         Self {
-            hosting: std::env::var("EDGE_HOSTING_STRATEGY").map(Into::into).ok(),
+            hosting,
             identifier: identifier.to_string(),
             app_name: app_name.to_string(),
             region: std::env::var("AWS_REGION").ok(),
@@ -713,7 +713,7 @@ mod tests {
 
     #[test]
     fn can_observe_request_consumption_and_clear_consumption_metrics() {
-        let instance_data = EdgeInstanceData::new("test", &Ulid::new());
+        let instance_data = EdgeInstanceData::new("test", &Ulid::new(), None);
 
         instance_data.observe_request_consumption();
         instance_data.observe_request_consumption();
@@ -747,7 +747,7 @@ mod tests {
 
     #[test]
     fn can_observe_connection_consumption_with_data_points() {
-        let instance_data = EdgeInstanceData::new("test", &Ulid::new());
+        let instance_data = EdgeInstanceData::new("test", &Ulid::new(), None);
 
         instance_data.observe_connection_consumption("/api/client/features", Some(0));
         instance_data.observe_connection_consumption("/api/client/features", Some(0));
