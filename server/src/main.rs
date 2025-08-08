@@ -199,7 +199,12 @@ async fn main() -> Result<(), anyhow::Error> {
 async fn run_server(args: CliArgs) -> EdgeResult<()> {
     let app_name = args.app_name.clone();
     let app_id = Ulid::new();
-    let edge_instance_data = Arc::new(EdgeInstanceData::new(&args.app_name, &app_id));
+    let hosting_strategy = std::env::var("EDGE_HOSTING").map(Into::into).ok();
+    let edge_instance_data = Arc::new(EdgeInstanceData::new(
+        &args.app_name,
+        &app_id,
+        hosting_strategy,
+    ));
     let client_meta_information = ClientMetaInformation {
         app_name: args.app_name.clone(),
         instance_id: app_id.to_string(),
