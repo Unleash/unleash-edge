@@ -6,6 +6,7 @@ use std::time::Duration;
 
 use crate::error;
 use crate::error::EdgeError;
+use crate::metrics::edge_metrics::Hosting;
 use crate::tokens::parse_trusted_token_pair;
 use crate::types::EdgeToken;
 use actix_cors::Cors;
@@ -432,6 +433,10 @@ pub struct CliArgs {
 
     #[arg(long, hide = true, global = true)]
     pub markdown_help: bool,
+
+    /// Set this to 'hosted' to mark this Edge as an Unleash-hosted Edge instance.
+    #[arg(long, hide = true, env, global = true, value_enum)]
+    pub hosting_strategy: Option<Hosting>,
 
     #[clap(flatten)]
     pub trust_proxy: TrustProxy,

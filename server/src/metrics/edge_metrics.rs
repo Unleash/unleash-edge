@@ -311,6 +311,7 @@ impl RequestConsumptionData {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EdgeInstanceData {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub hosting: Option<Hosting>,
     pub identifier: String,
     pub app_name: String,
