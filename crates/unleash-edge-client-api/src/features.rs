@@ -1,6 +1,7 @@
 use axum::extract::{Query, State};
 use axum::routing::get;
 use axum::{Json, Router};
+use tracing::{instrument, warn};
 use unleash_edge_appstate::AppState;
 use unleash_edge_feature_filters::{
     filter_client_features, name_prefix_filter, project_filter, FeatureFilterSet,
@@ -24,6 +25,7 @@ use unleash_types::client_features::ClientFeatures;
         ("Authorization" = [])
     )
 )]
+#[instrument(skip(app_state, edge_token, filter_query))]
 pub async fn get_features(
     app_state: State<AppState>,
     edge_token: EdgeToken,
@@ -46,6 +48,7 @@ pub async fn get_features(
         ("Authorization" = [])
     )
 )]
+#[instrument(skip(app_state, edge_token, filter_query))]
 #[axum::debug_handler]
 pub async fn post_features(
     app_state: State<AppState>,
@@ -55,6 +58,7 @@ pub async fn post_features(
     resolve_features(&app_state, edge_token, filter_query.0).await
 }
 
+#[instrument(skip(app_state, edge_token, filter_query))]
 async fn resolve_features(
     app_state: &AppState,
     edge_token: EdgeToken,
@@ -78,6 +82,7 @@ async fn resolve_features(
     }))
 }
 
+#[instrument(skip(edge_token, token_cache, filter_query))]
 fn get_feature_filter(
     edge_token: &EdgeToken,
     token_cache: &TokenCache,

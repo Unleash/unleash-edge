@@ -483,6 +483,15 @@ pub struct CliArgs {
 
     #[clap(flatten)]
     pub internal_backstage: InternalBackstageArgs,
+
+    #[clap(flatten)]
+    pub sentry_config: SentryConfig,
+
+    #[clap(flatten)]
+    pub datadog_config: DatadogConfig,
+
+    #[clap(flatten)]
+    pub otel_config: OpenTelemetryConfig,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -609,6 +618,33 @@ pub struct HttpServerArgs {
     /// Configures the DenyList middleware to deny requests from IPs that belong to the CIDRs configured here. Defaults to denying no IPs.
     #[clap(long, env, global=true, value_parser = ip_net_parser, value_delimiter = ',')]
     pub deny_list: Option<Vec<IpNet>>,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct SentryConfig {
+    #[arg(long, env, global = true)]
+    pub sentry_dsn: Option<String>,
+
+    #[arg(long, env, global = true, default_value_t = 0.1)]
+    pub sentry_tracing_rate: f32,
+
+    #[arg(long, env, global = true)]
+    pub sentry_debug: bool,
+
+    #[arg(long, env, global = true)]
+    pub sentry_enable_logs: bool
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct DatadogConfig {
+    #[arg(long, env, global = true)]
+    pub datadog_url: Option<String>,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct OpenTelemetryConfig {
+    #[arg(long, env, global = true)]
+    pub otel_collector_url: Option<String>,
 }
 
 fn ip_net_parser(arg: &str) -> Result<IpNet, String> {
