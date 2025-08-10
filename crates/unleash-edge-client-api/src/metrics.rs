@@ -21,7 +21,7 @@ use unleash_types::client_metrics::ClientMetrics;
         ("Authorization" = [])
     )
 )]
-#[axum::debug_handler]
+#[instrument(skip(app_state, edge_token, metrics))]
 pub async fn post_metrics(
     app_state: State<AppState>,
     edge_token: EdgeToken,

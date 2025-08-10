@@ -500,6 +500,7 @@ impl FeatureRefresher {
     }
     pub async fn refresh_features(&self) {
         let refreshes = self.get_tokens_due_for_refresh();
+        info!("{:#?}", refreshes);
         for refresh in refreshes {
             if self.delta {
                 self.refresh_single_delta(refresh).await;
@@ -552,7 +553,7 @@ impl FeatureRefresher {
                 interval: Some(self.refresh_interval.num_milliseconds()),
             })
             .await;
-
+        info!("Refreshing {refresh:?}");
         match features_result {
             Ok(feature_response) => match feature_response {
                 ClientFeaturesResponse::NoUpdate(tag) => {

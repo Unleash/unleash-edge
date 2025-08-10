@@ -1,29 +1,45 @@
 use std::net::SocketAddr;
 use axum::ServiceExt;
 use clap::Parser;
+use sentry::ClientInitGuard;
 use tower_http::normalize_path::NormalizePathLayer;
 use tracing::info;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use unleash_edge::configure_server;
 use unleash_edge_cli::{CliArgs, EdgeMode};
-use unleash_edge_types::EdgeResult;
+use unleash_edge_types::{BuildInfo, EdgeResult};
 use unleash_edge_types::errors::EdgeError;
+use crate::GuardHolder::{LogOnly, Otlp, Sentry};
+
+pub enum GuardHolder {
+    Sentry(ClientInitGuard),
+    Otlp,
+    LogOnly
+}
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| format!("{}=debug", env!("CARGO_CRATE_NAME")).into()),
-        )
-        .with(tracing_subscriber::fmt::layer())
-        .init();
+
     let args = unleash_edge_cli::CliArgs::parse();
     if args.markdown_help {
         clap_markdown::print_help_markdown::<CliArgs>();
         return Ok(());
     }
+    let _guard_holder = if args.sentry_config.sentry_dsn.clone().is_some() {
+        let client = unleash_edge::tracing::sentry::configure_sentry(&args);
+        info!("Configured sentry");
+        Sentry(client)
+    } else if args.otel_config.otel_collector_url.clone().is_some() {
+        unleash_edge::tracing::otlp::configure_otlp(&args);
+        Otlp
+    } else {
+        tracing_subscriber::registry()
+            .with(unleash_edge::tracing::formatting_layer(&args))
+            .with(unleash_edge::tracing::log_filter())
+            .init();
+        LogOnly
+    };
 
     match args.mode {
         EdgeMode::Health(health_args) => unleash_edge::health_checker::check_health(health_args).await,

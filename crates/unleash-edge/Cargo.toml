@@ -9,10 +9,10 @@ edition.workspace = true
 [features]
 default = ["s3-persistence", "all-tracing"]
 s3-persistence = ["aws-sdk-s3", "aws-config"]
-all-tracing = ["tracing-datadog", "tracing-otlp", "tracing-sentry"]
+all-tracing = ["tracing-sentry", "tracing-otlp"]
 tracing-datadog = ["opentelemetry-datadog"]
 tracing-otlp = ["opentelemetry-otlp"]
-tracing-sentry = ["sentry", "sentry-opentelemetry"]
+tracing-sentry = ["sentry", "sentry-tracing"]
 
 
 [dependencies]
@@ -25,6 +25,7 @@ chrono = { workspace = true }
 clap = { workspace = true }
 clap-markdown = { workspace = true }
 dashmap = { workspace = true }
+http = { workspace = true }
 ipnet = { workspace = true }
 opentelemetry = { workspace = true }
 opentelemetry-datadog = { workspace = true, optional = true }
@@ -34,12 +35,13 @@ reqwest = { workspace = true }
 rustls = { workspace = true }
 rustls-pemfile = { workspace = true }
 sentry = { workspace = true, optional = true }
-sentry-opentelemetry = { workspace = true, optional = true }
+sentry-tracing = { workspace = true, optional = true }
 tokio = { workspace = true }
 tower = { workspace = true }
 tower-http = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+tracing-opentelemetry = { workspace = true }
 ulid = { workspace = true }
 unleash-edge-appstate = { path = "../unleash-edge-appstate" }
 unleash-edge-auth = { path = "../unleash-edge-auth" }

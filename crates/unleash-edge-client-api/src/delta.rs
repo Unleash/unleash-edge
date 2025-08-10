@@ -90,6 +90,7 @@ pub async fn get_features_delta(
     }
 }
 
+#[instrument(skip(edge_token, token_cache, filter_query, requested_revision_id))]
 fn get_delta_filter(
     edge_token: &EdgeToken,
     token_cache: &TokenCache,
@@ -112,6 +113,7 @@ fn get_delta_filter(
     Ok(delta_filter_set)
 }
 
+#[instrument(skip(args))]
 async fn resolve_delta(args: DeltaResolverArgs) -> EdgeJsonResult<Option<ClientFeaturesDelta>> {
     let (validated_token, filter_set, ..) = get_feature_filter(
         &args.edge_token,

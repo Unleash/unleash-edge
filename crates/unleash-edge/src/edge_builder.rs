@@ -3,7 +3,7 @@ use chrono::Duration;
 use dashmap::DashMap;
 use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedSender;
-use tracing::{debug, error, warn};
+use tracing::{debug, error, info, warn};
 use unleash_edge_auth::token_validator::TokenValidator;
 use unleash_edge_cli::{AuthHeaders, EdgeArgs, RedisMode};
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
@@ -204,6 +204,7 @@ pub async fn build_edge(
             .register_token_for_refresh(validated_token.clone(), None)
             .await;
     }
+    feature_refresher.hydrate_new_tokens().await;
     Ok((
         (
             token_cache,

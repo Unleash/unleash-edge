@@ -85,7 +85,6 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<Router> {
                 deferred_validation_tx,
             )
                 .await?;
-
             let instance_data_sender: Arc<InstanceDataSending> =
                 Arc::new(InstanceDataSending::from_args(
                     args.clone(),
@@ -124,7 +123,7 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<Router> {
         .build();
     let api_router = Router::new()
             .nest("/client", unleash_edge_client_api::router())
-            .nest("/frontend", unleash_edge_frontend_api::router(args.disable_all_endpoint))
+            .merge(unleash_edge_frontend_api::router(args.disable_all_endpoint))
             .layer(ServiceBuilder::new()
                        .layer(from_fn_with_state(app_state.clone(), middleware::validate_token::validate_token))
                        .layer(from_fn_with_state(app_state.clone(), middleware::consumption::connection_consumption))

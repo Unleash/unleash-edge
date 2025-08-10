@@ -4,6 +4,7 @@ use axum::extract::FromRequestParts;
 use axum::http::request::Parts;
 use axum::{Json, Router};
 use itertools::Itertools;
+use tracing::instrument;
 use unleash_types::client_features::Context;
 use unleash_types::frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult};
 use unleash_yggdrasil::ResolvedToggle;
@@ -31,6 +32,7 @@ pub fn router(disable_all_endpoints: bool) -> Router<AppState> {
     Router::new().merge(proxy::router(disable_all_endpoints)).merge(frontend::router(disable_all_endpoints))
 }
 
+#[instrument(skip(app_state, edge_token, context, client_ip))]
 pub fn enabled_features(app_state: AppState,  edge_token: EdgeToken, context: &Context, client_ip: IpAddr) -> EdgeJsonResult<FrontendResult>{
     let context_with_ip = if context.remote_address.is_none() {
         &Context {
@@ -58,6 +60,7 @@ pub fn enabled_features(app_state: AppState,  edge_token: EdgeToken, context: &C
     )))
 }
 
+#[instrument(skip(app_state, edge_token, context, client_ip))]
 pub fn all_features(app_state: AppState, edge_token: EdgeToken, context: &Context, client_ip: IpAddr) -> EdgeJsonResult<FrontendResult> {
     let context_with_ip = if context.remote_address.is_none() {
         &Context {
@@ -81,6 +84,7 @@ pub fn all_features(app_state: AppState, edge_token: EdgeToken, context: &Contex
     Ok(Json(frontend_from_yggdrasil(feature_results, true, &token)))
 }
 
+#[instrument(skip(res, include_all, edge_token))]
 fn frontend_from_yggdrasil(
     res: HashMap<String, ResolvedToggle>,
     include_all: bool,

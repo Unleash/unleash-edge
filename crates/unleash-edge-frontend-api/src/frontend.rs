@@ -6,6 +6,7 @@ use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use tracing::instrument;
 use unleash_edge_appstate::AppState;
 use unleash_edge_types::tokens::EdgeToken;
 use unleash_edge_types::{ClientIp, EdgeJsonResult};
@@ -26,27 +27,33 @@ use unleash_types::frontend::FrontendResult;
 ("Authorization" = [])
     )
 )]
+#[instrument(skip(app_state, edge_token, client_ip, context))]
 pub async fn frontend_get_all_features(app_state: State<AppState>, edge_token: EdgeToken, client_ip: ConnectInfo<SocketAddr>, context: Query<Context>) -> EdgeJsonResult<FrontendResult> {
     all_features(app_state.0, edge_token, &context.0, client_ip.ip())
 }
 
+#[instrument(skip(app_state, edge_token, client_ip, context))]
 pub async fn frontend_post_all_features(app_state: State<AppState>, edge_token: EdgeToken, client_ip: ConnectInfo<SocketAddr>, context: Json<Context>)-> EdgeJsonResult<FrontendResult> {
     all_features(app_state.0, edge_token, &context.0, client_ip.ip())
 }
 
+#[instrument(skip(app_state, edge_token, client_ip, context))]
 pub async fn frontend_get_enabled_features(app_state: State<AppState>, edge_token: EdgeToken, client_ip: ConnectInfo<SocketAddr>, context: Query<Context>) -> EdgeJsonResult<FrontendResult> {
     enabled_features(app_state.0, edge_token, &context.0, client_ip.ip())
 }
 
+#[instrument(skip(app_state, edge_token, client_ip, context))]
 pub async fn frontend_post_enabled_features(app_state: State<AppState>, edge_token: EdgeToken, client_ip: ConnectInfo<SocketAddr>, context: Json<Context>) -> EdgeJsonResult<FrontendResult> {
     enabled_features(app_state.0, edge_token, &context.0, client_ip.ip())
 }
 
+#[instrument(skip(app_state, edge_token, metrics))]
 pub async fn frontend_post_metrics(app_state: State<AppState>, edge_token: EdgeToken, metrics: Json<ClientMetrics>) -> impl IntoResponse {
     unleash_edge_metrics::client_metrics::register_client_metrics(edge_token, metrics.0, app_state.metrics_cache.clone());
     Response::builder().status(StatusCode::ACCEPTED).body(Body::empty()).unwrap()
 }
 
+#[instrument(skip(app_state, edge_token, client_application))]
 pub async fn frontend_register_client(app_state: State<AppState>, edge_token: EdgeToken, client_application: Json<ClientApplication>) -> impl IntoResponse {
     unleash_edge_metrics::client_metrics::register_client_application(edge_token, &app_state.connect_via, client_application.0, app_state.metrics_cache.clone());
     Response::builder().status(StatusCode::ACCEPTED).body(Body::empty()).unwrap()
