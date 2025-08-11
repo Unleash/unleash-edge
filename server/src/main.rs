@@ -15,6 +15,7 @@ use unleash_edge::auth::token_validator::SHOULD_DEFER_VALIDATION;
 use unleash_edge::error::EdgeError;
 use unleash_edge::http::unleash_client::{HttpClientArgs, new_reqwest_client};
 use unleash_edge::metrics::actix_web_prometheus_metrics::PrometheusMetrics;
+use unleash_edge::middleware::bad_request_terminator::BadRequestTerminator;
 use unleash_edge::middleware::fail_response_logger::LogStatus;
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ConnectVia;
@@ -79,6 +80,8 @@ fn setup_server(
         let cors_middleware = args.http.cors.middleware();
         let mut app = App::new()
             .wrap(LogStatus)
+            // TODO: Remove me when https://github.com/actix/actix-web/issues/3715 gets closed and we upgrade Actix
+            .wrap(BadRequestTerminator)
             .app_data(qs_config)
             .app_data(web::Data::new(args.token_header.clone()))
             .app_data(web::Data::new(args.trust_proxy.clone()))
