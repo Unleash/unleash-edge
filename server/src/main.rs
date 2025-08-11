@@ -7,6 +7,7 @@ use clap::Parser;
 use dashmap::DashMap;
 use futures::future::join_all;
 use lazy_static::lazy_static;
+use unleash_edge::middleware::bad_request_terminator::BadRequestTerminator;
 use std::env;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -79,6 +80,8 @@ fn setup_server(
         let cors_middleware = args.http.cors.middleware();
         let mut app = App::new()
             .wrap(LogStatus)
+            // TODO: Remove me when https://github.com/actix/actix-web/issues/3715 gets closed and we upgrade Actix
+            .wrap(BadRequestTerminator)
             .app_data(qs_config)
             .app_data(web::Data::new(args.token_header.clone()))
             .app_data(web::Data::new(args.trust_proxy.clone()))
