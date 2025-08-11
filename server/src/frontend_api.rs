@@ -75,7 +75,7 @@ pub async fn get_proxy_all_features(
         edge_token,
         engine_cache,
         token_cache,
-        &context.into_inner().into(),
+        &context.into_inner(),
         req.extensions().get::<ClientIp>(),
     )
 }
@@ -103,7 +103,7 @@ pub async fn get_frontend_all_features(
         edge_token,
         engine_cache,
         token_cache,
-        &context.into_inner().into(),
+        &context.into_inner(),
         req.extensions().get::<ClientIp>(),
     )
 }
@@ -225,7 +225,7 @@ fn post_all_features(
     incoming_context: Json<Context>,
     client_ip: Option<&ClientIp>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let context: Context = incoming_context.into_inner().into();
+    let context: Context = incoming_context.into_inner();
     let context_with_ip = if context.remote_address.is_none() {
         Context {
             remote_address: client_ip.map(|ip| ip.to_string()),
@@ -317,7 +317,7 @@ fn get_enabled_features(
     incoming_context: Context,
     client_ip: Option<ClientIp>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let context: Context = incoming_context.into();
+    let context: Context = incoming_context;
     let context_with_ip = if context.remote_address.is_none() {
         Context {
             remote_address: client_ip.map(|ip| ip.to_string()),
@@ -420,7 +420,7 @@ pub async fn post_frontend_evaluate_single_feature(
     evaluate_feature(
         edge_token,
         feature_name.into_inner(),
-        &context.into_inner().into(),
+        &context.into_inner(),
         token_cache,
         engine_cache,
         req.extensions().get::<ClientIp>().cloned(),
@@ -456,7 +456,7 @@ pub async fn get_frontend_evaluate_single_feature(
     evaluate_feature(
         edge_token,
         feature_name.into_inner(),
-        &context.into_inner().into(),
+        &context.into_inner(),
         token_cache,
         engine_cache,
         req.extensions().get::<ClientIp>().cloned(),
