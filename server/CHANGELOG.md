@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [19.15.0](https://github.com/Unleash/unleash-edge/compare/v19.14.3...v19.15.0) - 2025-08-11
+
+### 🚀 Features
+- featLinear issue: [1-3968](https://linear.app/unleash/issue/1-3968): send edge hosting type (self-hosted/hosted) with instance metrics data ([#1086](https://github.com/unleash/unleash-edge/issues/1086))
+
+Adds edge hosting type to the edge instance data schema. The hosting type can be set via the env var `EDGE_HOSTING`. 
+
+In serializing, we serialize it as either `hosted` or `self-hosted`. Edge will parse any value that isn't `hosted` (regardless of capitalization) as `self-hosted`. If you don't provide a value, it will not set that value in the instance data payload.
+
+By making the property optional, we also let Edge accept incoming edge data schemas that don't have the property set.
+
+Adds basic tests to verify that we send the property if and only if the value is set. (by @thomasheartman) - #1086
+- Enable consumption metrics by default ([#1081](https://github.com/unleash/unleash-edge/issues/1081)) (by @thomasheartman) - #1081
+
+### Dependency updates
+- bump redis from 0.32.4 to 0.32.5 ([#1089](https://github.com/unleash/unleash-edge/issues/1089)) (by @dependabot[bot]) - #1089
+- bump clap from 4.5.42 to 4.5.43 ([#1085](https://github.com/unleash/unleash-edge/issues/1085)) (by @dependabot[bot]) - #1085
+- bump aws-config from 1.8.3 to 1.8.4 ([#1083](https://github.com/unleash/unleash-edge/issues/1083)) (by @dependabot[bot]) - #1083
+
+### ⚙️ Miscellaneous Tasks
+- make hosting non-optional ([#1088](https://github.com/unleash/unleash-edge/issues/1088)) (by @thomasheartman) - #1088
+
+### Contributors
+
+* @dependabot[bot]
+* @thomasheartman
+
 ## [19.14.3](https://github.com/Unleash/unleash-edge/compare/v19.14.2...v19.14.3) - 2025-08-04
 
 ### Dependency updates
