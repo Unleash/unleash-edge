@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [19.15.1](https://github.com/Unleash/unleash-edge/compare/v19.15.0...v19.15.1) - 2025-08-13
+
+### Dependency updates
+- bump clap from 4.5.44 to 4.5.45 ([#1101](https://github.com/unleash/unleash-edge/issues/1101)) (by @dependabot[bot]) - #1101
+- bump reqwest from 0.12.22 to 0.12.23 ([#1100](https://github.com/unleash/unleash-edge/issues/1100)) (by @dependabot[bot]) - #1100
+- bump aws-config from 1.8.4 to 1.8.5 ([#1098](https://github.com/unleash/unleash-edge/issues/1098)) (by @dependabot[bot]) - #1098
+- bump clap from 4.5.43 to 4.5.44 ([#1096](https://github.com/unleash/unleash-edge/issues/1096)) (by @dependabot[bot]) - #1096
+- bump anyhow from 1.0.98 to 1.0.99 ([#1094](https://github.com/unleash/unleash-edge/issues/1094)) (by @dependabot[bot]) - #1094
+
+### Contributors
+
+* @dependabot[bot]
+
 ## [19.15.0](https://github.com/Unleash/unleash-edge/compare/v19.14.3...v19.15.0) - 2025-08-11
 
 ### 🚀 Features
