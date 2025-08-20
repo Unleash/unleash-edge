@@ -1,48 +1,31 @@
-use std::net::SocketAddr;
-use axum::ServiceExt;
 use clap::Parser;
-use sentry::ClientInitGuard;
+use std::net::SocketAddr;
 use tower_http::normalize_path::NormalizePathLayer;
 use tracing::info;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use unleash_edge::configure_server;
 use unleash_edge_cli::{CliArgs, EdgeMode};
-use unleash_edge_types::{BuildInfo, EdgeResult};
+use unleash_edge_types::EdgeResult;
 use unleash_edge_types::errors::EdgeError;
-use crate::GuardHolder::{LogOnly, Otlp, Sentry};
-
-pub enum GuardHolder {
-    Sentry(ClientInitGuard),
-    Otlp,
-    LogOnly
-}
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
-
     let args = unleash_edge_cli::CliArgs::parse();
     if args.markdown_help {
         clap_markdown::print_help_markdown::<CliArgs>();
         return Ok(());
     }
-    let _guard_holder = if args.sentry_config.sentry_dsn.clone().is_some() {
-        let client = unleash_edge::tracing::sentry::configure_sentry(&args);
-        info!("Configured sentry");
-        Sentry(client)
-    } else if args.otel_config.otel_collector_url.clone().is_some() {
-        unleash_edge::tracing::otlp::configure_otlp(&args);
-        Otlp
-    } else {
-        tracing_subscriber::registry()
-            .with(unleash_edge::tracing::formatting_layer(&args))
-            .with(unleash_edge::tracing::log_filter())
-            .init();
-        LogOnly
-    };
+
+    tracing_subscriber::registry()
+        .with(unleash_edge::tracing::formatting_layer(&args))
+        .with(unleash_edge::tracing::log_filter())
+        .init();
 
     match args.mode {
-        EdgeMode::Health(health_args) => unleash_edge::health_checker::check_health(health_args).await,
+        EdgeMode::Health(health_args) => {
+            unleash_edge::health_checker::check_health(health_args).await
+        }
         EdgeMode::Ready(ready_args) => unleash_edge::ready_checker::check_ready(ready_args).await,
         _ => run_server(args).await,
     }
@@ -50,20 +33,26 @@ async fn main() -> Result<(), anyhow::Error> {
 }
 
 async fn run_server(args: CliArgs) -> EdgeResult<()> {
-
     let router = configure_server(args.clone()).await?;
-    let server = router.layer(NormalizePathLayer::trim_trailing_slash()).into_make_service_with_connect_info::<SocketAddr>();
+    let server = router
+        .layer(NormalizePathLayer::trim_trailing_slash())
+        .into_make_service_with_connect_info::<SocketAddr>();
 
     if args.http.tls.tls_enable {
         let config = unleash_edge::tls::axum_rustls_config(args.http.tls.clone()).await?;
         let addr = args.http.https_server_socket();
-        let https_server = axum_server::bind_rustls(addr, config)
+        let _https_server = axum_server::bind_rustls(addr, config)
             .serve(server.clone())
             .await
             .unwrap();
     }
-    let http_listener = tokio::net::TcpListener::bind(&args.http.http_server_addr()).await.map_err(|_| EdgeError::NotReady)?;
+    let http_listener = tokio::net::TcpListener::bind(&args.http.http_server_addr())
+        .await
+        .map_err(|_| EdgeError::NotReady)?;
     let _ = axum::serve(http_listener, server.clone()).await;
-    info!("Edge is listening to http traffic on {}", &args.http.http_server_addr());
+    info!(
+        "Edge is listening to http traffic on {}",
+        &args.http.http_server_addr()
+    );
     Ok(())
 }
