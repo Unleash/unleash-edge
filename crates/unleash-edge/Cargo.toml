@@ -5,6 +5,13 @@ authors.workspace = true
 description.workspace = true
 documentation.workspace = true
 edition.workspace = true
+repository.workspace = true
+
+[package.metadata.wix]
+upgrade-guid = "ABA6D0AC-79E6-422A-8CC2-68D62D86AEDA"
+path-guid = "92C33CAD-2C77-4B3F-BABC-861926D35EED"
+license = false
+eula = false
 
 [features]
 default = ["s3-persistence"]
