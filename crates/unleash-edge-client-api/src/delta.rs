@@ -17,17 +17,11 @@ use unleash_edge_types::{EdgeJsonResult, EdgeResult, FeatureFilters, TokenCache}
 use unleash_types::client_features::ClientFeaturesDelta;
 
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct RevisionId {
     requested_revision_id: u32,
 }
 
-impl Default for RevisionId {
-    fn default() -> Self {
-        Self {
-            requested_revision_id: 0,
-        }
-    }
-}
 
 impl FromRequestParts<AppState> for RevisionId {
     type Rejection = EdgeError;
