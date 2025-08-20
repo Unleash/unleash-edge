@@ -20,7 +20,7 @@ env:
 jobs:
   tarpaulin:
     runs-on: ubuntu-latest
-    name: Run test coverage using Tarpaulin
+    name: Run test coverage using llvm-cov
     env:
       CARGO_TERM_COLOR: always
     steps:
