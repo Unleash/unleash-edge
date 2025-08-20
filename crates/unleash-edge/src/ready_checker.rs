@@ -1,9 +1,9 @@
+use crate::tls::build_upstream_certificate;
 use reqwest::{ClientBuilder, Url};
 use unleash_edge_backstage::EdgeStatus;
 use unleash_edge_cli::ReadyCheckArgs;
-use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::Status;
-use crate::tls::build_upstream_certificate;
+use unleash_edge_types::errors::EdgeError;
 
 fn build_ready_url(url: &Url) -> Url {
     let mut with_path = url.clone();
@@ -61,22 +61,22 @@ pub async fn check_ready(ready_check_args: ReadyCheckArgs) -> Result<(), EdgeErr
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-    use std::sync::Arc;
+    use crate::ready_checker::check_ready;
+    use axum::Router;
     use axum::body::Body;
     use axum::http::{Response, StatusCode};
     use axum::response::IntoResponse;
-    use axum::Router;
     use axum::routing::get;
     use axum_test::TestServer;
     use dashmap::DashMap;
-    use unleash_types::client_features::{ClientFeature, ClientFeatures};
+    use std::str::FromStr;
+    use std::sync::Arc;
     use unleash_edge_appstate::AppState;
     use unleash_edge_backstage::ready;
     use unleash_edge_cli::ReadyCheckArgs;
     use unleash_edge_feature_cache::FeatureCache;
     use unleash_edge_types::tokens::EdgeToken;
-    use crate::ready_checker::check_ready;
+    use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
     #[tokio::test]
     pub async fn runs_ready_check() {
@@ -100,16 +100,24 @@ mod tests {
         let token = EdgeToken::from_str("[]:fancyenvironment.somerandomsecretstring").unwrap();
         token_cache.insert(token.token.clone(), token);
         let token_cache_arc = Arc::new(token_cache);
-        let app_state = AppState::builder().with_token_cache(token_cache_arc.clone()).with_features_cache(client_features_arc.clone()).build();
+        let app_state = AppState::builder()
+            .with_token_cache(token_cache_arc.clone())
+            .with_features_cache(client_features_arc.clone())
+            .build();
 
-        let router = Router::new().route("/internal-backstage/ready", get(ready)).with_state(app_state);
-        let srv = TestServer::builder().http_transport().build(router).unwrap();
+        let router = Router::new()
+            .route("/internal-backstage/ready", get(ready))
+            .with_state(app_state);
+        let srv = TestServer::builder()
+            .http_transport()
+            .build(router)
+            .unwrap();
         let url = srv.server_url("/").unwrap();
         let check_result = check_ready(ReadyCheckArgs {
             ca_certificate_file: None,
             edge_url: url.to_string(),
         })
-            .await;
+        .await;
         assert!(check_result.is_ok());
     }
 
@@ -119,24 +127,30 @@ mod tests {
             ca_certificate_file: None,
             edge_url: "http://bogusurl".into(),
         })
-            .await;
+        .await;
         assert!(check_result.is_err());
     }
 
     async fn conflict() -> impl IntoResponse {
-        Response::builder().status(StatusCode::CONFLICT).body(Body::empty()).unwrap()
+        Response::builder()
+            .status(StatusCode::CONFLICT)
+            .body(Body::empty())
+            .unwrap()
     }
 
     #[tokio::test]
     pub async fn errors_if_ready_check_returns_different_status_than_200() {
         let router = Router::new().route("/internal-backstage/ready", get(conflict));
-        let srv = TestServer::builder().http_transport().build(router).expect("Failed to build test server");
+        let srv = TestServer::builder()
+            .http_transport()
+            .build(router)
+            .expect("Failed to build test server");
         let url = srv.server_url("/").expect("Failed to get server url");
         let check_result = check_ready(ReadyCheckArgs {
             ca_certificate_file: None,
             edge_url: url.to_string(),
         })
-            .await;
+        .await;
         assert!(check_result.is_err());
     }
 
@@ -146,7 +160,7 @@ mod tests {
             ca_certificate_file: None,
             edge_url: ":\\///\\/".into(),
         })
-            .await;
+        .await;
         assert!(check_result.is_err());
     }
 }

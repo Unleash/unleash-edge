@@ -1,5 +1,10 @@
-use crate::metrics::{BUCKET_SIZE_FEATURES, BUCKET_SIZE_METRICS, ConnectionConsumptionData, ConnectionMetricsType, DEFAULT_FEATURES_INTERVAL, DEFAULT_METRICS_INTERVAL, DESIRED_URLS, DataPoint, InstanceTraffic, LatencyMetrics, MAX_BUCKET_INTERVAL, ProcessMetrics, RequestConsumptionData, RequestStats, UpstreamLatency, ENDPOINT_LABEL, STATUS_LABEL, METHOD_LABEL};
 use crate::BuildInfo;
+use crate::metrics::{
+    BUCKET_SIZE_FEATURES, BUCKET_SIZE_METRICS, ConnectionConsumptionData, ConnectionMetricsType,
+    DEFAULT_FEATURES_INTERVAL, DEFAULT_METRICS_INTERVAL, DESIRED_URLS, DataPoint, ENDPOINT_LABEL,
+    InstanceTraffic, LatencyMetrics, MAX_BUCKET_INTERVAL, METHOD_LABEL, ProcessMetrics,
+    RequestConsumptionData, RequestStats, STATUS_LABEL, UpstreamLatency,
+};
 use ahash::HashMap;
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
