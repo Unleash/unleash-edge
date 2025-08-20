@@ -8,7 +8,7 @@ use unleash_edge_auth::token_validator::TokenValidator;
 use unleash_edge_cli::{AuthHeaders, EdgeArgs, RedisMode};
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
-use unleash_edge_feature_refresh::{FeatureRefreshConfig, FeatureRefresher, FeatureRefresherMode};
+use unleash_edge_feature_refresh::{FeatureRefreshConfig, FeatureRefresher};
 use unleash_edge_http_client::{ClientMetaInformation, UnleashClient};
 use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_persistence::file::FilePersister;
@@ -159,15 +159,10 @@ pub async fn build_edge(
         tx,
     );
 
-    let refresher_mode = if args.streaming {
-        FeatureRefresherMode::Streaming
-    } else {
-        FeatureRefresherMode::Strict
-    };
     let delta_cache_manager = Arc::new(DeltaCacheManager::new());
     let feature_config = FeatureRefreshConfig::new(
         Duration::seconds(args.features_refresh_interval_seconds as i64),
-        refresher_mode,
+        args.streaming,
         client_meta_information,
         args.delta,
         args.delta_diff,
@@ -195,9 +190,9 @@ pub async fn build_edge(
     }
     if token_cache.is_empty() {
         error!(
-            "You started Edge in strict mode, but Edge was not able to validate any of the tokens configured at startup"
+            "Edge was not able to validate any of the tokens configured at startup"
         );
-        return Err(EdgeError::NoTokens("No valid tokens was provided on startup. At least one valid token must be specified at startup when running in Strict mode".into()));
+        return Err(EdgeError::NoTokens("No valid tokens provided on startup. At least one valid token must be specified at startup".into()));
     }
     for validated_token in token_cache
         .iter()
