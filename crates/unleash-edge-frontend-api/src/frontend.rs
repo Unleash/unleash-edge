@@ -9,7 +9,7 @@ use axum::{Json, Router};
 use tracing::instrument;
 use unleash_edge_appstate::AppState;
 use unleash_edge_types::tokens::EdgeToken;
-use unleash_edge_types::{ClientIp, EdgeJsonResult};
+use unleash_edge_types::EdgeJsonResult;
 use unleash_types::client_features::Context;
 use unleash_types::client_metrics::{ClientApplication, ClientMetrics};
 use unleash_types::frontend::FrontendResult;

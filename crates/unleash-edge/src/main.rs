@@ -41,7 +41,7 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
     if args.http.tls.tls_enable {
         let config = unleash_edge::tls::axum_rustls_config(args.http.tls.clone()).await?;
         let addr = args.http.https_server_socket();
-        let _https_server = axum_server::bind_rustls(addr, config)
+        axum_server::bind_rustls(addr, config)
             .serve(server.clone())
             .await
             .unwrap();
