@@ -48,7 +48,7 @@ pub fn enabled_features(app_state: AppState,  edge_token: EdgeToken, context: &C
     let engine = app_state.engine_cache.get(&key).ok_or_else(|| {
         EdgeError::FrontendNotYetHydrated(FrontendHydrationMissing::from(&edge_token))
     })?;
-    let feature_results = engine.resolve_all(&context_with_ip, &None).ok_or_else(|| {
+    let feature_results = engine.resolve_all(context_with_ip, &None).ok_or_else(|| {
         EdgeError::FrontendExpectedToBeHydrated(
             "Feature cache has not been hydrated yet, but it was expected to be. This can be due to a race condition from calling edge before it's ready. This error might auto resolve as soon as edge is able to fetch from upstream".into(),
         )
@@ -76,7 +76,7 @@ pub fn all_features(app_state: AppState, edge_token: EdgeToken, context: &Contex
     let engine = app_state.engine_cache.get(&key).ok_or_else(|| {
         EdgeError::FrontendNotYetHydrated(FrontendHydrationMissing::from(&edge_token))
     })?;
-    let feature_results = engine.resolve_all(&context_with_ip, &None).ok_or_else(|| {
+    let feature_results = engine.resolve_all(context_with_ip, &None).ok_or_else(|| {
         EdgeError::FrontendExpectedToBeHydrated(
             "Feature cache has not been hydrated yet, but it was expected to be. This can be due to a race condition from calling edge before it's ready. This error might auto resolve as soon as edge is able to fetch from upstream".into(),
         )

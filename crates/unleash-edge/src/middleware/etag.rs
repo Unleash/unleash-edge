@@ -13,7 +13,7 @@ pub async fn etag_middleware(
     let (mut parts, body) = res.into_parts();
 
     if let Ok(bytes) = axum::body::to_bytes(body, usize::MAX).await {
-          match bytes.len() == 0 {
+          match bytes.is_empty() {
         true => {
             trace!(path, "response without body, skipping etag");
             Ok(parts.into_response())

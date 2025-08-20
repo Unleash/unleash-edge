@@ -229,7 +229,7 @@ impl FeatureRefresher {
         token: EdgeToken,
         filters: &FeatureFilterSet,
     ) -> EdgeResult<ClientFeatures> {
-        match self.get_features_by_filter(&token, &filters) {
+        match self.get_features_by_filter(&token, filters) {
             Some(features) if self.token_is_subsumed(&token) => Ok(features),
             Some(_features) if !self.token_is_subsumed(&token) => {
                 debug!("Strict behavior: Token is not subsumed by any registered tokens. Returning error");
@@ -442,8 +442,8 @@ impl FeatureRefresher {
             .await;
 
         let key = cache_key(&refresh.token);
-        if let Some(client_features) = self.features_cache.get(&key).as_ref() {
-            if let Ok(ClientFeaturesDeltaResponse::Updated(delta_features, _etag)) = delta_result {
+        if let Some(client_features) = self.features_cache.get(&key).as_ref()
+            && let Ok(ClientFeaturesDeltaResponse::Updated(delta_features, _etag)) = delta_result {
                 let c_features = &client_features.features;
                 let d_features = delta_features.events.iter().find_map(|event| {
                     if let DeltaEvent::Hydration { features, .. } = event {
@@ -469,7 +469,6 @@ impl FeatureRefresher {
                     debug!("{:?}", diff.diff.unwrap());
                 }
             }
-        }
     }
 
     pub async fn start_refresh_features_background_task(&self) {

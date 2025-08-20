@@ -31,9 +31,8 @@ pub struct TokenValidator {
     pub deferred_validation_tx: Option<UnboundedSender<String>>,
 }
 
-
 pub trait TokenRegister {
-    async fn register_token(&self, token: String) -> EdgeResult<EdgeToken>;
+    fn register_token(&self, token: String) -> impl Future<Output = EdgeResult<EdgeToken>> + Send;
 }
 
 impl TokenRegister for TokenValidator {

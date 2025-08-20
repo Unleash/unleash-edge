@@ -1,11 +1,11 @@
 use crate::edge_builder::build_edge;
 use crate::offline_builder::build_offline;
-use axum::middleware::{from_fn, from_fn_with_state};
 use axum::Router;
+use axum::middleware::{from_fn, from_fn_with_state};
+use axum::routing::get;
 use chrono::Duration;
 use std::env;
 use std::sync::{Arc, LazyLock};
-use axum::routing::get;
 use tower::ServiceBuilder;
 use ulid::Ulid;
 use unleash_edge_appstate::AppState;
@@ -15,16 +15,18 @@ use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_refresh::FeatureRefresher;
 use unleash_edge_http_client::instance_data::InstanceDataSending;
-use unleash_edge_http_client::{new_reqwest_client, ClientMetaInformation, HttpClientArgs};
-use unleash_edge_metrics::axum_prometheus_metrics::{render_prometheus_metrics, PrometheusAxumLayer};
+use unleash_edge_http_client::{ClientMetaInformation, HttpClientArgs, new_reqwest_client};
+use unleash_edge_metrics::axum_prometheus_metrics::{
+    PrometheusAxumLayer, render_prometheus_metrics,
+};
 use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
 use unleash_edge_types::{EdgeResult, EngineCache, TokenCache};
 
-mod middleware;
 pub mod edge_builder;
-pub mod offline_builder;
 pub mod health_checker;
+mod middleware;
+pub mod offline_builder;
 pub mod ready_checker;
 pub mod tls;
 pub mod tracing;
@@ -57,7 +59,7 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<Router> {
         connection_id: app_id.to_string(),
     };
     let metrics_middleware = PrometheusAxumLayer::new();
-    let (edge_info, instance_data_sender, token_validation_queue) = match &args.mode {
+    let (edge_info, instance_data_sender, _token_validation_queue) = match &args.mode {
         EdgeMode::Edge(edge_args) => {
             let client = new_reqwest_client(HttpClientArgs {
                 skip_ssl_verification: edge_args.skip_ssl_verification,
@@ -84,7 +86,7 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<Router> {
                 client.clone(),
                 deferred_validation_tx,
             )
-                .await?;
+            .await?;
             let instance_data_sender: Arc<InstanceDataSending> =
                 Arc::new(InstanceDataSending::from_args(
                     args.clone(),
@@ -96,9 +98,8 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<Router> {
             (caches, instance_data_sender, deferred_validation_rx)
         }
         EdgeMode::Offline(offline_args) => {
-            let caches =
-                build_offline(offline_args.clone())
-                    .map(|cache| (cache, Arc::new(None), Arc::new(None), None))?;
+            let caches = build_offline(offline_args.clone())
+                .map(|cache| (cache, Arc::new(None), Arc::new(None), None))?;
             (caches, Arc::new(InstanceDataSending::SendNothing), None)
         }
         _ => unreachable!(),
@@ -122,26 +123,42 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<Router> {
         .with_edge_instance_data(edge_instance_data)
         .build();
     let api_router = Router::new()
-            .nest("/client", unleash_edge_client_api::router())
-            .merge(unleash_edge_frontend_api::router(args.disable_all_endpoint))
-            .layer(ServiceBuilder::new()
-                       .layer(from_fn_with_state(app_state.clone(), middleware::validate_token::validate_token))
-                       .layer(from_fn_with_state(app_state.clone(), middleware::consumption::connection_consumption))
-                       .layer(from_fn(middleware::etag::etag_middleware))
-            );
+        .nest("/client", unleash_edge_client_api::router())
+        .merge(unleash_edge_frontend_api::router(args.disable_all_endpoint))
+        .layer(
+            ServiceBuilder::new()
+                .layer(from_fn_with_state(
+                    app_state.clone(),
+                    middleware::validate_token::validate_token,
+                ))
+                .layer(from_fn_with_state(
+                    app_state.clone(),
+                    middleware::consumption::connection_consumption,
+                ))
+                .layer(from_fn(middleware::etag::etag_middleware)),
+        );
 
     let top_router: Router = Router::new()
         .nest("/api", api_router)
         .nest("/edge", unleash_edge_edge_api::router())
-        .nest("/internal-backstage", Router::new()
-                        .route("/metrics", get(render_prometheus_metrics))
-                        .merge(unleash_edge_backstage::router(args.internal_backstage))
+        .nest(
+            "/internal-backstage",
+            Router::new()
+                .route("/metrics", get(render_prometheus_metrics))
+                .merge(unleash_edge_backstage::router(args.internal_backstage)),
         )
-        .layer(ServiceBuilder::new()
-            .layer(metrics_middleware)
-            .layer(args.http.cors.middleware())
-            .layer(from_fn_with_state(app_state.clone(), middleware::deny_list::deny_middleware))
-            .layer(from_fn_with_state(app_state.clone(), middleware::allow_list::allow_middleware))
+        .layer(
+            ServiceBuilder::new()
+                .layer(metrics_middleware)
+                .layer(args.http.cors.middleware())
+                .layer(from_fn_with_state(
+                    app_state.clone(),
+                    middleware::deny_list::deny_middleware,
+                ))
+                .layer(from_fn_with_state(
+                    app_state.clone(),
+                    middleware::allow_list::allow_middleware,
+                )),
         )
         .with_state(app_state);
     Ok(top_router)

@@ -30,7 +30,7 @@ pub async fn connection_consumption(state: State<AppState>, req: Request, next: 
     let instance_data = state.edge_instance_data.clone();
     let res = next.run(req).await;
     let status_code = res.status().as_u16();
-    if !should_observe_connection_consumption(&path, status_code) {
+    if !should_observe_connection_consumption(path, status_code) {
         return res;
     }
     instance_data.observe_connection_consumption(path, interval);
