@@ -3,6 +3,8 @@ resolver = "3"
 
 members = ["crates/*"]
 
+repository = "https://github.com/Unleash/unleash-edge"
+
 [workspace.package]
 version = "20.0.0"
 authors = [
@@ -77,4 +79,9 @@ url = { version = "2.5.4" }
 utoipa = { version = "5.4.0", features = ["chrono", "axum_extras"] }
 utoipauto = { version = "0.3.0-alpha.2" }
 utoipa-swagger-ui = { version = "9.0.2", features = ["axum"] }
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
 
