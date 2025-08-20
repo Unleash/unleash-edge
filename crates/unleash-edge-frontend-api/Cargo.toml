@@ -1,0 +1,24 @@
+[package]
+name = "unleash-edge-frontend-api"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+documentation.workspace = true
+edition.workspace = true
+
+[dependencies]
+axum = { workspace = true }
+dashmap = { workspace = true }
+itertools = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+unleash-edge-appstate = { path = "../unleash-edge-appstate" }
+unleash-edge-feature-filters = { path = "../unleash-edge-feature-filters" }
+unleash-edge-feature-refresh = { path = "../unleash-edge-feature-refresh" }
+unleash-edge-metrics = { path = "../unleash-edge-metrics" }
+unleash-edge-types = { path = "../unleash-edge-types" }
+unleash-types = { workspace = true }
+unleash-yggdrasil = { workspace = true}
+utoipa = { workspace = true }
