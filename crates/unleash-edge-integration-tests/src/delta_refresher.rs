@@ -12,17 +12,17 @@ mod tests {
     use axum::routing::get;
     use axum_test::TestServer;
     use etag::EntityTag;
-    use tracing::info;
+    
     use unleash_types::client_features::{
         ClientFeature, ClientFeatures, ClientFeaturesDelta, Constraint, DeltaEvent, Operator,
         Segment,
     };
-    use unleash_yggdrasil::EngineState;
+    
     use unleash_edge_delta::cache_manager::DeltaCacheManager;
     use unleash_edge_feature_cache::FeatureCache;
     use unleash_edge_feature_refresh::FeatureRefresher;
     use unleash_edge_http_client::{ClientMetaInformation, UnleashClient};
-    use unleash_edge_types::{EdgeResult, EngineCache};
+    use unleash_edge_types::EngineCache;
     use unleash_edge_types::tokens::EdgeToken;
 
     #[tokio::test]

@@ -10,10 +10,13 @@ use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_refresh::{FeatureRefreshConfig, FeatureRefresher, FeatureRefresherMode};
 use unleash_edge_http_client::{ClientMetaInformation, UnleashClient};
+use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_persistence::file::FilePersister;
 use unleash_edge_persistence::redis::RedisPersister;
+
+#[cfg(feature = "s3-persistence")]
 use unleash_edge_persistence::s3::s3_persister::S3Persister;
-use unleash_edge_persistence::EdgePersistence;
+
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::{EdgeResult, EngineCache, TokenCache, TokenType};
 use unleash_yggdrasil::{EngineState, UpdateMessage};
@@ -50,15 +53,15 @@ async fn get_data_source(args: &EdgeArgs) -> Option<Arc<dyn EdgePersistence>> {
                     redis_args.read_timeout(),
                     redis_args.write_timeout(),
                 )
-                    .expect("Failed to connect to redis cluster")
+                .expect("Failed to connect to redis cluster")
             }),
         }
-            .unwrap_or_else(|| {
-                panic!(
-                    "Could not build a redis persister from redis_args {:?}",
-                    args.redis
-                )
-            });
+        .unwrap_or_else(|| {
+            panic!(
+                "Could not build a redis persister from redis_args {:?}",
+                args.redis
+            )
+        });
         return Some(Arc::new(redis_persister));
     }
     #[cfg(feature = "s3-persistence")]
@@ -69,7 +72,7 @@ async fn get_data_source(args: &EdgeArgs) -> Option<Arc<dyn EdgePersistence>> {
                 .clone()
                 .expect("Clap is confused, there's no bucket name"),
         )
-            .await;
+        .await;
         return Some(Arc::new(s3_persister));
     }
 
@@ -116,10 +119,11 @@ pub async fn build_edge(
     client_meta_information: ClientMetaInformation,
     auth_headers: AuthHeaders,
     http_client: reqwest::Client,
-    tx: Option<UnboundedSender<String>>
+    tx: Option<UnboundedSender<String>>,
 ) -> EdgeResult<EdgeInfo> {
     if args.tokens.is_empty() {
-        return Err(EdgeError::NoTokens(            "No tokens provided. Tokens must be specified".into(),
+        return Err(EdgeError::NoTokens(
+            "No tokens provided. Tokens must be specified".into(),
         ));
     }
     let (token_cache, feature_cache, delta_cache, engine_cache) = build_caches();
@@ -187,7 +191,7 @@ pub async fn build_edge(
             ),
             persistence,
         )
-            .await;
+        .await;
     }
     if token_cache.is_empty() {
         error!(

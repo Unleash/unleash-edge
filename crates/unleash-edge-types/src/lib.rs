@@ -481,7 +481,7 @@ mod tests {
 
     use crate::errors::EdgeError::EdgeTokenParseError;
 
-    use super::{EdgeResult, EdgeToken, EdgeTokens, IncomingContext, PostContext};
+    use super::{EdgeResult, EdgeToken, EdgeTokens};
 
     fn test_str(token: &str) -> EdgeToken {
         EdgeToken::from_str(

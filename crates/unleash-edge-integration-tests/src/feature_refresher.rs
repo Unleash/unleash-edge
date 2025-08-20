@@ -10,7 +10,7 @@ mod tests {
     use std::sync::Arc;
     use unleash_edge_appstate::AppState;
     use unleash_edge_feature_cache::{FeatureCache, update_projects_from_feature_update};
-    use unleash_edge_feature_filters::{FeatureFilterSet, project_filter};
+    
     use unleash_edge_feature_refresh::{FeatureRefresher, frontend_token_is_covered_by_tokens};
     use unleash_edge_http_client::UnleashClient;
     use unleash_edge_types::TokenValidationStatus::Validated;
