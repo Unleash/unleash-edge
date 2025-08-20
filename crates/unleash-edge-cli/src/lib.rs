@@ -632,7 +632,7 @@ pub struct SentryConfig {
     pub sentry_debug: bool,
 
     #[arg(long, env, global = true)]
-    pub sentry_enable_logs: bool
+    pub sentry_enable_logs: bool,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -690,12 +690,17 @@ impl HttpServerArgs {
         (self.interface.clone(), self.port)
     }
 
-    pub fn http_server_addr(&self) -> String { format!("{}:{}", self.interface.clone(), self.port) }
+    pub fn http_server_addr(&self) -> String {
+        format!("{}:{}", self.interface.clone(), self.port)
+    }
     pub fn https_server_tuple(&self) -> (String, u16) {
         (self.interface.clone(), self.tls.tls_server_port)
     }
     pub fn https_server_socket(&self) -> SocketAddr {
-        SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::from_str(&self.interface.clone()).unwrap(), self.tls.tls_server_port))
+        SocketAddr::V4(SocketAddrV4::new(
+            Ipv4Addr::from_str(&self.interface.clone()).unwrap(),
+            self.tls.tls_server_port,
+        ))
     }
 }
 

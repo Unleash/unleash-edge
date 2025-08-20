@@ -16,12 +16,10 @@ use unleash_edge_types::tokens::EdgeToken;
 use unleash_edge_types::{EdgeJsonResult, EdgeResult, FeatureFilters, TokenCache};
 use unleash_types::client_features::ClientFeaturesDelta;
 
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub struct RevisionId {
     requested_revision_id: u32,
 }
-
 
 impl FromRequestParts<AppState> for RevisionId {
     type Rejection = EdgeError;

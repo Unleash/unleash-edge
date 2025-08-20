@@ -1,14 +1,14 @@
+use crate::CacheContainer;
+use crate::edge_builder::build_caches;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::str::FromStr;
-use unleash_types::client_features::ClientFeatures;
 use unleash_edge_cli::OfflineArgs;
 use unleash_edge_offline::hotload::{load_bootstrap, load_offline_engine_cache};
-use unleash_edge_types::{EdgeResult, TokenType};
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::tokens::EdgeToken;
-use crate::CacheContainer;
-use crate::edge_builder::build_caches;
+use unleash_edge_types::{EdgeResult, TokenType};
+use unleash_types::client_features::ClientFeatures;
 
 pub(crate) fn build_offline_mode(
     client_features: ClientFeatures,

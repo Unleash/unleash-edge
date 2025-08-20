@@ -1,9 +1,9 @@
+use axum_server::tls_rustls::RustlsConfig;
 use rustls::ServerConfig;
 use rustls::pki_types::PrivateKeyDer;
 use rustls_pemfile::{certs, pkcs8_private_keys};
 use std::path::PathBuf;
 use std::{fs, fs::File, io::BufReader};
-use axum_server::tls_rustls::RustlsConfig;
 use tracing::info;
 use unleash_edge_cli::TlsOptions;
 use unleash_edge_types::EdgeResult;
@@ -32,7 +32,11 @@ pub(crate) fn build_upstream_certificate(
         .unwrap_or(Ok(None))
 }
 pub async fn axum_rustls_config(tls_config: TlsOptions) -> EdgeResult<RustlsConfig> {
-    let config = RustlsConfig::from_pem_file(tls_config.tls_server_cert.expect("No TLS server cert"), tls_config.tls_server_key.expect("No TLS Server key")).await;
+    let config = RustlsConfig::from_pem_file(
+        tls_config.tls_server_cert.expect("No TLS server cert"),
+        tls_config.tls_server_key.expect("No TLS Server key"),
+    )
+    .await;
     config.map_err(|e| EdgeError::TlsError(e.to_string()))
 }
 
@@ -50,7 +54,7 @@ pub fn config(tls_config: TlsOptions) -> Result<ServerConfig, EdgeError> {
                 .expect("No TLS server cert")
                 .as_path(),
         )
-            .map_err(|_| EdgeError::TlsError("Failed to open certfile".to_string()))?,
+        .map_err(|_| EdgeError::TlsError("Failed to open certfile".to_string()))?,
     );
     let mut key_file = BufReader::new(
         File::open(tls_config.tls_server_key.expect("No server key").as_path())
@@ -68,8 +72,8 @@ pub fn config(tls_config: TlsOptions) -> Result<ServerConfig, EdgeError> {
 
 #[cfg(test)]
 mod tests {
-    use unleash_edge_cli::TlsOptions;
     use super::*;
+    use unleash_edge_cli::TlsOptions;
 
     #[test]
     pub fn provider_installation_does_not_fail_if_already_installed_by_another_subsystem() {

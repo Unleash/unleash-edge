@@ -1,23 +1,23 @@
 #[cfg(test)]
 mod tests {
-    use chrono::Duration;
-    use dashmap::DashMap;
-    use std::sync::Arc;
     use axum::body::Body;
     use axum::extract::Request;
-    use axum::{http, Router};
-    use axum::http::{StatusCode};
+    use axum::http::StatusCode;
     use axum::http::header::ETAG;
     use axum::response::Response;
     use axum::routing::get;
+    use axum::{Router, http};
     use axum_test::TestServer;
+    use chrono::Duration;
+    use dashmap::DashMap;
     use etag::EntityTag;
-    
+    use std::sync::Arc;
+
     use unleash_types::client_features::{
         ClientFeature, ClientFeatures, ClientFeaturesDelta, Constraint, DeltaEvent, Operator,
         Segment,
     };
-    
+
     use unleash_edge_delta::cache_manager::DeltaCacheManager;
     use unleash_edge_feature_cache::FeatureCache;
     use unleash_edge_feature_refresh::FeatureRefresher;
@@ -29,7 +29,8 @@ mod tests {
     #[tracing_test::traced_test]
     async fn test_delta() {
         let srv = test_features_server().await;
-        let unleash_client = Arc::new(UnleashClient::from_url(srv.server_url("/").unwrap(), None).unwrap());
+        let unleash_client =
+            Arc::new(UnleashClient::from_url(srv.server_url("/").unwrap(), None).unwrap());
         let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let delta_cache_manager: Arc<DeltaCacheManager> = Arc::new(DeltaCacheManager::new());
         let engine_cache: Arc<EngineCache> = Arc::new(DashMap::default());
@@ -143,13 +144,25 @@ mod tests {
     async fn return_client_features_delta(etag_header: Option<String>) -> Response {
         match etag_header {
             Some(value) => match value.as_str() {
-                "\"1\"" => Response::builder().status(StatusCode::OK).header(ETAG, EntityTag::new(false, "2").to_string())
-                    .body(Body::from(serde_json::to_vec(&revision(2)).unwrap())).unwrap(),
-                "\"2\"" => Response::builder().status(StatusCode::NOT_MODIFIED).body(Body::empty()).unwrap(),
-                _ => Response::builder().status(StatusCode::NOT_MODIFIED).body(Body::empty()).unwrap(),
+                "\"1\"" => Response::builder()
+                    .status(StatusCode::OK)
+                    .header(ETAG, EntityTag::new(false, "2").to_string())
+                    .body(Body::from(serde_json::to_vec(&revision(2)).unwrap()))
+                    .unwrap(),
+                "\"2\"" => Response::builder()
+                    .status(StatusCode::NOT_MODIFIED)
+                    .body(Body::empty())
+                    .unwrap(),
+                _ => Response::builder()
+                    .status(StatusCode::NOT_MODIFIED)
+                    .body(Body::empty())
+                    .unwrap(),
             },
-            None => Response::builder().status(StatusCode::OK).header(ETAG, EntityTag::new(false, "1").to_string())
-                .body(Body::from(serde_json::to_vec(&revision(1)).unwrap())).unwrap()
+            None => Response::builder()
+                .status(StatusCode::OK)
+                .header(ETAG, EntityTag::new(false, "1").to_string())
+                .body(Body::from(serde_json::to_vec(&revision(1)).unwrap()))
+                .unwrap(),
         }
     }
 
@@ -162,8 +175,10 @@ mod tests {
     }
 
     async fn test_features_server() -> TestServer {
-        let router = Router::new()
-            .route("/api/client/delta", get(handle_delta));
-        TestServer::builder().http_transport().build(router).unwrap()
+        let router = Router::new().route("/api/client/delta", get(handle_delta));
+        TestServer::builder()
+            .http_transport()
+            .build(router)
+            .unwrap()
     }
 }
