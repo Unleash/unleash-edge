@@ -232,13 +232,13 @@ impl FeatureRefresher {
         match self.get_features_by_filter(&token, filters) {
             Some(features) if self.token_is_subsumed(&token) => Ok(features),
             Some(_features) if !self.token_is_subsumed(&token) => {
-                debug!("Strict behavior: Token is not subsumed by any registered tokens. Returning error");
+                debug!(
+                    "Strict behavior: Token is not subsumed by any registered tokens. Returning error"
+                );
                 Err(EdgeError::InvalidTokenWithStrictBehavior)
             }
             _ => {
-                debug!(
-                    "No features set available. Edge isn't ready"
-                );
+                debug!("No features set available. Edge isn't ready");
                 Err(EdgeError::InvalidTokenWithStrictBehavior)
             }
         }
@@ -443,32 +443,33 @@ impl FeatureRefresher {
 
         let key = cache_key(&refresh.token);
         if let Some(client_features) = self.features_cache.get(&key).as_ref()
-            && let Ok(ClientFeaturesDeltaResponse::Updated(delta_features, _etag)) = delta_result {
-                let c_features = &client_features.features;
-                let d_features = delta_features.events.iter().find_map(|event| {
-                    if let DeltaEvent::Hydration { features, .. } = event {
-                        Some(features)
-                    } else {
-                        None
-                    }
-                });
-
-                let delta_json = serde_json::to_value(d_features).unwrap();
-                let client_json = serde_json::to_value(c_features).unwrap();
-
-                let delta_json_len = delta_json.to_string().len();
-                let client_json_len = client_json.to_string().len();
-
-                if delta_json_len == client_json_len {
-                    info!("The JSON structure lengths are identical.");
+            && let Ok(ClientFeaturesDeltaResponse::Updated(delta_features, _etag)) = delta_result
+        {
+            let c_features = &client_features.features;
+            let d_features = delta_features.events.iter().find_map(|event| {
+                if let DeltaEvent::Hydration { features, .. } = event {
+                    Some(features)
                 } else {
-                    info!("Structural differences found:");
-                    info!("Length of delta_json: {}", delta_json_len);
-                    info!("Length of old_json: {}", client_json_len);
-                    let diff = JsonDiff::diff(&delta_json, &client_json, false);
-                    debug!("{:?}", diff.diff.unwrap());
+                    None
                 }
+            });
+
+            let delta_json = serde_json::to_value(d_features).unwrap();
+            let client_json = serde_json::to_value(c_features).unwrap();
+
+            let delta_json_len = delta_json.to_string().len();
+            let client_json_len = client_json.to_string().len();
+
+            if delta_json_len == client_json_len {
+                info!("The JSON structure lengths are identical.");
+            } else {
+                info!("Structural differences found:");
+                info!("Length of delta_json: {}", delta_json_len);
+                info!("Length of old_json: {}", client_json_len);
+                let diff = JsonDiff::diff(&delta_json, &client_json, false);
+                debug!("{:?}", diff.diff.unwrap());
             }
+        }
     }
 
     pub async fn start_refresh_features_background_task(&self) {

@@ -9,8 +9,8 @@ use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_refresh::FeatureRefresher;
 use unleash_edge_http_client::instance_data::InstanceDataSending;
 use unleash_edge_persistence::EdgePersistence;
-use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
 use unleash_edge_types::metrics::MetricsCache;
+use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
 use unleash_edge_types::{EngineCache, TokenCache};
 use unleash_types::client_metrics::ConnectVia;
 
@@ -177,7 +177,7 @@ impl AppStateBuilder {
             connected_instances: self.connected_instances,
             edge_persistence: self.edge_persistence,
             deny_list: self.deny_list,
-            allow_list: self.allow_list
+            allow_list: self.allow_list,
         }
     }
 }

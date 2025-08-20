@@ -1,3 +1,4 @@
+use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Read};
@@ -5,15 +6,16 @@ use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
-use serde::Deserialize;
 use tracing::warn;
-use unleash_types::client_features::{ClientFeature, ClientFeatures, Strategy, Variant, WeightType};
-use unleash_yggdrasil::{EngineState, UpdateMessage};
 use unleash_edge_cli::OfflineArgs;
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_types::EngineCache;
 use unleash_edge_types::errors::EdgeError;
-use unleash_edge_types::tokens::{cache_key, EdgeToken};
+use unleash_edge_types::tokens::{EdgeToken, cache_key};
+use unleash_types::client_features::{
+    ClientFeature, ClientFeatures, Strategy, Variant, WeightType,
+};
+use unleash_yggdrasil::{EngineState, UpdateMessage};
 
 pub async fn start_hotload_loop(
     features_cache: Arc<FeatureCache>,
@@ -61,10 +63,7 @@ pub fn load_offline_engine_cache(
     engine_cache: Arc<EngineCache>,
     client_features: ClientFeatures,
 ) {
-    features_cache.insert(
-        cache_key(edge_token),
-        client_features.clone(),
-    );
+    features_cache.insert(cache_key(edge_token), client_features.clone());
     let mut engine = EngineState::default();
     let warnings = engine.take_state(UpdateMessage::FullResponse(client_features));
     engine_cache.insert(cache_key(edge_token), engine);
