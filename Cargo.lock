@@ -4604,6 +4604,7 @@ dependencies = [
  "opentelemetry",
  "opentelemetry-otlp",
  "opentelemetry_sdk",
+ "prometheus",
  "reqwest",
  "rustls 0.23.31",
  "rustls-pemfile 2.2.0",
@@ -4896,6 +4897,7 @@ version = "20.0.0"
 dependencies = [
  "axum",
  "chrono",
+ "dashmap",
  "itertools 0.14.0",
  "lazy_static",
  "prometheus",
@@ -4911,6 +4913,7 @@ dependencies = [
  "tracing",
  "tracing-test",
  "ulid",
+ "unleash-edge-http-client",
  "unleash-edge-types",
  "unleash-types",
 ]

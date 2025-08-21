@@ -7,6 +7,7 @@ pub mod client_impact_metrics;
 pub mod client_metrics;
 pub(crate) mod metric_batching;
 pub mod metrics_pusher;
+pub mod send_unleash_metrics;
 
 const EDGE_REQUIREMENT: &str = ">=17.0.0";
 const UNLEASH_REQUIREMENT: &str = ">=5.9.0";

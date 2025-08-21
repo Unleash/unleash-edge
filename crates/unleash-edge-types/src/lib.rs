@@ -2,6 +2,7 @@ use std::cmp::min;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::net::IpAddr;
+use std::pin::Pin;
 use std::sync::Arc;
 use std::{
     collections::HashMap,
@@ -56,6 +57,8 @@ pub type EngineCache = DashMap<String, EngineState>;
 pub fn entity_tag_to_header_value(etag: EntityTag) -> HeaderValue {
     HeaderValue::from_str(&etag.to_string()).expect("Failed to convert ETag to HeaderValue")
 }
+
+pub type BackgroundTask = Pin<Box<dyn Future<Output = ()> + Send>>;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]

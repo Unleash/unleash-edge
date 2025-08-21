@@ -1,4 +1,5 @@
 use reqwest::{StatusCode, Url};
+use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -83,58 +84,63 @@ pub async fn send_instance_data(
         .post_edge_observability_data(observed_data, &instance_data_sender.token)
         .await
 }
-pub async fn loop_send_instance_data(
+
+pub fn create_send_instance_data_task(
     instance_data_sender: Arc<InstanceDataSending>,
     our_instance_data: Arc<EdgeInstanceData>,
     downstream_instance_data: Arc<RwLock<Vec<EdgeInstanceData>>>,
-) {
+) -> Pin<Box<dyn Future<Output = ()> + Send>> {
     let mut errors = 0;
     let delay = std::time::Duration::from_secs(60);
-    loop {
-        tokio::time::sleep(std::time::Duration::from_secs(60) + delay * std::cmp::min(errors, 10))
+    Box::pin(async move {
+        loop {
+            tokio::time::sleep(
+                std::time::Duration::from_secs(60) + delay * std::cmp::min(errors, 10),
+            )
             .await;
-        match instance_data_sender.as_ref() {
-            InstanceDataSending::SendNothing => {
-                debug!("No instance data sender found. Doing nothing.");
-                continue;
-            }
-            InstanceDataSending::SendInstanceData(instance_data_sender) => {
-                let status = send_instance_data(
-                    instance_data_sender,
-                    our_instance_data.clone(),
-                    downstream_instance_data.clone(),
-                )
-                .await;
-                if let Err(e) = status {
-                    match e {
-                        EdgeError::EdgeMetricsRequestError(status, _) => {
-                            if status == StatusCode::NOT_FOUND {
-                                debug!(
-                                    "Our upstream is not running a version that supports edge metrics."
-                                );
-                                errors += 1;
-                                downstream_instance_data.write().await.clear();
-                                our_instance_data.clear_time_windowed_metrics();
-                            } else if status == StatusCode::FORBIDDEN {
-                                warn!(
-                                    "Upstream edge metrics said our token wasn't allowed to post data"
-                                );
-                                errors += 1;
-                                downstream_instance_data.write().await.clear();
-                                our_instance_data.clear_time_windowed_metrics();
+            match instance_data_sender.as_ref() {
+                InstanceDataSending::SendNothing => {
+                    debug!("No instance data sender found. Doing nothing.");
+                    continue;
+                }
+                InstanceDataSending::SendInstanceData(instance_data_sender) => {
+                    let status = send_instance_data(
+                        instance_data_sender,
+                        our_instance_data.clone(),
+                        downstream_instance_data.clone(),
+                    )
+                    .await;
+                    if let Err(e) = status {
+                        match e {
+                            EdgeError::EdgeMetricsRequestError(status, _) => {
+                                if status == StatusCode::NOT_FOUND {
+                                    debug!(
+                                        "Our upstream is not running a version that supports edge metrics."
+                                    );
+                                    errors += 1;
+                                    downstream_instance_data.write().await.clear();
+                                    our_instance_data.clear_time_windowed_metrics();
+                                } else if status == StatusCode::FORBIDDEN {
+                                    warn!(
+                                        "Upstream edge metrics said our token wasn't allowed to post data"
+                                    );
+                                    errors += 1;
+                                    downstream_instance_data.write().await.clear();
+                                    our_instance_data.clear_time_windowed_metrics();
+                                }
+                            }
+                            _ => {
+                                warn!("Failed to post instance data due to unknown error {e:?}");
                             }
                         }
-                        _ => {
-                            warn!("Failed to post instance data due to unknown error {e:?}");
-                        }
+                    } else {
+                        debug!("Successfully posted observability metrics.");
+                        errors = 0;
+                        downstream_instance_data.write().await.clear();
+                        our_instance_data.clear_time_windowed_metrics();
                     }
-                } else {
-                    debug!("Successfully posted observability metrics.");
-                    errors = 0;
-                    downstream_instance_data.write().await.clear();
-                    our_instance_data.clear_time_windowed_metrics();
                 }
             }
         }
-    }
+    })
 }
