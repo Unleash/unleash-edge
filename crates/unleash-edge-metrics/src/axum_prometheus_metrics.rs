@@ -11,11 +11,10 @@ use std::sync::{LazyLock, Mutex};
 use std::task::{Context, Poll};
 use std::time::Instant;
 use tower::{Layer, Service};
+use unleash_edge_types::metrics::HTTP_REQUESTS_DURATION;
+use unleash_edge_types::metrics::HTTP_REQUESTS_TOTAL;
+use unleash_edge_types::metrics::HTTP_RESPONSE_SIZE;
 
-pub const HTTP_REQUESTS_TOTAL: &str = "http_requests_total";
-pub const HTTP_REQUESTS_DURATION: &str = "http_requests_duration_seconds";
-pub const HTTP_REQUESTS_PENDING: &str = "http_requests_pending";
-pub const HTTP_RESPONSE_SIZE: &str = "http_response_body_size";
 pub const ENDPOINT_LABEL: &str = "endpoint";
 pub const METHOD_LABEL: &str = "method";
 pub const STATUS_LABEL: &str = "status";
@@ -52,7 +51,7 @@ static HTTP_RESPONSE_BODY_SIZE: LazyLock<HistogramVec> = LazyLock::new(|| {
 
 static HTTP_REQUESTS_PENDING_METRIC: LazyLock<GaugeVec> = LazyLock::new(|| {
     register_gauge_vec!(
-        HTTP_REQUESTS_PENDING,
+        HTTP_REQUESTS_DURATION,
         "Number of pending HTTP requests",
         &[METHOD_LABEL, ENDPOINT_LABEL]
     )
