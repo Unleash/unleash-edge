@@ -12,6 +12,7 @@ use std::task::{Context, Poll};
 use std::time::Instant;
 use tower::{Layer, Service};
 use unleash_edge_types::metrics::HTTP_REQUESTS_DURATION;
+use unleash_edge_types::metrics::HTTP_REQUESTS_PENDING;
 use unleash_edge_types::metrics::HTTP_REQUESTS_TOTAL;
 use unleash_edge_types::metrics::HTTP_RESPONSE_SIZE;
 
@@ -51,7 +52,7 @@ static HTTP_RESPONSE_BODY_SIZE: LazyLock<HistogramVec> = LazyLock::new(|| {
 
 static HTTP_REQUESTS_PENDING_METRIC: LazyLock<GaugeVec> = LazyLock::new(|| {
     register_gauge_vec!(
-        HTTP_REQUESTS_DURATION,
+        HTTP_REQUESTS_PENDING,
         "Number of pending HTTP requests",
         &[METHOD_LABEL, ENDPOINT_LABEL]
     )
