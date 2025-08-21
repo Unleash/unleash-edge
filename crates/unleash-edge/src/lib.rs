@@ -1,7 +1,7 @@
 use crate::edge_builder::build_edge_state;
 use crate::offline_builder::build_offline_app_state;
 use axum::Router;
-use axum::middleware::from_fn_with_state;
+use axum::middleware::{from_fn, from_fn_with_state};
 use axum::routing::get;
 use chrono::Duration;
 use std::env;
@@ -109,7 +109,8 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<Router> {
                 .layer(from_fn_with_state(
                     app_state.clone(),
                     middleware::consumption::connection_consumption,
-                )),
+                ))
+                .layer(from_fn(middleware::etag::etag_middleware)),
         );
 
     let top_router: Router = Router::new()
