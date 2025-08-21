@@ -51,7 +51,6 @@ pub struct FeatureRefresher {
     pub engine_cache: Arc<DashMap<String, EngineState>>,
     pub refresh_interval: chrono::Duration,
     pub persistence: Option<Arc<dyn EdgePersistence>>,
-    pub strict: bool,
     pub streaming: bool,
     pub client_meta_information: ClientMetaInformation,
     pub delta: bool,
@@ -68,7 +67,6 @@ impl Default for FeatureRefresher {
             delta_cache_manager: Arc::new(DeltaCacheManager::new()),
             engine_cache: Default::default(),
             persistence: None,
-            strict: true,
             streaming: false,
             client_meta_information: Default::default(),
             delta: false,
@@ -102,16 +100,9 @@ fn client_application_from_token_and_name(
     }
 }
 
-#[derive(Eq, PartialEq)]
-pub enum FeatureRefresherMode {
-    Dynamic,
-    Streaming,
-    Strict,
-}
-
 pub struct FeatureRefreshConfig {
     features_refresh_interval: chrono::Duration,
-    mode: FeatureRefresherMode,
+    streaming: bool,
     client_meta_information: ClientMetaInformation,
     delta: bool,
     delta_diff: bool,
@@ -120,14 +111,14 @@ pub struct FeatureRefreshConfig {
 impl FeatureRefreshConfig {
     pub fn new(
         features_refresh_interval: chrono::Duration,
-        mode: FeatureRefresherMode,
+        streaming: bool,
         client_meta_information: ClientMetaInformation,
         delta: bool,
         delta_diff: bool,
     ) -> Self {
         Self {
             features_refresh_interval,
-            mode,
+            streaming,
             client_meta_information,
             delta,
             delta_diff,
@@ -152,8 +143,7 @@ impl FeatureRefresher {
             engine_cache: engines,
             refresh_interval: config.features_refresh_interval,
             persistence,
-            strict: config.mode != FeatureRefresherMode::Dynamic,
-            streaming: config.mode == FeatureRefresherMode::Streaming,
+            streaming: config.streaming,
             client_meta_information: config.client_meta_information,
             delta: config.delta,
             delta_diff: config.delta_diff,
@@ -233,13 +223,13 @@ impl FeatureRefresher {
             Some(features) if self.token_is_subsumed(&token) => Ok(features),
             Some(_features) if !self.token_is_subsumed(&token) => {
                 debug!(
-                    "Strict behavior: Token is not subsumed by any registered tokens. Returning error"
+                    "Token is not subsumed by any registered tokens. Returning error"
                 );
-                Err(EdgeError::InvalidTokenWithStrictBehavior)
+                Err(EdgeError::InvalidToken)
             }
             _ => {
                 debug!("No features set available. Edge isn't ready");
-                Err(EdgeError::InvalidTokenWithStrictBehavior)
+                Err(EdgeError::InvalidToken)
             }
         }
     }
@@ -255,9 +245,9 @@ impl FeatureRefresher {
             Some(features) if self.token_is_subsumed(&token) => Ok(features),
             _ => {
                 debug!(
-                    "Strict behavior: Token is not subsumed by any registered tokens. Returning error"
+                    "Token is not subsumed by any registered tokens. Returning error"
                 );
-                Err(EdgeError::InvalidTokenWithStrictBehavior)
+                Err(EdgeError::InvalidToken)
             }
         }
     }

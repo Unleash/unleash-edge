@@ -198,14 +198,6 @@ Run in edge mode
 
   Default value: `2000`
 * `--s3-bucket-name <S3_BUCKET_NAME>` — Bucket name to use for storing feature and token data
-* `--strict` — If set to true, Edge starts with strict behavior. Strict behavior means that Edge will refuse tokens
-  outside the scope of the startup tokens
-
-  Default value: `false`
-* `--dynamic` — If set to true, Edge starts with dynamic behavior. Dynamic behavior means that Edge will accept tokens
-  outside the scope of the startup tokens
-
-  Default value: `false`
 * `--prometheus-remote-write-url <PROMETHEUS_REMOTE_WRITE_URL>` — Sets a remote write url for prometheus metrics, if
   this is set, prometheus metrics will be written upstream
 * `--prometheus-push-interval <PROMETHEUS_PUSH_INTERVAL>` — Sets the interval for prometheus push metrics, only relevant
