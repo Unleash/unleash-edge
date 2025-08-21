@@ -232,13 +232,13 @@ impl FeatureRefresher {
         match self.get_features_by_filter(&token, &filters) {
             Some(features) if self.token_is_subsumed(&token) => Ok(features),
             Some(_features) if !self.token_is_subsumed(&token) => {
-                debug!("Strict behavior: Token is not subsumed by any registered tokens. Returning error");
+                debug!(
+                    "Strict behavior: Token is not subsumed by any registered tokens. Returning error"
+                );
                 Err(EdgeError::InvalidTokenWithStrictBehavior)
             }
             _ => {
-                debug!(
-                    "No features set available. Edge isn't ready"
-                );
+                debug!("No features set available. Edge isn't ready");
                 Err(EdgeError::InvalidTokenWithStrictBehavior)
             }
         }
@@ -473,16 +473,10 @@ impl FeatureRefresher {
     }
 
     pub async fn start_refresh_features_background_task(&self) {
-        if self.streaming {
-            loop {
-                tokio::time::sleep(Duration::from_secs(3600)).await;
-            }
-        } else {
-            loop {
-                tokio::select! {
-                    _ = tokio::time::sleep(Duration::from_secs(5)) => {
-                        self.refresh_features().await;
-                    }
+        loop {
+            tokio::select! {
+                _ = tokio::time::sleep(Duration::from_secs(5)) => {
+                    self.refresh_features().await;
                 }
             }
         }

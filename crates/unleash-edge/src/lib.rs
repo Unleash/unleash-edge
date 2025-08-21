@@ -1,30 +1,36 @@
 use crate::edge_builder::build_edge;
 use crate::offline_builder::build_offline;
-use axum::middleware::from_fn_with_state;
 use axum::Router;
+use axum::middleware::from_fn_with_state;
+use axum::routing::get;
 use chrono::Duration;
 use std::env;
+use std::pin::Pin;
 use std::sync::{Arc, LazyLock};
-use axum::routing::get;
+use tokio::sync::RwLock;
 use tower::ServiceBuilder;
 use ulid::Ulid;
 use unleash_edge_appstate::AppState;
 use unleash_edge_auth::token_validator::TokenValidator;
-use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeMode};
+use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeArgs, EdgeMode};
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_refresh::FeatureRefresher;
-use unleash_edge_http_client::instance_data::InstanceDataSending;
-use unleash_edge_http_client::{new_reqwest_client, ClientMetaInformation, HttpClientArgs};
-use unleash_edge_metrics::axum_prometheus_metrics::{render_prometheus_metrics, PrometheusAxumLayer};
-use unleash_edge_persistence::EdgePersistence;
+use unleash_edge_http_client::instance_data::{InstanceDataSending, loop_send_instance_data};
+use unleash_edge_http_client::{new_reqwest_client, ClientMetaInformation, HttpClientArgs, UnleashClient};
+use unleash_edge_metrics::axum_prometheus_metrics::{
+    PrometheusAxumLayer, render_prometheus_metrics,
+};
+use unleash_edge_metrics::{metrics_pusher, send_unleash_metrics};
+use unleash_edge_persistence::{EdgePersistence, persist_data};
+use unleash_edge_types::metrics::MetricsCache;
 use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
 use unleash_edge_types::{EdgeResult, EngineCache, TokenCache};
 
-mod middleware;
 pub mod edge_builder;
-pub mod offline_builder;
 pub mod health_checker;
+mod middleware;
+pub mod offline_builder;
 pub mod ready_checker;
 pub mod tls;
 pub mod tracing;
@@ -84,7 +90,7 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<Router> {
                 client.clone(),
                 deferred_validation_tx,
             )
-                .await?;
+            .await?;
             let instance_data_sender: Arc<InstanceDataSending> =
                 Arc::new(InstanceDataSending::from_args(
                     args.clone(),
@@ -96,9 +102,8 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<Router> {
             (caches, instance_data_sender, deferred_validation_rx)
         }
         EdgeMode::Offline(offline_args) => {
-            let caches =
-                build_offline(offline_args.clone())
-                    .map(|cache| (cache, Arc::new(None), Arc::new(None), None))?;
+            let caches = build_offline(offline_args.clone())
+                .map(|cache| (cache, Arc::new(None), Arc::new(None), None))?;
             (caches, Arc::new(InstanceDataSending::SendNothing), None)
         }
         _ => unreachable!(),
@@ -122,26 +127,156 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<Router> {
         .with_edge_instance_data(edge_instance_data)
         .build();
     let api_router = Router::new()
-            .nest("/client", unleash_edge_client_api::router())
-            .merge(unleash_edge_frontend_api::router(args.disable_all_endpoint))
-            .layer(ServiceBuilder::new()
-                       .layer(from_fn_with_state(app_state.clone(), middleware::validate_token::validate_token))
-                       .layer(from_fn_with_state(app_state.clone(), middleware::consumption::connection_consumption))
-            );
+        .nest("/client", unleash_edge_client_api::router())
+        .merge(unleash_edge_frontend_api::router(args.disable_all_endpoint))
+        .layer(
+            ServiceBuilder::new()
+                .layer(from_fn_with_state(
+                    app_state.clone(),
+                    middleware::validate_token::validate_token,
+                ))
+                .layer(from_fn_with_state(
+                    app_state.clone(),
+                    middleware::consumption::connection_consumption,
+                )),
+        );
 
     let top_router: Router = Router::new()
         .nest("/api", api_router)
         .nest("/edge", unleash_edge_edge_api::router())
-        .nest("/internal-backstage", Router::new()
-                        .route("/metrics", get(render_prometheus_metrics))
-                        .merge(unleash_edge_backstage::router(args.internal_backstage))
+        .nest(
+            "/internal-backstage",
+            Router::new()
+                .route("/metrics", get(render_prometheus_metrics))
+                .merge(unleash_edge_backstage::router(args.internal_backstage)),
         )
-        .layer(ServiceBuilder::new()
-            .layer(metrics_middleware)
-            .layer(args.http.cors.middleware())
-            .layer(from_fn_with_state(app_state.clone(), middleware::deny_list::deny_middleware))
-            .layer(from_fn_with_state(app_state.clone(), middleware::allow_list::allow_middleware))
+        .layer(
+            ServiceBuilder::new()
+                .layer(metrics_middleware)
+                .layer(args.http.cors.middleware())
+                .layer(from_fn_with_state(
+                    app_state.clone(),
+                    middleware::deny_list::deny_middleware,
+                ))
+                .layer(from_fn_with_state(
+                    app_state.clone(),
+                    middleware::allow_list::allow_middleware,
+                )),
         )
         .with_state(app_state);
     Ok(top_router)
+}
+
+fn spawn_background_tasks(
+    edge: EdgeArgs,
+    client_meta_information: ClientMetaInformation,
+    feature_refresher: Arc<FeatureRefresher>,
+    persistence: Option<Arc<dyn EdgePersistence>>,
+    lazy_token_cache: Arc<TokenCache>,
+    lazy_feature_cache: Arc<FeatureCache>,
+    validator: Arc<TokenValidator>,
+    lazy_feature_refresher: Option<Arc<FeatureRefresher>>,
+    http_client: reqwest::Client,
+    registry: prometheus::Registry,
+    app_name: String,
+    instance_data_sender: Arc<InstanceDataSending>,
+    edge_instance_data: Arc<EdgeInstanceData>,
+    instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>>,
+    metrics_cache_clone: Arc<MetricsCache>,
+    token_cache: Arc<TokenCache>,
+    unleash_client: Arc<UnleashClient>,
+) {
+    tokio::spawn(spawn_fetch_task(
+        &edge,
+        client_meta_information,
+        feature_refresher,
+    ));
+
+    tokio::spawn(async move {
+        send_unleash_metrics::send_metrics_task(
+            metrics_cache_clone.clone(),
+            unleash_client,
+            token_cache.clone(),
+            edge.metrics_interval_seconds.try_into().unwrap(),
+        )
+        .await;
+    });
+    tokio::spawn(async move {
+        persist_data(
+            persistence.clone(),
+            lazy_token_cache.clone(),
+            lazy_feature_cache.clone(),
+        )
+        .await;
+    });
+
+    let validator_clone = validator.clone();
+    tokio::spawn(async move {
+        validator_clone
+            .schedule_validation_of_known_tokens(edge.token_revalidation_interval_seconds)
+            .await
+    });
+
+    let validator = validator.clone();
+    tokio::spawn(async move {
+        validator
+            .schedule_revalidation_of_startup_tokens(
+                edge.tokens.clone(),
+                lazy_feature_refresher.clone(),
+            )
+            .await
+    });
+
+    tokio::spawn(async move {
+        metrics_pusher::prometheus_remote_write(
+            http_client,
+            registry,
+            edge.prometheus_remote_write_url.clone(),
+            edge.prometheus_push_interval,
+            app_name,
+        )
+        .await
+    });
+
+    tokio::spawn(async move {
+        loop_send_instance_data(
+            instance_data_sender.clone(),
+            edge_instance_data.clone(),
+            instances_observed_for_app_context.clone(),
+        )
+    });
+}
+
+fn spawn_fetch_task(
+    edge: &EdgeArgs,
+    client_meta_information: ClientMetaInformation,
+    feature_refresher: Arc<FeatureRefresher>,
+) -> Pin<Box<dyn Future<Output = ()> + Send>> {
+    let refresher_for_background = feature_refresher.clone();
+
+    if edge.streaming {
+        let custom_headers = edge.custom_client_headers.clone();
+        if edge.delta {
+            Box::pin(async move {
+                let _ = refresher_for_background
+                    .start_streaming_delta_background_task(client_meta_information, custom_headers)
+                    .await;
+            })
+        } else {
+            Box::pin(async move {
+                let _ = refresher_for_background
+                    .start_streaming_features_background_task(
+                        client_meta_information,
+                        custom_headers,
+                    )
+                    .await;
+            })
+        }
+    } else {
+        Box::pin(async move {
+            feature_refresher
+                .start_refresh_features_background_task()
+                .await;
+        })
+    }
 }

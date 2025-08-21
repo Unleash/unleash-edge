@@ -9,6 +9,7 @@ edition.workspace = true
 [dependencies]
 axum = { workspace = true }
 chrono = { workspace = true }
+dashmap = { workspace = true }
 itertools = {workspace = true}
 lazy_static = { workspace = true }
 prometheus = { workspace = true }
@@ -22,6 +23,7 @@ tower = { workspace = true }
 tracing = { workspace = true }
 ulid = { workspace = true }
 unleash-types = { workspace = true }
+unleash-edge-http-client = { path = "../unleash-edge-http-client" }
 unleash-edge-types = { path = "../unleash-edge-types" }
 
 [dev-dependencies]
