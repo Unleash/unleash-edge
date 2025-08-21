@@ -12,7 +12,7 @@ use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
 use unleash_edge_types::tokens::{EdgeToken, anonymize_token};
 use unleash_edge_types::{
     BuildInfo, ClientMetric, EdgeJsonResult, MetricsInfo, Status, TokenCache, TokenInfo,
-    TokenRefresh,
+    TokenRefresh, TokenValidationStatus,
 };
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ClientApplication;
@@ -80,12 +80,26 @@ fn get_token_info(app_state: AppState) -> TokenInfo {
         .unwrap()
         .token_cache
         .iter()
+        .filter(|t| {
+            t.status == TokenValidationStatus::Validated
+                || t.status == TokenValidationStatus::Trusted
+        })
         .map(|e| e.value().clone())
         .map(|t| anonymize_token(&t))
         .collect();
+    let invalid_token_count = (*app_state.token_validator)
+        .clone()
+        .unwrap()
+        .token_cache
+        .iter()
+        .filter(|t| {
+            t.status == TokenValidationStatus::Invalid || t.status == TokenValidationStatus::Unknown
+        })
+        .count();
     TokenInfo {
         token_refreshes: refreshes,
         token_validation_status,
+        invalid_token_count,
     }
 }
 
@@ -98,6 +112,7 @@ fn get_offline_token_info(token_cache: Arc<TokenCache>) -> TokenInfo {
     TokenInfo {
         token_refreshes: vec![],
         token_validation_status: edge_tokens,
+        invalid_token_count: 0,
     }
 }
 
@@ -160,7 +175,7 @@ pub fn router(internal_backstage_args: InternalBackstageArgs) -> Router<AppState
     if !internal_backstage_args.disable_metrics_batch_endpoint {
         router = router.route("/metricsbatch", get(metrics_batch));
     }
-    if internal_backstage_args.disable_instance_data_endpoint {
+    if !internal_backstage_args.disable_instance_data_endpoint {
         router = router.route("/instancedata", get(instance_data));
     }
     router

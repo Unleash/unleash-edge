@@ -421,6 +421,7 @@ pub struct FeatureFilters {
 pub struct TokenInfo {
     pub token_refreshes: Vec<TokenRefresh>,
     pub token_validation_status: Vec<EdgeToken>,
+    pub invalid_token_count: usize,
 }
 
 #[derive(Debug, Clone, Eq, Deserialize, Serialize, ToSchema)]

@@ -3,8 +3,6 @@ resolver = "3"
 
 members = ["crates/*"]
 
-repository = "https://github.com/Unleash/unleash-edge"
-
 [workspace.package]
 version = "20.0.0"
 authors = [
@@ -66,7 +64,7 @@ test-case = { version = "3.3.1" }
 tokio = { version = "1.47.1", features = ["macros", "rt-multi-thread", "tracing", "fs"] }
 tokio-rustls = { version = "0.26.2" }
 tower = { version = "0.5.2" }
-tower-http = { version = "0.6.6", features = ["cors", "normalize-path", "tracing"] }
+tower-http = { version = "0.6.6", features = ["cors", "normalize-path", "tracing", "compression-gzip", "compression-zstd"] }
 tracing = { version = "0.1.41" }
 tracing-opentelemetry = { version = "0.31.0", features = ["metrics"] }
 tracing-subscriber = { version = "0.3.19", features = ["env-filter", "json"] }
