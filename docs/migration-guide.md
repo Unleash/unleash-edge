@@ -123,7 +123,7 @@ details have changed.
     ```
 
   This will start Edge in offline mode and set the initial feature set to the contents of the `features.json` file. Edge
-  will not send metrics to upstream Unleash instances, update its feature information, or dynamically resolve tokens.
+  will not send metrics to upstream Unleash instances, update its feature information, or have access to other advanced features.
   Note that you must set a token or tokens on startup in this mode - Edge will only use this set of tokens to validate
   incoming requests, this doesn't have to be a valid Unleash token, so this is very similar to the original proxy
   tokens.
@@ -152,7 +152,3 @@ However, there are a few notable differences between the Unleash Proxy and Unlea
 - All your Unleash environments can be handled by a single instance, no more running multiple instances of the Unleash
   Proxy to handle both your development and production environments.
 - Backend SDKs can connect to Unleash Edge without turning on experimental feature flags.
-- Unleash Edge is smart enough to dynamically resolve the tokens you use to connect to it against the upstream Unleash
-  instance. This means you don't have to worry about knowing in advance what tokens your SDKs use - if you want to swap
-  out the Unleash token your SDK uses, this can be done without ever restarting or worrying about Unleash Edge. Unleash
-  Edge will only collect and cache data for the environments and projects you use.

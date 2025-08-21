@@ -33,7 +33,7 @@ pub struct TokenValidator {
 }
 
 pub trait TokenRegister {
-    async fn register_token(&self, token: String) -> EdgeResult<EdgeToken>;
+    fn register_token(&self, token: String) -> impl Future<Output = EdgeResult<EdgeToken>> + Send;
 }
 
 impl TokenRegister for TokenValidator {

@@ -5,7 +5,6 @@ use axum::response::Response;
 use reqwest::StatusCode;
 use std::net::SocketAddr;
 use unleash_edge_appstate::AppState;
-use unleash_edge_types::ClientIp;
 
 pub async fn deny_middleware(
     state: State<AppState>,

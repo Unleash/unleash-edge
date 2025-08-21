@@ -12,18 +12,18 @@ mod tests {
     use dashmap::DashMap;
     use etag::EntityTag;
     use std::sync::Arc;
-    use tracing::info;
-    use unleash_edge_delta::cache_manager::DeltaCacheManager;
-    use unleash_edge_feature_cache::FeatureCache;
-    use unleash_edge_feature_refresh::FeatureRefresher;
-    use unleash_edge_http_client::{ClientMetaInformation, UnleashClient};
-    use unleash_edge_types::tokens::EdgeToken;
-    use unleash_edge_types::{EdgeResult, EngineCache};
+
     use unleash_types::client_features::{
         ClientFeature, ClientFeatures, ClientFeaturesDelta, Constraint, DeltaEvent, Operator,
         Segment,
     };
-    use unleash_yggdrasil::EngineState;
+
+    use unleash_edge_delta::cache_manager::DeltaCacheManager;
+    use unleash_edge_feature_cache::FeatureCache;
+    use unleash_edge_feature_refresh::FeatureRefresher;
+    use unleash_edge_http_client::{ClientMetaInformation, UnleashClient};
+    use unleash_edge_types::EngineCache;
+    use unleash_edge_types::tokens::EdgeToken;
 
     #[tokio::test]
     #[tracing_test::traced_test]
@@ -43,7 +43,6 @@ mod tests {
             engine_cache: engine_cache.clone(),
             refresh_interval: Duration::seconds(6000),
             persistence: None,
-            strict: false,
             streaming: false,
             delta: true,
             delta_diff: false,

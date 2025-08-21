@@ -126,7 +126,7 @@ pub enum EdgeError {
     InvalidBackupFile(String, String),
     InvalidServerUrl(String),
     InvalidEtag,
-    InvalidTokenWithStrictBehavior,
+    InvalidToken,
     JsonParseError(String),
     NoFeaturesFile,
     NoTokenProvider,
@@ -231,9 +231,9 @@ impl Display for EdgeError {
             EdgeError::NotReady => {
                 write!(f, "Edge is not ready to serve requests")
             }
-            EdgeError::InvalidTokenWithStrictBehavior => write!(
+            EdgeError::InvalidToken => write!(
                 f,
-                "Edge is running with strict behavior and the token is not subsumed by any registered tokens"
+                "The token is not subsumed by any registered tokens"
             ),
             EdgeError::SseError(message) => write!(f, "{}", message),
             EdgeError::Forbidden(reason) => write!(f, "{}", reason),
@@ -244,7 +244,7 @@ impl Display for EdgeError {
 impl IntoResponse for EdgeError {
     fn into_response(self) -> Response {
         match self.clone() {
-            EdgeError::InvalidTokenWithStrictBehavior => Response::builder().status(self.status_code()).body(Body::empty()),
+            EdgeError::InvalidToken => Response::builder().status(self.status_code()).body(Body::empty()),
             EdgeError::SseError(_) => Response::builder().status(self.status_code()).body(Body::empty()),
             EdgeError::Forbidden(_) => Response::builder().status(self.status_code()).body(Body::empty()),
             EdgeError::AuthorizationDenied => Response::builder().status(self.status_code()).body(Body::empty()),
@@ -329,7 +329,7 @@ impl EdgeError {
             EdgeError::ClientCacheError => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::FrontendExpectedToBeHydrated(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::NotReady => StatusCode::SERVICE_UNAVAILABLE,
-            EdgeError::InvalidTokenWithStrictBehavior => StatusCode::FORBIDDEN,
+            EdgeError::InvalidToken => StatusCode::FORBIDDEN,
             EdgeError::SseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::Forbidden(_) => StatusCode::FORBIDDEN,
             &EdgeError::InvalidEtag => StatusCode::BAD_REQUEST,

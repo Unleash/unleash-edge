@@ -219,20 +219,16 @@ pub struct EdgeArgs {
     #[clap(flatten)]
     pub s3: Option<S3Args>,
 
-    /// If set to true, Edge starts with strict behavior. Strict behavior means that Edge will refuse tokens outside the scope of the startup tokens
-    #[clap(long, env, default_value_t = true)]
-    pub strict: bool,
-
-    /// If set to true, Edge connects to upstream using streaming instead of polling. This is an experimental feature and may change. Changes to this feature may not follow semantic versioning. Requires strict mode
-    #[clap(long, env, default_value_t = false, requires = "strict", hide = true)]
+    /// If set to true, Edge connects to upstream using streaming instead of polling. This is an experimental feature and may change. Changes to this feature may not follow semantic versioning.
+    #[clap(long, env, default_value_t = false, hide = true)]
     pub streaming: bool,
 
-    /// If set to true, Edge connects to upstream using delta polling instead of normal polling. This is an experimental feature and may change. Changes to this feature may not follow semantic versioning. Requires strict mode
-    #[clap(long, env, default_value_t = false, requires = "strict", hide = true)]
+    /// If set to true, Edge connects to upstream using delta polling instead of normal polling. This is an experimental feature and may change. Changes to this feature may not follow semantic versioning.
+    #[clap(long, env, default_value_t = false, hide = true)]
     pub delta: bool,
 
-    /// If set to true, Edge will track and report consumption metrics. This is an experimental feature and may change. Changes to this feature may not follow semantic versioning. Requires strict mode
-    #[clap(long, env, default_value_t = false, requires = "strict", hide = true)]
+    /// If set to true, Edge will track and report consumption metrics. This is an experimental feature and may change. Changes to this feature may not follow semantic versioning.
+    #[clap(long, env, default_value_t = false, hide = true)]
     pub consumption: bool,
 
     /// Sets the keep-alive timeout for connections from Edge to upstream
