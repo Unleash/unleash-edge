@@ -234,7 +234,7 @@ pub async fn build_edge(
     ))
 }
 
-pub async fn build_edge_app_state(
+pub async fn build_edge_state(
     args: CliArgs,
     edge_args: &EdgeArgs,
     client_meta_information: ClientMetaInformation,

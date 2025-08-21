@@ -1,4 +1,4 @@
-use crate::edge_builder::build_edge_app_state;
+use crate::edge_builder::build_edge_state;
 use crate::offline_builder::build_offline_app_state;
 use axum::Router;
 use axum::middleware::from_fn_with_state;
@@ -75,7 +75,7 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<Router> {
 
             let auth_headers = AuthHeaders::from(&args);
 
-            build_edge_app_state(
+            build_edge_state(
                 args.clone(),
                 &edge_args,
                 client_meta_information,
@@ -92,6 +92,10 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<Router> {
         }
         _ => unreachable!(),
     };
+
+    for task in background_tasks {
+        tokio::spawn(task);
+    }
 
     let api_router = Router::new()
         .nest("/client", unleash_edge_client_api::router())
