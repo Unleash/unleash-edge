@@ -25,6 +25,7 @@ use unleash_edge_metrics::metrics_pusher::create_prometheus_write_task;
 use unleash_edge_metrics::send_unleash_metrics::create_send_metrics_task;
 use unleash_edge_persistence::file::FilePersister;
 use unleash_edge_persistence::redis::RedisPersister;
+#[cfg(feature = "s3-persistence")]
 use unleash_edge_persistence::s3::s3_persister::S3Persister;
 use unleash_edge_persistence::{EdgePersistence, create_persist_data_task};
 use unleash_edge_types::errors::EdgeError;
