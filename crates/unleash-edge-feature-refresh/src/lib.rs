@@ -463,16 +463,10 @@ impl FeatureRefresher {
     }
 
     pub async fn start_refresh_features_background_task(&self) {
-        if self.streaming {
-            loop {
-                tokio::time::sleep(Duration::from_secs(3600)).await;
-            }
-        } else {
-            loop {
-                tokio::select! {
-                    _ = tokio::time::sleep(Duration::from_secs(5)) => {
-                        self.refresh_features().await;
-                    }
+        loop {
+            tokio::select! {
+                _ = tokio::time::sleep(Duration::from_secs(5)) => {
+                    self.refresh_features().await;
                 }
             }
         }
@@ -483,14 +477,12 @@ impl FeatureRefresher {
             if self.delta {
                 self.refresh_single_delta(hydration).await;
             } else {
-                info!("Refreshing {hydration:?}");
                 self.refresh_single(hydration).await;
             }
         }
     }
     pub async fn refresh_features(&self) {
         let refreshes = self.get_tokens_due_for_refresh();
-        info!("{:#?}", refreshes);
         for refresh in refreshes {
             if self.delta {
                 self.refresh_single_delta(refresh).await;
@@ -543,7 +535,6 @@ impl FeatureRefresher {
                 interval: Some(self.refresh_interval.num_milliseconds()),
             })
             .await;
-        info!("Refreshing {refresh:?}");
         match features_result {
             Ok(feature_response) => match feature_response {
                 ClientFeaturesResponse::NoUpdate(tag) => {
