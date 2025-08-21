@@ -26,6 +26,7 @@ pub mod edge_builder;
 pub mod health_checker;
 mod middleware;
 pub mod offline_builder;
+mod prometheus;
 pub mod ready_checker;
 pub mod tls;
 pub mod tracing;
@@ -59,7 +60,8 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<Router> {
     };
     let instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>> =
         Arc::new(RwLock::new(Vec::new()));
-    let metrics_middleware = PrometheusAxumLayer::new();
+    let registry = prometheus::instantiate_registry();
+    let metrics_middleware = PrometheusAxumLayer::new_with_registry(registry);
 
     let (app_state, background_tasks) = match &args.mode {
         EdgeMode::Edge(edge_args) => {
