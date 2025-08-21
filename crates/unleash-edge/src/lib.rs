@@ -11,18 +11,26 @@ use tokio::sync::RwLock;
 use tower::ServiceBuilder;
 use ulid::Ulid;
 use unleash_edge_appstate::AppState;
-use unleash_edge_auth::token_validator::TokenValidator;
+use unleash_edge_auth::token_validator::{
+    TokenValidator, create_revalidation_of_startup_tokens_task, create_revalidation_task,
+};
 use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeArgs, EdgeMode};
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_refresh::FeatureRefresher;
-use unleash_edge_http_client::instance_data::{InstanceDataSending, loop_send_instance_data};
-use unleash_edge_http_client::{new_reqwest_client, ClientMetaInformation, HttpClientArgs, UnleashClient};
+use unleash_edge_http_client::instance_data::{
+    InstanceDataSending, create_send_instance_data_task,
+};
+use unleash_edge_http_client::{
+    ClientMetaInformation, HttpClientArgs, UnleashClient, new_reqwest_client,
+};
 use unleash_edge_metrics::axum_prometheus_metrics::{
     PrometheusAxumLayer, render_prometheus_metrics,
 };
+use unleash_edge_metrics::metrics_pusher::create_prometheus_write_task;
+use unleash_edge_metrics::send_unleash_metrics::create_send_metrics_task;
 use unleash_edge_metrics::{metrics_pusher, send_unleash_metrics};
-use unleash_edge_persistence::{EdgePersistence, persist_data};
+use unleash_edge_persistence::{EdgePersistence, create_persist_data_task};
 use unleash_edge_types::metrics::MetricsCache;
 use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
 use unleash_edge_types::{EdgeResult, EngineCache, TokenCache};
@@ -186,68 +194,52 @@ fn spawn_background_tasks(
     token_cache: Arc<TokenCache>,
     unleash_client: Arc<UnleashClient>,
 ) {
-    tokio::spawn(spawn_fetch_task(
+    tokio::spawn(create_fetch_task(
         &edge,
         client_meta_information,
         feature_refresher,
     ));
 
-    tokio::spawn(async move {
-        send_unleash_metrics::send_metrics_task(
-            metrics_cache_clone.clone(),
-            unleash_client,
-            token_cache.clone(),
-            edge.metrics_interval_seconds.try_into().unwrap(),
-        )
-        .await;
-    });
-    tokio::spawn(async move {
-        persist_data(
-            persistence.clone(),
-            lazy_token_cache.clone(),
-            lazy_feature_cache.clone(),
-        )
-        .await;
-    });
+    tokio::spawn(create_send_metrics_task(
+        metrics_cache_clone.clone(),
+        unleash_client,
+        token_cache.clone(),
+        edge.metrics_interval_seconds.try_into().unwrap(),
+    ));
 
-    let validator_clone = validator.clone();
-    tokio::spawn(async move {
-        validator_clone
-            .schedule_validation_of_known_tokens(edge.token_revalidation_interval_seconds)
-            .await
-    });
+    tokio::spawn(create_persist_data_task(
+        persistence.clone(),
+        lazy_token_cache.clone(),
+        lazy_feature_cache.clone(),
+    ));
 
-    let validator = validator.clone();
-    tokio::spawn(async move {
-        validator
-            .schedule_revalidation_of_startup_tokens(
-                edge.tokens.clone(),
-                lazy_feature_refresher.clone(),
-            )
-            .await
-    });
+    tokio::spawn(create_revalidation_task(
+        &validator,
+        edge.token_revalidation_interval_seconds,
+    ));
 
-    tokio::spawn(async move {
-        metrics_pusher::prometheus_remote_write(
-            http_client,
-            registry,
-            edge.prometheus_remote_write_url.clone(),
-            edge.prometheus_push_interval,
-            app_name,
-        )
-        .await
-    });
+    tokio::spawn(create_revalidation_of_startup_tokens_task(
+        &validator,
+        edge.tokens.clone(),
+        lazy_feature_refresher.clone(),
+    ));
 
-    tokio::spawn(async move {
-        loop_send_instance_data(
-            instance_data_sender.clone(),
-            edge_instance_data.clone(),
-            instances_observed_for_app_context.clone(),
-        )
-    });
+    tokio::spawn(create_prometheus_write_task(
+        http_client,
+        registry,
+        edge.prometheus_remote_write_url.clone(),
+        edge.prometheus_push_interval,
+        app_name,
+    ));
+
+    tokio::spawn(create_send_instance_data_task(
+        instance_data_sender.clone(),
+        edge_instance_data.clone(),
+        instances_observed_for_app_context.clone(),
+    ));
 }
 
-fn spawn_fetch_task(
+fn create_fetch_task(
     edge: &EdgeArgs,
     client_meta_information: ClientMetaInformation,
     feature_refresher: Arc<FeatureRefresher>,

@@ -1,6 +1,7 @@
 use ahash::HashMap;
 use async_trait::async_trait;
 use dashmap::DashMap;
+use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{debug, warn};
@@ -21,24 +22,25 @@ pub trait EdgePersistence: Send + Sync {
     async fn save_features(&self, features: Vec<(String, ClientFeatures)>) -> EdgeResult<()>;
 }
 
-pub async fn persist_data(
+pub fn create_persist_data_task(
     persistence: Option<Arc<dyn EdgePersistence>>,
     token_cache: Arc<DashMap<String, EdgeToken>>,
     features_cache: Arc<FeatureCache>,
-) {
-    loop {
-        tokio::select! {
-            _ = tokio::time::sleep(Duration::from_secs(60)) => {
-                if let Some(persister) = persistence.clone() {
-
-                    save_known_tokens(&token_cache, &persister).await;
-                    save_features(&features_cache, &persister).await;
-                } else {
-                    debug!("No persistence configured, skipping persistence");
+) -> Pin<Box<dyn Future<Output = ()> + Send>> {
+    Box::pin(async move {
+        loop {
+            tokio::select! {
+                _ = tokio::time::sleep(Duration::from_secs(60)) => {
+                    if let Some(persister) = persistence.clone() {
+                        save_known_tokens(&token_cache, &persister).await;
+                        save_features(&features_cache, &persister).await;
+                    } else {
+                        debug!("No persistence configured, skipping persistence");
+                    }
                 }
             }
         }
-    }
+    })
 }
 
 async fn save_known_tokens(

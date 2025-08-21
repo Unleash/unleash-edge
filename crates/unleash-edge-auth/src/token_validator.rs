@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::env;
+use std::pin::Pin;
 use std::sync::Arc;
 
 use dashmap::DashMap;
@@ -31,7 +32,6 @@ pub struct TokenValidator {
     pub deferred_validation_tx: Option<UnboundedSender<String>>,
 }
 
-
 pub trait TokenRegister {
     async fn register_token(&self, token: String) -> EdgeResult<EdgeToken>;
 }
@@ -45,6 +45,48 @@ impl TokenRegister for TokenValidator {
             .expect("Couldn't validate token")
             .clone())
     }
+}
+
+pub fn create_revalidation_task(
+    validator: &Arc<TokenValidator>,
+    validation_interval_seconds: u64,
+) -> Pin<Box<dyn Future<Output = ()> + Send>> {
+    let validator_clone = validator.clone();
+    Box::pin(async move {
+        let sleep_duration = tokio::time::Duration::from_secs(validation_interval_seconds);
+        loop {
+            tokio::select! {
+                _ = tokio::time::sleep(sleep_duration) => {
+                    let _ = validator_clone.revalidate_known_tokens().await;
+                }
+            }
+        }
+    })
+}
+
+pub fn create_revalidation_of_startup_tokens_task(
+    validator: &Arc<TokenValidator>,
+    tokens: Vec<String>,
+    refresher: Option<Arc<FeatureRefresher>>,
+) -> Pin<Box<dyn Future<Output = ()> + Send>> {
+    let validator = validator.clone();
+    Box::pin(async move {
+        let sleep_duration = tokio::time::Duration::from_secs(1);
+        loop {
+            tokio::select! {
+                _ = tokio::time::sleep(sleep_duration) => {
+                    if let Some(refresher) = refresher.clone() {
+                        let token_result = validator.register_tokens(tokens.clone()).await;
+                        if let Ok(good_tokens) = token_result {
+                            for token in good_tokens {
+                                let _ = refresher.register_and_hydrate_token(&token).await;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    })
 }
 
 impl TokenValidator {
@@ -207,39 +249,6 @@ impl TokenValidator {
                             },
                             Err(e) => {
                                 trace!("Background token validation failed: {:?}", e);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    pub async fn schedule_validation_of_known_tokens(&self, validation_interval_seconds: u64) {
-        let sleep_duration = tokio::time::Duration::from_secs(validation_interval_seconds);
-        loop {
-            tokio::select! {
-                _ = tokio::time::sleep(sleep_duration) => {
-                    let _ = self.revalidate_known_tokens().await;
-                }
-            }
-        }
-    }
-
-    pub async fn schedule_revalidation_of_startup_tokens(
-        &self,
-        tokens: Vec<String>,
-        refresher: Option<Arc<FeatureRefresher>>,
-    ) {
-        let sleep_duration = tokio::time::Duration::from_secs(1);
-        loop {
-            tokio::select! {
-                _ = tokio::time::sleep(sleep_duration) => {
-                    if let Some(refresher) = refresher.clone() {
-                        let token_result = self.register_tokens(tokens.clone()).await;
-                        if let Ok(good_tokens) = token_result {
-                            for token in good_tokens {
-                                let _ = refresher.register_and_hydrate_token(&token).await;
                             }
                         }
                     }

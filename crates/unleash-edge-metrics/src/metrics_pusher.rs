@@ -1,30 +1,34 @@
+use std::pin::Pin;
+
 use prometheus_reqwest_remote_write::WriteRequest;
 use tracing::debug;
 
-pub async fn prometheus_remote_write(
+pub async fn create_prometheus_write_task(
     http_client: reqwest::Client,
     registry: prometheus::Registry,
     url: Option<String>,
     interval: u64,
     app_name: String,
-) {
-    let sleep_duration = tokio::time::Duration::from_secs(interval);
-    if let Some(address) = url {
-        loop {
-            tokio::select! {
-                _ = tokio::time::sleep(sleep_duration) => {
-                    remote_write_prom(registry.clone(), address.clone(), http_client.clone(), app_name.clone()).await;
+) -> Pin<Box<dyn Future<Output = ()> + Send>> {
+    Box::pin(async move {
+        let sleep_duration = tokio::time::Duration::from_secs(interval);
+        if let Some(address) = url {
+            loop {
+                tokio::select! {
+                    _ = tokio::time::sleep(sleep_duration) => {
+                        remote_write_prom(registry.clone(), address.clone(), http_client.clone(), app_name.clone()).await;
+                    }
+                }
+            }
+        } else {
+            loop {
+                tokio::select! {
+                    _ = tokio::time::sleep(sleep_duration) => {
+                    }
                 }
             }
         }
-    } else {
-        loop {
-            tokio::select! {
-                _ = tokio::time::sleep(sleep_duration) => {
-                }
-            }
-        }
-    }
+    })
 }
 
 async fn remote_write_prom(
