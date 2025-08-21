@@ -43,7 +43,6 @@ mod tests {
             engine_cache: engine_cache.clone(),
             refresh_interval: Duration::seconds(6000),
             persistence: None,
-            strict: false,
             streaming: false,
             delta: true,
             delta_diff: false,
