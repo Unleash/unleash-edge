@@ -202,9 +202,7 @@ pub async fn build_edge(
         .await;
     }
     if token_cache.is_empty() {
-        error!(
-            "Edge was not able to validate any of the tokens configured at startup"
-        );
+        error!("Edge was not able to validate any of the tokens configured at startup");
         return Err(EdgeError::NoTokens("No valid tokens provided on startup. At least one valid token must be specified at startup".into()));
     }
     for validated_token in token_cache
@@ -234,7 +232,7 @@ pub async fn build_edge_state(
     edge_args: &EdgeArgs,
     client_meta_information: ClientMetaInformation,
     edge_instance_data: Arc<EdgeInstanceData>,
-    metrics_middleware: PrometheusAxumLayer,
+    registry: &prometheus::Registry,
     instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>>,
     auth_headers: AuthHeaders,
     http_client: reqwest::Client,
@@ -247,23 +245,13 @@ pub async fn build_edge_state(
                     .upstream_auth_header
                     .clone()
                     .unwrap_or("Authorization".to_string()),
-                http_client,
+                http_client.clone(),
                 client_meta_information.clone(),
             )
         })
         .map(|c| c.with_custom_client_headers(edge_args.custom_client_headers.clone()))
         .map(Arc::new)
         .map_err(|_| EdgeError::InvalidServerUrl(edge_args.upstream_url.clone()))?;
-
-    let client = new_reqwest_client(HttpClientArgs {
-        skip_ssl_verification: edge_args.skip_ssl_verification,
-        client_identity: edge_args.client_identity.clone(),
-        upstream_certificate_file: edge_args.upstream_certificate_file.clone(),
-        connect_timeout: Duration::seconds(edge_args.upstream_request_timeout),
-        socket_timeout: Duration::seconds(edge_args.upstream_socket_timeout),
-        keep_alive_timeout: Duration::seconds(edge_args.client_keepalive_timeout),
-        client_meta_information: client_meta_information.clone(),
-    })?;
 
     let (deferred_validation_tx, deferred_validation_rx) = if *SHOULD_DEFER_VALIDATION {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
@@ -282,15 +270,15 @@ pub async fn build_edge_state(
         edge_args,
         client_meta_information.clone(),
         auth_headers,
-        client.clone(),
+        http_client.clone(),
         deferred_validation_tx,
     )
     .await?;
     let instance_data_sender: Arc<InstanceDataSending> = Arc::new(InstanceDataSending::from_args(
         args.clone(),
         &client_meta_information,
-        client.clone(),
-        metrics_middleware.registry.clone(),
+        http_client.clone(),
+        registry.clone(),
     )?);
     let metrics_cache = Arc::new(MetricsCache::default());
 
@@ -302,8 +290,8 @@ pub async fn build_edge_state(
         token_cache.clone(),
         features_cache.clone(),
         token_validator.clone(),
-        client,
-        metrics_middleware.registry.clone(),
+        http_client.clone(),
+        registry.clone(),
         args.app_name,
         instance_data_sender.clone(),
         edge_instance_data.clone(),

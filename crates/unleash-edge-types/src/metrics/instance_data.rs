@@ -10,6 +10,7 @@ use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU64, Ordering};
+use tracing::info;
 use ulid::Ulid;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -171,6 +172,7 @@ impl EdgeInstanceData {
         let mut no_change = HashMap::default();
 
         for family in registry.gather().iter() {
+            info!("Looking at family: {}", family);
             match family.name() {
                 crate::metrics::HTTP_REQUESTS_DURATION => {
                     family

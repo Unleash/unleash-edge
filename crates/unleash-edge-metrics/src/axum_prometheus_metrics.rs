@@ -33,7 +33,11 @@ static HTTP_REQUEST_DURATION_SECONDS: LazyLock<HistogramVec> = LazyLock::new(|| 
     register_histogram_vec!(
         HTTP_REQUESTS_DURATION,
         "HTTP request latencies in seconds",
-        &[METHOD_LABEL, ENDPOINT_LABEL, STATUS_LABEL]
+        &[METHOD_LABEL, ENDPOINT_LABEL, STATUS_LABEL],
+        vec![
+            0.0001, 0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0,
+            10.0
+        ]
     )
     .unwrap()
 });
@@ -193,7 +197,7 @@ mod tests {
     async fn test_metrics_layer_basic() {
         let app = Router::new()
             .route("/test", routing::get(async || "Hello, World!"))
-            .layer(PrometheusAxumLayer::new());
+            .layer(PrometheusAxumLayer::default());
 
         // we do not know the initial value of the counter since we may use it in multiple tests
         let counter = HTTP_REQUESTS_TOTAL_METRIC
@@ -244,7 +248,7 @@ mod tests {
     async fn test_metrics_layer_body_size() {
         let app = Router::new()
             .route("/test_body_size", routing::get(async || "Hello, World!"))
-            .layer(PrometheusAxumLayer::new());
+            .layer(PrometheusAxumLayer::default());
 
         // we do not know the initial value of the counter since we may use it in multiple tests
         let counter = HTTP_REQUESTS_TOTAL_METRIC
