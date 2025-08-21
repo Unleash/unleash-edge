@@ -23,7 +23,7 @@ pub trait EdgePersistence: Send + Sync {
 }
 
 pub fn create_persist_data_task(
-    persistence: Option<Arc<dyn EdgePersistence>>,
+    persistence: Arc<dyn EdgePersistence>,
     token_cache: Arc<DashMap<String, EdgeToken>>,
     features_cache: Arc<FeatureCache>,
 ) -> Pin<Box<dyn Future<Output = ()> + Send>> {
@@ -31,12 +31,8 @@ pub fn create_persist_data_task(
         loop {
             tokio::select! {
                 _ = tokio::time::sleep(Duration::from_secs(60)) => {
-                    if let Some(persister) = persistence.clone() {
-                        save_known_tokens(&token_cache, &persister).await;
-                        save_features(&features_cache, &persister).await;
-                    } else {
-                        debug!("No persistence configured, skipping persistence");
-                    }
+                    save_known_tokens(&token_cache, &persistence).await;
+                    save_features(&features_cache, &persistence).await;
                 }
             }
         }

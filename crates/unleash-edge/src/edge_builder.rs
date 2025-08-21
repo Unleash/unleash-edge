@@ -365,12 +365,6 @@ fn create_edge_mode_background_tasks(
         edge.metrics_interval_seconds.try_into().unwrap(),
     ));
 
-    tasks.push(create_persist_data_task(
-        persistence.clone(),
-        token_cache.clone(),
-        feature_cache.clone(),
-    ));
-
     tasks.push(create_revalidation_task(
         &validator,
         edge.token_revalidation_interval_seconds,
@@ -382,19 +376,31 @@ fn create_edge_mode_background_tasks(
         feature_refresher.clone(),
     ));
 
-    tasks.push(create_prometheus_write_task(
-        http_client,
-        registry,
-        edge.prometheus_remote_write_url.clone(),
-        edge.prometheus_push_interval,
-        app_name,
-    ));
-
     tasks.push(create_send_instance_data_task(
         instance_data_sender.clone(),
         edge_instance_data.clone(),
         instances_observed_for_app_context.clone(),
     ));
+
+    if let Some(url) = edge.prometheus_remote_write_url {
+        tasks.push(create_prometheus_write_task(
+            http_client,
+            registry,
+            url,
+            edge.prometheus_push_interval,
+            app_name,
+        ));
+    }
+
+    if let Some(persistence) = persistence {
+        tasks.push(create_persist_data_task(
+            persistence.clone(),
+            token_cache.clone(),
+            feature_cache.clone(),
+        ));
+    } else {
+        info!("No persistence configured, skipping persistence");
+    }
 
     tasks
 }
