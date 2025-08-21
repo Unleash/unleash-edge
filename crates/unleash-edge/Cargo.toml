@@ -33,6 +33,7 @@ ipnet = { workspace = true }
 opentelemetry = { workspace = true }
 opentelemetry-otlp = { workspace = true, optional = true }
 opentelemetry_sdk = { workspace = true }
+prometheus = { workspace = true }
 reqwest = { workspace = true }
 rustls = { workspace = true }
 rustls-pemfile = { workspace = true }

@@ -1,24 +1,37 @@
-use crate::{CacheContainer, EdgeInfo};
+use crate::{CacheContainer, EdgeInfo, SHOULD_DEFER_VALIDATION};
 use chrono::Duration;
 use dashmap::DashMap;
+use std::pin::Pin;
 use std::sync::Arc;
+use tokio::sync::RwLock;
 use tokio::sync::mpsc::UnboundedSender;
-use tracing::{debug, error, warn};
-use unleash_edge_auth::token_validator::TokenValidator;
-use unleash_edge_cli::{AuthHeaders, EdgeArgs, RedisMode};
+use tracing::{debug, error, info, warn};
+use unleash_edge_appstate::AppState;
+use unleash_edge_auth::token_validator::{
+    TokenValidator, create_revalidation_of_startup_tokens_task, create_revalidation_task,
+};
+use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeArgs, RedisMode};
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_refresh::{FeatureRefreshConfig, FeatureRefresher};
-use unleash_edge_http_client::{ClientMetaInformation, UnleashClient};
-use unleash_edge_persistence::EdgePersistence;
+use unleash_edge_http_client::instance_data::{
+    InstanceDataSending, create_send_instance_data_task,
+};
+use unleash_edge_http_client::{
+    ClientMetaInformation, HttpClientArgs, UnleashClient, new_reqwest_client,
+};
+use unleash_edge_metrics::axum_prometheus_metrics::PrometheusAxumLayer;
+use unleash_edge_metrics::metrics_pusher::create_prometheus_write_task;
+use unleash_edge_metrics::send_unleash_metrics::create_send_metrics_task;
 use unleash_edge_persistence::file::FilePersister;
 use unleash_edge_persistence::redis::RedisPersister;
-
 #[cfg(feature = "s3-persistence")]
 use unleash_edge_persistence::s3::s3_persister::S3Persister;
-
+use unleash_edge_persistence::{EdgePersistence, create_persist_data_task};
 use unleash_edge_types::errors::EdgeError;
-use unleash_edge_types::{EdgeResult, EngineCache, TokenCache, TokenType};
+use unleash_edge_types::metrics::MetricsCache;
+use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
+use unleash_edge_types::{BackgroundTask, EdgeResult, EngineCache, TokenCache, TokenType};
 use unleash_yggdrasil::{EngineState, UpdateMessage};
 use url::Url;
 
@@ -210,8 +223,213 @@ pub async fn build_edge(
             delta_cache_manager,
             engine_cache,
         ),
-        Arc::new(Some(token_validator)),
-        Arc::new(Some(feature_refresher)),
+        Arc::new(token_validator),
+        Arc::new(feature_refresher),
         persistence,
     ))
+}
+
+pub async fn build_edge_state(
+    args: CliArgs,
+    edge_args: &EdgeArgs,
+    client_meta_information: ClientMetaInformation,
+    edge_instance_data: Arc<EdgeInstanceData>,
+    metrics_middleware: PrometheusAxumLayer,
+    instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>>,
+    auth_headers: AuthHeaders,
+    http_client: reqwest::Client,
+) -> EdgeResult<(AppState, Vec<BackgroundTask>)> {
+    let unleash_client = Url::parse(&edge_args.upstream_url.clone())
+        .map(|url| {
+            UnleashClient::from_url_with_backing_client(
+                url,
+                auth_headers
+                    .upstream_auth_header
+                    .clone()
+                    .unwrap_or("Authorization".to_string()),
+                http_client,
+                client_meta_information.clone(),
+            )
+        })
+        .map(|c| c.with_custom_client_headers(edge_args.custom_client_headers.clone()))
+        .map(Arc::new)
+        .map_err(|_| EdgeError::InvalidServerUrl(edge_args.upstream_url.clone()))?;
+
+    let client = new_reqwest_client(HttpClientArgs {
+        skip_ssl_verification: edge_args.skip_ssl_verification,
+        client_identity: edge_args.client_identity.clone(),
+        upstream_certificate_file: edge_args.upstream_certificate_file.clone(),
+        connect_timeout: Duration::seconds(edge_args.upstream_request_timeout),
+        socket_timeout: Duration::seconds(edge_args.upstream_socket_timeout),
+        keep_alive_timeout: Duration::seconds(edge_args.client_keepalive_timeout),
+        client_meta_information: client_meta_information.clone(),
+    })?;
+
+    let (deferred_validation_tx, deferred_validation_rx) = if *SHOULD_DEFER_VALIDATION {
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        (Some(tx), Some(rx))
+    } else {
+        (None, None)
+    };
+
+    let auth_headers = AuthHeaders::from(&args);
+    let (
+        (token_cache, features_cache, _, engine_cache),
+        token_validator,
+        feature_refresher,
+        persistence,
+    ) = build_edge(
+        edge_args,
+        client_meta_information.clone(),
+        auth_headers,
+        client.clone(),
+        deferred_validation_tx,
+    )
+    .await?;
+    let instance_data_sender: Arc<InstanceDataSending> = Arc::new(InstanceDataSending::from_args(
+        args.clone(),
+        &client_meta_information,
+        client.clone(),
+        metrics_middleware.registry.clone(),
+    )?);
+    let metrics_cache = Arc::new(MetricsCache::default());
+
+    let background_tasks = create_edge_mode_background_tasks(
+        edge_args.clone(),
+        client_meta_information,
+        feature_refresher.clone(),
+        persistence.clone(),
+        token_cache.clone(),
+        features_cache.clone(),
+        token_validator.clone(),
+        client,
+        metrics_middleware.registry.clone(),
+        args.app_name,
+        instance_data_sender.clone(),
+        edge_instance_data.clone(),
+        instances_observed_for_app_context,
+        metrics_cache.clone(),
+        unleash_client,
+    );
+
+    let app_state = AppState::builder()
+        .with_token_cache(token_cache.clone())
+        .with_features_cache(features_cache.clone())
+        .with_engine_cache(engine_cache.clone())
+        .with_token_validator(Arc::new(Some(token_validator.as_ref().clone())))
+        .with_feature_refresher(Arc::new(Some(feature_refresher.as_ref().clone())))
+        .with_metrics_cache(metrics_cache.clone())
+        .with_persistence(persistence)
+        .with_deny_list(args.http.deny_list.unwrap_or_default())
+        .with_allow_list(args.http.allow_list.unwrap_or_default())
+        .with_instance_sending(instance_data_sender)
+        .with_edge_instance_data(edge_instance_data)
+        .build();
+
+    Ok((app_state, background_tasks))
+}
+
+fn create_edge_mode_background_tasks(
+    edge: EdgeArgs,
+    client_meta_information: ClientMetaInformation,
+    feature_refresher: Arc<FeatureRefresher>,
+    persistence: Option<Arc<dyn EdgePersistence>>,
+    token_cache: Arc<TokenCache>,
+    feature_cache: Arc<FeatureCache>,
+    validator: Arc<TokenValidator>,
+    http_client: reqwest::Client,
+    registry: prometheus::Registry,
+    app_name: String,
+    instance_data_sender: Arc<InstanceDataSending>,
+    edge_instance_data: Arc<EdgeInstanceData>,
+    instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>>,
+    metrics_cache_clone: Arc<MetricsCache>,
+    unleash_client: Arc<UnleashClient>,
+) -> Vec<Pin<Box<dyn Future<Output = ()> + Send>>> {
+    let mut tasks: Vec<Pin<Box<dyn Future<Output = ()> + Send>>> = vec![];
+    tasks.push(create_fetch_task(
+        &edge,
+        client_meta_information,
+        feature_refresher.clone(),
+    ));
+
+    tasks.push(create_send_metrics_task(
+        metrics_cache_clone.clone(),
+        unleash_client,
+        token_cache.clone(),
+        edge.metrics_interval_seconds.try_into().unwrap(),
+    ));
+
+    tasks.push(create_revalidation_task(
+        &validator,
+        edge.token_revalidation_interval_seconds,
+    ));
+
+    tasks.push(create_revalidation_of_startup_tokens_task(
+        &validator,
+        edge.tokens.clone(),
+        feature_refresher.clone(),
+    ));
+
+    tasks.push(create_send_instance_data_task(
+        instance_data_sender.clone(),
+        edge_instance_data.clone(),
+        instances_observed_for_app_context.clone(),
+    ));
+
+    if let Some(url) = edge.prometheus_remote_write_url {
+        tasks.push(create_prometheus_write_task(
+            http_client,
+            registry,
+            url,
+            edge.prometheus_push_interval,
+            app_name,
+        ));
+    }
+
+    if let Some(persistence) = persistence {
+        tasks.push(create_persist_data_task(
+            persistence.clone(),
+            token_cache.clone(),
+            feature_cache.clone(),
+        ));
+    } else {
+        info!("No persistence configured, skipping persistence");
+    }
+
+    tasks
+}
+
+fn create_fetch_task(
+    edge: &EdgeArgs,
+    client_meta_information: ClientMetaInformation,
+    feature_refresher: Arc<FeatureRefresher>,
+) -> Pin<Box<dyn Future<Output = ()> + Send>> {
+    let refresher_for_background = feature_refresher.clone();
+
+    if edge.streaming {
+        let custom_headers = edge.custom_client_headers.clone();
+        if edge.delta {
+            Box::pin(async move {
+                let _ = refresher_for_background
+                    .start_streaming_delta_background_task(client_meta_information, custom_headers)
+                    .await;
+            })
+        } else {
+            Box::pin(async move {
+                let _ = refresher_for_background
+                    .start_streaming_features_background_task(
+                        client_meta_information,
+                        custom_headers,
+                    )
+                    .await;
+            })
+        }
+    } else {
+        Box::pin(async move {
+            feature_refresher
+                .start_refresh_features_background_task()
+                .await;
+        })
+    }
 }
