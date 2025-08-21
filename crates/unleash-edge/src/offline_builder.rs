@@ -143,7 +143,7 @@ fn create_offline_background_tasks(
     features_cache: Arc<FeatureCache>,
     engine_cache: Arc<DashMap<String, EngineState>>,
     offline_args: OfflineArgs,
-) -> Vec<Pin<Box<dyn Future<Output = ()> + Send>>> {
+) -> Vec<BackgroundTask> {
     vec![create_hotload_task(
         features_cache,
         engine_cache,
