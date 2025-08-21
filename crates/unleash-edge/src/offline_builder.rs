@@ -3,7 +3,6 @@ use crate::edge_builder::build_caches;
 use dashmap::DashMap;
 use std::fs::File;
 use std::io::{BufReader, Read};
-use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::Arc;
 use unleash_edge_appstate::AppState;

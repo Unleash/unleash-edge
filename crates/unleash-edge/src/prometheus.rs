@@ -9,5 +9,5 @@ pub fn instantiate_registry() -> prometheus::Registry {
         registry
     }
     #[cfg(not(target_os = "linux"))]
-    prometheus::Registry::new()
+    Registry::new()
 }
