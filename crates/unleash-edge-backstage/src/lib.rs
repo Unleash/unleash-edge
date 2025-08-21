@@ -9,7 +9,7 @@ use unleash_edge_appstate::AppState;
 use unleash_edge_cli::InternalBackstageArgs;
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
-use unleash_edge_types::tokens::{anonymize_token, EdgeToken};
+use unleash_edge_types::tokens::{EdgeToken, anonymize_token};
 use unleash_edge_types::{
     BuildInfo, ClientMetric, EdgeJsonResult, MetricsInfo, Status, TokenCache, TokenInfo,
     TokenRefresh,
@@ -57,12 +57,16 @@ pub async fn info() -> EdgeJsonResult<BuildInfo> {
 
 pub async fn tokens(app_state: State<AppState>) -> EdgeJsonResult<TokenInfo> {
     if app_state.feature_refresher.is_some() && app_state.token_validator.is_some() {
-            Ok(Json(get_token_info(app_state.0)))
-        } else { Ok(Json(get_offline_token_info(app_state.token_cache.clone()))) }
+        Ok(Json(get_token_info(app_state.0)))
+    } else {
+        Ok(Json(get_offline_token_info(app_state.token_cache.clone())))
+    }
 }
 
 fn get_token_info(app_state: AppState) -> TokenInfo {
-    let refreshes: Vec<TokenRefresh> = (*app_state.feature_refresher).clone().unwrap()
+    let refreshes: Vec<TokenRefresh> = (*app_state.feature_refresher)
+        .clone()
+        .unwrap()
         .tokens_to_refresh
         .iter()
         .map(|e| e.value().clone())
@@ -71,7 +75,9 @@ fn get_token_info(app_state: AppState) -> TokenInfo {
             ..f
         })
         .collect();
-    let token_validation_status: Vec<EdgeToken> = (*app_state.token_validator).clone().unwrap()
+    let token_validation_status: Vec<EdgeToken> = (*app_state.token_validator)
+        .clone()
+        .unwrap()
         .token_cache
         .iter()
         .map(|e| e.value().clone())

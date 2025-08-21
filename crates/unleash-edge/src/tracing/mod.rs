@@ -1,12 +1,12 @@
 use tracing_subscriber::{EnvFilter, Layer, Registry};
 use unleash_edge_cli::{CliArgs, LogFormat};
 
-#[cfg(feature ="tracing-datadog")]
+#[cfg(feature = "tracing-datadog")]
 pub mod datadog;
-#[cfg(feature = "tracing-sentry")]
-pub mod sentry;
 #[cfg(feature = "tracing-otlp")]
 pub mod otlp;
+#[cfg(feature = "tracing-sentry")]
+pub mod sentry;
 
 pub fn log_filter() -> EnvFilter {
     EnvFilter::try_from_default_env()

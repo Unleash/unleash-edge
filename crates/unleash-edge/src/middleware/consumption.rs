@@ -35,5 +35,4 @@ pub async fn connection_consumption(state: State<AppState>, req: Request, next: 
     }
     instance_data.observe_connection_consumption(path, interval);
     res
-
 }

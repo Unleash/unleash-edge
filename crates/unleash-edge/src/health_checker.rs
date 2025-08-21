@@ -42,25 +42,31 @@ pub async fn check_health(health_check_args: HealthCheckArgs) -> Result<(), Edge
 
 #[cfg(test)]
 mod tests {
+    use crate::health_checker::check_health;
+    use axum::Router;
     use axum::body::Body;
     use axum::http::{Response, StatusCode};
     use axum::response::IntoResponse;
-    use axum::Router;
     use axum::routing::get;
     use axum_test::TestServer;
     use unleash_edge_cli::HealthCheckArgs;
-    use crate::health_checker::check_health;
 
     #[tokio::test]
     pub async fn runs_health_check() {
-        let router = Router::new().route("/internal-backstage/health", get(unleash_edge_backstage::health));
-        let srv = TestServer::builder().http_transport().build(router).unwrap();
+        let router = Router::new().route(
+            "/internal-backstage/health",
+            get(unleash_edge_backstage::health),
+        );
+        let srv = TestServer::builder()
+            .http_transport()
+            .build(router)
+            .unwrap();
         let url = srv.server_url("/").unwrap();
         let check_result = check_health(HealthCheckArgs {
             ca_certificate_file: None,
             edge_url: url.to_string(),
         })
-            .await;
+        .await;
         assert!(check_result.is_ok());
     }
 
@@ -70,24 +76,30 @@ mod tests {
             ca_certificate_file: None,
             edge_url: "http://bogusurl".into(),
         })
-            .await;
+        .await;
         assert!(check_result.is_err());
     }
 
     async fn conflict() -> impl IntoResponse {
-        Response::builder().status(StatusCode::CONFLICT).body(Body::empty()).unwrap()
+        Response::builder()
+            .status(StatusCode::CONFLICT)
+            .body(Body::empty())
+            .unwrap()
     }
 
     #[tokio::test]
     pub async fn errors_if_health_check_returns_different_status_than_200() {
         let router = Router::new().route("/health", get(conflict));
-        let srv = TestServer::builder().http_transport().build(router).unwrap();
+        let srv = TestServer::builder()
+            .http_transport()
+            .build(router)
+            .unwrap();
         let url = srv.server_url("/").unwrap();
         let check_result = check_health(HealthCheckArgs {
             ca_certificate_file: None,
             edge_url: url.to_string(),
         })
-            .await;
+        .await;
         assert!(check_result.is_err());
     }
 
@@ -97,7 +109,7 @@ mod tests {
             ca_certificate_file: None,
             edge_url: ":\\///\\/".into(),
         })
-            .await;
+        .await;
         assert!(check_result.is_err());
     }
 }
