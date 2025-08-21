@@ -62,7 +62,7 @@ fn get_valid_token(token_cache: Arc<TokenCache>) -> Option<EdgeToken> {
         .map(|t| t.clone())
 }
 
-pub async fn create_send_metrics_task(
+pub fn create_send_metrics_task(
     metrics_cache: Arc<MetricsCache>,
     unleash_client: Arc<UnleashClient>,
     token_cache: Arc<TokenCache>,

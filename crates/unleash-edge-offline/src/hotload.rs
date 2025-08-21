@@ -1,58 +1,62 @@
+use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
+use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
-use serde::Deserialize;
 use tracing::warn;
-use unleash_types::client_features::{ClientFeature, ClientFeatures, Strategy, Variant, WeightType};
-use unleash_yggdrasil::{EngineState, UpdateMessage};
 use unleash_edge_cli::OfflineArgs;
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_types::EngineCache;
 use unleash_edge_types::errors::EdgeError;
-use unleash_edge_types::tokens::{cache_key, EdgeToken};
+use unleash_edge_types::tokens::{EdgeToken, cache_key};
+use unleash_types::client_features::{
+    ClientFeature, ClientFeatures, Strategy, Variant, WeightType,
+};
+use unleash_yggdrasil::{EngineState, UpdateMessage};
 
-pub async fn start_hotload_loop(
+pub fn create_hotload_task(
     features_cache: Arc<FeatureCache>,
     engine_cache: Arc<EngineCache>,
     offline_args: OfflineArgs,
-) {
+) -> Pin<Box<dyn std::future::Future<Output = ()> + Send>> {
     let mut known_tokens = offline_args.tokens;
     known_tokens.extend(offline_args.client_tokens);
     known_tokens.extend(offline_args.frontend_tokens);
     let bootstrap_path = offline_args.bootstrap_file;
-
-    loop {
-        tokio::select! {
-            _ = tokio::time::sleep(Duration::from_secs(offline_args.reload_interval)) => {
-                let bootstrap = bootstrap_path.as_ref().map(|bootstrap_path|load_bootstrap(bootstrap_path));
-                tracing::info!("Reloading bootstrap file");
-                match bootstrap {
-                    Some(Ok(bootstrap)) => {
-                        tracing::info!("Found bootstrap file");
-                        let edge_tokens: Vec<EdgeToken> = known_tokens
-                        .iter()
-                        .map(|token| EdgeToken::from_str(token).unwrap_or_else(|_| EdgeToken::offline_token(token)))
-                        .collect();
-                        tracing::info!("Edge tokens: {:?}", edge_tokens);
-                        for edge_token in edge_tokens {
-                            tracing::info!("Refreshing for {edge_token:?}");
-                            load_offline_engine_cache(&edge_token, features_cache.clone(), engine_cache.clone(), bootstrap.clone());
+    Box::pin(async move {
+        loop {
+            tokio::select! {
+                _ = tokio::time::sleep(Duration::from_secs(offline_args.reload_interval)) => {
+                    let bootstrap = bootstrap_path.as_ref().map(|bootstrap_path|load_bootstrap(bootstrap_path));
+                    tracing::info!("Reloading bootstrap file");
+                    match bootstrap {
+                        Some(Ok(bootstrap)) => {
+                            tracing::info!("Found bootstrap file");
+                            let edge_tokens: Vec<EdgeToken> = known_tokens
+                            .iter()
+                            .map(|token| EdgeToken::from_str(token).unwrap_or_else(|_| EdgeToken::offline_token(token)))
+                            .collect();
+                            tracing::info!("Edge tokens: {:?}", edge_tokens);
+                            for edge_token in edge_tokens {
+                                tracing::info!("Refreshing for {edge_token:?}");
+                                load_offline_engine_cache(&edge_token, features_cache.clone(), engine_cache.clone(), bootstrap.clone());
+                            }
+                        },
+                        Some(Err(e)) => {
+                            tracing::error!("Error loading bootstrap file: {:?}", e);
                         }
-                    },
-                    Some(Err(e)) => {
-                        tracing::error!("Error loading bootstrap file: {:?}", e);
-                    }
-                    None => {
-                        tracing::debug!("No bootstrap file provided");
-                    }
-                };
+                        None => {
+                            tracing::debug!("No bootstrap file provided");
+                        }
+                    };
+                }
             }
         }
-    }
+    })
 }
 
 pub fn load_offline_engine_cache(
@@ -61,10 +65,7 @@ pub fn load_offline_engine_cache(
     engine_cache: Arc<EngineCache>,
     client_features: ClientFeatures,
 ) {
-    features_cache.insert(
-        cache_key(edge_token),
-        client_features.clone(),
-    );
+    features_cache.insert(cache_key(edge_token), client_features.clone());
     let mut engine = EngineState::default();
     let warnings = engine.take_state(UpdateMessage::FullResponse(client_features));
     engine_cache.insert(cache_key(edge_token), engine);

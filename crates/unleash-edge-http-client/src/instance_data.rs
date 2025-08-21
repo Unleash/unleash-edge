@@ -85,7 +85,7 @@ pub async fn send_instance_data(
         .await
 }
 
-pub async fn create_send_instance_data_task(
+pub fn create_send_instance_data_task(
     instance_data_sender: Arc<InstanceDataSending>,
     our_instance_data: Arc<EdgeInstanceData>,
     downstream_instance_data: Arc<RwLock<Vec<EdgeInstanceData>>>,

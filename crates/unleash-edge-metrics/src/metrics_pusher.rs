@@ -3,7 +3,7 @@ use std::pin::Pin;
 use prometheus_reqwest_remote_write::WriteRequest;
 use tracing::debug;
 
-pub async fn create_prometheus_write_task(
+pub fn create_prometheus_write_task(
     http_client: reqwest::Client,
     registry: prometheus::Registry,
     url: Option<String>,

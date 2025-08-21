@@ -67,7 +67,7 @@ pub fn create_revalidation_task(
 pub fn create_revalidation_of_startup_tokens_task(
     validator: &Arc<TokenValidator>,
     tokens: Vec<String>,
-    refresher: Option<Arc<FeatureRefresher>>,
+    refresher: Arc<FeatureRefresher>,
 ) -> Pin<Box<dyn Future<Output = ()> + Send>> {
     let validator = validator.clone();
     Box::pin(async move {
@@ -75,14 +75,12 @@ pub fn create_revalidation_of_startup_tokens_task(
         loop {
             tokio::select! {
                 _ = tokio::time::sleep(sleep_duration) => {
-                    if let Some(refresher) = refresher.clone() {
                         let token_result = validator.register_tokens(tokens.clone()).await;
                         if let Ok(good_tokens) = token_result {
                             for token in good_tokens {
                                 let _ = refresher.register_and_hydrate_token(&token).await;
                             }
                         }
-                    }
                 }
             }
         }
