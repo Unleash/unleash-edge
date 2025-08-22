@@ -11,7 +11,6 @@ use dashmap::DashMap;
 use prometheus::gather;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU64, Ordering};
-use tracing::info;
 use ulid::Ulid;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

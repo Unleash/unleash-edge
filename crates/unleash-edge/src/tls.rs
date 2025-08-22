@@ -32,6 +32,12 @@ pub(crate) fn build_upstream_certificate(
         .unwrap_or(Ok(None))
 }
 pub async fn axum_rustls_config(tls_config: TlsOptions) -> EdgeResult<RustlsConfig> {
+    if let Err(err) = rustls::crypto::ring::default_provider().install_default() {
+        info!(
+            "Failed to install default crypto provider, this is likely because another system has already installed it: {:?}",
+            err
+        );
+    }
     let config = RustlsConfig::from_pem_file(
         tls_config.tls_server_cert.expect("No TLS server cert"),
         tls_config.tls_server_key.expect("No TLS Server key"),
@@ -85,6 +91,7 @@ mod tests {
             tls_enable: true,
             tls_server_key: Some("../examples/server.key".into()),
             tls_server_port: 443,
+            redirect_http_to_https: false,
         };
 
         let _ = config(tls_options);
