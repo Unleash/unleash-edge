@@ -8,6 +8,7 @@ use std::env;
 use std::sync::{Arc, LazyLock};
 use tokio::sync::RwLock;
 use tower::ServiceBuilder;
+use tower_http::compression::CompressionLayer;
 use ulid::Ulid;
 use unleash_edge_auth::token_validator::TokenValidator;
 use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeMode};
@@ -80,7 +81,6 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
                 &edge_args,
                 client_meta_information,
                 edge_instance_data.clone(),
-                metrics_middleware.clone(),
                 instances_observed_for_app_context.clone(),
                 auth_headers,
                 http_client,
@@ -124,6 +124,7 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
         )
         .layer(
             ServiceBuilder::new()
+                .layer(CompressionLayer::new())
                 .layer(metrics_middleware)
                 .layer(args.http.cors.middleware())
                 .layer(from_fn_with_state(

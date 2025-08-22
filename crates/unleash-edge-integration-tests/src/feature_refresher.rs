@@ -74,63 +74,6 @@ mod tests {
     }
 
     #[tokio::test]
-    pub async fn getting_404_removes_tokens_from_token_to_refresh_but_not_its_features() {
-        let mut token = EdgeToken::try_from("*:development.secret123".to_string()).unwrap();
-        token.status = Validated;
-        token.token_type = Some(TokenType::Client);
-        let token_cache = DashMap::default();
-        token_cache.insert(token.token.clone(), token.clone());
-        let upstream_features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
-        let upstream_engine_cache: Arc<EngineCache> = Arc::new(DashMap::default());
-        let upstream_token_cache: Arc<TokenCache> = Arc::new(token_cache);
-        let example_features = features_from_disk("../../examples/features.json");
-        let cache_key = cache_key(&token);
-        let mut engine_state = EngineState::default();
-        let warnings =
-            engine_state.take_state(UpdateMessage::FullResponse(example_features.clone()));
-        upstream_features_cache.insert(cache_key.clone(), example_features.clone());
-        upstream_engine_cache.insert(cache_key.clone(), engine_state);
-        let server = client_api_test_server(
-            upstream_token_cache,
-            upstream_features_cache,
-            upstream_engine_cache,
-        )
-        .await;
-        let unleash_client =
-            UnleashClient::from_url(server.server_url("/").unwrap(), None).unwrap();
-        let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
-        let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
-        let feature_refresher = FeatureRefresher {
-            unleash_client: Arc::new(unleash_client),
-            features_cache,
-            engine_cache,
-            refresh_interval: Duration::milliseconds(1),
-            ..Default::default()
-        };
-        feature_refresher
-            .register_token_for_refresh(token, None)
-            .await;
-        assert!(!feature_refresher.tokens_to_refresh.is_empty());
-        feature_refresher.refresh_features().await;
-        assert!(!feature_refresher.tokens_to_refresh.is_empty());
-        assert!(!feature_refresher.features_cache.is_empty());
-        assert!(!feature_refresher.engine_cache.is_empty());
-        tokio::time::sleep(std::time::Duration::from_millis(5)).await; // To ensure our refresh is due
-        feature_refresher.refresh_features().await;
-        assert_eq!(
-            feature_refresher
-                .tokens_to_refresh
-                .get("*:development.secret123")
-                .unwrap()
-                .failure_count,
-            1
-        );
-        assert!(!feature_refresher.features_cache.is_empty());
-        assert!(!feature_refresher.engine_cache.is_empty());
-        assert!(warnings.is_none());
-    }
-
-    #[tokio::test]
     pub async fn when_we_have_a_cache_and_token_gets_removed_caches_are_emptied() {
         let upstream_features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());

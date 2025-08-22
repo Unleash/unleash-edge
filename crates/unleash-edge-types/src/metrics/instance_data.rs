@@ -8,8 +8,10 @@ use crate::metrics::{
 use ahash::HashMap;
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
+use prometheus::gather;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU64, Ordering};
+use tracing::info;
 use ulid::Ulid;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -156,12 +158,7 @@ impl EdgeInstanceData {
         }
     }
 
-    pub fn observe(
-        &self,
-        registry: &prometheus::Registry,
-        connected_instances: Vec<EdgeInstanceData>,
-        base_path: &str,
-    ) -> Self {
+    pub fn observe(&self, connected_instances: Vec<EdgeInstanceData>, base_path: &str) -> Self {
         let mut observed = self.clone();
         let mut cpu_seconds = 0;
         let mut resident_memory = 0;
@@ -170,7 +167,7 @@ impl EdgeInstanceData {
         let mut access_denied = HashMap::default();
         let mut no_change = HashMap::default();
 
-        for family in registry.gather().iter() {
+        for family in gather().iter() {
             match family.name() {
                 crate::metrics::HTTP_REQUESTS_DURATION => {
                     family
@@ -228,7 +225,7 @@ impl EdgeInstanceData {
                                     .entry(path.to_string())
                                     .or_insert(LatencyMetrics::default()),
                             };
-                            let total = m.get_histogram().get_sample_sum(); // convert to ms
+                            let total = m.get_histogram().get_sample_sum() * 1000.0; // convert to ms
                             let count = m.get_histogram().get_sample_count() as f64;
                             let p99 = get_percentile(
                                 99,

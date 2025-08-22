@@ -17,10 +17,7 @@ use unleash_edge_feature_refresh::{FeatureRefreshConfig, FeatureRefresher};
 use unleash_edge_http_client::instance_data::{
     InstanceDataSending, create_once_off_send_instance_data, create_send_instance_data_task,
 };
-use unleash_edge_http_client::{
-    ClientMetaInformation, HttpClientArgs, UnleashClient, new_reqwest_client,
-};
-use unleash_edge_metrics::axum_prometheus_metrics::PrometheusAxumLayer;
+use unleash_edge_http_client::{ClientMetaInformation, UnleashClient};
 use unleash_edge_metrics::metrics_pusher::create_prometheus_write_task;
 use unleash_edge_metrics::send_unleash_metrics::{
     create_once_off_send_metrics, create_send_metrics_task,
@@ -236,7 +233,6 @@ pub async fn build_edge_state(
     edge_args: &EdgeArgs,
     client_meta_information: ClientMetaInformation,
     edge_instance_data: Arc<EdgeInstanceData>,
-    metrics_middleware: PrometheusAxumLayer,
     instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>>,
     auth_headers: AuthHeaders,
     http_client: reqwest::Client,
@@ -249,23 +245,13 @@ pub async fn build_edge_state(
                     .upstream_auth_header
                     .clone()
                     .unwrap_or("Authorization".to_string()),
-                http_client,
+                http_client.clone(),
                 client_meta_information.clone(),
             )
         })
         .map(|c| c.with_custom_client_headers(edge_args.custom_client_headers.clone()))
         .map(Arc::new)
         .map_err(|_| EdgeError::InvalidServerUrl(edge_args.upstream_url.clone()))?;
-
-    let client = new_reqwest_client(HttpClientArgs {
-        skip_ssl_verification: edge_args.skip_ssl_verification,
-        client_identity: edge_args.client_identity.clone(),
-        upstream_certificate_file: edge_args.upstream_certificate_file.clone(),
-        connect_timeout: Duration::seconds(edge_args.upstream_request_timeout),
-        socket_timeout: Duration::seconds(edge_args.upstream_socket_timeout),
-        keep_alive_timeout: Duration::seconds(edge_args.client_keepalive_timeout),
-        client_meta_information: client_meta_information.clone(),
-    })?;
 
     let (deferred_validation_tx, deferred_validation_rx) = if *SHOULD_DEFER_VALIDATION {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
@@ -284,15 +270,14 @@ pub async fn build_edge_state(
         edge_args,
         client_meta_information.clone(),
         auth_headers,
-        client.clone(),
+        http_client.clone(),
         deferred_validation_tx,
     )
     .await?;
     let instance_data_sender: Arc<InstanceDataSending> = Arc::new(InstanceDataSending::from_args(
         args.clone(),
         &client_meta_information,
-        client.clone(),
-        metrics_middleware.registry.clone(),
+        http_client.clone(),
     )?);
     let metrics_cache = Arc::new(MetricsCache::default());
 
@@ -304,8 +289,7 @@ pub async fn build_edge_state(
         token_cache.clone(),
         features_cache.clone(),
         token_validator.clone(),
-        client,
-        metrics_middleware.registry.clone(),
+        http_client.clone(),
         args.app_name,
         instance_data_sender.clone(),
         edge_instance_data.clone(),
@@ -386,7 +370,6 @@ fn create_edge_mode_background_tasks(
     feature_cache: Arc<FeatureCache>,
     validator: Arc<TokenValidator>,
     http_client: reqwest::Client,
-    registry: prometheus::Registry,
     app_name: String,
     instance_data_sender: Arc<InstanceDataSending>,
     edge_instance_data: Arc<EdgeInstanceData>,
@@ -428,7 +411,6 @@ fn create_edge_mode_background_tasks(
     if let Some(url) = edge.prometheus_remote_write_url {
         tasks.push(create_prometheus_write_task(
             http_client,
-            registry,
             url,
             edge.prometheus_push_interval,
             app_name,

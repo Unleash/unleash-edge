@@ -4,7 +4,6 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::{ClientMetaInformation, UnleashClient};
-use prometheus::Registry;
 use tracing::{debug, warn};
 use unleash_edge_cli::{CliArgs, EdgeMode};
 use unleash_edge_types::errors::EdgeError;
@@ -13,7 +12,6 @@ use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
 #[derive(Debug, Clone)]
 pub struct InstanceDataSender {
     pub unleash_client: Arc<UnleashClient>,
-    pub registry: Registry,
     pub token: String,
     pub base_path: String,
 }
@@ -29,7 +27,6 @@ impl InstanceDataSending {
         args: CliArgs,
         client_meta_information: &ClientMetaInformation,
         http_client: reqwest::Client,
-        registry: Registry,
     ) -> Result<Self, EdgeError> {
         match args.mode {
             EdgeMode::Edge(edge_args) => edge_args
@@ -58,7 +55,6 @@ impl InstanceDataSending {
                         unleash_client,
                         token: token.clone(),
                         base_path: args.http.base_path.clone(),
-                        registry,
                     };
                     InstanceDataSending::SendInstanceData(instance_data_sender)
                 })
@@ -87,7 +83,6 @@ async fn send_instance_data(
         }
         InstanceDataSending::SendInstanceData(instance_data_sender) => {
             let observed_data = our_instance_data.observe(
-                &instance_data_sender.registry,
                 downstream_instance_data.read().await.clone(),
                 &instance_data_sender.base_path,
             );
