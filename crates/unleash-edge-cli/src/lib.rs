@@ -701,6 +701,9 @@ impl HttpServerArgs {
             self.tls.tls_server_port,
         ))
     }
+    pub fn https_server_addr(&self) -> String {
+        format!("{}:{}", self.interface.clone(), self.tls.tls_server_port)
+    }
     pub fn http_server_socket(&self) -> SocketAddr {
         SocketAddr::V4(SocketAddrV4::new(
             Ipv4Addr::from_str(&self.interface.clone()).unwrap(),

@@ -3772,6 +3772,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c0ebcbd2f03de0fc1122ad9bb24b127a5a6cd51d72604a3f3c50ac459762b6cc"
 dependencies = [
  "aws-lc-rs",
+ "log",
  "once_cell",
  "ring",
  "rustls-pki-types",
@@ -4808,6 +4809,7 @@ dependencies = [
  "rustls 0.23.31",
  "rustls-pemfile 2.2.0",
  "tokio",
+ "tokio-rustls 0.26.2",
  "tower",
  "tower-http",
  "tracing",

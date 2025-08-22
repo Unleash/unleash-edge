@@ -2,15 +2,43 @@ use axum::Router;
 use axum::extract::State;
 use axum::response::{IntoResponse, Redirect};
 use axum_extra::extract::Host;
+use axum_server::Handle;
 use clap::Parser;
+use futures::future::join_all;
+use http::Uri;
+use http::uri::Authority;
 use std::net::SocketAddr;
+use std::pin::pin;
+use std::time::Duration;
+use tokio::signal;
+use tokio::signal::unix::{SignalKind, signal};
+use tokio::try_join;
 use tower_http::normalize_path::NormalizePathLayer;
+use tracing::info;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use unleash_edge::configure_server;
 use unleash_edge_cli::{CliArgs, EdgeMode};
-use unleash_edge_types::EdgeResult;
 use unleash_edge_types::errors::EdgeError;
+use unleash_edge_types::{BackgroundTask, EdgeResult};
+
+async fn shutdown_signal(protocol: &str, address: String, shutdown_tasks: Vec<BackgroundTask>) {
+    info!("Edge is listening to {protocol} traffic on {}", address);
+
+    let mut sigint = pin!(signal::ctrl_c());
+    let mut sigterm_stream = signal(SignalKind::terminate()).expect("Failed to bind SIGTERM");
+    let mut sigterm = pin!(sigterm_stream.recv());
+
+    tokio::select! {
+        _ = &mut sigint => {
+            info!("Received Ctrl+C (SIGINT), shutting down gracefully...");
+        }
+        _ = &mut sigterm => {
+            info!("Received SIGTERM, shutting down gracefully...");
+        }
+    }
+    join_all(shutdown_tasks).await;
+}
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -41,12 +69,24 @@ pub struct HttpAppCfg {
 }
 
 async fn run_server(args: CliArgs) -> EdgeResult<()> {
-    let router = configure_server(args.clone()).await?;
-    let server = router
-        .layer(NormalizePathLayer::trim_trailing_slash())
-        .into_make_service_with_connect_info::<SocketAddr>();
-
     if args.http.tls.tls_enable {
+        let (router, shutdown_tasks) = configure_server(args.clone()).await?;
+        let server = router
+            .layer(NormalizePathLayer::trim_trailing_slash())
+            .into_make_service_with_connect_info::<SocketAddr>();
+
+        let https_handle = Handle::new();
+        let https_handle_clone = https_handle.clone();
+        let shutdown_fut =
+            shutdown_signal("TLS", args.http.https_server_addr().clone(), shutdown_tasks);
+        let http_handle = Handle::new();
+        let http_handle_clone = http_handle.clone();
+
+        tokio::spawn(async move {
+            let _ = shutdown_fut.await;
+            https_handle_clone.graceful_shutdown(Some(Duration::from_secs(10)));
+            http_handle_clone.graceful_shutdown(Some(Duration::from_secs(10)));
+        });
         let config = unleash_edge::tls::axum_rustls_config(args.http.tls.clone()).await?;
         let addr = args.http.https_server_socket();
         if args.http.tls.redirect_http_to_https {
@@ -57,20 +97,34 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
                         https_port: args.http.tls.tls_server_port,
                     });
             let http = axum_server::bind(args.http.http_server_socket())
+                .handle(http_handle)
                 .serve(http_redirect_app.into_make_service());
-            let https = axum_server::bind_rustls(addr, config).serve(server.clone());
+            let https = axum_server::bind_rustls(addr, config)
+                .handle(https_handle.clone())
+                .serve(server.clone());
             _ = try_join!(http, https);
         } else {
             _ = axum_server::bind_rustls(addr, config)
+                .handle(https_handle.clone())
                 .serve(server.clone())
                 .await;
         }
     } else {
+        let (router, shutdown_tasks) = configure_server(args.clone()).await?;
+        let server = router
+            .layer(NormalizePathLayer::trim_trailing_slash())
+            .into_make_service_with_connect_info::<SocketAddr>();
         let http_listener = tokio::net::TcpListener::bind(&args.http.http_server_addr())
             .await
             .map_err(|_| EdgeError::NotReady)?;
-        _ = axum::serve(http_listener, server.clone()).await;
-    };
+        let _ = axum::serve(http_listener, server.clone())
+            .with_graceful_shutdown(shutdown_signal(
+                "http",
+                args.http.http_server_addr().clone(),
+                shutdown_tasks,
+            ))
+            .await;
+    }
     Ok(())
 }
 
