@@ -17,10 +17,7 @@ use unleash_edge_feature_refresh::{FeatureRefreshConfig, FeatureRefresher};
 use unleash_edge_http_client::instance_data::{
     InstanceDataSending, create_send_instance_data_task,
 };
-use unleash_edge_http_client::{
-    ClientMetaInformation, HttpClientArgs, UnleashClient, new_reqwest_client,
-};
-use unleash_edge_metrics::axum_prometheus_metrics::PrometheusAxumLayer;
+use unleash_edge_http_client::{ClientMetaInformation, UnleashClient};
 use unleash_edge_metrics::metrics_pusher::create_prometheus_write_task;
 use unleash_edge_metrics::send_unleash_metrics::create_send_metrics_task;
 use unleash_edge_persistence::file::FilePersister;
@@ -232,7 +229,6 @@ pub async fn build_edge_state(
     edge_args: &EdgeArgs,
     client_meta_information: ClientMetaInformation,
     edge_instance_data: Arc<EdgeInstanceData>,
-    registry: &prometheus::Registry,
     instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>>,
     auth_headers: AuthHeaders,
     http_client: reqwest::Client,
@@ -278,7 +274,6 @@ pub async fn build_edge_state(
         args.clone(),
         &client_meta_information,
         http_client.clone(),
-        registry.clone(),
     )?);
     let metrics_cache = Arc::new(MetricsCache::default());
 
@@ -291,7 +286,6 @@ pub async fn build_edge_state(
         features_cache.clone(),
         token_validator.clone(),
         http_client.clone(),
-        registry.clone(),
         args.app_name,
         instance_data_sender.clone(),
         edge_instance_data.clone(),
@@ -326,7 +320,6 @@ fn create_edge_mode_background_tasks(
     feature_cache: Arc<FeatureCache>,
     validator: Arc<TokenValidator>,
     http_client: reqwest::Client,
-    registry: prometheus::Registry,
     app_name: String,
     instance_data_sender: Arc<InstanceDataSending>,
     edge_instance_data: Arc<EdgeInstanceData>,
@@ -368,7 +361,6 @@ fn create_edge_mode_background_tasks(
     if let Some(url) = edge.prometheus_remote_write_url {
         tasks.push(create_prometheus_write_task(
             http_client,
-            registry,
             url,
             edge.prometheus_push_interval,
             app_name,

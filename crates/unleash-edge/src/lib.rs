@@ -81,7 +81,6 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<Router> {
                 &edge_args,
                 client_meta_information,
                 edge_instance_data.clone(),
-                &metrics_middleware.registry,
                 instances_observed_for_app_context.clone(),
                 auth_headers,
                 http_client,
