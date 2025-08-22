@@ -8,7 +8,7 @@ use prometheus::Registry;
 use tracing::{debug, warn};
 use unleash_edge_cli::{CliArgs, EdgeMode};
 use unleash_edge_types::errors::EdgeError;
-use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
+use unleash_edge_types::metrics::instance_data::{self, EdgeInstanceData};
 
 #[derive(Debug, Clone)]
 pub struct InstanceDataSender {
@@ -69,20 +69,86 @@ impl InstanceDataSending {
     }
 }
 
-pub async fn send_instance_data(
-    instance_data_sender: &InstanceDataSender,
+#[derive(Debug)]
+enum InstanceDataSendError {
+    Backoff(String),
+    Unexpected(String),
+}
+
+async fn send_instance_data(
+    instance_data_sender: &Arc<InstanceDataSending>,
+    our_instance_data: &Arc<EdgeInstanceData>,
+    downstream_instance_data: &Arc<RwLock<Vec<EdgeInstanceData>>>,
+) -> Result<(), InstanceDataSendError> {
+    match instance_data_sender.as_ref() {
+        InstanceDataSending::SendNothing => {
+            debug!("No instance data sender found. Doing nothing.");
+            Ok(())
+        }
+        InstanceDataSending::SendInstanceData(instance_data_sender) => {
+            let observed_data = our_instance_data.observe(
+                &instance_data_sender.registry,
+                downstream_instance_data.read().await.clone(),
+                &instance_data_sender.base_path,
+            );
+            let status = instance_data_sender
+                .unleash_client
+                .post_edge_observability_data(observed_data, &instance_data_sender.token)
+                .await;
+
+            if let Err(e) = status {
+                match e {
+                    EdgeError::EdgeMetricsRequestError(status, _) => {
+                        match status {
+                            StatusCode::NOT_FOUND => {
+                                downstream_instance_data.write().await.clear();
+                                our_instance_data.clear_time_windowed_metrics();
+                                Err(InstanceDataSendError::Backoff("Our upstream is not running a version that supports edge metrics.".into()))
+                            }
+                            StatusCode::FORBIDDEN => {
+                                downstream_instance_data.write().await.clear();
+                                our_instance_data.clear_time_windowed_metrics();
+                                Err(InstanceDataSendError::Backoff("Upstream edge metrics said our token wasn't allowed to post data".into()))
+                            }
+                            _ => Err(InstanceDataSendError::Unexpected(format!(
+                                "Failed to post instance data due to unknown error {e:?}"
+                            ))),
+                        }
+                    }
+                    _ => Err(InstanceDataSendError::Unexpected(format!(
+                        "Failed to post instance data due to unknown error {e:?}"
+                    ))),
+                }
+            } else {
+                downstream_instance_data.write().await.clear();
+                our_instance_data.clear_time_windowed_metrics();
+                Ok(())
+            }
+        }
+    }
+}
+
+pub fn create_once_off_send_instance_data(
+    instance_data_sender: Arc<InstanceDataSending>,
     our_instance_data: Arc<EdgeInstanceData>,
     downstream_instance_data: Arc<RwLock<Vec<EdgeInstanceData>>>,
-) -> Result<(), EdgeError> {
-    let observed_data = our_instance_data.observe(
-        &instance_data_sender.registry,
-        downstream_instance_data.read().await.clone(),
-        &instance_data_sender.base_path,
-    );
-    instance_data_sender
-        .unleash_client
-        .post_edge_observability_data(observed_data, &instance_data_sender.token)
-        .await
+) -> Pin<Box<dyn Future<Output = ()> + Send>> {
+    let instance_data_sender = instance_data_sender.clone();
+    let our_instance_data = our_instance_data.clone();
+    let downstream_instance_data = downstream_instance_data.clone();
+
+    Box::pin(async move {
+        let result = send_instance_data(
+            &instance_data_sender,
+            &our_instance_data,
+            &downstream_instance_data,
+        )
+        .await;
+
+        if let Err(err) = result {
+            warn!("Failed to send last set of instance data during graceful exit: {err:?}");
+        }
+    })
 }
 
 pub fn create_send_instance_data_task(
@@ -98,48 +164,29 @@ pub fn create_send_instance_data_task(
                 std::time::Duration::from_secs(60) + delay * std::cmp::min(errors, 10),
             )
             .await;
-            match instance_data_sender.as_ref() {
-                InstanceDataSending::SendNothing => {
-                    debug!("No instance data sender found. Doing nothing.");
-                    continue;
+
+            let result = send_instance_data(
+                &instance_data_sender,
+                &our_instance_data,
+                &downstream_instance_data,
+            )
+            .await;
+            match result {
+                Ok(_) => {
+                    debug!("Successfully posted observability metrics.");
+                    errors = 0;
+                    downstream_instance_data.write().await.clear();
+                    our_instance_data.clear_time_windowed_metrics();
                 }
-                InstanceDataSending::SendInstanceData(instance_data_sender) => {
-                    let status = send_instance_data(
-                        instance_data_sender,
-                        our_instance_data.clone(),
-                        downstream_instance_data.clone(),
-                    )
-                    .await;
-                    if let Err(e) = status {
-                        match e {
-                            EdgeError::EdgeMetricsRequestError(status, _) => {
-                                if status == StatusCode::NOT_FOUND {
-                                    debug!(
-                                        "Our upstream is not running a version that supports edge metrics."
-                                    );
-                                    errors += 1;
-                                    downstream_instance_data.write().await.clear();
-                                    our_instance_data.clear_time_windowed_metrics();
-                                } else if status == StatusCode::FORBIDDEN {
-                                    warn!(
-                                        "Upstream edge metrics said our token wasn't allowed to post data"
-                                    );
-                                    errors += 1;
-                                    downstream_instance_data.write().await.clear();
-                                    our_instance_data.clear_time_windowed_metrics();
-                                }
-                            }
-                            _ => {
-                                warn!("Failed to post instance data due to unknown error {e:?}");
-                            }
-                        }
-                    } else {
-                        debug!("Successfully posted observability metrics.");
-                        errors = 0;
-                        downstream_instance_data.write().await.clear();
-                        our_instance_data.clear_time_windowed_metrics();
+                Err(err) => match err {
+                    InstanceDataSendError::Backoff(message) => {
+                        warn!(message);
+                        errors += 1;
                     }
-                }
+                    InstanceDataSendError::Unexpected(message) => {
+                        warn!(message);
+                    }
+                },
             }
         }
     })

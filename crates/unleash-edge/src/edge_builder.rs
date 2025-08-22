@@ -1,6 +1,7 @@
 use crate::{CacheContainer, EdgeInfo, SHOULD_DEFER_VALIDATION};
 use chrono::Duration;
 use dashmap::DashMap;
+use opentelemetry::metrics;
 use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -15,19 +16,23 @@ use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_refresh::{FeatureRefreshConfig, FeatureRefresher};
 use unleash_edge_http_client::instance_data::{
-    InstanceDataSending, create_send_instance_data_task,
+    InstanceDataSending, create_once_off_send_instance_data, create_send_instance_data_task,
 };
 use unleash_edge_http_client::{
     ClientMetaInformation, HttpClientArgs, UnleashClient, new_reqwest_client,
 };
 use unleash_edge_metrics::axum_prometheus_metrics::PrometheusAxumLayer;
 use unleash_edge_metrics::metrics_pusher::create_prometheus_write_task;
-use unleash_edge_metrics::send_unleash_metrics::create_send_metrics_task;
+use unleash_edge_metrics::send_unleash_metrics::{
+    create_once_off_send_metrics, create_send_metrics_task,
+};
 use unleash_edge_persistence::file::FilePersister;
 use unleash_edge_persistence::redis::RedisPersister;
 #[cfg(feature = "s3-persistence")]
 use unleash_edge_persistence::s3::s3_persister::S3Persister;
-use unleash_edge_persistence::{EdgePersistence, create_persist_data_task};
+use unleash_edge_persistence::{
+    EdgePersistence, create_once_off_persist, create_persist_data_task,
+};
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::MetricsCache;
 use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
@@ -202,9 +207,7 @@ pub async fn build_edge(
         .await;
     }
     if token_cache.is_empty() {
-        error!(
-            "Edge was not able to validate any of the tokens configured at startup"
-        );
+        error!("Edge was not able to validate any of the tokens configured at startup");
         return Err(EdgeError::NoTokens("No valid tokens provided on startup. At least one valid token must be specified at startup".into()));
     }
     for validated_token in token_cache
@@ -238,7 +241,7 @@ pub async fn build_edge_state(
     instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>>,
     auth_headers: AuthHeaders,
     http_client: reqwest::Client,
-) -> EdgeResult<(AppState, Vec<BackgroundTask>)> {
+) -> EdgeResult<(AppState, Vec<BackgroundTask>, Vec<BackgroundTask>)> {
     let unleash_client = Url::parse(&edge_args.upstream_url.clone())
         .map(|url| {
             UnleashClient::from_url_with_backing_client(
@@ -307,9 +310,20 @@ pub async fn build_edge_state(
         args.app_name,
         instance_data_sender.clone(),
         edge_instance_data.clone(),
-        instances_observed_for_app_context,
+        instances_observed_for_app_context.clone(),
         metrics_cache.clone(),
-        unleash_client,
+        unleash_client.clone(),
+    );
+
+    let shutdown_tasks = create_shutdown_task(
+        persistence.clone(),
+        token_cache.clone(),
+        features_cache.clone(),
+        metrics_cache.clone(),
+        unleash_client.clone(),
+        instance_data_sender.clone(),
+        edge_instance_data.clone(),
+        instances_observed_for_app_context.clone(),
     );
 
     let app_state = AppState::builder()
@@ -326,7 +340,42 @@ pub async fn build_edge_state(
         .with_edge_instance_data(edge_instance_data)
         .build();
 
-    Ok((app_state, background_tasks))
+    Ok((app_state, background_tasks, shutdown_tasks))
+}
+
+fn create_shutdown_task(
+    persistence: Option<Arc<dyn EdgePersistence>>,
+    token_cache: Arc<TokenCache>,
+    feature_cache: Arc<FeatureCache>,
+    metrics_cache: Arc<MetricsCache>,
+    unleash_client: Arc<UnleashClient>,
+    instance_data_sender: Arc<InstanceDataSending>,
+    edge_instance_data: Arc<EdgeInstanceData>,
+    instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>>,
+) -> Vec<BackgroundTask> {
+    let mut tasks = vec![];
+
+    if let Some(persistence) = persistence {
+        tasks.push(create_once_off_persist(
+            persistence,
+            token_cache.clone(),
+            feature_cache,
+        ));
+    }
+
+    tasks.push(create_once_off_send_metrics(
+        metrics_cache,
+        unleash_client,
+        token_cache,
+    ));
+
+    tasks.push(create_once_off_send_instance_data(
+        instance_data_sender.clone(),
+        edge_instance_data.clone(),
+        instances_observed_for_app_context.clone(),
+    ));
+
+    tasks
 }
 
 fn create_edge_mode_background_tasks(
@@ -345,7 +394,7 @@ fn create_edge_mode_background_tasks(
     instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>>,
     metrics_cache_clone: Arc<MetricsCache>,
     unleash_client: Arc<UnleashClient>,
-) -> Vec<Pin<Box<dyn Future<Output = ()> + Send>>> {
+) -> Vec<BackgroundTask> {
     let mut tasks: Vec<Pin<Box<dyn Future<Output = ()> + Send>>> = vec![];
     tasks.push(create_fetch_task(
         &edge,

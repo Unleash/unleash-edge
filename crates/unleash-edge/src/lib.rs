@@ -20,7 +20,7 @@ use unleash_edge_metrics::axum_prometheus_metrics::{
 };
 use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
-use unleash_edge_types::{EdgeResult, EngineCache, TokenCache};
+use unleash_edge_types::{BackgroundTask, EdgeResult, EngineCache, TokenCache};
 
 pub mod edge_builder;
 pub mod health_checker;
@@ -49,7 +49,7 @@ pub type EdgeInfo = (
     Option<Arc<dyn EdgePersistence>>,
 );
 
-pub async fn configure_server(args: CliArgs) -> EdgeResult<Router> {
+pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<BackgroundTask>)> {
     let app_id: Ulid = Ulid::new();
     let edge_instance_data = Arc::new(EdgeInstanceData::new(&args.app_name, &app_id));
     let client_meta_information = ClientMetaInformation {
@@ -61,7 +61,7 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<Router> {
         Arc::new(RwLock::new(Vec::new()));
     let metrics_middleware = PrometheusAxumLayer::new();
 
-    let (app_state, background_tasks) = match &args.mode {
+    let (app_state, background_tasks, shutdown_tasks) = match &args.mode {
         EdgeMode::Edge(edge_args) => {
             let http_client = new_reqwest_client(HttpClientArgs {
                 skip_ssl_verification: edge_args.skip_ssl_verification,
@@ -136,5 +136,5 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<Router> {
                 )),
         )
         .with_state(app_state);
-    Ok(top_router)
+    Ok((top_router, shutdown_tasks))
 }
