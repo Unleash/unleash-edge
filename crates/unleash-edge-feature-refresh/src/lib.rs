@@ -222,9 +222,7 @@ impl FeatureRefresher {
         match self.get_features_by_filter(&token, filters) {
             Some(features) if self.token_is_subsumed(&token) => Ok(features),
             Some(_features) if !self.token_is_subsumed(&token) => {
-                debug!(
-                    "Token is not subsumed by any registered tokens. Returning error"
-                );
+                debug!("Token is not subsumed by any registered tokens. Returning error");
                 Err(EdgeError::InvalidToken)
             }
             _ => {
@@ -244,9 +242,7 @@ impl FeatureRefresher {
         match self.get_delta_events_by_filter(&token, &feature_filters, &delta_filters, revision) {
             Some(features) if self.token_is_subsumed(&token) => Ok(features),
             _ => {
-                debug!(
-                    "Token is not subsumed by any registered tokens. Returning error"
-                );
+                debug!("Token is not subsumed by any registered tokens. Returning error");
                 Err(EdgeError::InvalidToken)
             }
         }
