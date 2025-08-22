@@ -1,11 +1,10 @@
-use std::pin::Pin;
-
+use prometheus::gather;
 use prometheus_reqwest_remote_write::WriteRequest;
+use std::pin::Pin;
 use tracing::debug;
 
 pub fn create_prometheus_write_task(
     http_client: reqwest::Client,
-    registry: prometheus::Registry,
     url: String,
     interval: u64,
     app_name: String,
@@ -15,24 +14,17 @@ pub fn create_prometheus_write_task(
         loop {
             tokio::select! {
                 _ = tokio::time::sleep(sleep_duration) => {
-                    remote_write_prom(registry.clone(), url.clone(), http_client.clone(), app_name.clone()).await;
+                    remote_write_prom(url.clone(), http_client.clone(), app_name.clone()).await;
                 }
             }
         }
     })
 }
 
-async fn remote_write_prom(
-    registry: prometheus::Registry,
-    url: String,
-    client: reqwest::Client,
-    app_name: String,
-) {
-    let write_request = WriteRequest::from_metric_families(
-        registry.gather(),
-        Some(vec![("app_name".into(), app_name)]),
-    )
-    .expect("Could not format write request");
+async fn remote_write_prom(url: String, client: reqwest::Client, app_name: String) {
+    let write_request =
+        WriteRequest::from_metric_families(gather(), Some(vec![("app_name".into(), app_name)]))
+            .expect("Could not format write request");
     let http_request = write_request
         .build_http_request(client.clone(), &url, "unleash_edge")
         .expect("Failed to build http request");
