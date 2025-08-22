@@ -8,7 +8,7 @@ use prometheus::Registry;
 use tracing::{debug, warn};
 use unleash_edge_cli::{CliArgs, EdgeMode};
 use unleash_edge_types::errors::EdgeError;
-use unleash_edge_types::metrics::instance_data::{self, EdgeInstanceData};
+use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
 
 #[derive(Debug, Clone)]
 pub struct InstanceDataSender {
