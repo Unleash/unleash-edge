@@ -231,10 +231,9 @@ impl Display for EdgeError {
             EdgeError::NotReady => {
                 write!(f, "Edge is not ready to serve requests")
             }
-            EdgeError::InvalidToken => write!(
-                f,
-                "The token is not subsumed by any registered tokens"
-            ),
+            EdgeError::InvalidToken => {
+                write!(f, "The token is not subsumed by any registered tokens")
+            }
             EdgeError::SseError(message) => write!(f, "{}", message),
             EdgeError::Forbidden(reason) => write!(f, "{}", reason),
             EdgeError::InvalidEtag => write!(f, "Failed to parse ETag header"),
