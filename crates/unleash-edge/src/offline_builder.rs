@@ -116,7 +116,7 @@ pub fn build_offline(offline_args: OfflineArgs) -> EdgeResult<CacheContainer> {
 pub async fn build_offline_app_state(
     args: CliArgs,
     offline_args: OfflineArgs,
-) -> EdgeResult<(AppState, Vec<BackgroundTask>)> {
+) -> EdgeResult<(AppState, Vec<BackgroundTask>, Vec<BackgroundTask>)> {
     let (token_cache, features_cache, _, engine_cache) = build_offline(offline_args.clone())?;
     let metrics_cache = Arc::new(MetricsCache::default());
 
@@ -135,7 +135,8 @@ pub async fn build_offline_app_state(
     let background_tasks =
         create_offline_background_tasks(features_cache, engine_cache, offline_args);
 
-    Ok((app_state, background_tasks))
+    // offline mode explicitly has nothing to do on shutdown
+    Ok((app_state, background_tasks, vec![]))
 }
 
 fn create_offline_background_tasks(

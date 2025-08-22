@@ -22,6 +22,15 @@ pub trait EdgePersistence: Send + Sync {
     async fn save_features(&self, features: Vec<(String, ClientFeatures)>) -> EdgeResult<()>;
 }
 
+async fn persist(
+    persistence: Arc<dyn EdgePersistence>,
+    token_cache: Arc<DashMap<String, EdgeToken>>,
+    features_cache: Arc<FeatureCache>,
+) {
+    save_known_tokens(&token_cache, &persistence).await;
+    save_features(&features_cache, &persistence).await;
+}
+
 pub fn create_persist_data_task(
     persistence: Arc<dyn EdgePersistence>,
     token_cache: Arc<DashMap<String, EdgeToken>>,
@@ -31,12 +40,26 @@ pub fn create_persist_data_task(
         loop {
             tokio::select! {
                 _ = tokio::time::sleep(Duration::from_secs(60)) => {
-                    save_known_tokens(&token_cache, &persistence).await;
-                    save_features(&features_cache, &persistence).await;
+                    persist(
+                        persistence.clone(),
+                        token_cache.clone(),
+                        features_cache.clone()
+                    ).await;
                 }
             }
         }
     })
+}
+
+pub fn create_once_off_persist(
+    persistence: Arc<dyn EdgePersistence>,
+    token_cache: Arc<DashMap<String, EdgeToken>>,
+    features_cache: Arc<FeatureCache>,
+) -> Pin<Box<dyn Future<Output = ()> + Send>> {
+    let token_cache = token_cache.clone();
+    let features_cache = features_cache.clone();
+    let persistence = persistence.clone();
+    Box::pin(async move { persist(persistence, token_cache, features_cache).await })
 }
 
 async fn save_known_tokens(
