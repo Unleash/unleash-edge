@@ -28,6 +28,7 @@ clap = { workspace = true }
 clap-markdown = { workspace = true }
 dashmap = { workspace = true }
 etag = { workspace = true }
+futures = { workspace = true }
 http = { workspace = true }
 ipnet = { workspace = true }
 opentelemetry = { workspace = true }
