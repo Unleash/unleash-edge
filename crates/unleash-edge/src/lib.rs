@@ -78,7 +78,7 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
 
             build_edge_state(
                 args.clone(),
-                &edge_args,
+                edge_args,
                 client_meta_information,
                 edge_instance_data.clone(),
                 instances_observed_for_app_context.clone(),
