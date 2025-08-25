@@ -8,7 +8,8 @@ use tokio::sync::mpsc::UnboundedSender;
 use tracing::{debug, error, info, warn};
 use unleash_edge_appstate::AppState;
 use unleash_edge_auth::token_validator::{
-    TokenValidator, create_revalidation_of_startup_tokens_task, create_revalidation_task,
+    TokenValidator, create_deferred_validation_task, create_revalidation_of_startup_tokens_task,
+    create_revalidation_task,
 };
 use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeArgs, RedisMode};
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
@@ -296,6 +297,7 @@ pub async fn build_edge_state(
         instances_observed_for_app_context.clone(),
         metrics_cache.clone(),
         unleash_client.clone(),
+        deferred_validation_rx,
     );
 
     let shutdown_tasks = create_shutdown_task(
@@ -376,6 +378,7 @@ fn create_edge_mode_background_tasks(
     instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>>,
     metrics_cache_clone: Arc<MetricsCache>,
     unleash_client: Arc<UnleashClient>,
+    deferred_validation_rx: Option<tokio::sync::mpsc::UnboundedReceiver<String>>,
 ) -> Vec<BackgroundTask> {
     let mut tasks: Vec<Pin<Box<dyn Future<Output = ()> + Send>>> = vec![];
     tasks.push(create_fetch_task(
@@ -425,6 +428,10 @@ fn create_edge_mode_background_tasks(
         ));
     } else {
         info!("No persistence configured, skipping persistence");
+    }
+
+    if let Some(rx) = deferred_validation_rx {
+        tasks.push(create_deferred_validation_task(validator, rx));
     }
 
     tasks

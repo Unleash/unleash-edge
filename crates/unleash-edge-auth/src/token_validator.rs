@@ -87,6 +87,15 @@ pub fn create_revalidation_of_startup_tokens_task(
     })
 }
 
+pub fn create_deferred_validation_task(
+    validator: Arc<TokenValidator>,
+    rx: UnboundedReceiver<String>,
+) -> Pin<Box<dyn Future<Output = ()> + Send>> {
+    Box::pin(async move {
+        validator.schedule_deferred_validation(rx).await;
+    })
+}
+
 impl TokenValidator {
     pub fn new(
         unleash_client: Arc<UnleashClient>,
