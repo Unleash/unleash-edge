@@ -104,24 +104,18 @@ async fn send_metrics(
                                 }
                                 StatusCode::BAD_REQUEST => {
                                     MetricsSendError::NoBackoff(format!(
-                                        "Unleash said [{message:?}. Dropping this bucket to avoid consuming too much memory"
+                                        "Unleash said [{message:?}]. Dropping this bucket to avoid consuming too much memory"
                                     ))
                                 }
                                 StatusCode::NOT_FOUND => {
-                                    MetricsSendError::Backoff(format!(
-                                        "Upstream said we are trying to post to an endpoint that doesn't exist. Dropping this bucket to avoid consuming too much memory"
-                                    ))
+                                    MetricsSendError::Backoff("Upstream said we are trying to post to an endpoint that doesn't exist. Dropping this bucket to avoid consuming too much memory".to_string())
                                 }
                                 StatusCode::FORBIDDEN | StatusCode::UNAUTHORIZED => {
-                                    MetricsSendError::Unauthed(format!(
-                                        "Upstream said we were not allowed to post metrics. Dropping this bucket to avoid consuming too much memory"
-                                    ))
+                                    MetricsSendError::Unauthed("Upstream said we were not allowed to post metrics. Dropping this bucket to avoid consuming too much memory".to_string())
                                 }
                                 StatusCode::TOO_MANY_REQUESTS => {
                                     reinsert_batch(&metrics_cache, batch);
-                                    MetricsSendError::Backoff(format!(
-                                        "Upstream said it was too busy"
-                                    ))
+                                    MetricsSendError::Backoff("Upstream said it was too busy".to_string())
                                 }
                                 StatusCode::INTERNAL_SERVER_ERROR
                                 | StatusCode::BAD_GATEWAY

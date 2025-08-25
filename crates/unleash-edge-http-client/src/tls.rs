@@ -75,6 +75,7 @@ mod tests {
             tls_enable: true,
             tls_server_key: Some("../../examples/server.key".into()),
             tls_server_port: 443,
+            redirect_http_to_https: false,
         };
 
         let _ = config(tls_options);
