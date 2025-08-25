@@ -104,7 +104,7 @@ async fn send_metrics(
                                 }
                                 StatusCode::BAD_REQUEST => {
                                     MetricsSendError::NoBackoff(format!(
-                                        "Unleash said [{message:?}. Dropping this bucket to avoid consuming too much memory"
+                                        "Unleash said [{message:?}]. Dropping this bucket to avoid consuming too much memory"
                                     ))
                                 }
                                 StatusCode::NOT_FOUND => {
