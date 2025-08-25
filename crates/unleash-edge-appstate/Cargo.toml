@@ -18,5 +18,6 @@ unleash-edge-feature-cache = { path = "../unleash-edge-feature-cache" }
 unleash-edge-feature-refresh = { path = "../unleash-edge-feature-refresh" }
 unleash-edge-http-client = { path = "../unleash-edge-http-client" }
 unleash-edge-persistence = { path = "../unleash-edge-persistence" }
+unleash-edge-streaming = { path = "../unleash-edge-streaming" }
 unleash-edge-types = { path = "../unleash-edge-types" }
 unleash-types = { workspace = true }

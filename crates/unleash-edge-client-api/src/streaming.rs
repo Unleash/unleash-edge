@@ -1,26 +1,46 @@
-use tracing::instrument;
-use unleash_types::client_features::ClientFeatures;
+use std::convert::Infallible;
 
-// #[utoipa::path(
-//     get,
-//     path = "/features",
-//     context_path = "/api/client",
-//     params(FeatureFilters),
-//     responses(
-//         (status = 200, description = "Return feature toggles for this token", body = ClientFeatures),
-//         (status = 403, description = "Was not allowed to access features"),
-//         (status = 400, description = "Invalid parameters used")
-//     ),
-//     security(
-//         ("Authorization" = [])
-//     )
-// )]
-// #[instrument(skip(app_state, edge_token, filter_query))]
-// pub async fn stream_features(
-//     edge_token: EdgeToken,
-//     token_cache: Data<DashMap<String, EdgeToken>>,
-//     edge_mode: Data<EdgeMode>,
-//     filter_query: Query<FeatureFilters>,
-// ) -> EdgeJsonResult<ClientFeatures> {
-//     resolve_features(&app_state, edge_token.clone(), filter_query.0.clone()).await
-// }
+use axum::{
+    Router,
+    extract::{Query, State},
+    response::{Sse, sse::Event},
+    routing::get,
+};
+use dashmap::DashMap;
+use futures_util::Stream;
+use tokio::{
+    stream,
+    sync::{broadcast, mpsc::Receiver},
+};
+use unleash_edge_appstate::AppState;
+
+use unleash_edge_streaming::stream_broadcast::Broadcaster;
+use unleash_edge_types::{
+    EdgeResult, FeatureFilters, TokenCache, errors::EdgeError, tokens::EdgeToken,
+};
+
+use crate::get_feature_filter;
+
+pub async fn stream_features(
+    app_state: State<AppState>,
+    edge_token: EdgeToken,
+    filter_query: Query<FeatureFilters>,
+) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, EdgeError> {
+    let broadcaster = app_state.streaming_broadcaster.clone();
+
+    match broadcaster {
+        Some(broadcaster) => {
+            let (validated_token, _filter_set, query) =
+                get_feature_filter(&edge_token, &app_state.token_cache, filter_query.clone())?;
+
+            broadcaster.connect(validated_token, query).await
+        }
+        None => Err(EdgeError::Forbidden(
+            "This endpoint is only enabled in streaming mode".into(),
+        )),
+    }
+}
+
+pub fn router() -> Router<AppState> {
+    Router::new().route("/streaming", get(stream_features))
+}

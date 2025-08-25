@@ -4851,6 +4851,7 @@ dependencies = [
  "unleash-edge-feature-refresh",
  "unleash-edge-http-client",
  "unleash-edge-persistence",
+ "unleash-edge-streaming",
  "unleash-edge-types",
  "unleash-types",
 ]
@@ -4924,6 +4925,7 @@ version = "20.0.0"
 dependencies = [
  "axum",
  "dashmap",
+ "futures-util",
  "serde",
  "serde_json",
  "tokio",
@@ -4932,6 +4934,7 @@ dependencies = [
  "unleash-edge-feature-filters",
  "unleash-edge-feature-refresh",
  "unleash-edge-metrics",
+ "unleash-edge-streaming",
  "unleash-edge-types",
  "unleash-types",
  "unleash-yggdrasil",
