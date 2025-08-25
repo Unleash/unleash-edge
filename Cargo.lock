@@ -5167,6 +5167,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "unleash-edge-streaming"
+version = "20.0.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "axum-test",
+ "dashmap",
+ "eventsource-client",
+ "futures",
+ "http 1.3.1",
+ "prometheus",
+ "serde_json",
+ "test-case",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "tracing-test",
+ "unleash-edge-delta",
+ "unleash-edge-feature-cache",
+ "unleash-edge-feature-filters",
+ "unleash-edge-http-client",
+ "unleash-edge-persistence",
+ "unleash-edge-types",
+ "unleash-types",
+ "unleash-yggdrasil",
+]
+
+[[package]]
 name = "unleash-edge-types"
 version = "20.0.0"
 dependencies = [

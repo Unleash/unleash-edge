@@ -10,6 +10,7 @@ pub mod delta;
 pub mod features;
 pub mod metrics;
 pub mod register;
+pub mod streaming;
 
 fn get_feature_filter(
     edge_token: &EdgeToken,
