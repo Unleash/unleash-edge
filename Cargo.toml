@@ -27,8 +27,9 @@ async-trait = { version = "0.1.89" }
 aws-config = { version = "1.8.5", features = ["behavior-version-latest"] }
 aws-sdk-s3 = { version = "1.103.0", features = ["behavior-version-latest"] }
 axum = { version = "0.8.4", features = ["macros", "tokio", "json", "query", "tracing"] }
+axum-extra = { version = "0.10.1", features = ["tracing"] }
 axum-server = { version = "0.7.2", features = ["tls-rustls"] }
-axum-test = { version = "17.3.0", features = ["pretty-assertions", "reqwest"] }
+axum-test = { version = "18.0.0", features = ["pretty-assertions", "reqwest"] }
 chrono = { version = "0.4.41", features = ["serde"] }
 cidr = { version = "0.3.1" }
 clap = { version = "4.5.45", features = ["derive", "env"] }
@@ -54,7 +55,7 @@ prometheus-reqwest-remote-write = { version = "0.4.0" }
 proptest = { version = "1.7.0" }
 redis = { version = "0.32.4", features = ["tokio-rustls-comp", "cluster"] }
 reqwest = { version = "0.12.23", default-features = false, features = ["rustls-tls", "json"] }
-rustls = { version = "0.23.31" }
+rustls = { version = "0.23.31", default-features = false, features = ["ring"] }
 rustls-pemfile = { version = "2.2.0" }
 semver = { version = "1.0.26" }
 serde = { version = "1.0.219", features = ["derive"] }

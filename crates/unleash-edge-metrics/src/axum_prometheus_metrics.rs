@@ -160,7 +160,7 @@ where
                 }
                 .to_string();
                 HTTP_REQUESTS_PENDING_METRIC
-                    .with_label_values(&[&method, &used_path])
+                    .with_label_values(&[&method, &path])
                     .dec();
                 HTTP_REQUESTS_TOTAL_METRIC
                     .with_label_values(&[&method, &used_path, &status])

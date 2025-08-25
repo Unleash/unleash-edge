@@ -140,13 +140,13 @@ pub struct ClientIdentity {
     /// Client key is a PEM encoded PKCS#8 formatted private key for the leaf certificate
     #[clap(long, env)]
     pub pkcs8_client_key_file: Option<PathBuf>,
-    /// Identity file in pkcs12 format. Typically this file has a pfx extension
+    /// Identity file in pkcs12 format. Typically, this file has a pfx extension
     #[clap(long, env)]
     pub pkcs12_identity_file: Option<PathBuf>,
     #[clap(long, env)]
     /// Passphrase used to unlock the pkcs12 file
     pub pkcs12_passphrase: Option<String>,
-
+    #[clap(long, env)]
     pub pem_cert_file: Option<PathBuf>,
 }
 
@@ -504,6 +504,9 @@ pub struct TlsOptions {
     /// Port to listen for https connection on (will use the interfaces already defined)
     #[clap(env, long, default_value_t = 3043)]
     pub tls_server_port: u16,
+    /// Redirect http traffic to https
+    #[clap(env, long, default_value_t = false)]
+    pub redirect_http_to_https: bool,
 }
 
 pub fn parse_http_method(value: &str) -> Result<Method, String> {
@@ -696,6 +699,15 @@ impl HttpServerArgs {
         SocketAddr::V4(SocketAddrV4::new(
             Ipv4Addr::from_str(&self.interface.clone()).unwrap(),
             self.tls.tls_server_port,
+        ))
+    }
+    pub fn https_server_addr(&self) -> String {
+        format!("{}:{}", self.interface.clone(), self.tls.tls_server_port)
+    }
+    pub fn http_server_socket(&self) -> SocketAddr {
+        SocketAddr::V4(SocketAddrV4::new(
+            Ipv4Addr::from_str(&self.interface.clone()).unwrap(),
+            self.port,
         ))
     }
 }
