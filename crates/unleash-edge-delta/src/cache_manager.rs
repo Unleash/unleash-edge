@@ -1,7 +1,7 @@
 use crate::cache::DeltaCache;
 use dashmap::DashMap;
 use tokio::sync::broadcast;
-use tracing::{error, info};
+use tracing::info;
 use unleash_types::client_features::DeltaEvent;
 
 #[derive(Debug, Clone)]

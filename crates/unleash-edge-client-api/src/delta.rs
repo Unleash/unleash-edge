@@ -1,4 +1,3 @@
-use crate::get_feature_filter;
 use axum::body::Body;
 use axum::extract::{FromRequestParts, Query, State};
 use axum::http::request::Parts;
@@ -6,6 +5,7 @@ use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::get;
 use axum::{Json, Router, http};
+use unleash_edge_feature_filters::get_feature_filter;
 use std::sync::Arc;
 use tracing::instrument;
 use unleash_edge_appstate::AppState;
