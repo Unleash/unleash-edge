@@ -43,8 +43,8 @@ impl FromRequestParts<AppState> for RevisionId {
 pub struct DeltaResolverArgs {
     pub edge_token: EdgeToken,
     pub token_cache: Arc<TokenCache>,
-    pub filter_query: Query<FeatureFilters>,
-    pub features_refresher: Arc<Option<FeatureRefresher>>,
+    pub filter_query: FeatureFilters,
+    pub features_refresher: Option<Arc<FeatureRefresher>>,
     pub requested_revision_id: u32,
 }
 #[instrument(skip(app_state, edge_token, filter_query, revision_id))]
@@ -57,7 +57,7 @@ pub async fn get_features_delta(
     match resolve_delta(DeltaResolverArgs {
         edge_token,
         token_cache: app_state.token_cache.clone(),
-        filter_query,
+        filter_query: filter_query.0,
         features_refresher: app_state.feature_refresher.clone(),
         requested_revision_id: revision_id.requested_revision_id,
     })
@@ -82,19 +82,17 @@ pub async fn get_features_delta(
     }
 }
 
-#[instrument(skip(edge_token, token_cache, filter_query, requested_revision_id))]
+#[instrument(skip(edge_token, token_cache, query_filters, requested_revision_id))]
 fn get_delta_filter(
     edge_token: &EdgeToken,
     token_cache: &TokenCache,
-    filter_query: Query<FeatureFilters>,
+    query_filters: FeatureFilters,
     requested_revision_id: u32,
 ) -> EdgeResult<DeltaFilterSet> {
     let validated_token = token_cache
         .get(&edge_token.token)
         .map(|e| e.value().clone())
         .ok_or(EdgeError::AuthorizationDenied)?;
-
-    let query_filters = filter_query.0;
 
     let delta_filter_set = DeltaFilterSet::default().with_filter(combined_filter(
         requested_revision_id,
@@ -120,7 +118,7 @@ async fn resolve_delta(args: DeltaResolverArgs) -> EdgeJsonResult<Option<ClientF
         args.requested_revision_id,
     )?;
 
-    match *args.features_refresher {
+    match args.features_refresher {
         Some(ref refresher) => {
             let delta = refresher.delta_events_for_filter(
                 validated_token.clone(),

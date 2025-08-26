@@ -9,7 +9,6 @@ use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_refresh::FeatureRefresher;
 use unleash_edge_http_client::instance_data::InstanceDataSending;
 use unleash_edge_persistence::EdgePersistence;
-use unleash_edge_streaming::stream_broadcast::Broadcaster;
 use unleash_edge_types::metrics::MetricsCache;
 use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
 use unleash_edge_types::{EngineCache, TokenCache};
@@ -20,7 +19,7 @@ pub struct AppState {
     pub token_cache: Arc<TokenCache>,
     pub features_cache: Arc<FeatureCache>,
     pub engine_cache: Arc<EngineCache>,
-    pub feature_refresher: Arc<Option<FeatureRefresher>>,
+    pub feature_refresher: Option<Arc<FeatureRefresher>>,
     pub token_validator: Arc<Option<TokenValidator>>,
     pub metrics_cache: Arc<MetricsCache>,
     pub offline_mode: bool,
@@ -33,7 +32,6 @@ pub struct AppState {
     pub edge_persistence: Option<Arc<dyn EdgePersistence>>,
     pub deny_list: Vec<IpNet>,
     pub allow_list: Vec<IpNet>,
-    pub streaming_broadcaster: Arc<Option<Broadcaster>>,
 }
 
 impl AppState {
@@ -50,7 +48,7 @@ pub struct AppStateBuilder {
     token_cache: Arc<TokenCache>,
     features_cache: Arc<FeatureCache>,
     engine_cache: Arc<EngineCache>,
-    feature_refresher: Arc<Option<FeatureRefresher>>,
+    feature_refresher: Option<Arc<FeatureRefresher>>,
     token_validator: Arc<Option<TokenValidator>>,
     metrics_cache: Arc<MetricsCache>,
     offline_mode: bool,
@@ -63,7 +61,6 @@ pub struct AppStateBuilder {
     edge_persistence: Option<Arc<dyn EdgePersistence>>,
     deny_list: Vec<IpNet>,
     allow_list: Vec<IpNet>,
-    streaming_broadcaster: Arc<Option<Broadcaster>>,
 }
 
 impl AppStateBuilder {
@@ -72,7 +69,7 @@ impl AppStateBuilder {
             token_cache: Arc::new(DashMap::new()),
             features_cache: Arc::new(FeatureCache::new(DashMap::default())),
             engine_cache: Arc::new(DashMap::new()),
-            feature_refresher: Arc::new(None),
+            feature_refresher: None,
             token_validator: Arc::new(None),
             metrics_cache: Arc::new(MetricsCache::default()),
             offline_mode: false,
@@ -88,7 +85,6 @@ impl AppStateBuilder {
             edge_persistence: None,
             deny_list: vec![],
             allow_list: vec![],
-            streaming_broadcaster: Arc::new(None),
         }
     }
 
@@ -114,7 +110,7 @@ impl AppStateBuilder {
 
     pub fn with_feature_refresher(
         mut self,
-        feature_refresher: Arc<Option<FeatureRefresher>>,
+        feature_refresher: Option<Arc<FeatureRefresher>>,
     ) -> Self {
         self.feature_refresher = feature_refresher;
         self
@@ -164,11 +160,6 @@ impl AppStateBuilder {
         self
     }
 
-    pub fn with_streaming_broadcaster(mut self, broadcaster: Arc<Option<Broadcaster>>) -> Self {
-        self.streaming_broadcaster = broadcaster;
-        self
-    }
-
     pub fn build(self) -> AppState {
         AppState {
             token_cache: self.token_cache,
@@ -187,7 +178,6 @@ impl AppStateBuilder {
             edge_persistence: self.edge_persistence,
             deny_list: self.deny_list,
             allow_list: self.allow_list,
-            streaming_broadcaster: self.streaming_broadcaster,
         }
     }
 }

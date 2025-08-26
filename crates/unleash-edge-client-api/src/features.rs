@@ -49,7 +49,6 @@ pub async fn get_features(
     )
 )]
 #[instrument(skip(app_state, edge_token, filter_query))]
-#[axum::debug_handler]
 pub async fn post_features(
     app_state: State<AppState>,
     edge_token: EdgeToken,
@@ -67,7 +66,7 @@ async fn resolve_features(
     let (validated_token, filter_set, query) =
         get_feature_filter(&edge_token, &app_state.token_cache, filter_query)?;
 
-    let client_features = match *app_state.feature_refresher {
+    let client_features = match app_state.feature_refresher {
         Some(ref refresher) => refresher.features_for_filter(validated_token.clone(), &filter_set),
         None => app_state
             .features_cache

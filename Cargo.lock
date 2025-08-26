@@ -4476,6 +4476,7 @@ dependencies = [
  "futures-core",
  "pin-project-lite",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]
@@ -4929,8 +4930,10 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "tokio-stream",
  "tracing",
  "unleash-edge-appstate",
+ "unleash-edge-delta",
  "unleash-edge-feature-filters",
  "unleash-edge-feature-refresh",
  "unleash-edge-metrics",

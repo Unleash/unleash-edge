@@ -316,7 +316,7 @@ pub async fn build_edge_state(
         .with_features_cache(features_cache.clone())
         .with_engine_cache(engine_cache.clone())
         .with_token_validator(Arc::new(Some(token_validator.as_ref().clone())))
-        .with_feature_refresher(Arc::new(Some(feature_refresher.as_ref().clone())))
+        .with_feature_refresher(Some(Arc::new(feature_refresher.as_ref().clone())))
         .with_metrics_cache(metrics_cache.clone())
         .with_persistence(persistence)
         .with_deny_list(args.http.deny_list.unwrap_or_default())

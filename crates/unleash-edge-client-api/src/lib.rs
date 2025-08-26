@@ -1,5 +1,4 @@
 use axum::Router;
-use axum::extract::Query;
 use unleash_edge_appstate::AppState;
 use unleash_edge_feature_filters::{FeatureFilterSet, name_prefix_filter, project_filter};
 use unleash_edge_types::errors::EdgeError;
@@ -15,7 +14,7 @@ pub mod streaming;
 fn get_feature_filter(
     edge_token: &EdgeToken,
     token_cache: &TokenCache,
-    filter_query: Query<FeatureFilters>,
+    filter_query: FeatureFilters,
 ) -> EdgeResult<(
     EdgeToken,
     FeatureFilterSet,
@@ -26,7 +25,7 @@ fn get_feature_filter(
         .map(|e| e.value().clone())
         .ok_or(EdgeError::AuthorizationDenied)?;
 
-    let query_filters = filter_query.0;
+    let query_filters = filter_query;
     let query = unleash_types::client_features::Query {
         tags: None,
         projects: Some(validated_token.projects.clone()),
