@@ -1,4 +1,5 @@
 use axum::Router;
+use tracing::info;
 use unleash_edge_appstate::AppState;
 use unleash_edge_feature_filters::{FeatureFilterSet, name_prefix_filter, project_filter};
 use unleash_edge_types::errors::EdgeError;
@@ -20,6 +21,7 @@ fn get_feature_filter(
     FeatureFilterSet,
     unleash_types::client_features::Query,
 )> {
+    info!("Checking {edge_token:?}");
     let validated_token = token_cache
         .get(&edge_token.token)
         .map(|e| e.value().clone())
@@ -50,4 +52,5 @@ pub fn router() -> Router<AppState> {
         .merge(delta::router())
         .merge(metrics::router())
         .merge(register::router())
+        .merge(streaming::router())
 }

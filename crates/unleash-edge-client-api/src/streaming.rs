@@ -1,5 +1,6 @@
 use std::{convert::Infallible, time::Duration};
 
+use axum::response::sse::KeepAlive;
 use axum::{
     Router,
     extract::{Query, State},
@@ -63,12 +64,11 @@ fn strip_non_send(
     result.map(|(token, _filter_set, query)| (token, query))
 }
 
-#[axum::debug_handler]
 pub async fn stream_deltas(
     State(app_state): State<AppState>,
     edge_token: EdgeToken,
     Query(filter_query): Query<FeatureFilters>,
-) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+) -> EdgeResult<Sse<impl Stream<Item = Result<Event, Infallible>>>> {
     let refresher = app_state.feature_refresher.as_ref().unwrap(); //fix me this won't work
     let token_cache = app_state.token_cache.clone();
     let delta_cache_manager = refresher.delta_cache_manager.clone();
@@ -77,8 +77,7 @@ pub async fn stream_deltas(
         &edge_token,
         &token_cache,
         filter_query.clone(),
-    ))
-    .unwrap();
+    ))?;
 
     let rx = delta_cache_manager.subscribe();
 
@@ -87,8 +86,7 @@ pub async fn stream_deltas(
         0,
         &StreamingQuery::from((&query, &validated_token)),
     )
-    .await
-    .unwrap();
+    .await?;
 
     let initial_event = Event::default()
         .event("unleash-connected")
@@ -97,11 +95,6 @@ pub async fn stream_deltas(
     let intro_stream = once(Ok(initial_event));
 
     let updates_stream = BroadcastStream::new(rx).filter_map(|broadcast_result| async move {
-        let client_data = ClientData {
-            token: EdgeToken::default(),
-            revision: 0,
-        };
-
         match broadcast_result {
             Ok(DeltaCacheUpdate::Update(env)) => {
                 let json = serde_json::to_string(&env).ok()?;
@@ -123,11 +116,11 @@ pub async fn stream_deltas(
 
     let full_stream = intro_stream.chain(updates_stream);
 
-    Sse::new(full_stream).keep_alive(
+    Ok(Sse::new(full_stream).keep_alive(
         axum::response::sse::KeepAlive::new()
             .interval(Duration::from_secs(30))
             .text("keep-alive"),
-    )
+    ))
 }
 
 async fn create_event_list(
