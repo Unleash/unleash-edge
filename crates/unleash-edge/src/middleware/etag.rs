@@ -8,13 +8,12 @@ use tracing::{trace, warn};
 
 pub async fn etag_middleware(req: Request, next: Next) -> impl IntoResponse {
     let if_none_match_header = req.headers().get(header::IF_NONE_MATCH).cloned();
-    let content_type = req.headers().get(header::CONTENT_TYPE).cloned();
     let path = req.uri().path().to_owned();
     let res = next.run(req).await;
     if path.ends_with("/streaming") {
         return res;
     }
-    let (mut parts, body) = res.into_parts();
+    let (parts, body) = res.into_parts();
     process_body(if_none_match_header, path, parts, body).await
 }
 
