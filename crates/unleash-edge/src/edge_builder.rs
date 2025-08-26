@@ -447,12 +447,14 @@ fn create_fetch_task(
     if edge.streaming {
         let custom_headers = edge.custom_client_headers.clone();
         if edge.delta {
+            info!("Starting delta streaming background task");
             Box::pin(async move {
                 let _ = refresher_for_background
                     .start_streaming_delta_background_task(client_meta_information, custom_headers)
                     .await;
             })
         } else {
+            info!("Starting full streaming background task");
             Box::pin(async move {
                 let _ = refresher_for_background
                     .start_streaming_features_background_task(
@@ -463,6 +465,7 @@ fn create_fetch_task(
             })
         }
     } else {
+        info!("Starting polling background task");
         Box::pin(async move {
             feature_refresher
                 .start_refresh_features_background_task()

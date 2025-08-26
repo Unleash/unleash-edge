@@ -10,6 +10,8 @@ use axum::{
 use futures_util::{Stream, StreamExt};
 use tokio_stream::once;
 use tokio_stream::wrappers::BroadcastStream;
+use tracing::field::debug;
+use tracing::{debug, info};
 use unleash_edge_appstate::AppState;
 
 use unleash_edge_delta::cache_manager::{DeltaCacheManager, DeltaCacheUpdate};
@@ -95,22 +97,30 @@ pub async fn stream_deltas(
     let intro_stream = once(Ok(initial_event));
 
     let updates_stream = BroadcastStream::new(rx).filter_map(|broadcast_result| async move {
+        debug!("About to send a delta update to a client");
+
         match broadcast_result {
             Ok(DeltaCacheUpdate::Update(env)) => {
+                debug!("Sending delta update to client");
                 let json = serde_json::to_string(&env).ok()?;
                 Some(Ok(Event::default().event("unleash-updated").data(json)))
             }
             Ok(DeltaCacheUpdate::Deletion(env)) => {
+                debug!("Sending delta deletion to client");
                 let json = serde_json::to_string(&env).ok()?;
                 Some(Ok(Event::default().event("unleash-deleted").data(json)))
             }
             Ok(DeltaCacheUpdate::Full(env)) => {
+                debug!("Sending full refresh to client");
                 let json = serde_json::to_string(&env).ok()?;
                 Some(Ok(Event::default()
                     .event("unleash-full-refresh")
                     .data(json)))
             }
-            Err(_) => todo!(),
+            Err(_) => {
+                info!("A downstream client did not receive a delta when it was expected");
+                None
+            }
         }
     });
 
