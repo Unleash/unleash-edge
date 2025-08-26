@@ -53,6 +53,16 @@ pub fn router() -> Router<AppState> {
     Router::new().route("/streaming", get(stream_deltas))
 }
 
+fn strip_non_send(
+    result: EdgeResult<(
+        EdgeToken,
+        FeatureFilterSet,
+        unleash_types::client_features::Query,
+    )>,
+) -> EdgeResult<(EdgeToken, unleash_types::client_features::Query)> {
+    result.map(|(token, _filter_set, query)| (token, query))
+}
+
 #[axum::debug_handler]
 pub async fn stream_deltas(
     State(app_state): State<AppState>,
@@ -63,8 +73,12 @@ pub async fn stream_deltas(
     let token_cache = app_state.token_cache.clone();
     let delta_cache_manager = refresher.delta_cache_manager.clone();
 
-    let (validated_token, _filter_set, query) =
-        get_feature_filter(&edge_token, &token_cache, filter_query.clone()).unwrap();
+    let (validated_token, query) = strip_non_send(get_feature_filter(
+        &edge_token,
+        &token_cache,
+        filter_query.clone(),
+    ))
+    .unwrap();
 
     let rx = delta_cache_manager.subscribe();
 

@@ -29,9 +29,9 @@ use unleash_types::client_features::ClientFeatures;
 pub async fn get_features(
     app_state: State<AppState>,
     edge_token: EdgeToken,
-    filter_query: Query<FeatureFilters>,
+    Query(filter_query): Query<FeatureFilters>,
 ) -> EdgeJsonResult<ClientFeatures> {
-    resolve_features(&app_state, edge_token.clone(), filter_query.0.clone()).await
+    resolve_features(&app_state, edge_token.clone(), filter_query).await
 }
 
 #[utoipa::path(
@@ -52,9 +52,9 @@ pub async fn get_features(
 pub async fn post_features(
     app_state: State<AppState>,
     edge_token: EdgeToken,
-    filter_query: Query<FeatureFilters>,
+    Query(filter_query): Query<FeatureFilters>,
 ) -> EdgeJsonResult<ClientFeatures> {
-    resolve_features(&app_state, edge_token, filter_query.0).await
+    resolve_features(&app_state, edge_token, filter_query).await
 }
 
 #[instrument(skip(app_state, edge_token, filter_query))]
