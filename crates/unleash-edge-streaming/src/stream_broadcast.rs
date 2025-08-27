@@ -14,9 +14,8 @@ use unleash_edge_feature_filters::{
     delta_filters::{DeltaFilterSet, combined_filter, filter_delta_events},
     get_feature_filter, name_prefix_filter, project_filter_from_projects,
 };
-use unleash_edge_feature_refresh::FeatureRefresher;
 use unleash_edge_types::{
-    EdgeResult, FeatureFilters, TokenCache, errors::EdgeError, filters::delta, tokens::EdgeToken,
+    EdgeResult, FeatureFilters, TokenCache, errors::EdgeError, tokens::EdgeToken,
 };
 use unleash_types::client_features::ClientFeaturesDelta;
 
@@ -59,7 +58,6 @@ pub async fn stream_deltas(
         revision: resolve_last_event_id(delta_cache_manager.clone(), &streaming_query),
         streaming_query,
     }));
-
 
     let updates_stream = BroadcastStream::new(rx)
         .take_while({
