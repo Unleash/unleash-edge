@@ -21,7 +21,7 @@ async fn setup_streaming(
 ) -> EdgeResult<Sse<impl Stream<Item = Result<Event, axum::Error>>>> {
     let Some(delta_cache_manager) = app_state.delta_cache_manager.as_ref() else {
         return Err(EdgeError::SseError(
-            "No delta cache manager found, streaming will not work.".into(),
+            "No delta cache manager found, streaming will not work. This is likely because Edge was not started in streaming mode.".into(),
         ));
     };
 
