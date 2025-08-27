@@ -62,10 +62,18 @@ pub async fn stream_deltas(
     let updates_stream = BroadcastStream::new(rx)
         .take_while({
             move |broadcast_result| {
-                let should_continue = match &broadcast_result {
+                let environment_not_deleted = match &broadcast_result {
                     Ok(DeltaCacheUpdate::Deletion(_)) => false,
                     _ => true,
                 };
+                let token_valid = if let Some(known_token) = token_cache.get(&edge_token.token) {
+                    known_token.value().status.is_valid()
+                } else {
+                    false
+                };
+
+                let should_continue = environment_not_deleted && token_valid;
+
                 Box::pin(async move { should_continue })
                     as Pin<Box<dyn Future<Output = bool> + Send>>
             }
