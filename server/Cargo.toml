@@ -31,7 +31,7 @@ s3-persistence = ["aws-sdk-s3", "aws-config"]
 [dependencies]
 actix-allow-deny-middleware = "0.1.2"
 actix-cors = "0.7.1"
-actix-http = "3.11.0"
+actix-http = "3.11.1"
 actix-middleware-etag = "0.4.6"
 actix-service = "2.0.3"
 actix-web = { version = "4.11.0", features = ["rustls-0_23", "compress-zstd"] }
@@ -108,7 +108,7 @@ utoipa = { version = "5.4.0", features = ["actix_extras", "chrono"] }
 utoipa-swagger-ui = { version = "9.0.2", features = ["actix-web"] }
 zip = { version = "4.5.0" }
 [dev-dependencies]
-actix-http = "3.11.0"
+actix-http = "3.11.1"
 actix-http-test = "3.2.0"
 actix-service = "2.0.3"
 capture-logger = "0.1.1"
