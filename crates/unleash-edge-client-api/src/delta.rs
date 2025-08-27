@@ -52,12 +52,12 @@ pub async fn get_features_delta(
     app_state: State<AppState>,
     edge_token: EdgeToken,
     revision_id: RevisionId,
-    filter_query: Query<FeatureFilters>,
+    Query(filter_query): Query<FeatureFilters>,
 ) -> impl IntoResponse {
     match resolve_delta(DeltaResolverArgs {
         edge_token,
         token_cache: app_state.token_cache.clone(),
-        filter_query: filter_query.0,
+        filter_query,
         features_refresher: app_state.feature_refresher.clone(),
         requested_revision_id: revision_id.requested_revision_id,
     })
