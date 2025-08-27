@@ -62,10 +62,8 @@ pub async fn stream_deltas(
     let updates_stream = BroadcastStream::new(rx)
         .take_while({
             move |broadcast_result| {
-                let environment_not_deleted = match &broadcast_result {
-                    Ok(DeltaCacheUpdate::Deletion(_)) => false,
-                    _ => true,
-                };
+                let environment_not_deleted =
+                    !matches!(broadcast_result, Ok(DeltaCacheUpdate::Deletion(_)));
                 let token_valid = if let Some(known_token) = token_cache.get(&edge_token.token) {
                     known_token.value().status.is_valid()
                 } else {
