@@ -14,6 +14,7 @@ tokio = { workspace = true }
 ulid = { workspace = true }
 unleash-edge-auth = { path = "../unleash-edge-auth" }
 unleash-edge-cli = { path = "../unleash-edge-cli" }
+unleash-edge-delta = { path = "../unleash-edge-delta" }
 unleash-edge-feature-cache = { path = "../unleash-edge-feature-cache" }
 unleash-edge-feature-refresh = { path = "../unleash-edge-feature-refresh" }
 unleash-edge-http-client = { path = "../unleash-edge-http-client" }

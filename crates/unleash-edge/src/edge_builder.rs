@@ -263,7 +263,7 @@ pub async fn build_edge_state(
 
     let auth_headers = AuthHeaders::from(&args);
     let (
-        (token_cache, features_cache, _, engine_cache),
+        (token_cache, features_cache, delta_cache_manager, engine_cache),
         token_validator,
         feature_refresher,
         persistence,
@@ -323,6 +323,7 @@ pub async fn build_edge_state(
         .with_allow_list(args.http.allow_list.unwrap_or_default())
         .with_instance_sending(instance_data_sender)
         .with_edge_instance_data(edge_instance_data)
+        .with_delta_cache_manager(delta_cache_manager)
         .build();
 
     Ok((app_state, background_tasks, shutdown_tasks))

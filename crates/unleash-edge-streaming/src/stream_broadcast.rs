@@ -16,7 +16,7 @@ use unleash_edge_feature_filters::{
 };
 use unleash_edge_feature_refresh::FeatureRefresher;
 use unleash_edge_types::{
-    EdgeResult, FeatureFilters, TokenCache, errors::EdgeError, tokens::EdgeToken,
+    EdgeResult, FeatureFilters, TokenCache, errors::EdgeError, filters::delta, tokens::EdgeToken,
 };
 use unleash_types::client_features::ClientFeaturesDelta;
 
@@ -31,13 +31,12 @@ fn strip_non_send(
 }
 
 pub async fn stream_deltas(
-    feature_refresher: Arc<FeatureRefresher>,
+    delta_cache_manager: Arc<DeltaCacheManager>,
     token_cache: Arc<TokenCache>,
     edge_token: EdgeToken,
     filter_query: FeatureFilters,
 ) -> EdgeResult<Sse<impl Stream<Item = Result<Event, axum::Error>>>> {
     let token_cache = token_cache.clone();
-    let delta_cache_manager = feature_refresher.delta_cache_manager.clone();
 
     let (validated_token, query) = strip_non_send(get_feature_filter(
         &edge_token,
@@ -47,6 +46,7 @@ pub async fn stream_deltas(
 
     let rx = delta_cache_manager.subscribe();
     let streaming_query = StreamingQuery::from((&query, &validated_token));
+
     let initial_features =
         create_event_list(delta_cache_manager.clone(), 0, &streaming_query).await?;
 
@@ -59,6 +59,7 @@ pub async fn stream_deltas(
         revision: resolve_last_event_id(delta_cache_manager.clone(), &streaming_query),
         streaming_query,
     }));
+
 
     let updates_stream = BroadcastStream::new(rx)
         .take_while({
@@ -127,6 +128,7 @@ async fn create_event_list(
         query.projects.clone(),
         query.name_prefix.clone(),
     ));
+
     let delta_cache = delta_cache_manager.get(&query.environment);
     match delta_cache {
         Some(delta_cache) => Ok(filter_delta_events(

@@ -19,14 +19,14 @@ async fn setup_streaming(
     edge_token: EdgeToken,
     Query(filter_query): Query<FeatureFilters>,
 ) -> EdgeResult<Sse<impl Stream<Item = Result<Event, axum::Error>>>> {
-    let Some(refresher) = app_state.feature_refresher.as_ref() else {
+    let Some(delta_cache_manager) = app_state.delta_cache_manager.as_ref() else {
         return Err(EdgeError::SseError(
-            "No feature refresher found, streaming will not work, this is an application error, please report it.".into(),
+            "No delta cache manager found, streaming will not work.".into(),
         ));
     };
 
     stream_deltas(
-        refresher.clone(),
+        delta_cache_manager.clone(),
         app_state.token_cache.clone(),
         edge_token,
         filter_query,
