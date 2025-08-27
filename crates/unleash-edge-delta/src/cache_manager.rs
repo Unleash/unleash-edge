@@ -52,7 +52,7 @@ impl DeltaCacheManager {
             let result = self
                 .update_sender
                 .send(DeltaCacheUpdate::Update(env.to_string()));
-            if let Err(_) = result {
+            if result.is_err() {
                 info!("No active subscribers to delta broadcast for env: {env}");
             }
         }

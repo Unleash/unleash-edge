@@ -381,36 +381,26 @@ fn create_edge_mode_background_tasks(
     unleash_client: Arc<UnleashClient>,
     deferred_validation_rx: Option<tokio::sync::mpsc::UnboundedReceiver<String>>,
 ) -> Vec<BackgroundTask> {
-    let mut tasks: Vec<Pin<Box<dyn Future<Output = ()> + Send>>> = vec![];
-    tasks.push(create_fetch_task(
-        &edge,
-        client_meta_information,
-        feature_refresher.clone(),
-    ));
-
-    tasks.push(create_send_metrics_task(
-        metrics_cache_clone.clone(),
-        unleash_client,
-        token_cache.clone(),
-        edge.metrics_interval_seconds.try_into().unwrap(),
-    ));
-
-    tasks.push(create_revalidation_task(
-        &validator,
-        edge.token_revalidation_interval_seconds,
-    ));
-
-    tasks.push(create_revalidation_of_startup_tokens_task(
-        &validator,
-        edge.tokens.clone(),
-        feature_refresher.clone(),
-    ));
-
-    tasks.push(create_send_instance_data_task(
-        instance_data_sender.clone(),
-        edge_instance_data.clone(),
-        instances_observed_for_app_context.clone(),
-    ));
+    let mut tasks: Vec<BackgroundTask> = vec![
+        create_fetch_task(&edge, client_meta_information, feature_refresher.clone()),
+        create_send_metrics_task(
+            metrics_cache_clone.clone(),
+            unleash_client,
+            token_cache.clone(),
+            edge.metrics_interval_seconds.try_into().unwrap(),
+        ),
+        create_revalidation_task(&validator, edge.token_revalidation_interval_seconds),
+        create_revalidation_of_startup_tokens_task(
+            &validator,
+            edge.tokens.clone(),
+            feature_refresher.clone(),
+        ),
+        create_send_instance_data_task(
+            instance_data_sender.clone(),
+            edge_instance_data.clone(),
+            instances_observed_for_app_context.clone(),
+        ),
+    ];
 
     if let Some(url) = edge.prometheus_remote_write_url {
         tasks.push(create_prometheus_write_task(

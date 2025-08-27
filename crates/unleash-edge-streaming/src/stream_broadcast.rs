@@ -120,7 +120,7 @@ async fn create_event_list(
     last_event_id: u32,
     query: &StreamingQuery,
 ) -> EdgeResult<ClientFeaturesDelta> {
-    let filter_set = get_query_filters(&query);
+    let filter_set = get_query_filters(query);
     let delta_filter_set = DeltaFilterSet::default().with_filter(combined_filter(
         last_event_id,
         query.projects.clone(),
