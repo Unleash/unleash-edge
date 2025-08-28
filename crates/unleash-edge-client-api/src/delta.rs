@@ -10,7 +10,8 @@ use tracing::instrument;
 use unleash_edge_appstate::AppState;
 use unleash_edge_feature_filters::delta_filters::{DeltaFilterSet, combined_filter};
 use unleash_edge_feature_filters::get_feature_filter;
-use unleash_edge_feature_refresh::FeatureRefresher;
+use unleash_edge_feature_refresh::HydratorType;
+use unleash_edge_feature_refresh::delta_refresh::DeltaRefresher;
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::tokens::EdgeToken;
 use unleash_edge_types::{EdgeJsonResult, EdgeResult, FeatureFilters, TokenCache};
@@ -44,9 +45,10 @@ pub struct DeltaResolverArgs {
     pub edge_token: EdgeToken,
     pub token_cache: Arc<TokenCache>,
     pub filter_query: FeatureFilters,
-    pub features_refresher: Option<Arc<FeatureRefresher>>,
+    pub delta_refresher: Arc<DeltaRefresher>,
     pub requested_revision_id: u32,
 }
+
 #[instrument(skip(app_state, edge_token, filter_query, revision_id))]
 pub async fn get_features_delta(
     app_state: State<AppState>,
@@ -54,30 +56,42 @@ pub async fn get_features_delta(
     revision_id: RevisionId,
     Query(filter_query): Query<FeatureFilters>,
 ) -> impl IntoResponse {
-    match resolve_delta(DeltaResolverArgs {
-        edge_token,
-        token_cache: app_state.token_cache.clone(),
-        filter_query,
-        features_refresher: app_state.feature_refresher.clone(),
-        requested_revision_id: revision_id.requested_revision_id,
-    })
-    .await
-    {
-        Ok(Json(None)) => Response::builder()
-            .status(StatusCode::NOT_MODIFIED)
-            .body(Body::empty())
+    match app_state.hydrator.clone() {
+        Some(HydratorType::Polling(_)) => Response::builder()
+            .status(StatusCode::NOT_FOUND)
+            .body(Body::from("Cannot resolve delta in polling mode"))
             .unwrap(),
-        Ok(Json(Some(delta))) => {
-            let last_event_id = delta.events.last().map(|e| e.get_event_id()).unwrap_or(0);
-            Response::builder()
-                .status(StatusCode::OK)
-                .header(http::header::ETAG, format!("{}", last_event_id))
-                .body(Body::from(serde_json::to_string(&delta).unwrap()))
-                .unwrap()
+        Some(HydratorType::Streaming(ref delta_refresher)) => {
+            match resolve_delta(DeltaResolverArgs {
+                edge_token,
+                token_cache: app_state.token_cache.clone(),
+                filter_query,
+                delta_refresher: delta_refresher.clone(),
+                requested_revision_id: revision_id.requested_revision_id,
+            })
+            .await
+            {
+                Ok(Json(None)) => Response::builder()
+                    .status(StatusCode::NOT_MODIFIED)
+                    .body(Body::empty())
+                    .unwrap(),
+                Ok(Json(Some(delta))) => {
+                    let last_event_id = delta.events.last().map(|e| e.get_event_id()).unwrap_or(0);
+                    Response::builder()
+                        .status(StatusCode::OK)
+                        .header(http::header::ETAG, format!("{}", last_event_id))
+                        .body(Body::from(serde_json::to_string(&delta).unwrap()))
+                        .unwrap()
+                }
+                Err(e) => Response::builder()
+                    .status(e.status_code())
+                    .body(Body::empty())
+                    .unwrap(),
+            }
         }
-        Err(e) => Response::builder()
-            .status(e.status_code())
-            .body(Body::empty())
+        None => Response::builder()
+            .status(StatusCode::NOT_FOUND)
+            .body(Body::from("Cannot resolve delta in offline mode"))
             .unwrap(),
     }
 }
@@ -118,25 +132,18 @@ async fn resolve_delta(args: DeltaResolverArgs) -> EdgeJsonResult<Option<ClientF
         args.requested_revision_id,
     )?;
 
-    match args.features_refresher {
-        Some(ref refresher) => {
-            let delta = refresher.delta_events_for_filter(
-                validated_token.clone(),
-                filter_set,
-                delta_filter_set,
-                args.requested_revision_id,
-            )?;
+    let delta = args.delta_refresher.delta_events_for_filter(
+        validated_token.clone(),
+        filter_set,
+        delta_filter_set,
+        args.requested_revision_id,
+    )?;
 
-            if delta.events.is_empty() {
-                return Ok(Json(None));
-            }
-
-            Ok(Json(Some(delta)))
-        }
-        None => Err(EdgeError::ClientHydrationFailed(
-            "FeatureRefresher is missing - cannot resolve delta in offline mode".to_string(),
-        )),
+    if delta.events.is_empty() {
+        return Ok(Json(None));
     }
+
+    Ok(Json(Some(delta)))
 }
 
 pub fn router() -> Router<AppState> {
