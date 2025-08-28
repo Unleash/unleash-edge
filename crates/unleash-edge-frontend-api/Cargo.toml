@@ -20,5 +20,7 @@ unleash-edge-feature-refresh = { path = "../unleash-edge-feature-refresh" }
 unleash-edge-metrics = { path = "../unleash-edge-metrics" }
 unleash-edge-types = { path = "../unleash-edge-types" }
 unleash-types = { workspace = true }
-unleash-yggdrasil = { workspace = true}
+unleash-yggdrasil = { workspace = true }
 utoipa = { workspace = true }
+[dev-dependencies]
+axum-test = { workspace = true }

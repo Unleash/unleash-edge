@@ -29,53 +29,53 @@ use unleash_types::frontend::FrontendResult;
 )]
 #[instrument(skip(app_state, edge_token, client_ip, context))]
 pub async fn frontend_get_all_features(
-    app_state: State<AppState>,
+    State(app_state): State<AppState>,
     edge_token: EdgeToken,
     client_ip: ConnectInfo<SocketAddr>,
-    context: Query<Context>,
+    Query(context): Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    all_features(app_state.0, edge_token, &context.0, client_ip.ip())
+    all_features(app_state, edge_token, &context, client_ip.ip())
 }
 
 #[instrument(skip(app_state, edge_token, client_ip, context))]
 pub async fn frontend_post_all_features(
-    app_state: State<AppState>,
+    State(app_state): State<AppState>,
     edge_token: EdgeToken,
     client_ip: ConnectInfo<SocketAddr>,
-    context: Json<Context>,
+    Json(context): Json<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    all_features(app_state.0, edge_token, &context.0, client_ip.ip())
+    all_features(app_state, edge_token, &context, client_ip.ip())
 }
 
 #[instrument(skip(app_state, edge_token, client_ip, context))]
 pub async fn frontend_get_enabled_features(
-    app_state: State<AppState>,
+    State(app_state): State<AppState>,
     edge_token: EdgeToken,
     client_ip: ConnectInfo<SocketAddr>,
-    context: Query<Context>,
+    Query(context): Query<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    enabled_features(app_state.0, edge_token, &context.0, client_ip.ip())
+    enabled_features(app_state, edge_token, &context, client_ip.ip())
 }
 
 #[instrument(skip(app_state, edge_token, client_ip, context))]
 pub async fn frontend_post_enabled_features(
-    app_state: State<AppState>,
+    State(app_state): State<AppState>,
     edge_token: EdgeToken,
     client_ip: ConnectInfo<SocketAddr>,
-    context: Json<Context>,
+    Json(context): Json<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    enabled_features(app_state.0, edge_token, &context.0, client_ip.ip())
+    enabled_features(app_state, edge_token, &context, client_ip.ip())
 }
 
 #[instrument(skip(app_state, edge_token, metrics))]
 pub async fn frontend_post_metrics(
     app_state: State<AppState>,
     edge_token: EdgeToken,
-    metrics: Json<ClientMetrics>,
+    Json(metrics): Json<ClientMetrics>,
 ) -> impl IntoResponse {
     unleash_edge_metrics::client_metrics::register_client_metrics(
         edge_token,
-        metrics.0,
+        metrics,
         app_state.metrics_cache.clone(),
     );
     Response::builder()
@@ -86,14 +86,14 @@ pub async fn frontend_post_metrics(
 
 #[instrument(skip(app_state, edge_token, client_application))]
 pub async fn frontend_register_client(
-    app_state: State<AppState>,
+    State(app_state): State<AppState>,
     edge_token: EdgeToken,
-    client_application: Json<ClientApplication>,
+    Json(client_application): Json<ClientApplication>,
 ) -> impl IntoResponse {
     unleash_edge_metrics::client_metrics::register_client_application(
         edge_token,
         &app_state.connect_via,
-        client_application.0,
+        client_application,
         app_state.metrics_cache.clone(),
     );
     Response::builder()
@@ -109,7 +109,13 @@ pub fn router(disable_all_endpoints: bool) -> Router<AppState> {
             get(frontend_get_enabled_features).post(frontend_post_enabled_features),
         )
         .route("/frontend/client/metrics", post(frontend_post_metrics))
-        .route("/frontend/client/register", post(frontend_register_client));
+        .route("/frontend/client/register", post(frontend_register_client))
+        .route(
+            "/proxy",
+            get(frontend_get_enabled_features).post(frontend_post_enabled_features),
+        )
+        .route("/proxy/client/metrics", post(frontend_post_metrics))
+        .route("/proxy/client/register", post(frontend_register_client));
     if !disable_all_endpoints {
         common_router = common_router
             .route(
@@ -120,7 +126,264 @@ pub fn router(disable_all_endpoints: bool) -> Router<AppState> {
             .route(
                 "/frontend/all/client/register",
                 post(frontend_register_client),
-            );
+            )
+            .route(
+                "/proxy/all",
+                get(frontend_get_all_features).post(frontend_post_all_features),
+            )
+            .route("/proxy/all/client/metrics", post(frontend_post_metrics))
+            .route("/proxy/all/client/register", post(frontend_register_client));
     }
     common_router
+}
+
+#[cfg(test)]
+mod tests {
+    use axum::http::StatusCode;
+    use axum_test::TestServer;
+    use serde_json::json;
+    use std::net::SocketAddr;
+    use std::str::FromStr;
+    use std::sync::Arc;
+    use unleash_edge_appstate::AppState;
+    use unleash_edge_types::tokens::{EdgeToken, cache_key};
+    use unleash_edge_types::{EngineCache, TokenCache, TokenType, TokenValidationStatus};
+    use unleash_types::client_features::{
+        ClientFeature, ClientFeatures, Constraint, Operator, Strategy,
+    };
+    use unleash_types::frontend::FrontendResult;
+    use unleash_yggdrasil::{EngineState, UpdateMessage};
+
+    fn frontend_test_server(app_state: AppState, disable_all_endpoints: bool) -> TestServer {
+        let router = super::router(disable_all_endpoints)
+            .with_state(app_state)
+            .into_make_service_with_connect_info::<SocketAddr>();
+        TestServer::builder()
+            .http_transport()
+            .build(router)
+            .expect("Failed to build test server")
+    }
+
+    #[tokio::test]
+    async fn get_requests_to_enabled_endpoint_gets_only_enabled_features() {
+        let token_cache = Arc::new(TokenCache::new());
+        let mut frontend_token =
+            EdgeToken::from_str("*:development.abc123").expect("Failed to parse frontend token");
+        frontend_token.token_type = Some(TokenType::Frontend);
+        frontend_token.status = TokenValidationStatus::Validated;
+        let mut engine_state = EngineState::default();
+        engine_state.take_state(UpdateMessage::FullResponse(
+            client_features_with_one_enabled_toggle_and_one_disabled_toggle(),
+        ));
+        let engine_cache = Arc::new(EngineCache::new());
+        engine_cache.insert(cache_key(&frontend_token), engine_state);
+        let app_state = AppState::builder()
+            .with_token_cache(token_cache)
+            .with_engine_cache(engine_cache)
+            .build();
+        let server = frontend_test_server(app_state.clone(), true);
+        let res = server
+            .get("/frontend")
+            .add_header("Authorization", frontend_token.token)
+            .await;
+        assert_eq!(res.status_code(), StatusCode::OK);
+        let result = res.json::<FrontendResult>();
+        assert_eq!(result.toggles.len(), 1);
+        assert_eq!(result.toggles[0].name, "test");
+    }
+
+    #[tokio::test]
+    async fn get_requests_to_all_endpoint_gets_all_features() {
+        let token_cache = Arc::new(TokenCache::new());
+        let mut frontend_token =
+            EdgeToken::from_str("*:development.abc123").expect("Failed to parse frontend token");
+        frontend_token.token_type = Some(TokenType::Frontend);
+        frontend_token.status = TokenValidationStatus::Validated;
+        let mut engine_state = EngineState::default();
+        engine_state.take_state(UpdateMessage::FullResponse(
+            client_features_with_one_enabled_toggle_and_one_disabled_toggle(),
+        ));
+        let engine_cache = Arc::new(EngineCache::new());
+        engine_cache.insert(cache_key(&frontend_token), engine_state);
+        let app_state = AppState::builder()
+            .with_token_cache(token_cache)
+            .with_engine_cache(engine_cache)
+            .build();
+        let server = frontend_test_server(app_state.clone(), false);
+        let res = server
+            .get("/frontend/all")
+            .add_header("Authorization", frontend_token.token)
+            .await;
+        assert_eq!(res.status_code(), StatusCode::OK);
+        let result = res.json::<FrontendResult>();
+        assert_eq!(result.toggles.len(), 2);
+        assert!(result.toggles[0].enabled);
+        assert!(!result.toggles[1].enabled);
+    }
+
+    #[tokio::test]
+    async fn get_requests_parses_context_from_url() {
+        let token_cache = Arc::new(TokenCache::new());
+        let mut frontend_token =
+            EdgeToken::from_str("*:development.abc123").expect("Failed to parse frontend token");
+        frontend_token.token_type = Some(TokenType::Frontend);
+        frontend_token.status = TokenValidationStatus::Validated;
+        let mut engine_state = EngineState::default();
+        engine_state.take_state(UpdateMessage::FullResponse(
+            client_features_with_constraint_requiring_user_id_of_seven(),
+        ));
+        let engine_cache = Arc::new(EngineCache::new());
+        engine_cache.insert(cache_key(&frontend_token), engine_state);
+        let app_state = AppState::builder()
+            .with_token_cache(token_cache)
+            .with_engine_cache(engine_cache)
+            .build();
+        let server = frontend_test_server(app_state.clone(), true);
+        let res = server
+            .get("/frontend?userId=7")
+            .add_header("Authorization", frontend_token.token.clone())
+            .await;
+        assert_eq!(res.status_code(), StatusCode::OK);
+        let result = res.json::<FrontendResult>();
+        assert_eq!(result.toggles.len(), 1);
+        assert_eq!(result.toggles[0].name, "test");
+        let wrong_user_response = server
+            .get("/frontend?userId=152")
+            .add_header("Authorization", frontend_token.token)
+            .await;
+        assert_eq!(wrong_user_response.status_code(), StatusCode::OK);
+        let wrong_user_result = wrong_user_response.json::<FrontendResult>();
+        assert!(wrong_user_result.toggles.is_empty());
+    }
+
+    #[tokio::test]
+    async fn post_requests_parses_context_from_body() {
+        let token_cache = Arc::new(TokenCache::new());
+        let mut frontend_token =
+            EdgeToken::from_str("*:development.abc123").expect("Failed to parse frontend token");
+        frontend_token.token_type = Some(TokenType::Frontend);
+        frontend_token.status = TokenValidationStatus::Validated;
+        let mut engine_state = EngineState::default();
+        engine_state.take_state(UpdateMessage::FullResponse(
+            client_features_with_constraint_requiring_user_id_of_seven(),
+        ));
+        let engine_cache = Arc::new(EngineCache::new());
+        engine_cache.insert(cache_key(&frontend_token), engine_state);
+        let app_state = AppState::builder()
+            .with_token_cache(token_cache)
+            .with_engine_cache(engine_cache)
+            .build();
+        let server = frontend_test_server(app_state.clone(), true);
+        let res = server
+            .post("/frontend")
+            .add_header("Authorization", frontend_token.token.clone())
+            .json(&json!({
+                "userId": 7
+            }))
+            .await;
+        assert_eq!(res.status_code(), StatusCode::OK);
+        let result = res.json::<FrontendResult>();
+        assert_eq!(result.toggles.len(), 1);
+        assert_eq!(result.toggles[0].name, "test");
+        let wrong_user_response = server
+            .post("/frontend")
+            .add_header("Authorization", frontend_token.token)
+            .json(&json!({
+                "userId": 170
+            }))
+            .await;
+        assert_eq!(wrong_user_response.status_code(), StatusCode::OK);
+        let wrong_user_result = wrong_user_response.json::<FrontendResult>();
+        assert!(wrong_user_result.toggles.is_empty());
+    }
+
+    #[tokio::test]
+    async fn proxy_and_frontend_returns_same_response() {
+        let token_cache = Arc::new(TokenCache::new());
+        let mut frontend_token =
+            EdgeToken::from_str("*:development.abc123").expect("Failed to parse frontend token");
+        frontend_token.token_type = Some(TokenType::Frontend);
+        frontend_token.status = TokenValidationStatus::Validated;
+        let mut engine_state = EngineState::default();
+        engine_state.take_state(UpdateMessage::FullResponse(
+            client_features_with_one_enabled_toggle_and_one_disabled_toggle(),
+        ));
+        let engine_cache = Arc::new(EngineCache::new());
+        engine_cache.insert(cache_key(&frontend_token), engine_state);
+        let app_state = AppState::builder()
+            .with_token_cache(token_cache)
+            .with_engine_cache(engine_cache)
+            .build();
+        let server = frontend_test_server(app_state.clone(), true);
+        let frontend_response = server
+            .get("/frontend")
+            .add_header("Authorization", frontend_token.token.clone())
+            .await;
+        assert_eq!(frontend_response.status_code(), StatusCode::OK);
+        let frontend_result = frontend_response.json::<FrontendResult>();
+        let proxy_response = server
+            .get("/proxy")
+            .add_header("Authorization", frontend_token.token)
+            .await;
+        assert_eq!(proxy_response.status_code(), StatusCode::OK);
+        let proxy_result = proxy_response.json::<FrontendResult>();
+        assert!(frontend_result.toggles.iter().all(|frontend_toggle| {
+            proxy_result.toggles.iter().any(|proxy_toggle| {
+                frontend_toggle.enabled == proxy_toggle.enabled
+                    && frontend_toggle.impression_data == proxy_toggle.impression_data
+                    && frontend_toggle.name == proxy_toggle.name
+            })
+        }))
+    }
+
+    fn client_features_with_one_enabled_toggle_and_one_disabled_toggle() -> ClientFeatures {
+        ClientFeatures {
+            version: 1,
+            features: vec![
+                ClientFeature {
+                    name: "test".into(),
+                    enabled: true,
+                    strategies: None,
+                    ..ClientFeature::default()
+                },
+                ClientFeature {
+                    name: "test2".into(),
+                    enabled: false,
+                    strategies: None,
+                    ..ClientFeature::default()
+                },
+            ],
+            segments: None,
+            query: None,
+            meta: None,
+        }
+    }
+    fn client_features_with_constraint_requiring_user_id_of_seven() -> ClientFeatures {
+        ClientFeatures {
+            version: 1,
+            features: vec![ClientFeature {
+                name: "test".into(),
+                enabled: true,
+                strategies: Some(vec![Strategy {
+                    name: "default".into(),
+                    sort_order: None,
+                    segments: None,
+                    variants: None,
+                    constraints: Some(vec![Constraint {
+                        context_name: "userId".into(),
+                        operator: Operator::In,
+                        case_insensitive: false,
+                        inverted: false,
+                        values: Some(vec!["7".into()]),
+                        value: None,
+                    }]),
+                    parameters: None,
+                }]),
+                ..ClientFeature::default()
+            }],
+            segments: None,
+            query: None,
+            meta: None,
+        }
+    }
 }

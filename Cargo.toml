@@ -45,6 +45,7 @@ ipnet = { version = "2.11.0" }
 itertools = { version = "0.14.0" }
 json-structural-diff = { version = "0.2.0" }
 lazy_static = { version = "1.5.0" }
+maplit = { version = "1.0.2" }
 num_cpus = { version = "1.17.0" }
 opentelemetry = { version = "0.30.0", features = ["trace", "metrics", "logs", "tracing"] }
 opentelemetry-otlp = { version = "0.30.0", features = ["reqwest", "tracing", "grpc-tonic"] }
@@ -56,7 +57,7 @@ prometheus = { version = "0.14.0", features = ["process"] }
 prometheus-reqwest-remote-write = { version = "0.4.0" }
 proptest = { version = "1.7.0" }
 redis = { version = "0.32.4", features = ["tokio-rustls-comp", "cluster"] }
-reqwest = { version = "0.12.23", default-features = false, features = ["rustls-tls", "json", "stream" ] }
+reqwest = { version = "0.12.23", default-features = false, features = ["rustls-tls", "json", "stream"] }
 rustls = { version = "0.23.31", default-features = false, features = ["ring"] }
 rustls-pemfile = { version = "2.2.0" }
 semver = { version = "1.0.26" }
