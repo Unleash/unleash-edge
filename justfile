@@ -5,6 +5,10 @@ build:
     CRANELIFT_BUILD=1 RUSTFLAGS="-C link-arg=-fuse-ld=lld" \
     cargo +nightly build --no-default-features
 
+run *ARGS:
+    CRANELIFT_BUILD=1 RUSTFLAGS="-C link-arg=-fuse-ld=lld" \
+    cargo +nightly run --no-default-features -- {{ARGS}}
+
 test *ARGS:
     CRANELIFT_BUILD=1 RUSTFLAGS="-C link-arg=-fuse-ld=lld" \
     cargo +nightly test --lib --no-default-features -- {{ARGS}}
