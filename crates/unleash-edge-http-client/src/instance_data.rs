@@ -1,11 +1,11 @@
 use reqwest::{StatusCode, Url};
-use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::{ClientMetaInformation, UnleashClient};
 use tracing::{debug, warn};
 use unleash_edge_cli::{CliArgs, EdgeMode};
+use unleash_edge_types::BackgroundTask;
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
 
@@ -127,7 +127,7 @@ pub fn create_once_off_send_instance_data(
     instance_data_sender: Arc<InstanceDataSending>,
     our_instance_data: Arc<EdgeInstanceData>,
     downstream_instance_data: Arc<RwLock<Vec<EdgeInstanceData>>>,
-) -> Pin<Box<dyn Future<Output = ()> + Send>> {
+) -> BackgroundTask {
     let instance_data_sender = instance_data_sender.clone();
     let our_instance_data = our_instance_data.clone();
     let downstream_instance_data = downstream_instance_data.clone();
@@ -150,7 +150,7 @@ pub fn create_send_instance_data_task(
     instance_data_sender: Arc<InstanceDataSending>,
     our_instance_data: Arc<EdgeInstanceData>,
     downstream_instance_data: Arc<RwLock<Vec<EdgeInstanceData>>>,
-) -> Pin<Box<dyn Future<Output = ()> + Send>> {
+) -> BackgroundTask {
     let mut errors = 0;
     let delay = std::time::Duration::from_secs(60);
     Box::pin(async move {

@@ -46,7 +46,7 @@ fn validate_without_validator(
             let token = t.value();
             match token.token_type {
                 Some(TokenType::Frontend) => check_frontend_path(path),
-                Some(TokenType::Client) => check_backend_path(path),
+                Some(TokenType::Backend) => check_backend_path(path),
                 None => Ok(()),
                 _ => Err(EdgeError::Forbidden("Unknown token type".into())),
             }
@@ -64,7 +64,7 @@ async fn validate_with_validator(
     match known_token.status {
         TokenValidationStatus::Validated => match known_token.token_type {
             Some(TokenType::Frontend) => check_frontend_path(path),
-            Some(TokenType::Client) => check_backend_path(path),
+            Some(TokenType::Backend) => check_backend_path(path),
             _ => Err(EdgeError::Forbidden("".into())),
         },
         TokenValidationStatus::Unknown => Err(EdgeError::AuthorizationDenied),
