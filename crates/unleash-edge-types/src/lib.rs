@@ -144,6 +144,15 @@ pub enum TokenValidationStatus {
     Validated,
 }
 
+impl TokenValidationStatus {
+    pub fn is_valid(&self) -> bool {
+        matches!(
+            self,
+            &TokenValidationStatus::Trusted | &TokenValidationStatus::Validated
+        )
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum Status {
