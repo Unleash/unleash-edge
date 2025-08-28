@@ -1,18 +1,19 @@
 use crate::{all_features, enabled_features};
 use axum::body::Body;
-use axum::extract::{ConnectInfo, Query, State};
+use axum::extract::{ConnectInfo, Path, Query, State};
 use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use tracing::instrument;
 use unleash_edge_appstate::AppState;
-use unleash_edge_types::EdgeJsonResult;
-use unleash_edge_types::tokens::EdgeToken;
+use unleash_edge_types::errors::EdgeError;
+use unleash_edge_types::tokens::{EdgeToken, cache_key};
+use unleash_edge_types::{EdgeJsonResult, EdgeResult, EngineCache, TokenCache};
 use unleash_types::client_features::Context;
 use unleash_types::client_metrics::{ClientApplication, ClientMetrics};
-use unleash_types::frontend::FrontendResult;
+use unleash_types::frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult};
 
 #[utoipa::path(
     get,
@@ -102,11 +103,102 @@ pub async fn frontend_register_client(
         .unwrap()
 }
 
+#[instrument(skip(app_state, edge_token, feature_name, context, connect_info))]
+pub async fn frontend_get_feature(
+    State(app_state): State<AppState>,
+    edge_token: EdgeToken,
+    Path(feature_name): Path<String>,
+    Query(context): Query<Context>,
+    ConnectInfo(connect_info): ConnectInfo<SocketAddr>,
+) -> EdgeJsonResult<EvaluatedToggle> {
+    evaluate_feature(
+        &app_state.token_cache,
+        &app_state.engine_cache,
+        &edge_token,
+        feature_name,
+        context,
+        connect_info.ip(),
+    )
+    .map(Json)
+}
+
+#[instrument(skip(app_state, edge_token, feature_name, context, connect_info))]
+pub async fn frontend_post_feature(
+    State(app_state): State<AppState>,
+    edge_token: EdgeToken,
+    Path(feature_name): Path<String>,
+    ConnectInfo(connect_info): ConnectInfo<SocketAddr>,
+    Json(context): Json<Context>,
+) -> EdgeJsonResult<EvaluatedToggle> {
+    evaluate_feature(
+        &app_state.token_cache,
+        &app_state.engine_cache,
+        &edge_token,
+        feature_name,
+        context,
+        connect_info.ip(),
+    )
+    .map(Json)
+}
+
+#[instrument(skip(token_cache, engine_cache, edge_token, feature_name, incoming_context))]
+fn evaluate_feature(
+    token_cache: &TokenCache,
+    engine_cache: &EngineCache,
+    edge_token: &EdgeToken,
+    feature_name: String,
+    incoming_context: Context,
+    ip: IpAddr,
+) -> EdgeResult<EvaluatedToggle> {
+    let context: Context = incoming_context.clone();
+    let context_with_ip = if context.remote_address.is_none() {
+        Context {
+            remote_address: Some(ip.to_string()),
+            ..context
+        }
+    } else {
+        context
+    };
+    let validated_token = token_cache
+        .get(&edge_token.token)
+        .ok_or(EdgeError::EdgeTokenError)?
+        .value()
+        .clone();
+    engine_cache
+        .get(&cache_key(&validated_token))
+        .and_then(|engine| engine.resolve(&feature_name, &context_with_ip, &None))
+        .and_then(|resolved_toggle| {
+            if validated_token.projects.contains(&"*".into())
+                || validated_token.projects.contains(&resolved_toggle.project)
+            {
+                Some(resolved_toggle)
+            } else {
+                None
+            }
+        })
+        .map(|r| EvaluatedToggle {
+            name: feature_name.clone(),
+            enabled: r.enabled,
+            variant: EvaluatedVariant {
+                name: r.variant.name,
+                enabled: r.variant.enabled,
+                payload: r.variant.payload,
+            },
+            impression_data: r.impression_data,
+            impressionData: r.impression_data,
+        })
+        .ok_or_else(|| EdgeError::FeatureNotFound(feature_name.clone()))
+}
+
 pub fn router(disable_all_endpoints: bool) -> Router<AppState> {
     let mut common_router = Router::new()
         .route(
             "/frontend",
             get(frontend_get_enabled_features).post(frontend_post_enabled_features),
+        )
+        .route(
+            "/frontend/features/{feature_name}",
+            get(frontend_get_feature).post(frontend_post_feature),
         )
         .route("/frontend/client/metrics", post(frontend_post_metrics))
         .route("/frontend/client/register", post(frontend_register_client))
@@ -142,7 +234,10 @@ mod tests {
     use axum::http::StatusCode;
     use axum_test::TestServer;
     use serde_json::json;
+    use std::fs;
+    use std::io::BufReader;
     use std::net::SocketAddr;
+    use std::path::PathBuf;
     use std::str::FromStr;
     use std::sync::Arc;
     use unleash_edge_appstate::AppState;
@@ -336,6 +431,58 @@ mod tests {
         }))
     }
 
+    #[tokio::test]
+    async fn can_get_single_feature_with_top_level_properties() {
+        let token_cache = Arc::new(TokenCache::new());
+        let mut frontend_token =
+            EdgeToken::from_str("*:development.abc123").expect("Failed to parse frontend token");
+        frontend_token.token_type = Some(TokenType::Frontend);
+        frontend_token.status = TokenValidationStatus::Validated;
+        token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
+        let mut engine_state = EngineState::default();
+        engine_state.take_state(UpdateMessage::FullResponse(
+            client_features_with_constraint_requiring_test_property_to_be_42(),
+        ));
+        let engine_cache = Arc::new(EngineCache::new());
+        engine_cache.insert(cache_key(&frontend_token), engine_state);
+        let app_state = AppState::builder()
+            .with_token_cache(token_cache)
+            .with_engine_cache(engine_cache)
+            .build();
+        let server = frontend_test_server(app_state.clone(), true);
+        let res = server
+            .get("/frontend/features/test?test_property=42")
+            .add_header("Authorization", frontend_token.token.clone())
+            .await;
+        assert_eq!(res.status_code(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn trying_to_evaluate_feature_you_do_not_have_access_to_will_give_not_found() {
+        let token_cache = Arc::new(TokenCache::new());
+        let mut frontend_token =
+            EdgeToken::from_str("dx:development.abc123").expect("Failed to parse frontend token");
+        frontend_token.token_type = Some(TokenType::Frontend);
+        frontend_token.status = TokenValidationStatus::Validated;
+        token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
+        let mut engine_state = EngineState::default();
+        engine_state.take_state(UpdateMessage::FullResponse(features_from_disk(
+            "../../examples/hostedexample.json",
+        )));
+        let engine_cache = Arc::new(EngineCache::new());
+        engine_cache.insert(cache_key(&frontend_token), engine_state);
+        let app_state = AppState::builder()
+            .with_token_cache(token_cache)
+            .with_engine_cache(engine_cache)
+            .build();
+        let server = frontend_test_server(app_state.clone(), true);
+        let res = server
+            .get("/frontend/features/variantsPerEnvironment")
+            .add_header("Authorization", frontend_token.token.clone())
+            .await;
+        assert_eq!(res.status_code(), StatusCode::NOT_FOUND);
+    }
+
     fn client_features_with_one_enabled_toggle_and_one_disabled_toggle() -> ClientFeatures {
         ClientFeatures {
             version: 1,
@@ -385,5 +532,39 @@ mod tests {
             query: None,
             meta: None,
         }
+    }
+    fn client_features_with_constraint_requiring_test_property_to_be_42() -> ClientFeatures {
+        ClientFeatures {
+            version: 1,
+            features: vec![ClientFeature {
+                name: "test".into(),
+                enabled: true,
+                strategies: Some(vec![Strategy {
+                    name: "default".into(),
+                    sort_order: None,
+                    segments: None,
+                    variants: None,
+                    constraints: Some(vec![Constraint {
+                        context_name: "test_property".into(),
+                        operator: Operator::In,
+                        case_insensitive: false,
+                        inverted: false,
+                        values: Some(vec!["42".into()]),
+                        value: None,
+                    }]),
+                    parameters: None,
+                }]),
+                ..ClientFeature::default()
+            }],
+            segments: None,
+            query: None,
+            meta: None,
+        }
+    }
+    fn features_from_disk(path: &str) -> ClientFeatures {
+        let path = PathBuf::from(path);
+        let file = fs::File::open(path).unwrap();
+        let reader = BufReader::new(file);
+        serde_json::from_reader(reader).unwrap()
     }
 }
