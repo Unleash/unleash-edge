@@ -5,6 +5,7 @@ use tokio::sync::RwLock;
 use ulid::Ulid;
 use unleash_edge_auth::token_validator::TokenValidator;
 use unleash_edge_cli::{AuthHeaders, EdgeMode};
+use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_refresh::FeatureRefresher;
 use unleash_edge_http_client::instance_data::InstanceDataSending;
@@ -19,8 +20,9 @@ pub struct AppState {
     pub token_cache: Arc<TokenCache>,
     pub features_cache: Arc<FeatureCache>,
     pub engine_cache: Arc<EngineCache>,
-    pub feature_refresher: Arc<Option<FeatureRefresher>>,
+    pub feature_refresher: Option<Arc<FeatureRefresher>>,
     pub token_validator: Arc<Option<TokenValidator>>,
+    pub delta_cache_manager: Option<Arc<DeltaCacheManager>>,
     pub metrics_cache: Arc<MetricsCache>,
     pub offline_mode: bool,
     pub auth_headers: AuthHeaders,
@@ -48,7 +50,7 @@ pub struct AppStateBuilder {
     token_cache: Arc<TokenCache>,
     features_cache: Arc<FeatureCache>,
     engine_cache: Arc<EngineCache>,
-    feature_refresher: Arc<Option<FeatureRefresher>>,
+    feature_refresher: Option<Arc<FeatureRefresher>>,
     token_validator: Arc<Option<TokenValidator>>,
     metrics_cache: Arc<MetricsCache>,
     offline_mode: bool,
@@ -59,6 +61,7 @@ pub struct AppStateBuilder {
     instance_data_sending: Arc<InstanceDataSending>,
     connected_instances: Arc<RwLock<Vec<EdgeInstanceData>>>,
     edge_persistence: Option<Arc<dyn EdgePersistence>>,
+    delta_cache_manager: Option<Arc<DeltaCacheManager>>,
     deny_list: Vec<IpNet>,
     allow_list: Vec<IpNet>,
 }
@@ -69,7 +72,7 @@ impl AppStateBuilder {
             token_cache: Arc::new(DashMap::new()),
             features_cache: Arc::new(FeatureCache::new(DashMap::default())),
             engine_cache: Arc::new(DashMap::new()),
-            feature_refresher: Arc::new(None),
+            feature_refresher: None,
             token_validator: Arc::new(None),
             metrics_cache: Arc::new(MetricsCache::default()),
             offline_mode: false,
@@ -83,6 +86,7 @@ impl AppStateBuilder {
             edge_instance_data: Arc::new(EdgeInstanceData::new(app_name, &instance_id)),
             connected_instances: Arc::new(RwLock::new(Vec::new())),
             edge_persistence: None,
+            delta_cache_manager: None,
             deny_list: vec![],
             allow_list: vec![],
         }
@@ -110,7 +114,7 @@ impl AppStateBuilder {
 
     pub fn with_feature_refresher(
         mut self,
-        feature_refresher: Arc<Option<FeatureRefresher>>,
+        feature_refresher: Option<Arc<FeatureRefresher>>,
     ) -> Self {
         self.feature_refresher = feature_refresher;
         self
@@ -160,6 +164,11 @@ impl AppStateBuilder {
         self
     }
 
+    pub fn with_delta_cache_manager(mut self, delta_cache_manager: Arc<DeltaCacheManager>) -> Self {
+        self.delta_cache_manager = Some(delta_cache_manager);
+        self
+    }
+
     pub fn build(self) -> AppState {
         AppState {
             token_cache: self.token_cache,
@@ -178,6 +187,7 @@ impl AppStateBuilder {
             edge_persistence: self.edge_persistence,
             deny_list: self.deny_list,
             allow_list: self.allow_list,
+            delta_cache_manager: self.delta_cache_manager,
         }
     }
 }

@@ -1,5 +1,8 @@
 use dashmap::mapref::one::Ref;
-use unleash_edge_types::tokens::EdgeToken;
+use tracing::info;
+use unleash_edge_types::{
+    EdgeResult, FeatureFilters, TokenCache, errors::EdgeError, tokens::EdgeToken,
+};
 use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
 pub mod delta_filters;
@@ -75,6 +78,40 @@ pub fn project_filter_from_projects(projects: Vec<String>) -> FeatureFilter {
 
 pub fn project_filter(token: &EdgeToken) -> FeatureFilter {
     project_filter_from_projects(token.projects.clone())
+}
+
+pub fn get_feature_filter(
+    edge_token: &EdgeToken,
+    token_cache: &TokenCache,
+    filter_query: FeatureFilters,
+) -> EdgeResult<(
+    EdgeToken,
+    FeatureFilterSet,
+    unleash_types::client_features::Query,
+)> {
+    info!("Checking {edge_token:?}");
+    let validated_token = token_cache
+        .get(&edge_token.token)
+        .map(|e| e.value().clone())
+        .ok_or(EdgeError::AuthorizationDenied)?;
+
+    let query_filters = filter_query;
+    let query = unleash_types::client_features::Query {
+        tags: None,
+        projects: Some(validated_token.projects.clone()),
+        name_prefix: query_filters.name_prefix.clone(),
+        environment: validated_token.environment.clone(),
+        inline_segment_constraints: Some(false),
+    };
+
+    let filter_set = if let Some(name_prefix) = query_filters.name_prefix {
+        FeatureFilterSet::from(Box::new(name_prefix_filter(name_prefix)))
+    } else {
+        FeatureFilterSet::default()
+    }
+    .with_filter(project_filter(&validated_token));
+
+    Ok((validated_token, filter_set, query))
 }
 
 #[cfg(test)]

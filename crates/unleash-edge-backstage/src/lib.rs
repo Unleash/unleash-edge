@@ -64,17 +64,21 @@ pub async fn tokens(app_state: State<AppState>) -> EdgeJsonResult<TokenInfo> {
 }
 
 fn get_token_info(app_state: AppState) -> TokenInfo {
-    let refreshes: Vec<TokenRefresh> = (*app_state.feature_refresher)
-        .clone()
-        .unwrap()
-        .tokens_to_refresh
-        .iter()
-        .map(|e| e.value().clone())
-        .map(|f| TokenRefresh {
-            token: anonymize_token(&f.token),
-            ..f
+    let refreshes: Vec<TokenRefresh> = app_state
+        .feature_refresher
+        .map(|refresher| {
+            refresher
+                .tokens_to_refresh
+                .iter()
+                .map(|e| e.value().clone())
+                .map(|f| TokenRefresh {
+                    token: anonymize_token(&f.token),
+                    ..f.clone()
+                })
+                .collect()
         })
-        .collect();
+        .unwrap_or_default();
+
     let token_validation_status: Vec<EdgeToken> = (*app_state.token_validator)
         .clone()
         .unwrap()

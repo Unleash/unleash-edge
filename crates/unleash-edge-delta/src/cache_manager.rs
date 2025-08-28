@@ -1,7 +1,7 @@
 use crate::cache::DeltaCache;
 use dashmap::DashMap;
 use tokio::sync::broadcast;
-use tracing::error;
+use tracing::info;
 use unleash_types::client_features::DeltaEvent;
 
 #[derive(Debug, Clone)]
@@ -52,8 +52,8 @@ impl DeltaCacheManager {
             let result = self
                 .update_sender
                 .send(DeltaCacheUpdate::Update(env.to_string()));
-            if let Err(e) = result {
-                error!("Unexpected broadcast error: {:#?}", e);
+            if result.is_err() {
+                info!("No active subscribers to delta broadcast for env: {env}");
             }
         }
     }

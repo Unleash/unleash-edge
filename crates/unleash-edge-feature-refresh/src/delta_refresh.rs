@@ -163,7 +163,13 @@ impl FeatureRefresher {
     ) -> anyhow::Result<()> {
         use anyhow::Context;
 
-        let refreshes = self.get_tokens_due_for_refresh();
+        let refreshes = self
+            .tokens_to_refresh
+            .clone()
+            .iter()
+            .map(|e| e.value().clone())
+            .collect::<Vec<_>>();
+        debug!("Spawning refreshers for {} tokens", refreshes.len());
         for refresh in refreshes {
             let token = refresh.token.clone();
             let streaming_url = self.unleash_client.urls.client_features_stream_url.as_str();
@@ -208,6 +214,7 @@ impl FeatureRefresher {
                     .map_ok(move |sse| {
                         let token = token.clone();
                         let refresher = refresher.clone();
+                        debug!("Receiving an SSE event from Unleash");
                         async move {
                             match sse {
                                 // The first time we're connecting to Unleash.

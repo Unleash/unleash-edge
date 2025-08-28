@@ -1609,6 +1609,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "eventsource-stream"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "74fef4569247a5f429d9156b9d0a2599914385dd189c539334c625d8099d90ab"
+dependencies = [
+ "futures-core",
+ "nom",
+ "pin-project-lite",
+]
+
+[[package]]
 name = "expect-json"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4476,6 +4487,7 @@ dependencies = [
  "futures-core",
  "pin-project-lite",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]
@@ -4847,10 +4859,12 @@ dependencies = [
  "ulid",
  "unleash-edge-auth",
  "unleash-edge-cli",
+ "unleash-edge-delta",
  "unleash-edge-feature-cache",
  "unleash-edge-feature-refresh",
  "unleash-edge-http-client",
  "unleash-edge-persistence",
+ "unleash-edge-streaming",
  "unleash-edge-types",
  "unleash-types",
 ]
@@ -4924,14 +4938,18 @@ version = "20.0.0"
 dependencies = [
  "axum",
  "dashmap",
+ "futures-util",
  "serde",
  "serde_json",
  "tokio",
+ "tokio-stream",
  "tracing",
  "unleash-edge-appstate",
+ "unleash-edge-delta",
  "unleash-edge-feature-filters",
  "unleash-edge-feature-refresh",
  "unleash-edge-metrics",
+ "unleash-edge-streaming",
  "unleash-edge-types",
  "unleash-types",
  "unleash-yggdrasil",
@@ -5071,11 +5089,15 @@ dependencies = [
  "chrono",
  "dashmap",
  "etag",
+ "eventsource-stream",
+ "futures",
  "pretty_assertions",
+ "reqwest",
  "serde",
  "serde_json",
  "test-case",
  "tokio",
+ "tokio-stream",
  "tracing",
  "tracing-test",
  "unleash-edge-appstate",
@@ -5164,6 +5186,36 @@ dependencies = [
  "unleash-edge-feature-cache",
  "unleash-edge-types",
  "unleash-types",
+]
+
+[[package]]
+name = "unleash-edge-streaming"
+version = "20.0.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "axum-test",
+ "dashmap",
+ "eventsource-client",
+ "futures",
+ "futures-util",
+ "http 1.3.1",
+ "prometheus",
+ "serde_json",
+ "test-case",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "tracing-test",
+ "unleash-edge-delta",
+ "unleash-edge-feature-cache",
+ "unleash-edge-feature-filters",
+ "unleash-edge-feature-refresh",
+ "unleash-edge-http-client",
+ "unleash-edge-persistence",
+ "unleash-edge-types",
+ "unleash-types",
+ "unleash-yggdrasil",
 ]
 
 [[package]]
