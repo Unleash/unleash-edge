@@ -25,7 +25,7 @@ use unleash_edge_types::headers::{
 use unleash_edge_types::tokens::{EdgeToken, cache_key, simplify};
 use unleash_edge_types::{
     ClientFeaturesDeltaResponse, ClientFeaturesRequest, ClientFeaturesResponse, EdgeResult,
-    TokenRefresh, TokenType, TokenValidationStatus, build,
+    TokenRefresh, build,
 };
 use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta, DeltaEvent};
 use unleash_types::client_metrics::{ClientApplication, MetricsMetadata, SdkType};
@@ -170,7 +170,7 @@ impl FeatureRefresher {
             .collect()
     }
 
-    pub(crate) fn get_tokens_never_refreshed(&self) -> Vec<TokenRefresh> {
+    fn get_tokens_never_refreshed(&self) -> Vec<TokenRefresh> {
         self.tokens_to_refresh
             .iter()
             .map(|e| e.value().clone())
@@ -178,15 +178,11 @@ impl FeatureRefresher {
             .collect()
     }
 
-    pub fn token_is_subsumed(&self, token: &EdgeToken) -> bool {
+    fn token_is_subsumed(&self, token: &EdgeToken) -> bool {
         self.tokens_to_refresh
             .iter()
             .filter(|r| r.token.environment == token.environment)
             .any(|t| t.token.subsumes(token))
-    }
-
-    pub fn frontend_token_is_covered_by_client_token(&self, frontend_token: &EdgeToken) -> bool {
-        frontend_token_is_covered_by_tokens(frontend_token, self.tokens_to_refresh.clone())
     }
 
     /// This method no longer returns any data. Its responsibility lies in adding the token to our
@@ -195,23 +191,6 @@ impl FeatureRefresher {
     pub async fn register_and_hydrate_token(&self, token: &EdgeToken) {
         self.register_token_for_refresh(token.clone(), None).await;
         self.hydrate_new_tokens().await;
-    }
-
-    pub async fn create_client_token_for_fe_token(&self, token: EdgeToken) -> EdgeResult<()> {
-        if token.status == TokenValidationStatus::Validated
-            && token.token_type == Some(TokenType::Frontend)
-        {
-            if !self.frontend_token_is_covered_by_client_token(&token) {
-                warn!("The frontend token access is not covered by our current client tokens");
-                Err(EdgeError::EdgeTokenError)
-            } else {
-                debug!("It is already covered by an existing client token. Doing nothing");
-                Ok(())
-            }
-        } else {
-            debug!("Token is not validated or is not a frontend token. Doing nothing");
-            Ok(())
-        }
     }
 
     pub fn features_for_filter(
@@ -477,6 +456,7 @@ impl FeatureRefresher {
             }
         }
     }
+
     pub async fn refresh_features(&self) {
         let refreshes = self.get_tokens_due_for_refresh();
         for refresh in refreshes {
@@ -597,20 +577,22 @@ impl FeatureRefresher {
             }
         }
     }
-    pub fn backoff(&self, token: &EdgeToken) {
+
+    fn backoff(&self, token: &EdgeToken) {
         self.tokens_to_refresh
             .alter(&token.token, |_k, old_refresh| {
                 old_refresh.backoff(&self.refresh_interval)
             });
     }
-    pub fn update_last_check(&self, token: &EdgeToken) {
+
+    fn update_last_check(&self, token: &EdgeToken) {
         self.tokens_to_refresh
             .alter(&token.token, |_k, old_refresh| {
                 old_refresh.successful_check(&self.refresh_interval)
             });
     }
 
-    pub fn update_last_refresh(
+    fn update_last_refresh(
         &self,
         token: &EdgeToken,
         etag: Option<EntityTag>,
