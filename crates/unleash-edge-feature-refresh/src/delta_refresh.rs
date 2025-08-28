@@ -1,35 +1,45 @@
-use crate::FeatureRefresher;
+use dashmap::DashMap;
 use etag::EntityTag;
 use eventsource_client::Client;
 use futures::TryStreamExt;
 use reqwest::StatusCode;
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{debug, info, warn};
 use unleash_edge_delta::cache::{DeltaCache, DeltaHydrationEvent};
-use unleash_edge_http_client::ClientMetaInformation;
+use unleash_edge_delta::cache_manager::DeltaCacheManager;
+use unleash_edge_feature_cache::FeatureCache;
+use unleash_edge_feature_filters::delta_filters::{DeltaFilterSet, filter_delta_events};
+use unleash_edge_feature_filters::{FeatureFilterSet, filter_client_features};
+use unleash_edge_http_client::{ClientMetaInformation, UnleashClient};
+use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_types::errors::{EdgeError, FeatureError};
 use unleash_edge_types::headers::{
     UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_CONNECTION_ID_HEADER,
     UNLEASH_INSTANCE_ID_HEADER,
 };
-use unleash_edge_types::tokens::{EdgeToken, cache_key};
-use unleash_edge_types::{ClientFeaturesDeltaResponse, ClientFeaturesRequest, TokenRefresh};
-use unleash_types::client_features::{ClientFeaturesDelta, DeltaEvent};
+use unleash_edge_types::tokens::{EdgeToken, cache_key, simplify};
+use unleash_edge_types::{
+    ClientFeaturesDeltaResponse, ClientFeaturesRequest, EdgeResult, TokenRefresh,
+};
+use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta, DeltaEvent};
 use unleash_yggdrasil::EngineState;
+
+use crate::{TokenRefreshSet, TokenRefreshStatus, client_application_from_token_and_name};
 
 pub type Environment = String;
 
 const DELTA_CACHE_LIMIT: usize = 100;
 
 pub async fn start_streaming_delta_background_task(
-    feature_refresher: Arc<FeatureRefresher>,
+    delta_refresher: Arc<DeltaRefresher>,
     client_meta_information: ClientMetaInformation,
     custom_headers: Vec<(String, String)>,
 ) -> anyhow::Result<()> {
     use anyhow::Context;
 
-    let refreshes = feature_refresher
+    let refreshes = delta_refresher
         .tokens_to_refresh
         .clone()
         .iter()
@@ -38,7 +48,7 @@ pub async fn start_streaming_delta_background_task(
     debug!("Spawning refreshers for {} tokens", refreshes.len());
     for refresh in refreshes {
         let token = refresh.token.clone();
-        let streaming_url = feature_refresher
+        let streaming_url = delta_refresher
             .unleash_client
             .urls
             .client_features_stream_url
@@ -76,7 +86,7 @@ pub async fn start_streaming_delta_background_task(
             )
             .build();
 
-        let refresher = feature_refresher.clone();
+        let refresher = delta_refresher.clone();
 
         tokio::spawn(async move {
             let mut stream = es_client
@@ -148,7 +158,34 @@ pub async fn start_streaming_delta_background_task(
     Ok(())
 }
 
-impl FeatureRefresher {
+pub struct DeltaRefresher {
+    pub unleash_client: Arc<UnleashClient>,
+    pub tokens_to_refresh: TokenRefreshSet,
+    pub features_cache: Arc<FeatureCache>,
+    pub delta_cache_manager: Arc<DeltaCacheManager>,
+    pub engine_cache: Arc<DashMap<String, EngineState>>,
+    pub refresh_interval: chrono::Duration,
+    pub persistence: Option<Arc<dyn EdgePersistence>>,
+    pub streaming: bool,
+    pub client_meta_information: ClientMetaInformation,
+}
+
+impl DeltaRefresher {
+    pub async fn hydrate_new_tokens(&self) {
+        let tokens_never_refreshed = self.tokens_to_refresh.get_tokens_never_refreshed();
+
+        for hydration in tokens_never_refreshed {
+            self.refresh_single_delta(hydration).await;
+        }
+    }
+
+    pub async fn refresh_features(&self) {
+        let tokens_due_for_refresh = self.tokens_to_refresh.get_tokens_due_for_refresh();
+        for refresh in tokens_due_for_refresh {
+            self.refresh_single_delta(refresh).await;
+        }
+    }
+
     async fn handle_client_features_delta_updated(
         &self,
         refresh_token: &EdgeToken,
@@ -189,10 +226,11 @@ impl FeatureRefresher {
             );
         }
 
-        self.update_last_refresh(
+        self.tokens_to_refresh.update_last_refresh(
             refresh_token,
             etag,
             self.features_cache.get(&key).unwrap().features.len(),
+            &self.refresh_interval,
         );
         self.engine_cache
             .entry(key.clone())
@@ -210,6 +248,100 @@ impl FeatureRefresher {
             });
     }
 
+    /// Registers a token for refresh, the token will be discarded if it can be subsumed by another previously registered token
+    pub async fn register_token_for_refresh(&self, token: EdgeToken, etag: Option<EntityTag>) {
+        if !self.tokens_to_refresh.contains_key(&token.token) {
+            self.unleash_client
+                .register_as_client(
+                    token.token.clone(),
+                    client_application_from_token_and_name(
+                        token.clone(),
+                        self.refresh_interval.num_seconds(),
+                        self.client_meta_information.clone(),
+                    ),
+                )
+                .await
+                .unwrap_or_default();
+            let mut registered_tokens: Vec<TokenRefresh> =
+                self.tokens_to_refresh.iter().map(|t| t.clone()).collect();
+            registered_tokens.push(TokenRefresh::new(token.clone(), etag));
+            let minimum = simplify(&registered_tokens);
+            let mut keys = HashSet::new();
+            for refreshes in minimum {
+                keys.insert(refreshes.token.token.clone());
+                self.tokens_to_refresh
+                    .insert(refreshes.token.token.clone(), refreshes.clone());
+            }
+            self.tokens_to_refresh.retain(|key, _| keys.contains(key));
+        }
+    }
+
+    /// This method no longer returns any data. Its responsibility lies in adding the token to our
+    /// list of tokens to perform refreshes for, as well as calling out to hydrate tokens that we haven't seen before.
+    /// Other tokens will be refreshed due to the scheduled task that refreshes tokens that haven been refreshed in ${refresh_interval} seconds
+    pub async fn register_and_hydrate_token(&self, token: &EdgeToken) {
+        self.register_token_for_refresh(token.clone(), None).await;
+        self.hydrate_new_tokens().await;
+    }
+
+    pub fn features_for_filter(
+        &self,
+        token: EdgeToken,
+        filters: &FeatureFilterSet,
+    ) -> EdgeResult<ClientFeatures> {
+        match self.get_features_by_filter(&token, filters) {
+            Some(features) if self.tokens_to_refresh.token_is_subsumed(&token) => Ok(features),
+            Some(_features) if !self.tokens_to_refresh.token_is_subsumed(&token) => {
+                debug!("Token is not subsumed by any registered tokens. Returning error");
+                Err(EdgeError::InvalidToken)
+            }
+            _ => {
+                debug!("No features set available. Edge isn't ready");
+                Err(EdgeError::InvalidToken)
+            }
+        }
+    }
+
+    fn get_features_by_filter(
+        &self,
+        token: &EdgeToken,
+        filters: &FeatureFilterSet,
+    ) -> Option<ClientFeatures> {
+        self.features_cache
+            .get(&cache_key(token))
+            .map(|client_features| filter_client_features(&client_features, filters))
+    }
+
+    fn get_delta_events_by_filter(
+        &self,
+        token: &EdgeToken,
+        feature_filters: &FeatureFilterSet,
+        delta_filters: &DeltaFilterSet,
+        revision: u32,
+    ) -> Option<ClientFeaturesDelta> {
+        self.delta_cache_manager
+            .get(&cache_key(token))
+            .map(|delta_events| {
+                filter_delta_events(&delta_events, feature_filters, delta_filters, revision)
+            })
+    }
+
+    pub fn delta_events_for_filter(
+        &self,
+        token: EdgeToken,
+        feature_filters: FeatureFilterSet,
+        delta_filters: DeltaFilterSet,
+        revision: u32,
+    ) -> EdgeResult<ClientFeaturesDelta> {
+        match self.get_delta_events_by_filter(&token, &feature_filters, &delta_filters, revision) {
+            Some(features) if self.tokens_to_refresh.token_is_subsumed(&token) => Ok(features),
+            _ => {
+                debug!("Token is not subsumed by any registered tokens. Returning error");
+                Err(EdgeError::InvalidToken)
+            }
+        }
+    }
+
     pub async fn refresh_single_delta(&self, refresh: TokenRefresh) {
         let delta_result = self
             .unleash_client
@@ -223,7 +355,8 @@ impl FeatureRefresher {
             Ok(delta_response) => match delta_response {
                 ClientFeaturesDeltaResponse::NoUpdate(tag) => {
                     debug!("No update needed. Will update last check time with {tag}");
-                    self.update_last_check(&refresh.token.clone());
+                    self.tokens_to_refresh
+                        .update_last_check(&refresh.token.clone(), &self.refresh_interval);
                 }
                 ClientFeaturesDeltaResponse::Updated(features, etag) => {
                     self.handle_client_features_delta_updated(&refresh.token, features, etag)
@@ -242,11 +375,13 @@ impl FeatureRefresher {
                                     info!(
                                         "Upstream is having some problems, increasing my waiting period"
                                     );
-                                    self.backoff(&refresh.token);
+                                    self.tokens_to_refresh
+                                        .backoff(&refresh.token, &self.refresh_interval);
                                 }
                                 StatusCode::TOO_MANY_REQUESTS => {
                                     info!("Got told that upstream is receiving too many requests");
-                                    self.backoff(&refresh.token);
+                                    self.tokens_to_refresh
+                                        .backoff(&refresh.token, &self.refresh_interval);
                                 }
                                 _ => {
                                     info!("Couldn't refresh features, but will retry next go")
@@ -270,7 +405,8 @@ impl FeatureRefresher {
                                 info!(
                                     "Had a bad URL when trying to fetch features. Increasing waiting period for the token before trying again"
                                 );
-                                self.backoff(&refresh.token);
+                                self.tokens_to_refresh
+                                    .backoff(&refresh.token, &self.refresh_interval);
                             }
                         }
                     }
@@ -286,7 +422,7 @@ impl FeatureRefresher {
 
 #[cfg(test)]
 mod tests {
-    use crate::FeatureRefresher;
+    use crate::delta_refresh::DeltaRefresher;
     use axum::Router;
     use axum::body::Body;
     use axum::extract::Request;
@@ -318,27 +454,26 @@ mod tests {
         let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let delta_cache_manager: Arc<DeltaCacheManager> = Arc::new(DeltaCacheManager::new());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
+        let tokens_to_refresh = Arc::new(DashMap::default());
 
-        let feature_refresher = Arc::new(FeatureRefresher {
+        let delta_refresher = Arc::new(DeltaRefresher {
             unleash_client: unleash_client.clone(),
-            tokens_to_refresh: Arc::new(Default::default()),
+            tokens_to_refresh,
             delta_cache_manager,
             features_cache: features_cache.clone(),
             engine_cache: engine_cache.clone(),
             refresh_interval: Duration::seconds(6000),
             persistence: None,
             streaming: false,
-            delta: true,
-            delta_diff: false,
             client_meta_information: ClientMetaInformation::test_config(),
         });
         let mut delta_features = ClientFeatures::create_from_delta(&revision(1));
         let token =
             EdgeToken::try_from("*:development.abcdefghijklmnopqrstuvwxyz".to_string()).unwrap();
-        feature_refresher
+        delta_refresher
             .register_token_for_refresh(token.clone(), None)
             .await;
-        feature_refresher.refresh_features().await;
+        delta_refresher.refresh_features().await;
         let refreshed_features = features_cache
             .get(&cache_key(&token))
             .unwrap()
@@ -346,12 +481,12 @@ mod tests {
             .clone();
         assert_eq!(refreshed_features, delta_features);
 
-        let token_refresh = feature_refresher
+        let token_refresh = delta_refresher
             .tokens_to_refresh
             .get(&token.token)
             .unwrap()
             .clone();
-        feature_refresher.refresh_single_delta(token_refresh).await;
+        delta_refresher.refresh_single_delta(token_refresh).await;
         let refreshed_features = features_cache
             .get(&cache_key(&token))
             .unwrap()

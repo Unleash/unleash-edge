@@ -3,33 +3,26 @@ use std::{sync::Arc, time::Duration};
 
 pub mod delta_refresh;
 
-use chrono::Utc;
+use chrono::{TimeDelta, Utc};
 use dashmap::DashMap;
 use etag::EntityTag;
-use eventsource_client::Client;
-use futures::TryStreamExt;
-use json_structural_diff::JsonDiff;
 use reqwest::StatusCode;
 use tracing::{debug, info, warn};
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
-use unleash_edge_feature_filters::delta_filters::{DeltaFilterSet, filter_delta_events};
 use unleash_edge_feature_filters::{FeatureFilterSet, filter_client_features};
 use unleash_edge_http_client::{ClientMetaInformation, UnleashClient};
 use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_types::errors::{EdgeError, FeatureError};
-use unleash_edge_types::headers::{
-    UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_CONNECTION_ID_HEADER,
-    UNLEASH_INSTANCE_ID_HEADER,
-};
 use unleash_edge_types::tokens::{EdgeToken, cache_key, simplify};
 use unleash_edge_types::{
-    ClientFeaturesDeltaResponse, ClientFeaturesRequest, ClientFeaturesResponse, EdgeResult,
-    TokenRefresh, build,
+    ClientFeaturesRequest, ClientFeaturesResponse, EdgeResult, TokenRefresh, build,
 };
-use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta, DeltaEvent};
+use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::{ClientApplication, MetricsMetadata, SdkType};
 use unleash_yggdrasil::{EngineState, UpdateMessage};
+
+use crate::delta_refresh::DeltaRefresher;
 
 pub fn frontend_token_is_covered_by_tokens(
     frontend_token: &EdgeToken,
@@ -43,18 +36,122 @@ pub fn frontend_token_is_covered_by_tokens(
 }
 
 #[derive(Clone)]
+pub enum HydratorType {
+    Streaming(Arc<DeltaRefresher>),
+    Polling(Arc<FeatureRefresher>),
+}
+
+impl HydratorType {
+    pub async fn hydrate_new_tokens(&self) {
+        match self {
+            HydratorType::Streaming(delta_refresher) => delta_refresher.hydrate_new_tokens().await,
+            HydratorType::Polling(feature_refresher) => {
+                feature_refresher.hydrate_new_tokens().await
+            }
+        }
+    }
+
+    pub async fn register_token_for_refresh(&self, token: EdgeToken, etag: Option<EntityTag>) {
+        match self {
+            HydratorType::Streaming(delta_refresher) => {
+                delta_refresher
+                    .register_token_for_refresh(token, etag)
+                    .await
+            }
+            HydratorType::Polling(feature_refresher) => {
+                feature_refresher
+                    .register_token_for_refresh(token, etag)
+                    .await
+            }
+        }
+    }
+
+    pub fn tokens_to_refresh(self) -> TokenRefreshSet {
+        match self {
+            HydratorType::Streaming(delta_refresher) => delta_refresher.tokens_to_refresh.clone(),
+            HydratorType::Polling(feature_refresher) => feature_refresher.tokens_to_refresh.clone(),
+        }
+    }
+}
+
+type TokenRefreshSet = Arc<DashMap<String, TokenRefresh>>;
+
+trait TokenRefreshStatus {
+    fn get_tokens_due_for_refresh(&self) -> Vec<TokenRefresh>;
+    fn get_tokens_never_refreshed(&self) -> Vec<TokenRefresh>;
+    fn token_is_subsumed(&self, token: &EdgeToken) -> bool;
+    fn backoff(&self, token: &EdgeToken, refresh_interval: &TimeDelta);
+    fn update_last_refresh(
+        &self,
+        token: &EdgeToken,
+        etag: Option<EntityTag>,
+        feature_count: usize,
+        refresh_interval: &TimeDelta,
+    );
+    fn update_last_check(&self, token: &EdgeToken, refresh_interval: &TimeDelta);
+}
+
+impl TokenRefreshStatus for TokenRefreshSet {
+    fn get_tokens_due_for_refresh(&self) -> Vec<TokenRefresh> {
+        self.iter()
+            .map(|e| e.value().clone())
+            .filter(|token| {
+                token
+                    .next_refresh
+                    .map(|refresh| Utc::now() > refresh)
+                    .unwrap_or(true)
+            })
+            .collect()
+    }
+
+    fn get_tokens_never_refreshed(&self) -> Vec<TokenRefresh> {
+        self.iter()
+            .map(|e| e.value().clone())
+            .filter(|token| token.last_refreshed.is_none() && token.last_check.is_none())
+            .collect()
+    }
+
+    fn token_is_subsumed(&self, token: &EdgeToken) -> bool {
+        self.iter()
+            .filter(|r| r.token.environment == token.environment)
+            .any(|t| t.token.subsumes(token))
+    }
+
+    fn backoff(&self, token: &EdgeToken, refresh_interval: &TimeDelta) {
+        self.alter(&token.token, |_k, old_refresh| {
+            old_refresh.backoff(refresh_interval)
+        });
+    }
+
+    fn update_last_refresh(
+        &self,
+        token: &EdgeToken,
+        etag: Option<EntityTag>,
+        feature_count: usize,
+        refresh_interval: &TimeDelta,
+    ) {
+        self.alter(&token.token, |_k, old_refresh| {
+            old_refresh.successful_refresh(refresh_interval, etag, feature_count)
+        });
+    }
+
+    fn update_last_check(&self, token: &EdgeToken, refresh_interval: &TimeDelta) {
+        self.alter(&token.token, |_k, old_refresh| {
+            old_refresh.successful_check(refresh_interval)
+        });
+    }
+}
+
+#[derive(Clone)]
 pub struct FeatureRefresher {
     pub unleash_client: Arc<UnleashClient>,
-    pub tokens_to_refresh: Arc<DashMap<String, TokenRefresh>>,
+    pub tokens_to_refresh: TokenRefreshSet,
     pub features_cache: Arc<FeatureCache>,
     pub delta_cache_manager: Arc<DeltaCacheManager>,
     pub engine_cache: Arc<DashMap<String, EngineState>>,
     pub refresh_interval: chrono::Duration,
     pub persistence: Option<Arc<dyn EdgePersistence>>,
-    pub streaming: bool,
     pub client_meta_information: ClientMetaInformation,
-    pub delta: bool,
-    pub delta_diff: bool,
 }
 
 impl Default for FeatureRefresher {
@@ -67,10 +164,7 @@ impl Default for FeatureRefresher {
             delta_cache_manager: Arc::new(DeltaCacheManager::new()),
             engine_cache: Default::default(),
             persistence: None,
-            streaming: false,
             client_meta_information: Default::default(),
-            delta: false,
-            delta_diff: false,
         }
     }
 }
@@ -100,126 +194,6 @@ fn client_application_from_token_and_name(
     }
 }
 
-/// This is where we set up a listener per token.
-pub async fn start_streaming_features_background_task(
-    refresher: Arc<FeatureRefresher>,
-    client_meta_information: ClientMetaInformation,
-    custom_headers: Vec<(String, String)>,
-) -> anyhow::Result<()> {
-    use anyhow::Context;
-
-    let refreshes = refresher.get_tokens_due_for_refresh();
-    for refresh in refreshes {
-        let token = refresh.token.clone();
-        let streaming_url = refresher
-            .unleash_client
-            .urls
-            .client_features_stream_url
-            .as_str();
-
-        let mut es_client_builder = eventsource_client::ClientBuilder::for_url(streaming_url)
-            .context("Failed to create EventSource client for streaming")?
-            .header("Authorization", &token.token)?
-            .header(UNLEASH_APPNAME_HEADER, &client_meta_information.app_name)?
-            .header(
-                UNLEASH_INSTANCE_ID_HEADER,
-                &client_meta_information.instance_id,
-            )?
-            .header(
-                UNLEASH_CONNECTION_ID_HEADER,
-                &client_meta_information.connection_id,
-            )?
-            .header(
-                UNLEASH_CLIENT_SPEC_HEADER,
-                unleash_yggdrasil::SUPPORTED_SPEC_VERSION,
-            )?;
-
-        for (key, value) in custom_headers.clone() {
-            es_client_builder = es_client_builder.header(&key, &value)?;
-        }
-
-        let es_client = es_client_builder
-            .reconnect(
-                eventsource_client::ReconnectOptions::reconnect(true)
-                    .retry_initial(true)
-                    .delay(Duration::from_secs(5))
-                    .delay_max(Duration::from_secs(30))
-                    .backoff_factor(2)
-                    .build(),
-            )
-            .build();
-
-        let refresher = refresher.clone();
-
-        tokio::spawn(async move {
-            let mut stream = es_client
-                    .stream()
-                    .map_ok(move |sse| {
-                        let token = token.clone();
-                        let refresher = refresher.clone();
-                        async move {
-                            match sse {
-                                // The first time we're connecting to Unleash.
-                                eventsource_client::SSE::Event(event)
-                                if event.event_type == "unleash-connected" =>
-                                    {
-                                        debug!(
-                                        "Connected to unleash! Populating my flag cache now.",
-                                    );
-
-                                        match serde_json::from_str(&event.data) {
-                                            Ok(features) => { refresher.handle_client_features_updated(&token, features, None).await; }
-                                            Err(e) => { tracing::error!("Could not parse features response to internal representation: {e:?}");
-                                            }
-                                        }
-                                    }
-                                // Unleash has updated features for us.
-                                eventsource_client::SSE::Event(event)
-                                if event.event_type == "unleash-updated" =>
-                                    {
-                                        debug!(
-                                        "Got an unleash updated event. Updating cache.",
-                                    );
-
-                                        match serde_json::from_str(&event.data) {
-                                            Ok(features) => { refresher.handle_client_features_updated(&token, features, None).await; }
-                                            Err(e) => { warn!("Could not parse features response to internal representation: {e:?}");
-                                            }
-                                        }
-                                    }
-                                eventsource_client::SSE::Event(event) => {
-                                    info!(
-                                        "Got an SSE event that I wasn't expecting: {:#?}",
-                                        event
-                                    );
-                                }
-                                eventsource_client::SSE::Connected(_) => {
-                                    debug!("SSE Connection established");
-                                }
-                                eventsource_client::SSE::Comment(_) => {
-                                    // purposefully left blank.
-                                },
-                            }
-                        }
-                    })
-                    .map_err(|e| warn!("Error in SSE stream: {:?}", e));
-
-            loop {
-                match stream.try_next().await {
-                    Ok(Some(handler)) => handler.await,
-                    Ok(None) => {
-                        info!("SSE stream ended? Handler was None, anyway. Reconnecting.");
-                    }
-                    Err(e) => {
-                        info!("SSE stream error: {e:?}. Reconnecting");
-                    }
-                }
-            }
-        });
-    }
-    Ok(())
-}
-
 pub async fn start_refresh_features_background_task(refresher: Arc<FeatureRefresher>) {
     loop {
         tokio::select! {
@@ -232,26 +206,17 @@ pub async fn start_refresh_features_background_task(refresher: Arc<FeatureRefres
 
 pub struct FeatureRefreshConfig {
     features_refresh_interval: chrono::Duration,
-    streaming: bool,
     client_meta_information: ClientMetaInformation,
-    delta: bool,
-    delta_diff: bool,
 }
 
 impl FeatureRefreshConfig {
     pub fn new(
         features_refresh_interval: chrono::Duration,
-        streaming: bool,
         client_meta_information: ClientMetaInformation,
-        delta: bool,
-        delta_diff: bool,
     ) -> Self {
         Self {
             features_refresh_interval,
-            streaming,
             client_meta_information,
-            delta,
-            delta_diff,
         }
     }
 }
@@ -273,10 +238,7 @@ impl FeatureRefresher {
             engine_cache: engines,
             refresh_interval: config.features_refresh_interval,
             persistence,
-            streaming: config.streaming,
             client_meta_information: config.client_meta_information,
-            delta: config.delta,
-            delta_diff: config.delta_diff,
         }
     }
 
@@ -285,19 +247,6 @@ impl FeatureRefresher {
             unleash_client: client,
             ..Default::default()
         }
-    }
-
-    pub(crate) fn get_tokens_due_for_refresh(&self) -> Vec<TokenRefresh> {
-        self.tokens_to_refresh
-            .iter()
-            .map(|e| e.value().clone())
-            .filter(|token| {
-                token
-                    .next_refresh
-                    .map(|refresh| Utc::now() > refresh)
-                    .unwrap_or(true)
-            })
-            .collect()
     }
 
     /// This method no longer returns any data. Its responsibility lies in adding the token to our
@@ -314,8 +263,8 @@ impl FeatureRefresher {
         filters: &FeatureFilterSet,
     ) -> EdgeResult<ClientFeatures> {
         match self.get_features_by_filter(&token, filters) {
-            Some(features) if self.token_is_subsumed(&token) => Ok(features),
-            Some(_features) if !self.token_is_subsumed(&token) => {
+            Some(features) if self.tokens_to_refresh.token_is_subsumed(&token) => Ok(features),
+            Some(_features) if !self.tokens_to_refresh.token_is_subsumed(&token) => {
                 debug!("Token is not subsumed by any registered tokens. Returning error");
                 Err(EdgeError::InvalidToken)
             }
@@ -326,23 +275,6 @@ impl FeatureRefresher {
         }
     }
 
-    pub fn delta_events_for_filter(
-        &self,
-        token: EdgeToken,
-        feature_filters: FeatureFilterSet,
-        delta_filters: DeltaFilterSet,
-        revision: u32,
-    ) -> EdgeResult<ClientFeaturesDelta> {
-        match self.get_delta_events_by_filter(&token, &feature_filters, &delta_filters, revision) {
-            Some(features) if self.token_is_subsumed(&token) => Ok(features),
-            _ => {
-                debug!("Token is not subsumed by any registered tokens. Returning error");
-                Err(EdgeError::InvalidToken)
-            }
-        }
-    }
-
-    ///
     /// Registers a token for refresh, the token will be discarded if it can be subsumed by another previously registered token
     pub async fn register_token_for_refresh(&self, token: EdgeToken, etag: Option<EntityTag>) {
         if !self.tokens_to_refresh.contains_key(&token.token) {
@@ -372,23 +304,14 @@ impl FeatureRefresher {
     }
 
     pub async fn hydrate_new_tokens(&self) {
-        for hydration in self.get_tokens_never_refreshed() {
-            if self.delta {
-                self.refresh_single_delta(hydration).await;
-            } else {
-                self.refresh_single(hydration).await;
-            }
+        for hydration in self.tokens_to_refresh.get_tokens_never_refreshed() {
+            self.refresh_single(hydration).await;
         }
     }
 
     pub async fn refresh_features(&self) {
-        let refreshes = self.get_tokens_due_for_refresh();
-        for refresh in refreshes {
-            if self.delta {
-                self.refresh_single_delta(refresh).await;
-            } else {
-                self.refresh_single(refresh).await;
-            }
+        for refresh in self.tokens_to_refresh.get_tokens_due_for_refresh() {
+            self.refresh_single(refresh).await;
         }
     }
 
@@ -400,7 +323,12 @@ impl FeatureRefresher {
     ) {
         debug!("Got updated client features. Updating features with {etag:?}");
         let key = cache_key(refresh_token);
-        self.update_last_refresh(refresh_token, etag, features.features.len());
+        self.tokens_to_refresh.update_last_refresh(
+            refresh_token,
+            etag,
+            features.features.len(),
+            &self.refresh_interval,
+        );
         self.features_cache
             .modify(key.clone(), refresh_token, features.clone());
         self.engine_cache
@@ -440,14 +368,12 @@ impl FeatureRefresher {
             Ok(feature_response) => match feature_response {
                 ClientFeaturesResponse::NoUpdate(tag) => {
                     debug!("No update needed. Will update last check time with {tag}");
-                    self.update_last_check(&refresh.token.clone());
+                    self.tokens_to_refresh
+                        .update_last_check(&refresh.token.clone(), &self.refresh_interval);
                 }
                 ClientFeaturesResponse::Updated(features, etag) => {
                     self.handle_client_features_updated(&refresh.token, features, etag)
                         .await;
-                    if self.delta_diff {
-                        self.compare_delta_cache(&refresh).await;
-                    }
                 }
             },
             Err(e) => {
@@ -462,11 +388,13 @@ impl FeatureRefresher {
                                     info!(
                                         "Upstream is having some problems, increasing my waiting period"
                                     );
-                                    self.backoff(&refresh.token);
+                                    self.tokens_to_refresh
+                                        .backoff(&refresh.token, &self.refresh_interval);
                                 }
                                 StatusCode::TOO_MANY_REQUESTS => {
                                     info!("Got told that upstream is receiving too many requests");
-                                    self.backoff(&refresh.token);
+                                    self.tokens_to_refresh
+                                        .backoff(&refresh.token, &self.refresh_interval);
                                 }
                                 _ => {
                                     info!("Couldn't refresh features, but will retry next go")
@@ -490,7 +418,8 @@ impl FeatureRefresher {
                                 info!(
                                     "Had a bad URL when trying to fetch features. Increasing waiting period for the token before trying again"
                                 );
-                                self.backoff(&refresh.token);
+                                self.tokens_to_refresh
+                                    .backoff(&refresh.token, &self.refresh_interval);
                             }
                         }
                     }
@@ -503,21 +432,6 @@ impl FeatureRefresher {
         }
     }
 
-    fn get_tokens_never_refreshed(&self) -> Vec<TokenRefresh> {
-        self.tokens_to_refresh
-            .iter()
-            .map(|e| e.value().clone())
-            .filter(|token| token.last_refreshed.is_none() && token.last_check.is_none())
-            .collect()
-    }
-
-    fn token_is_subsumed(&self, token: &EdgeToken) -> bool {
-        self.tokens_to_refresh
-            .iter()
-            .filter(|r| r.token.environment == token.environment)
-            .any(|t| t.token.subsumes(token))
-    }
-
     fn get_features_by_filter(
         &self,
         token: &EdgeToken,
@@ -527,91 +441,12 @@ impl FeatureRefresher {
             .get(&cache_key(token))
             .map(|client_features| filter_client_features(&client_features, filters))
     }
-
-    fn get_delta_events_by_filter(
-        &self,
-        token: &EdgeToken,
-        feature_filters: &FeatureFilterSet,
-        delta_filters: &DeltaFilterSet,
-        revision: u32,
-    ) -> Option<ClientFeaturesDelta> {
-        self.delta_cache_manager
-            .get(&cache_key(token))
-            .map(|delta_events| {
-                filter_delta_events(&delta_events, feature_filters, delta_filters, revision)
-            })
-    }
-
-    async fn compare_delta_cache(&self, refresh: &TokenRefresh) {
-        let delta_result = self
-            .unleash_client
-            .get_client_features_delta(ClientFeaturesRequest {
-                api_key: refresh.token.token.clone(),
-                etag: None,
-                interval: None,
-            })
-            .await;
-
-        let key = cache_key(&refresh.token);
-        if let Some(client_features) = self.features_cache.get(&key).as_ref()
-            && let Ok(ClientFeaturesDeltaResponse::Updated(delta_features, _etag)) = delta_result
-        {
-            let c_features = &client_features.features;
-            let d_features = delta_features.events.iter().find_map(|event| {
-                if let DeltaEvent::Hydration { features, .. } = event {
-                    Some(features)
-                } else {
-                    None
-                }
-            });
-
-            let delta_json = serde_json::to_value(d_features).unwrap();
-            let client_json = serde_json::to_value(c_features).unwrap();
-
-            let delta_json_len = delta_json.to_string().len();
-            let client_json_len = client_json.to_string().len();
-
-            if delta_json_len == client_json_len {
-                info!("The JSON structure lengths are identical.");
-            } else {
-                info!("Structural differences found:");
-                info!("Length of delta_json: {}", delta_json_len);
-                info!("Length of old_json: {}", client_json_len);
-                let diff = JsonDiff::diff(&delta_json, &client_json, false);
-                debug!("{:?}", diff.diff.unwrap());
-            }
-        }
-    }
-
-    fn backoff(&self, token: &EdgeToken) {
-        self.tokens_to_refresh
-            .alter(&token.token, |_k, old_refresh| {
-                old_refresh.backoff(&self.refresh_interval)
-            });
-    }
-
-    fn update_last_check(&self, token: &EdgeToken) {
-        self.tokens_to_refresh
-            .alter(&token.token, |_k, old_refresh| {
-                old_refresh.successful_check(&self.refresh_interval)
-            });
-    }
-
-    fn update_last_refresh(
-        &self,
-        token: &EdgeToken,
-        etag: Option<EntityTag>,
-        feature_count: usize,
-    ) {
-        self.tokens_to_refresh
-            .alter(&token.token, |_k, old_refresh| {
-                old_refresh.successful_refresh(&self.refresh_interval, etag, feature_count)
-            });
-    }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::TokenRefreshStatus;
+
     use super::FeatureRefresher;
     use chrono::{Duration, Utc};
     use dashmap::DashMap;
@@ -893,12 +728,14 @@ mod tests {
         let unleash_client = create_test_client();
         let features_cache = Arc::new(FeatureCache::default());
         let engine_cache = Arc::new(DashMap::default());
+        let tokens_to_refresh = Arc::new(DashMap::default());
 
         let duration = Duration::seconds(5);
         let feature_refresher = FeatureRefresher {
             unleash_client: Arc::new(unleash_client),
             features_cache,
             engine_cache,
+            tokens_to_refresh: tokens_to_refresh.clone(),
             refresh_interval: duration,
             ..Default::default()
         };
@@ -954,7 +791,7 @@ mod tests {
             no_etag_so_is_due_for_refresh.token.token.clone(),
             no_etag_so_is_due_for_refresh.clone(),
         );
-        let tokens_to_refresh = feature_refresher.get_tokens_due_for_refresh();
+        let tokens_to_refresh = tokens_to_refresh.get_tokens_due_for_refresh();
         assert_eq!(tokens_to_refresh.len(), 2);
         assert!(tokens_to_refresh.contains(&etag_but_last_refreshed_ten_seconds_ago));
         assert!(tokens_to_refresh.contains(&no_etag_so_is_due_for_refresh));
