@@ -56,7 +56,7 @@ pub async fn info() -> EdgeJsonResult<BuildInfo> {
 }
 
 pub async fn tokens(app_state: State<AppState>) -> EdgeJsonResult<TokenInfo> {
-    if app_state.feature_refresher.is_some() && app_state.token_validator.is_some() {
+    if app_state.hydrator.is_some() && app_state.token_validator.is_some() {
         Ok(Json(get_token_info(app_state.0)))
     } else {
         Ok(Json(get_offline_token_info(app_state.token_cache.clone())))
@@ -65,10 +65,10 @@ pub async fn tokens(app_state: State<AppState>) -> EdgeJsonResult<TokenInfo> {
 
 fn get_token_info(app_state: AppState) -> TokenInfo {
     let refreshes: Vec<TokenRefresh> = app_state
-        .feature_refresher
+        .hydrator
         .map(|refresher| {
             refresher
-                .tokens_to_refresh
+                .tokens_to_refresh()
                 .iter()
                 .map(|e| e.value().clone())
                 .map(|f| TokenRefresh {

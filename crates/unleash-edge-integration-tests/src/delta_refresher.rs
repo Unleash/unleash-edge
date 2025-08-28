@@ -11,6 +11,7 @@ mod tests {
     use chrono::Duration;
     use dashmap::DashMap;
     use etag::EntityTag;
+    use unleash_edge_feature_refresh::delta_refresh::DeltaRefresher;
     use std::sync::Arc;
 
     use unleash_types::client_features::{
@@ -20,7 +21,6 @@ mod tests {
 
     use unleash_edge_delta::cache_manager::DeltaCacheManager;
     use unleash_edge_feature_cache::FeatureCache;
-    use unleash_edge_feature_refresh::FeatureRefresher;
     use unleash_edge_http_client::{ClientMetaInformation, UnleashClient};
     use unleash_edge_types::EngineCache;
     use unleash_edge_types::tokens::EdgeToken;
@@ -35,7 +35,7 @@ mod tests {
         let delta_cache_manager: Arc<DeltaCacheManager> = Arc::new(DeltaCacheManager::new());
         let engine_cache: Arc<EngineCache> = Arc::new(DashMap::default());
 
-        let feature_refresher = Arc::new(FeatureRefresher {
+        let delta_refresher = Arc::new(DeltaRefresher {
             unleash_client: unleash_client.clone(),
             tokens_to_refresh: Arc::new(Default::default()),
             delta_cache_manager,
@@ -44,17 +44,15 @@ mod tests {
             refresh_interval: Duration::seconds(6000),
             persistence: None,
             streaming: false,
-            delta: true,
-            delta_diff: false,
             client_meta_information: ClientMetaInformation::test_config(),
         });
         let mut delta_features = ClientFeatures::create_from_delta(&revision(1));
         let token =
             EdgeToken::try_from("*:development.abcdefghijklmnopqrstuvwxyz".to_string()).unwrap();
-        feature_refresher
+        delta_refresher
             .register_token_for_refresh(token.clone(), None)
             .await;
-        feature_refresher.refresh_features().await;
+        delta_refresher.refresh_features().await;
         let refreshed_features = features_cache
             .get(&cache_key(&token))
             .unwrap()
@@ -62,12 +60,12 @@ mod tests {
             .clone();
         assert_eq!(refreshed_features, delta_features);
 
-        let token_refresh = feature_refresher
+        let token_refresh = delta_refresher
             .tokens_to_refresh
             .get(&token.token)
             .unwrap()
             .clone();
-        feature_refresher.refresh_single_delta(token_refresh).await;
+        delta_refresher.refresh_single_delta(token_refresh).await;
         let refreshed_features = features_cache
             .get(&cache_key(&token))
             .unwrap()

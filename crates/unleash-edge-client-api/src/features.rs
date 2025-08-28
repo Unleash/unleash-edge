@@ -6,6 +6,7 @@ use unleash_edge_appstate::AppState;
 use unleash_edge_feature_filters::{
     FeatureFilterSet, filter_client_features, name_prefix_filter, project_filter,
 };
+use unleash_edge_feature_refresh::HydratorType;
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::tokens::{EdgeToken, cache_key};
 use unleash_edge_types::{EdgeJsonResult, EdgeResult, FeatureFilters, TokenCache};
@@ -66,8 +67,13 @@ async fn resolve_features(
     let (validated_token, filter_set, query) =
         get_feature_filter(&edge_token, &app_state.token_cache, filter_query)?;
 
-    let client_features = match app_state.feature_refresher {
-        Some(ref refresher) => refresher.features_for_filter(validated_token.clone(), &filter_set),
+    let client_features = match &app_state.hydrator {
+        Some(HydratorType::Streaming(streamer)) => {
+            streamer.features_for_filter(validated_token.clone(), &filter_set)
+        }
+        Some(HydratorType::Polling(poller)) => {
+            poller.features_for_filter(validated_token.clone(), &filter_set)
+        }
         None => app_state
             .features_cache
             .get(&cache_key(&validated_token))

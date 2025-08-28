@@ -7,7 +7,7 @@ use unleash_edge_auth::token_validator::TokenValidator;
 use unleash_edge_cli::{AuthHeaders, EdgeMode};
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
-use unleash_edge_feature_refresh::FeatureRefresher;
+use unleash_edge_feature_refresh::HydratorType;
 use unleash_edge_http_client::instance_data::InstanceDataSending;
 use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_types::metrics::MetricsCache;
@@ -20,7 +20,7 @@ pub struct AppState {
     pub token_cache: Arc<TokenCache>,
     pub features_cache: Arc<FeatureCache>,
     pub engine_cache: Arc<EngineCache>,
-    pub feature_refresher: Option<Arc<FeatureRefresher>>,
+    pub hydrator: Option<HydratorType>,
     pub token_validator: Arc<Option<TokenValidator>>,
     pub delta_cache_manager: Option<Arc<DeltaCacheManager>>,
     pub metrics_cache: Arc<MetricsCache>,
@@ -50,7 +50,7 @@ pub struct AppStateBuilder {
     token_cache: Arc<TokenCache>,
     features_cache: Arc<FeatureCache>,
     engine_cache: Arc<EngineCache>,
-    feature_refresher: Option<Arc<FeatureRefresher>>,
+    hydrator: Option<HydratorType>,
     token_validator: Arc<Option<TokenValidator>>,
     metrics_cache: Arc<MetricsCache>,
     offline_mode: bool,
@@ -72,7 +72,7 @@ impl AppStateBuilder {
             token_cache: Arc::new(DashMap::new()),
             features_cache: Arc::new(FeatureCache::new(DashMap::default())),
             engine_cache: Arc::new(DashMap::new()),
-            feature_refresher: None,
+            hydrator: None,
             token_validator: Arc::new(None),
             metrics_cache: Arc::new(MetricsCache::default()),
             offline_mode: false,
@@ -109,14 +109,6 @@ impl AppStateBuilder {
 
     pub fn with_features_cache(mut self, features_cache: Arc<FeatureCache>) -> Self {
         self.features_cache = features_cache;
-        self
-    }
-
-    pub fn with_feature_refresher(
-        mut self,
-        feature_refresher: Option<Arc<FeatureRefresher>>,
-    ) -> Self {
-        self.feature_refresher = feature_refresher;
         self
     }
 
@@ -169,12 +161,17 @@ impl AppStateBuilder {
         self
     }
 
+    pub fn with_hydrator(mut self, hydrator: HydratorType) -> Self {
+        self.hydrator = Some(hydrator);
+        self
+    }
+
     pub fn build(self) -> AppState {
         AppState {
             token_cache: self.token_cache,
             features_cache: self.features_cache,
             engine_cache: self.engine_cache,
-            feature_refresher: self.feature_refresher,
+            hydrator: self.hydrator,
             token_validator: self.token_validator,
             metrics_cache: self.metrics_cache,
             offline_mode: self.offline_mode,

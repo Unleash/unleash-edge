@@ -14,7 +14,12 @@ use unleash_edge_auth::token_validator::{
 use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeArgs, RedisMode};
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
-use unleash_edge_feature_refresh::{FeatureRefreshConfig, FeatureRefresher};
+use unleash_edge_feature_refresh::delta_refresh::{
+    DeltaRefresher, start_streaming_delta_background_task,
+};
+use unleash_edge_feature_refresh::{
+    FeatureRefreshConfig, FeatureRefresher, HydratorType, start_refresh_features_background_task,
+};
 use unleash_edge_http_client::instance_data::{
     InstanceDataSending, create_once_off_send_instance_data, create_send_instance_data_task,
 };
@@ -177,19 +182,36 @@ pub async fn build_edge(
     let delta_cache_manager = Arc::new(DeltaCacheManager::new());
     let feature_config = FeatureRefreshConfig::new(
         Duration::seconds(args.features_refresh_interval_seconds as i64),
-        args.streaming,
-        client_meta_information,
-        args.delta,
-        args.delta_diff,
+        client_meta_information.clone(),
     );
-    let feature_refresher = FeatureRefresher::new(
-        unleash_client,
-        feature_cache.clone(),
-        delta_cache_manager.clone(),
-        engine_cache.clone(),
-        persistence.clone(),
-        feature_config,
-    );
+
+    let hydrator_type = if args.streaming {
+        let delta_refresher = Arc::new(DeltaRefresher {
+            unleash_client: unleash_client.clone(),
+            tokens_to_refresh: Arc::new(Default::default()),
+            delta_cache_manager: delta_cache_manager.clone(),
+            features_cache: feature_cache.clone(),
+            engine_cache: engine_cache.clone(),
+            refresh_interval: Duration::seconds(args.features_refresh_interval_seconds as i64),
+            persistence: persistence.clone(),
+            streaming: true,
+            client_meta_information: client_meta_information.clone(),
+        });
+
+        HydratorType::Streaming(delta_refresher)
+    } else {
+        let feature_refresher = Arc::new(FeatureRefresher::new(
+            unleash_client,
+            feature_cache.clone(),
+            delta_cache_manager.clone(),
+            engine_cache.clone(),
+            persistence.clone(),
+            feature_config,
+        ));
+
+        HydratorType::Polling(feature_refresher)
+    };
+
     let _ = token_validator.register_tokens(args.tokens.clone()).await;
     if let Some(persistence) = persistence.clone() {
         hydrate_from_persistent_storage(
@@ -211,11 +233,11 @@ pub async fn build_edge(
         .iter()
         .filter(|candidate| candidate.value().token_type == Some(TokenType::Client))
     {
-        feature_refresher
+        hydrator_type
             .register_token_for_refresh(validated_token.clone(), None)
             .await;
     }
-    feature_refresher.hydrate_new_tokens().await;
+    hydrator_type.hydrate_new_tokens().await;
     Ok((
         (
             token_cache,
@@ -224,7 +246,7 @@ pub async fn build_edge(
             engine_cache,
         ),
         Arc::new(token_validator),
-        Arc::new(feature_refresher),
+        hydrator_type,
         persistence,
     ))
 }
@@ -265,7 +287,7 @@ pub async fn build_edge_state(
     let (
         (token_cache, features_cache, delta_cache_manager, engine_cache),
         token_validator,
-        feature_refresher,
+        hydrator_type,
         persistence,
     ) = build_edge(
         edge_args,
@@ -285,7 +307,7 @@ pub async fn build_edge_state(
     let background_tasks = create_edge_mode_background_tasks(
         edge_args.clone(),
         client_meta_information,
-        feature_refresher.clone(),
+        hydrator_type.clone(),
         persistence.clone(),
         token_cache.clone(),
         features_cache.clone(),
@@ -316,7 +338,7 @@ pub async fn build_edge_state(
         .with_features_cache(features_cache.clone())
         .with_engine_cache(engine_cache.clone())
         .with_token_validator(Arc::new(Some(token_validator.as_ref().clone())))
-        .with_feature_refresher(Some(Arc::new(feature_refresher.as_ref().clone())))
+        .with_hydrator(hydrator_type)
         .with_metrics_cache(metrics_cache.clone())
         .with_persistence(persistence)
         .with_deny_list(args.http.deny_list.unwrap_or_default())
@@ -367,7 +389,7 @@ fn create_shutdown_task(
 fn create_edge_mode_background_tasks(
     edge: EdgeArgs,
     client_meta_information: ClientMetaInformation,
-    feature_refresher: Arc<FeatureRefresher>,
+    refresher: HydratorType,
     persistence: Option<Arc<dyn EdgePersistence>>,
     token_cache: Arc<TokenCache>,
     feature_cache: Arc<FeatureCache>,
@@ -382,7 +404,6 @@ fn create_edge_mode_background_tasks(
     deferred_validation_rx: Option<tokio::sync::mpsc::UnboundedReceiver<String>>,
 ) -> Vec<BackgroundTask> {
     let mut tasks: Vec<BackgroundTask> = vec![
-        create_fetch_task(&edge, client_meta_information, feature_refresher.clone()),
         create_send_metrics_task(
             metrics_cache_clone.clone(),
             unleash_client,
@@ -393,7 +414,7 @@ fn create_edge_mode_background_tasks(
         create_revalidation_of_startup_tokens_task(
             &validator,
             edge.tokens.clone(),
-            feature_refresher.clone(),
+            refresher.clone(),
         ),
         create_send_instance_data_task(
             instance_data_sender.clone(),
@@ -402,7 +423,7 @@ fn create_edge_mode_background_tasks(
         ),
     ];
 
-    if let Some(url) = edge.prometheus_remote_write_url {
+    if let Some(url) = edge.clone().prometheus_remote_write_url {
         tasks.push(create_prometheus_write_task(
             http_client,
             url,
@@ -410,6 +431,14 @@ fn create_edge_mode_background_tasks(
             app_name,
         ));
     }
+
+    let hydration_task = match &refresher {
+        HydratorType::Streaming(delta_refresher) => {
+            create_stream_task(&edge, client_meta_information, delta_refresher.clone())
+        }
+        HydratorType::Polling(feature_refresher) => create_poll_task(feature_refresher.clone()),
+    };
+    tasks.push(hydration_task);
 
     if let Some(persistence) = persistence {
         tasks.push(create_persist_data_task(
@@ -428,39 +457,27 @@ fn create_edge_mode_background_tasks(
     tasks
 }
 
-fn create_fetch_task(
-    edge: &EdgeArgs,
-    client_meta_information: ClientMetaInformation,
+fn create_poll_task(
     feature_refresher: Arc<FeatureRefresher>,
 ) -> Pin<Box<dyn Future<Output = ()> + Send>> {
-    let refresher_for_background = feature_refresher.clone();
+    info!("Starting polling background task");
+    Box::pin(async move {
+        start_refresh_features_background_task(feature_refresher).await;
+    })
+}
 
-    if edge.streaming {
-        let custom_headers = edge.custom_client_headers.clone();
-        if edge.delta {
-            info!("Starting delta streaming background task");
-            Box::pin(async move {
-                let _ = refresher_for_background
-                    .start_streaming_delta_background_task(client_meta_information, custom_headers)
-                    .await;
-            })
-        } else {
-            info!("Starting full streaming background task");
-            Box::pin(async move {
-                let _ = refresher_for_background
-                    .start_streaming_features_background_task(
-                        client_meta_information,
-                        custom_headers,
-                    )
-                    .await;
-            })
-        }
-    } else {
-        info!("Starting polling background task");
-        Box::pin(async move {
-            feature_refresher
-                .start_refresh_features_background_task()
-                .await;
-        })
-    }
+fn create_stream_task(
+    edge: &EdgeArgs,
+    client_meta_information: ClientMetaInformation,
+    delta_refresher: Arc<DeltaRefresher>,
+) -> Pin<Box<dyn Future<Output = ()> + Send>> {
+    let custom_headers = edge.custom_client_headers.clone();
+    Box::pin(async move {
+        let _ = start_streaming_delta_background_task(
+            delta_refresher,
+            client_meta_information,
+            custom_headers,
+        )
+        .await;
+    })
 }

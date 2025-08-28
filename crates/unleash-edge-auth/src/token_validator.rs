@@ -7,7 +7,7 @@ use dashmap::DashMap;
 use lazy_static::lazy_static;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tracing::trace;
-use unleash_edge_feature_refresh::FeatureRefresher;
+use unleash_edge_feature_refresh::HydratorType;
 use unleash_edge_http_client::UnleashClient;
 use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_types::tokens::EdgeToken;
@@ -67,7 +67,7 @@ pub fn create_revalidation_task(
 pub fn create_revalidation_of_startup_tokens_task(
     validator: &Arc<TokenValidator>,
     tokens: Vec<String>,
-    refresher: Arc<FeatureRefresher>,
+    refresher: HydratorType,
 ) -> Pin<Box<dyn Future<Output = ()> + Send>> {
     let validator = validator.clone();
     Box::pin(async move {
@@ -78,7 +78,14 @@ pub fn create_revalidation_of_startup_tokens_task(
                         let token_result = validator.register_tokens(tokens.clone()).await;
                         if let Ok(good_tokens) = token_result {
                             for token in good_tokens {
-                                let _ = refresher.register_and_hydrate_token(&token).await;
+                                match &refresher {
+                                    HydratorType::Polling(refresher) => {
+                                        let _ = refresher.register_and_hydrate_token(&token).await;
+                                    }
+                                    HydratorType::Streaming(refresher) => {
+                                        let _ = refresher.register_and_hydrate_token(&token).await;
+                                    }
+                                }
                             }
                         }
                 }
