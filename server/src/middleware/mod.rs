@@ -9,3 +9,5 @@ pub mod enrich_with_client_ip;
 pub mod consumption;
 
 pub mod fail_response_logger;
+
+pub mod bad_request_terminator;

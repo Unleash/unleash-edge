@@ -15,6 +15,7 @@ use unleash_edge::auth::token_validator::SHOULD_DEFER_VALIDATION;
 use unleash_edge::error::EdgeError;
 use unleash_edge::http::unleash_client::{HttpClientArgs, new_reqwest_client};
 use unleash_edge::metrics::actix_web_prometheus_metrics::PrometheusMetrics;
+use unleash_edge::middleware::bad_request_terminator::BadRequestTerminator;
 use unleash_edge::middleware::fail_response_logger::LogStatus;
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::ConnectVia;
@@ -30,7 +31,7 @@ use unleash_edge::http::broadcaster::Broadcaster;
 use unleash_edge::http::instance_data::InstanceDataSending;
 use unleash_edge::http::refresher::feature_refresher::FeatureRefresher;
 use unleash_edge::metrics::client_metrics::MetricsCache;
-use unleash_edge::metrics::edge_metrics::EdgeInstanceData;
+use unleash_edge::metrics::edge_metrics::{EdgeInstanceData, Hosting};
 use unleash_edge::offline::offline_hotload;
 use unleash_edge::persistence::{EdgePersistence, persist_data};
 use unleash_edge::types::{EdgeResult, EdgeToken, TokenValidationStatus};
@@ -79,6 +80,8 @@ fn setup_server(
         let cors_middleware = args.http.cors.middleware();
         let mut app = App::new()
             .wrap(LogStatus)
+            // TODO: Remove me when https://github.com/actix/actix-web/issues/3715 gets closed and we upgrade Actix
+            .wrap(BadRequestTerminator)
             .app_data(qs_config)
             .app_data(web::Data::new(args.token_header.clone()))
             .app_data(web::Data::new(args.trust_proxy.clone()))
@@ -199,7 +202,14 @@ async fn main() -> Result<(), anyhow::Error> {
 async fn run_server(args: CliArgs) -> EdgeResult<()> {
     let app_name = args.app_name.clone();
     let app_id = Ulid::new();
-    let edge_instance_data = Arc::new(EdgeInstanceData::new(&args.app_name, &app_id));
+    let hosting_strategy = std::env::var("EDGE_HOSTING")
+        .map(Into::into)
+        .unwrap_or(Hosting::SelfHosted);
+    let edge_instance_data = Arc::new(EdgeInstanceData::new(
+        &args.app_name,
+        &app_id,
+        hosting_strategy,
+    ));
     let client_meta_information = ClientMetaInformation {
         app_name: args.app_name.clone(),
         instance_id: app_id.to_string(),

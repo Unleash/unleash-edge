@@ -168,11 +168,13 @@ pub fn test_instantiate_without_tracing_and_logging(
 ) -> PrometheusMetrics {
     use ulid::Ulid;
 
+    use crate::metrics::edge_metrics::Hosting;
+
     let registry = registry.unwrap_or_else(instantiate_registry);
     register_custom_metrics(&registry);
     instantiate_prometheus_metrics_handler(
         registry,
         false,
-        &EdgeInstanceData::new("test app", &Ulid::new()),
+        &EdgeInstanceData::new("test app", &Ulid::new(), Hosting::SelfHosted),
     )
 }
