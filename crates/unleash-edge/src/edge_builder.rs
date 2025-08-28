@@ -263,7 +263,7 @@ pub async fn build_edge_state(
 
     let auth_headers = AuthHeaders::from(&args);
     let (
-        (token_cache, features_cache, _, engine_cache),
+        (token_cache, features_cache, delta_cache_manager, engine_cache),
         token_validator,
         feature_refresher,
         persistence,
@@ -316,13 +316,14 @@ pub async fn build_edge_state(
         .with_features_cache(features_cache.clone())
         .with_engine_cache(engine_cache.clone())
         .with_token_validator(Arc::new(Some(token_validator.as_ref().clone())))
-        .with_feature_refresher(Arc::new(Some(feature_refresher.as_ref().clone())))
+        .with_feature_refresher(Some(Arc::new(feature_refresher.as_ref().clone())))
         .with_metrics_cache(metrics_cache.clone())
         .with_persistence(persistence)
         .with_deny_list(args.http.deny_list.unwrap_or_default())
         .with_allow_list(args.http.allow_list.unwrap_or_default())
         .with_instance_sending(instance_data_sender)
         .with_edge_instance_data(edge_instance_data)
+        .with_delta_cache_manager(delta_cache_manager)
         .build();
 
     Ok((app_state, background_tasks, shutdown_tasks))
@@ -380,36 +381,26 @@ fn create_edge_mode_background_tasks(
     unleash_client: Arc<UnleashClient>,
     deferred_validation_rx: Option<tokio::sync::mpsc::UnboundedReceiver<String>>,
 ) -> Vec<BackgroundTask> {
-    let mut tasks: Vec<Pin<Box<dyn Future<Output = ()> + Send>>> = vec![];
-    tasks.push(create_fetch_task(
-        &edge,
-        client_meta_information,
-        feature_refresher.clone(),
-    ));
-
-    tasks.push(create_send_metrics_task(
-        metrics_cache_clone.clone(),
-        unleash_client,
-        token_cache.clone(),
-        edge.metrics_interval_seconds.try_into().unwrap(),
-    ));
-
-    tasks.push(create_revalidation_task(
-        &validator,
-        edge.token_revalidation_interval_seconds,
-    ));
-
-    tasks.push(create_revalidation_of_startup_tokens_task(
-        &validator,
-        edge.tokens.clone(),
-        feature_refresher.clone(),
-    ));
-
-    tasks.push(create_send_instance_data_task(
-        instance_data_sender.clone(),
-        edge_instance_data.clone(),
-        instances_observed_for_app_context.clone(),
-    ));
+    let mut tasks: Vec<BackgroundTask> = vec![
+        create_fetch_task(&edge, client_meta_information, feature_refresher.clone()),
+        create_send_metrics_task(
+            metrics_cache_clone.clone(),
+            unleash_client,
+            token_cache.clone(),
+            edge.metrics_interval_seconds.try_into().unwrap(),
+        ),
+        create_revalidation_task(&validator, edge.token_revalidation_interval_seconds),
+        create_revalidation_of_startup_tokens_task(
+            &validator,
+            edge.tokens.clone(),
+            feature_refresher.clone(),
+        ),
+        create_send_instance_data_task(
+            instance_data_sender.clone(),
+            edge_instance_data.clone(),
+            instances_observed_for_app_context.clone(),
+        ),
+    ];
 
     if let Some(url) = edge.prometheus_remote_write_url {
         tasks.push(create_prometheus_write_task(
@@ -447,12 +438,14 @@ fn create_fetch_task(
     if edge.streaming {
         let custom_headers = edge.custom_client_headers.clone();
         if edge.delta {
+            info!("Starting delta streaming background task");
             Box::pin(async move {
                 let _ = refresher_for_background
                     .start_streaming_delta_background_task(client_meta_information, custom_headers)
                     .await;
             })
         } else {
+            info!("Starting full streaming background task");
             Box::pin(async move {
                 let _ = refresher_for_background
                     .start_streaming_features_background_task(
@@ -463,6 +456,7 @@ fn create_fetch_task(
             })
         }
     } else {
+        info!("Starting polling background task");
         Box::pin(async move {
             feature_refresher
                 .start_refresh_features_background_task()

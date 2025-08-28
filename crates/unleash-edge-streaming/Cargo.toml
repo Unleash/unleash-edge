@@ -1,5 +1,5 @@
 [package]
-name = "unleash-edge-appstate"
+name = "unleash-edge-streaming"
 version.workspace = true
 authors.workspace = true
 description.workspace = true
@@ -7,18 +7,29 @@ documentation.workspace = true
 edition.workspace = true
 
 [dependencies]
+anyhow = { workspace = true }
 axum = { workspace = true }
 dashmap = { workspace = true }
-ipnet = { workspace = true }
+eventsource-client = { workspace = true }
+futures = { workspace = true }
+futures-util = { workspace = true }
+http = { workspace = true }
+prometheus = { workspace = true }
+serde_json = { workspace = true }
 tokio = { workspace = true }
-ulid = { workspace = true }
-unleash-edge-auth = { path = "../unleash-edge-auth" }
-unleash-edge-cli = { path = "../unleash-edge-cli" }
+tokio-stream = { workspace = true }
+tracing = { workspace = true }
 unleash-edge-delta = { path = "../unleash-edge-delta" }
 unleash-edge-feature-cache = { path = "../unleash-edge-feature-cache" }
+unleash-edge-feature-filters = { path = "../unleash-edge-feature-filters" }
 unleash-edge-feature-refresh = { path = "../unleash-edge-feature-refresh" }
 unleash-edge-http-client = { path = "../unleash-edge-http-client" }
 unleash-edge-persistence = { path = "../unleash-edge-persistence" }
-unleash-edge-streaming = { path = "../unleash-edge-streaming" }
 unleash-edge-types = { path = "../unleash-edge-types" }
 unleash-types = { workspace = true }
+unleash-yggdrasil = { workspace = true}
+
+[dev-dependencies]
+axum-test = { workspace = true }
+test-case = { workspace = true }
+tracing-test = { workspace = true }
