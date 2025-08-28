@@ -231,7 +231,7 @@ pub async fn build_edge(
     }
     for validated_token in token_cache
         .iter()
-        .filter(|candidate| candidate.value().token_type == Some(TokenType::Client))
+        .filter(|candidate| candidate.value().token_type == Some(TokenType::Backend))
     {
         hydrator_type
             .register_token_for_refresh(validated_token.clone(), None)

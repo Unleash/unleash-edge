@@ -115,8 +115,8 @@ impl From<PostContext> for Context {
 pub enum TokenType {
     #[serde(alias = "FRONTEND")]
     Frontend,
-    #[serde(alias = "CLIENT")]
-    Client,
+    #[serde(alias = "CLIENT", alias = "client", alias = "BACKEND")]
+    Backend,
     #[serde(alias = "ADMIN")]
     Admin,
     Invalid,

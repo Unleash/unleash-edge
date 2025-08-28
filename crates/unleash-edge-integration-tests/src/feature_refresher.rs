@@ -62,7 +62,7 @@ mod tests {
         };
         let mut token = EdgeToken::try_from("*:development.secret123".to_string()).unwrap();
         token.status = Validated;
-        token.token_type = Some(TokenType::Client);
+        token.token_type = Some(TokenType::Backend);
         feature_refresher
             .register_token_for_refresh(token, None)
             .await;
@@ -80,7 +80,7 @@ mod tests {
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let token_cache_to_modify = upstream_token_cache.clone();
         let mut valid_token = EdgeToken::try_from("*:development.secret123".to_string()).unwrap();
-        valid_token.token_type = Some(TokenType::Client);
+        valid_token.token_type = Some(TokenType::Backend);
         valid_token.status = Validated;
         upstream_token_cache.insert(valid_token.token.clone(), valid_token.clone());
         let example_features = features_from_disk("../../examples/features.json");
@@ -123,11 +123,11 @@ mod tests {
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let token_cache_to_modify = upstream_token_cache.clone();
         let mut dx_token = EdgeToken::try_from("dx:development.secret123".to_string()).unwrap();
-        dx_token.token_type = Some(TokenType::Client);
+        dx_token.token_type = Some(TokenType::Backend);
         dx_token.status = Validated;
         upstream_token_cache.insert(dx_token.token.clone(), dx_token.clone());
         let mut eg_token = EdgeToken::try_from("eg:development.secret123".to_string()).unwrap();
-        eg_token.token_type = Some(TokenType::Client);
+        eg_token.token_type = Some(TokenType::Backend);
         eg_token.status = Validated;
         upstream_token_cache.insert(eg_token.token.clone(), eg_token.clone());
         let example_features = features_from_disk("../../examples/hostedexample.json");
@@ -207,7 +207,7 @@ mod tests {
         let upstream_engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
         let upstream_token_cache: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let mut eg_token = EdgeToken::from_str("eg:development.devsecret").unwrap();
-        eg_token.token_type = Some(TokenType::Client);
+        eg_token.token_type = Some(TokenType::Backend);
         eg_token.status = Validated;
         upstream_token_cache.insert(eg_token.token.clone(), eg_token.clone());
         let example_features = features_from_disk("../../examples/hostedexample.json");
@@ -311,7 +311,7 @@ mod tests {
         dx_data.extend(eg_data);
         let edge_token = EdgeToken {
             token: "".to_string(),
-            token_type: Some(TokenType::Client),
+            token_type: Some(TokenType::Backend),
             environment: None,
             projects: vec![String::from("dx"), String::from("eg")],
             status: Validated,
@@ -326,7 +326,7 @@ mod tests {
         let features = features_from_disk("../../examples/hostedexample.json").features;
         let edge_token = EdgeToken {
             token: "".to_string(),
-            token_type: Some(TokenType::Client),
+            token_type: Some(TokenType::Backend),
             environment: None,
             projects: vec![String::from("dx"), String::from("eg")],
             status: Validated,
@@ -344,7 +344,7 @@ mod tests {
         let features = features_from_disk("../../examples/hostedexample.json").features;
         let edge_token = EdgeToken {
             token: "".to_string(),
-            token_type: Some(TokenType::Client),
+            token_type: Some(TokenType::Backend),
             environment: None,
             projects: vec![String::from("dx"), String::from("eg")],
             status: Validated,
@@ -398,7 +398,7 @@ mod tests {
         ];
         let edge_token = EdgeToken {
             token: "".to_string(),
-            token_type: Some(TokenType::Client),
+            token_type: Some(TokenType::Backend),
             environment: None,
             projects: vec![String::from("*")],
             status: Validated,
@@ -451,7 +451,7 @@ mod tests {
         let empty_features = vec![];
         let unrelated_token_to_existing_features = EdgeToken {
             token: "someotherproject:dev.myextralongsecretstringwithfeatures".to_string(),
-            token_type: Some(TokenType::Client),
+            token_type: Some(TokenType::Backend),
             environment: Some("dev".into()),
             projects: vec![String::from("someother")],
             status: Validated,
@@ -500,7 +500,7 @@ mod tests {
         let empty_features = vec![];
         let token_with_access_to_both_empty_and_full_project = EdgeToken {
             token: "[]:dev.myextralongsecretstringwithfeatures".to_string(),
-            token_type: Some(TokenType::Client),
+            token_type: Some(TokenType::Backend),
             environment: Some("dev".into()),
             projects: vec![String::from("testproject"), String::from("someother")],
             status: Validated,
