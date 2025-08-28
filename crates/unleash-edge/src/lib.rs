@@ -14,7 +14,7 @@ use unleash_edge_auth::token_validator::TokenValidator;
 use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeMode};
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
-use unleash_edge_feature_refresh::FeatureRefresher;
+use unleash_edge_feature_refresh::HydratorType;
 use unleash_edge_http_client::{ClientMetaInformation, HttpClientArgs, new_reqwest_client};
 use unleash_edge_metrics::axum_prometheus_metrics::{
     PrometheusAxumLayer, render_prometheus_metrics,
@@ -46,7 +46,7 @@ type CacheContainer = (
 pub type EdgeInfo = (
     CacheContainer,
     Arc<TokenValidator>,
-    Arc<FeatureRefresher>,
+    HydratorType,
     Option<Arc<dyn EdgePersistence>>,
 );
 
