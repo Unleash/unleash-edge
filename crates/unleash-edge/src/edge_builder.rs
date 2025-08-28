@@ -12,7 +12,7 @@ use unleash_edge_auth::token_validator::{
     create_revalidation_task,
 };
 use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeArgs, RedisMode};
-use unleash_edge_delta::cache_manager::DeltaCacheManager;
+use unleash_edge_delta::cache_manager::{DeltaCacheManager, create_terminate_sse_connections_task};
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_refresh::delta_refresh::{
     DeltaRefresher, start_streaming_delta_background_task,
@@ -322,8 +322,9 @@ pub async fn build_edge_state(
         deferred_validation_rx,
     );
 
-    let shutdown_tasks = create_shutdown_task(
+    let shutdown_tasks = create_shutdown_tasks(
         persistence.clone(),
+        delta_cache_manager.clone(),
         token_cache.clone(),
         features_cache.clone(),
         metrics_cache.clone(),
@@ -351,8 +352,9 @@ pub async fn build_edge_state(
     Ok((app_state, background_tasks, shutdown_tasks))
 }
 
-fn create_shutdown_task(
+fn create_shutdown_tasks(
     persistence: Option<Arc<dyn EdgePersistence>>,
+    delta_cache_manager: Arc<DeltaCacheManager>,
     token_cache: Arc<TokenCache>,
     feature_cache: Arc<FeatureCache>,
     metrics_cache: Arc<MetricsCache>,
@@ -381,6 +383,10 @@ fn create_shutdown_task(
         instance_data_sender.clone(),
         edge_instance_data.clone(),
         instances_observed_for_app_context.clone(),
+    ));
+
+    tasks.push(create_terminate_sse_connections_task(
+        delta_cache_manager.clone(),
     ));
 
     tasks
