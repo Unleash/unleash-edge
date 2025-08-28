@@ -14,7 +14,11 @@ use unleash_edge_auth::token_validator::{
 use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeArgs, RedisMode};
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
-use unleash_edge_feature_refresh::{FeatureRefreshConfig, FeatureRefresher};
+use unleash_edge_feature_refresh::delta_refresh::start_streaming_delta_background_task;
+use unleash_edge_feature_refresh::{
+    FeatureRefreshConfig, FeatureRefresher, start_refresh_features_background_task,
+    start_streaming_features_background_task,
+};
 use unleash_edge_http_client::instance_data::{
     InstanceDataSending, create_once_off_send_instance_data, create_send_instance_data_task,
 };
@@ -440,27 +444,28 @@ fn create_fetch_task(
         if edge.delta {
             info!("Starting delta streaming background task");
             Box::pin(async move {
-                let _ = refresher_for_background
-                    .start_streaming_delta_background_task(client_meta_information, custom_headers)
-                    .await;
+                let _ = start_streaming_delta_background_task(
+                    refresher_for_background,
+                    client_meta_information,
+                    custom_headers,
+                )
+                .await;
             })
         } else {
             info!("Starting full streaming background task");
             Box::pin(async move {
-                let _ = refresher_for_background
-                    .start_streaming_features_background_task(
-                        client_meta_information,
-                        custom_headers,
-                    )
-                    .await;
+                let _ = start_streaming_features_background_task(
+                    refresher_for_background,
+                    client_meta_information,
+                    custom_headers,
+                )
+                .await;
             })
         }
     } else {
         info!("Starting polling background task");
         Box::pin(async move {
-            feature_refresher
-                .start_refresh_features_background_task()
-                .await;
+            start_refresh_features_background_task(feature_refresher).await;
         })
     }
 }
