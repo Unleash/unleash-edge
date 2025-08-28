@@ -1,8 +1,28 @@
 use crate::cache::DeltaCache;
 use dashmap::DashMap;
+use prometheus::{IntCounter, IntGauge, register_int_counter, register_int_gauge};
+use std::sync::{Arc, LazyLock};
 use tokio::sync::broadcast;
 use tracing::info;
+use unleash_edge_types::BackgroundTask;
+use unleash_edge_types::metrics::instance_data::CONNECTED_STREAMING_CLIENTS;
 use unleash_types::client_features::DeltaEvent;
+
+static CONNECTED_STREAMING_CLIENTS_GAUGE: LazyLock<IntGauge> = LazyLock::new(|| {
+    register_int_gauge!(
+        CONNECTED_STREAMING_CLIENTS,
+        "Number of connected streaming clients",
+    )
+    .unwrap()
+});
+
+static STREAMING_CONNECTIONS_ESTABLISHED: LazyLock<IntCounter> = LazyLock::new(|| {
+    register_int_counter!(
+        "streaming_connections_made",
+        "Number of connections made (since startup)",
+    )
+    .unwrap()
+});
 
 #[derive(Debug, Clone)]
 pub enum DeltaCacheUpdate {
@@ -32,7 +52,10 @@ impl DeltaCacheManager {
     }
 
     pub fn subscribe(&self) -> broadcast::Receiver<DeltaCacheUpdate> {
-        self.update_sender.subscribe()
+        STREAMING_CONNECTIONS_ESTABLISHED.inc();
+        let receiver = self.update_sender.subscribe();
+        CONNECTED_STREAMING_CLIENTS_GAUGE.set(self.update_sender.receiver_count() as i64);
+        receiver
     }
 
     pub fn get(&self, env: &str) -> Option<DeltaCache> {
@@ -49,6 +72,7 @@ impl DeltaCacheManager {
     pub fn update_cache(&self, env: &str, events: &[DeltaEvent]) {
         if let Some(mut cache) = self.caches.get_mut(env) {
             cache.add_events(events);
+            CONNECTED_STREAMING_CLIENTS_GAUGE.set(self.update_sender.receiver_count() as i64);
             let result = self
                 .update_sender
                 .send(DeltaCacheUpdate::Update(env.to_string()));
@@ -64,6 +88,19 @@ impl DeltaCacheManager {
             .update_sender
             .send(DeltaCacheUpdate::Deletion(env.to_string()));
     }
+}
+
+pub fn create_terminate_sse_connections_task(
+    cache_manager: Arc<DeltaCacheManager>,
+) -> BackgroundTask {
+    Box::pin(async move {
+        for v in cache_manager.caches.iter() {
+            let _ = cache_manager
+                .update_sender
+                .send(DeltaCacheUpdate::Deletion(v.key().clone()));
+        }
+        let _ = cache_manager.update_sender.closed().await;
+    })
 }
 
 #[cfg(test)]

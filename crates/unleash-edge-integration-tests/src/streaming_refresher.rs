@@ -45,7 +45,7 @@ mod tests {
     pub async fn streaming_compresses_multiple_updates_into_hydration_event() {
         let token = EdgeToken {
             token: "*:development.hashhasin".into(),
-            token_type: Some(TokenType::Client),
+            token_type: Some(TokenType::Backend),
             environment: Some("development".into()),
             projects: vec!["*".into()],
             status: TokenValidationStatus::Validated,
@@ -206,7 +206,7 @@ mod tests {
     pub async fn streaming_sends_multiple_messages() {
         let token = EdgeToken {
             token: "*:development.hashhasin".into(),
-            token_type: Some(TokenType::Client),
+            token_type: Some(TokenType::Backend),
             environment: Some("development".into()),
             projects: vec!["*".into()],
             status: TokenValidationStatus::Validated,
@@ -376,7 +376,7 @@ mod tests {
     async fn streaming_is_terminated_if_token_becomes_invalidated() {
         let token = EdgeToken {
             token: "*:development.hashhasin".into(),
-            token_type: Some(TokenType::Client),
+            token_type: Some(TokenType::Backend),
             environment: Some("development".into()),
             projects: vec!["*".into()],
             status: TokenValidationStatus::Validated,
