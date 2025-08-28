@@ -13,6 +13,8 @@ use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU64, Ordering};
 use ulid::Ulid;
 
+pub const CONNECTED_STREAMING_CLIENTS: &str = "connected_streaming_clients";
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EdgeInstanceData {
@@ -308,7 +310,7 @@ impl EdgeInstanceData {
                         }
                     }
                 }
-                "connected_streaming_clients" => {
+                CONNECTED_STREAMING_CLIENTS => {
                     if let Some(connected_streaming_clients) = family.get_metric().last() {
                         observed.connected_streaming_clients =
                             connected_streaming_clients.get_gauge().value() as u64;

@@ -199,7 +199,7 @@ mod tests {
         let tokens = vec![
             EdgeToken {
                 token: "default:development:ajsdkajnsdlsan".into(),
-                token_type: Some(TokenType::Client),
+                token_type: Some(TokenType::Backend),
                 environment: Some("development".into()),
                 projects: vec!["default".into()],
                 status: TokenValidationStatus::Validated,

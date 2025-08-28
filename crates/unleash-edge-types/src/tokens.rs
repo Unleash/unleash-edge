@@ -107,7 +107,7 @@ impl EdgeToken {
                 "edge_data_token_{}",
                 self.environment.clone().unwrap_or("default".into())
             ),
-            token_type: TokenType::Client,
+            token_type: TokenType::Backend,
             projects: self.projects.clone(),
             environment: self.environment.clone().unwrap_or("default".into()),
             expires_at: Utc::now() + Duration::weeks(4),
@@ -128,7 +128,7 @@ impl EdgeToken {
         EdgeToken::from_str(token)
             .map(|mut t| {
                 t.status = TokenValidationStatus::Validated;
-                t.token_type = Some(TokenType::Client);
+                t.token_type = Some(TokenType::Backend);
                 t
             })
             .unwrap()

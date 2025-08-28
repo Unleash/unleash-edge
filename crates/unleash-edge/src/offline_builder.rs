@@ -36,7 +36,7 @@ pub(crate) fn build_offline_mode(
         .iter()
         .map(|token| EdgeToken::from_str(token).unwrap_or_else(|_| EdgeToken::offline_token(token)))
         .map(|mut token| {
-            token.token_type = Some(TokenType::Client);
+            token.token_type = Some(TokenType::Backend);
             token
         })
         .collect();
