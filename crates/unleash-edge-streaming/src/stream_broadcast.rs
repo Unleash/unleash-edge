@@ -19,16 +19,6 @@ use unleash_edge_types::{
 };
 use unleash_types::client_features::ClientFeaturesDelta;
 
-fn strip_non_send(
-    result: EdgeResult<(
-        EdgeToken,
-        FeatureFilterSet,
-        unleash_types::client_features::Query,
-    )>,
-) -> EdgeResult<(EdgeToken, unleash_types::client_features::Query)> {
-    result.map(|(token, _filter_set, query)| (token, query))
-}
-
 pub async fn stream_deltas(
     delta_cache_manager: Arc<DeltaCacheManager>,
     token_cache: Arc<TokenCache>,
@@ -37,11 +27,9 @@ pub async fn stream_deltas(
 ) -> EdgeResult<Sse<impl Stream<Item = Result<Event, axum::Error>>>> {
     let token_cache = token_cache.clone();
 
-    let (validated_token, query) = strip_non_send(get_feature_filter(
-        &edge_token,
-        &token_cache,
-        filter_query.clone(),
-    ))?;
+    let (validated_token, query) =
+        get_feature_filter(&edge_token, &token_cache, filter_query.clone())
+            .map(|(token, _filter_set, query)| (token, query))?;
 
     let rx = delta_cache_manager.subscribe();
     let streaming_query = StreamingQuery::from((&query, &validated_token));
@@ -51,9 +39,9 @@ pub async fn stream_deltas(
 
     let initial_event = Event::default()
         .event("unleash-connected")
-        .data(serde_json::to_string(&initial_features).unwrap());
+        .json_data(&initial_features);
 
-    let intro_stream = once(Ok(initial_event));
+    let intro_stream = once(initial_event);
     let client_data = Arc::new(RwLock::new(ClientData {
         revision: resolve_last_event_id(delta_cache_manager.clone(), &streaming_query),
         streaming_query,
@@ -62,10 +50,16 @@ pub async fn stream_deltas(
     let updates_stream = BroadcastStream::new(rx)
         .take_while({
             move |broadcast_result| {
-                let should_continue = match &broadcast_result {
-                    Ok(DeltaCacheUpdate::Deletion(_)) => false,
-                    _ => true,
+                let environment_not_deleted =
+                    !matches!(broadcast_result, Ok(DeltaCacheUpdate::Deletion(_)));
+                let token_valid = if let Some(known_token) = token_cache.get(&edge_token.token) {
+                    known_token.value().status.is_valid()
+                } else {
+                    false
                 };
+
+                let should_continue = environment_not_deleted && token_valid;
+
                 Box::pin(async move { should_continue })
                     as Pin<Box<dyn Future<Output = bool> + Send>>
             }
@@ -135,13 +129,7 @@ async fn create_event_list(
             &delta_filter_set,
             last_event_id,
         )),
-        None => {
-            // Note: this is a simplification for now, using the following assumptions:
-            // 1. We'll only allow streaming in strict mode
-            // 2. We'll check whether the token is subsumed *before* trying to add it to the broadcaster
-            // If both of these are true, then we should never hit this case (if Thomas's understanding is correct).
-            Err(EdgeError::AuthorizationDenied)
-        }
+        None => Err(EdgeError::AuthorizationDenied),
     }
 }
 
