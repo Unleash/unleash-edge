@@ -170,21 +170,6 @@ impl FeatureRefresher {
             .collect()
     }
 
-    fn get_tokens_never_refreshed(&self) -> Vec<TokenRefresh> {
-        self.tokens_to_refresh
-            .iter()
-            .map(|e| e.value().clone())
-            .filter(|token| token.last_refreshed.is_none() && token.last_check.is_none())
-            .collect()
-    }
-
-    fn token_is_subsumed(&self, token: &EdgeToken) -> bool {
-        self.tokens_to_refresh
-            .iter()
-            .filter(|r| r.token.environment == token.environment)
-            .any(|t| t.token.subsumes(token))
-    }
-
     /// This method no longer returns any data. Its responsibility lies in adding the token to our
     /// list of tokens to perform refreshes for, as well as calling out to hydrate tokens that we haven't seen before.
     /// Other tokens will be refreshed due to the scheduled task that refreshes tokens that haven been refreshed in ${refresh_interval} seconds
@@ -225,30 +210,6 @@ impl FeatureRefresher {
                 Err(EdgeError::InvalidToken)
             }
         }
-    }
-
-    fn get_features_by_filter(
-        &self,
-        token: &EdgeToken,
-        filters: &FeatureFilterSet,
-    ) -> Option<ClientFeatures> {
-        self.features_cache
-            .get(&cache_key(token))
-            .map(|client_features| filter_client_features(&client_features, filters))
-    }
-
-    fn get_delta_events_by_filter(
-        &self,
-        token: &EdgeToken,
-        feature_filters: &FeatureFilterSet,
-        delta_filters: &DeltaFilterSet,
-        revision: u32,
-    ) -> Option<ClientFeaturesDelta> {
-        self.delta_cache_manager
-            .get(&cache_key(token))
-            .map(|delta_events| {
-                filter_delta_events(&delta_events, feature_filters, delta_filters, revision)
-            })
     }
 
     ///
@@ -396,47 +357,6 @@ impl FeatureRefresher {
         Ok(())
     }
 
-    async fn compare_delta_cache(&self, refresh: &TokenRefresh) {
-        let delta_result = self
-            .unleash_client
-            .get_client_features_delta(ClientFeaturesRequest {
-                api_key: refresh.token.token.clone(),
-                etag: None,
-                interval: None,
-            })
-            .await;
-
-        let key = cache_key(&refresh.token);
-        if let Some(client_features) = self.features_cache.get(&key).as_ref()
-            && let Ok(ClientFeaturesDeltaResponse::Updated(delta_features, _etag)) = delta_result
-        {
-            let c_features = &client_features.features;
-            let d_features = delta_features.events.iter().find_map(|event| {
-                if let DeltaEvent::Hydration { features, .. } = event {
-                    Some(features)
-                } else {
-                    None
-                }
-            });
-
-            let delta_json = serde_json::to_value(d_features).unwrap();
-            let client_json = serde_json::to_value(c_features).unwrap();
-
-            let delta_json_len = delta_json.to_string().len();
-            let client_json_len = client_json.to_string().len();
-
-            if delta_json_len == client_json_len {
-                info!("The JSON structure lengths are identical.");
-            } else {
-                info!("Structural differences found:");
-                info!("Length of delta_json: {}", delta_json_len);
-                info!("Length of old_json: {}", client_json_len);
-                let diff = JsonDiff::diff(&delta_json, &client_json, false);
-                debug!("{:?}", diff.diff.unwrap());
-            }
-        }
-    }
-
     pub async fn start_refresh_features_background_task(&self) {
         loop {
             tokio::select! {
@@ -502,6 +422,7 @@ impl FeatureRefresher {
                 new_state
             });
     }
+
     pub async fn refresh_single(&self, refresh: TokenRefresh) {
         let features_result = self
             .unleash_client
@@ -574,6 +495,86 @@ impl FeatureRefresher {
                     }
                     _ => info!("Couldn't refresh features: {e:?}. Will retry next pass"),
                 }
+            }
+        }
+    }
+
+    fn get_tokens_never_refreshed(&self) -> Vec<TokenRefresh> {
+        self.tokens_to_refresh
+            .iter()
+            .map(|e| e.value().clone())
+            .filter(|token| token.last_refreshed.is_none() && token.last_check.is_none())
+            .collect()
+    }
+
+    fn token_is_subsumed(&self, token: &EdgeToken) -> bool {
+        self.tokens_to_refresh
+            .iter()
+            .filter(|r| r.token.environment == token.environment)
+            .any(|t| t.token.subsumes(token))
+    }
+
+    fn get_features_by_filter(
+        &self,
+        token: &EdgeToken,
+        filters: &FeatureFilterSet,
+    ) -> Option<ClientFeatures> {
+        self.features_cache
+            .get(&cache_key(token))
+            .map(|client_features| filter_client_features(&client_features, filters))
+    }
+
+    fn get_delta_events_by_filter(
+        &self,
+        token: &EdgeToken,
+        feature_filters: &FeatureFilterSet,
+        delta_filters: &DeltaFilterSet,
+        revision: u32,
+    ) -> Option<ClientFeaturesDelta> {
+        self.delta_cache_manager
+            .get(&cache_key(token))
+            .map(|delta_events| {
+                filter_delta_events(&delta_events, feature_filters, delta_filters, revision)
+            })
+    }
+
+    async fn compare_delta_cache(&self, refresh: &TokenRefresh) {
+        let delta_result = self
+            .unleash_client
+            .get_client_features_delta(ClientFeaturesRequest {
+                api_key: refresh.token.token.clone(),
+                etag: None,
+                interval: None,
+            })
+            .await;
+
+        let key = cache_key(&refresh.token);
+        if let Some(client_features) = self.features_cache.get(&key).as_ref()
+            && let Ok(ClientFeaturesDeltaResponse::Updated(delta_features, _etag)) = delta_result
+        {
+            let c_features = &client_features.features;
+            let d_features = delta_features.events.iter().find_map(|event| {
+                if let DeltaEvent::Hydration { features, .. } = event {
+                    Some(features)
+                } else {
+                    None
+                }
+            });
+
+            let delta_json = serde_json::to_value(d_features).unwrap();
+            let client_json = serde_json::to_value(c_features).unwrap();
+
+            let delta_json_len = delta_json.to_string().len();
+            let client_json_len = client_json.to_string().len();
+
+            if delta_json_len == client_json_len {
+                info!("The JSON structure lengths are identical.");
+            } else {
+                info!("Structural differences found:");
+                info!("Length of delta_json: {}", delta_json_len);
+                info!("Length of old_json: {}", client_json_len);
+                let diff = JsonDiff::diff(&delta_json, &client_json, false);
+                debug!("{:?}", diff.diff.unwrap());
             }
         }
     }
