@@ -312,7 +312,6 @@ pub async fn build_edge_state(
         token_cache.clone(),
         features_cache.clone(),
         token_validator.clone(),
-        http_client.clone(),
         args.app_name,
         instance_data_sender.clone(),
         edge_instance_data.clone(),
@@ -400,7 +399,6 @@ fn create_edge_mode_background_tasks(
     token_cache: Arc<TokenCache>,
     feature_cache: Arc<FeatureCache>,
     validator: Arc<TokenValidator>,
-    http_client: reqwest::Client,
     app_name: String,
     instance_data_sender: Arc<InstanceDataSending>,
     edge_instance_data: Arc<EdgeInstanceData>,
@@ -431,7 +429,6 @@ fn create_edge_mode_background_tasks(
 
     if let Some(url) = edge.clone().prometheus_remote_write_url {
         tasks.push(create_prometheus_write_task(
-            http_client,
             url,
             edge.prometheus_push_interval,
             app_name,
