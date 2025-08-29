@@ -522,6 +522,13 @@ mod tests {
         assert_eq!(res.status_code(), StatusCode::OK);
         let frontend_result = res.json::<FrontendResult>();
         assert_eq!(frontend_result.toggles.len(), 1);
+        let res = server
+            .get("/frontend?properties%5BcompanyId%5D=bricks")
+            .add_header("Authorization", frontend_token.token.clone())
+            .await;
+        assert_eq!(res.status_code(), StatusCode::OK);
+        let frontend_result = res.json::<FrontendResult>();
+        assert_eq!(frontend_result.toggles.len(), 1);
     }
     #[tokio::test]
     async fn can_handle_custom_context_fields_with_post() {

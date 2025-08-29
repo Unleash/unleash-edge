@@ -27,7 +27,6 @@ pub async fn post_metrics(
     edge_token: EdgeToken,
     Json(metrics): Json<ClientMetrics>,
 ) -> EdgeAcceptedJsonResult<()> {
-    info!("Registering metrics");
     register_client_metrics(edge_token, metrics, app_state.metrics_cache.clone());
     Ok(AcceptedJson { body: () })
 }
