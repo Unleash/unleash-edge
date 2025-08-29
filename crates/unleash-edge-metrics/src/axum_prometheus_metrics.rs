@@ -165,15 +165,15 @@ where
             .unwrap_or_else(|| req.uri().path().to_owned());
 
         let skip = excluded_path(&path);
+        let app_name = self.connect_via.app_name.clone();
+        let instance_id = self.connect_via.instance_id.clone();
         if !skip {
             HTTP_REQUESTS_PENDING_METRIC
-                .with_label_values(&[&method, &path])
+                .with_label_values(&[&method, &path, &app_name, &instance_id])
                 .inc();
         }
         let start = Instant::now();
         let mut service = self.service.clone();
-        let app_name = self.connect_via.app_name.clone();
-        let instance_id = self.connect_via.instance_id.clone();
         Box::pin(async move {
             let response = service.call(req).await?;
             let status = response.status().as_u16().to_string();
