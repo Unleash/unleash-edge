@@ -70,14 +70,22 @@ pub fn create_revalidation_of_startup_tokens_task(
     refresher: HydratorType,
 ) -> Pin<Box<dyn Future<Output = ()> + Send>> {
     let validator = validator.clone();
+    let mut tokens_not_yet_known: HashSet<String> =
+        tokens.clone().into_iter().collect::<HashSet<String>>();
     Box::pin(async move {
         let sleep_duration = tokio::time::Duration::from_secs(1);
         loop {
             tokio::select! {
                 _ = tokio::time::sleep(sleep_duration) => {
-                        let token_result = validator.register_tokens(tokens.clone()).await;
+                        trace!("{} tokens not yet validated", tokens_not_yet_known.len());
+                        if tokens_not_yet_known.is_empty() {
+                            break;
+                        }
+                        let tokens_not_yet_known_list = tokens_not_yet_known.iter().cloned().collect();
+                        let token_result = validator.register_tokens(tokens_not_yet_known_list).await;
                         if let Ok(good_tokens) = token_result {
                             for token in good_tokens {
+                                tokens_not_yet_known.remove(&token.token);
                                 match &refresher {
                                     HydratorType::Polling(refresher) => {
                                         let _ = refresher.register_and_hydrate_token(&token).await;

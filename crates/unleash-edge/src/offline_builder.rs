@@ -15,7 +15,7 @@ use unleash_edge_offline::hotload::{
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::MetricsCache;
 use unleash_edge_types::tokens::EdgeToken;
-use unleash_edge_types::{BackgroundTask, EdgeResult, TokenType};
+use unleash_edge_types::{BackgroundTask, EdgeResult, TokenType, TokenValidationStatus};
 use unleash_types::client_features::ClientFeatures;
 use unleash_yggdrasil::EngineState;
 
@@ -30,6 +30,10 @@ pub(crate) fn build_offline_mode(
     let edge_tokens: Vec<EdgeToken> = tokens
         .iter()
         .map(|token| EdgeToken::from_str(token).unwrap_or_else(|_| EdgeToken::offline_token(token)))
+        .map(|mut t| {
+            t.status = TokenValidationStatus::Trusted;
+            t
+        })
         .collect();
 
     let edge_client_tokens: Vec<EdgeToken> = client_tokens
@@ -144,9 +148,13 @@ fn create_offline_background_tasks(
     engine_cache: Arc<DashMap<String, EngineState>>,
     offline_args: OfflineArgs,
 ) -> Vec<BackgroundTask> {
-    vec![create_hotload_task(
-        features_cache,
-        engine_cache,
-        offline_args,
-    )]
+    if offline_args.reload_interval > 0 {
+        vec![create_hotload_task(
+            features_cache,
+            engine_cache,
+            offline_args,
+        )]
+    } else {
+        vec![]
+    }
 }
