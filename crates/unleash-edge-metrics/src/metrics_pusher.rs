@@ -2,7 +2,6 @@ use base64::Engine;
 use prometheus::gather;
 use prometheus_reqwest_remote_write::WriteRequest;
 use reqwest::{Client, header};
-use std::pin::Pin;
 use tracing::debug;
 use unleash_edge_types::BackgroundTask;
 
