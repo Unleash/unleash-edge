@@ -34,6 +34,10 @@ pub async fn validate(
             let valid_tokens: Vec<EdgeToken> = tokens_to_check
                 .iter()
                 .filter_map(|t| app_state.token_cache.get(t).map(|e| e.value().clone()))
+                .map(|mut token| {
+                    token.status = TokenValidationStatus::Validated;
+                    token
+                })
                 .collect();
             Ok(Json(ValidatedTokens {
                 tokens: valid_tokens,

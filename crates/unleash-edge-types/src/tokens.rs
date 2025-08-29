@@ -197,7 +197,7 @@ impl EdgeToken {
         let mut token = EdgeToken::try_from(s.to_string())
             .ok()
             .unwrap_or_else(|| EdgeToken::no_project_or_environment(s));
-        token.status = TokenValidationStatus::Validated;
+        token.status = TokenValidationStatus::Trusted;
         token
     }
     pub fn from_trimmed_str(s: &str) -> Result<Self, EdgeError> {

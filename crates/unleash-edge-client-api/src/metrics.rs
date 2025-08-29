@@ -1,7 +1,7 @@
 use axum::Json;
 use axum::extract::State;
 use axum::routing::{Router, post};
-use tracing::{info, instrument};
+use tracing::instrument;
 use unleash_edge_appstate::AppState;
 use unleash_edge_metrics::client_metrics::{register_bulk_metrics, register_client_metrics};
 use unleash_edge_types::tokens::EdgeToken;
