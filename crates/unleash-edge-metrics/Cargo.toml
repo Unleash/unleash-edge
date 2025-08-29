@@ -28,6 +28,7 @@ unleash-edge-http-client = { path = "../unleash-edge-http-client" }
 unleash-edge-types = { path = "../unleash-edge-types" }
 
 [dev-dependencies]
+axum-test = { workspace = true }
 proptest = { workspace = true }
 test-case = { workspace = true }
 tracing-test = { workspace = true }

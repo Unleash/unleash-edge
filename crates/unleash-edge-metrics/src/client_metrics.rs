@@ -651,7 +651,7 @@ mod test {
         let mut edge_token_with_development =
             EdgeToken::from_str("*:development.randomstring").unwrap();
         edge_token_with_development.status = TokenValidationStatus::Validated;
-        edge_token_with_development.token_type = Some(TokenType::Client);
+        edge_token_with_development.token_type = Some(TokenType::Backend);
         let metrics = BatchMetricsRequestBody {
             applications: vec![],
             metrics: vec![
