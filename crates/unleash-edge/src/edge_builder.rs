@@ -435,6 +435,8 @@ fn create_edge_mode_background_tasks(
             url,
             edge.prometheus_push_interval,
             app_name,
+            edge.clone().prometheus_username,
+            edge.clone().prometheus_password,
         ));
     }
 
