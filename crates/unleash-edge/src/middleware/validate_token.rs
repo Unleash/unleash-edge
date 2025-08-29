@@ -65,6 +65,7 @@ async fn validate_with_validator(
         TokenValidationStatus::Validated => match known_token.token_type {
             Some(TokenType::Frontend) => check_frontend_path(path),
             Some(TokenType::Backend) => check_backend_path(path),
+            None => Ok(()),
             _ => Err(EdgeError::Forbidden("".into())),
         },
         TokenValidationStatus::Unknown => Err(EdgeError::AuthorizationDenied),
@@ -84,7 +85,7 @@ fn check_frontend_path(path: &str) -> Result<(), EdgeError> {
 }
 
 fn check_backend_path(path: &str) -> Result<(), EdgeError> {
-    if path.contains("/client") {
+    if path.contains("client/") {
         Ok(())
     } else {
         Err(EdgeError::Forbidden("".into()))
