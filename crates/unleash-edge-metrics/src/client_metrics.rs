@@ -335,3 +335,411 @@ pub fn register_bulk_metrics(
     };
     sink_bulk_metrics(metrics_cache, updated, connect_via);
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use chrono::{DateTime, Utc};
+    use std::collections::HashMap;
+    use std::str::FromStr;
+    use unleash_edge_types::{TokenType, TokenValidationStatus};
+    use unleash_types::client_metrics::{
+        ClientMetricsEnv, ConnectVia, ConnectViaBuilder, MetricsMetadata,
+    };
+
+    #[test]
+    fn cache_aggregates_data_correctly() {
+        let cache = MetricsCache::default();
+
+        let base_metric = ClientMetricsEnv {
+            app_name: "some-app".into(),
+            feature_name: "some-feature".into(),
+            environment: "development".into(),
+            timestamp: DateTime::parse_from_rfc3339("1867-11-07T12:00:00Z")
+                .unwrap()
+                .with_timezone(&Utc),
+            yes: 1,
+            no: 0,
+            variants: HashMap::new(),
+            metadata: MetricsMetadata {
+                platform_name: None,
+                platform_version: None,
+                sdk_version: None,
+                sdk_type: None,
+                yggdrasil_version: None,
+            },
+        };
+
+        let metrics = vec![
+            ClientMetricsEnv {
+                ..base_metric.clone()
+            },
+            ClientMetricsEnv { ..base_metric },
+        ];
+
+        sink_metrics(&cache, &metrics);
+
+        let found_metric = cache
+            .metrics
+            .get(&MetricsKey {
+                app_name: "some-app".into(),
+                feature_name: "some-feature".into(),
+                timestamp: DateTime::parse_from_rfc3339("1867-11-07T12:00:00Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
+                environment: "development".into(),
+            })
+            .unwrap();
+
+        let expected = ClientMetricsEnv {
+            app_name: "some-app".into(),
+            feature_name: "some-feature".into(),
+            environment: "development".into(),
+            timestamp: DateTime::parse_from_rfc3339("1867-11-07T12:00:00Z")
+                .unwrap()
+                .with_timezone(&Utc),
+            yes: 2,
+            no: 0,
+            variants: HashMap::new(),
+            metadata: MetricsMetadata {
+                platform_name: None,
+                platform_version: None,
+                sdk_version: None,
+                sdk_type: None,
+                yggdrasil_version: None,
+            },
+        };
+
+        assert_eq!(found_metric.yes, expected.yes);
+        assert_eq!(found_metric.yes, 2);
+        assert_eq!(found_metric.no, 0);
+        assert_eq!(found_metric.no, expected.no);
+    }
+
+    #[test]
+    fn cache_aggregates_data_correctly_across_date_boundaries() {
+        let cache = MetricsCache::default();
+        let a_long_time_ago = DateTime::parse_from_rfc3339("1867-11-07T12:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let hundred_years_later = DateTime::parse_from_rfc3339("1967-11-07T12:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+
+        let base_metric = ClientMetricsEnv {
+            app_name: "some-app".into(),
+            feature_name: "some-feature".into(),
+            environment: "development".into(),
+            timestamp: a_long_time_ago,
+            yes: 1,
+            no: 0,
+            variants: HashMap::new(),
+            metadata: MetricsMetadata {
+                platform_name: None,
+                platform_version: None,
+                sdk_version: None,
+                sdk_type: None,
+                yggdrasil_version: None,
+            },
+        };
+
+        let metrics = vec![
+            ClientMetricsEnv {
+                timestamp: hundred_years_later,
+                ..base_metric.clone()
+            },
+            ClientMetricsEnv {
+                ..base_metric.clone()
+            },
+            ClientMetricsEnv { ..base_metric },
+        ];
+
+        sink_metrics(&cache, &metrics);
+
+        let old_metric = cache
+            .metrics
+            .get(&MetricsKey {
+                app_name: "some-app".into(),
+                feature_name: "some-feature".into(),
+                environment: "development".into(),
+                timestamp: a_long_time_ago,
+            })
+            .unwrap();
+
+        let old_expectation = ClientMetricsEnv {
+            app_name: "some-app".into(),
+            feature_name: "some-feature".into(),
+            environment: "development".into(),
+            timestamp: a_long_time_ago,
+            yes: 2,
+            no: 0,
+            variants: HashMap::new(),
+            metadata: MetricsMetadata {
+                platform_name: None,
+                platform_version: None,
+                sdk_version: None,
+                sdk_type: None,
+                yggdrasil_version: None,
+            },
+        };
+
+        let new_metric = cache
+            .metrics
+            .get(&MetricsKey {
+                app_name: "some-app".into(),
+                feature_name: "some-feature".into(),
+                environment: "development".into(),
+                timestamp: hundred_years_later,
+            })
+            .unwrap();
+
+        let new_expectation = ClientMetricsEnv {
+            app_name: "some-app".into(),
+            feature_name: "some-feature".into(),
+            environment: "development".into(),
+            timestamp: hundred_years_later,
+            yes: 1,
+            no: 0,
+            variants: HashMap::new(),
+            metadata: MetricsMetadata {
+                platform_name: None,
+                platform_version: None,
+                sdk_version: None,
+                sdk_type: None,
+                yggdrasil_version: None,
+            },
+        };
+
+        assert_eq!(cache.metrics.len(), 2);
+
+        assert_eq!(old_metric.yes, old_expectation.yes);
+        assert_eq!(old_metric.yes, 2);
+        assert_eq!(old_metric.no, 0);
+        assert_eq!(old_metric.no, old_expectation.no);
+
+        assert_eq!(new_metric.yes, new_expectation.yes);
+        assert_eq!(new_metric.yes, 1);
+        assert_eq!(new_metric.no, 0);
+        assert_eq!(new_metric.no, new_expectation.no);
+    }
+
+    #[test]
+    fn cache_clears_metrics_correctly() {
+        let cache = MetricsCache::default();
+        let time_stamp = DateTime::parse_from_rfc3339("1867-11-07T12:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+
+        let base_metric = ClientMetricsEnv {
+            app_name: "some-app".into(),
+            feature_name: "some-feature".into(),
+            environment: "development".into(),
+            timestamp: time_stamp,
+            yes: 1,
+            no: 0,
+            variants: HashMap::new(),
+            metadata: MetricsMetadata {
+                platform_name: None,
+                platform_version: None,
+                sdk_version: None,
+                sdk_type: None,
+                yggdrasil_version: None,
+            },
+        };
+
+        let metrics = vec![
+            ClientMetricsEnv {
+                ..base_metric.clone()
+            },
+            ClientMetricsEnv { ..base_metric },
+        ];
+
+        sink_metrics(&cache, &metrics);
+        assert!(!cache.metrics.is_empty());
+        reset_metrics(&cache);
+        assert!(cache.metrics.is_empty());
+    }
+
+    #[test]
+    fn adding_another_connection_link_works() {
+        let client_application = ClientApplication {
+            app_name: "tests_help".into(),
+            connect_via: None,
+            environment: Some("development".into()),
+            projects: None,
+            instance_id: Some("test".into()),
+            connection_id: Some("test".into()),
+            interval: 60,
+            started: Default::default(),
+            strategies: vec![],
+            metadata: MetricsMetadata {
+                platform_name: None,
+                platform_version: None,
+                sdk_version: None,
+                sdk_type: None,
+                yggdrasil_version: None,
+            },
+        };
+        let connected_via_test_instance = client_application.connect_via("test", "instance");
+        let connected_via_edge_as_well = connected_via_test_instance.connect_via("edge", "edgeid");
+        assert_eq!(
+            connected_via_test_instance.connect_via.unwrap(),
+            vec![ConnectVia {
+                app_name: "test".into(),
+                instance_id: "instance".into()
+            }]
+        );
+        assert_eq!(
+            connected_via_edge_as_well.connect_via.unwrap(),
+            vec![
+                ConnectVia {
+                    app_name: "test".into(),
+                    instance_id: "instance".into()
+                },
+                ConnectVia {
+                    app_name: "edge".into(),
+                    instance_id: "edgeid".into()
+                }
+            ]
+        )
+    }
+
+    #[test]
+    fn getting_unsent_metrics_filters_out_metrics_with_no_counters() {
+        let cache = MetricsCache::default();
+
+        let base_metric = ClientMetricsEnv {
+            app_name: "some-app".into(),
+            feature_name: "some-feature".into(),
+            environment: "development".into(),
+            timestamp: DateTime::parse_from_rfc3339("1867-11-07T12:00:00Z")
+                .unwrap()
+                .with_timezone(&Utc),
+            yes: 0,
+            no: 0,
+            variants: HashMap::new(),
+            metadata: MetricsMetadata {
+                platform_name: None,
+                platform_version: None,
+                sdk_version: None,
+                sdk_type: None,
+                yggdrasil_version: None,
+            },
+        };
+
+        let metrics = vec![
+            ClientMetricsEnv {
+                ..base_metric.clone()
+            },
+            ClientMetricsEnv { ..base_metric },
+        ];
+
+        sink_metrics(&cache, &metrics);
+        let metrics_batch = get_appropriately_sized_batches(&cache);
+        assert_eq!(metrics_batch.len(), 1);
+        assert!(metrics_batch.first().unwrap().metrics.is_empty());
+    }
+
+    #[test]
+    pub fn register_bulk_metrics_filters_metrics_based_on_environment_in_token() {
+        let metrics_cache = MetricsCache::default();
+        let connect_via = ConnectViaBuilder::default()
+            .app_name("edge_bulk_metrics".into())
+            .instance_id("sometest".into())
+            .build()
+            .unwrap();
+        let mut edge_token_with_development =
+            EdgeToken::from_str("*:development.randomstring").unwrap();
+        edge_token_with_development.status = TokenValidationStatus::Validated;
+        edge_token_with_development.token_type = Some(TokenType::Client);
+        let metrics = BatchMetricsRequestBody {
+            applications: vec![],
+            metrics: vec![
+                ClientMetricsEnv {
+                    feature_name: "feature_one".into(),
+                    app_name: "my_app".into(),
+                    environment: "development".into(),
+                    timestamp: Utc::now(),
+                    yes: 50,
+                    no: 10,
+                    variants: Default::default(),
+                    metadata: MetricsMetadata {
+                        platform_name: None,
+                        platform_version: None,
+                        sdk_version: None,
+                        sdk_type: None,
+                        yggdrasil_version: None,
+                    },
+                },
+                ClientMetricsEnv {
+                    feature_name: "feature_two".to_string(),
+                    app_name: "other_app".to_string(),
+                    environment: "production".to_string(),
+                    timestamp: Default::default(),
+                    yes: 50,
+                    no: 10,
+                    variants: Default::default(),
+                    metadata: MetricsMetadata {
+                        platform_name: None,
+                        platform_version: None,
+                        sdk_version: None,
+                        sdk_type: None,
+                        yggdrasil_version: None,
+                    },
+                },
+            ],
+            impact_metrics: None,
+        };
+        register_bulk_metrics(
+            &metrics_cache,
+            &connect_via,
+            &edge_token_with_development,
+            metrics,
+        );
+        assert_eq!(metrics_cache.metrics.len(), 1);
+    }
+
+    #[test]
+    pub fn metrics_will_be_gathered_per_environment() {
+        let metrics = vec![
+            ClientMetricsEnv {
+                feature_name: "feature_one".into(),
+                app_name: "my_app".into(),
+                environment: "development".into(),
+                timestamp: Utc::now(),
+                yes: 50,
+                no: 10,
+                variants: Default::default(),
+                metadata: MetricsMetadata {
+                    platform_name: None,
+                    platform_version: None,
+                    sdk_version: None,
+                    sdk_type: None,
+                    yggdrasil_version: None,
+                },
+            },
+            ClientMetricsEnv {
+                feature_name: "feature_two".to_string(),
+                app_name: "other_app".to_string(),
+                environment: "production".to_string(),
+                timestamp: Default::default(),
+                yes: 50,
+                no: 10,
+                variants: Default::default(),
+                metadata: MetricsMetadata {
+                    platform_name: None,
+                    platform_version: None,
+                    sdk_version: None,
+                    sdk_type: None,
+                    yggdrasil_version: None,
+                },
+            },
+        ];
+        let cache = MetricsCache::default();
+        sink_metrics(&cache, &metrics);
+        let metrics_by_env_map = get_metrics_by_environment(&cache);
+        assert_eq!(metrics_by_env_map.len(), 2);
+        assert!(metrics_by_env_map.contains_key("development"));
+        assert!(metrics_by_env_map.contains_key("production"));
+    }
+}

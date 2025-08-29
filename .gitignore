@@ -20,3 +20,5 @@ debug/
 
 # Heaptrack dump files
 heaptrack.*
+htmlreport
+test-results.lcov

@@ -29,14 +29,11 @@ impl FromRequestParts<AppState> for UnleashSdkHeader {
         Ok(UnleashSdkHeader(ver))
     }
 }
-
 pub mod frontend;
-pub mod proxy;
+pub mod querystring_extractor;
 
 pub fn router(disable_all_endpoints: bool) -> Router<AppState> {
-    Router::new()
-        .merge(proxy::router(disable_all_endpoints))
-        .merge(frontend::router(disable_all_endpoints))
+    Router::new().merge(frontend::router(disable_all_endpoints))
 }
 
 #[instrument(skip(app_state, edge_token, context, client_ip))]

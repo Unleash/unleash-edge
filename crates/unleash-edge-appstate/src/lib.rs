@@ -166,6 +166,11 @@ impl AppStateBuilder {
         self
     }
 
+    pub fn with_connect_via(mut self, connect_via: ConnectVia) -> Self {
+        self.connect_via = connect_via;
+        self
+    }
+
     pub fn build(self) -> AppState {
         AppState {
             token_cache: self.token_cache,
