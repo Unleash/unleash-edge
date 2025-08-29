@@ -10,9 +10,9 @@ pub mod batching;
 pub mod instance_data;
 
 pub const HTTP_REQUESTS_TOTAL: &str = "http_requests_total";
-pub const HTTP_REQUESTS_DURATION: &str = "http_requests_duration_seconds";
+pub const HTTP_REQUESTS_DURATION: &str = "http_server_duration_milliseconds";
 pub const HTTP_REQUESTS_PENDING: &str = "http_requests_pending";
-pub const HTTP_RESPONSE_SIZE: &str = "http_response_body_size";
+pub const HTTP_RESPONSE_SIZE: &str = "http_response_size";
 
 #[derive(Debug, Default, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]

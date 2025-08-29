@@ -29,14 +29,14 @@ static HTTP_REQUESTS_TOTAL_METRIC: LazyLock<IntCounterVec> = LazyLock::new(|| {
     .unwrap()
 });
 
-static HTTP_REQUEST_DURATION_SECONDS: LazyLock<HistogramVec> = LazyLock::new(|| {
+static HTTP_REQUEST_DURATION_MILLISECONDS: LazyLock<HistogramVec> = LazyLock::new(|| {
     register_histogram_vec!(
         HTTP_REQUESTS_DURATION,
-        "HTTP request latencies in seconds",
+        "HTTP request latencies in milliseconds",
         &[METHOD_LABEL, ENDPOINT_LABEL, STATUS_LABEL],
         vec![
-            0.0001, 0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0,
-            10.0
+            0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1000.0, 2500.0, 5000.0,
+            10000.0
         ]
     )
     .unwrap()
@@ -166,9 +166,9 @@ where
                     .with_label_values(&[&method, &used_path, &status])
                     .inc();
                 let elapsed = start.elapsed().as_secs_f64();
-                HTTP_REQUEST_DURATION_SECONDS
+                HTTP_REQUEST_DURATION_MILLISECONDS
                     .with_label_values(&[&method, &used_path, &status])
-                    .observe(elapsed);
+                    .observe(elapsed * 1000.0);
                 let size = response.body().size_hint().lower();
                 HTTP_RESPONSE_BODY_SIZE
                     .with_label_values(&[&method, &path])
@@ -309,7 +309,6 @@ mod tests {
             .layer(PrometheusAxumLayer::new());
 
         let body_str = call_metrics(app.clone()).await;
-        println!("{}", body_str);
         assert!(!body_str.contains("endpoint=\"/metrics\""));
         assert!(!body_str.contains("endpoint=\"/test_new\""));
 
@@ -326,7 +325,7 @@ mod tests {
             .unwrap();
         assert_eq!(response.status(), 200);
         let body_str = call_metrics(app.clone()).await;
-        assert!(body_str.contains("http_requests_duration_seconds_bucket"));
+        assert!(body_str.contains("http_server_duration_milliseconds_bucket"));
         assert!(body_str.contains("http_response_body_size_bucket"));
         assert!(body_str.contains("endpoint=\"/test_new\""));
         assert!(body_str.contains("# TYPE "));
