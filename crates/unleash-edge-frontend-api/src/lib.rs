@@ -29,8 +29,8 @@ impl FromRequestParts<AppState> for UnleashSdkHeader {
         Ok(UnleashSdkHeader(ver))
     }
 }
-
 pub mod frontend;
+pub mod querystring_extractor;
 
 pub fn router(disable_all_endpoints: bool) -> Router<AppState> {
     Router::new().merge(frontend::router(disable_all_endpoints))

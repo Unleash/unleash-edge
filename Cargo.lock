@@ -4040,6 +4040,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_qs"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3faaf9e727533a19351a43cc5a8de957372163c7d35cc48c90b75cdda13c352"
+dependencies = [
+ "axum",
+ "futures",
+ "percent-encoding",
+ "serde",
+ "thiserror 2.0.16",
+]
+
+[[package]]
 name = "serde_urlencoded"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5054,7 +5067,9 @@ dependencies = [
  "itertools 0.14.0",
  "serde",
  "serde_json",
+ "serde_qs",
  "tokio",
+ "tower",
  "tracing",
  "unleash-edge-appstate",
  "unleash-edge-feature-filters",

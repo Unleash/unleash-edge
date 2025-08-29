@@ -1,6 +1,7 @@
+use crate::querystring_extractor::QsQueryCfg;
 use crate::{all_features, enabled_features};
 use axum::body::Body;
-use axum::extract::{ConnectInfo, Path, Query, State};
+use axum::extract::{ConnectInfo, Path, State};
 use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
@@ -33,7 +34,7 @@ pub async fn frontend_get_all_features(
     State(app_state): State<AppState>,
     edge_token: EdgeToken,
     client_ip: ConnectInfo<SocketAddr>,
-    Query(context): Query<Context>,
+    QsQueryCfg(context): QsQueryCfg<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
     all_features(app_state, edge_token, &context, client_ip.ip())
 }
@@ -53,7 +54,7 @@ pub async fn frontend_get_enabled_features(
     State(app_state): State<AppState>,
     edge_token: EdgeToken,
     client_ip: ConnectInfo<SocketAddr>,
-    Query(context): Query<Context>,
+    QsQueryCfg(context): QsQueryCfg<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
     enabled_features(app_state, edge_token, &context, client_ip.ip())
 }
@@ -108,7 +109,7 @@ pub async fn frontend_get_feature(
     State(app_state): State<AppState>,
     edge_token: EdgeToken,
     Path(feature_name): Path<String>,
-    Query(context): Query<Context>,
+    QsQueryCfg(context): QsQueryCfg<Context>,
     ConnectInfo(connect_info): ConnectInfo<SocketAddr>,
 ) -> EdgeJsonResult<EvaluatedToggle> {
     evaluate_feature(
@@ -231,6 +232,7 @@ pub fn router(disable_all_endpoints: bool) -> Router<AppState> {
 
 #[cfg(test)]
 mod tests {
+    use axum::extract::connect_info::MockConnectInfo;
     use axum::http::StatusCode;
     use axum_test::TestServer;
     use serde_json::json;
@@ -253,6 +255,17 @@ mod tests {
         let router = super::router(disable_all_endpoints)
             .with_state(app_state)
             .into_make_service_with_connect_info::<SocketAddr>();
+        TestServer::builder()
+            .http_transport()
+            .build(router)
+            .expect("Failed to build test server")
+    }
+
+    fn frontend_test_server_with_ip(app_state: AppState, ip_addr: &str) -> TestServer {
+        let fake_addr = SocketAddr::from_str(ip_addr).unwrap();
+        let router = super::router(false)
+            .with_state(app_state)
+            .layer(MockConnectInfo(fake_addr));
         TestServer::builder()
             .http_transport()
             .build(router)
@@ -481,6 +494,96 @@ mod tests {
             .add_header("Authorization", frontend_token.token.clone())
             .await;
         assert_eq!(res.status_code(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn can_handle_custom_context_fields() {
+        let token_cache = Arc::new(TokenCache::new());
+        let mut frontend_token =
+            EdgeToken::from_str("*:development.abc123").expect("Failed to parse frontend token");
+        frontend_token.token_type = Some(TokenType::Frontend);
+        frontend_token.status = TokenValidationStatus::Validated;
+        token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
+        let mut engine_state = EngineState::default();
+        engine_state.take_state(UpdateMessage::FullResponse(features_from_disk(
+            "../../examples/with_custom_constraint.json",
+        )));
+        let engine_cache = Arc::new(EngineCache::new());
+        engine_cache.insert(cache_key(&frontend_token), engine_state);
+        let app_state = AppState::builder()
+            .with_token_cache(token_cache)
+            .with_engine_cache(engine_cache)
+            .build();
+        let server = frontend_test_server(app_state.clone(), true);
+        let res = server
+            .get("/frontend?properties[companyId]=bricks")
+            .add_header("Authorization", frontend_token.token.clone())
+            .await;
+        assert_eq!(res.status_code(), StatusCode::OK);
+        let frontend_result = res.json::<FrontendResult>();
+        assert_eq!(frontend_result.toggles.len(), 1);
+    }
+    #[tokio::test]
+    async fn can_handle_custom_context_fields_with_post() {
+        let token_cache = Arc::new(TokenCache::new());
+        let mut frontend_token =
+            EdgeToken::from_str("*:development.abc123").expect("Failed to parse frontend token");
+        frontend_token.token_type = Some(TokenType::Frontend);
+        frontend_token.status = TokenValidationStatus::Validated;
+        token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
+        let mut engine_state = EngineState::default();
+        engine_state.take_state(UpdateMessage::FullResponse(features_from_disk(
+            "../../examples/with_custom_constraint.json",
+        )));
+        let engine_cache = Arc::new(EngineCache::new());
+        engine_cache.insert(cache_key(&frontend_token), engine_state);
+        let app_state = AppState::builder()
+            .with_token_cache(token_cache)
+            .with_engine_cache(engine_cache)
+            .build();
+        let server = frontend_test_server(app_state.clone(), true);
+        let res = server
+            .post("/frontend")
+            .add_header("Authorization", frontend_token.token.clone())
+            .json(&json!({
+                "properties": {
+                    "companyId": "bricks"
+                }
+            }))
+            .await;
+        assert_eq!(res.status_code(), StatusCode::OK);
+        let frontend_result = res.json::<FrontendResult>();
+        assert_eq!(frontend_result.toggles.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn will_evaluate_ip_strategy_from_middleware() {
+        let token_cache = Arc::new(TokenCache::new());
+        let mut frontend_token =
+            EdgeToken::from_str("*:development.abc123").expect("Failed to parse frontend token");
+        frontend_token.token_type = Some(TokenType::Frontend);
+        frontend_token.status = TokenValidationStatus::Validated;
+        token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
+        let mut engine_state = EngineState::default();
+        engine_state.take_state(UpdateMessage::FullResponse(features_from_disk(
+            "../../examples/ip_address_feature.json",
+        )));
+        let engine_cache = Arc::new(EngineCache::new());
+        engine_cache.insert(cache_key(&frontend_token), engine_state);
+        let app_state = AppState::builder()
+            .with_token_cache(token_cache)
+            .with_engine_cache(engine_cache)
+            .build();
+        let server = frontend_test_server_with_ip(app_state.clone(), "192.168.0.1:80");
+        let res = server
+            .get("/frontend")
+            .add_header("Content-Type", "application/json")
+            .add_header("Authorization", frontend_token.token.clone())
+            .await;
+        assert_eq!(res.status_code(), StatusCode::OK);
+        let frontend_result = res.json::<FrontendResult>();
+        assert_eq!(frontend_result.toggles.len(), 1);
+        assert_eq!(frontend_result.toggles[0].name, "ip_addr");
     }
 
     fn client_features_with_one_enabled_toggle_and_one_disabled_toggle() -> ClientFeatures {

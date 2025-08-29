@@ -63,6 +63,7 @@ rustls-pemfile = { version = "2.2.0" }
 semver = { version = "1.0.26" }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = { version = "1.0.143" }
+serde_qs = { version = "0.15.0", features = ["axum"] }
 shadow-rs = { version = "1.2.1" }
 test-case = { version = "3.3.1" }
 tokio = { version = "1.47.1", features = ["macros", "rt-multi-thread", "tracing", "fs", "signal"] }
