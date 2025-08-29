@@ -4985,6 +4985,7 @@ name = "unleash-edge-delta"
 version = "20.0.0"
 dependencies = [
  "dashmap",
+ "prometheus",
  "tokio",
  "tracing",
  "unleash-edge-types",

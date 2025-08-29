@@ -30,7 +30,7 @@ mod tests {
             token: "*:development.1d38eefdd7bf72676122b008dcf330f2f2aa2f3031438e1b7e8f0d1f".into(),
             projects: vec!["*".into()],
             environment: Some("development".into()),
-            token_type: Some(TokenType::Client),
+            token_type: Some(TokenType::Backend),
             status: TokenValidationStatus::Validated,
         }]
     }
@@ -122,7 +122,7 @@ mod tests {
         let mut valid_token_development =
             EdgeToken::try_from("*:development.secret123".to_string()).expect("Bad Test Data");
         valid_token_development.status = TokenValidationStatus::Validated;
-        valid_token_development.token_type = Some(TokenType::Client);
+        valid_token_development.token_type = Some(TokenType::Backend);
         upstream_tokens.insert(
             valid_token_development.token.clone(),
             valid_token_development.clone(),
@@ -130,7 +130,7 @@ mod tests {
         let mut no_longer_valid_token = EdgeToken::try_from("*:production.123secret".to_string())
             .expect("Bad test production token");
         no_longer_valid_token.status = TokenValidationStatus::Invalid;
-        no_longer_valid_token.token_type = Some(TokenType::Client);
+        no_longer_valid_token.token_type = Some(TokenType::Backend);
         upstream_tokens.insert(
             no_longer_valid_token.token.clone(),
             no_longer_valid_token.clone(),
@@ -168,7 +168,7 @@ mod tests {
         let mut valid_token_development =
             EdgeToken::try_from("*:development.secret123".to_string()).expect("Bad Test Data");
         valid_token_development.status = TokenValidationStatus::Validated;
-        valid_token_development.token_type = Some(TokenType::Client);
+        valid_token_development.token_type = Some(TokenType::Backend);
         let mut valid_token_production =
             EdgeToken::try_from("*:production.magic123".to_string()).expect("Bad Test Data");
         valid_token_production.status = TokenValidationStatus::Validated;
@@ -215,7 +215,7 @@ mod tests {
         let mut valid_token_development =
             EdgeToken::try_from("*:development.secret123".to_string()).expect("Bad Test Data");
         valid_token_development.status = TokenValidationStatus::Validated;
-        valid_token_development.token_type = Some(TokenType::Client);
+        valid_token_development.token_type = Some(TokenType::Backend);
         upstream_tokens.insert(
             valid_token_development.token.clone(),
             valid_token_development.clone(),
@@ -241,7 +241,7 @@ mod tests {
             token: "*:development.token".into(),
             projects: vec!["*".into()],
             environment: Some("test".into()),
-            token_type: Some(TokenType::Client),
+            token_type: Some(TokenType::Backend),
             status: TokenValidationStatus::Unknown,
         };
 
