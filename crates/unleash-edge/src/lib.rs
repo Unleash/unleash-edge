@@ -60,7 +60,8 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
     };
     let instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>> =
         Arc::new(RwLock::new(Vec::new()));
-    let metrics_middleware = PrometheusAxumLayer::new();
+    let metrics_middleware =
+        PrometheusAxumLayer::new(&args.app_name.clone(), &app_id.clone().to_string());
 
     let (app_state, background_tasks, shutdown_tasks) = match &args.mode {
         EdgeMode::Edge(edge_args) => {
