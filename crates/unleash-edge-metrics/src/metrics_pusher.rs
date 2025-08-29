@@ -1,27 +1,55 @@
+use base64::Engine;
 use prometheus::gather;
 use prometheus_reqwest_remote_write::WriteRequest;
+use reqwest::{Client, header};
 use std::pin::Pin;
 use tracing::debug;
+use unleash_edge_types::BackgroundTask;
 
 pub fn create_prometheus_write_task(
-    http_client: reqwest::Client,
     url: String,
     interval: u64,
     app_name: String,
-) -> Pin<Box<dyn Future<Output = ()> + Send>> {
+    username: Option<String>,
+    password: Option<String>,
+) -> BackgroundTask {
     Box::pin(async move {
         let sleep_duration = tokio::time::Duration::from_secs(interval);
+        let client = get_client(username.clone(), password.clone());
         loop {
             tokio::select! {
                 _ = tokio::time::sleep(sleep_duration) => {
-                    remote_write_prom(url.clone(), http_client.clone(), app_name.clone()).await;
+                    remote_write_prom(url.clone(), client.clone(), app_name.clone()).await;
                 }
             }
         }
     })
 }
 
-async fn remote_write_prom(url: String, client: reqwest::Client, app_name: String) {
+fn get_client(username: Option<String>, password: Option<String>) -> Client {
+    if let Some(uname) = username.clone() {
+        let mut headers = header::HeaderMap::new();
+        let mut value = header::HeaderValue::from_str(&format!(
+            "Basic {}",
+            base64::engine::general_purpose::STANDARD.encode(format!(
+                "{}:{}",
+                uname,
+                password.clone().unwrap_or_default()
+            ))
+        ))
+        .expect("Could not create header");
+        value.set_sensitive(true);
+        headers.insert(header::AUTHORIZATION, value);
+        Client::builder()
+            .default_headers(headers)
+            .build()
+            .expect("Could not build client")
+    } else {
+        Client::new()
+    }
+}
+
+async fn remote_write_prom(url: String, client: Client, app_name: String) {
     let write_request =
         WriteRequest::from_metric_families(gather(), Some(vec![("app_name".into(), app_name)]))
             .expect("Could not format write request");
