@@ -5147,6 +5147,7 @@ name = "unleash-edge-metrics"
 version = "20.0.0"
 dependencies = [
  "axum",
+ "axum-test",
  "base64 0.22.1",
  "chrono",
  "dashmap",
