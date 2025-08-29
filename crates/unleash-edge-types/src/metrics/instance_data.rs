@@ -226,7 +226,7 @@ impl EdgeInstanceData {
                                     .entry(path.to_string())
                                     .or_insert(LatencyMetrics::default()),
                             };
-                            let total = m.get_histogram().get_sample_sum() * 1000.0; // convert to ms
+                            let total = m.get_histogram().get_sample_sum(); // already in ms
                             let count = m.get_histogram().get_sample_count() as f64;
                             let p99 = get_percentile(
                                 99,
