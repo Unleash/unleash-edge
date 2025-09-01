@@ -596,13 +596,8 @@ pub struct HttpServerArgs {
     #[clap(short, long, env, default_value = "0.0.0.0")]
     pub interface: String,
     /// Which base path should this server listen for HTTP traffic on
-    #[clap(short, long, env, default_value = "")]
+    #[clap(long, env, default_value = "", global = true)]
     pub base_path: String,
-
-    /// How many workers should be started to handle requests.
-    /// Defaults to number of physical cpus
-    #[clap(short, long, env, global=true, default_value_t = num_cpus::get_physical())]
-    pub workers: usize,
 
     #[clap(flatten)]
     pub tls: TlsOptions,
