@@ -139,7 +139,7 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
                 )),
         )
         .with_state(app_state);
-    let router_to_host = if args.http.base_path != "" || args.http.base_path != "/" {
+    let router_to_host = if args.http.base_path.len() > 1 {
         info!("Had a path different from root. Setting up a nested router");
         let path = if !args.http.base_path.starts_with("/") {
             format!("/{}", args.http.base_path)
