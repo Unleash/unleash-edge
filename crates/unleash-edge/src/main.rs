@@ -22,8 +22,16 @@ use unleash_edge_cli::{CliArgs, EdgeMode};
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::{BackgroundTask, EdgeResult};
 
-async fn shutdown_signal(protocol: &str, address: String, shutdown_tasks: Vec<BackgroundTask>) {
-    info!("Edge is listening to {protocol} traffic on {}", address);
+async fn shutdown_signal(
+    protocol: &str,
+    address: String,
+    path: String,
+    shutdown_tasks: Vec<BackgroundTask>,
+) {
+    info!(
+        "Edge is listening to {protocol} traffic on {} at {path}",
+        address
+    );
 
     let mut sigint = pin!(signal::ctrl_c());
     let mut sigterm_stream = signal(SignalKind::terminate()).expect("Failed to bind SIGTERM");
@@ -77,8 +85,12 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
 
         let https_handle = Handle::new();
         let https_handle_clone = https_handle.clone();
-        let shutdown_fut =
-            shutdown_signal("TLS", args.http.https_server_addr().clone(), shutdown_tasks);
+        let shutdown_fut = shutdown_signal(
+            "TLS",
+            args.http.https_server_addr().clone(),
+            args.http.base_path.clone(),
+            shutdown_tasks,
+        );
         let http_handle = Handle::new();
         let http_handle_clone = http_handle.clone();
 
@@ -121,6 +133,7 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
             .with_graceful_shutdown(shutdown_signal(
                 "http",
                 args.http.http_server_addr().clone(),
+                args.http.base_path.clone(),
                 shutdown_tasks,
             ))
             .await;

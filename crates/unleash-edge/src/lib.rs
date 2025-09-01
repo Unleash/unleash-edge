@@ -1,5 +1,6 @@
 use crate::edge_builder::build_edge_state;
 use crate::offline_builder::build_offline_app_state;
+use ::tracing::info;
 use axum::Router;
 use axum::middleware::{from_fn, from_fn_with_state};
 use axum::routing::get;
@@ -138,5 +139,17 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
                 )),
         )
         .with_state(app_state);
-    Ok((top_router, shutdown_tasks))
+    let router_to_host = if args.http.base_path != "" || args.http.base_path != "/" {
+        info!("Had a path different from root. Setting up a nested router");
+        let path = if !args.http.base_path.starts_with("/") {
+            format!("/{}", args.http.base_path)
+        } else {
+            args.http.base_path.clone()
+        };
+        Router::new().nest(&path, top_router)
+    } else {
+        top_router
+    };
+
+    Ok((router_to_host, shutdown_tasks))
 }
