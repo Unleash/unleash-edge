@@ -11,7 +11,6 @@ use std::sync::{LazyLock, Mutex};
 use std::task::{Context, Poll};
 use std::time::Instant;
 use tower::{Layer, Service};
-use ulid::Ulid;
 use unleash_edge_types::metrics::HTTP_REQUESTS_DURATION;
 use unleash_edge_types::metrics::HTTP_REQUESTS_PENDING;
 use unleash_edge_types::metrics::HTTP_REQUESTS_TOTAL;
@@ -120,11 +119,7 @@ impl PrometheusAxumLayer {
         }
     }
 }
-impl Default for PrometheusAxumLayer {
-    fn default() -> Self {
-        Self::new(env!("CARGO_PKG_NAME"), Ulid::new().to_string().as_str())
-    }
-}
+
 impl<S> Layer<S> for PrometheusAxumLayer {
     type Service = PrometheusService<S>;
 
@@ -218,19 +213,21 @@ mod tests {
     use axum::{Router, body::Body, http::Request, routing};
     use tower::ServiceExt;
 
+    const APP_NAME: &str = "unleash_edge_test";
+    const INSTANCE_ID: &str = "unleash_edge_test";
     #[tokio::test]
     async fn test_metrics_layer_basic() {
         let app = Router::new()
             .route("/test", routing::get(async || "Hello, World!"))
-            .layer(PrometheusAxumLayer::default());
+            .layer(PrometheusAxumLayer::new(APP_NAME, INSTANCE_ID));
 
         // we do not know the initial value of the counter since we may use it in multiple tests
         let counter = HTTP_REQUESTS_TOTAL_METRIC
-            .get_metric_with_label_values(&["GET", "/test", "200"])
+            .get_metric_with_label_values(&["GET", "/test", "200", APP_NAME, INSTANCE_ID])
             .unwrap()
             .get();
         let another_counter = HTTP_REQUESTS_TOTAL_METRIC
-            .get_metric_with_label_values(&["GET", "/test2", "200"])
+            .get_metric_with_label_values(&["GET", "/test2", "200", APP_NAME, INSTANCE_ID])
             .unwrap()
             .get();
         assert_eq!(another_counter, 0);
@@ -247,11 +244,11 @@ mod tests {
         assert_eq!(response.status(), 200);
 
         let updated_counter = HTTP_REQUESTS_TOTAL_METRIC
-            .get_metric_with_label_values(&["GET", "/test", "200"])
+            .get_metric_with_label_values(&["GET", "/test", "200", APP_NAME, INSTANCE_ID])
             .unwrap()
             .get();
         let another_counter = HTTP_REQUESTS_TOTAL_METRIC
-            .get_metric_with_label_values(&["GET", "/test2", "200"])
+            .get_metric_with_label_values(&["GET", "/test2", "200", APP_NAME, INSTANCE_ID])
             .unwrap()
             .get();
         assert_eq!(another_counter, 0);
@@ -273,11 +270,11 @@ mod tests {
     async fn test_metrics_layer_body_size() {
         let app = Router::new()
             .route("/test_body_size", routing::get(async || "Hello, World!"))
-            .layer(PrometheusAxumLayer::default());
+            .layer(PrometheusAxumLayer::new(APP_NAME, INSTANCE_ID));
 
         // we do not know the initial value of the counter since we may use it in multiple tests
         let counter = HTTP_REQUESTS_TOTAL_METRIC
-            .get_metric_with_label_values(&["GET", "/test_body_size", "200"])
+            .get_metric_with_label_values(&["GET", "/test_body_size", "200", APP_NAME, INSTANCE_ID])
             .unwrap()
             .get();
         assert_eq!(counter, 0);
@@ -294,12 +291,12 @@ mod tests {
         assert_eq!(response.status(), 200);
 
         let updated_counter = HTTP_REQUESTS_TOTAL_METRIC
-            .get_metric_with_label_values(&["GET", "/test_body_size", "200"])
+            .get_metric_with_label_values(&["GET", "/test_body_size", "200", APP_NAME, INSTANCE_ID])
             .unwrap()
             .get();
         assert_eq!(updated_counter, counter + 1);
-        let body_size = HTTP_RESPONSE_SIZE
-            .get_metric_with_label_values(&["GET", "/test_body_size"])
+        let body_size = HTTP_RESPONSE_SIZE_METRIC
+            .get_metric_with_label_values(&["GET", "/test_body_size", APP_NAME, INSTANCE_ID])
             .unwrap()
             .get_sample_sum();
         assert_eq!(
@@ -331,7 +328,7 @@ mod tests {
         let app = Router::new()
             .route("/test_new", routing::get(async || "Hello, World!"))
             .route("/metrics", routing::get(render_prometheus_metrics))
-            .layer(PrometheusAxumLayer::new("test", &Ulid::new().to_string()));
+            .layer(PrometheusAxumLayer::new(APP_NAME, INSTANCE_ID));
 
         let body_str = call_metrics(app.clone()).await;
         assert!(!body_str.contains("endpoint=\"/metrics\""));
@@ -351,7 +348,7 @@ mod tests {
         assert_eq!(response.status(), 200);
         let body_str = call_metrics(app.clone()).await;
         assert!(body_str.contains("http_server_duration_milliseconds_bucket"));
-        assert!(body_str.contains("http_response_body_size_bucket"));
+        assert!(body_str.contains(&format!("{}_bucket", HTTP_RESPONSE_SIZE)));
         assert!(body_str.contains("endpoint=\"/test_new\""));
         assert!(body_str.contains("# TYPE "));
     }
