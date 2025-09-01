@@ -5,9 +5,9 @@ use unleash_edge_appstate::AppState;
 use unleash_edge_types::headers::UNLEASH_INTERVAL;
 
 fn should_observe_connection_consumption(path: &str, status_code: u16) -> bool {
-    let is_valid_path = path.starts_with("/api/client/features")
-        || path.starts_with("/api/client/delta")
-        || path.starts_with("/api/client/metrics");
+    let is_valid_path = path.contains("client/features")
+        || path.contains("client/delta")
+        || path.contains("client/metrics");
 
     is_valid_path && ((200..300).contains(&status_code) || status_code == 304)
 }
@@ -15,9 +15,9 @@ fn should_observe_connection_consumption(path: &str, status_code: u16) -> bool {
 pub async fn connection_consumption(state: State<AppState>, req: Request, next: Next) -> Response {
     let url = req.uri().clone();
     let path = url.path();
-    let should_observe = path.starts_with("/api/client/features")
-        || path.starts_with("/api/client/delta")
-        || path.starts_with("/api/client/metrics");
+    let should_observe = path.contains("client/features")
+        || path.contains("client/delta")
+        || path.contains("client/metrics");
     let interval = if should_observe {
         req.headers()
             .get(UNLEASH_INTERVAL)
