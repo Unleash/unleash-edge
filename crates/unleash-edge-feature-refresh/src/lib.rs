@@ -756,7 +756,7 @@ mod tests {
                 .unwrap();
         let etag_and_last_refreshed_less_than_duration_ago = TokenRefresh {
             token: etag_and_last_refreshed_token,
-            etag: Some(EntityTag::new(true, "abcde".into())),
+            etag: Some(EntityTag::new(true, "abcde")),
             next_refresh: Some(Utc::now() + Duration::seconds(10)),
             last_refreshed: Some(Utc::now()),
             last_check: Some(Utc::now()),
@@ -769,7 +769,7 @@ mod tests {
         let ten_seconds_ago = Utc::now() - Duration::seconds(10);
         let etag_but_last_refreshed_ten_seconds_ago = TokenRefresh {
             token: etag_but_old_token,
-            etag: Some(EntityTag::new(true, "abcde".into())),
+            etag: Some(EntityTag::new(true, "abcde")),
             next_refresh: None,
             last_refreshed: Some(ten_seconds_ago),
             last_check: Some(ten_seconds_ago),

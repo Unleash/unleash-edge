@@ -284,10 +284,6 @@ pub struct OfflineArgs {
     /// The file to load our features from. This data will be loaded at startup
     #[clap(short, long, env)]
     pub bootstrap_file: Option<PathBuf>,
-    /// Tokens that should be allowed to connect to Edge. Supports a comma separated list or multiple instances of the `--tokens` argument
-    /// (v19.4.0) deprecated "Please use --client-tokens | CLIENT_TOKENS instead"
-    #[clap(short, long, env, value_delimiter = ',')]
-    pub tokens: Vec<String>,
     /// Client tokens that should be allowed to connect to Edge. Supports a comma separated list or multiple instances of the `--client-tokens` argument
     #[clap(short, long, env, value_delimiter = ',')]
     pub client_tokens: Vec<String>,
@@ -432,6 +428,7 @@ pub enum LogFormat {
 }
 
 #[derive(Parser, Debug, Clone)]
+#[clap(name = "unleash-edge")]
 pub struct CliArgs {
     #[clap(flatten)]
     pub http: HttpServerArgs,
@@ -612,6 +609,11 @@ pub struct HttpServerArgs {
     /// Configures the DenyList middleware to deny requests from IPs that belong to the CIDRs configured here. Defaults to denying no IPs.
     #[clap(long, env, global=true, value_parser = ip_net_parser, value_delimiter = ',')]
     pub deny_list: Option<Vec<IpNet>>,
+
+    /// Deprecated in 20.0.0
+    /// This no longer has any effect.
+    #[clap(short, long, env, global = true)]
+    pub workers: Option<usize>,
 }
 
 #[derive(Args, Debug, Clone)]

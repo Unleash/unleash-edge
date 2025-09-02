@@ -246,7 +246,7 @@ mod tests {
             },
         };
         let r = server
-            .post(&"/metrics")
+            .post("/metrics")
             .add_header("Authorization", authorization)
             .json(&serde_json::to_value(client_metric).expect("Invalid json"))
             .await;

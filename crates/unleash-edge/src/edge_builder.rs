@@ -304,34 +304,34 @@ pub async fn build_edge_state(
     )?);
     let metrics_cache = Arc::new(MetricsCache::default());
 
-    let background_tasks = create_edge_mode_background_tasks(
-        edge_args.clone(),
+    let background_tasks = create_edge_mode_background_tasks(BackgroundTaskArgs {
+        edge: edge_args.clone(),
         client_meta_information,
-        hydrator_type.clone(),
-        persistence.clone(),
-        token_cache.clone(),
-        features_cache.clone(),
-        token_validator.clone(),
-        args.app_name,
-        instance_data_sender.clone(),
-        edge_instance_data.clone(),
-        instances_observed_for_app_context.clone(),
-        metrics_cache.clone(),
-        unleash_client.clone(),
+        refresher: hydrator_type.clone(),
+        persistence: persistence.clone(),
+        token_cache: token_cache.clone(),
+        feature_cache: features_cache.clone(),
+        validator: token_validator.clone(),
+        app_name: args.app_name,
+        instance_data_sender: instance_data_sender.clone(),
+        edge_instance_data: edge_instance_data.clone(),
+        instances_observed_for_app_context: instances_observed_for_app_context.clone(),
+        metrics_cache_clone: metrics_cache.clone(),
+        unleash_client: unleash_client.clone(),
         deferred_validation_rx,
-    );
-
-    let shutdown_tasks = create_shutdown_tasks(
-        persistence.clone(),
-        delta_cache_manager.clone(),
-        token_cache.clone(),
-        features_cache.clone(),
-        metrics_cache.clone(),
-        unleash_client.clone(),
-        instance_data_sender.clone(),
-        edge_instance_data.clone(),
-        instances_observed_for_app_context.clone(),
-    );
+    });
+    let shutdown_args = ShutdownTaskArgs {
+        persistence: persistence.clone(),
+        delta_cache_manager: delta_cache_manager.clone(),
+        token_cache: token_cache.clone(),
+        feature_cache: features_cache.clone(),
+        metrics_cache: metrics_cache.clone(),
+        unleash_client: unleash_client.clone(),
+        instance_data_sender: instance_data_sender.clone(),
+        edge_instance_data: edge_instance_data.clone(),
+        instances_observed_for_app_context: instances_observed_for_app_context.clone(),
+    };
+    let shutdown_tasks = create_shutdown_tasks(shutdown_args);
 
     let app_state = AppState::builder()
         .with_token_cache(token_cache.clone())
@@ -351,7 +351,7 @@ pub async fn build_edge_state(
     Ok((app_state, background_tasks, shutdown_tasks))
 }
 
-fn create_shutdown_tasks(
+pub(crate) struct ShutdownTaskArgs {
     persistence: Option<Arc<dyn EdgePersistence>>,
     delta_cache_manager: Arc<DeltaCacheManager>,
     token_cache: Arc<TokenCache>,
@@ -361,6 +361,19 @@ fn create_shutdown_tasks(
     instance_data_sender: Arc<InstanceDataSending>,
     edge_instance_data: Arc<EdgeInstanceData>,
     instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>>,
+}
+fn create_shutdown_tasks(
+    ShutdownTaskArgs {
+        persistence,
+        delta_cache_manager,
+        token_cache,
+        feature_cache,
+        metrics_cache,
+        unleash_client,
+        instance_data_sender,
+        edge_instance_data,
+        instances_observed_for_app_context,
+    }: ShutdownTaskArgs,
 ) -> Vec<BackgroundTask> {
     let mut tasks = vec![];
 
@@ -390,8 +403,7 @@ fn create_shutdown_tasks(
 
     tasks
 }
-
-fn create_edge_mode_background_tasks(
+pub(crate) struct BackgroundTaskArgs {
     edge: EdgeArgs,
     client_meta_information: ClientMetaInformation,
     refresher: HydratorType,
@@ -406,6 +418,24 @@ fn create_edge_mode_background_tasks(
     metrics_cache_clone: Arc<MetricsCache>,
     unleash_client: Arc<UnleashClient>,
     deferred_validation_rx: Option<tokio::sync::mpsc::UnboundedReceiver<String>>,
+}
+fn create_edge_mode_background_tasks(
+    BackgroundTaskArgs {
+        edge,
+        client_meta_information,
+        refresher,
+        persistence,
+        token_cache,
+        feature_cache,
+        validator,
+        app_name,
+        instance_data_sender,
+        edge_instance_data,
+        instances_observed_for_app_context,
+        metrics_cache_clone,
+        unleash_client,
+        deferred_validation_rx,
+    }: BackgroundTaskArgs,
 ) -> Vec<BackgroundTask> {
     let mut tasks: Vec<BackgroundTask> = vec![
         create_send_metrics_task(

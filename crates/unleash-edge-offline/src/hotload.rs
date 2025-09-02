@@ -23,8 +23,7 @@ pub fn create_hotload_task(
     engine_cache: Arc<EngineCache>,
     offline_args: OfflineArgs,
 ) -> Pin<Box<dyn std::future::Future<Output = ()> + Send>> {
-    let mut known_tokens = offline_args.tokens;
-    known_tokens.extend(offline_args.client_tokens);
+    let mut known_tokens = offline_args.client_tokens;
     known_tokens.extend(offline_args.frontend_tokens);
     let bootstrap_path = offline_args.bootstrap_file;
     Box::pin(async move {
