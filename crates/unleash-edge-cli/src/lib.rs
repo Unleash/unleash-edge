@@ -432,6 +432,7 @@ pub enum LogFormat {
 }
 
 #[derive(Parser, Debug, Clone)]
+#[clap(name = "unleash-edge")]
 pub struct CliArgs {
     #[clap(flatten)]
     pub http: HttpServerArgs,

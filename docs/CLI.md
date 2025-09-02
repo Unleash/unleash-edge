@@ -1,4 +1,4 @@
-# Command-Line Help for `unleash-edgei`
+# Command-Line Help for `unleash-edge`
 
 This document contains the help content for the `unleash-edge` command-line program.
 
