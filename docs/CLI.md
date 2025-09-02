@@ -71,7 +71,7 @@ This document contains the help content for the `unleash-edge` command-line prog
   Default value: `16`
 * `--instance-id <INSTANCE_ID>` — Instance id. Used for metrics reporting
 
-  Default value: `unleash-edge@<random_ulid>`
+  Default value: `unleash-edge@<random ulid>`
 * `-a`, `--app-name <APP_NAME>` — App name. Used for metrics reporting
 
   Default value: `unleash-edge`
@@ -154,17 +154,17 @@ Run in edge mode
 * `-p`, `--pretrusted-tokens <PRETRUSTED_TOKENS>` — Set a list of frontend tokens that Edge will always trust. These
   need to either match the Unleash token format, or they're an arbitrary string followed by an @ and then an
   environment, e.g. secret-123@development
-* `-H`, `--customent-headers <CUSTOM_CLIENT_HEADERS>` — Expects curl header format (`-H <HEADERNAME>: <HEADERVALUE>`)
-  for instance `-H X-Api-Key: mysecretapikey`
+* `-H`, `--custom-client-headers <CUSTOM_CLIENT_HEADERS>` — Expects curl header format (
+  `-H <HEADERNAME>: <HEADERVALUE>`) for instance `-H X-Api-Key: mysecretapikey`
 * `-s`, `--skip-ssl-verification` — If set to true, we will skip SSL verification when connecting to the upstream
   Unleash server
 
   Default value: `false`
-* `--pkcs8ent-certificate-file <PKCS8_CLIENT_CERTIFICATE_FILE>` — Client certificate chain in PEM encoded X509 format
-  with the leaf certificate first. The certificate chain should contain any intermediate certificates that should be
-  sent to clients to allow them to build a chain to a trusted root
-* `--pkcs8ent-key-file <PKCS8_CLIENT_KEY_FILE>` — Client key is a PEM encoded PKCS#8 formatted private key for the leaf
-  certificate
+* `--pkcs8-client-certificate-file <PKCS8_CLIENT_CERTIFICATE_FILE>` — Client certificate chain in PEM encoded X509
+  format with the leaf certificate first. The certificate chain should contain any intermediate certificates that should
+  be sent to clients to allow them to build a chain to a trusted root
+* `--pkcs8-client-key-file <PKCS8_CLIENT_KEY_FILE>` — Client key is a PEM encoded PKCS#8 formatted private key for the
+  leaf certificate
 * `--pkcs12-identity-file <PKCS12_IDENTITY_FILE>` — Identity file in pkcs12 format. Typically, this file has a pfx
   extension
 * `--pkcs12-passphrase <PKCS12_PASSPHRASE>` — Passphrase used to unlock the pkcs12 file
@@ -206,7 +206,7 @@ Run in edge mode
 
   Default value: `2000`
 * `--s3-bucket-name <S3_BUCKET_NAME>` — Bucket name to use for storing feature and token data
-* `-ent-keepalive-timeout <CLIENT_KEEPALIVE_TIMEOUT>` — Sets the keep-alive timeout for connections from Edge to
+* `--client-keepalive-timeout <CLIENT_KEEPALIVE_TIMEOUT>` — Sets the keep-alive timeout for connections from Edge to
   upstream
 
   Default value: `15`
@@ -230,9 +230,10 @@ Run in offline mode
 
 * `-b`, `--bootstrap-file <BOOTSTRAP_FILE>` — The file to load our features from. This data will be loaded at startup
 * `-t`, `--tokens <TOKENS>` — Tokens that should be allowed to connect to Edge. Supports a comma separated list or
-  multiple instances of the `--tokens` argument (v19.4.0) deprecated "Please use -ent-tokens | CLIENT_TOKENS instead"
-* `-c`, `-ent-tokens <CLIENT_TOKENS>` — Client tokens that should be allowed to connect to Edge. Supports a comma
-  separated list or multiple instances of the `-ent-tokens` argument
+  multiple instances of the `--tokens` argument (v19.4.0) deprecated "Please use --client-tokens | CLIENT_TOKENS
+  instead"
+* `-c`, `--client-tokens <CLIENT_TOKENS>` — Client tokens that should be allowed to connect to Edge. Supports a comma
+  separated list or multiple instances of the `--client-tokens` argument
 * `-f`, `--frontend-tokens <FRONTEND_TOKENS>` — Frontend tokens that should be allowed to connect to Edge. Supports a
   comma separated list or multiple instances of the `--frontend-tokens` argument
 * `-r`, `--reload-interval <RELOAD_INTERVAL>` — The interval in seconds between reloading the bootstrap file. Disabled
