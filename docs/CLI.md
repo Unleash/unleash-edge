@@ -1,4 +1,4 @@
-# Command-Line Help for `unleash-edge`
+# Command-Line Help for `unleash-edgei`
 
 This document contains the help content for the `unleash-edge` command-line program.
 
@@ -29,13 +29,9 @@ This document contains the help content for the `unleash-edge` command-line prog
 * `-i`, `--interface <INTERFACE>` — Which interfaces should this server listen for HTTP traffic on
 
   Default value: `0.0.0.0`
-* `-b`, `--base-path <BASE_PATH>` — Which base path should this server listen for HTTP traffic on
+* `--base-path <BASE_PATH>` — Which base path should this server listen for HTTP traffic on
 
   Default value: ``
-* `-w`, `--workers <WORKERS>` — How many workers should be started to handle requests. Defaults to number of physical
-  cpus
-
-  Default value: `<physical_cpus>`
 * `--tls-enable` — Should we bind TLS
 
   Default value: `false`
@@ -45,6 +41,9 @@ This document contains the help content for the `unleash-edge` command-line prog
   defined)
 
   Default value: `3043`
+* `--redirect-http-to-https` — Redirect http traffic to https
+
+  Default value: `false`
 * `--cors-origin <CORS_ORIGIN>` — Sets
   the [Access-Control-Allow-Origin](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Origin)
   header to this value
@@ -66,9 +65,13 @@ This document contains the help content for the `unleash-edge` command-line prog
   CIDRs configured here. Defaults to 0.0.0.0/0, ::/0 (ALL Ips v4 and v6)
 * `--deny-list <DENY_LIST>` — Configures the DenyList middleware to deny requests from IPs that belong to the CIDRs
   configured here. Defaults to denying no IPs
+* `-w`, `--workers <WORKERS>` — Deprecated in 20.0.0 How many workers should be started to handle requests. Defaults to
+  number of physical cpus
+
+  Default value: `16`
 * `--instance-id <INSTANCE_ID>` — Instance id. Used for metrics reporting
 
-  Default value: `unleash-edge@<random ulid>`
+  Default value: `unleash-edge@<random_ulid>`
 * `-a`, `--app-name <APP_NAME>` — App name. Used for metrics reporting
 
   Default value: `unleash-edge`
@@ -83,7 +86,7 @@ This document contains the help content for the `unleash-edge` command-line prog
 * `--disable-all-endpoint` — Set this flag to true if you want to disable /api/proxy/all and /api/frontend/all Because
   returning all toggles regardless of their state is a potential security vulnerability, these endpoints can be disabled
 
-  Default value: `5`
+  Default value: `false`
 * `--edge-request-timeout <EDGE_REQUEST_TIMEOUT>` — Timeout for requests to Edge
 
   Default value: `5`
@@ -114,16 +117,20 @@ This document contains the help content for the `unleash-edge` command-line prog
 * `--disable-instance-data-endpoint` — Disables /internal-backstage/instancedata endpoint
 
   Used to show instance data for the edge instance.
+* `--sentry-dsn <SENTRY_DSN>`
+* `--sentry-tracing-rate <SENTRY_TRACING_RATE>`
+
+  Default value: `0.1`
+* `--sentry-debug`
+* `--sentry-enable-logs`
+* `--datadog-url <DATADOG_URL>`
+* `--otel-collector-url <OTEL_COLLECTOR_URL>`
 
 ## `unleash-edge edge`
 
 Run in edge mode
 
-**Usage:** `unleash-edge edge [OPTIONS] --upstream-url <UPSTREAM_URL> [PEM_CERT_FILE]`
-
-###### **Arguments:**
-
-* `<PEM_CERT_FILE>`
+**Usage:** `unleash-edge edge [OPTIONS] --upstream-url <UPSTREAM_URL>`
 
 ###### **Options:**
 
@@ -147,20 +154,21 @@ Run in edge mode
 * `-p`, `--pretrusted-tokens <PRETRUSTED_TOKENS>` — Set a list of frontend tokens that Edge will always trust. These
   need to either match the Unleash token format, or they're an arbitrary string followed by an @ and then an
   environment, e.g. secret-123@development
-* `-H`, `--custom-client-headers <CUSTOM_CLIENT_HEADERS>` — Expects curl header format (`-H <HEADERNAME>: <HEADERVALUE>`)
+* `-H`, `--customent-headers <CUSTOM_CLIENT_HEADERS>` — Expects curl header format (`-H <HEADERNAME>: <HEADERVALUE>`)
   for instance `-H X-Api-Key: mysecretapikey`
 * `-s`, `--skip-ssl-verification` — If set to true, we will skip SSL verification when connecting to the upstream
   Unleash server
 
   Default value: `false`
-* `--pkcs8-client-certificate-file <PKCS8_CLIENT_CERTIFICATE_FILE>` — Client certificate chain in PEM encoded X509
-  format with the leaf certificate first. The certificate chain should contain any intermediate certificates that should
-  be sent to clients to allow them to build a chain to a trusted root
-* `--pkcs8-client-key-file <PKCS8_CLIENT_KEY_FILE>` — Client key is a PEM encoded PKCS#8 formatted private key for the
-  leaf certificate
-* `--pkcs12-identity-file <PKCS12_IDENTITY_FILE>` — Identity file in pkcs12 format. Typically this file has a pfx
+* `--pkcs8ent-certificate-file <PKCS8_CLIENT_CERTIFICATE_FILE>` — Client certificate chain in PEM encoded X509 format
+  with the leaf certificate first. The certificate chain should contain any intermediate certificates that should be
+  sent to clients to allow them to build a chain to a trusted root
+* `--pkcs8ent-key-file <PKCS8_CLIENT_KEY_FILE>` — Client key is a PEM encoded PKCS#8 formatted private key for the leaf
+  certificate
+* `--pkcs12-identity-file <PKCS12_IDENTITY_FILE>` — Identity file in pkcs12 format. Typically, this file has a pfx
   extension
 * `--pkcs12-passphrase <PKCS12_PASSPHRASE>` — Passphrase used to unlock the pkcs12 file
+* `--pem-cert-file <PEM_CERT_FILE>`
 * `--upstream-certificate-file <UPSTREAM_CERTIFICATE_FILE>` — Extra certificate passed to the client for building its
   trust chain. Needs to be in PEM format (crt or pem extensions usually are)
 * `--upstream-request-timeout <UPSTREAM_REQUEST_TIMEOUT>` — Timeout for requests to the upstream server
@@ -198,6 +206,10 @@ Run in edge mode
 
   Default value: `2000`
 * `--s3-bucket-name <S3_BUCKET_NAME>` — Bucket name to use for storing feature and token data
+* `-ent-keepalive-timeout <CLIENT_KEEPALIVE_TIMEOUT>` — Sets the keep-alive timeout for connections from Edge to
+  upstream
+
+  Default value: `15`
 * `--prometheus-remote-write-url <PROMETHEUS_REMOTE_WRITE_URL>` — Sets a remote write url for prometheus metrics, if
   this is set, prometheus metrics will be written upstream
 * `--prometheus-push-interval <PROMETHEUS_PUSH_INTERVAL>` — Sets the interval for prometheus push metrics, only relevant
@@ -218,10 +230,9 @@ Run in offline mode
 
 * `-b`, `--bootstrap-file <BOOTSTRAP_FILE>` — The file to load our features from. This data will be loaded at startup
 * `-t`, `--tokens <TOKENS>` — Tokens that should be allowed to connect to Edge. Supports a comma separated list or
-  multiple instances of the `--tokens` argument (v19.4.0) deprecated "Please use --client-tokens | CLIENT_TOKENS
-  instead"
-* `-c`, `--client-tokens <CLIENT_TOKENS>` — Client tokens that should be allowed to connect to Edge. Supports a comma
-  separated list or multiple instances of the `--client-tokens` argument
+  multiple instances of the `--tokens` argument (v19.4.0) deprecated "Please use -ent-tokens | CLIENT_TOKENS instead"
+* `-c`, `-ent-tokens <CLIENT_TOKENS>` — Client tokens that should be allowed to connect to Edge. Supports a comma
+  separated list or multiple instances of the `-ent-tokens` argument
 * `-f`, `--frontend-tokens <FRONTEND_TOKENS>` — Frontend tokens that should be allowed to connect to Edge. Supports a
   comma separated list or multiple instances of the `--frontend-tokens` argument
 * `-r`, `--reload-interval <RELOAD_INTERVAL>` — The interval in seconds between reloading the bootstrap file. Disabled
@@ -263,3 +274,4 @@ Perform a ready check against a running edge instance
 This document was generated automatically by
 <a href="https://crates.io/crates/clap-markdown"><code>clap-markdown</code></a>.
 </i></small>
+

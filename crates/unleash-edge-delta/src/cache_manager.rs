@@ -144,7 +144,7 @@ mod tests {
             },
         };
 
-        delta_cache_manager.update_cache(env, &[update_event.clone()]);
+        delta_cache_manager.update_cache(env, std::slice::from_ref(&update_event));
 
         match rx.try_recv() {
             Ok(DeltaCacheUpdate::Update(e)) => assert_eq!(e, env),
