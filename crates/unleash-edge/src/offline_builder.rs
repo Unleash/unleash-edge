@@ -15,26 +15,16 @@ use unleash_edge_offline::hotload::{
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::MetricsCache;
 use unleash_edge_types::tokens::EdgeToken;
-use unleash_edge_types::{BackgroundTask, EdgeResult, TokenType, TokenValidationStatus};
+use unleash_edge_types::{BackgroundTask, EdgeResult, TokenType};
 use unleash_types::client_features::ClientFeatures;
 use unleash_yggdrasil::EngineState;
 
 pub(crate) fn build_offline_mode(
     client_features: ClientFeatures,
-    tokens: Vec<String>,
     client_tokens: Vec<String>,
     frontend_tokens: Vec<String>,
 ) -> EdgeResult<CacheContainer> {
     let (token_cache, features_cache, _delta_cache_manager, engine_cache) = build_caches();
-
-    let edge_tokens: Vec<EdgeToken> = tokens
-        .iter()
-        .map(|token| EdgeToken::from_str(token).unwrap_or_else(|_| EdgeToken::offline_token(token)))
-        .map(|mut t| {
-            t.status = TokenValidationStatus::Trusted;
-            t
-        })
-        .collect();
 
     let edge_client_tokens: Vec<EdgeToken> = client_tokens
         .iter()
@@ -52,16 +42,7 @@ pub(crate) fn build_offline_mode(
             token
         })
         .collect();
-    for edge_token in edge_tokens {
-        token_cache.insert(edge_token.token.clone(), edge_token.clone());
 
-        load_offline_engine_cache(
-            &edge_token,
-            features_cache.clone(),
-            engine_cache.clone(),
-            client_features.clone(),
-        );
-    }
     for client_token in edge_client_tokens {
         token_cache.insert(client_token.token.clone(), client_token.clone());
         load_offline_engine_cache(
@@ -89,7 +70,7 @@ pub(crate) fn build_offline_mode(
 }
 
 pub fn build_offline(offline_args: OfflineArgs) -> EdgeResult<CacheContainer> {
-    if offline_args.tokens.is_empty() && offline_args.client_tokens.is_empty() {
+    if offline_args.client_tokens.is_empty() {
         return Err(EdgeError::NoTokens(
             "No tokens provided. Tokens must be specified when running in offline mode".into(),
         ));
@@ -108,7 +89,6 @@ pub fn build_offline(offline_args: OfflineArgs) -> EdgeResult<CacheContainer> {
 
         build_offline_mode(
             client_features,
-            offline_args.tokens,
             offline_args.client_tokens,
             offline_args.frontend_tokens,
         )

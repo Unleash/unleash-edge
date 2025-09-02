@@ -11,8 +11,8 @@ mod tests {
     use chrono::Duration;
     use dashmap::DashMap;
     use etag::EntityTag;
-    use unleash_edge_feature_refresh::delta_refresh::DeltaRefresher;
     use std::sync::Arc;
+    use unleash_edge_feature_refresh::delta_refresh::DeltaRefresher;
 
     use unleash_types::client_features::{
         ClientFeature, ClientFeatures, ClientFeaturesDelta, Constraint, DeltaEvent, Operator,
