@@ -612,6 +612,12 @@ pub struct HttpServerArgs {
     /// Configures the DenyList middleware to deny requests from IPs that belong to the CIDRs configured here. Defaults to denying no IPs.
     #[clap(long, env, global=true, value_parser = ip_net_parser, value_delimiter = ',')]
     pub deny_list: Option<Vec<IpNet>>,
+
+    /// Deprecated in 20.0.0
+    /// How many workers should be started to handle requests.
+    /// Defaults to number of physical cpus
+    #[clap(short, long, env, global=true, default_value_t = num_cpus::get_physical())]
+    pub workers: usize,
 }
 
 #[derive(Args, Debug, Clone)]
