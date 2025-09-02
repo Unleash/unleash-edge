@@ -284,10 +284,6 @@ pub struct OfflineArgs {
     /// The file to load our features from. This data will be loaded at startup
     #[clap(short, long, env)]
     pub bootstrap_file: Option<PathBuf>,
-    /// Tokens that should be allowed to connect to Edge. Supports a comma separated list or multiple instances of the `--tokens` argument
-    /// (v19.4.0) deprecated "Please use --client-tokens | CLIENT_TOKENS instead"
-    #[clap(short, long, env, value_delimiter = ',')]
-    pub tokens: Vec<String>,
     /// Client tokens that should be allowed to connect to Edge. Supports a comma separated list or multiple instances of the `--client-tokens` argument
     #[clap(short, long, env, value_delimiter = ',')]
     pub client_tokens: Vec<String>,
@@ -615,10 +611,9 @@ pub struct HttpServerArgs {
     pub deny_list: Option<Vec<IpNet>>,
 
     /// Deprecated in 20.0.0
-    /// How many workers should be started to handle requests.
-    /// Defaults to number of physical cpus
-    #[clap(short, long, env, global=true, default_value_t = num_cpus::get_physical())]
-    pub workers: usize,
+    /// This no longer has any effect.
+    #[clap(short, long, env, global = true)]
+    pub workers: Option<usize>,
 }
 
 #[derive(Args, Debug, Clone)]

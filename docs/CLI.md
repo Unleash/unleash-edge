@@ -65,10 +65,7 @@ This document contains the help content for the `unleash-edge` command-line prog
   CIDRs configured here. Defaults to 0.0.0.0/0, ::/0 (ALL Ips v4 and v6)
 * `--deny-list <DENY_LIST>` — Configures the DenyList middleware to deny requests from IPs that belong to the CIDRs
   configured here. Defaults to denying no IPs
-* `-w`, `--workers <WORKERS>` — Deprecated in 20.0.0 How many workers should be started to handle requests. Defaults to
-  number of physical cpus
-
-  Default value: `16`
+* `-w`, `--workers <WORKERS>` — Deprecated in 20.0.0 This no longer has any effect
 * `--instance-id <INSTANCE_ID>` — Instance id. Used for metrics reporting
 
   Default value: `unleash-edge@<random ulid>`
@@ -229,9 +226,6 @@ Run in offline mode
 ###### **Options:**
 
 * `-b`, `--bootstrap-file <BOOTSTRAP_FILE>` — The file to load our features from. This data will be loaded at startup
-* `-t`, `--tokens <TOKENS>` — Tokens that should be allowed to connect to Edge. Supports a comma separated list or
-  multiple instances of the `--tokens` argument (v19.4.0) deprecated "Please use --client-tokens | CLIENT_TOKENS
-  instead"
 * `-c`, `--client-tokens <CLIENT_TOKENS>` — Client tokens that should be allowed to connect to Edge. Supports a comma
   separated list or multiple instances of the `--client-tokens` argument
 * `-f`, `--frontend-tokens <FRONTEND_TOKENS>` — Frontend tokens that should be allowed to connect to Edge. Supports a
