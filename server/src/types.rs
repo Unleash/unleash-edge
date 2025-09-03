@@ -30,7 +30,12 @@ pub type EdgeResult<T> = Result<T, EdgeError>;
 pub enum TokenType {
     #[serde(alias = "FRONTEND")]
     Frontend,
-    #[serde(alias = "CLIENT")]
+    #[serde(
+        alias = "CLIENT",
+        alias = "BACKEND",
+        alias = "Backend",
+        alias = "backend"
+    )]
     Client,
     #[serde(alias = "ADMIN")]
     Admin,
