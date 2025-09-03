@@ -1,0 +1,15 @@
+[package]
+name = "unleash-edge-feature-filters"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+documentation.workspace = true
+edition.workspace = true
+
+[dependencies]
+dashmap = { workspace = true }
+tracing = { workspace = true }
+unleash-types = { workspace = true }
+unleash-edge-delta = { path = "../unleash-edge-delta" }
+unleash-edge-types = { path = "../unleash-edge-types" }
+unleash-yggdrasil = { workspace = true}

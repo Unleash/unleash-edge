@@ -1,0 +1,25 @@
+[package]
+name = "unleash-edge-cli"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+documentation.workspace = true
+edition.workspace = true
+
+[dependencies]
+axum = { workspace = true }
+cidr = { workspace = true }
+clap = { workspace = true }
+ipnet = { workspace = true }
+num_cpus = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+tracing = { workspace = true }
+ulid = { workspace = true }
+unleash-edge-types = { path = "../unleash-edge-types" }
+url = { workspace = true }
+
+[dev-dependencies]
+tracing-test = { workspace = true }
