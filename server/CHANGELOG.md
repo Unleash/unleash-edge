@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [19.15.2](https://github.com/Unleash/unleash-edge/compare/v19.15.1...v19.15.2) - 2025-09-04
+
+### Dependency updates
+- bump zip from 4.6.0 to 4.6.1 ([#1145](https://github.com/unleash/unleash-edge/issues/1145)) (by @dependabot[bot]) - #1145
+- bump clap from 4.5.46 to 4.5.47 ([#1142](https://github.com/unleash/unleash-edge/issues/1142)) (by @dependabot[bot]) - #1142
+
+### Contributors
+
+* @dependabot[bot]
+
 ## [19.15.1](https://github.com/Unleash/unleash-edge/compare/v19.15.0...v19.15.1) - 2025-09-03
 
 ### 🐛 Bug Fixes
