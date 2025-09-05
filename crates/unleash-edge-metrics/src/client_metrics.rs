@@ -118,7 +118,7 @@ pub fn get_appropriately_sized_env_batches(
     }
 }
 /// This is a destructive call. We'll remove all metrics that is due for posting
-/// Called from [crate::http::background_send_metrics::send_metrics_task] which will reinsert on 5xx server failures, but leave 413 and 400 failures on the floor
+/// Called from [crate::send_unleash_metrics::create_send_metrics_task] which will reinsert on 5xx server failures, but leave 413 and 400 failures on the floor
 pub fn get_appropriately_sized_batches(cache: &MetricsCache) -> Vec<MetricsBatch> {
     let impact_keys: Vec<ImpactMetricsKey> = cache
         .impact_metrics
