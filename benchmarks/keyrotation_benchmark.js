@@ -23,7 +23,7 @@ export default function () {
         Authorization: randomToken(),
         // Authorization: TOKEN,
     };
-    const res = http.post(`${__ENV.URL}api/client/features`, {
+    const res = http.post(`${__ENV.URL}api/client/metrics`, {}, {
         headers,
         timeout: '10s',
     });
