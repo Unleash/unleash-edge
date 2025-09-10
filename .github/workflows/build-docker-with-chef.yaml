@@ -117,7 +117,7 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         if: github.event_name != 'pull_request'
         with:
           role-to-assume: arn:aws:iam::726824350591:role/unleash-github-ecr-public-publish-role
@@ -188,7 +188,7 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: arn:aws:iam::726824350591:role/unleash-github-ecr-public-publish-role
           role-session-name: edge-actions-push-to-ecr-public
