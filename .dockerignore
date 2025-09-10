@@ -1,7 +1,5 @@
 *
-!target/aarch64-unknown-linux-gnu/release/unleash-edge
-!target/x86_64-unknown-linux-gnu/release/unleash-edge
-!server
+!crates/
 !Cargo.toml
 !Cargo.lock
 !nginx.conf

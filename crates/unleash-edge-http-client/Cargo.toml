@@ -1,0 +1,29 @@
+[package]
+name = "unleash-edge-http-client"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+documentation.workspace = true
+edition.workspace = true
+
+[dependencies]
+ahash = { workspace = true }
+axum = { workspace = true }
+chrono = { workspace = true }
+etag = { workspace = true }
+lazy_static = { workspace = true }
+p12-keystore = { workspace = true }
+pkix = { workspace = true }
+prometheus = { workspace = true }
+reqwest = { workspace = true }
+rustls = { workspace = true }
+rustls-pemfile = {workspace = true}
+serde =  { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+ulid = { workspace = true }
+unleash-edge-cli = { path = "../unleash-edge-cli" }
+unleash-edge-types = { path = "../unleash-edge-types" }
+unleash-types = { workspace = true }
+unleash-yggdrasil = { workspace = true }
+url = { workspace = true }
