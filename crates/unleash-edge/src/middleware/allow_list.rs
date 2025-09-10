@@ -1,0 +1,28 @@
+use axum::body::Body;
+use axum::extract::{ConnectInfo, Request, State};
+use axum::http::StatusCode;
+use axum::middleware::Next;
+use axum::response::Response;
+use std::net::SocketAddr;
+use unleash_edge_appstate::AppState;
+
+pub async fn allow_middleware(
+    state: State<AppState>,
+    connect_info: ConnectInfo<SocketAddr>,
+    req: Request,
+    next: Next,
+) -> Response {
+    if !state.allow_list.is_empty()
+        && !state
+            .allow_list
+            .iter()
+            .any(|ip| ip.contains(&connect_info.ip()))
+    {
+        Response::builder()
+            .status(StatusCode::FORBIDDEN)
+            .body(Body::empty())
+            .unwrap()
+    } else {
+        next.run(req).await
+    }
+}

@@ -33,13 +33,13 @@ Our recommended approach is to bootstrap Edge with a client API token and upstre
 To run Edge in Docker:
 
 ```shell
-docker run -it -p 3063:3063 -e STRICT=true -e UPSTREAM_URL=<your_unleash_instance> -e TOKENS=<your_client_token> unleashorg/unleash-edge:<version> edge
+docker run -it -p 3063:3063 -e UPSTREAM_URL=<your_unleash_instance> -e TOKENS=<your_client_token> unleashorg/unleash-edge:<version> edge
 ```
 
 For example:
 
 ```shell
-docker run -it -p 3063:3063 -e STRICT=true -e UPSTREAM_URL=https://app.unleash-hosted.com/testclient -e TOKENS='*:development.4a798ad11cde8c0e637ff19f3287683ebc21d23d607c641f2dd79daa54' unleashorg/unleash-edge:v19.6.2 edge
+docker run -it -p 3063:3063 -e UPSTREAM_URL=https://app.unleash-hosted.com/testclient -e TOKENS='*:development.4a798ad11cde8c0e637ff19f3287683ebc21d23d607c641f2dd79daa54' unleashorg/unleash-edge:v19.6.2 edge
 ```
 
 ## Versioning and availability
@@ -47,28 +47,6 @@ docker run -it -p 3063:3063 -e STRICT=true -e UPSTREAM_URL=https://app.unleash-h
 Unleash Edge is versioned and released independently of [Unleash](https://github.com/Unleash/unleash). To use Unleash Edge, you need Unleash version 4.15 or later. We recommend using the latest versions of Unleash and Unleash Edge to ensure optimal performance and access to the latest features and security updates.
 
 Unleash Edge does not have full feature parity with Unleash. Some features, such as filtering feature flags by tags, are not supported.
-
-## Edge behaviors
-
-> Availability: Unleash Edge v19.2+
-
-Unleash Edge supports two behaviors when running in edge mode: **strict** and **dynamic**. We recommend using **strict** behavior, as **dynamic** is a legacy behavior. Behaviors are mutually exclusive.
-
-### Strict behavior
-
-When using strict behavior, Edge requires tokens at startup and refuses requests from SDKs that have a wider or different access scope than the initial tokens. Incoming requests must have a token that exactly matches the environment and projects specified in the initial tokens.
-
-For example, if you start Edge with a wildcard token with access to the development environment (`*:development.<some_token_string>`) and your clients use various tokens with access to specific projects in the development environment, Edge filters features to only grant access to the narrower scope.
-
-To run Edge in strict mode, use the `--strict` CLI argument or `STRICT` environment variable.
-
-### Dynamic behavior
-
-> Legacy behavior, use strict instead.
-
-When using dynamic behavior, Edge validates any new client tokens against upstream. If valid, it configures a refresh job with the minimum set of tokens needed to fetch all observed projects and environments.
-
-To run Edge in dynamic mode, use the `--dynamic` CLI argument or `DYNAMIC` environment variable.
 
 ## Getting Unleash Edge
 
@@ -88,7 +66,7 @@ The `docker run` command supports the same [CLI arguments](/docs/CLI.md) that ar
 To run Edge in **edge** mode, use the command `edge`. This is built from `HEAD` on each commit.
 
 ```shell
-docker run -p 3063:3063 -e STRICT=true -e UPSTREAM_URL=<your_unleash_instance> -e TOKENS=<your_client_token> unleashorg/unleash-edge:<version> edge
+docker run -p 3063:3063 -e UPSTREAM_URL=<your_unleash_instance> -e TOKENS=<your_client_token> unleashorg/unleash-edge:<version> edge
 ```
 
 To run Edge in **offline** mode, use the command `offline` and provide a volume with your feature toggles file. An example is available inside the examples folder.
@@ -96,6 +74,12 @@ To run Edge in **offline** mode, use the command `offline` and provide a volume 
 ```shell
 docker run -v ./examples:/edge/data -p 3063:3063 -e BOOTSTRAP_FILE=/edge/data/features.json -e TOKENS=<your_client_token_1,your_client_token_2> unleashorg/unleash-edge:<version> offline
 ```
+
+### Tokens in edge mode
+
+Edge requires tokens at startup and refuses requests from SDKs that have a wider or different access scope than the initial tokens. Incoming requests must have a token that exactly matches the environment and projects specified in the initial tokens.
+
+For example, if you start Edge with a wildcard token with access to the development environment (`*:development.<some_token_string>`) and your clients use various tokens with access to specific projects in the development environment, Edge filters features to only grant access to the narrower scope.
 
 ### Client and frontend tokens in offline mode
 

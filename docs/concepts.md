@@ -4,7 +4,7 @@
 
 Edge currently supports 2 different modes:
 
-- [Edge](#edge) - Connection to upstream node (Unleash instance or another Edge). Supports dynamic tokens, metrics and
+- [Edge](#edge) - Connection to upstream node (Unleash instance or another Edge). Supports metrics and
   other advanced features;
 - [Offline](#offline) - No connection to upstream node. Full control of data and tokens;
 
@@ -52,16 +52,6 @@ persistent storage.
 Multiple Edge nodes can share the same Redis instance or backup folder. Failure to read from persistent storage will not
 prevent Edge from starting up. In this case an Edge instance will be ready only after it is able to connect with
 upstream.
-
-Edge mode also supports dynamic tokens, meaning that Edge doesn't need a token to be provided when starting up. Once we
-make a request to the `/api/client/features` endpoint using
-a [client token](https://docs.getunleash.io/reference/api-tokens-and-client-keys#client-tokens) Edge will validate
-upstream and fetch its respective features. After that, it gets added to the list of known tokens that gets periodically
-synced, making sure it is a valid token and its features are up-to-date.
-
-Even though Edge supports dynamic tokens, you still have the option of providing a token through the command line
-argument or environment variable. This way, since Edge already knows about your token at start up, it will sync your
-features for that token and should be ready for your requests right away (_warm up / hot start_).
 
 ### Front-end tokens
 
@@ -166,7 +156,7 @@ tokens.
 To make local development easier, you can specify a reload interval in seconds (Since Unleash-Edge 10.0.x); this will
 cause Edge to reload the features file from disk every X seconds. This can be useful for local development.
 
-Since offline mode does not connect to an upstream node, it does not support metrics or dynamic tokens.
+Since offline mode does not connect to an upstream node, it does not support metrics or other advanced features.
 
 To launch in this mode, run:
 
