@@ -5,7 +5,7 @@ authors.workspace = true
 description.workspace = true
 documentation.workspace = true
 edition.workspace = true
-
+publish = false
 [dependencies]
 anyhow = { workspace = true }
 axum = { workspace = true }
@@ -27,7 +27,7 @@ unleash-edge-http-client = { path = "../unleash-edge-http-client" }
 unleash-edge-persistence = { path = "../unleash-edge-persistence" }
 unleash-edge-types = { path = "../unleash-edge-types" }
 unleash-types = { workspace = true }
-unleash-yggdrasil = { workspace = true}
+unleash-yggdrasil = { workspace = true }
 
 [dev-dependencies]
 axum-test = { workspace = true }
