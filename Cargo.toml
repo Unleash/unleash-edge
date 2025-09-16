@@ -61,7 +61,7 @@ redis = { version = "0.32.5", features = ["tokio-rustls-comp", "cluster"] }
 reqwest = { version = "0.12.23", default-features = false, features = ["rustls-tls", "json", "stream"] }
 rustls = { version = "0.23.31", default-features = false, features = ["ring"] }
 rustls-pemfile = { version = "2.2.0" }
-semver = { version = "1.0.26" }
+semver = { version = "1.0.27" }
 serde = { version = "1.0.224", features = ["derive"] }
 serde_json = { version = "1.0.143" }
 serde_qs = { version = "0.15.0", features = ["axum"] }
