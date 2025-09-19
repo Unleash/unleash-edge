@@ -205,8 +205,10 @@ jobs:
           cp dist-manifest.json "$BUILD_MANIFEST_NAME"
       - name: Generate SBOM
         run: |
+          cd crates/unleash-edge
           cargo cyclonedx --format json --all-features
-          mv bom.json unleash-edge-sbom.json
+          # Move the generated SBOM to the project root with a descriptive name
+          mv unleash-edge.cdx.json ../../unleash-edge-sbom.json
       - name: "Upload artifacts"
         uses: actions/upload-artifact@v4
         with:
