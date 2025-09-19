@@ -207,7 +207,6 @@ jobs:
         run: |
           cd crates/unleash-edge
           cargo cyclonedx --format json --all-features
-          # Move the generated SBOM to the project root with a descriptive name
           mv unleash-edge.cdx.json ../../unleash-edge-sbom.json
       - name: "Upload artifacts"
         uses: actions/upload-artifact@v4
