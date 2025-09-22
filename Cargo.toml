@@ -56,7 +56,7 @@ pkix = { version = "0.2.4" }
 pretty_assertions = { version = "1.4.1" }
 prometheus = { version = "0.14.0", features = ["process"] }
 prometheus-reqwest-remote-write = { version = "0.4.0" }
-proptest = { version = "1.7.0" }
+proptest = { version = "1.8.0" }
 redis = { version = "0.32.5", features = ["tokio-rustls-comp", "cluster"] }
 reqwest = { version = "0.12.23", default-features = false, features = ["rustls-tls", "json", "stream"] }
 rustls = { version = "0.23.32", default-features = false, features = ["ring"] }
