@@ -9,9 +9,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
-use tower_http::cors::{
-    AllowHeaders, AllowMethods, AllowOrigin, CorsLayer, ExposeHeaders, MaxAge,
-};
+use tower_http::cors::{AllowHeaders, AllowMethods, AllowOrigin, CorsLayer, ExposeHeaders, MaxAge};
 use unleash_edge_types::errors::{EdgeError, TRUST_PROXY_PARSE_ERROR};
 use unleash_edge_types::{tokens::EdgeToken, tokens::parse_trusted_token_pair};
 
