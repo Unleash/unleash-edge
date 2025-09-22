@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
 use tower_http::cors::{
-    AllowHeaders, AllowMethods, AllowOrigin, Any, CorsLayer, ExposeHeaders, MaxAge,
+    AllowHeaders, AllowMethods, AllowOrigin, CorsLayer, ExposeHeaders, MaxAge,
 };
 use unleash_edge_types::errors::{EdgeError, TRUST_PROXY_PARSE_ERROR};
 use unleash_edge_types::{tokens::EdgeToken, tokens::parse_trusted_token_pair};
@@ -533,53 +533,56 @@ impl CorsOptions {
     pub fn middleware(&self) -> CorsLayer {
         CorsLayer::new()
             .max_age(MaxAge::exact(Duration::from_secs(self.cors_max_age)))
-            .allow_headers(Any)
             .allow_origin(self.origins())
-            .allow_headers(self.allowed_headers())
             .allow_methods(self.methods())
-            .expose_headers(self.expose_headers())
+            .allow_headers(self.allowed_headers())
+            .expose_headers(self.exposed_headers())
     }
-    fn expose_headers(&self) -> ExposeHeaders {
-        match self.cors_exposed_headers.clone() {
-            Some(headers) => {
-                let list = headers
-                    .iter()
-                    .cloned()
-                    .filter_map(|header| HeaderName::from_str(&header).ok());
-                ExposeHeaders::list(list)
-            }
-            None => ExposeHeaders::any(),
-        }
-    }
-    fn methods(&self) -> AllowMethods {
-        match self.cors_methods.clone() {
-            Some(methods) => AllowMethods::list(methods),
-            None => AllowMethods::any(),
-        }
-    }
+
     fn origins(&self) -> AllowOrigin {
-        match self.cors_origin.clone() {
-            Some(origins) => {
+        match &self.cors_origin {
+            Some(origins) if !origins.iter().any(|o| o.trim() == "*") => {
                 let list = origins
                     .iter()
-                    .cloned()
-                    .filter_map(|origin| HeaderValue::from_str(&origin).ok());
+                    .map(|s| s.trim())
+                    .filter_map(|origin| HeaderValue::from_str(origin).ok())
+                    .collect::<Vec<_>>();
                 AllowOrigin::list(list)
             }
-            None => AllowOrigin::any(),
+            _ => AllowOrigin::any(),
+        }
+    }
+
+    fn methods(&self) -> AllowMethods {
+        match &self.cors_methods {
+            Some(methods) => AllowMethods::list(methods.iter().cloned()),
+            None => AllowMethods::any(),
         }
     }
 
     fn allowed_headers(&self) -> AllowHeaders {
-        match self.cors_allowed_headers.clone() {
+        match &self.cors_allowed_headers {
             Some(headers) => {
                 let list = headers
                     .iter()
-                    .cloned()
-                    .filter_map(|header| HeaderName::from_str(&header).ok());
+                    .map(|s| s.trim())
+                    .filter_map(|header| HeaderName::from_str(header).ok());
                 AllowHeaders::list(list)
             }
             None => AllowHeaders::any(),
+        }
+    }
+
+    fn exposed_headers(&self) -> ExposeHeaders {
+        match &self.cors_exposed_headers {
+            Some(headers) => {
+                let list = headers
+                    .iter()
+                    .map(|s| s.trim())
+                    .filter_map(|header| HeaderName::from_str(header).ok());
+                ExposeHeaders::list(list)
+            }
+            None => ExposeHeaders::any(),
         }
     }
 }
@@ -1016,6 +1019,20 @@ mod tests {
         ];
         let args = CliArgs::parse_from(args);
         assert_eq!(args.http.cors.cors_origin.clone().unwrap().len(), 4);
+        let _middleware = args.http.cors.middleware();
+    }
+
+    #[test]
+    pub fn cors_origin_star_means_any() {
+        let args = vec![
+            "unleash-edge",
+            "--cors-origin",
+            "*",
+            "edge",
+            "-u http://localhost:4242",
+        ];
+        let args = CliArgs::parse_from(args);
+        assert_eq!(args.http.cors.cors_origin.clone().unwrap(), vec!["*"]);
         let _middleware = args.http.cors.middleware();
     }
 
