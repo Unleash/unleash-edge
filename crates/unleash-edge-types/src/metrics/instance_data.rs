@@ -20,6 +20,8 @@ pub const CONNECTED_STREAMING_CLIENTS: &str = "connected_streaming_clients";
 pub struct EdgeInstanceData {
     pub identifier: String,
     pub app_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hosting: Option<Hosting>,
     pub region: Option<String>,
     pub edge_version: String,
     pub process_metrics: Option<ProcessMetrics>,
@@ -33,11 +35,37 @@ pub struct EdgeInstanceData {
     pub request_consumption_since_last_report: RequestConsumptionData,
 }
 
+#[derive(Debug, Copy, Clone, Deserialize, Serialize, Eq, PartialEq)]
+pub enum Hosting {
+    #[serde(rename = "self-hosted")]
+    SelfHosted,
+    #[serde(rename = "hosted")]
+    Hosted,
+}
+
+impl Hosting {
+    pub fn from_env() -> Self {
+        std::env::var("EDGE_HOSTED")
+            .map(Into::into)
+            .unwrap_or(Hosting::SelfHosted)
+    }
+}
+
+impl From<String> for Hosting {
+    fn from(value: String) -> Self {
+        match value.to_lowercase().as_str() {
+            "hosted" => Hosting::Hosted,
+            _ => Hosting::SelfHosted,
+        }
+    }
+}
+
 impl EdgeInstanceData {
-    pub fn new(app_name: &str, identifier: &Ulid) -> Self {
+    pub fn new(app_name: &str, identifier: &Ulid, hosting: Option<Hosting>) -> Self {
         let build_info = BuildInfo::default();
         Self {
             identifier: identifier.to_string(),
+            hosting,
             app_name: app_name.to_string(),
             region: std::env::var("AWS_REGION").ok(),
             edge_version: build_info.package_version.clone(),
@@ -410,7 +438,7 @@ mod tests {
 
     #[test]
     fn can_observe_request_consumption_and_clear_consumption_metrics() {
-        let instance_data = EdgeInstanceData::new("test", &Ulid::new());
+        let instance_data = EdgeInstanceData::new("test", &Ulid::new(), None);
 
         instance_data.observe_request_consumption();
         instance_data.observe_request_consumption();
@@ -444,7 +472,7 @@ mod tests {
 
     #[test]
     fn can_observe_connection_consumption_with_data_points() {
-        let instance_data = EdgeInstanceData::new("test", &Ulid::new());
+        let instance_data = EdgeInstanceData::new("test", &Ulid::new(), None);
 
         instance_data.observe_connection_consumption("/api/client/features", Some(0));
         instance_data.observe_connection_consumption("/api/client/features", Some(0));
@@ -586,5 +614,26 @@ mod tests {
             ConnectionMetricsType::from_endpoint("/api/client/other"),
             None
         );
+    }
+
+    #[test]
+    fn serializes_hosting_if_and_only_if_present() {
+        let self_hosted = EdgeInstanceData::new("test", &Ulid::new(), Some(Hosting::SelfHosted));
+        let hosted = EdgeInstanceData::new("test", &Ulid::new(), Some(Hosting::Hosted));
+        let no_data = EdgeInstanceData::new("test", &Ulid::new(), None);
+
+        let serialized_self_hosted = serde_json::to_value(&self_hosted).unwrap();
+        assert_eq!(serialized_self_hosted["hosting"], "self-hosted");
+
+        let serialized_hosted = serde_json::to_value(&hosted).unwrap();
+        assert_eq!(serialized_hosted["hosting"], "hosted");
+
+        let serialized_no_data = serde_json::to_value(&no_data).unwrap();
+
+        if let Some(map) = serialized_no_data.as_object() {
+            assert!(!map.contains_key("hosting"));
+        } else {
+            panic!("Expected JSON value to be an object");
+        }
     }
 }
