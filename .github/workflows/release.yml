@@ -182,6 +182,8 @@ jobs:
           name: cargo-dist-cache
           path: ~/.cargo/bin/
       - run: chmod +x ~/.cargo/bin/dist
+      - name: Install cargo-sbom
+        run: cargo install cargo-sbom
       # Get all the local artifacts for the global tasks to use (for e.g. checksums)
       - name: Fetch local artifacts
         uses: actions/download-artifact@v5
@@ -201,6 +203,8 @@ jobs:
           echo "EOF" >> "$GITHUB_OUTPUT"
 
           cp dist-manifest.json "$BUILD_MANIFEST_NAME"
+      - name: Generate SBOM
+        run: cargo sbom --cargo-package unleash-edge --output-format cyclone_dx_json_1_6 > sbom-unleash-edge.cdx.json
       - name: "Upload artifacts"
         uses: actions/upload-artifact@v4
         with:
@@ -208,6 +212,7 @@ jobs:
           path: |
             ${{ steps.cargo-dist.outputs.paths }}
             ${{ env.BUILD_MANIFEST_NAME }}
+            sbom-unleash-edge.cdx.json
   # Determines if we should publish/announce
   host:
     needs:
