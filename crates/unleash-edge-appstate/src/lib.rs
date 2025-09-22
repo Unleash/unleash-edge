@@ -12,6 +12,7 @@ use unleash_edge_http_client::instance_data::InstanceDataSending;
 use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_types::metrics::MetricsCache;
 use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
+use unleash_edge_types::metrics::instance_data::Hosting::SelfHosted;
 use unleash_edge_types::{EngineCache, TokenCache};
 use unleash_types::client_metrics::ConnectVia;
 
@@ -68,6 +69,9 @@ pub struct AppStateBuilder {
 
 impl AppStateBuilder {
     pub fn new(app_name: &str, instance_id: Ulid) -> Self {
+        let hosting = std::env::var("EDGE_HOSTING")
+            .map(Into::into)
+            .unwrap_or(SelfHosted);
         Self {
             token_cache: Arc::new(DashMap::new()),
             features_cache: Arc::new(FeatureCache::new(DashMap::default())),
@@ -83,7 +87,11 @@ impl AppStateBuilder {
                 instance_id: instance_id.to_string(),
             },
             instance_data_sending: Arc::new(InstanceDataSending::SendNothing),
-            edge_instance_data: Arc::new(EdgeInstanceData::new(app_name, &instance_id)),
+            edge_instance_data: Arc::new(EdgeInstanceData::new(
+                app_name,
+                &instance_id,
+                Some(hosting),
+            )),
             connected_instances: Arc::new(RwLock::new(Vec::new())),
             edge_persistence: None,
             delta_cache_manager: None,
