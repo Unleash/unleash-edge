@@ -43,6 +43,14 @@ pub enum Hosting {
     Hosted,
 }
 
+impl Hosting {
+    pub fn from_env() -> Self {
+        std::env::var("EDGE_HOSTED")
+            .map(Into::into)
+            .unwrap_or(Hosting::SelfHosted)
+    }
+}
+
 impl From<String> for Hosting {
     fn from(value: String) -> Self {
         match value.to_lowercase().as_str() {

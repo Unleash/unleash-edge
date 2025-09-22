@@ -11,8 +11,7 @@ use unleash_edge_feature_refresh::HydratorType;
 use unleash_edge_http_client::instance_data::InstanceDataSending;
 use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_types::metrics::MetricsCache;
-use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
-use unleash_edge_types::metrics::instance_data::Hosting::SelfHosted;
+use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
 use unleash_edge_types::{EngineCache, TokenCache};
 use unleash_types::client_metrics::ConnectVia;
 
@@ -69,9 +68,7 @@ pub struct AppStateBuilder {
 
 impl AppStateBuilder {
     pub fn new(app_name: &str, instance_id: Ulid) -> Self {
-        let hosting = std::env::var("EDGE_HOSTING")
-            .map(Into::into)
-            .unwrap_or(SelfHosted);
+        let hosting = Hosting::from_env();
         Self {
             token_cache: Arc::new(DashMap::new()),
             features_cache: Arc::new(FeatureCache::new(DashMap::default())),

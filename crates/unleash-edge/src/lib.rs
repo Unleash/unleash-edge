@@ -21,8 +21,7 @@ use unleash_edge_metrics::axum_prometheus_metrics::{
     PrometheusAxumLayer, render_prometheus_metrics,
 };
 use unleash_edge_persistence::EdgePersistence;
-use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
-use unleash_edge_types::metrics::instance_data::Hosting::SelfHosted;
+use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
 use unleash_edge_types::{BackgroundTask, EdgeResult, EngineCache, TokenCache};
 
 pub mod edge_builder;
@@ -54,9 +53,7 @@ pub type EdgeInfo = (
 
 pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<BackgroundTask>)> {
     let app_id: Ulid = Ulid::new();
-    let hosting = std::env::var("EDGE_HOSTING")
-        .map(Into::into)
-        .unwrap_or(SelfHosted);
+    let hosting = Hosting::from_env();
     let edge_instance_data = Arc::new(EdgeInstanceData::new(
         &args.app_name,
         &app_id,
