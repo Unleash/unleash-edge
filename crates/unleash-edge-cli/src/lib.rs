@@ -545,8 +545,7 @@ impl CorsOptions {
                 let list = origins
                     .iter()
                     .map(|s| s.trim())
-                    .filter_map(|origin| HeaderValue::from_str(origin).ok())
-                    .collect::<Vec<_>>();
+                    .filter_map(|origin| HeaderValue::from_str(origin).ok());
                 AllowOrigin::list(list)
             }
             _ => AllowOrigin::any(),
