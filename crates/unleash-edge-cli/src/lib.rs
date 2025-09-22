@@ -540,16 +540,19 @@ impl CorsOptions {
     }
 
     fn origins(&self) -> AllowOrigin {
-        match &self.cors_origin {
-            Some(origins) if !origins.iter().any(|o| o.trim() == "*") => {
-                let list = origins
-                    .iter()
-                    .map(|s| s.trim())
-                    .filter_map(|origin| HeaderValue::from_str(origin).ok());
-                AllowOrigin::list(list)
-            }
-            _ => AllowOrigin::any(),
+        let Some(origins) = &self.cors_origin else {
+            return AllowOrigin::any();
+        };
+
+        if origins.iter().any(|o| o.trim() == "*") {
+            return AllowOrigin::any();
         }
+
+        let list = origins
+            .iter()
+            .map(|s| s.trim())
+            .filter_map(|origin| HeaderValue::from_str(origin).ok());
+        AllowOrigin::list(list)
     }
 
     fn methods(&self) -> AllowMethods {
