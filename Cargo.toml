@@ -22,7 +22,7 @@ rust-version = "1.89.0"
 
 [workspace.dependencies]
 ahash = { version = "0.8.12" }
-anyhow = { version = "1.0.99" }
+anyhow = { version = "1.0.100" }
 async-trait = { version = "0.1.89" }
 aws-config = { version = "1.8.6", features = ["behavior-version-latest"] }
 aws-sdk-s3 = { version = "1.105.0", features = ["behavior-version-latest"] }
