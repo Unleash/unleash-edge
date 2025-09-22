@@ -10,7 +10,6 @@ publish = false
 anyhow = { workspace = true }
 axum = { workspace = true }
 dashmap = { workspace = true }
-eventsource-client = { workspace = true }
 futures = { workspace = true }
 futures-util = { workspace = true }
 http = { workspace = true }
