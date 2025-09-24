@@ -120,14 +120,14 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
                 .layer(from_fn(middleware::etag::etag_middleware)),
         );
 
-    let backstage_router = if args.internal_backstage.disable_metrics_endpoint {
-        unleash_edge_backstage::router(args.internal_backstage.clone())
-    } else {
+    let backstage_router = if !args.internal_backstage.disable_metrics_endpoint {
         Router::new()
             .route("/metrics", get(render_prometheus_metrics))
             .merge(unleash_edge_backstage::router(
                 args.internal_backstage.clone(),
             ))
+    } else {
+        unleash_edge_backstage::router(args.internal_backstage.clone())
     };
 
     let top_router: Router = Router::new()
