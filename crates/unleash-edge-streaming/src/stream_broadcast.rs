@@ -72,7 +72,11 @@ pub async fn stream_deltas(
                 let delta_cache_manager = delta_cache_manager.clone();
                 Box::pin(async move {
                     match broadcast_result {
-                        Ok(DeltaCacheUpdate::Update(_)) => {
+                        Ok(DeltaCacheUpdate::Update(environment)) => {
+                            if environment != client_data.read().await.streaming_query.environment {
+                                return None;
+                            }
+
                             let mut client_data = client_data.write().await;
                             let streaming_query = &client_data.streaming_query;
 
