@@ -111,7 +111,10 @@ async fn send_metrics(
                                     MetricsSendError::Backoff("Upstream said we are trying to post to an endpoint that doesn't exist. Dropping this bucket to avoid consuming too much memory".to_string())
                                 }
                                 StatusCode::FORBIDDEN | StatusCode::UNAUTHORIZED => {
-                                    MetricsSendError::Unauthed("Upstream said we were not allowed to post metrics. Dropping this bucket to avoid consuming too much memory".to_string())
+                                    match message {
+                                        Some(m) => MetricsSendError::Unauthed(format!("Upstream said we were not allowed to post metrics. It replied ({:?}). Dropping this bucket to avoid consuming too much memory", m)),
+                                        None => MetricsSendError::Unauthed("Upstream said we were not allowed to post metrics without a message. Dropping this bucket to avoid consuming too much memory".to_string())
+                                    }
                                 }
                                 StatusCode::TOO_MANY_REQUESTS => {
                                     reinsert_batch(&metrics_cache, batch);
