@@ -630,37 +630,6 @@ impl UnleashClient {
         }
     }
 
-    pub async fn send_batch_metrics(
-        &self,
-        request: MetricsBatch,
-        interval: Option<i64>,
-    ) -> EdgeResult<()> {
-        trace!("Sending metrics to old /edge/metrics endpoint");
-        let mut client_req = self
-            .backing_client
-            .post(self.urls.edge_metrics_url.to_string())
-            .headers(self.header_map(None));
-        if let Some(interval_value) = interval {
-            client_req = client_req.header(UNLEASH_INTERVAL, interval_value.to_string());
-        }
-
-        let result = client_req.json(&request).send().await.map_err(|e| {
-            info!("Failed to send batch metrics: {e:?}");
-            EdgeError::EdgeMetricsError
-        })?;
-        if result.status().is_success() {
-            Ok(())
-        } else {
-            match result.status() {
-                StatusCode::BAD_REQUEST => Err(EdgeError::EdgeMetricsRequestError(
-                    result.status(),
-                    result.json().await.ok(),
-                )),
-                _ => Err(EdgeMetricsRequestError(result.status(), None)),
-            }
-        }
-    }
-
     pub async fn send_bulk_metrics_to_client_endpoint(
         &self,
         request: MetricsBatch,
@@ -668,6 +637,8 @@ impl UnleashClient {
     ) -> EdgeResult<()> {
         trace!("Sending metrics to bulk endpoint");
         let started_at = Utc::now();
+        let headers = self.header_map(Some(token.to_string()));
+        debug!("Using headers: {headers:?}");
         let result = self
             .backing_client
             .post(self.urls.client_bulk_metrics_url.to_string())
