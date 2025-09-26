@@ -19,7 +19,6 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use unleash_edge::configure_server;
 use unleash_edge_cli::{CliArgs, EdgeMode};
-use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::{BackgroundTask, EdgeResult};
 
 async fn shutdown_signal(
@@ -123,19 +122,22 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
         }
     } else {
         let (router, shutdown_tasks) = configure_server(args.clone()).await?;
-        let server = router
-            .layer(NormalizePathLayer::trim_trailing_slash())
-            .into_make_service_with_connect_info::<SocketAddr>();
-        let http_listener = tokio::net::TcpListener::bind(&args.http.http_server_addr())
-            .await
-            .map_err(|_| EdgeError::NotReady)?;
-        let _ = axum::serve(http_listener, server.clone())
-            .with_graceful_shutdown(shutdown_signal(
-                "http",
-                args.http.http_server_addr().clone(),
-                args.http.base_path.clone(),
-                shutdown_tasks,
-            ))
+        let server = router.into_make_service_with_connect_info::<SocketAddr>();
+        let handle = Handle::new();
+        let http_handle_clone = handle.clone();
+        let shutdown_fut = shutdown_signal(
+            "HTTP",
+            args.http.http_server_addr().clone(),
+            args.http.base_path.clone(),
+            shutdown_tasks,
+        );
+        tokio::spawn(async move {
+            let _ = shutdown_fut.await;
+            http_handle_clone.graceful_shutdown(Some(Duration::from_secs(10)));
+        });
+        _ = axum_server::bind(args.http.http_server_socket())
+            .handle(handle)
+            .serve(server)
             .await;
     }
     Ok(())
