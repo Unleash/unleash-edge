@@ -594,14 +594,22 @@ impl UnleashClient {
             Ok(ClientFeaturesDeltaResponse::Updated(features, etag))
         } else if response.status() == StatusCode::FORBIDDEN {
             CLIENT_FEATURE_FETCH_FAILURES
-                .with_label_values(&[response.status().as_str(), &self.meta_info.app_name])
+                .with_label_values(&[
+                    response.status().as_str(),
+                    &self.meta_info.app_name,
+                    &self.meta_info.instance_id,
+                ])
                 .inc();
             Err(EdgeError::ClientFeaturesFetchError(
                 FeatureError::AccessDenied,
             ))
         } else if response.status() == StatusCode::UNAUTHORIZED {
             CLIENT_FEATURE_FETCH_FAILURES
-                .with_label_values(&[response.status().as_str()])
+                .with_label_values(&[
+                    response.status().as_str(),
+                    &self.meta_info.app_name,
+                    &self.meta_info.instance_id,
+                ])
                 .inc();
             warn!(
                 "Failed to get features. Url: [{}]. Status code: [401]",
@@ -612,7 +620,11 @@ impl UnleashClient {
             ))
         } else if response.status() == StatusCode::NOT_FOUND {
             CLIENT_FEATURE_FETCH_FAILURES
-                .with_label_values(&[response.status().as_str()])
+                .with_label_values(&[
+                    response.status().as_str(),
+                    &self.meta_info.app_name,
+                    &self.meta_info.instance_id,
+                ])
                 .inc();
             warn!(
                 "Failed to get features. Url: [{}]. Status code: [{}]",
@@ -622,7 +634,11 @@ impl UnleashClient {
             Err(EdgeError::ClientFeaturesFetchError(FeatureError::NotFound))
         } else {
             CLIENT_FEATURE_FETCH_FAILURES
-                .with_label_values(&[response.status().as_str()])
+                .with_label_values(&[
+                    response.status().as_str(),
+                    &self.meta_info.app_name,
+                    &self.meta_info.instance_id,
+                ])
                 .inc();
             Err(EdgeError::ClientFeaturesFetchError(
                 FeatureError::Retriable(response.status()),
