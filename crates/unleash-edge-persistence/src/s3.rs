@@ -54,14 +54,16 @@ pub mod s3_persister {
                 .await
                 .map_err(|_| EdgeError::PersistenceError("Failed to GET tokens".to_string()))?;
             let data = response.body.collect().await.expect("Failed data");
-            serde_json::from_slice(&data.to_vec()).map_err(|_| {
-                EdgeError::PersistenceError("Failed to deserialize tokens".to_string())
+            serde_json::from_slice(&data.to_vec()).map_err(|e| {
+                EdgeError::PersistenceError(format!("Failed to deserialize tokens: {}", e))
             })
         }
 
         async fn save_tokens(&self, tokens: Vec<EdgeToken>) -> EdgeResult<()> {
             let body_data = serde_json::to_vec(&tokens)
-                .map_err(|_| EdgeError::PersistenceError("Failed to serialize tokens".to_string()))
+                .map_err(|e| {
+                    EdgeError::PersistenceError(format!("Failed to serialize tokens: {}", e))
+                })
                 .map(SdkBody::from)?;
             let byte_stream = aws_sdk_s3::primitives::ByteStream::new(body_data);
             self.client
@@ -72,7 +74,12 @@ pub mod s3_persister {
                 .send()
                 .await
                 .map(|_| ())
-                .map_err(|_err| EdgeError::PersistenceError("Failed to save tokens".to_string()))
+                .map_err(|err| {
+                    EdgeError::PersistenceError(format!(
+                        "Failed to save tokens: {}",
+                        err.into_service_error()
+                    ))
+                })
         }
 
         async fn load_features(&self) -> EdgeResult<HashMap<String, ClientFeatures>> {
@@ -109,8 +116,8 @@ pub mod s3_persister {
         }
 
         async fn save_features(&self, features: Vec<(String, ClientFeatures)>) -> EdgeResult<()> {
-            let body_data = serde_json::to_vec(&features).map_err(|_| {
-                EdgeError::PersistenceError("Failed to serialize features".to_string())
+            let body_data = serde_json::to_vec(&features).map_err(|e| {
+                EdgeError::PersistenceError(format!("Failed to serialize features: {}", e))
             })?;
             let byte_stream = ByteStream::new(SdkBody::from(body_data));
             match self
@@ -123,9 +130,10 @@ pub mod s3_persister {
                 .await
             {
                 Ok(_) => Ok(()),
-                Err(_s3_err) => Err(EdgeError::PersistenceError(
-                    "Failed to save features".to_string(),
-                )),
+                Err(s3_err) => Err(EdgeError::PersistenceError(format!(
+                    "Failed to save features: {}",
+                    s3_err.into_service_error()
+                ))),
             }
         }
     }
