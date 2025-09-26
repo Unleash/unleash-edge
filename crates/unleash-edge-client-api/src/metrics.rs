@@ -4,6 +4,7 @@ use axum::routing::{Router, post};
 use tracing::instrument;
 use unleash_edge_appstate::AppState;
 use unleash_edge_metrics::client_metrics::{register_bulk_metrics, register_client_metrics};
+use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
 use unleash_edge_types::tokens::EdgeToken;
 use unleash_edge_types::{AcceptedJson, BatchMetricsRequestBody, EdgeAcceptedJsonResult};
 use unleash_types::client_metrics::ClientMetrics;
@@ -46,16 +47,30 @@ security(
 )]
 #[instrument(skip(app_state, edge_token, bulk_metrics))]
 pub async fn post_bulk_metrics(
-    app_state: State<AppState>,
+    State(app_state): State<AppState>,
     edge_token: EdgeToken,
-    bulk_metrics: Json<BatchMetricsRequestBody>,
+    Json(bulk_metrics): Json<BatchMetricsRequestBody>,
 ) -> EdgeAcceptedJsonResult<()> {
     register_bulk_metrics(
         &app_state.metrics_cache,
         &app_state.connect_via,
         &edge_token,
-        bulk_metrics.0,
+        bulk_metrics,
     );
+    Ok(AcceptedJson { body: () })
+}
+
+#[instrument(skip(app_state, _edge_token, instance_data))]
+pub async fn post_edge_instance_data(
+    State(app_state): State<AppState>,
+    _edge_token: EdgeToken,
+    Json(instance_data): Json<EdgeInstanceData>,
+) -> EdgeAcceptedJsonResult<()> {
+    app_state
+        .connected_instances
+        .write()
+        .await
+        .push(instance_data);
     Ok(AcceptedJson { body: () })
 }
 
@@ -63,6 +78,7 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/metrics", post(post_metrics))
         .route("/metrics/bulk", post(post_bulk_metrics))
+        .route("/metrics/edge", post(post_edge_instance_data))
 }
 
 #[cfg(test)]

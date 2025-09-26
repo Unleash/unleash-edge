@@ -346,6 +346,7 @@ pub async fn build_edge_state(
         .with_instance_sending(instance_data_sender)
         .with_edge_instance_data(edge_instance_data)
         .with_delta_cache_manager(delta_cache_manager)
+        .with_connected_instances(instances_observed_for_app_context.clone())
         .build();
 
     Ok((app_state, background_tasks, shutdown_tasks))

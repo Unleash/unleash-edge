@@ -97,6 +97,13 @@ impl AppStateBuilder {
         }
     }
 
+    pub fn with_connected_instances(
+        mut self,
+        connected_instances: Arc<RwLock<Vec<EdgeInstanceData>>>,
+    ) -> Self {
+        self.connected_instances = connected_instances;
+        self
+    }
     pub fn with_token_validator(mut self, token_validator: Arc<Option<TokenValidator>>) -> Self {
         self.token_validator = token_validator.clone();
         self
