@@ -2,8 +2,8 @@ use axum::body::HttpBody;
 use axum::extract::{MatchedPath, Request};
 use axum::response::{IntoResponse, Response};
 use prometheus::{
-    GaugeVec, HistogramVec, IntCounterVec, Registry, TextEncoder, gather, register_gauge_vec,
-    register_histogram_vec, register_int_counter_vec,
+    HistogramVec, IntCounterVec, Registry, TextEncoder, gather, register_histogram_vec,
+    register_int_counter_vec,
 };
 use reqwest::StatusCode;
 use std::pin::Pin;
@@ -12,7 +12,6 @@ use std::task::{Context, Poll};
 use std::time::Instant;
 use tower::{Layer, Service};
 use unleash_edge_types::metrics::HTTP_REQUESTS_DURATION;
-use unleash_edge_types::metrics::HTTP_REQUESTS_PENDING;
 use unleash_edge_types::metrics::HTTP_REQUESTS_TOTAL;
 use unleash_edge_types::metrics::HTTP_RESPONSE_SIZE;
 use unleash_types::client_metrics::ConnectVia;
@@ -66,15 +65,6 @@ static HTTP_RESPONSE_SIZE_METRIC: LazyLock<HistogramVec> = LazyLock::new(|| {
             5.0, 10.0, 100.0, 250.0, 500.0, 750.0, 1000.0, 2500.0, 5000.0, 10000.0, 25000.0,
             50000.0, 100000.0,
         ]
-    )
-    .unwrap()
-});
-
-static HTTP_REQUESTS_PENDING_METRIC: LazyLock<GaugeVec> = LazyLock::new(|| {
-    register_gauge_vec!(
-        HTTP_REQUESTS_PENDING,
-        "Number of pending HTTP requests",
-        &[METHOD_LABEL, ENDPOINT_LABEL, APP_NAME, INSTANCE_ID]
     )
     .unwrap()
 });
@@ -162,11 +152,6 @@ where
         let skip = excluded_path(&path);
         let app_name = self.connect_via.app_name.clone();
         let instance_id = self.connect_via.instance_id.clone();
-        if !skip {
-            HTTP_REQUESTS_PENDING_METRIC
-                .with_label_values(&[&method, &path, &app_name, &instance_id])
-                .inc();
-        }
         let start = Instant::now();
         let mut service = self.service.clone();
         Box::pin(async move {
@@ -179,9 +164,6 @@ where
                     _ => &path,
                 }
                 .to_string();
-                HTTP_REQUESTS_PENDING_METRIC
-                    .with_label_values(&[&method, &path, &app_name, &instance_id])
-                    .dec();
                 HTTP_REQUESTS_TOTAL_METRIC
                     .with_label_values(&[&method, &used_path, &status, &app_name, &instance_id])
                     .inc();

@@ -11,7 +11,6 @@ pub mod instance_data;
 
 pub const HTTP_REQUESTS_TOTAL: &str = "http_requests_total";
 pub const HTTP_REQUESTS_DURATION: &str = "http_server_duration_milliseconds";
-pub const HTTP_REQUESTS_PENDING: &str = "http_requests_pending";
 pub const HTTP_RESPONSE_SIZE: &str = "http_response_size";
 
 #[derive(Debug, Default, Clone, Deserialize, Serialize)]
