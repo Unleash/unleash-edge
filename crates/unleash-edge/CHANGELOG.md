@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.0.0](https://github.com/Unleash/unleash-edge/compare/unleash-edge-v19.15.1...unleash-edge-v20.0.0) - 2025-09-26
+
+### 🚀 Features
+- *(backing_server)* Use axum-server's serve implementation (by @chriswk)
+- [**breaking**] Migrate off Actix to Axum ([#1109](https://github.com/unleash/unleash-edge/issues/1109)) (by @chriswk) - #1109
+
+### 🐛 Bug Fixes
+- readd observability data endpoint ([#1182](https://github.com/unleash/unleash-edge/issues/1182)) (by @chriswk) - #1182
+- *(internal-backstage)* make sure /metrics obeys disable flag ([#1176](https://github.com/unleash/unleash-edge/issues/1176)) (by @chriswk)
+- readded hosting to EdgeInstanceData ([#1175](https://github.com/unleash/unleash-edge/issues/1175)) (by @chriswk) - #1175
+
+### Contributors
+
+* @chriswk
+
 ## [19.15.1](https://github.com/Unleash/unleash-edge/compare/v19.15.0...v19.15.1) - 2025-09-03
 
 ### 🐛 Bug Fixes
