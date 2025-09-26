@@ -3,7 +3,6 @@ use axum::extract::{Request, State};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use reqwest::StatusCode;
-use tracing::info;
 use unleash_edge_appstate::AppState;
 use unleash_edge_auth::token_validator::{TokenRegister, TokenValidator};
 use unleash_edge_types::errors::EdgeError;
@@ -78,7 +77,6 @@ async fn validate_with_validator(
 }
 
 fn check_frontend_path(path: &str) -> Result<(), EdgeError> {
-    info!("Checking frontend path: {}", path);
     if path.contains("/frontend") || path.contains("/proxy") {
         Ok(())
     } else {
@@ -87,7 +85,6 @@ fn check_frontend_path(path: &str) -> Result<(), EdgeError> {
 }
 
 fn check_backend_path(path: &str) -> Result<(), EdgeError> {
-    info!("Checking backend path: {}", path);
     if path.contains("client/") {
         Ok(())
     } else {
