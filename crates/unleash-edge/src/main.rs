@@ -185,7 +185,7 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
             http_handle_clone.graceful_shutdown(Some(Duration::from_secs(10)));
         });
         let http_listener =
-            make_listener(args.http.http_server_socket()).expect("Failed to start socket");
+            make_listener(args.http.http_server_socket()).expect("Failed to bind HTTP socket");
         let mut builder = axum_server::from_tcp(http_listener).handle(handle);
         let http_builder = builder.http_builder();
         http_builder
