@@ -131,7 +131,7 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
                         https_port: args.http.tls.tls_server_port,
                     });
             let http_listener =
-                make_listener(args.http.http_server_socket()).expect("Failed to start socket");
+                make_listener(args.http.http_server_socket()).expect("Failed to bind HTTP socket");
             let http = axum_server::from_tcp(http_listener)
                 .handle(http_handle)
                 .serve(http_redirect_app.into_make_service());
