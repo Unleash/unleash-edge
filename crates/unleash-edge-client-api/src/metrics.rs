@@ -98,7 +98,7 @@ mod tests {
     use unleash_types::client_metrics::SdkType::Backend;
     use unleash_types::client_metrics::{
         ClientApplication, ClientMetrics, ClientMetricsEnv, ConnectVia, ImpactMetric, MetricBucket,
-        MetricSample, MetricType, MetricsMetadata, ToggleStats,
+        MetricsMetadata, NumericMetricSample, ToggleStats,
     };
 
     async fn build_metrics_server(
@@ -177,11 +177,10 @@ mod tests {
 
         let impact_metric = &impact_metrics.value()[0];
 
-        let expected_impact_metric = ImpactMetric {
+        let expected_impact_metric = ImpactMetric::Counter {
             name: "test_counter".into(),
             help: "Test counter metric".into(),
-            r#type: MetricType::Counter,
-            samples: vec![MetricSample {
+            samples: vec![NumericMetricSample {
                 value: 1.0,
                 labels: Some(BTreeMap::from([
                     ("label1".into(), "value1".into()),
@@ -241,11 +240,10 @@ mod tests {
                 },
             },
             environment: Some("development".into()),
-            impact_metrics: Some(vec![ImpactMetric {
+            impact_metrics: Some(vec![ImpactMetric::Counter {
                 name: "test_counter".into(),
                 help: "Test counter metric".into(),
-                r#type: "counter".into(),
-                samples: vec![MetricSample {
+                samples: vec![NumericMetricSample {
                     value: 1.0,
                     labels: Some(BTreeMap::from([
                         ("label1".into(), "value1".into()),
@@ -308,11 +306,10 @@ mod tests {
                             yggdrasil_version: None,
                         },
                     }],
-                    impact_metrics: Some(vec![ImpactMetric {
+                    impact_metrics: Some(vec![ImpactMetric::Counter {
                         name: "bulk_test_counter".into(),
                         help: "Bulk test counter metric".into(),
-                        r#type: "counter".into(),
-                        samples: vec![MetricSample {
+                        samples: vec![NumericMetricSample {
                             value: 5.0,
                             labels: Some(BTreeMap::from([
                                 ("bulk_label1".into(), "bulk_value1".into()),
