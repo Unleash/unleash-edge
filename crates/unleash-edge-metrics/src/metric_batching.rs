@@ -205,10 +205,9 @@ mod tests {
         ImpactMetricEnv {
             app_name: format!("app_name_{}", toggle_id),
             environment: "development".into(),
-            impact_metric: ImpactMetric {
+            impact_metric: ImpactMetric::Counter {
                 name: format!("impact-{}", toggle_id),
                 help: "Impact metric for testing".into(),
-                r#type: "counter".into(),
                 samples: vec![],
             },
         }
