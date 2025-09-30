@@ -7,6 +7,7 @@ use tokio::sync::RwLock;
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::{debug, error, info, warn};
 use unleash_edge_appstate::AppState;
+use unleash_edge_appstate::token_cache_observer::observe_tokens_in_background;
 use unleash_edge_auth::token_validator::{
     TokenValidator, create_deferred_validation_task, create_revalidation_of_startup_tokens_task,
     create_revalidation_task,
@@ -107,7 +108,7 @@ async fn get_data_source(args: &EdgeArgs) -> Option<Arc<dyn EdgePersistence>> {
 
 async fn hydrate_from_persistent_storage(cache: CacheContainer, storage: Arc<dyn EdgePersistence>) {
     let (token_cache, features_cache, _delta_cache, engine_cache) = cache;
-    // TODO: do we need to hydrate from persistant storage for delta?
+    // TODO: do we need to hydrate from persistent storage for delta?
     let tokens = storage.load_tokens().await.unwrap_or_else(|error| {
         warn!("Failed to load tokens from cache {error:?}");
         vec![]
@@ -455,6 +456,11 @@ fn create_edge_mode_background_tasks(
             instance_data_sender.clone(),
             edge_instance_data.clone(),
             instances_observed_for_app_context.clone(),
+        ),
+        observe_tokens_in_background(
+            edge_instance_data.app_name.clone(),
+            edge_instance_data.identifier.clone(),
+            validator.clone(),
         ),
     ];
 

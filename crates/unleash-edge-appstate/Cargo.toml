@@ -11,6 +11,7 @@ publish = false
 axum = { workspace = true }
 dashmap = { workspace = true }
 ipnet = { workspace = true }
+prometheus = { workspace = true }
 tokio = { workspace = true }
 ulid = { workspace = true }
 unleash-edge-auth = { path = "../unleash-edge-auth" }

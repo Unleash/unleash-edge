@@ -3,6 +3,7 @@ use axum::extract::{Request, State};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use reqwest::StatusCode;
+use tracing::{debug, instrument};
 use unleash_edge_appstate::AppState;
 use unleash_edge_auth::token_validator::{TokenRegister, TokenValidator};
 use unleash_edge_types::errors::EdgeError;
@@ -55,6 +56,7 @@ fn validate_without_validator(
     }
 }
 
+#[instrument(skip_all, err)]
 async fn validate_with_validator(
     edge_token: &EdgeToken,
     path: &str,
@@ -68,7 +70,10 @@ async fn validate_with_validator(
             None => Ok(()),
             _ => Err(EdgeError::Forbidden("".into())),
         },
-        TokenValidationStatus::Unknown => Err(EdgeError::AuthorizationDenied),
+        TokenValidationStatus::Unknown => {
+            debug!("Validation status of token was unknown");
+            Err(EdgeError::AuthorizationDenied)
+        }
         TokenValidationStatus::Invalid => Err(EdgeError::Forbidden(
             "Token validation status was invalid".into(),
         )),
