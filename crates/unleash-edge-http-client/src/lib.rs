@@ -663,8 +663,9 @@ impl UnleashClient {
             .send()
             .await
             .map_err(|e| {
-                info!("Failed to send metrics to /api/client/metrics/bulk endpoint {e:?}");
-                EdgeError::EdgeMetricsError
+                EdgeError::EdgeMetricsError(format!(
+                    "Failed to send metrics to /api/client/metrics/bulk endpoint {e:?}"
+                ))
             })?;
         let ended = Utc::now();
         METRICS_UPLOAD
@@ -703,8 +704,7 @@ impl UnleashClient {
             .send()
             .await
             .map_err(|e| {
-                info!("Failed to send instance data: {e:?}");
-                EdgeError::EdgeMetricsError
+                EdgeError::EdgeMetricsError(format!("Failed to send instance data: {e:?}"))
             })?;
         let ended_at = Utc::now();
         INSTANCE_DATA_UPLOAD
