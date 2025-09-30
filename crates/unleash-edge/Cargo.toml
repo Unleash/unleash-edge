@@ -31,6 +31,7 @@ dashmap = { workspace = true }
 etag = { workspace = true }
 futures = { workspace = true }
 http = { workspace = true }
+hyper-util = { workspace = true }
 ipnet = { workspace = true }
 opentelemetry = { workspace = true }
 opentelemetry-otlp = { workspace = true, optional = true }
@@ -39,6 +40,7 @@ prometheus = { workspace = true }
 reqwest = { workspace = true }
 rustls = { workspace = true }
 rustls-pemfile = { workspace = true }
+socket2 = { workspace = true }
 tokio = { workspace = true }
 tokio-rustls = { workspace = true }
 tower = { workspace = true }

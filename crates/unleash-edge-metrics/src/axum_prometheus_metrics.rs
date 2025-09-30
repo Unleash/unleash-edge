@@ -173,7 +173,7 @@ where
                     .observe(elapsed * 1000.0);
                 let size = response.body().size_hint().lower();
                 HTTP_RESPONSE_SIZE_METRIC
-                    .with_label_values(&[&method, &path, &app_name, &instance_id])
+                    .with_label_values(&[&method, &used_path, &app_name, &instance_id])
                     .observe(size as f64);
             }
             Ok(response)

@@ -307,6 +307,8 @@ pub fn new_reqwest_client(args: HttpClientArgs) -> EdgeResult<Client> {
                 .timeout(args.socket_timeout.to_std().unwrap())
                 .connect_timeout(args.connect_timeout.to_std().unwrap())
                 .tcp_keepalive(args.keep_alive_timeout.to_std().unwrap())
+                .pool_idle_timeout(std::time::Duration::from_secs(60))
+                .pool_max_idle_per_host(2)
                 .build()
                 .map_err(|e| EdgeError::ClientBuildError(format!("Failed to build client {e:?}")))
         })
