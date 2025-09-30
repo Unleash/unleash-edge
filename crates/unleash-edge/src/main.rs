@@ -7,7 +7,9 @@ use clap::Parser;
 use futures::future::join_all;
 use http::Uri;
 use http::uri::Authority;
-use std::net::SocketAddr;
+use hyper_util::rt::TokioTimer;
+use socket2::{Domain, Protocol, Socket, TcpKeepalive, Type};
+use std::net::{SocketAddr, TcpListener};
 use std::pin::pin;
 use std::time::Duration;
 use tokio::signal;
@@ -75,6 +77,28 @@ pub struct HttpAppCfg {
     pub https_port: u16,
 }
 
+const TCP_KEEPALIVE: Duration = Duration::from_secs(55);
+const H1_HEADER_TIMEOUT: Duration = Duration::from_secs(15); // protects against slowloris
+const PROBE_INTERVAL: Duration = Duration::from_secs(15);
+const KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(20);
+const KEEP_ALIVE_TIMEOUT: Duration = Duration::from_secs(20);
+
+fn make_listener(addr: SocketAddr) -> std::io::Result<TcpListener> {
+    let socket = Socket::new(Domain::for_address(addr), Type::STREAM, Some(Protocol::TCP))?;
+    socket.set_reuse_address(true)?;
+    #[cfg(unix)]
+    socket.set_reuse_port(true)?;
+
+    let ka = TcpKeepalive::new()
+        .with_time(TCP_KEEPALIVE)
+        .with_interval(PROBE_INTERVAL)
+        .with_retries(4);
+    socket.set_tcp_keepalive(&ka)?;
+    socket.bind(&addr.into())?;
+    socket.listen(1024)?;
+    Ok(socket.into())
+}
+
 async fn run_server(args: CliArgs) -> EdgeResult<()> {
     if args.http.tls.tls_enable {
         let (router, shutdown_tasks) = configure_server(args.clone()).await?;
@@ -99,7 +123,6 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
             http_handle_clone.graceful_shutdown(Some(Duration::from_secs(10)));
         });
         let config = unleash_edge::tls::axum_rustls_config(args.http.tls.clone()).await?;
-        let addr = args.http.https_server_socket();
         if args.http.tls.redirect_http_to_https {
             let http_redirect_app =
                 Router::new()
@@ -107,18 +130,44 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
                     .with_state(HttpAppCfg {
                         https_port: args.http.tls.tls_server_port,
                     });
-            let http = axum_server::bind(args.http.http_server_socket())
+            let http_listener =
+                make_listener(args.http.http_server_socket()).expect("Failed to bind HTTP socket");
+            let http = axum_server::from_tcp(http_listener)
                 .handle(http_handle)
                 .serve(http_redirect_app.into_make_service());
-            let https = axum_server::bind_rustls(addr, config)
-                .handle(https_handle.clone())
-                .serve(server.clone());
+
+            let https_listener =
+                make_listener(args.http.https_server_socket()).expect("Failed to bind tls socket");
+            let mut builder =
+                axum_server::from_tcp_rustls(https_listener, config).handle(https_handle.clone());
+            let https_builder = builder.http_builder();
+            https_builder
+                .http1()
+                .timer(TokioTimer::new())
+                .keep_alive(true)
+                .header_read_timeout(H1_HEADER_TIMEOUT);
+            https_builder
+                .http2()
+                .keep_alive_interval(Some(KEEP_ALIVE_INTERVAL))
+                .keep_alive_timeout(KEEP_ALIVE_TIMEOUT);
+            let https = builder.serve(server.clone());
             _ = try_join!(http, https);
         } else {
-            _ = axum_server::bind_rustls(addr, config)
-                .handle(https_handle.clone())
-                .serve(server.clone())
-                .await;
+            let https_listener =
+                make_listener(args.http.https_server_socket()).expect("Failed to bind tls socket");
+            let mut builder =
+                axum_server::from_tcp_rustls(https_listener, config).handle(https_handle.clone());
+            let https_builder = builder.http_builder();
+            https_builder
+                .http1()
+                .timer(TokioTimer::new())
+                .keep_alive(true)
+                .header_read_timeout(H1_HEADER_TIMEOUT);
+            https_builder
+                .http2()
+                .keep_alive_interval(Some(KEEP_ALIVE_INTERVAL))
+                .keep_alive_timeout(KEEP_ALIVE_TIMEOUT);
+            _ = builder.serve(server.clone()).await;
         }
     } else {
         let (router, shutdown_tasks) = configure_server(args.clone()).await?;
@@ -135,10 +184,20 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
             let _ = shutdown_fut.await;
             http_handle_clone.graceful_shutdown(Some(Duration::from_secs(10)));
         });
-        _ = axum_server::bind(args.http.http_server_socket())
-            .handle(handle)
-            .serve(server)
-            .await;
+        let http_listener =
+            make_listener(args.http.http_server_socket()).expect("Failed to bind HTTP socket");
+        let mut builder = axum_server::from_tcp(http_listener).handle(handle);
+        let http_builder = builder.http_builder();
+        http_builder
+            .http1()
+            .timer(TokioTimer::new())
+            .keep_alive(true)
+            .header_read_timeout(H1_HEADER_TIMEOUT);
+        http_builder
+            .http2()
+            .keep_alive_interval(Some(KEEP_ALIVE_INTERVAL))
+            .keep_alive_timeout(KEEP_ALIVE_TIMEOUT);
+        _ = builder.serve(server).await;
     }
     Ok(())
 }
