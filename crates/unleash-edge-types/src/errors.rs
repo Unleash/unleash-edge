@@ -114,7 +114,7 @@ pub enum EdgeError {
     ClientHydrationFailed(String),
     ClientRegisterError,
     ContextParseError,
-    EdgeMetricsError,
+    EdgeMetricsError(String),
     EdgeMetricsRequestError(reqwest::StatusCode, Option<UnleashBadRequest>),
     EdgeTokenError,
     EdgeTokenParseError,
@@ -196,7 +196,7 @@ impl Display for EdgeError {
             EdgeError::AuthorizationPending => {
                 write!(f, "No validation for token has happened yet")
             }
-            EdgeError::EdgeMetricsError => write!(f, "Edge metrics error"),
+            EdgeError::EdgeMetricsError(message) => write!(f, "Edge metrics error {message}"),
             EdgeError::FrontendNotYetHydrated(hydration_info) => {
                 write!(f, "Edge not yet hydrated for {hydration_info:?}")
             }
@@ -256,7 +256,7 @@ impl IntoResponse for EdgeError {
             EdgeError::ClientHydrationFailed(_) => Response::builder().status(self.status_code()).body(Body::empty()),
             EdgeError::ClientRegisterError => Response::builder().status(self.status_code()).body(Body::empty()),
             EdgeError::ContextParseError => Response::builder().status(self.status_code()).body(Body::empty()),
-            EdgeError::EdgeMetricsError => Response::builder().status(self.status_code()).body(Body::empty()),
+            EdgeError::EdgeMetricsError(_) => Response::builder().status(self.status_code()).body(Body::empty()),
             EdgeError::EdgeMetricsRequestError(_, _) => Response::builder().status(self.status_code()).body(Body::empty()),
             EdgeError::EdgeTokenError => Response::builder().status(self.status_code()).body(Body::empty()),
             EdgeError::EdgeTokenParseError => Response::builder().status(self.status_code()).body(Body::empty()),
@@ -314,7 +314,7 @@ impl EdgeError {
             EdgeError::TokenValidationError(status_code) => *status_code,
             EdgeError::AuthorizationPending => StatusCode::UNAUTHORIZED,
             EdgeError::FeatureNotFound(_) => StatusCode::NOT_FOUND,
-            EdgeError::EdgeMetricsError => StatusCode::BAD_REQUEST,
+            EdgeError::EdgeMetricsError(_) => StatusCode::BAD_REQUEST,
             EdgeError::ClientRegisterError => StatusCode::BAD_REQUEST,
             EdgeError::ClientCertificateError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::FrontendNotYetHydrated(_) => StatusCode::NETWORK_AUTHENTICATION_REQUIRED,

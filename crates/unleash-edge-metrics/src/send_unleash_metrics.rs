@@ -3,15 +3,21 @@ use std::sync::Arc;
 use std::{cmp::max, pin::Pin};
 
 use chrono::Duration;
+use futures::{StreamExt, stream};
 use lazy_static::lazy_static;
 use prometheus::{IntGauge, IntGaugeVec, Opts, register_int_gauge, register_int_gauge_vec};
+use rand::{Rng, rng};
 use reqwest::StatusCode;
-use tracing::{error, info, trace, warn};
+use tracing::{debug, error, info, trace, warn};
 use unleash_edge_types::metrics::batching::MetricsBatch;
 use unleash_edge_types::{TokenCache, TokenValidationStatus, tokens::EdgeToken};
 
 use unleash_edge_http_client::UnleashClient;
 use unleash_edge_types::{errors::EdgeError, metrics::MetricsCache};
+
+const MAX_INFLIGHT_PER_ENV: usize = 16;
+const MAX_RETRIES: usize = 5;
+const BASE_BACKOFF_MS: u64 = 50;
 
 use crate::{
     client_metrics::{
@@ -72,81 +78,116 @@ enum MetricsSendError {
     Unknown(String),
 }
 
+async fn send_one_with_retry(
+    unleash_client: &UnleashClient,
+    token: &str,
+    batch: MetricsBatch,
+    metrics_cache: &MetricsCache,
+) -> Result<(), MetricsSendError> {
+    let mut attempt = 0usize;
+
+    loop {
+        if batch.applications.is_empty()
+            && batch.metrics.is_empty()
+            && batch.impact_metrics.is_empty()
+        {
+            return Ok(());
+        }
+
+        match unleash_client
+            .send_bulk_metrics_to_client_endpoint(batch.clone(), token)
+            .await
+        {
+            Ok(()) => return Ok(()),
+
+            Err(EdgeError::EdgeMetricsRequestError(status, msg)) => {
+                METRICS_UPSTREAM_HTTP_ERRORS
+                    .with_label_values(&[status.as_str()])
+                    .inc();
+                return match status {
+                    StatusCode::PAYLOAD_TOO_LARGE => Err(MetricsSendError::NoBackoff(format!(
+                        "Metrics were too large. They were {}. Dropping this bucket to avoid consuming too much memory",
+                        size_of_batch(&batch)
+                    ))),
+                    StatusCode::BAD_REQUEST => Err(MetricsSendError::NoBackoff(format!(
+                        "Unleash said [{msg:?}]. Dropping this bucket to avoid consuming too much memory"
+                    ))),
+
+                    StatusCode::FORBIDDEN | StatusCode::UNAUTHORIZED | StatusCode::NOT_FOUND => {
+                        match msg {
+                            Some(m) => Err(MetricsSendError::Unauthed(format!("Upstream said we were not allowed to post metrics. It replied ({:?}). Dropping this bucket to avoid consuming too much memory", m))),
+                            None => Err(MetricsSendError::Unauthed("Upstream said we were not allowed to post metrics without a message. Dropping this bucket to avoid consuming too much memory".to_string()))
+                        }
+                    }
+
+                    StatusCode::TOO_MANY_REQUESTS
+                    | StatusCode::INTERNAL_SERVER_ERROR
+                    | StatusCode::BAD_GATEWAY
+                    | StatusCode::SERVICE_UNAVAILABLE
+                    | StatusCode::GATEWAY_TIMEOUT => {
+                        reinsert_batch(metrics_cache, batch);
+                        Err(MetricsSendError::Backoff(format!(
+	                    "Upstream said it is struggling. It returned Http status {}",
+                            status
+                        )))
+                    }
+
+                    _ => {
+                        reinsert_batch(metrics_cache, batch);
+                        Err(MetricsSendError::Unknown(format!(
+                            "Upstream returned an unexpected status code: {}",
+                            status
+                        )))
+                    }
+                };
+            }
+
+            Err(other) => {
+                // This arm is network level failures, timeouts, etc. In this case we're gonna slap some jitter on it and try
+                // again in place before allowing the higher level backoff to kick in. Importantly this doesn't block the whole
+                // queue, since we have MAX_INFLIGHT_PER_ENV requests in flight at once. If all MAX_INFLIGHT_PER_ENV are sleeping,
+                // then we do actually need to chill out a little more to avoid thrashing anyway.
+                if attempt >= MAX_RETRIES {
+                    reinsert_batch(metrics_cache, batch);
+                    return Err(MetricsSendError::Unknown(format!(
+                        "Network failure after {} retries: {other:?}; reinserted",
+                        attempt
+                    )));
+                }
+                let backoff = (BASE_BACKOFF_MS << attempt).min(2000);
+                let jitter: u64 = rng().random_range(0..=backoff / 5);
+                tokio::time::sleep(tokio::time::Duration::from_millis(backoff + jitter)).await;
+                attempt += 1;
+                continue;
+            }
+        }
+    }
+}
+
 async fn send_metrics(
     envs: HashMap<String, MetricsBatch>,
     unleash_client: Arc<UnleashClient>,
     metrics_cache: Arc<MetricsCache>,
     token: &EdgeToken,
 ) -> Vec<Result<(), MetricsSendError>> {
-    let mut results = vec![];
-    for (env, batch) in envs.iter() {
-        let batches = get_appropriately_sized_env_batches(&metrics_cache, batch);
-        trace!("Posting {} batches for {env}", batches.len());
-        for batch in batches {
-            if !batch.applications.is_empty()
-                || !batch.metrics.is_empty()
-                || !batch.impact_metrics.is_empty()
-            {
-                let result = unleash_client
-                    .send_bulk_metrics_to_client_endpoint(batch.clone(), &token.token)
-                    .await
-                    .map_err(|edge_error| match edge_error {
-                        EdgeError::EdgeMetricsRequestError(status_code, message) => {
-                            METRICS_UPSTREAM_HTTP_ERRORS
-                                .with_label_values(&[status_code.as_str()])
-                                .inc();
-                            match status_code {
-                                StatusCode::PAYLOAD_TOO_LARGE => {
-                                    MetricsSendError::NoBackoff(format!(
-                                        "Metrics were too large. They were {}. Dropping this bucket to avoid consuming too much memory",
-                                        size_of_batch(&batch)
-                                    ))
-                                }
-                                StatusCode::BAD_REQUEST => {
-                                    MetricsSendError::NoBackoff(format!(
-                                        "Unleash said [{message:?}]. Dropping this bucket to avoid consuming too much memory"
-                                    ))
-                                }
-                                StatusCode::NOT_FOUND => {
-                                    MetricsSendError::Backoff("Upstream said we are trying to post to an endpoint that doesn't exist. Dropping this bucket to avoid consuming too much memory".to_string())
-                                }
-                                StatusCode::FORBIDDEN | StatusCode::UNAUTHORIZED => {
-                                    match message {
-                                        Some(m) => MetricsSendError::Unauthed(format!("Upstream said we were not allowed to post metrics. It replied ({:?}). Dropping this bucket to avoid consuming too much memory", m)),
-                                        None => MetricsSendError::Unauthed("Upstream said we were not allowed to post metrics without a message. Dropping this bucket to avoid consuming too much memory".to_string())
-                                    }
-                                }
-                                StatusCode::TOO_MANY_REQUESTS => {
-                                    reinsert_batch(&metrics_cache, batch);
-                                    MetricsSendError::Backoff("Upstream said it was too busy".to_string())
-                                }
-                                StatusCode::INTERNAL_SERVER_ERROR
-                                | StatusCode::BAD_GATEWAY
-                                | StatusCode::SERVICE_UNAVAILABLE
-                                | StatusCode::GATEWAY_TIMEOUT => {
-                                    reinsert_batch(&metrics_cache, batch);
-                                    MetricsSendError::Backoff(format!(
-                                        "Upstream said it is struggling. It returned Http status {}",
-                                        status_code
-                                    ))
-                                }
-                                _ => {
-                                    reinsert_batch(&metrics_cache, batch);
-                                    MetricsSendError::Unknown(format!(
-                                        "Upstream returned an unexpected status code: {}",
-                                        status_code
-                                    ))
-                                }
-                            }
-                        }
-                        _ => {
-                            MetricsSendError::Unknown(format!(
-                                "Failed to send metrics: {edge_error:?}. Dropping this bucket to avoid consuming too much memory"
-                            ))
-                        }
-                    });
-                results.push(result);
-            }
+    let mut results = Vec::new();
+
+    for (env, batch) in envs {
+        let slices = get_appropriately_sized_env_batches(&metrics_cache, &batch);
+
+        tracing::trace!("Posting {} batches for {}", slices.len(), env);
+
+        let stream = stream::iter(slices.into_iter().map(|slice| {
+            let client = unleash_client.clone();
+            let cache = metrics_cache.clone();
+            let tok = token.token.clone();
+            async move { send_one_with_retry(&client, &tok, slice, &cache).await }
+        }));
+
+        let mut buffered = stream.buffered(MAX_INFLIGHT_PER_ENV);
+
+        while let Some(res) = buffered.next().await {
+            results.push(res);
         }
     }
     results
@@ -190,7 +231,7 @@ pub fn create_send_metrics_task(
     let mut interval = Duration::seconds(send_interval);
     Box::pin(async move {
         loop {
-            trace!("Looping metrics");
+            debug!("Looping metrics");
             let envs = get_metrics_by_environment(&metrics_cache);
             let token = get_valid_token(token_cache.clone());
             let Some(token) = token else {
@@ -199,6 +240,8 @@ pub fn create_send_metrics_task(
 
             let results =
                 send_metrics(envs, unleash_client.clone(), metrics_cache.clone(), &token).await;
+
+            debug!("Done sending metrics, got {} results", results.len());
 
             for result in results {
                 match result {
