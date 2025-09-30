@@ -5,7 +5,6 @@ use axum::Router;
 use axum::middleware::{from_fn, from_fn_with_state};
 use axum::routing::get;
 use chrono::Duration;
-use prometheus::{IntCounterVec, register_int_counter_vec};
 use std::env;
 use std::sync::{Arc, LazyLock};
 use tokio::sync::RwLock;
@@ -38,15 +37,6 @@ static SHOULD_DEFER_VALIDATION: LazyLock<bool> = LazyLock::new(|| {
     env::var("EDGE_DEFER_TOKEN_VALIDATION")
         .map(|v| v == "true" || v == "1")
         .unwrap_or(false)
-});
-
-pub static TOKENS_BEING_REFRESHED: LazyLock<IntCounterVec> = LazyLock::new(|| {
-    register_int_counter_vec!(
-        "tokens_being_refreshed",
-        "Tokens being actively refreshed",
-        &["app_name", "instance_id"]
-    )
-    .unwrap()
 });
 
 type CacheContainer = (

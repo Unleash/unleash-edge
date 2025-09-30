@@ -108,7 +108,7 @@ async fn get_data_source(args: &EdgeArgs) -> Option<Arc<dyn EdgePersistence>> {
 
 async fn hydrate_from_persistent_storage(cache: CacheContainer, storage: Arc<dyn EdgePersistence>) {
     let (token_cache, features_cache, _delta_cache, engine_cache) = cache;
-    // TODO: do we need to hydrate from persistant storage for delta?
+    // TODO: do we need to hydrate from persistent storage for delta?
     let tokens = storage.load_tokens().await.unwrap_or_else(|error| {
         warn!("Failed to load tokens from cache {error:?}");
         vec![]
