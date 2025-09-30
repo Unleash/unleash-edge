@@ -213,13 +213,11 @@ impl TokenValidator {
                         .iter()
                         .find(|v| maybe_valid.token == v.token)
                     {
-                        trace!("Validated token");
                         EdgeToken {
                             status: TokenValidationStatus::Validated,
                             ..validated_token.clone()
                         }
                     } else {
-                        trace!("Invalid token");
                         EdgeToken {
                             status: TokenValidationStatus::Invalid,
                             token_type: Some(TokenType::Invalid),

@@ -2,9 +2,9 @@ use crate::AppState;
 use axum::extract::FromRequestParts;
 use axum::http::request::Parts;
 use std::str::FromStr;
+use tracing::trace;
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::tokens::EdgeToken;
-
 impl FromRequestParts<AppState> for EdgeToken {
     type Rejection = EdgeError;
 
@@ -20,6 +20,7 @@ impl FromRequestParts<AppState> for EdgeToken {
         {
             Ok(edge_token)
         } else {
+            trace!("No extractable token in headers");
             Err(EdgeError::AuthorizationDenied)
         }
     }

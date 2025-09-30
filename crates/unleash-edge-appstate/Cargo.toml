@@ -13,6 +13,7 @@ dashmap = { workspace = true }
 ipnet = { workspace = true }
 prometheus = { workspace = true }
 tokio = { workspace = true }
+tracing = { workspace = true }
 ulid = { workspace = true }
 unleash-edge-auth = { path = "../unleash-edge-auth" }
 unleash-edge-cli = { path = "../unleash-edge-cli" }

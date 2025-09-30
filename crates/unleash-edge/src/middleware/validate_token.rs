@@ -3,13 +3,14 @@ use axum::extract::{Request, State};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use reqwest::StatusCode;
-use tracing::{debug, instrument};
+use tracing::{debug, instrument, trace};
 use unleash_edge_appstate::AppState;
 use unleash_edge_auth::token_validator::{TokenRegister, TokenValidator};
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::tokens::EdgeToken;
 use unleash_edge_types::{TokenType, TokenValidationStatus};
 
+#[instrument(skip(app_state, edge_token, req, next))]
 pub async fn validate_token(
     app_state: State<AppState>,
     edge_token: EdgeToken,
@@ -56,7 +57,7 @@ fn validate_without_validator(
     }
 }
 
-#[instrument(skip_all, err)]
+#[instrument(skip(edge_token, validator))]
 async fn validate_with_validator(
     edge_token: &EdgeToken,
     path: &str,
@@ -65,8 +66,14 @@ async fn validate_with_validator(
     let known_token = validator.register_token(edge_token.token.clone()).await?;
     match known_token.status {
         TokenValidationStatus::Validated => match known_token.token_type {
-            Some(TokenType::Frontend) => check_frontend_path(path),
-            Some(TokenType::Backend) => check_backend_path(path),
+            Some(TokenType::Frontend) => {
+                trace!("Frontend token. checking frontend");
+                check_frontend_path(path)
+            }
+            Some(TokenType::Backend) => {
+                trace!("Backend token. checking backend path");
+                check_backend_path(path)
+            }
             None => Ok(()),
             _ => Err(EdgeError::Forbidden("".into())),
         },
@@ -83,9 +90,13 @@ async fn validate_with_validator(
 
 fn check_frontend_path(path: &str) -> Result<(), EdgeError> {
     if path.contains("/frontend") || path.contains("/proxy") {
+        trace!("Frontend token used to access frontend path. Returning Ok");
         Ok(())
     } else {
-        Err(EdgeError::Forbidden("".into()))
+        trace!("Frontend: Denied, when looking at path [{path}]");
+        Err(EdgeError::Forbidden(format!(
+            "Frontend Token was not allowed to access {path}"
+        )))
     }
 }
 
@@ -93,6 +104,9 @@ fn check_backend_path(path: &str) -> Result<(), EdgeError> {
     if path.contains("client/") {
         Ok(())
     } else {
-        Err(EdgeError::Forbidden("".into()))
+        trace!("Backend: Denied, when looking at path [{path}]");
+        Err(EdgeError::Forbidden(format!(
+            "Backend Token was not allowed to access {path}"
+        )))
     }
 }
