@@ -7,6 +7,7 @@ use tokio::sync::RwLock;
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::{debug, error, info, warn};
 use unleash_edge_appstate::AppState;
+use unleash_edge_appstate::token_cache_observer::observe_tokens_in_background;
 use unleash_edge_auth::token_validator::{
     TokenValidator, create_deferred_validation_task, create_revalidation_of_startup_tokens_task,
     create_revalidation_task,
@@ -455,6 +456,11 @@ fn create_edge_mode_background_tasks(
             instance_data_sender.clone(),
             edge_instance_data.clone(),
             instances_observed_for_app_context.clone(),
+        ),
+        observe_tokens_in_background(
+            edge_instance_data.app_name.clone(),
+            edge_instance_data.identifier.clone(),
+            validator.clone(),
         ),
     ];
 

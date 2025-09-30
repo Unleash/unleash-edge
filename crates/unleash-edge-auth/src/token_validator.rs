@@ -254,10 +254,12 @@ impl TokenValidator {
         loop {
             tokio::select! {
                 Some(token) = rx.recv() => {
+                    trace!("Received a token to validate");
                     batch.insert(token);
                 },
                 _ = interval.tick() => {
                     if !batch.is_empty() {
+                        trace!("We have a batch to validate");
                         let tokens: Vec<String> = batch.drain().collect();
                         match self.unleash_client.validate_tokens(ValidateTokensRequest { tokens }).await {
                             Ok(results) => {
