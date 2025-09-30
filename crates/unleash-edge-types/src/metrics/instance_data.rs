@@ -45,7 +45,7 @@ pub enum Hosting {
 
 impl Hosting {
     pub fn from_env() -> Self {
-        std::env::var("EDGE_HOSTED")
+        std::env::var("EDGE_HOSTING")
             .map(Into::into)
             .unwrap_or(Hosting::SelfHosted)
     }
