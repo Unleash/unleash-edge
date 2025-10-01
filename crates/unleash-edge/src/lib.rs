@@ -1,4 +1,5 @@
 use crate::edge_builder::build_edge_state;
+use crate::middleware::log_request::log_request_middleware;
 use crate::offline_builder::build_offline_app_state;
 use ::tracing::info;
 use axum::Router;
@@ -110,6 +111,7 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
         .merge(unleash_edge_frontend_api::router(args.disable_all_endpoint))
         .layer(
             ServiceBuilder::new()
+                .layer(from_fn(log_request_middleware))
                 .layer(from_fn_with_state(
                     app_state.clone(),
                     middleware::validate_token::validate_token,

@@ -3,13 +3,14 @@ use axum::extract::{Request, State};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use reqwest::StatusCode;
-use tracing::{debug, instrument};
+use tracing::{debug, instrument, trace};
 use unleash_edge_appstate::AppState;
 use unleash_edge_auth::token_validator::{TokenRegister, TokenValidator};
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::tokens::EdgeToken;
 use unleash_edge_types::{TokenType, TokenValidationStatus};
 
+#[instrument(skip(app_state, edge_token, req, next))]
 pub async fn validate_token(
     app_state: State<AppState>,
     edge_token: EdgeToken,
@@ -56,7 +57,7 @@ fn validate_without_validator(
     }
 }
 
-#[instrument(skip_all, err)]
+#[instrument(skip(edge_token, validator))]
 async fn validate_with_validator(
     edge_token: &EdgeToken,
     path: &str,
@@ -68,7 +69,7 @@ async fn validate_with_validator(
             Some(TokenType::Frontend) => check_frontend_path(path),
             Some(TokenType::Backend) => check_backend_path(path),
             None => Ok(()),
-            _ => Err(EdgeError::Forbidden("".into())),
+            _ => Err(EdgeError::Forbidden("No token type found".into())),
         },
         TokenValidationStatus::Unknown => {
             debug!("Validation status of token was unknown");
@@ -85,7 +86,10 @@ fn check_frontend_path(path: &str) -> Result<(), EdgeError> {
     if path.contains("/frontend") || path.contains("/proxy") {
         Ok(())
     } else {
-        Err(EdgeError::Forbidden("".into()))
+        trace!("Frontend: Denied, when looking at path [{path}]");
+        Err(EdgeError::Forbidden(format!(
+            "Frontend Token was not allowed to access {path}"
+        )))
     }
 }
 
@@ -93,6 +97,9 @@ fn check_backend_path(path: &str) -> Result<(), EdgeError> {
     if path.contains("client/") {
         Ok(())
     } else {
-        Err(EdgeError::Forbidden("".into()))
+        trace!("Backend: Denied, when looking at path [{path}]");
+        Err(EdgeError::Forbidden(format!(
+            "Backend Token was not allowed to access {path}"
+        )))
     }
 }

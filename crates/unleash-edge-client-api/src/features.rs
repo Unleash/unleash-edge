@@ -1,7 +1,7 @@
 use axum::extract::{Query, State};
 use axum::routing::get;
 use axum::{Json, Router};
-use tracing::{instrument, warn};
+use tracing::{instrument, trace};
 use unleash_edge_appstate::AppState;
 use unleash_edge_feature_filters::{
     FeatureFilterSet, filter_client_features, name_prefix_filter, project_filter,
@@ -28,7 +28,7 @@ use unleash_types::client_features::ClientFeatures;
 )]
 #[instrument(skip(app_state, edge_token, filter_query))]
 pub async fn get_features(
-    app_state: State<AppState>,
+    State(app_state): State<AppState>,
     edge_token: EdgeToken,
     Query(filter_query): Query<FeatureFilters>,
 ) -> EdgeJsonResult<ClientFeatures> {
@@ -51,7 +51,7 @@ pub async fn get_features(
 )]
 #[instrument(skip(app_state, edge_token, filter_query))]
 pub async fn post_features(
-    app_state: State<AppState>,
+    State(app_state): State<AppState>,
     edge_token: EdgeToken,
     Query(filter_query): Query<FeatureFilters>,
 ) -> EdgeJsonResult<ClientFeatures> {
@@ -100,7 +100,10 @@ fn get_feature_filter(
     let validated_token = token_cache
         .get(&edge_token.token)
         .map(|e| e.value().clone())
-        .ok_or(EdgeError::AuthorizationDenied)?;
+        .ok_or_else(|| {
+            trace!("Could not find token in cache");
+            EdgeError::AuthorizationDenied
+        })?;
 
     let query = unleash_types::client_features::Query {
         tags: None,

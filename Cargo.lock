@@ -4827,6 +4827,7 @@ dependencies = [
  "ipnet",
  "prometheus",
  "tokio",
+ "tracing",
  "ulid",
  "unleash-edge-auth",
  "unleash-edge-cli",
