@@ -195,6 +195,7 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
             .header_read_timeout(H1_HEADER_TIMEOUT);
         http_builder
             .http2()
+            .timer(TokioTimer::new())
             .keep_alive_interval(Some(KEEP_ALIVE_INTERVAL))
             .keep_alive_timeout(KEEP_ALIVE_TIMEOUT);
         _ = builder.serve(server).await;
