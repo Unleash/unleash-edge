@@ -158,7 +158,7 @@ async fn send_metrics(
     envs: HashMap<String, MetricsBatch>,
     unleash_client: Arc<UnleashClient>,
     metrics_cache: Arc<MetricsCache>,
-    token: &EdgeToken,
+    startup_tokens: Vec<EdgeToken>,
 ) -> Vec<Result<(), MetricsSendError>> {
     let mut results = Vec::new();
 
@@ -170,7 +170,11 @@ async fn send_metrics(
         let stream = stream::iter(slices.into_iter().map(|slice| {
             let client = unleash_client.clone();
             let cache = metrics_cache.clone();
-            let tok = token.token.clone();
+            let tok = startup_tokens
+                .iter()
+                .find(|t| t.environment == Some(env.clone()))
+                .map(|t| t.token.clone())
+                .expect("Unable to determine token to use for metrics sending");
             async move { send_one_with_retry(&client, &tok, slice, &cache).await }
         }));
 
@@ -186,7 +190,7 @@ async fn send_metrics(
 pub fn create_once_off_send_metrics(
     metrics_cache: Arc<MetricsCache>,
     unleash_client: Arc<UnleashClient>,
-    token_to_use: EdgeToken,
+    startup_tokens: Vec<EdgeToken>,
 ) -> Pin<Box<dyn Future<Output = ()> + Send>> {
     let metrics_cache = metrics_cache.clone();
     let unleash_client = unleash_client.clone();
@@ -197,7 +201,7 @@ pub fn create_once_off_send_metrics(
             envs,
             unleash_client.clone(),
             metrics_cache.clone(),
-            &token_to_use,
+            startup_tokens,
         )
         .await;
         let errors: Vec<&MetricsSendError> =
@@ -211,7 +215,7 @@ pub fn create_once_off_send_metrics(
 pub fn create_send_metrics_task(
     metrics_cache: Arc<MetricsCache>,
     unleash_client: Arc<UnleashClient>,
-    token_to_use: EdgeToken,
+    startup_tokens: Vec<EdgeToken>,
     send_interval: i64,
 ) -> Pin<Box<dyn Future<Output = ()> + Send>> {
     let mut failures = 0;
@@ -225,7 +229,7 @@ pub fn create_send_metrics_task(
                 envs,
                 unleash_client.clone(),
                 metrics_cache.clone(),
-                &token_to_use,
+                startup_tokens.clone(),
             )
             .await;
 
