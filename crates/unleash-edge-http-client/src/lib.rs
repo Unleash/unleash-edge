@@ -314,6 +314,27 @@ pub fn new_reqwest_client(args: HttpClientArgs) -> EdgeResult<Client> {
         })
 }
 
+fn redact_token_header(header_map: HeaderMap) -> HashMap<String, String> {
+    header_map
+        .iter()
+        .map(|(k, v)| {
+            if k.as_str().to_lowercase().contains("authorization") {
+                let token = EdgeToken::try_from(v.clone());
+                if let Ok(token) = token {
+                    (k.as_str().to_string(), format!("{token:?}"))
+                } else {
+                    (k.as_str().to_string(), format!("{v:?}"))
+                }
+            } else {
+                (
+                    k.as_str().to_string(),
+                    v.to_str().unwrap_or("Unknown header value").to_string(),
+                )
+            }
+        })
+        .collect::<HashMap<String, String>>()
+}
+
 impl UnleashClient {
     pub fn from_url_with_backing_client(
         server_url: Url,
@@ -656,7 +677,10 @@ impl UnleashClient {
         trace!("Sending metrics to bulk endpoint");
         let started_at = Utc::now();
         let headers = self.header_map(Some(token.to_string()));
-        debug!("Using headers: {headers:?}");
+        debug!(
+            "Using headers: {headers:?}",
+            headers = redact_token_header(headers.clone())
+        );
         let result = self
             .backing_client
             .post(self.urls.client_bulk_metrics_url.to_string())
