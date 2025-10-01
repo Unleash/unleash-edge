@@ -10,7 +10,7 @@ use rand::{Rng, rng};
 use reqwest::StatusCode;
 use tracing::{debug, error, info, trace, warn};
 use unleash_edge_types::metrics::batching::MetricsBatch;
-use unleash_edge_types::{TokenCache, TokenValidationStatus, tokens::EdgeToken};
+use unleash_edge_types::tokens::EdgeToken;
 
 use unleash_edge_http_client::UnleashClient;
 use unleash_edge_types::{errors::EdgeError, metrics::MetricsCache};
@@ -58,16 +58,6 @@ lazy_static! {
         "Interval between sending metrics"
     ))
     .unwrap();
-}
-
-fn get_valid_token(token_cache: Arc<TokenCache>) -> Option<EdgeToken> {
-    token_cache
-        .iter()
-        .find(|token| {
-            token.status == TokenValidationStatus::Validated
-                || token.status == TokenValidationStatus::Trusted
-        })
-        .map(|t| t.clone())
 }
 
 #[derive(Debug)]
@@ -196,23 +186,20 @@ async fn send_metrics(
 pub fn create_once_off_send_metrics(
     metrics_cache: Arc<MetricsCache>,
     unleash_client: Arc<UnleashClient>,
-    token_cache: Arc<TokenCache>,
+    token_to_use: EdgeToken,
 ) -> Pin<Box<dyn Future<Output = ()> + Send>> {
     let metrics_cache = metrics_cache.clone();
     let unleash_client = unleash_client.clone();
-    let token_cache = token_cache.clone();
 
     Box::pin(async move {
-        let token = get_valid_token(token_cache.clone());
-        let Some(token) = token else {
-            warn!(
-                "No valid token found for final metrics send. Shutting down without flushing metrics."
-            );
-            return;
-        };
         let envs = get_metrics_by_environment(&metrics_cache);
-        let results =
-            send_metrics(envs, unleash_client.clone(), metrics_cache.clone(), &token).await;
+        let results = send_metrics(
+            envs,
+            unleash_client.clone(),
+            metrics_cache.clone(),
+            &token_to_use,
+        )
+        .await;
         let errors: Vec<&MetricsSendError> =
             results.iter().filter_map(|r| r.as_ref().err()).collect();
         if !errors.is_empty() {
@@ -224,7 +211,7 @@ pub fn create_once_off_send_metrics(
 pub fn create_send_metrics_task(
     metrics_cache: Arc<MetricsCache>,
     unleash_client: Arc<UnleashClient>,
-    token_cache: Arc<TokenCache>,
+    token_to_use: EdgeToken,
     send_interval: i64,
 ) -> Pin<Box<dyn Future<Output = ()> + Send>> {
     let mut failures = 0;
@@ -233,13 +220,14 @@ pub fn create_send_metrics_task(
         loop {
             debug!("Looping metrics");
             let envs = get_metrics_by_environment(&metrics_cache);
-            let token = get_valid_token(token_cache.clone());
-            let Some(token) = token else {
-                continue;
-            };
 
-            let results =
-                send_metrics(envs, unleash_client.clone(), metrics_cache.clone(), &token).await;
+            let results = send_metrics(
+                envs,
+                unleash_client.clone(),
+                metrics_cache.clone(),
+                &token_to_use,
+            )
+            .await;
 
             debug!("Done sending metrics, got {} results", results.len());
 
