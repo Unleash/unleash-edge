@@ -66,16 +66,10 @@ async fn validate_with_validator(
     let known_token = validator.register_token(edge_token.token.clone()).await?;
     match known_token.status {
         TokenValidationStatus::Validated => match known_token.token_type {
-            Some(TokenType::Frontend) => {
-                trace!("Frontend token. checking frontend");
-                check_frontend_path(path)
-            }
-            Some(TokenType::Backend) => {
-                trace!("Backend token. checking backend path");
-                check_backend_path(path)
-            }
+            Some(TokenType::Frontend) => check_frontend_path(path),
+            Some(TokenType::Backend) => check_backend_path(path),
             None => Ok(()),
-            _ => Err(EdgeError::Forbidden("".into())),
+            _ => Err(EdgeError::Forbidden("No token type found".into())),
         },
         TokenValidationStatus::Unknown => {
             debug!("Validation status of token was unknown");
@@ -90,7 +84,6 @@ async fn validate_with_validator(
 
 fn check_frontend_path(path: &str) -> Result<(), EdgeError> {
     if path.contains("/frontend") || path.contains("/proxy") {
-        trace!("Frontend token used to access frontend path. Returning Ok");
         Ok(())
     } else {
         trace!("Frontend: Denied, when looking at path [{path}]");

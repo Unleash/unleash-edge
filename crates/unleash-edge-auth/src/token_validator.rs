@@ -10,6 +10,7 @@ use tracing::trace;
 use unleash_edge_feature_refresh::HydratorType;
 use unleash_edge_http_client::UnleashClient;
 use unleash_edge_persistence::EdgePersistence;
+use unleash_edge_types::errors::EdgeError::Forbidden;
 use unleash_edge_types::tokens::EdgeToken;
 use unleash_edge_types::{
     EdgeResult, TokenCache, TokenType, TokenValidationStatus, ValidateTokensRequest,
@@ -42,7 +43,7 @@ impl TokenRegister for TokenValidator {
             .register_tokens(vec![token])
             .await?
             .first()
-            .expect("Couldn't validate token")
+            .ok_or(Forbidden("Couldn't validate token".to_string()))?
             .clone())
     }
 }
