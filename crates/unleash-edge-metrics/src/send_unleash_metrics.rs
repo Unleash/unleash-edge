@@ -154,7 +154,7 @@ async fn send_one_with_retry(
     }
 }
 
-async fn send_metrics(
+async fn send_metrics(g
     envs: HashMap<String, MetricsBatch>,
     unleash_client: Arc<UnleashClient>,
     metrics_cache: Arc<MetricsCache>,
@@ -172,8 +172,8 @@ async fn send_metrics(
             let cache = metrics_cache.clone();
             let tok = startup_tokens
                 .iter()
-                .find(|t| t.environment == Some(env.clone()))
-                .map(|t| t.token.clone())
+                .find(|t| t.environment.as_ref() == Some(&env))
+                .map(|t| t.token.as_str())
                 .expect("Unable to determine token to use for metrics sending");
             async move { send_one_with_retry(&client, &tok, slice, &cache).await }
         }));
