@@ -39,6 +39,7 @@ use unleash_edge_persistence::{
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::MetricsCache;
 use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
+use unleash_edge_types::tokens::EdgeToken;
 use unleash_edge_types::{BackgroundTask, EdgeResult, EngineCache, TokenCache, TokenType};
 use unleash_yggdrasil::{EngineState, UpdateMessage};
 use url::Url;
@@ -304,33 +305,39 @@ pub async fn build_edge_state(
         http_client.clone(),
     )?);
     let metrics_cache = Arc::new(MetricsCache::default());
-
+    let metrics_token = edge_args
+        .tokens
+        .first()
+        .and_then(|token_string| EdgeToken::try_from(token_string.clone()).ok())
+        .expect("Token given at startup in edge mode did not follow valid format");
     let background_tasks = create_edge_mode_background_tasks(BackgroundTaskArgs {
-        edge: edge_args.clone(),
-        client_meta_information,
-        refresher: hydrator_type.clone(),
-        persistence: persistence.clone(),
-        token_cache: token_cache.clone(),
-        feature_cache: features_cache.clone(),
-        validator: token_validator.clone(),
         app_name: args.app_name,
-        instance_data_sender: instance_data_sender.clone(),
+        client_meta_information,
+        deferred_validation_rx,
+        edge: edge_args.clone(),
         edge_instance_data: edge_instance_data.clone(),
+        feature_cache: features_cache.clone(),
+        instance_data_sender: instance_data_sender.clone(),
         instances_observed_for_app_context: instances_observed_for_app_context.clone(),
         metrics_cache_clone: metrics_cache.clone(),
+        metrics_token: metrics_token.clone(),
+        persistence: persistence.clone(),
+        refresher: hydrator_type.clone(),
+        token_cache: token_cache.clone(),
         unleash_client: unleash_client.clone(),
-        deferred_validation_rx,
+        validator: token_validator.clone(),
     });
     let shutdown_args = ShutdownTaskArgs {
-        persistence: persistence.clone(),
         delta_cache_manager: delta_cache_manager.clone(),
-        token_cache: token_cache.clone(),
-        feature_cache: features_cache.clone(),
-        metrics_cache: metrics_cache.clone(),
-        unleash_client: unleash_client.clone(),
-        instance_data_sender: instance_data_sender.clone(),
         edge_instance_data: edge_instance_data.clone(),
+        feature_cache: features_cache.clone(),
+        instance_data_sender: instance_data_sender.clone(),
         instances_observed_for_app_context: instances_observed_for_app_context.clone(),
+        metrics_cache: metrics_cache.clone(),
+        metrics_token,
+        persistence: persistence.clone(),
+        token_cache: token_cache.clone(),
+        unleash_client: unleash_client.clone(),
     };
     let shutdown_tasks = create_shutdown_tasks(shutdown_args);
 
@@ -359,6 +366,7 @@ pub(crate) struct ShutdownTaskArgs {
     token_cache: Arc<TokenCache>,
     feature_cache: Arc<FeatureCache>,
     metrics_cache: Arc<MetricsCache>,
+    metrics_token: EdgeToken,
     unleash_client: Arc<UnleashClient>,
     instance_data_sender: Arc<InstanceDataSending>,
     edge_instance_data: Arc<EdgeInstanceData>,
@@ -371,6 +379,7 @@ fn create_shutdown_tasks(
         token_cache,
         feature_cache,
         metrics_cache,
+        metrics_token,
         unleash_client,
         instance_data_sender,
         edge_instance_data,
@@ -390,7 +399,7 @@ fn create_shutdown_tasks(
     tasks.push(create_once_off_send_metrics(
         metrics_cache,
         unleash_client,
-        token_cache,
+        metrics_token,
     ));
 
     tasks.push(create_once_off_send_instance_data(
@@ -406,44 +415,46 @@ fn create_shutdown_tasks(
     tasks
 }
 pub(crate) struct BackgroundTaskArgs {
-    edge: EdgeArgs,
-    client_meta_information: ClientMetaInformation,
-    refresher: HydratorType,
-    persistence: Option<Arc<dyn EdgePersistence>>,
-    token_cache: Arc<TokenCache>,
-    feature_cache: Arc<FeatureCache>,
-    validator: Arc<TokenValidator>,
     app_name: String,
-    instance_data_sender: Arc<InstanceDataSending>,
+    client_meta_information: ClientMetaInformation,
+    deferred_validation_rx: Option<tokio::sync::mpsc::UnboundedReceiver<String>>,
+    edge: EdgeArgs,
     edge_instance_data: Arc<EdgeInstanceData>,
+    feature_cache: Arc<FeatureCache>,
+    instance_data_sender: Arc<InstanceDataSending>,
     instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>>,
     metrics_cache_clone: Arc<MetricsCache>,
+    metrics_token: EdgeToken,
+    persistence: Option<Arc<dyn EdgePersistence>>,
+    refresher: HydratorType,
+    token_cache: Arc<TokenCache>,
     unleash_client: Arc<UnleashClient>,
-    deferred_validation_rx: Option<tokio::sync::mpsc::UnboundedReceiver<String>>,
+    validator: Arc<TokenValidator>,
 }
 fn create_edge_mode_background_tasks(
     BackgroundTaskArgs {
-        edge,
-        client_meta_information,
-        refresher,
-        persistence,
-        token_cache,
-        feature_cache,
-        validator,
         app_name,
-        instance_data_sender,
+        client_meta_information,
+        deferred_validation_rx,
+        edge,
         edge_instance_data,
+        feature_cache,
+        instance_data_sender,
         instances_observed_for_app_context,
         metrics_cache_clone,
+        metrics_token,
+        persistence,
+        refresher,
+        token_cache,
         unleash_client,
-        deferred_validation_rx,
+        validator,
     }: BackgroundTaskArgs,
 ) -> Vec<BackgroundTask> {
     let mut tasks: Vec<BackgroundTask> = vec![
         create_send_metrics_task(
             metrics_cache_clone.clone(),
             unleash_client,
-            token_cache.clone(),
+            metrics_token,
             edge.metrics_interval_seconds.try_into().unwrap(),
         ),
         create_revalidation_task(&validator, edge.token_revalidation_interval_seconds),
