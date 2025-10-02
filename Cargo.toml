@@ -27,7 +27,7 @@ async-trait = { version = "0.1.89" }
 aws-config = { version = "1.8.6", features = ["behavior-version-latest"] }
 aws-sdk-s3 = { version = "1.106.0", features = ["behavior-version-latest"] }
 axum = { version = "0.8.6", features = ["macros", "tokio", "json", "query", "tracing"] }
-axum-extra = { version = "0.10.2", features = ["tracing"] }
+axum-extra = { version = "0.10.3", features = ["tracing"] }
 axum-server = { version = "0.7.2", features = ["tls-rustls"] }
 axum-test = { version = "18.1.0", features = ["pretty-assertions", "reqwest"] }
 base64 = { version = "0.22.1" }
