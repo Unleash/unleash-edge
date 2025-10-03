@@ -21,7 +21,9 @@ curl --location --request GET 'http://0.0.0.0:3063/api/client/features' \
 ```
 
 ## Legacy proxy tokens
-With Edge 19.10.0 we introduced a new concept in Edge that aims to support this functionality. For reference, check the readme file: https://github.com/Unleash/unleash-edge?tab=readme-ov-file#pretrusted-tokens
+
+With Edge 19.10.0 we introduced a new concept in Edge that aims to support this functionality. For reference, check the
+readme file: https://github.com/Unleash/unleash-edge?tab=readme-ov-file#pretrusted-tokens
 
 ## Not supported
 
@@ -32,7 +34,8 @@ With Edge 19.10.0 we introduced a new concept in Edge that aims to support this 
   constraints **cannot** replace your strategy, please raise this as an issue with details on what you're trying to
   achieve. We are looking into supporting custom strategies in Edge in the future.
 
-- Legacy proxy Tokens ([now supported](https://github.com/Unleash/unleash-edge?tab=readme-ov-file#pretrusted-tokens) from edge version 19.10.0). If you're using the proxy, you may be using the legacy proxy token format. These are not
+- Legacy proxy Tokens ([now supported](https://github.com/Unleash/unleash-edge?tab=readme-ov-file#pretrusted-tokens)
+  from edge version 19.10.0). If you're using the proxy, you may be using the legacy proxy token format. These are not
   supported in Edge. You will need to create a new front end SDK token in the Unleash UI and use that. These are the
   same tokens that the front end API requires. Because of the way Edge handles API tokens, this is not a feature we're
   planning to support.
@@ -48,7 +51,7 @@ With Edge 19.10.0 we introduced a new concept in Edge that aims to support this 
 ## Existing features in new ways
 
 This section is to detail features that have changed in meaningful ways from the proxy implementation. These features
-all exist in Edge but you may find yourself thinking about them in new ways.
+all exist in Edge, but you may find yourself thinking about them in new ways.
 
 - New modes of operation. Edge supports two modes of operation - Edge mode and Offline mode. Offline mode is described
   in more detail later. If you're using the proxy today, you very likely want Edge mode. Edge mode will allow Unleash to
@@ -71,7 +74,7 @@ all exist in Edge but you may find yourself thinking about them in new ways.
   resolve all the environments and projects that you want to use front end SDKs with.
 
 
-- Backups. By default the Unleash proxy will dump all of its feature information to disk to ensure that restarts have
+- Backups. By default, the Unleash proxy will dump all of its feature information to disk to ensure that restarts have
   all the data you need to start serving requests as fast as possible. Edge does this by default but it also allows you
   the option to set other methods of storage rather than just flat files. Today we only support Redis (if you want
   support for a storage technology that we don't support, please feel free to raise ticket or open a PR!). To use Redis,
@@ -105,7 +108,8 @@ This section unpacks the small changes in Edge from the proxy. These are ports o
 that have small changes. These shouldn't affect how you use Edge and the ideas here are similar to the proxy, only small
 details have changed.
 
-- Unleash URL. The proxy requires that you specify an Unleash URL to the upstream server, in the format `https://{unleashUrl}/api`.
+- Unleash URL. The proxy requires that you specify an Unleash URL to the upstream server, in the format
+  `https://{unleashUrl}/api`.
 - Edge has changed this, the URL that Edge requires is `https://{unleashUrl}`, without the `/api` suffix.
 
 - Backend SDK support. The proxy does support connecting to backend SDKs, but it requires some configuration and setting
@@ -123,7 +127,8 @@ details have changed.
     ```
 
   This will start Edge in offline mode and set the initial feature set to the contents of the `features.json` file. Edge
-  will not send metrics to upstream Unleash instances, update its feature information, or have access to other advanced features.
+  will not send metrics to upstream Unleash instances, update its feature information, or have access to other advanced
+  features.
   Note that you must set a token or tokens on startup in this mode - Edge will only use this set of tokens to validate
   incoming requests, this doesn't have to be a valid Unleash token, so this is very similar to the original proxy
   tokens.
