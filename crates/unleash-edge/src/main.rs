@@ -8,7 +8,7 @@ use futures::future::join_all;
 use http::Uri;
 use http::uri::Authority;
 use hyper_util::rt::TokioTimer;
-use socket2::{Domain, Protocol, Socket, TcpKeepalive, Type};
+use socket2::{Domain, Protocol, Socket, Type};
 use std::net::{SocketAddr, TcpListener};
 use std::pin::pin;
 use std::time::Duration;
@@ -77,9 +77,7 @@ pub struct HttpAppCfg {
     pub https_port: u16,
 }
 
-const TCP_KEEPALIVE: Duration = Duration::from_secs(55);
 const H1_HEADER_TIMEOUT: Duration = Duration::from_secs(15); // protects against slowloris
-const PROBE_INTERVAL: Duration = Duration::from_secs(15);
 const KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(20);
 const KEEP_ALIVE_TIMEOUT: Duration = Duration::from_secs(20);
 
@@ -89,11 +87,6 @@ fn make_listener(addr: SocketAddr) -> std::io::Result<TcpListener> {
     #[cfg(unix)]
     socket.set_reuse_port(true)?;
 
-    let ka = TcpKeepalive::new()
-        .with_time(TCP_KEEPALIVE)
-        .with_interval(PROBE_INTERVAL)
-        .with_retries(4);
-    socket.set_tcp_keepalive(&ka)?;
     socket.bind(&addr.into())?;
     socket.listen(1024)?;
     Ok(socket.into())
@@ -148,6 +141,7 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
                 .header_read_timeout(H1_HEADER_TIMEOUT);
             https_builder
                 .http2()
+                .timer(TokioTimer::new())
                 .keep_alive_interval(Some(KEEP_ALIVE_INTERVAL))
                 .keep_alive_timeout(KEEP_ALIVE_TIMEOUT);
             let https = builder.serve(server.clone());
@@ -165,6 +159,7 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
                 .header_read_timeout(H1_HEADER_TIMEOUT);
             https_builder
                 .http2()
+                .timer(TokioTimer::new())
                 .keep_alive_interval(Some(KEEP_ALIVE_INTERVAL))
                 .keep_alive_timeout(KEEP_ALIVE_TIMEOUT);
             _ = builder.serve(server.clone()).await;
