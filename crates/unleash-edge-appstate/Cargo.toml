@@ -1,6 +1,6 @@
 [package]
 name = "unleash-edge-appstate"
-version = "20.0.0"
+version.workspace = true
 authors.workspace = true
 description.workspace = true
 documentation.workspace = true
