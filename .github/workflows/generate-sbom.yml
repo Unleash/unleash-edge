@@ -22,33 +22,33 @@ jobs:
         run:
           cargo install cargo-sbom
       - name: Run sbom
-        id: sbom
         shell: bash
         run: |
           set -euo pipefail
-          OUTPUT="$(cargo sbom --output-format=cyclone_dx_json_1_6 --cargo-package unleash-edge)"
-          {
-            echo "report<<EOF"
-            echo "$OUTPUT"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+          cargo sbom --output-format=cyclone_dx_json_1_6 \
+                     --cargo-package unleash-edge > out/unleash-edge-cyclone-dx.sbom.json
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-artifact
+          path: out/unleash-edge-cyclone-dx.sbom.json
+          if-no-files-found: error
+          retention-days: 3
   attach-to-release:
     runs-on: ubuntu-latest
     needs: sbom
     steps:
       - uses: actions/checkout@v5
         name: Checkout code
-      - name: Turn job output into a file
-        shell: bash
-        run: |
-          mkdir -p out
-          cat > out/unleash-edge-cyclone-dx.sbom.json <<'EOF'
-          ${{ needs.sbom.outputs.report }}
-          EOF
-          ls -l out
+      - name: Download sbom artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: sbom-artifact
+          path: ./downloaded
       - name: Upload file to existing release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ github.event.inputs.tag }}"
-          gh release upload "$TAG" out/unleash-edge-cyclone-dx.sbom.json --clobber
+          FILE=downloaded/unleash-edge-cyclone-dx.sbom.json
+          gh release upload "$TAG" "$FILE" --clobber
