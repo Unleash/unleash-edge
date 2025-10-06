@@ -5,7 +5,7 @@ authors.workspace = true
 description.workspace = true
 documentation.workspace = true
 edition.workspace = true
-publish = false
+publish = true
 [dependencies]
 ahash = { workspace = true }
 async-trait = { workspace = true }
