@@ -26,12 +26,12 @@ jobs:
         run: |
           set -euo pipefail
           cargo sbom --output-format=cyclone_dx_json_1_6 \
-                     --cargo-package unleash-edge > out/unleash-edge-cyclone-dx.sbom.json
+                     --cargo-package unleash-edge > unleash-edge-cyclone-dx.sbom.json
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: sbom-artifact
-          path: out/unleash-edge-cyclone-dx.sbom.json
+          path: unleash-edge-cyclone-dx.sbom.json
           if-no-files-found: error
           retention-days: 3
   attach-to-release:
