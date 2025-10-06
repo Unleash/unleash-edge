@@ -18,7 +18,7 @@ tower = { workspace = true }
 tower-http = { workspace = true }
 tracing = { workspace = true }
 ulid = { workspace = true }
-unleash-edge-types = { path = "../unleash-edge-types" }
+unleash-edge-types = { workspace = true }
 url = { workspace = true }
 
 [dev-dependencies]

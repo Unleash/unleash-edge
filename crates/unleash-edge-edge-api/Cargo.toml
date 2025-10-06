@@ -8,9 +8,9 @@ edition.workspace = true
 publish = false
 [dependencies]
 axum = { workspace = true }
-unleash-edge-appstate = { path = "../unleash-edge-appstate" }
-unleash-edge-auth = { path = "../unleash-edge-auth" }
-unleash-edge-types = { path = "../unleash-edge-types" }
+unleash-edge-appstate = { workspace = true }
+unleash-edge-auth = { workspace = true }
+unleash-edge-types = { workspace = true }
 utoipa = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }

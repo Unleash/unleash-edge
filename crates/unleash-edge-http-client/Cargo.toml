@@ -22,8 +22,8 @@ serde = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 ulid = { workspace = true }
-unleash-edge-cli = { path = "../unleash-edge-cli" }
-unleash-edge-types = { path = "../unleash-edge-types" }
+unleash-edge-cli = { workspace = true }
+unleash-edge-types = { workspace = true }
 unleash-types = { workspace = true }
 unleash-yggdrasil = { workspace = true }
 url = { workspace = true }

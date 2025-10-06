@@ -9,5 +9,5 @@ publish = false
 [dependencies]
 dashmap = { workspace = true }
 tokio = { workspace = true }
-unleash-edge-types = { path = "../unleash-edge-types" }
+unleash-edge-types = { workspace = true }
 unleash-types = { workspace = true }

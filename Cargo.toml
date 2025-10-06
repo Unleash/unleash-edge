@@ -81,6 +81,23 @@ tracing-subscriber = { version = "0.3.20", features = ["env-filter", "json"] }
 tracing-test = { version = "0.2.5" }
 traced-test = { version = "1.0.4" }
 ulid = { version = "1.2.1", features = ["serde"] }
+unleash-edge-appstate = { path = "./crates/unleash-edge-appstate", version = "20.0.0" }
+unleash-edge-auth = { path = "./crates/unleash-edge-auth", version = "20.0.0" }
+unleash-edge-backstage = { path = "./crates/unleash-edge-backstage", version = "20.0.0" }
+unleash-edge-cli = { path = "./crates/unleash-edge-cli", version = "20.0.0" }
+unleash-edge-client-api = { path = "./crates/unleash-edge-client-api", version = "20.0.0" }
+unleash-edge-delta = { path = "./crates/unleash-edge-delta", version = "20.0.0" }
+unleash-edge-edge-api = { path = "./crates/unleash-edge-edge-api", version = "20.0.0" }
+unleash-edge-feature-cache = { path = "./crates/unleash-edge-feature-cache", version = "20.0.0" }
+unleash-edge-feature-filters = { path = "./crates/unleash-edge-feature-filters", version = "20.0.0" }
+unleash-edge-feature-refresh = { path = "./crates/unleash-edge-feature-refresh", version = "20.0.0" }
+unleash-edge-frontend-api = { path = "./crates/unleash-edge-frontend-api", version = "20.0.0" }
+unleash-edge-http-client = { path = "./crates/unleash-edge-http-client", version = "20.0.0" }
+unleash-edge-metrics = { path = "./crates/unleash-edge-metrics", version = "20.0.0" }
+unleash-edge-offline = { path = "./crates/unleash-edge-offline", version = "20.0.0" }
+unleash-edge-persistence = { path = "./crates/unleash-edge-persistence", version = "20.0.0" }
+unleash-edge-streaming = { path = "./crates/unleash-edge-streaming", version = "20.0.0" }
+unleash-edge-types = { path = "./crates/unleash-edge-types", version = "20.0.0" }
 unleash-types = { version = "0.15.21", features = ["hashes", "openapi"] }
 unleash-yggdrasil = { version = "0.18.1" }
 url = { version = "2.5.7" }
