@@ -36,6 +36,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: sbom
     steps:
+      - uses: actions/checkout@v5
+        name: Checkout code
       - name: Turn job output into a file
         shell: bash
         run: |
