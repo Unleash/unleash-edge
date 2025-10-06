@@ -1,6 +1,6 @@
 [package]
 name = "unleash-edge-feature-refresh"
-version.workspace = true
+version = "20.0.0"
 authors.workspace = true
 description.workspace = true
 documentation.workspace = true
