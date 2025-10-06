@@ -6,6 +6,8 @@ description.workspace = true
 documentation.workspace = true
 edition.workspace = true
 publish = true
+license.workspace = true
+
 [dependencies]
 ahash = { workspace = true }
 async-trait = { workspace = true }

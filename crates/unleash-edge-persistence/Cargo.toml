@@ -6,6 +6,8 @@ description.workspace = true
 documentation.workspace = true
 edition.workspace = true
 publish = true
+license.workspace = true
+
 [features]
 default = ["s3-persistence"]
 s3-persistence = ["aws-sdk-s3", "aws-config"]

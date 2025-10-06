@@ -5,7 +5,9 @@ authors.workspace = true
 description.workspace = true
 documentation.workspace = true
 edition.workspace = true
-publish = true
+publish = false
+license.workspace = true
+
 [dependencies]
 axum = { workspace = true }
 chrono = { workspace = true }
