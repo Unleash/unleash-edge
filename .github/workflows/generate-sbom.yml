@@ -18,9 +18,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         name: Checkout code
-
       - name: Install cargo-sbom
-        uses: psastras/sbom-rs/actions/install-cargo-sbom@cargo-sbom-latest
+        run:
+          cargo install cargo-sbom
       - name: Run sbom
         id: sbom
         shell: bash
