@@ -1,19 +1,21 @@
-use axum::Router;
 use axum::extract::State;
 use axum::response::{IntoResponse, Redirect};
+use axum::Router;
 use axum_extra::extract::Host;
 use axum_server::Handle;
 use clap::Parser;
 use futures::future::join_all;
-use http::Uri;
 use http::uri::Authority;
+use http::Uri;
 use hyper_util::rt::TokioTimer;
 use socket2::{Domain, Protocol, Socket, Type};
 use std::net::{SocketAddr, TcpListener};
 use std::pin::pin;
 use std::time::Duration;
 use tokio::signal;
-use tokio::signal::unix::{SignalKind, signal};
+#[cfg(unix)]
+use tokio::signal::unix::{signal, SignalKind};
+
 use tokio::try_join;
 use tower_http::normalize_path::NormalizePathLayer;
 use tracing::info;
@@ -35,17 +37,28 @@ async fn shutdown_signal(
     );
 
     let mut sigint = pin!(signal::ctrl_c());
-    let mut sigterm_stream = signal(SignalKind::terminate()).expect("Failed to bind SIGTERM");
-    let mut sigterm = pin!(sigterm_stream.recv());
-
-    tokio::select! {
-        _ = &mut sigint => {
-            info!("Received Ctrl+C (SIGINT), shutting down gracefully...");
-        }
-        _ = &mut sigterm => {
-            info!("Received SIGTERM, shutting down gracefully...");
+    #[cfg(unix)]
+    {
+        let mut sigterm_stream = signal(SignalKind::terminate()).expect("Failed to bind SIGTERM");
+        let mut sigterm = pin!(sigterm_stream.recv());
+        tokio::select! {
+            _ = &mut sigint => {
+                info!("Received Ctrl+C (SIGINT), shutting down gracefully...");
+            }
+            _ = &mut sigterm => {
+                info!("Received SIGTERM, shutting down gracefully...");
+            }
         }
     }
+    #[cfg(not(unix))]
+    {
+        tokio::select! {
+            _ = &mut sigint => {
+                info!("Received Ctrl+C (SIGINT), shutting down gracefully...");
+            }
+        }
+    }
+
     join_all(shutdown_tasks).await;
 }
 
