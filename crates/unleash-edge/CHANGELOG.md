@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.0.0](https://github.com/Unleash/unleash-edge/compare/unleash-edge-v19.15.1...unleash-edge-v20.0.0) - 2025-10-06
+
+### 🚀 Features
+- *(backing_server)* Use axum-server's serve implementation (by @chriswk)
+- [**breaking**] Migrate off Actix to Axum ([#1109](https://github.com/unleash/unleash-edge/issues/1109)) (by @chriswk) - #1109
+
+### 🐛 Bug Fixes
+- don't setup keepalive on the TCP level, stick to http1/http2 ([#1202](https://github.com/unleash/unleash-edge/issues/1202)) (by @chriswk) - #1202
+- metrics send now uses appropriate token for environment ([#1197](https://github.com/unleash/unleash-edge/issues/1197)) (by @sighphyre) - #1197
+- now gets first token from startup tokens for use with metrics posting ([#1196](https://github.com/unleash/unleash-edge/issues/1196)) (by @chriswk) - #1196
+- add timer to http redirect layer ([#1195](https://github.com/unleash/unleash-edge/issues/1195)) (by @sighphyre) - #1195
+- *(socket)* Setup slow loris protection. ([#1188](https://github.com/unleash/unleash-edge/issues/1188)) (by @chriswk)
+- readd observability data endpoint ([#1182](https://github.com/unleash/unleash-edge/issues/1182)) (by @chriswk) - #1182
+- *(internal-backstage)* make sure /metrics obeys disable flag ([#1176](https://github.com/unleash/unleash-edge/issues/1176)) (by @chriswk)
+- readded hosting to EdgeInstanceData ([#1175](https://github.com/unleash/unleash-edge/issues/1175)) (by @chriswk) - #1175
+
+### ⚙️ Miscellaneous Tasks
+- add trace logging to validator middleware to help debug geotab… ([#1192](https://github.com/unleash/unleash-edge/issues/1192)) (by @chriswk) - #1192
+- add token status gauges ([#1191](https://github.com/unleash/unleash-edge/issues/1191)) (by @chriswk) - #1191
+
+### Contributors
+
+* @chriswk
+* @sighphyre
+
 ## [19.15.1](https://github.com/Unleash/unleash-edge/compare/v19.15.0...v19.15.1) - 2025-09-03
 
 ### 🐛 Bug Fixes
