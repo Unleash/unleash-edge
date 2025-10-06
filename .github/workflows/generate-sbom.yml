@@ -25,7 +25,7 @@ jobs:
         id: sbom
         shell: bash
         run: |
-          set -euo pipefile
+          set -euo pipefail
           OUTPUT="$(cargo sbom --output-format=cyclone_dx_json_1_6 --cargo-package unleash-edge)"
           {
             echo "report<<EOF"
