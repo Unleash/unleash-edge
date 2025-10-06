@@ -41,12 +41,12 @@ jobs:
         run: |
           mkdir -p out
           cat > out/unleash-edge-cyclone-dx.sbom.json <<'EOF'
-  ${{ needs.sbom.outputs.report }}
-  EOF
-  ls -l out
-  - name: Upload file to existing release
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        TAG="${{ github.event.inputs.tag }}"
-        gh release upload "$TAG" out/unleash-edge-cyclone-dx.sbom.json --clobber
+          ${{ needs.sbom.outputs.report }}
+          EOF
+          ls -l out
+      - name: Upload file to existing release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.event.inputs.tag }}"
+          gh release upload "$TAG" out/unleash-edge-cyclone-dx.sbom.json --clobber
