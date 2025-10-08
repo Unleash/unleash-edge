@@ -94,14 +94,18 @@ const H1_HEADER_TIMEOUT: Duration = Duration::from_secs(15); // protects against
 const KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(20);
 const KEEP_ALIVE_TIMEOUT: Duration = Duration::from_secs(20);
 
-fn make_listener(addr: SocketAddr) -> std::io::Result<TcpListener> {
+fn make_listener(addr: SocketAddr, queue_length: i32) -> std::io::Result<TcpListener> {
+    info!(
+        "Binding HTTP socket to {} with queue length {}",
+        addr, queue_length
+    );
     let socket = Socket::new(Domain::for_address(addr), Type::STREAM, Some(Protocol::TCP))?;
     socket.set_reuse_address(true)?;
     #[cfg(unix)]
     socket.set_reuse_port(true)?;
 
     socket.bind(&addr.into())?;
-    socket.listen(1024)?;
+    socket.listen(queue_length)?;
     Ok(socket.into())
 }
 
@@ -137,13 +141,15 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
                         https_port: args.http.tls.tls_server_port,
                     });
             let http_listener =
-                make_listener(args.http.http_server_socket()).expect("Failed to bind HTTP socket");
+                make_listener(args.http.http_server_socket(), args.http.socket_queue_size)
+                    .expect("Failed to bind HTTP socket");
             let http = axum_server::from_tcp(http_listener)
                 .handle(http_handle)
                 .serve(http_redirect_app.into_make_service());
 
             let https_listener =
-                make_listener(args.http.https_server_socket()).expect("Failed to bind tls socket");
+                make_listener(args.http.https_server_socket(), args.http.socket_queue_size)
+                    .expect("Failed to bind tls socket");
             let mut builder =
                 axum_server::from_tcp_rustls(https_listener, config).handle(https_handle.clone());
             let https_builder = builder.http_builder();
@@ -161,7 +167,8 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
             _ = try_join!(http, https);
         } else {
             let https_listener =
-                make_listener(args.http.https_server_socket()).expect("Failed to bind tls socket");
+                make_listener(args.http.https_server_socket(), args.http.socket_queue_size)
+                    .expect("Failed to bind tls socket");
             let mut builder =
                 axum_server::from_tcp_rustls(https_listener, config).handle(https_handle.clone());
             let https_builder = builder.http_builder();
@@ -193,7 +200,8 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
             http_handle_clone.graceful_shutdown(Some(Duration::from_secs(10)));
         });
         let http_listener =
-            make_listener(args.http.http_server_socket()).expect("Failed to bind HTTP socket");
+            make_listener(args.http.http_server_socket(), args.http.socket_queue_size)
+                .expect("Failed to bind HTTP socket");
         let mut builder = axum_server::from_tcp(http_listener).handle(handle);
         let http_builder = builder.http_builder();
         http_builder

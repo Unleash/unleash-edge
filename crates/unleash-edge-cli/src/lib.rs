@@ -182,7 +182,7 @@ pub struct EdgeArgs {
     pub tokens: Vec<String>,
 
     /// Set a list of frontend tokens that Edge will always trust. These need to either match the Unleash token format, or they're an arbitrary string followed by an @ and then an environment, e.g. secret-123@development
-    #[clap(short, long, env, value_delimiter = ',', value_parser = parse_trusted_token_pair)]
+    #[clap(long, env, value_delimiter = ',', value_parser = parse_trusted_token_pair)]
     pub pretrusted_tokens: Option<Vec<(String, EdgeToken)>>,
 
     /// Expects curl header format (`-H <HEADERNAME>: <HEADERVALUE>`)
@@ -590,10 +590,10 @@ impl CorsOptions {
 #[derive(Args, Debug, Clone)]
 pub struct HttpServerArgs {
     /// Which port should this server listen for HTTP traffic on
-    #[clap(short, long, env, default_value_t = 3063)]
+    #[clap(short, long, env, default_value_t = 3063, global = true)]
     pub port: u16,
     /// Which interfaces should this server listen for HTTP traffic on
-    #[clap(short, long, env, default_value = "0.0.0.0")]
+    #[clap(short, long, env, default_value = "0.0.0.0", global = true)]
     pub interface: String,
     /// Which base path should this server listen for HTTP traffic on
     #[clap(long, env, default_value = "", global = true)]
@@ -606,17 +606,21 @@ pub struct HttpServerArgs {
     pub cors: CorsOptions,
 
     /// Configures the AllowList middleware to only accept requests from IPs that belong to the CIDRs configured here. Defaults to 0.0.0.0/0, ::/0 (ALL Ips v4 and v6)
-    #[clap(long, env, global=true, value_delimiter = ',', value_parser = ip_net_parser)]
+    #[clap(long, env, global=true, value_delimiter = ',', value_parser = ip_net_parser, global = true)]
     pub allow_list: Option<Vec<IpNet>>,
 
     /// Configures the DenyList middleware to deny requests from IPs that belong to the CIDRs configured here. Defaults to denying no IPs.
-    #[clap(long, env, global=true, value_parser = ip_net_parser, value_delimiter = ',')]
+    #[clap(long, env, global=true, value_parser = ip_net_parser, value_delimiter = ',', global = true)]
     pub deny_list: Option<Vec<IpNet>>,
 
     /// Deprecated in 20.0.0
     /// This no longer has any effect.
     #[clap(short, long, env, global = true)]
     pub workers: Option<usize>,
+
+    /// Socket queue size
+    #[clap(long, env, global = true, default_value_t = 8192)]
+    pub socket_queue_size: i32,
 }
 
 #[derive(Args, Debug, Clone)]
