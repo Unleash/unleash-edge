@@ -278,6 +278,22 @@ pub async fn build_edge_state(
         .map(Arc::new)
         .map_err(|_| EdgeError::InvalidServerUrl(edge_args.upstream_url.clone()))?;
 
+    let startup_tokens = edge_args
+    .tokens
+    .iter()
+    .map(|t| {
+        EdgeToken::try_from(t.clone())
+            .expect("Token given at startup in edge mode did not follow valid format")
+    })
+    .collect::<Vec<_>>();
+
+    #[cfg(feature = "enterprise")]
+    {
+        unleash_client.send_heartbeat(startup_tokens.first().expect("Startup token is required for enterprise feature")).await.map_err(|e| {
+            EdgeError::HeartbeatError(format!("Failed to license Edge instance with upstream: {e}"), reqwest::StatusCode::INTERNAL_SERVER_ERROR)
+        })?;
+    }
+
     let (deferred_validation_tx, deferred_validation_rx) = if *SHOULD_DEFER_VALIDATION {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
         (Some(tx), Some(rx))
@@ -285,7 +301,6 @@ pub async fn build_edge_state(
         (None, None)
     };
 
-    let auth_headers = AuthHeaders::from(&args);
     let (
         (token_cache, features_cache, delta_cache_manager, engine_cache),
         token_validator,
@@ -305,14 +320,6 @@ pub async fn build_edge_state(
         http_client.clone(),
     )?);
     let metrics_cache = Arc::new(MetricsCache::default());
-    let startup_tokens = edge_args
-        .tokens
-        .iter()
-        .map(|t| {
-            EdgeToken::try_from(t.clone())
-                .expect("Token given at startup in edge mode did not follow valid format")
-        })
-        .collect::<Vec<_>>();
 
     let background_tasks = create_edge_mode_background_tasks(BackgroundTaskArgs {
         app_name: args.app_name,
@@ -457,8 +464,8 @@ fn create_edge_mode_background_tasks(
     let mut tasks: Vec<BackgroundTask> = vec![
         create_send_metrics_task(
             metrics_cache_clone.clone(),
-            unleash_client,
-            startup_tokens,
+            unleash_client.clone(),
+            startup_tokens.clone(),
             edge.metrics_interval_seconds.try_into().unwrap(),
         ),
         create_revalidation_task(&validator, edge.token_revalidation_interval_seconds),
@@ -509,6 +516,13 @@ fn create_edge_mode_background_tasks(
 
     if let Some(rx) = deferred_validation_rx {
         tasks.push(create_deferred_validation_task(validator, rx));
+    }
+
+    #[cfg(feature = "enterprise")]
+    {
+        use unleash_edge_enterprise::{create_enterprise_heartbeat_task};
+        
+        tasks.push(create_enterprise_heartbeat_task(unleash_client, startup_tokens.first().cloned().expect("Startup token is required for enterprise feature")));
     }
 
     tasks

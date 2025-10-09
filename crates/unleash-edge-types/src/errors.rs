@@ -123,6 +123,7 @@ pub enum EdgeError {
     FrontendExpectedToBeHydrated(String),
     FrontendNotYetHydrated(FrontendHydrationMissing),
     HealthCheckError(String),
+    HeartbeatError(String, StatusCode),
     InvalidBackupFile(String, String),
     InvalidServerUrl(String),
     InvalidEtag,
@@ -206,6 +207,9 @@ impl Display for EdgeError {
             EdgeError::HealthCheckError(message) => {
                 write!(f, "{message}")
             }
+            EdgeError::HeartbeatError(message, status_code) => {
+                write!(f, "Received status code {status_code} when trying to send heartbeat to upstream server: {message}")
+            }
             EdgeError::ReadyCheckError(message) => {
                 write!(f, "{message}")
             }
@@ -267,6 +271,10 @@ impl IntoResponse for EdgeError {
                 "access": frontend_hydration_missing.clone()
             }).to_string())),
             EdgeError::HealthCheckError(_) => Response::builder().status(self.status_code()).body(Body::empty()),
+            EdgeError::HeartbeatError(message, status_code) => Response::builder().status(self.status_code()).body(Body::from(json!({
+                "explanation": format!("Received a non 200 status code when trying to validate token upstream: {message}"),
+                "status_code": status_code.as_str()
+            }).to_string())),
             EdgeError::InvalidBackupFile(_, _) => Response::builder().status(self.status_code()).body(Body::empty()),
             EdgeError::InvalidServerUrl(_) => Response::builder().status(self.status_code()).body(Body::empty()),
             EdgeError::JsonParseError(_) => Response::builder().status(self.status_code()).body(Body::empty()),
@@ -323,6 +331,7 @@ impl EdgeError {
                 StatusCode::from_u16(status_code.as_u16()).unwrap()
             }
             EdgeError::HealthCheckError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            EdgeError::HeartbeatError(_, status_code) => *status_code,
             EdgeError::ReadyCheckError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::ClientHydrationFailed(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::ClientCacheError => StatusCode::INTERNAL_SERVER_ERROR,

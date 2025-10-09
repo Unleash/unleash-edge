@@ -4844,6 +4844,7 @@ dependencies = [
  "unleash-edge-client-api",
  "unleash-edge-delta",
  "unleash-edge-edge-api",
+ "unleash-edge-enterprise",
  "unleash-edge-feature-cache",
  "unleash-edge-feature-refresh",
  "unleash-edge-frontend-api",
@@ -4996,6 +4997,16 @@ dependencies = [
  "unleash-edge-auth",
  "unleash-edge-types",
  "utoipa",
+]
+
+[[package]]
+name = "unleash-edge-enterprise"
+version = "20.0.0"
+dependencies = [
+ "tokio",
+ "tracing",
+ "unleash-edge-http-client",
+ "unleash-edge-types",
 ]
 
 [[package]]

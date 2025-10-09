@@ -17,6 +17,7 @@ eula = false
 [features]
 default = ["s3-persistence"]
 s3-persistence = ["aws-sdk-s3", "aws-config"]
+enterprise = []
 
 [dependencies]
 anyhow = { workspace = true }
@@ -56,6 +57,7 @@ unleash-edge-cli = { workspace = true }
 unleash-edge-client-api = { workspace = true }
 unleash-edge-delta = { workspace = true }
 unleash-edge-edge-api = { workspace = true }
+unleash-edge-enterprise = { workspace = true }
 unleash-edge-feature-cache = { workspace = true }
 unleash-edge-feature-refresh = { workspace = true }
 unleash-edge-frontend-api = { workspace = true }
