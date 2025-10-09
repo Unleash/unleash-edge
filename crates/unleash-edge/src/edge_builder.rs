@@ -279,19 +279,29 @@ pub async fn build_edge_state(
         .map_err(|_| EdgeError::InvalidServerUrl(edge_args.upstream_url.clone()))?;
 
     let startup_tokens = edge_args
-    .tokens
-    .iter()
-    .map(|t| {
-        EdgeToken::try_from(t.clone())
-            .expect("Token given at startup in edge mode did not follow valid format")
-    })
-    .collect::<Vec<_>>();
+        .tokens
+        .iter()
+        .map(|t| {
+            EdgeToken::try_from(t.clone())
+                .expect("Token given at startup in edge mode did not follow valid format")
+        })
+        .collect::<Vec<_>>();
 
     #[cfg(feature = "enterprise")]
     {
-        unleash_client.send_heartbeat(startup_tokens.first().expect("Startup token is required for enterprise feature")).await.map_err(|e| {
-            EdgeError::HeartbeatError(format!("Failed to license Edge instance with upstream: {e}"), reqwest::StatusCode::INTERNAL_SERVER_ERROR)
-        })?;
+        unleash_client
+            .send_heartbeat(
+                startup_tokens
+                    .first()
+                    .expect("Startup token is required for enterprise feature"),
+            )
+            .await
+            .map_err(|e| {
+                EdgeError::HeartbeatError(
+                    format!("Failed to license Edge instance with upstream: {e}"),
+                    reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                )
+            })?;
     }
 
     let (deferred_validation_tx, deferred_validation_rx) = if *SHOULD_DEFER_VALIDATION {
@@ -520,9 +530,15 @@ fn create_edge_mode_background_tasks(
 
     #[cfg(feature = "enterprise")]
     {
-        use unleash_edge_enterprise::{create_enterprise_heartbeat_task};
-        
-        tasks.push(create_enterprise_heartbeat_task(unleash_client, startup_tokens.first().cloned().expect("Startup token is required for enterprise feature")));
+        use unleash_edge_enterprise::create_enterprise_heartbeat_task;
+
+        tasks.push(create_enterprise_heartbeat_task(
+            unleash_client,
+            startup_tokens
+                .first()
+                .cloned()
+                .expect("Startup token is required for enterprise feature"),
+        ));
     }
 
     tasks

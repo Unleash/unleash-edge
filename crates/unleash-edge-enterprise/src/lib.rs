@@ -1,14 +1,14 @@
-use std::{pin::Pin, sync::Arc, process};
+use std::{pin::Pin, process, sync::Arc};
+use tracing::{debug, error, info};
 use unleash_edge_http_client::UnleashClient;
 use unleash_edge_types::{errors::EdgeError, tokens::EdgeToken};
-use tracing::{debug, error, info};
 
 pub fn create_enterprise_heartbeat_task(
-  unleash_client: Arc<UnleashClient>,
-  token: EdgeToken,
+    unleash_client: Arc<UnleashClient>,
+    token: EdgeToken,
 ) -> Pin<Box<dyn Future<Output = ()> + Send>> {
-  Box::pin(async move {
-    let sleep_duration = tokio::time::Duration::from_secs(1);
+    Box::pin(async move {
+        let sleep_duration = tokio::time::Duration::from_secs(1);
         loop {
             tokio::select! {
                 _ = tokio::time::sleep(sleep_duration) => {
@@ -27,5 +27,5 @@ pub fn create_enterprise_heartbeat_task(
                 }
             }
         }
-  })
+    })
 }

@@ -669,11 +669,8 @@ impl UnleashClient {
         }
     }
 
-    pub async fn send_heartbeat(
-        &self,
-        api_key: &EdgeToken,
-    ) -> EdgeResult<()> {
-      let response = self
+    pub async fn send_heartbeat(&self, api_key: &EdgeToken) -> EdgeResult<()> {
+        let response = self
             .backing_client
             .post(self.urls.heartbeat_url.to_string())
             .query(&[("connectionId", self.meta_info.connection_id.clone())])
@@ -681,16 +678,24 @@ impl UnleashClient {
             .send()
             .await
             .map_err(|e| {
-                EdgeError::HeartbeatError(format!("{e}"), e.status().unwrap_or(StatusCode::INTERNAL_SERVER_ERROR))
+                EdgeError::HeartbeatError(
+                    format!("{e}"),
+                    e.status().unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
+                )
             })?;
 
-       if response.status().is_success() {
+        if response.status().is_success() {
             Ok(())
-       } else if response.status() == StatusCode::FORBIDDEN {
-          Err(EdgeError::Forbidden("Enterprise Edge requires a license".to_string()))
-       } else {
-          Err(EdgeError::HeartbeatError(format!("Upstream returned status code {}", response.status()), response.status()))
-       }
+        } else if response.status() == StatusCode::FORBIDDEN {
+            Err(EdgeError::Forbidden(
+                "Enterprise Edge requires a license".to_string(),
+            ))
+        } else {
+            Err(EdgeError::HeartbeatError(
+                format!("Upstream returned status code {}", response.status()),
+                response.status(),
+            ))
+        }
     }
 
     pub async fn send_bulk_metrics_to_client_endpoint(

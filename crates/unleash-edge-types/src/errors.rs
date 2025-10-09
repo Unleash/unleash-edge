@@ -208,7 +208,10 @@ impl Display for EdgeError {
                 write!(f, "{message}")
             }
             EdgeError::HeartbeatError(message, status_code) => {
-                write!(f, "Received status code {status_code} when trying to send heartbeat to upstream server: {message}")
+                write!(
+                    f,
+                    "Received status code {status_code} when trying to send heartbeat to upstream server: {message}"
+                )
             }
             EdgeError::ReadyCheckError(message) => {
                 write!(f, "{message}")
