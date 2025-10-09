@@ -104,6 +104,11 @@ RUN set -ex; \
     # Copy files from the target folder to app folder
     cp $target/unleash-edge     /all-files/${TARGETPLATFORM}/app
 
+## Create a passwd to avoid running as root
+FROM ubuntu:25.04 AS passwdsource
+
+RUN useradd -u 10001 edgeuser
+
 # # Create a single layer image
 FROM scratch AS runtime
 
@@ -115,7 +120,9 @@ WORKDIR /app
 
 # Copy the binary and the environment files from the pre-runtime stage as a single layer
 COPY --from=builder /all-files/${TARGETPLATFORM} /
+COPY --from=passwdsource /etc/passwd /etc/passwd
 
+USER edgeuser
 # Expose the port that the application listens on.
 EXPOSE 3063
 
