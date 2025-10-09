@@ -681,7 +681,7 @@ impl UnleashClient {
             .send()
             .await
             .map_err(|e| {
-                EdgeError::HeartbeatError(format!("{e}"), e.status().unwrap_or_else(|| StatusCode::INTERNAL_SERVER_ERROR))
+                EdgeError::HeartbeatError(format!("{e}"), e.status().unwrap_or(StatusCode::INTERNAL_SERVER_ERROR))
             })?;
 
        if response.status().is_success() {
