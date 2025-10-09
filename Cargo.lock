@@ -5010,6 +5010,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "unleash-edge-enterprise-integration-tests"
+version = "20.0.0"
+dependencies = [
+ "axum",
+ "axum-test",
+ "chrono",
+ "dashmap",
+ "etag",
+ "eventsource-stream",
+ "futures",
+ "pretty_assertions",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "test-case",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "tracing-test",
+ "ulid",
+ "unleash-edge",
+ "unleash-edge-appstate",
+ "unleash-edge-auth",
+ "unleash-edge-cli",
+ "unleash-edge-client-api",
+ "unleash-edge-delta",
+ "unleash-edge-edge-api",
+ "unleash-edge-feature-cache",
+ "unleash-edge-feature-filters",
+ "unleash-edge-feature-refresh",
+ "unleash-edge-http-client",
+ "unleash-edge-types",
+ "unleash-types",
+ "unleash-yggdrasil",
+]
+
+[[package]]
 name = "unleash-edge-feature-cache"
 version = "20.0.0"
 dependencies = [
