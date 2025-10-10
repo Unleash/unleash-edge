@@ -1,7 +1,7 @@
 use axum::extract::{Request, State};
 use axum::middleware::Next;
 use axum::response::Response;
-use prometheus::{IntCounterVec, register_int_counter_vec};
+use prometheus::{register_int_counter_vec, IntCounterVec};
 use std::sync::LazyLock;
 use unleash_edge_appstate::AppState;
 
@@ -16,7 +16,7 @@ pub const PATH: &str = "path";
 pub static CLIENT_SPEC_VERSION: LazyLock<IntCounterVec> = LazyLock::new(|| {
     register_int_counter_vec!(
         "client_spec_version",
-        "The client SDK version",
+        "The client spec version",
         &[APP_NAME, INSTANCE_ID, SDK_NAME, SDK_VERSION, SPEC_VERSION]
     )
     .unwrap()
