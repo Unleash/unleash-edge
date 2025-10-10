@@ -297,6 +297,6 @@ jobs:
     needs:
       - host
     if: ${{ always() && needs.host.result == 'success' }}
-    uses: ./github/workflows/generate-sbom.yml
+    uses: ./.github/workflows/generate-sbom.yml
     with:
       tag: ${{ github.ref_name }}
