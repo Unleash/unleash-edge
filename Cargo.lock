@@ -4852,6 +4852,7 @@ dependencies = [
  "unleash-edge-metrics",
  "unleash-edge-offline",
  "unleash-edge-persistence",
+ "unleash-edge-request-logger",
  "unleash-edge-types",
  "unleash-types",
  "unleash-yggdrasil",
@@ -5258,6 +5259,15 @@ dependencies = [
  "unleash-edge-feature-cache",
  "unleash-edge-types",
  "unleash-types",
+]
+
+[[package]]
+name = "unleash-edge-request-logger"
+version = "20.0.0"
+dependencies = [
+ "axum",
+ "http 1.3.1",
+ "tracing",
 ]
 
 [[package]]
