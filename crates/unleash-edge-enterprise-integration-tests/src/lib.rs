@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests {
 
+    use axum::extract::State;
     use axum::Json;
     use axum::routing::post;
     use axum::{Router, response::IntoResponse};
@@ -20,27 +21,63 @@ mod tests {
 
     use unleash_edge_types::EdgeResult;
 
-    fn build_license_heartbeat_router(expected_result: EdgeResult<()>) -> Router {
-        Router::new().route(
-            "/edge-licensing/heartbeat",
-            post(move || async move { expected_result.clone() }),
-        )
+    #[derive(Clone)]
+    struct MockState {
+        license_result: Arc<RwLock<EdgeResult<()>>>,
     }
 
-    fn validate_all_tokens_router() -> Router {
-        Router::new().route("/validate", post(validate_all_tokens))
+    pub struct UpstreamMock {
+        state: MockState,
+        server: TestServer,
     }
 
-    async fn validate_all_tokens() -> impl IntoResponse {
-        Json(json!({
-            "tokens": [
-                {
-                    "token": "*:development.hashyhashhash",
-                    "type": "client",
-                    "projects": ["*"]
-                }
-            ]
-        }))
+    impl UpstreamMock {
+        pub async fn new(initial: EdgeResult<()>) -> Self {
+            let state = MockState { license_result: Arc::new(RwLock::new(initial)) };
+
+            let app = Router::new()
+                .nest(
+                    "/api/client",
+                    Router::new()
+                        .route("/edge-licensing/heartbeat", post(Self::heartbeat))
+                        .with_state(state.clone()),
+                )
+                .nest(
+                    "/edge",
+                    Router::new().route("/validate", post(Self::validate_all_tokens)),
+                );
+
+            let server = TestServer::builder()
+                .http_transport()
+                .build(app)
+                .expect("failed to build upstream mock");
+
+            Self { state, server }
+        }
+
+        pub async fn set(&self, result: EdgeResult<()>) {
+            *self.state.license_result.write().await = result;
+        }
+
+        pub fn url(&self) -> String {
+            self.server.server_url("/").unwrap().to_string()
+        }
+
+        async fn heartbeat(State(s): State<MockState>) -> EdgeResult<()> {
+            s.license_result.read().await.clone()
+        }
+
+        async fn validate_all_tokens() -> impl IntoResponse {
+            Json(json!({
+                "tokens": [
+                    {
+                        "token": "*:development.hashyhashhash",
+                        "type": "client",
+                        "projects": ["*"]
+                    }
+                ]
+            }))
+        }
     }
 
     fn mock_cli_args() -> CliArgs {
@@ -140,24 +177,10 @@ mod tests {
         )
     }
 
-    async fn test_upstream_server(expected_result: EdgeResult<()>) -> TestServer {
-        let router = Router::new()
-            .nest(
-                "/api/client",
-                build_license_heartbeat_router(expected_result),
-            )
-            .nest("/edge", validate_all_tokens_router());
-
-        TestServer::builder()
-            .http_transport()
-            .build(router)
-            .expect("Failed to build client api test server")
-    }
-
     #[tokio::test]
     async fn enterprise_edge_state_errors_with_invalid_license_when_license_is_not_retrievable() {
         let (shutdown_hook, _) = oneshot::channel();
-        let server = test_upstream_server(Err::<(), _>(EdgeError::InvalidLicense("This Edge instance is not licensed! The police will arrive at your doorstep imminently".into()))).await;
+        let upstream = UpstreamMock::new(Err(EdgeError::InvalidLicense("This Edge instance is not licensed! The police will arrive at your doorstep imminently".into()))).await;
         let (
             http_client,
             edge_instance_data,
@@ -167,7 +190,7 @@ mod tests {
 
         let cli_args = mock_cli_args();
         let edge_args = EdgeArgs {
-            upstream_url: server.server_url("/").unwrap().to_string(),
+            upstream_url: upstream.url(),
             tokens: vec!["*:development.hashyhashhash".to_string()],
             ..EdgeArgs::default()
         };
@@ -193,7 +216,7 @@ mod tests {
     #[tokio::test]
     async fn enterprise_edge_state_errors_with_heartbeat_error_when_license_cannot_be_verified() {
         let (shutdown_hook, _) = oneshot::channel();
-        let server = test_upstream_server(Err::<(), _>(EdgeError::Forbidden("This Edge instance is not licensed! The police will arrive at your doorstep imminently".into()))).await;
+        let upstream = UpstreamMock::new(Err(EdgeError::Forbidden("This Edge instance is not licensed! The police will arrive at your doorstep imminently".into()))).await;
         let (
             http_client,
             edge_instance_data,
@@ -203,10 +226,7 @@ mod tests {
 
         let cli_args = mock_cli_args();
         let edge_args = EdgeArgs {
-            upstream_url: server
-                .server_url("/bad-url-that-should-make-endpoints-404")
-                .unwrap()
-                .to_string(),
+            upstream_url: upstream.url(),
             tokens: vec!["*:development.hashyhashhash".to_string()],
             ..EdgeArgs::default()
         };
@@ -232,7 +252,7 @@ mod tests {
     #[tokio::test]
     async fn enterprise_edge_state_startup_succeeds_if_license_can_be_verified() {
         let (shutdown_hook, _) = oneshot::channel();
-        let server = test_upstream_server(Ok(())).await;
+        let upstream = UpstreamMock::new(Ok(())).await;
         let (
             http_client,
             edge_instance_data,
@@ -242,7 +262,7 @@ mod tests {
 
         let cli_args = mock_cli_args();
         let edge_args = EdgeArgs {
-            upstream_url: server.server_url("/").unwrap().to_string(),
+            upstream_url: upstream.url(),
             tokens: vec!["*:development.hashyhashhash".to_string()],
             ..EdgeArgs::default()
         };
@@ -265,7 +285,7 @@ mod tests {
     #[tokio::test]
     async fn server_receives_a_shutdown_signal_if_upstream_invalidates_license() {
         let (shutdown_hook, shutdown_rx) = oneshot::channel();
-        let server = test_upstream_server(Ok(())).await;
+        let upstream = UpstreamMock::new(Ok(())).await;
         let (
             http_client,
             edge_instance_data,
@@ -275,7 +295,7 @@ mod tests {
 
         let cli_args = mock_cli_args();
         let edge_args = EdgeArgs {
-            upstream_url: server.server_url("/").unwrap().to_string(),
+            upstream_url: upstream.url(),
             tokens: vec!["*:development.hashyhashhash".to_string()],
             ..EdgeArgs::default()
         };
@@ -294,8 +314,14 @@ mod tests {
 
         assert!(maybe_edge_state.is_ok());
 
+        let (_, background_tasks, _) = maybe_edge_state.unwrap();
+
+        for task in background_tasks {
+            tokio::spawn(task);
+        }
+
         // Now we need to trigger the heartbeat task to send an invalid license error
-        let server = test_upstream_server(Err::<(), _>(EdgeError::InvalidLicense("This Edge instance is not licensed! The police will arrive at your doorstep imminently".into()))).await;
+        upstream.set(Err(EdgeError::InvalidLicense("This Edge instance is not licensed! The police will arrive at your doorstep imminently".into()))).await;
 
         // Wait for the shutdown signal to be received
         let shutdown_result = tokio::time::timeout(std::time::Duration::from_secs(5), shutdown_rx).await;
