@@ -1,7 +1,7 @@
 use axum::extract::{Request, State};
 use axum::middleware::Next;
 use axum::response::Response;
-use prometheus::{register_int_counter_vec, IntCounterVec};
+use prometheus::{IntCounterVec, register_int_counter_vec};
 use std::sync::LazyLock;
 use unleash_edge_appstate::AppState;
 
