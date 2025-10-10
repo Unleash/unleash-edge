@@ -5,6 +5,7 @@ mod tests {
     use axum::routing::post;
     use axum_test::TestServer;
     use chrono::Duration;
+    use reqwest::Client;
     use std::sync::Arc;
     use tokio::sync::RwLock;
     use ulid::Ulid;
@@ -21,16 +22,8 @@ mod tests {
         Err(EdgeError::Forbidden("This Edge instance is not licensed! The police will arrive at your doorstep imminently".into()))
     }
 
-    fn build_license_response_router() -> Router {
+    fn build_license_heartbeat_router() -> Router {
         Router::new().route("/edge-licensing/heartbeat", post(heartbeat))
-    }
-
-    async fn test_upstream_server() -> TestServer {
-        let router = Router::new().nest("/api/client", build_license_response_router());
-        TestServer::builder()
-            .http_transport()
-            .build(router)
-            .expect("Failed to build client api test server")
     }
 
     fn mock_cli_args() -> CliArgs {
@@ -91,9 +84,12 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn enterprise_edge_state_errors_when_license_is_not_retrievable() {
-        let server = test_upstream_server().await;
+    fn build_edge_state_data() -> (
+        Client,
+        Arc<EdgeInstanceData>,
+        ClientMetaInformation,
+        Arc<RwLock<Vec<EdgeInstanceData>>>,
+    ) {
         let client_meta_information = ClientMetaInformation {
             app_name: "unleash-edge-test".to_string(),
             connection_id: "test-connection-id".to_string(),
@@ -117,14 +113,40 @@ mod tests {
         })
         .unwrap();
 
+        let instances_observed_for_app_context = Arc::new(RwLock::new(vec![]));
+
+        (
+            http_client,
+            edge_instance_data,
+            client_meta_information,
+            instances_observed_for_app_context,
+        )
+    }
+
+    async fn test_upstream_server() -> TestServer {
+        let router = Router::new().nest("/api/client", build_license_heartbeat_router());
+        TestServer::builder()
+            .http_transport()
+            .build(router)
+            .expect("Failed to build client api test server")
+    }
+
+    #[tokio::test]
+    async fn enterprise_edge_state_errors_with_forbidden_when_license_is_not_retrievable() {
+        let server = test_upstream_server().await;
+        let (
+            http_client,
+            edge_instance_data,
+            client_meta_information,
+            instances_observed_for_app_context,
+        ) = build_edge_state_data();
+
         let cli_args = mock_cli_args();
         let edge_args = EdgeArgs {
             upstream_url: server.server_url("/").unwrap().to_string(),
             tokens: vec!["*:development.hashyhashhash".to_string()],
             ..EdgeArgs::default()
         };
-
-        let instances_observed_for_app_context = Arc::new(RwLock::new(vec![]));
 
         let maybe_edge_state = build_edge_state(
             cli_args,
@@ -142,5 +164,46 @@ mod tests {
         }
 
         assert!(matches!(maybe_edge_state, Err(EdgeError::Forbidden(_))));
+    }
+
+    #[tokio::test]
+    async fn enterprise_edge_state_errors_with_heartbeat_error_when_license_cannot_be_verified() {
+        let server = test_upstream_server().await;
+        let (
+            http_client,
+            edge_instance_data,
+            client_meta_information,
+            instances_observed_for_app_context,
+        ) = build_edge_state_data();
+
+        let cli_args = mock_cli_args();
+        let edge_args = EdgeArgs {
+            upstream_url: server
+                .server_url("/bad-url-that-should-make-endpoints-404")
+                .unwrap()
+                .to_string(),
+            tokens: vec!["*:development.hashyhashhash".to_string()],
+            ..EdgeArgs::default()
+        };
+
+        let maybe_edge_state = build_edge_state(
+            cli_args,
+            &edge_args,
+            client_meta_information,
+            edge_instance_data,
+            instances_observed_for_app_context,
+            AuthHeaders::default(),
+            http_client,
+        )
+        .await;
+
+        if let Err(maybe_err) = &maybe_edge_state {
+            println!("Edge state build failed as expected: {:#?}", maybe_err);
+        }
+
+        assert!(matches!(
+            maybe_edge_state,
+            Err(EdgeError::HeartbeatError(_, _))
+        ));
     }
 }
