@@ -88,6 +88,7 @@ unleash-edge-cli = { path = "./crates/unleash-edge-cli", version = "20.0.0" }
 unleash-edge-client-api = { path = "./crates/unleash-edge-client-api", version = "20.0.0" }
 unleash-edge-delta = { path = "./crates/unleash-edge-delta", version = "20.0.0" }
 unleash-edge-edge-api = { path = "./crates/unleash-edge-edge-api", version = "20.0.0" }
+unleash-edge-enterprise = {path = "./crates/unleash-edge-enterprise", version = "20.0.0" }
 unleash-edge-feature-cache = { path = "./crates/unleash-edge-feature-cache", version = "20.0.0" }
 unleash-edge-feature-filters = { path = "./crates/unleash-edge-feature-filters", version = "20.0.0" }
 unleash-edge-feature-refresh = { path = "./crates/unleash-edge-feature-refresh", version = "20.0.0" }

@@ -19,6 +19,7 @@ pub struct UnleashUrls {
     pub edge_instance_data_url: Url,
     pub new_api_token_url: Url,
     pub client_features_stream_url: Url,
+    pub heartbeat_url: Url,
 }
 
 impl FromStr for UnleashUrls {
@@ -105,6 +106,13 @@ impl UnleashUrls {
             .path_segments_mut()
             .expect("Could not create /api/client/metrics/instance-data")
             .push("edge");
+
+        let mut heartbeat_url = client_api_url.clone();
+        heartbeat_url
+            .path_segments_mut()
+            .expect("Could not create /api/client/edge-licensing/heartbeat")
+            .push("edge-licensing")
+            .push("heartbeat");
         UnleashUrls {
             base_url,
             api_url,
@@ -120,6 +128,7 @@ impl UnleashUrls {
             new_api_token_url,
             client_features_stream_url,
             edge_instance_data_url,
+            heartbeat_url,
         }
     }
 }

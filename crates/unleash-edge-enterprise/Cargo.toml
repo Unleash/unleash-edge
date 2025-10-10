@@ -1,0 +1,15 @@
+[package]
+name = "unleash-edge-enterprise"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+documentation.workspace = true
+edition.workspace = true
+publish = true
+license.workspace = true
+
+[dependencies]
+tokio = { workspace = true }
+tracing = { workspace = true }
+unleash-edge-http-client = { workspace = true }
+unleash-edge-types = { workspace = true }
