@@ -151,6 +151,10 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
                     app_state.clone(),
                     middleware::allow_list::allow_middleware,
                 ))
+                .layer(from_fn_with_state(
+                    app_state.clone(),
+                    middleware::client_metrics::extract_request_metrics,
+                ))
                 .layer(tower_http::trace::TraceLayer::new_for_http()),
         )
         .with_state(app_state);
