@@ -1,0 +1,14 @@
+[package]
+name = "unleash-edge-request-logger"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+documentation.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+axum = { workspace = true }
+http = { workspace = true }
+tracing = { workspace = true }

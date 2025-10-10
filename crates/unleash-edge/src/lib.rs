@@ -1,5 +1,4 @@
 use crate::edge_builder::build_edge_state;
-use crate::middleware::log_request::log_request_middleware;
 use crate::offline_builder::build_offline_app_state;
 use ::tracing::info;
 use axum::Router;
@@ -23,6 +22,7 @@ use unleash_edge_metrics::axum_prometheus_metrics::{
     PrometheusAxumLayer, render_prometheus_metrics,
 };
 use unleash_edge_persistence::EdgePersistence;
+use unleash_edge_request_logger::log_request_middleware;
 use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
 use unleash_edge_types::{BackgroundTask, EdgeResult, EngineCache, TokenCache};
 
