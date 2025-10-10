@@ -9,7 +9,7 @@ mod tests {
     use reqwest::Client;
     use serde_json::json;
     use std::sync::Arc;
-    use tokio::sync::RwLock;
+    use tokio::sync::{RwLock, oneshot};
     use ulid::Ulid;
     use unleash_edge::edge_builder::build_edge_state;
     use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeArgs, HttpServerArgs};
@@ -156,6 +156,7 @@ mod tests {
 
     #[tokio::test]
     async fn enterprise_edge_state_errors_with_invalid_license_when_license_is_not_retrievable() {
+        let (shutdown_hook, _) = oneshot::channel();
         let server = test_upstream_server(Err::<(), _>(EdgeError::InvalidLicense("This Edge instance is not licensed! The police will arrive at your doorstep imminently".into()))).await;
         let (
             http_client,
@@ -179,6 +180,7 @@ mod tests {
             instances_observed_for_app_context,
             AuthHeaders::default(),
             http_client,
+            shutdown_hook,
         )
         .await;
 
@@ -190,6 +192,7 @@ mod tests {
 
     #[tokio::test]
     async fn enterprise_edge_state_errors_with_heartbeat_error_when_license_cannot_be_verified() {
+        let (shutdown_hook, _) = oneshot::channel();
         let server = test_upstream_server(Err::<(), _>(EdgeError::Forbidden("This Edge instance is not licensed! The police will arrive at your doorstep imminently".into()))).await;
         let (
             http_client,
@@ -216,6 +219,7 @@ mod tests {
             instances_observed_for_app_context,
             AuthHeaders::default(),
             http_client,
+            shutdown_hook,
         )
         .await;
 
@@ -227,6 +231,7 @@ mod tests {
 
     #[tokio::test]
     async fn enterprise_edge_state_startup_succeeds_if_license_can_be_verified() {
+        let (shutdown_hook, _) = oneshot::channel();
         let server = test_upstream_server(Ok(())).await;
         let (
             http_client,
@@ -250,9 +255,51 @@ mod tests {
             instances_observed_for_app_context,
             AuthHeaders::default(),
             http_client,
+            shutdown_hook,
         )
         .await;
 
         assert!(maybe_edge_state.is_ok());
+    }
+
+    #[tokio::test]
+    async fn server_receives_a_shutdown_signal_if_upstream_invalidates_license() {
+        let (shutdown_hook, shutdown_rx) = oneshot::channel();
+        let server = test_upstream_server(Ok(())).await;
+        let (
+            http_client,
+            edge_instance_data,
+            client_meta_information,
+            instances_observed_for_app_context,
+        ) = build_edge_state_data();
+
+        let cli_args = mock_cli_args();
+        let edge_args = EdgeArgs {
+            upstream_url: server.server_url("/").unwrap().to_string(),
+            tokens: vec!["*:development.hashyhashhash".to_string()],
+            ..EdgeArgs::default()
+        };
+
+        let maybe_edge_state = build_edge_state(
+            cli_args,
+            &edge_args,
+            client_meta_information,
+            edge_instance_data,
+            instances_observed_for_app_context,
+            AuthHeaders::default(),
+            http_client,
+            shutdown_hook,
+        )
+        .await;
+
+        assert!(maybe_edge_state.is_ok());
+
+        // Now we need to trigger the heartbeat task to send an invalid license error
+        let server = test_upstream_server(Err::<(), _>(EdgeError::InvalidLicense("This Edge instance is not licensed! The police will arrive at your doorstep imminently".into()))).await;
+
+        // Wait for the shutdown signal to be received
+        let shutdown_result = tokio::time::timeout(std::time::Duration::from_secs(5), shutdown_rx).await;
+
+        assert!(shutdown_result.is_ok(), "Did not receive shutdown signal in time");
     }
 }

@@ -1,4 +1,5 @@
-use std::{pin::Pin, process, sync::Arc};
+use std::{pin::Pin, sync::Arc};
+use tokio::sync::oneshot;
 use tracing::{debug, error, info};
 use unleash_edge_http_client::UnleashClient;
 use unleash_edge_types::{errors::EdgeError, tokens::EdgeToken};
@@ -6,6 +7,7 @@ use unleash_edge_types::{errors::EdgeError, tokens::EdgeToken};
 pub fn create_enterprise_heartbeat_task(
     unleash_client: Arc<UnleashClient>,
     token: EdgeToken,
+    shutdown_tx: oneshot::Sender<()>,
 ) -> Pin<Box<dyn Future<Output = ()> + Send>> {
     Box::pin(async move {
         let sleep_duration = tokio::time::Duration::from_secs(1);
@@ -14,9 +16,9 @@ pub fn create_enterprise_heartbeat_task(
                 _ = tokio::time::sleep(sleep_duration) => {
                     match unleash_client.send_heartbeat(&token).await {
                         Err(EdgeError::InvalidLicense(e)) => {
-                            // this should poison pill the process keeping the tcp server alive rather
-                            error!("Error sending heartbeat: {}", e);
-                            process::exit(1);
+                            error!("License was invalidated by upstream: {}. Shutting down Edge.", e);
+                            let _ = shutdown_tx.send(());
+                            break;
                         }
                         Err(e) => {
                             info!("Unexpected error sending heartbeat: {}", e);

@@ -15,6 +15,7 @@ use std::time::Duration;
 use tokio::signal;
 #[cfg(unix)]
 use tokio::signal::unix::{SignalKind, signal};
+use tokio::sync::oneshot::{self, Receiver};
 
 use tokio::try_join;
 use tower_http::normalize_path::NormalizePathLayer;
@@ -30,6 +31,7 @@ async fn shutdown_signal(
     address: String,
     path: String,
     shutdown_tasks: Vec<BackgroundTask>,
+    mut shutdown_rx: Receiver<()>,
 ) {
     info!(
         "Edge is listening to {protocol} traffic on {} at {path}",
@@ -48,6 +50,9 @@ async fn shutdown_signal(
             _ = &mut sigterm => {
                 info!("Received SIGTERM, shutting down gracefully...");
             }
+            _ = &mut shutdown_rx => {
+                info!("Received fatal shutdown signal (oneshot), shutting down gracefully...");
+            }
         }
     }
     #[cfg(not(unix))]
@@ -55,6 +60,9 @@ async fn shutdown_signal(
         tokio::select! {
             _ = &mut sigint => {
                 info!("Received Ctrl+C (SIGINT), shutting down gracefully...");
+            }
+            _ = &mut fatal_rx => {
+                info!("Received fatal shutdown signal (oneshot), shutting down gracefully...");
             }
         }
     }
@@ -106,8 +114,10 @@ fn make_listener(addr: SocketAddr) -> std::io::Result<TcpListener> {
 }
 
 async fn run_server(args: CliArgs) -> EdgeResult<()> {
+    let (request_shutdown_tx, request_shutdown_rx) = oneshot::channel::<()>();
+
     if args.http.tls.tls_enable {
-        let (router, shutdown_tasks) = configure_server(args.clone()).await?;
+        let (router, shutdown_tasks) = configure_server(args.clone(), request_shutdown_tx).await?;
         let server = router
             .layer(NormalizePathLayer::trim_trailing_slash())
             .into_make_service_with_connect_info::<SocketAddr>();
@@ -119,6 +129,7 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
             args.http.https_server_addr().clone(),
             args.http.base_path.clone(),
             shutdown_tasks,
+            request_shutdown_rx,
         );
         let http_handle = Handle::new();
         let http_handle_clone = http_handle.clone();
@@ -178,7 +189,7 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
             _ = builder.serve(server.clone()).await;
         }
     } else {
-        let (router, shutdown_tasks) = configure_server(args.clone()).await?;
+        let (router, shutdown_tasks) = configure_server(args.clone(), request_shutdown_tx).await?;
         let server = router.into_make_service_with_connect_info::<SocketAddr>();
         let handle = Handle::new();
         let http_handle_clone = handle.clone();
@@ -187,6 +198,7 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
             args.http.http_server_addr().clone(),
             args.http.base_path.clone(),
             shutdown_tasks,
+            request_shutdown_rx,
         );
         tokio::spawn(async move {
             let _ = shutdown_fut.await;

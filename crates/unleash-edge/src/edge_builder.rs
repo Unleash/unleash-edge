@@ -5,6 +5,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::oneshot::Sender;
 use tracing::{debug, error, info, warn};
 use unleash_edge_appstate::AppState;
 use unleash_edge_appstate::token_cache_observer::observe_tokens_in_background;
@@ -261,6 +262,7 @@ pub async fn build_edge_state(
     instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>>,
     auth_headers: AuthHeaders,
     http_client: reqwest::Client,
+    shutdown_hook: Sender<()>,
 ) -> EdgeResult<(AppState, Vec<BackgroundTask>, Vec<BackgroundTask>)> {
     let unleash_client = Url::parse(&edge_args.upstream_url.clone())
         .map(|url| {
@@ -341,6 +343,7 @@ pub async fn build_edge_state(
         token_cache: token_cache.clone(),
         unleash_client: unleash_client.clone(),
         validator: token_validator.clone(),
+        shutdown_hook,
     });
     let shutdown_args = ShutdownTaskArgs {
         delta_cache_manager: delta_cache_manager.clone(),
@@ -445,6 +448,7 @@ pub(crate) struct BackgroundTaskArgs {
     token_cache: Arc<TokenCache>,
     unleash_client: Arc<UnleashClient>,
     validator: Arc<TokenValidator>,
+    shutdown_hook: Sender<()>,
 }
 fn create_edge_mode_background_tasks(
     BackgroundTaskArgs {
@@ -463,6 +467,7 @@ fn create_edge_mode_background_tasks(
         token_cache,
         unleash_client,
         validator,
+        shutdown_hook,
     }: BackgroundTaskArgs,
 ) -> Vec<BackgroundTask> {
     let mut tasks: Vec<BackgroundTask> = vec![
@@ -532,6 +537,7 @@ fn create_edge_mode_background_tasks(
                 .first()
                 .cloned()
                 .expect("Startup token is required for enterprise feature"),
+            shutdown_hook,
         ));
     }
 
