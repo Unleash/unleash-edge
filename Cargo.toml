@@ -97,6 +97,7 @@ unleash-edge-http-client = { path = "./crates/unleash-edge-http-client", version
 unleash-edge-metrics = { path = "./crates/unleash-edge-metrics", version = "20.0.0" }
 unleash-edge-offline = { path = "./crates/unleash-edge-offline", version = "20.0.0" }
 unleash-edge-persistence = { path = "./crates/unleash-edge-persistence", version = "20.0.0" }
+unleash-edge-request-logger = { path = "./crates/unleash-edge-request-logger", version = "20.0.0" }
 unleash-edge-streaming = { path = "./crates/unleash-edge-streaming", version = "20.0.0" }
 unleash-edge-types = { path = "./crates/unleash-edge-types", version = "20.0.0" }
 unleash-types = { version = "0.15.21", features = ["hashes", "openapi"] }
