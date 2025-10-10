@@ -105,7 +105,7 @@ RUN set -ex; \
     cp $target/unleash-edge     /all-files/${TARGETPLATFORM}/app
 
 ## Create a passwd to avoid running as root
-FROM ubuntu:25.04 AS passwdsource
+FROM --platform=$BUILDPLATFORM ubuntu:25.04 AS passwdsource
 
 RUN useradd -u 10001 edgeuser
 
