@@ -13,7 +13,7 @@ pub fn create_enterprise_heartbeat_task(
             tokio::select! {
                 _ = tokio::time::sleep(sleep_duration) => {
                     match unleash_client.send_heartbeat(&token).await {
-                        Err(EdgeError::Forbidden(e)) => {
+                        Err(EdgeError::InvalidLicense(e)) => {
                             // this should poison pill the process keeping the tcp server alive rather
                             error!("Error sending heartbeat: {}", e);
                             process::exit(1);

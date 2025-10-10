@@ -686,8 +686,8 @@ impl UnleashClient {
 
         if response.status().is_success() {
             Ok(())
-        } else if response.status() == StatusCode::FORBIDDEN {
-            Err(EdgeError::Forbidden(
+        } else if response.status() == StatusCode::PAYMENT_REQUIRED {
+            Err(EdgeError::InvalidLicense(
                 "Enterprise Edge requires a license but upstream server confirmed the license is not active".to_string(),
             ))
         } else {

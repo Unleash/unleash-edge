@@ -1,11 +1,13 @@
 #[cfg(test)]
 mod tests {
 
-    use axum::Router;
+    use axum::Json;
     use axum::routing::post;
+    use axum::{Router, response::IntoResponse};
     use axum_test::TestServer;
     use chrono::Duration;
     use reqwest::Client;
+    use serde_json::json;
     use std::sync::Arc;
     use tokio::sync::RwLock;
     use ulid::Ulid;
@@ -18,12 +20,27 @@ mod tests {
 
     use unleash_edge_types::EdgeResult;
 
-    pub async fn heartbeat() -> EdgeResult<()> {
-        Err(EdgeError::Forbidden("This Edge instance is not licensed! The police will arrive at your doorstep imminently".into()))
+    fn build_license_heartbeat_router(expected_result: EdgeResult<()>) -> Router {
+        Router::new().route(
+            "/edge-licensing/heartbeat",
+            post(move || async move { expected_result.clone() }),
+        )
     }
 
-    fn build_license_heartbeat_router() -> Router {
-        Router::new().route("/edge-licensing/heartbeat", post(heartbeat))
+    fn validate_all_tokens_router() -> Router {
+        Router::new().route("/validate", post(validate_all_tokens))
+    }
+
+    async fn validate_all_tokens() -> impl IntoResponse {
+        Json(json!({
+            "tokens": [
+                {
+                    "token": "*:development.hashyhashhash",
+                    "type": "client",
+                    "projects": ["*"]
+                }
+            ]
+        }))
     }
 
     fn mock_cli_args() -> CliArgs {
@@ -123,8 +140,14 @@ mod tests {
         )
     }
 
-    async fn test_upstream_server() -> TestServer {
-        let router = Router::new().nest("/api/client", build_license_heartbeat_router());
+    async fn test_upstream_server(expected_result: EdgeResult<()>) -> TestServer {
+        let router = Router::new()
+            .nest(
+                "/api/client",
+                build_license_heartbeat_router(expected_result),
+            )
+            .nest("/edge", validate_all_tokens_router());
+
         TestServer::builder()
             .http_transport()
             .build(router)
@@ -132,8 +155,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn enterprise_edge_state_errors_with_forbidden_when_license_is_not_retrievable() {
-        let server = test_upstream_server().await;
+    async fn enterprise_edge_state_errors_with_invalid_license_when_license_is_not_retrievable() {
+        let server = test_upstream_server(Err::<(), _>(EdgeError::InvalidLicense("This Edge instance is not licensed! The police will arrive at your doorstep imminently".into()))).await;
         let (
             http_client,
             edge_instance_data,
@@ -159,12 +182,15 @@ mod tests {
         )
         .await;
 
-        assert!(matches!(maybe_edge_state, Err(EdgeError::Forbidden(_))));
+        assert!(matches!(
+            maybe_edge_state,
+            Err(EdgeError::InvalidLicense(_))
+        ));
     }
 
     #[tokio::test]
     async fn enterprise_edge_state_errors_with_heartbeat_error_when_license_cannot_be_verified() {
-        let server = test_upstream_server().await;
+        let server = test_upstream_server(Err::<(), _>(EdgeError::Forbidden("This Edge instance is not licensed! The police will arrive at your doorstep imminently".into()))).await;
         let (
             http_client,
             edge_instance_data,
@@ -197,5 +223,36 @@ mod tests {
             maybe_edge_state,
             Err(EdgeError::HeartbeatError(_, _))
         ));
+    }
+
+    #[tokio::test]
+    async fn enterprise_edge_state_startup_succeeds_if_license_can_be_verified() {
+        let server = test_upstream_server(Ok(())).await;
+        let (
+            http_client,
+            edge_instance_data,
+            client_meta_information,
+            instances_observed_for_app_context,
+        ) = build_edge_state_data();
+
+        let cli_args = mock_cli_args();
+        let edge_args = EdgeArgs {
+            upstream_url: server.server_url("/").unwrap().to_string(),
+            tokens: vec!["*:development.hashyhashhash".to_string()],
+            ..EdgeArgs::default()
+        };
+
+        let maybe_edge_state = build_edge_state(
+            cli_args,
+            &edge_args,
+            client_meta_information,
+            edge_instance_data,
+            instances_observed_for_app_context,
+            AuthHeaders::default(),
+            http_client,
+        )
+        .await;
+
+        assert!(maybe_edge_state.is_ok());
     }
 }
