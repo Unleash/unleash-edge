@@ -92,7 +92,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn enterprise_edge_state_shuts_down_process_when_license_is_not_found() {
+    async fn enterprise_edge_state_errors_when_license_is_not_retrievable() {
         let server = test_upstream_server().await;
         let client_meta_information = ClientMetaInformation {
             app_name: "unleash-edge-test".to_string(),
@@ -140,7 +140,7 @@ mod tests {
         if let Err(maybe_err) = &maybe_edge_state {
             println!("Edge state build failed as expected: {:#?}", maybe_err);
         }
-        //assert that we get an error back from the edge state builder
+
         assert!(maybe_edge_state.is_err());
     }
 }
