@@ -688,11 +688,11 @@ impl UnleashClient {
             Ok(())
         } else if response.status() == StatusCode::FORBIDDEN {
             Err(EdgeError::Forbidden(
-                "Enterprise Edge requires a license".to_string(),
+                "Enterprise Edge requires a license but upstream server confirmed the license is not active".to_string(),
             ))
         } else {
             Err(EdgeError::HeartbeatError(
-                format!("Upstream returned status code {}", response.status()),
+                format!("Enterprise Edge requires a license but this could not be confirmed with upstream and could not be verified from persistence: {}", response.status()),
                 response.status(),
             ))
         }

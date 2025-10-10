@@ -295,13 +295,7 @@ pub async fn build_edge_state(
                     .first()
                     .expect("Startup token is required for enterprise feature"),
             )
-            .await
-            .map_err(|e| {
-                EdgeError::HeartbeatError(
-                    format!("Failed to license Edge instance with upstream: {e}"),
-                    reqwest::StatusCode::INTERNAL_SERVER_ERROR,
-                )
-            })?;
+            .await?;
     }
 
     let (deferred_validation_tx, deferred_validation_rx) = if *SHOULD_DEFER_VALIDATION {

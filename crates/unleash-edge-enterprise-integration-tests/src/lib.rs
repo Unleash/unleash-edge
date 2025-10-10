@@ -141,6 +141,6 @@ mod tests {
             println!("Edge state build failed as expected: {:#?}", maybe_err);
         }
 
-        assert!(maybe_edge_state.is_err());
+        assert!(matches!(maybe_edge_state, Err(EdgeError::Forbidden(_))));
     }
 }
