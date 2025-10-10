@@ -692,7 +692,10 @@ impl UnleashClient {
             ))
         } else {
             Err(EdgeError::HeartbeatError(
-                format!("Enterprise Edge requires a license but this could not be confirmed with upstream and could not be verified from persistence: {}", response.status()),
+                format!(
+                    "Enterprise Edge requires a license but this could not be confirmed with upstream and could not be verified from persistence: {}",
+                    response.status()
+                ),
                 response.status(),
             ))
         }
