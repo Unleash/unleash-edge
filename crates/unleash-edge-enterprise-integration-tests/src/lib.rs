@@ -159,10 +159,6 @@ mod tests {
         )
         .await;
 
-        if let Err(maybe_err) = &maybe_edge_state {
-            println!("Edge state build failed as expected: {:#?}", maybe_err);
-        }
-
         assert!(matches!(maybe_edge_state, Err(EdgeError::Forbidden(_))));
     }
 
@@ -196,10 +192,6 @@ mod tests {
             http_client,
         )
         .await;
-
-        if let Err(maybe_err) = &maybe_edge_state {
-            println!("Edge state build failed as expected: {:#?}", maybe_err);
-        }
 
         assert!(matches!(
             maybe_edge_state,
