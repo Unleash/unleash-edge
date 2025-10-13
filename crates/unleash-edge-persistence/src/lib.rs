@@ -1,6 +1,7 @@
 use ahash::HashMap;
 use async_trait::async_trait;
 use dashmap::DashMap;
+use serde::{Deserialize, Serialize};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
@@ -14,12 +15,22 @@ pub mod file;
 pub mod redis;
 pub mod s3;
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum EnterpriseEdgeLicenseState {
+    Valid,
+    Invalid,
+    Expired,
+    Undetermined,
+}
+
 #[async_trait]
 pub trait EdgePersistence: Send + Sync {
     async fn load_tokens(&self) -> EdgeResult<Vec<EdgeToken>>;
     async fn save_tokens(&self, tokens: Vec<EdgeToken>) -> EdgeResult<()>;
     async fn load_features(&self) -> EdgeResult<HashMap<String, ClientFeatures>>;
     async fn save_features(&self, features: Vec<(String, ClientFeatures)>) -> EdgeResult<()>;
+    async fn load_license_state(&self) -> EnterpriseEdgeLicenseState;
+    async fn save_license_state(&self, license: &EnterpriseEdgeLicenseState) -> EdgeResult<()>;
 }
 
 async fn persist(
@@ -129,6 +140,14 @@ pub mod tests {
         }
 
         async fn save_features(&self, _: Vec<(String, ClientFeatures)>) -> EdgeResult<()> {
+            panic!("Not expected to be called");
+        }
+
+        async fn load_license_state(&self) -> EnterpriseEdgeLicenseState {
+            panic!("Not expected to be called");
+        }
+
+        async fn save_license_state(&self, _: &EnterpriseEdgeLicenseState) -> EdgeResult<()> {
             panic!("Not expected to be called");
         }
     }

@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use super::EdgePersistence;
 use crate::redis::RedisClientOptions::{Cluster, Single};
+use crate::EnterpriseEdgeLicenseState;
 use async_trait::async_trait;
 use redis::cluster::ClusterClient;
 use redis::{AsyncCommands, Client, Commands, RedisError};
@@ -16,6 +17,7 @@ use unleash_types::client_features::ClientFeatures;
 
 pub const FEATURES_KEY: &str = "unleash-features";
 pub const TOKENS_KEY: &str = "unleash-tokens";
+pub const LICENSE_STATE_KEY: &str = "unleash-license-state";
 
 enum RedisClientOptions {
     Single(Client),
@@ -166,6 +168,58 @@ impl EdgePersistence for RedisPersister {
             }
         };
         debug!("Done saving to persistence");
+        Ok(())
+    }
+
+    async fn load_license_state(&self) -> EnterpriseEdgeLicenseState {
+        debug!("Loading license state from persistence");
+        let mut client = self.redis_client.write().await;
+        let raw_license_state: String = match &mut *client {
+            Single(c) => {
+              let Ok(mut conn) = c.get_multiplexed_tokio_connection_with_response_timeouts(
+                        self.read_timeout,
+                        self.read_timeout,
+                    ).await else {
+                        return EnterpriseEdgeLicenseState::Undetermined;
+                    };
+              let Ok(raw_license_state) = conn.get(LICENSE_STATE_KEY).await else {
+                  return EnterpriseEdgeLicenseState::Undetermined;
+              };
+              raw_license_state
+            }
+            Cluster(c) => {
+              let Ok(mut conn) = c.get_connection() else {
+                return EnterpriseEdgeLicenseState::Undetermined;
+              };
+                let Ok(raw_license_state) = conn.get(LICENSE_STATE_KEY) else {
+                    return EnterpriseEdgeLicenseState::Undetermined;
+                };
+                raw_license_state
+            }
+        };
+        serde_json::from_str::<EnterpriseEdgeLicenseState>(&raw_license_state).unwrap_or(EnterpriseEdgeLicenseState::Undetermined)
+    }
+
+    async fn save_license_state(&self, license_state: &EnterpriseEdgeLicenseState) -> EdgeResult<()> {
+        debug!("Saving license state to persistence");
+        let mut client = self.redis_client.write().await;
+        let raw_license_state = serde_json::to_string(&license_state)?;
+        match &mut *client {
+            RedisClientOptions::Single(c) => {
+                let mut conn = c
+                    .get_multiplexed_tokio_connection_with_response_timeouts(
+                        self.write_timeout,
+                        self.write_timeout,
+                    )
+                    .await?;
+                let res: Result<(), RedisError> = conn.set(LICENSE_STATE_KEY, raw_license_state).await;
+                res?;
+            }
+            RedisClientOptions::Cluster(c) => {
+                let mut conn = c.get_connection()?;
+                conn.set(LICENSE_STATE_KEY, raw_license_state)?
+            }
+        };
         Ok(())
     }
 }

@@ -6,7 +6,7 @@ pub mod s3_persister {
     use async_trait::async_trait;
     use unleash_types::client_features::ClientFeatures;
 
-    use crate::EdgePersistence;
+    use crate::{EdgePersistence, EnterpriseEdgeLicenseState};
     use aws_sdk_s3::{
         self as s3,
         primitives::{ByteStream, SdkBody},
@@ -17,6 +17,7 @@ pub mod s3_persister {
 
     pub const FEATURES_KEY: &str = "/unleash-features.json";
     pub const TOKENS_KEY: &str = "/unleash-tokens.json";
+    pub const LICENSE_STATE_KEY: &str = "/unleash-license-state.json";
 
     pub struct S3Persister {
         client: s3::Client,
@@ -132,6 +133,46 @@ pub mod s3_persister {
                 Ok(_) => Ok(()),
                 Err(s3_err) => Err(EdgeError::PersistenceError(format!(
                     "Failed to save features: {}",
+                    s3_err.into_service_error()
+                ))),
+            }
+        }
+
+        async fn load_license_state(&self) -> EnterpriseEdgeLicenseState {
+            let Ok(response) = self
+                .client
+                .get_object()
+                .bucket(self.bucket.clone())
+                .key(LICENSE_STATE_KEY)
+                .response_content_type("application/json")
+                .send()
+                .await else {
+                    return EnterpriseEdgeLicenseState::Undetermined;
+                };
+              let Ok(data) = response.body.collect().await else {
+                  return EnterpriseEdgeLicenseState::Undetermined;
+              };
+              serde_json::from_slice::<EnterpriseEdgeLicenseState>(&data.to_vec())
+                  .unwrap_or(EnterpriseEdgeLicenseState::Undetermined)
+            }
+
+        async fn save_license_state(&self, license_state: &EnterpriseEdgeLicenseState) -> EdgeResult<()> {
+            let body_data = serde_json::to_vec(&license_state).map_err(|e| {
+                EdgeError::PersistenceError(format!("Failed to serialize license state: {}", e))
+            })?;
+            let byte_stream = ByteStream::new(SdkBody::from(body_data));
+            match self
+                .client
+                .put_object()
+                .bucket(self.bucket.clone())
+                .key(LICENSE_STATE_KEY)
+                .body(byte_stream)
+                .send()
+                .await
+            {
+                Ok(_) => Ok(()),
+                Err(s3_err) => Err(EdgeError::PersistenceError(format!(
+                    "Failed to save license state: {}",
                     s3_err.into_service_error()
                 ))),
             }
