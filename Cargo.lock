@@ -4881,6 +4881,7 @@ dependencies = [
  "unleash-edge-client-api",
  "unleash-edge-delta",
  "unleash-edge-edge-api",
+ "unleash-edge-enterprise",
  "unleash-edge-feature-cache",
  "unleash-edge-feature-refresh",
  "unleash-edge-frontend-api",
@@ -5034,6 +5035,54 @@ dependencies = [
  "unleash-edge-auth",
  "unleash-edge-types",
  "utoipa",
+]
+
+[[package]]
+name = "unleash-edge-enterprise"
+version = "20.1.0"
+dependencies = [
+ "tokio",
+ "tracing",
+ "unleash-edge-http-client",
+ "unleash-edge-types",
+]
+
+[[package]]
+name = "unleash-edge-enterprise-integration-tests"
+version = "20.1.0"
+dependencies = [
+ "axum",
+ "axum-test",
+ "chrono",
+ "dashmap",
+ "etag",
+ "eventsource-stream",
+ "futures",
+ "pretty_assertions",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "test-case",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "tracing-test",
+ "ulid",
+ "unleash-edge",
+ "unleash-edge-appstate",
+ "unleash-edge-auth",
+ "unleash-edge-cli",
+ "unleash-edge-client-api",
+ "unleash-edge-delta",
+ "unleash-edge-edge-api",
+ "unleash-edge-enterprise",
+ "unleash-edge-feature-cache",
+ "unleash-edge-feature-filters",
+ "unleash-edge-feature-refresh",
+ "unleash-edge-http-client",
+ "unleash-edge-types",
+ "unleash-types",
+ "unleash-yggdrasil",
 ]
 
 [[package]]

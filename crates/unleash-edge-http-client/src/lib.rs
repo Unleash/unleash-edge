@@ -669,6 +669,38 @@ impl UnleashClient {
         }
     }
 
+    pub async fn send_heartbeat(&self, api_key: &EdgeToken) -> EdgeResult<()> {
+        let response = self
+            .backing_client
+            .post(self.urls.heartbeat_url.to_string())
+            .query(&[("connectionId", self.meta_info.connection_id.clone())])
+            .headers(self.header_map(Some(api_key.token.clone())))
+            .send()
+            .await
+            .map_err(|e| {
+                EdgeError::HeartbeatError(
+                    format!("{e}"),
+                    e.status().unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
+                )
+            })?;
+
+        if response.status().is_success() {
+            Ok(())
+        } else if response.status() == StatusCode::PAYMENT_REQUIRED {
+            Err(EdgeError::InvalidLicense(
+                "Enterprise Edge requires a license but upstream server confirmed the license is not active".to_string(),
+            ))
+        } else {
+            Err(EdgeError::HeartbeatError(
+                format!(
+                    "Enterprise Edge requires a license but this could not be confirmed with upstream and could not be verified from persistence: {}",
+                    response.status()
+                ),
+                response.status(),
+            ))
+        }
+    }
+
     pub async fn send_bulk_metrics_to_client_endpoint(
         &self,
         request: MetricsBatch,
