@@ -11,6 +11,12 @@ on:
         description: "Which tag to generate the sbom for?"
         type: "string"
         required: true
+  workflow_call:
+    inputs:
+      tag:
+        description: "Which tag to generate the sbom for?"
+        type: "string"
+        required: true
 
 jobs:
   sbom:
