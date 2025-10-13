@@ -32,7 +32,7 @@ pub fn create_enterprise_heartbeat_task(
     shutdown_tx: oneshot::Sender<()>,
 ) -> Pin<Box<dyn Future<Output = ()> + Send>> {
     Box::pin(async move {
-        let sleep_duration = tokio::time::Duration::from_secs(1);
+        let sleep_duration = tokio::time::Duration::from_secs(90);
         let shutdown_arc = Arc::new(tokio::sync::Mutex::new(Some(shutdown_tx)));
         loop {
             tokio::select! {

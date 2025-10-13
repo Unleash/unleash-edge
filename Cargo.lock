@@ -5039,7 +5039,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-enterprise"
-version = "20.0.0"
+version = "20.1.0"
 dependencies = [
  "tokio",
  "tracing",
@@ -5049,7 +5049,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-enterprise-integration-tests"
-version = "20.0.0"
+version = "20.1.0"
 dependencies = [
  "axum",
  "axum-test",
