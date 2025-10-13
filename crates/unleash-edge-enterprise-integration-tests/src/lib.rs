@@ -12,7 +12,7 @@ mod tests {
     use std::sync::Arc;
     use tokio::sync::{RwLock, oneshot};
     use ulid::Ulid;
-    use unleash_edge::edge_builder::build_edge_state;
+    use unleash_edge::edge_builder::{EdgeStateArgs, build_edge_state};
     use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeArgs, HttpServerArgs};
     use unleash_edge_enterprise::send_heartbeat;
     use unleash_edge_types::errors::EdgeError;
@@ -189,23 +189,23 @@ mod tests {
             instances_observed_for_app_context,
         ) = build_edge_state_data();
 
-        let cli_args = mock_cli_args();
+        let args = mock_cli_args();
         let edge_args = EdgeArgs {
             upstream_url: upstream.url(),
             tokens: vec!["*:development.hashyhashhash".to_string()],
             ..EdgeArgs::default()
         };
 
-        let maybe_edge_state = build_edge_state(
-            cli_args,
-            &edge_args,
+        let maybe_edge_state = build_edge_state(EdgeStateArgs {
+            args,
+            edge_args,
             client_meta_information,
             edge_instance_data,
             instances_observed_for_app_context,
-            AuthHeaders::default(),
+            auth_headers: AuthHeaders::default(),
             http_client,
             shutdown_hook,
-        )
+        })
         .await;
 
         assert!(matches!(
@@ -225,23 +225,23 @@ mod tests {
             instances_observed_for_app_context,
         ) = build_edge_state_data();
 
-        let cli_args = mock_cli_args();
+        let args = mock_cli_args();
         let edge_args = EdgeArgs {
             upstream_url: upstream.url(),
             tokens: vec!["*:development.hashyhashhash".to_string()],
             ..EdgeArgs::default()
         };
 
-        let maybe_edge_state = build_edge_state(
-            cli_args,
-            &edge_args,
+        let maybe_edge_state = build_edge_state(EdgeStateArgs {
+            args,
+            edge_args,
             client_meta_information,
             edge_instance_data,
             instances_observed_for_app_context,
-            AuthHeaders::default(),
+            auth_headers: AuthHeaders::default(),
             http_client,
             shutdown_hook,
-        )
+        })
         .await;
 
         assert!(matches!(
@@ -261,23 +261,23 @@ mod tests {
             instances_observed_for_app_context,
         ) = build_edge_state_data();
 
-        let cli_args = mock_cli_args();
+        let args = mock_cli_args();
         let edge_args = EdgeArgs {
             upstream_url: upstream.url(),
             tokens: vec!["*:development.hashyhashhash".to_string()],
             ..EdgeArgs::default()
         };
 
-        let maybe_edge_state = build_edge_state(
-            cli_args,
-            &edge_args,
+        let maybe_edge_state = build_edge_state(EdgeStateArgs {
+            args,
+            edge_args,
             client_meta_information,
             edge_instance_data,
             instances_observed_for_app_context,
-            AuthHeaders::default(),
+            auth_headers: AuthHeaders::default(),
             http_client,
             shutdown_hook,
-        )
+        })
         .await;
 
         assert!(maybe_edge_state.is_ok());

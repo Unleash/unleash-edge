@@ -45,6 +45,17 @@ use unleash_edge_types::{BackgroundTask, EdgeResult, EngineCache, TokenCache, To
 use unleash_yggdrasil::{EngineState, UpdateMessage};
 use url::Url;
 
+pub struct EdgeStateArgs {
+    pub args: CliArgs,
+    pub edge_args: EdgeArgs,
+    pub client_meta_information: ClientMetaInformation,
+    pub edge_instance_data: Arc<EdgeInstanceData>,
+    pub instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>>,
+    pub auth_headers: AuthHeaders,
+    pub http_client: reqwest::Client,
+    pub shutdown_hook: Sender<()>,
+}
+
 pub fn build_caches() -> CacheContainer {
     let token_cache: TokenCache = DashMap::default();
     let features_cache: FeatureCache = FeatureCache::new(DashMap::default());
@@ -255,14 +266,16 @@ pub async fn build_edge(
 }
 
 pub async fn build_edge_state(
-    args: CliArgs,
-    edge_args: &EdgeArgs,
-    client_meta_information: ClientMetaInformation,
-    edge_instance_data: Arc<EdgeInstanceData>,
-    instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>>,
-    auth_headers: AuthHeaders,
-    http_client: reqwest::Client,
-    shutdown_hook: Sender<()>,
+    EdgeStateArgs {
+        args,
+        edge_args,
+        client_meta_information,
+        edge_instance_data,
+        instances_observed_for_app_context,
+        auth_headers,
+        http_client,
+        shutdown_hook,
+    }: EdgeStateArgs,
 ) -> EdgeResult<(AppState, Vec<BackgroundTask>, Vec<BackgroundTask>)> {
     let unleash_client = Url::parse(&edge_args.upstream_url.clone())
         .map(|url| {
@@ -313,7 +326,7 @@ pub async fn build_edge_state(
         hydrator_type,
         persistence,
     ) = build_edge(
-        edge_args,
+        &edge_args,
         client_meta_information.clone(),
         auth_headers,
         http_client.clone(),

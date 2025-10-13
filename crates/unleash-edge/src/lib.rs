@@ -1,4 +1,4 @@
-use crate::edge_builder::build_edge_state;
+use crate::edge_builder::{EdgeStateArgs, build_edge_state};
 use crate::offline_builder::build_offline_app_state;
 use ::tracing::info;
 use axum::Router;
@@ -89,16 +89,16 @@ pub async fn configure_server(
 
             let auth_headers = AuthHeaders::from(&args);
 
-            build_edge_state(
-                args.clone(),
-                edge_args,
+            build_edge_state(EdgeStateArgs {
+                args: args.clone(),
+                edge_args: edge_args.clone(),
                 client_meta_information,
-                edge_instance_data.clone(),
-                instances_observed_for_app_context.clone(),
+                edge_instance_data: edge_instance_data.clone(),
+                instances_observed_for_app_context: instances_observed_for_app_context.clone(),
                 auth_headers,
                 http_client,
-                shutdown_hook
-            )
+                shutdown_hook,
+            })
             .await?
         }
         EdgeMode::Offline(offline_args) => {
