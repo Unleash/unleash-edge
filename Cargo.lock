@@ -5075,6 +5075,7 @@ dependencies = [
  "unleash-edge-client-api",
  "unleash-edge-delta",
  "unleash-edge-edge-api",
+ "unleash-edge-enterprise",
  "unleash-edge-feature-cache",
  "unleash-edge-feature-filters",
  "unleash-edge-feature-refresh",

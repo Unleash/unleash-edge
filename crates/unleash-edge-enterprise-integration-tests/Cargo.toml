@@ -23,6 +23,7 @@ tokio-stream = { workspace = true }
 tracing = { workspace = true }
 ulid = { workspace = true }
 unleash-edge = { path = "../unleash-edge", version = "20.0.0", features = ["enterprise"]}
+unleash-edge-enterprise = { workspace = true }
 unleash-types = { workspace = true }
 unleash-yggdrasil = { workspace = true }
 unleash-edge-appstate = { workspace = true }
