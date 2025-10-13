@@ -35,8 +35,8 @@ pub fn create_enterprise_heartbeat_task(
         let sleep_duration = tokio::time::Duration::from_secs(90);
         let shutdown_arc = Arc::new(tokio::sync::Mutex::new(Some(shutdown_tx)));
         loop {
-     tokio::time::sleep(sleep_duration).await;
-     send_heartbeat(unleash_client.clone(), token.clone(), shutdown_arc.clone()).await;
+            tokio::time::sleep(sleep_duration).await;
+            send_heartbeat(unleash_client.clone(), token.clone(), shutdown_arc.clone()).await;
         }
     })
 }
