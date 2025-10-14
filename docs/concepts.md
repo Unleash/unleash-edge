@@ -166,9 +166,10 @@ Usage: unleash-edge offline [OPTIONS]
 
 Options:
   -b, --bootstrap-file <BOOTSTRAP_FILE>         [env: BOOTSTRAP_FILE=]
-  -t, --tokens <TOKENS>                         [env: TOKENS=]
+  --client-tokens <TOKENS>                      [env: CLIENT_TOKENS=]
+  --frontend-tokens <TOKENS>                    [env: FRONTEND_TOKENS=]
   -r, --reload-interval <RELOAD_INTERVAL>       [env: RELOAD_INTERVAL=]
-
+  --pretrusted-tokens <TOKENS>                  [env: PRETRUSTED_TOKENS=]
 ```
 
 ##### Environments in offline mode

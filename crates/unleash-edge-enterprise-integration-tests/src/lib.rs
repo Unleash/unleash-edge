@@ -1,18 +1,17 @@
 #[cfg(test)]
 mod tests {
-
-    use axum::Json;
     use axum::extract::State;
     use axum::routing::post;
-    use axum::{Router, response::IntoResponse};
+    use axum::Json;
+    use axum::{response::IntoResponse, Router};
     use axum_test::TestServer;
     use chrono::Duration;
     use reqwest::Client;
     use serde_json::json;
     use std::sync::Arc;
-    use tokio::sync::{RwLock, oneshot};
+    use tokio::sync::{oneshot, RwLock};
     use ulid::Ulid;
-    use unleash_edge::edge_builder::{EdgeStateArgs, build_edge_state};
+    use unleash_edge::edge_builder::{build_edge_state, EdgeStateArgs};
     use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeArgs, HttpServerArgs};
     use unleash_edge_enterprise::send_heartbeat;
     use unleash_edge_types::errors::EdgeError;
@@ -20,7 +19,7 @@ mod tests {
     use unleash_edge_types::tokens::EdgeToken;
 
     use unleash_edge_http_client::{
-        ClientMetaInformation, HttpClientArgs, UnleashClient, new_reqwest_client,
+        new_reqwest_client, ClientMetaInformation, HttpClientArgs, UnleashClient,
     };
 
     use unleash_edge_types::EdgeResult;
@@ -151,11 +150,7 @@ mod tests {
             instance_id: "test-instance-id".to_string(),
         };
 
-        let edge_instance_data = Arc::new(EdgeInstanceData::new(
-            "cheese-shop".into(),
-            &Ulid::new(),
-            None,
-        ));
+        let edge_instance_data = Arc::new(EdgeInstanceData::new("cheese-shop", &Ulid::new(), None));
 
         let http_client = new_reqwest_client(HttpClientArgs {
             skip_ssl_verification: false,
