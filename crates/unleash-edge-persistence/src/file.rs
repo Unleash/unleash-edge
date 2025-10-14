@@ -260,4 +260,20 @@ mod tests {
 
         assert_eq!(reloaded, tokens);
     }
+
+    #[tokio::test]
+    async fn file_persister_can_save_and_load_license_state() {
+        let persister = FilePersister::try_from(temp_dir().to_str().unwrap()).unwrap();
+        let license_state = crate::EnterpriseEdgeLicenseState::Valid;
+        persister.save_license_state(&license_state).await.unwrap();
+        let reloaded = persister.load_license_state().await;
+        assert_eq!(reloaded, license_state);
+    }
+
+    #[tokio::test]
+    async fn file_persister_loads_undetermined_license_state_if_no_file() {
+        let persister = FilePersister::try_from(temp_dir().to_str().unwrap()).unwrap();
+        let reloaded = persister.load_license_state().await;
+        assert_eq!(reloaded, crate::EnterpriseEdgeLicenseState::Undetermined);
+    }
 }

@@ -299,4 +299,35 @@ mod tests {
         let saved_tokens = redis_persister.load_tokens().await.unwrap();
         assert_eq!(saved_tokens.len(), 2);
     }
+
+    #[tokio::test]
+    async fn redis_saves_and_restores_license_state_correctly() {
+        let (_client, url, _node) = setup_redis().await;
+        let redis_persister = RedisPersister::new(&url, TEST_TIMEOUT, TEST_TIMEOUT).unwrap();
+        let license_state = EnterpriseEdgeLicenseState::Valid;
+        redis_persister
+            .save_license_state(&license_state)
+            .await
+            .unwrap();
+        let loaded_state = redis_persister.load_license_state().await;
+        assert_eq!(loaded_state, license_state);
+    }
+
+    #[tokio::test]
+    async fn redis_returns_undetermined_license_state_when_no_state_saved() {
+        let (_client, url, _node) = setup_redis().await;
+        let redis_persister = RedisPersister::new(&url, TEST_TIMEOUT, TEST_TIMEOUT).unwrap();
+        let loaded_state = redis_persister.load_license_state().await;
+        assert_eq!(loaded_state, EnterpriseEdgeLicenseState::Undetermined);
+    }
+
+    #[tokio::test]
+    async fn redis_returns_undetermined_license_state_when_an_error_occurs() {
+        let (_client, url, mut _node) = setup_redis().await;
+        let redis_persister = RedisPersister::new(&url, TEST_TIMEOUT, TEST_TIMEOUT).unwrap();
+        // Stop the redis node to simulate an error
+        _node.stop().await.expect("Failed to stop redis");
+        let loaded_state = redis_persister.load_license_state().await;
+        assert_eq!(loaded_state, EnterpriseEdgeLicenseState::Undetermined);
+    }
 }

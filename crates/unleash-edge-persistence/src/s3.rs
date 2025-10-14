@@ -198,14 +198,14 @@ mod tests {
         use aws_sdk_s3::config::Credentials;
         use aws_sdk_s3::config::SharedCredentialsProvider;
         use std::str::FromStr;
+        use testcontainers::ContainerAsync;
         use testcontainers::{ImageExt, runners::AsyncRunner};
         use testcontainers_modules::localstack::LocalStack;
         use unleash_edge_types::tokens::EdgeToken;
         use unleash_types::client_features::ClientFeature;
         use unleash_types::client_features::ClientFeatures;
 
-        #[tokio::test]
-        async fn test_s3_persister() {
+        async fn setup_s3_persister() -> (ContainerAsync<LocalStack>, S3Persister) {
             let localstack = LocalStack::default()
                 .with_env_var("SERVICES", "s3")
                 .start()
@@ -219,22 +219,6 @@ mod tests {
                 .await
                 .expect("Could not get port");
 
-            let client_features_one = ClientFeatures {
-                version: 2,
-                features: vec![
-                    ClientFeature {
-                        name: "feature1".into(),
-                        ..ClientFeature::default()
-                    },
-                    ClientFeature {
-                        name: "feature2".into(),
-                        ..ClientFeature::default()
-                    },
-                ],
-                segments: None,
-                query: None,
-                meta: None,
-            };
             let config = s3::config::Config::builder()
                 .region(Region::new("us-east-1"))
                 .endpoint_url(format!("http://{}:{}", local_stack_ip, local_stack_port))
@@ -251,7 +235,31 @@ mod tests {
                 .expect("Failed to setup S3 bucket pre test run");
 
             //hopefully we don't care, this should just work with localstack
-            let persister = S3Persister::new_with_config(bucket_name, config);
+            (
+                localstack,
+                S3Persister::new_with_config(bucket_name, config),
+            )
+        }
+
+        #[tokio::test]
+        async fn test_s3_persister() {
+            let client_features_one = ClientFeatures {
+                version: 2,
+                features: vec![
+                    ClientFeature {
+                        name: "feature1".into(),
+                        ..ClientFeature::default()
+                    },
+                    ClientFeature {
+                        name: "feature2".into(),
+                        ..ClientFeature::default()
+                    },
+                ],
+                segments: None,
+                query: None,
+                meta: None,
+            };
+            let (_localstack, persister) = setup_s3_persister().await;
 
             let tokens = vec![EdgeToken::from_str("eg:development.secret321").unwrap()];
             persister.save_tokens(tokens.clone()).await.unwrap();
@@ -275,6 +283,37 @@ mod tests {
             assert_eq!(
                 features.into_iter().collect::<HashMap<_, _>>(),
                 loaded_features
+            );
+        }
+
+        #[tokio::test]
+        async fn test_s3_persister_loads_license_state() {
+            let (_localstack, persister) = setup_s3_persister().await;
+
+            let loaded_license_state = persister.load_license_state().await;
+            assert_eq!(
+                loaded_license_state,
+                crate::EnterpriseEdgeLicenseState::Undetermined
+            );
+
+            let license_state = crate::EnterpriseEdgeLicenseState::Valid;
+            persister
+                .save_license_state(&license_state)
+                .await
+                .expect("Failed to save license state");
+
+            let loaded_license_state = persister.load_license_state().await;
+            assert_eq!(loaded_license_state, license_state);
+        }
+
+        #[tokio::test]
+        async fn test_s3_persister_returns_undetermined_when_no_data_present() {
+            let (_localstack, persister) = setup_s3_persister().await;
+
+            let loaded_license_state = persister.load_license_state().await;
+            assert_eq!(
+                loaded_license_state,
+                crate::EnterpriseEdgeLicenseState::Undetermined
             );
         }
     }
