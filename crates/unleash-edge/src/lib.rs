@@ -1,5 +1,4 @@
-use crate::edge_builder::build_edge_state;
-use crate::middleware::log_request::log_request_middleware;
+use crate::edge_builder::{EdgeStateArgs, build_edge_state};
 use crate::offline_builder::build_offline_app_state;
 use ::tracing::info;
 use axum::Router;
@@ -9,6 +8,7 @@ use chrono::Duration;
 use std::env;
 use std::sync::{Arc, LazyLock};
 use tokio::sync::RwLock;
+use tokio::sync::oneshot::Sender;
 use tower::ServiceBuilder;
 use tower_http::compression::CompressionLayer;
 use tower_http::normalize_path::NormalizePathLayer;
@@ -23,6 +23,7 @@ use unleash_edge_metrics::axum_prometheus_metrics::{
     PrometheusAxumLayer, render_prometheus_metrics,
 };
 use unleash_edge_persistence::EdgePersistence;
+use unleash_edge_request_logger::log_request_middleware;
 use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
 use unleash_edge_types::{BackgroundTask, EdgeResult, EngineCache, TokenCache};
 
@@ -53,7 +54,10 @@ pub type EdgeInfo = (
     Option<Arc<dyn EdgePersistence>>,
 );
 
-pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<BackgroundTask>)> {
+pub async fn configure_server(
+    args: CliArgs,
+    shutdown_hook: Sender<()>,
+) -> EdgeResult<(Router, Vec<BackgroundTask>)> {
     let app_id: Ulid = Ulid::new();
     let hosting = Hosting::from_env();
     let edge_instance_data = Arc::new(EdgeInstanceData::new(
@@ -85,15 +89,16 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
 
             let auth_headers = AuthHeaders::from(&args);
 
-            build_edge_state(
-                args.clone(),
-                edge_args,
+            build_edge_state(EdgeStateArgs {
+                args: args.clone(),
+                edge_args: edge_args.clone(),
                 client_meta_information,
-                edge_instance_data.clone(),
-                instances_observed_for_app_context.clone(),
+                edge_instance_data: edge_instance_data.clone(),
+                instances_observed_for_app_context: instances_observed_for_app_context.clone(),
                 auth_headers,
                 http_client,
-            )
+                shutdown_hook,
+            })
             .await?
         }
         EdgeMode::Offline(offline_args) => {
@@ -150,6 +155,10 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
                 .layer(from_fn_with_state(
                     app_state.clone(),
                     middleware::allow_list::allow_middleware,
+                ))
+                .layer(from_fn_with_state(
+                    app_state.clone(),
+                    middleware::client_metrics::extract_request_metrics,
                 ))
                 .layer(tower_http::trace::TraceLayer::new_for_http()),
         )

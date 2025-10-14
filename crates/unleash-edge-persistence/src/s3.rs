@@ -6,7 +6,7 @@ pub mod s3_persister {
     use async_trait::async_trait;
     use unleash_types::client_features::ClientFeatures;
 
-    use crate::EdgePersistence;
+    use crate::{EdgePersistence, EnterpriseEdgeLicenseState};
     use aws_sdk_s3::{
         self as s3,
         primitives::{ByteStream, SdkBody},
@@ -17,6 +17,7 @@ pub mod s3_persister {
 
     pub const FEATURES_KEY: &str = "/unleash-features.json";
     pub const TOKENS_KEY: &str = "/unleash-tokens.json";
+    pub const LICENSE_STATE_KEY: &str = "/unleash-license-state.json";
 
     pub struct S3Persister {
         client: s3::Client,
@@ -135,6 +136,185 @@ pub mod s3_persister {
                     s3_err.into_service_error()
                 ))),
             }
+        }
+
+        async fn load_license_state(&self) -> EnterpriseEdgeLicenseState {
+            let Ok(response) = self
+                .client
+                .get_object()
+                .bucket(self.bucket.clone())
+                .key(LICENSE_STATE_KEY)
+                .response_content_type("application/json")
+                .send()
+                .await
+            else {
+                return EnterpriseEdgeLicenseState::Undetermined;
+            };
+            let Ok(data) = response.body.collect().await else {
+                return EnterpriseEdgeLicenseState::Undetermined;
+            };
+            serde_json::from_slice::<EnterpriseEdgeLicenseState>(&data.to_vec())
+                .unwrap_or(EnterpriseEdgeLicenseState::Undetermined)
+        }
+
+        async fn save_license_state(
+            &self,
+            license_state: &EnterpriseEdgeLicenseState,
+        ) -> EdgeResult<()> {
+            let body_data = serde_json::to_vec(&license_state).map_err(|e| {
+                EdgeError::PersistenceError(format!("Failed to serialize license state: {}", e))
+            })?;
+            let byte_stream = ByteStream::new(SdkBody::from(body_data));
+            match self
+                .client
+                .put_object()
+                .bucket(self.bucket.clone())
+                .key(LICENSE_STATE_KEY)
+                .body(byte_stream)
+                .send()
+                .await
+            {
+                Ok(_) => Ok(()),
+                Err(s3_err) => Err(EdgeError::PersistenceError(format!(
+                    "Failed to save license state: {}",
+                    s3_err.into_service_error()
+                ))),
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[cfg(all(test, feature = "s3-persistence"))]
+    mod s3_tests {
+
+        use crate::EdgePersistence;
+        use crate::s3::s3_persister::S3Persister;
+
+        use ahash::HashMap;
+        use aws_config::Region;
+        use aws_sdk_s3 as s3;
+        use aws_sdk_s3::config::Credentials;
+        use aws_sdk_s3::config::SharedCredentialsProvider;
+        use std::str::FromStr;
+        use testcontainers::ContainerAsync;
+        use testcontainers::{ImageExt, runners::AsyncRunner};
+        use testcontainers_modules::localstack::LocalStack;
+        use unleash_edge_types::tokens::EdgeToken;
+        use unleash_types::client_features::ClientFeature;
+        use unleash_types::client_features::ClientFeatures;
+
+        async fn setup_s3_persister() -> (ContainerAsync<LocalStack>, S3Persister) {
+            let localstack = LocalStack::default()
+                .with_env_var("SERVICES", "s3")
+                .start()
+                .await
+                .expect("Failed to start localstack");
+
+            let bucket_name = "test-bucket";
+            let local_stack_ip = localstack.get_host().await.expect("Could not get host");
+            let local_stack_port = localstack
+                .get_host_port_ipv4(4566)
+                .await
+                .expect("Could not get port");
+
+            let config = s3::config::Config::builder()
+                .region(Region::new("us-east-1"))
+                .endpoint_url(format!("http://{}:{}", local_stack_ip, local_stack_port))
+                .credentials_provider(SharedCredentialsProvider::new(Credentials::for_tests()))
+                .force_path_style(true)
+                .build();
+
+            let client = s3::Client::from_conf(config.clone());
+            client
+                .create_bucket()
+                .bucket(bucket_name)
+                .send()
+                .await
+                .expect("Failed to setup S3 bucket pre test run");
+
+            //hopefully we don't care, this should just work with localstack
+            (
+                localstack,
+                S3Persister::new_with_config(bucket_name, config),
+            )
+        }
+
+        #[tokio::test]
+        async fn test_s3_persister() {
+            let client_features_one = ClientFeatures {
+                version: 2,
+                features: vec![
+                    ClientFeature {
+                        name: "feature1".into(),
+                        ..ClientFeature::default()
+                    },
+                    ClientFeature {
+                        name: "feature2".into(),
+                        ..ClientFeature::default()
+                    },
+                ],
+                segments: None,
+                query: None,
+                meta: None,
+            };
+            let (_localstack, persister) = setup_s3_persister().await;
+
+            let tokens = vec![EdgeToken::from_str("eg:development.secret321").unwrap()];
+            persister.save_tokens(tokens.clone()).await.unwrap();
+
+            let loaded_tokens = persister
+                .load_tokens()
+                .await
+                .expect("Failed to load tokens");
+            assert_eq!(tokens, loaded_tokens);
+
+            let features = vec![("test".to_string(), client_features_one.clone())];
+            persister
+                .save_features(features.clone())
+                .await
+                .expect("Failed to save features");
+
+            let loaded_features = persister
+                .load_features()
+                .await
+                .expect("Failed to load features");
+            assert_eq!(
+                features.into_iter().collect::<HashMap<_, _>>(),
+                loaded_features
+            );
+        }
+
+        #[tokio::test]
+        async fn test_s3_persister_loads_license_state() {
+            let (_localstack, persister) = setup_s3_persister().await;
+
+            let loaded_license_state = persister.load_license_state().await;
+            assert_eq!(
+                loaded_license_state,
+                crate::EnterpriseEdgeLicenseState::Undetermined
+            );
+
+            let license_state = crate::EnterpriseEdgeLicenseState::Valid;
+            persister
+                .save_license_state(&license_state)
+                .await
+                .expect("Failed to save license state");
+
+            let loaded_license_state = persister.load_license_state().await;
+            assert_eq!(loaded_license_state, license_state);
+        }
+
+        #[tokio::test]
+        async fn test_s3_persister_returns_undetermined_when_no_data_present() {
+            let (_localstack, persister) = setup_s3_persister().await;
+
+            let loaded_license_state = persister.load_license_state().await;
+            assert_eq!(
+                loaded_license_state,
+                crate::EnterpriseEdgeLicenseState::Undetermined
+            );
         }
     }
 }

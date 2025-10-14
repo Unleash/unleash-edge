@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.1.0](https://github.com/Unleash/unleash-edge/compare/unleash-edge-v20.0.0...unleash-edge-v20.1.0) - 2025-10-10
+
+### 🚀 Features
+- added metrics for client-spec + sdk-version ([#1213](https://github.com/unleash/unleash-edge/issues/1213)) (by @chriswk) - #1213
+- *(request_logger)* Adds request logger ([#1212](https://github.com/unleash/unleash-edge/issues/1212)) (by @chriswk)
+
+### Contributors
+
+* @chriswk
+
 ## [20.0.0](https://github.com/Unleash/unleash-edge/compare/unleash-edge-v19.15.1...unleash-edge-v20.0.0) - 2025-10-06
 
 ### 🚀 Features

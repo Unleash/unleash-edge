@@ -5,6 +5,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::oneshot::Sender;
 use tracing::{debug, error, info, warn};
 use unleash_edge_appstate::AppState;
 use unleash_edge_appstate::token_cache_observer::observe_tokens_in_background;
@@ -43,6 +44,17 @@ use unleash_edge_types::tokens::EdgeToken;
 use unleash_edge_types::{BackgroundTask, EdgeResult, EngineCache, TokenCache, TokenType};
 use unleash_yggdrasil::{EngineState, UpdateMessage};
 use url::Url;
+
+pub struct EdgeStateArgs {
+    pub args: CliArgs,
+    pub edge_args: EdgeArgs,
+    pub client_meta_information: ClientMetaInformation,
+    pub edge_instance_data: Arc<EdgeInstanceData>,
+    pub instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>>,
+    pub auth_headers: AuthHeaders,
+    pub http_client: reqwest::Client,
+    pub shutdown_hook: Sender<()>,
+}
 
 pub fn build_caches() -> CacheContainer {
     let token_cache: TokenCache = DashMap::default();
@@ -254,13 +266,16 @@ pub async fn build_edge(
 }
 
 pub async fn build_edge_state(
-    args: CliArgs,
-    edge_args: &EdgeArgs,
-    client_meta_information: ClientMetaInformation,
-    edge_instance_data: Arc<EdgeInstanceData>,
-    instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>>,
-    auth_headers: AuthHeaders,
-    http_client: reqwest::Client,
+    EdgeStateArgs {
+        args,
+        edge_args,
+        client_meta_information,
+        edge_instance_data,
+        instances_observed_for_app_context,
+        auth_headers,
+        http_client,
+        shutdown_hook,
+    }: EdgeStateArgs,
 ) -> EdgeResult<(AppState, Vec<BackgroundTask>, Vec<BackgroundTask>)> {
     let unleash_client = Url::parse(&edge_args.upstream_url.clone())
         .map(|url| {
@@ -278,6 +293,26 @@ pub async fn build_edge_state(
         .map(Arc::new)
         .map_err(|_| EdgeError::InvalidServerUrl(edge_args.upstream_url.clone()))?;
 
+    let startup_tokens = edge_args
+        .tokens
+        .iter()
+        .map(|t| {
+            EdgeToken::try_from(t.clone())
+                .expect("Token given at startup in edge mode did not follow valid format")
+        })
+        .collect::<Vec<_>>();
+
+    #[cfg(feature = "enterprise")]
+    {
+        unleash_client
+            .send_heartbeat(
+                startup_tokens
+                    .first()
+                    .expect("Startup token is required for enterprise feature"),
+            )
+            .await?;
+    }
+
     let (deferred_validation_tx, deferred_validation_rx) = if *SHOULD_DEFER_VALIDATION {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
         (Some(tx), Some(rx))
@@ -285,14 +320,13 @@ pub async fn build_edge_state(
         (None, None)
     };
 
-    let auth_headers = AuthHeaders::from(&args);
     let (
         (token_cache, features_cache, delta_cache_manager, engine_cache),
         token_validator,
         hydrator_type,
         persistence,
     ) = build_edge(
-        edge_args,
+        &edge_args,
         client_meta_information.clone(),
         auth_headers,
         http_client.clone(),
@@ -305,14 +339,6 @@ pub async fn build_edge_state(
         http_client.clone(),
     )?);
     let metrics_cache = Arc::new(MetricsCache::default());
-    let startup_tokens = edge_args
-        .tokens
-        .iter()
-        .map(|t| {
-            EdgeToken::try_from(t.clone())
-                .expect("Token given at startup in edge mode did not follow valid format")
-        })
-        .collect::<Vec<_>>();
 
     let background_tasks = create_edge_mode_background_tasks(BackgroundTaskArgs {
         app_name: args.app_name,
@@ -330,6 +356,7 @@ pub async fn build_edge_state(
         token_cache: token_cache.clone(),
         unleash_client: unleash_client.clone(),
         validator: token_validator.clone(),
+        shutdown_hook,
     });
     let shutdown_args = ShutdownTaskArgs {
         delta_cache_manager: delta_cache_manager.clone(),
@@ -434,6 +461,7 @@ pub(crate) struct BackgroundTaskArgs {
     token_cache: Arc<TokenCache>,
     unleash_client: Arc<UnleashClient>,
     validator: Arc<TokenValidator>,
+    shutdown_hook: Sender<()>,
 }
 fn create_edge_mode_background_tasks(
     BackgroundTaskArgs {
@@ -452,13 +480,14 @@ fn create_edge_mode_background_tasks(
         token_cache,
         unleash_client,
         validator,
+        shutdown_hook,
     }: BackgroundTaskArgs,
 ) -> Vec<BackgroundTask> {
     let mut tasks: Vec<BackgroundTask> = vec![
         create_send_metrics_task(
             metrics_cache_clone.clone(),
-            unleash_client,
-            startup_tokens,
+            unleash_client.clone(),
+            startup_tokens.clone(),
             edge.metrics_interval_seconds.try_into().unwrap(),
         ),
         create_revalidation_task(&validator, edge.token_revalidation_interval_seconds),
@@ -509,6 +538,20 @@ fn create_edge_mode_background_tasks(
 
     if let Some(rx) = deferred_validation_rx {
         tasks.push(create_deferred_validation_task(validator, rx));
+    }
+
+    #[cfg(feature = "enterprise")]
+    {
+        use unleash_edge_enterprise::create_enterprise_heartbeat_task;
+
+        tasks.push(create_enterprise_heartbeat_task(
+            unleash_client,
+            startup_tokens
+                .first()
+                .cloned()
+                .expect("Startup token is required for enterprise feature"),
+            shutdown_hook,
+        ));
     }
 
     tasks

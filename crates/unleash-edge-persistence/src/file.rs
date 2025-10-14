@@ -9,6 +9,8 @@ use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::tokens::EdgeToken;
 use unleash_types::client_features::ClientFeatures;
 
+use crate::EnterpriseEdgeLicenseState;
+
 use super::EdgePersistence;
 
 pub struct FilePersister {
@@ -44,6 +46,12 @@ impl FilePersister {
         let mut refresh_target_path = self.storage_path.clone();
         refresh_target_path.push("unleash_refresh_targets.json");
         refresh_target_path
+    }
+
+    pub fn license_path(&self) -> PathBuf {
+        let mut license_path = self.storage_path.clone();
+        license_path.push("unleash_license_state.json");
+        license_path
     }
 
     pub fn new(storage_path: &Path) -> Self {
@@ -141,6 +149,42 @@ impl EdgePersistence for FilePersister {
         .map_err(|_| EdgeError::PersistenceError("Could not serialize tokens to disc".to_string()))
         .map(|_| ())
     }
+
+    async fn load_license_state(&self) -> EnterpriseEdgeLicenseState {
+        let Ok(mut file) = tokio::fs::File::open(self.license_path()).await else {
+            return EnterpriseEdgeLicenseState::Undetermined;
+        };
+
+        let mut contents = vec![];
+
+        let Ok(_) = file.read_to_end(&mut contents).await else {
+            return EnterpriseEdgeLicenseState::Undetermined;
+        };
+
+        serde_json::from_slice(&contents).unwrap_or(EnterpriseEdgeLicenseState::Undetermined)
+    }
+
+    async fn save_license_state(
+        &self,
+        license_state: &EnterpriseEdgeLicenseState,
+    ) -> EdgeResult<()> {
+        let mut file = tokio::fs::File::create(self.license_path())
+            .await
+            .map_err(|_| {
+                EdgeError::PersistenceError(
+                    "Cannot write license state to backup. Opening backup file for writing failed"
+                        .to_string(),
+                )
+            })?;
+        file.write_all(&serde_json::to_vec(&license_state).map_err(|_| {
+            EdgeError::PersistenceError("Failed to serialize license state".to_string())
+        })?)
+        .await
+        .map_err(|_| {
+            EdgeError::PersistenceError("Could not serialize license state to disc".to_string())
+        })
+        .map(|_| ())
+    }
 }
 
 #[cfg(test)]
@@ -215,5 +259,21 @@ mod tests {
         let reloaded = persister.load_tokens().await.unwrap();
 
         assert_eq!(reloaded, tokens);
+    }
+
+    #[tokio::test]
+    async fn file_persister_can_save_and_load_license_state() {
+        let persister = FilePersister::try_from(temp_dir().to_str().unwrap()).unwrap();
+        let license_state = crate::EnterpriseEdgeLicenseState::Valid;
+        persister.save_license_state(&license_state).await.unwrap();
+        let reloaded = persister.load_license_state().await;
+        assert_eq!(reloaded, license_state);
+    }
+
+    #[tokio::test]
+    async fn file_persister_loads_undetermined_license_state_if_no_file() {
+        let persister = FilePersister::try_from(temp_dir().to_str().unwrap()).unwrap();
+        let reloaded = persister.load_license_state().await;
+        assert_eq!(reloaded, crate::EnterpriseEdgeLicenseState::Undetermined);
     }
 }
