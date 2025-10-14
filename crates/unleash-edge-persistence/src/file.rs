@@ -152,19 +152,22 @@ impl EdgePersistence for FilePersister {
 
     async fn load_license_state(&self) -> EnterpriseEdgeLicenseState {
         let Ok(mut file) = tokio::fs::File::open(self.license_path()).await else {
-          return EnterpriseEdgeLicenseState::Undetermined;
+            return EnterpriseEdgeLicenseState::Undetermined;
         };
 
         let mut contents = vec![];
 
         let Ok(_) = file.read_to_end(&mut contents).await else {
-          return EnterpriseEdgeLicenseState::Undetermined;
+            return EnterpriseEdgeLicenseState::Undetermined;
         };
 
         serde_json::from_slice(&contents).unwrap_or(EnterpriseEdgeLicenseState::Undetermined)
     }
 
-    async fn save_license_state(&self, license_state: &EnterpriseEdgeLicenseState) -> EdgeResult<()> {
+    async fn save_license_state(
+        &self,
+        license_state: &EnterpriseEdgeLicenseState,
+    ) -> EdgeResult<()> {
         let mut file = tokio::fs::File::create(self.license_path())
             .await
             .map_err(|_| {
@@ -173,13 +176,13 @@ impl EdgePersistence for FilePersister {
                         .to_string(),
                 )
             })?;
-        file.write_all(
-            &serde_json::to_vec(&license_state).map_err(|_| {
-                EdgeError::PersistenceError("Failed to serialize license state".to_string())
-            })?,
-        )
+        file.write_all(&serde_json::to_vec(&license_state).map_err(|_| {
+            EdgeError::PersistenceError("Failed to serialize license state".to_string())
+        })?)
         .await
-        .map_err(|_| EdgeError::PersistenceError("Could not serialize license state to disc".to_string()))
+        .map_err(|_| {
+            EdgeError::PersistenceError("Could not serialize license state to disc".to_string())
+        })
         .map(|_| ())
     }
 }

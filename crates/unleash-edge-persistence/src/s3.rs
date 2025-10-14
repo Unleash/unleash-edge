@@ -146,17 +146,21 @@ pub mod s3_persister {
                 .key(LICENSE_STATE_KEY)
                 .response_content_type("application/json")
                 .send()
-                .await else {
-                    return EnterpriseEdgeLicenseState::Undetermined;
-                };
-              let Ok(data) = response.body.collect().await else {
-                  return EnterpriseEdgeLicenseState::Undetermined;
-              };
-              serde_json::from_slice::<EnterpriseEdgeLicenseState>(&data.to_vec())
-                  .unwrap_or(EnterpriseEdgeLicenseState::Undetermined)
-            }
+                .await
+            else {
+                return EnterpriseEdgeLicenseState::Undetermined;
+            };
+            let Ok(data) = response.body.collect().await else {
+                return EnterpriseEdgeLicenseState::Undetermined;
+            };
+            serde_json::from_slice::<EnterpriseEdgeLicenseState>(&data.to_vec())
+                .unwrap_or(EnterpriseEdgeLicenseState::Undetermined)
+        }
 
-        async fn save_license_state(&self, license_state: &EnterpriseEdgeLicenseState) -> EdgeResult<()> {
+        async fn save_license_state(
+            &self,
+            license_state: &EnterpriseEdgeLicenseState,
+        ) -> EdgeResult<()> {
             let body_data = serde_json::to_vec(&license_state).map_err(|e| {
                 EdgeError::PersistenceError(format!("Failed to serialize license state: {}", e))
             })?;
