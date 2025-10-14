@@ -31,8 +31,8 @@ unleash-types = { workspace = true }
 rustls = { workspace = true }
 
 [dev-dependencies]
-testcontainers = "0.24.0"
-testcontainers-modules = { version = "0.12.1", features = [
+testcontainers = "0.25.0"
+testcontainers-modules = { version = "0.13.0", features = [
     "redis",
     "localstack",
 ] }
