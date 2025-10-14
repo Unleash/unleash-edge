@@ -1,17 +1,17 @@
 #[cfg(test)]
 mod tests {
+    use axum::Json;
     use axum::extract::State;
     use axum::routing::post;
-    use axum::Json;
-    use axum::{response::IntoResponse, Router};
+    use axum::{Router, response::IntoResponse};
     use axum_test::TestServer;
     use chrono::Duration;
     use reqwest::Client;
     use serde_json::json;
     use std::sync::Arc;
-    use tokio::sync::{oneshot, RwLock};
+    use tokio::sync::{RwLock, oneshot};
     use ulid::Ulid;
-    use unleash_edge::edge_builder::{build_edge_state, EdgeStateArgs};
+    use unleash_edge::edge_builder::{EdgeStateArgs, build_edge_state};
     use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeArgs, HttpServerArgs};
     use unleash_edge_enterprise::send_heartbeat;
     use unleash_edge_types::errors::EdgeError;
@@ -19,7 +19,7 @@ mod tests {
     use unleash_edge_types::tokens::EdgeToken;
 
     use unleash_edge_http_client::{
-        new_reqwest_client, ClientMetaInformation, HttpClientArgs, UnleashClient,
+        ClientMetaInformation, HttpClientArgs, UnleashClient, new_reqwest_client,
     };
 
     use unleash_edge_types::EdgeResult;
