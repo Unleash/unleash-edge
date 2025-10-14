@@ -1,6 +1,5 @@
 #[cfg(test)]
 mod tests {
-
     use axum::Json;
     use axum::extract::State;
     use axum::routing::post;
@@ -151,11 +150,7 @@ mod tests {
             instance_id: "test-instance-id".to_string(),
         };
 
-        let edge_instance_data = Arc::new(EdgeInstanceData::new(
-            "cheese-shop".into(),
-            &Ulid::new(),
-            None,
-        ));
+        let edge_instance_data = Arc::new(EdgeInstanceData::new("cheese-shop", &Ulid::new(), None));
 
         let http_client = new_reqwest_client(HttpClientArgs {
             skip_ssl_verification: false,

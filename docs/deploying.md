@@ -7,8 +7,8 @@ Anything under /internal-backstage should be protected from public access as it 
 ### CORS
 
 `--cors-origin <CORS_ORIGIN>` — Sets
-  the [Access-Control-Allow-Origin](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Origin)
-  header to this value
+the [Access-Control-Allow-Origin](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Origin)
+header to this value
 
 To enable CORS headers, you can use the `--cors-origin` flag when starting Edge. For example:
 
@@ -21,7 +21,9 @@ For multiple domains, use a comma separated list or pass multiple instances of t
 ```shell
 unleash-edge edge --cors-origin "https://example.com,https://example2.com"
 ```
+
 is equivalent to
+
 ```shell
 unleash-edge edge --cors-origin "https://example.com" --cors-origin "https://other.example.com"
 ```
@@ -89,6 +91,12 @@ Options:
           Port to listen for https connection on (will use the interfaces already defined) [env: TLS_SERVER_PORT=] [default: 3043]
       --instance-id <INSTANCE_ID>
           Instance id. Used for metrics reporting [env: INSTANCE_ID=] [default: Ulid::new()]
+  -t, --tokens <TOKEN> [edge mode]
+          Tokens used to control access to Unleash
+      --client-tokens [offline mode]
+          Tokens allowing access to /api/client/features
+      --frontend-tokens [offline mode]
+          Tokens allowing access to /api/frontend | /api/proxy
   -a, --app-name <APP_NAME>
           App name. Used for metrics reporting [env: APP_NAME=] [default: unleash-edge]
   -h, --help
@@ -159,21 +167,23 @@ If you're hosting Edge with a self-signed certificate using the tls cli argument
 the `--ca-certificate-file <file_containing_your_ca_and_key_in_pem_format>` flag (or the CA_CERTIFICATE_FILE environment
 variable) to allow the health checker to trust the self signed certificate.
 
-
 ## Security considerations
 
 Edge by default exposes quite a few debug endpoints to help you understand what is going on.
 
-These endpoints can be sensitive, so you should protect them from public access. We recommend using a reverse proxy to protect these endpoints.
+These endpoints can be sensitive, so you should protect them from public access. We recommend using a reverse proxy to
+protect these endpoints.
 When using a reverse proxy, all endpoints under `/internal-backstage` should be protected from public access.
-If you're exposing Edge to the public internet without a reverse proxy, each endpoint under `/internal-backstage` can be disabled at startup by setting
+If you're exposing Edge to the public internet without a reverse proxy, each endpoint under `/internal-backstage` can be
+disabled at startup by setting
 the following flags:
 
-| CLI Flag | Environment variable | Description | URL |
-| --- | --- | --- | --- |
+| CLI Flag                         | Environment variable           | Description                         | URL                              |
+|----------------------------------|--------------------------------|-------------------------------------|----------------------------------|
 | --disable-metrics-batch-endpoint | DISABLE_METRICS_BATCH_ENDPOINT | Disables the metrics batch endpoint | /internal-backstage/metricsbatch |
-| --disable-metrics-endpoint | DISABLE_METRICS_ENDPOINT | Disables the metrics endpoint | /internal-backstage/metrics |
-| --disable-tokens-endpoint | DISABLE_TOKENS_ENDPOINT | Disables the tokens endpoint | /internal-backstage/tokens |
-| --disable-features-endpoint | DISABLE_FEATURES_ENDPOINT | Disables the features endpoint | /internal-backstage/features |
+| --disable-metrics-endpoint       | DISABLE_METRICS_ENDPOINT       | Disables the metrics endpoint       | /internal-backstage/metrics      |
+| --disable-tokens-endpoint        | DISABLE_TOKENS_ENDPOINT        | Disables the tokens endpoint        | /internal-backstage/tokens       |
+| --disable-features-endpoint      | DISABLE_FEATURES_ENDPOINT      | Disables the features endpoint      | /internal-backstage/features     |
 
-In addition /internal-backstage has the `/ready` and `/health` endpoints, but since these only return a 200 OK and a status, they are safe to expose.
+In addition /internal-backstage has the `/ready` and `/health` endpoints, but since these only return a 200 OK and a
+status, they are safe to expose.
