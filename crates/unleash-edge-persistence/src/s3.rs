@@ -144,8 +144,8 @@ mod tests {
     #[cfg(all(test, feature = "s3-persistence"))]
     mod s3_tests {
 
-        use crate::s3::s3_persister::S3Persister;
         use crate::EdgePersistence;
+        use crate::s3::s3_persister::S3Persister;
 
         use ahash::HashMap;
         use aws_config::Region;
