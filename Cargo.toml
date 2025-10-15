@@ -70,7 +70,7 @@ serde_qs = { version = "0.15.0", features = ["axum"] }
 shadow-rs = { version = "1.4.0" }
 socket2 = { version = "0.6.1" }
 test-case = { version = "3.3.1" }
-tokio = { version = "1.47.1", features = ["macros", "rt-multi-thread", "tracing", "fs", "signal"] }
+tokio = { version = "1.48.0", features = ["macros", "rt-multi-thread", "tracing", "fs", "signal"] }
 tokio-rustls = { version = "0.26.4" }
 tokio-stream = { version = "0.1.17", features = ["sync"] }
 tower = { version = "0.5.2" }
