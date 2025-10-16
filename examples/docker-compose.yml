@@ -1,4 +1,3 @@
-version: "3.8"
 services:
   unleash:
     image: unleashorg/unleash-server:latest
@@ -9,9 +8,16 @@ services:
       DATABASE_URL: "postgres://postgres:unleash@db/db"
       DATABASE_SSL: "false"
       INIT_CLIENT_API_TOKENS: "default:development.unleash-insecure-api-token"
+      INIT_FRONTEND_API_TOKENS: "default:development.unleash-insecure-frontend-api-token"
     depends_on:
-      - db
-    command: ["node", "index.js"]
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:4242/health || exit 1
+      interval: 1s
+      timeout: 1m
+      retries: 5
+      start_period: 15s
   db:
     expose:
       - "5432"
@@ -30,8 +36,10 @@ services:
     pull_policy: always
     restart: always
     depends_on:
-      - unleash
+      unleash:
+        condition: service_healthy
     environment:
+      STRICT: true
       UPSTREAM_URL: http://unleash:4242
       TOKENS: "default:development.unleash-insecure-api-token"
       REDIS_URL: redis://redis:6379
@@ -45,5 +53,5 @@ services:
       retries: 3
       start_period: 10s
   redis:
-    image: redis:5-alpine
+    image: redis:8-alpine
     command: ["redis-server", "--appendonly", "yes"]
