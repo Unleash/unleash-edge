@@ -6,7 +6,7 @@ mod tests {
     use axum::{Router, response::IntoResponse};
     use axum_test::TestServer;
     use chrono::Duration;
-    use reqwest::Client;
+    use reqwest::{Client, Url};
     use serde_json::json;
     use std::sync::Arc;
     use tokio::sync::{RwLock, oneshot};
@@ -140,17 +140,14 @@ mod tests {
 
     fn build_edge_state_data() -> (
         Client,
-        Arc<EdgeInstanceData>,
         ClientMetaInformation,
         Arc<RwLock<Vec<EdgeInstanceData>>>,
     ) {
         let client_meta_information = ClientMetaInformation {
             app_name: "unleash-edge-test".to_string(),
-            connection_id: "test-connection-id".to_string(),
-            instance_id: "test-instance-id".to_string(),
+            connection_id: Ulid::new(),
+            instance_id: Ulid::new(),
         };
-
-        let edge_instance_data = Arc::new(EdgeInstanceData::new("cheese-shop", &Ulid::new(), None));
 
         let http_client = new_reqwest_client(HttpClientArgs {
             skip_ssl_verification: false,
@@ -167,22 +164,49 @@ mod tests {
 
         (
             http_client,
-            edge_instance_data,
             client_meta_information,
             instances_observed_for_app_context,
         )
+    }
+
+    trait TestConfig {
+        fn test_config() -> Self;
+    }
+
+    impl TestConfig for ClientMetaInformation {
+        fn test_config() -> Self {
+            ClientMetaInformation {
+                app_name: "test_app".into(),
+                instance_id: Ulid::new(),
+                connection_id: Ulid::new(),
+            }
+        }
+    }
+
+    pub fn build_unleash_client(server_url: Url) -> Arc<UnleashClient> {
+        Arc::new(UnleashClient::from_url_with_backing_client(
+            server_url,
+            "Authorization".to_string(),
+            new_reqwest_client(HttpClientArgs {
+                skip_ssl_verification: false,
+                client_identity: None,
+                upstream_certificate_file: None,
+                connect_timeout: Duration::seconds(10),
+                socket_timeout: Duration::seconds(10),
+                keep_alive_timeout: Duration::seconds(10),
+                client_meta_information: ClientMetaInformation::test_config(),
+            })
+            .unwrap(),
+            ClientMetaInformation::test_config(),
+        ))
     }
 
     #[tokio::test]
     async fn enterprise_edge_state_errors_with_invalid_license_when_license_is_not_retrievable() {
         let (shutdown_hook, _) = oneshot::channel();
         let upstream = UpstreamMock::new(Err(EdgeError::InvalidLicense("This Edge instance is not licensed! The police will arrive at your doorstep imminently".into()))).await;
-        let (
-            http_client,
-            edge_instance_data,
-            client_meta_information,
-            instances_observed_for_app_context,
-        ) = build_edge_state_data();
+        let (http_client, client_meta_information, instances_observed_for_app_context) =
+            build_edge_state_data();
 
         let args = mock_cli_args();
         let edge_args = EdgeArgs {
@@ -195,7 +219,6 @@ mod tests {
             args,
             edge_args,
             client_meta_information,
-            edge_instance_data,
             instances_observed_for_app_context,
             auth_headers: AuthHeaders::default(),
             http_client,
@@ -213,12 +236,8 @@ mod tests {
     async fn enterprise_edge_state_errors_with_heartbeat_error_when_license_cannot_be_verified() {
         let (shutdown_hook, _) = oneshot::channel();
         let upstream = UpstreamMock::new(Err(EdgeError::Forbidden("This Edge instance is not licensed! The police will arrive at your doorstep imminently".into()))).await;
-        let (
-            http_client,
-            edge_instance_data,
-            client_meta_information,
-            instances_observed_for_app_context,
-        ) = build_edge_state_data();
+        let (http_client, client_meta_information, instances_observed_for_app_context) =
+            build_edge_state_data();
 
         let args = mock_cli_args();
         let edge_args = EdgeArgs {
@@ -231,7 +250,6 @@ mod tests {
             args,
             edge_args,
             client_meta_information,
-            edge_instance_data,
             instances_observed_for_app_context,
             auth_headers: AuthHeaders::default(),
             http_client,
@@ -249,12 +267,8 @@ mod tests {
     async fn enterprise_edge_state_startup_succeeds_if_license_can_be_verified() {
         let (shutdown_hook, _) = oneshot::channel();
         let upstream = UpstreamMock::new(Ok(())).await;
-        let (
-            http_client,
-            edge_instance_data,
-            client_meta_information,
-            instances_observed_for_app_context,
-        ) = build_edge_state_data();
+        let (http_client, client_meta_information, instances_observed_for_app_context) =
+            build_edge_state_data();
 
         let args = mock_cli_args();
         let edge_args = EdgeArgs {
@@ -267,7 +281,6 @@ mod tests {
             args,
             edge_args,
             client_meta_information,
-            edge_instance_data,
             instances_observed_for_app_context,
             auth_headers: AuthHeaders::default(),
             http_client,
@@ -289,7 +302,7 @@ mod tests {
             ..Default::default()
         };
 
-        let client = Arc::new(UnleashClient::new(&upstream.url(), None).unwrap());
+        let client = build_unleash_client(Url::parse(&upstream.url()).unwrap());
 
         send_heartbeat(
             client,
@@ -322,7 +335,7 @@ mod tests {
             ..Default::default()
         };
 
-        let client = Arc::new(UnleashClient::new(&upstream.url(), None).unwrap());
+        let client = build_unleash_client(Url::parse(&upstream.url()).unwrap());
         // we need to keep the reference alive here, otherwise when the shutdown hook completes, it drops the tx
         // which is turn means reading from the rx will error out and the test will fail
         let shutdown_hook = Arc::new(tokio::sync::Mutex::new(Some(shutdown_hook)));

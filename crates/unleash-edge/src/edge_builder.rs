@@ -39,7 +39,7 @@ use unleash_edge_persistence::{
 };
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::MetricsCache;
-use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
+use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
 use unleash_edge_types::tokens::EdgeToken;
 use unleash_edge_types::{BackgroundTask, EdgeResult, EngineCache, TokenCache, TokenType};
 use unleash_yggdrasil::{EngineState, UpdateMessage};
@@ -49,7 +49,7 @@ pub struct EdgeStateArgs {
     pub args: CliArgs,
     pub edge_args: EdgeArgs,
     pub client_meta_information: ClientMetaInformation,
-    pub edge_instance_data: Arc<EdgeInstanceData>,
+    // pub edge_instance_data: Arc<EdgeInstanceData>,
     pub instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>>,
     pub auth_headers: AuthHeaders,
     pub http_client: reqwest::Client,
@@ -270,13 +270,18 @@ pub async fn build_edge_state(
         args,
         edge_args,
         client_meta_information,
-        edge_instance_data,
         instances_observed_for_app_context,
         auth_headers,
         http_client,
         shutdown_hook,
     }: EdgeStateArgs,
 ) -> EdgeResult<(AppState, Vec<BackgroundTask>, Vec<BackgroundTask>)> {
+    let edge_instance_data = Arc::new(EdgeInstanceData::new(
+        &client_meta_information.app_name,
+        &client_meta_information.instance_id,
+        Some(Hosting::from_env()),
+    ));
+
     let unleash_client = Url::parse(&edge_args.upstream_url.clone())
         .map(|url| {
             UnleashClient::from_url_with_backing_client(
