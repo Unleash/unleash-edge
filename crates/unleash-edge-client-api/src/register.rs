@@ -5,9 +5,9 @@ use axum::response::IntoResponse;
 use axum::routing::post;
 use axum::{Json, Router};
 use tracing::instrument;
+use unleash_edge_appstate::edge_token_extractor::AuthToken;
 use unleash_edge_appstate::AppState;
 use unleash_edge_types::EDGE_VERSION;
-use unleash_edge_types::tokens::EdgeToken;
 use unleash_types::client_metrics::ClientApplication;
 
 #[utoipa::path(
@@ -26,7 +26,7 @@ use unleash_types::client_metrics::ClientApplication;
 #[instrument(skip(app_state, edge_token, client_application))]
 pub async fn register(
     app_state: State<AppState>,
-    edge_token: EdgeToken,
+    AuthToken(edge_token): AuthToken,
     client_application: Json<ClientApplication>,
 ) -> impl IntoResponse {
     unleash_edge_metrics::client_metrics::register_client_application(

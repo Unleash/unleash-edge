@@ -1,8 +1,11 @@
-use axum::extract::{Query, State};
+use std::sync::Arc;
+use axum::extract::{FromRef, Query, State};
 use axum::routing::get;
 use axum::{Json, Router};
 use tracing::{instrument, trace};
 use unleash_edge_appstate::AppState;
+use unleash_edge_appstate::edge_token_extractor::{AuthState, AuthToken};
+use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_filters::{
     FeatureFilterSet, filter_client_features, name_prefix_filter, project_filter,
 };
@@ -28,8 +31,8 @@ use unleash_types::client_features::ClientFeatures;
 )]
 #[instrument(skip(app_state, edge_token, filter_query))]
 pub async fn get_features(
-    State(app_state): State<AppState>,
-    edge_token: EdgeToken,
+    State(app_state): State<FeatureState>,
+    AuthToken(edge_token): AuthToken,
     Query(filter_query): Query<FeatureFilters>,
 ) -> EdgeJsonResult<ClientFeatures> {
     resolve_features(&app_state, edge_token.clone(), filter_query).await
@@ -51,8 +54,8 @@ pub async fn get_features(
 )]
 #[instrument(skip(app_state, edge_token, filter_query))]
 pub async fn post_features(
-    State(app_state): State<AppState>,
-    edge_token: EdgeToken,
+    State(app_state): State<FeatureState>,
+    AuthToken(edge_token): AuthToken,
     Query(filter_query): Query<FeatureFilters>,
 ) -> EdgeJsonResult<ClientFeatures> {
     resolve_features(&app_state, edge_token, filter_query).await
@@ -60,7 +63,7 @@ pub async fn post_features(
 
 #[instrument(skip(app_state, edge_token, filter_query))]
 async fn resolve_features(
-    app_state: &AppState,
+    app_state: &FeatureState,
     edge_token: EdgeToken,
     filter_query: FeatureFilters,
 ) -> EdgeJsonResult<ClientFeatures> {
@@ -123,6 +126,32 @@ fn get_feature_filter(
     Ok((validated_token, filter_set, query))
 }
 
-pub fn router() -> Router<AppState> {
+#[derive(Clone)]
+pub struct FeatureState {
+    pub hydrator: Option<HydratorType>,
+    pub features_cache: Arc<FeatureCache>,
+    pub token_cache: Arc<TokenCache>,
+}
+
+impl FromRef<AppState> for FeatureState {
+    fn from_ref(app: &AppState) -> Self {
+        Self {
+            hydrator: app.hydrator.clone(),
+            features_cache: app.features_cache.clone(),
+            token_cache: app.token_cache.clone(),
+        }
+    }
+}
+
+fn features_router_for<S>() -> Router<S>
+where
+    S: Clone + Send + Sync + 'static,
+    FeatureState: FromRef<S>,
+    AuthState: FromRef<S>,
+{
     Router::new().route("/features", get(get_features).post(post_features))
+}
+
+pub fn router() -> Router<AppState> {
+    features_router_for::<AppState>()
 }

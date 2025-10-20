@@ -18,6 +18,7 @@ serde_qs = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 unleash-edge-appstate = { workspace = true }
+unleash-edge-feature-cache = { workspace = true }
 unleash-edge-feature-filters = { workspace = true }
 unleash-edge-feature-refresh = { workspace = true }
 unleash-edge-metrics = { workspace = true }

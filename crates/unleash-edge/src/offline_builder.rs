@@ -8,7 +8,6 @@ use std::sync::Arc;
 use unleash_edge_appstate::AppState;
 use unleash_edge_cli::{CliArgs, OfflineArgs};
 use unleash_edge_feature_cache::FeatureCache;
-use unleash_edge_http_client::instance_data::InstanceDataSending;
 use unleash_edge_offline::hotload::{
     create_hotload_task, load_bootstrap, load_offline_engine_cache,
 };
@@ -104,8 +103,6 @@ pub async fn build_offline_app_state(
     let (token_cache, features_cache, _, engine_cache) = build_offline(offline_args.clone())?;
     let metrics_cache = Arc::new(MetricsCache::default());
 
-    let instance_data_sender = Arc::new(InstanceDataSending::SendNothing);
-
     let app_state = AppState::builder()
         .with_token_cache(token_cache.clone())
         .with_features_cache(features_cache.clone())
@@ -113,7 +110,6 @@ pub async fn build_offline_app_state(
         .with_metrics_cache(metrics_cache.clone())
         .with_deny_list(args.http.deny_list.unwrap_or_default())
         .with_allow_list(args.http.allow_list.unwrap_or_default())
-        .with_instance_sending(instance_data_sender)
         .build();
 
     let background_tasks =

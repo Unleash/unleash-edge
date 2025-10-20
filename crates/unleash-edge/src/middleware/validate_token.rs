@@ -4,6 +4,7 @@ use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use reqwest::StatusCode;
 use tracing::{debug, instrument, trace};
+use unleash_edge_appstate::edge_token_extractor::AuthToken;
 use unleash_edge_appstate::AppState;
 use unleash_edge_auth::token_validator::{TokenRegister, TokenValidator};
 use unleash_edge_types::errors::EdgeError;
@@ -13,7 +14,7 @@ use unleash_edge_types::{TokenType, TokenValidationStatus};
 #[instrument(skip(app_state, edge_token, req, next))]
 pub async fn validate_token(
     app_state: State<AppState>,
-    edge_token: EdgeToken,
+    AuthToken(edge_token): AuthToken,
     req: Request,
     next: Next,
 ) -> impl IntoResponse {

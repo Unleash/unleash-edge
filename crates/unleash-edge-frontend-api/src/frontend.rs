@@ -1,19 +1,23 @@
 use crate::querystring_extractor::QsQueryCfg;
 use crate::{all_features, enabled_features};
 use axum::body::Body;
-use axum::extract::{ConnectInfo, Path, State};
+use axum::extract::{ConnectInfo, FromRef, Path, State};
 use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use std::net::{IpAddr, SocketAddr};
+use std::sync::Arc;
 use tracing::instrument;
 use unleash_edge_appstate::AppState;
+use unleash_edge_appstate::edge_token_extractor::{AuthState, AuthToken};
+use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_types::errors::EdgeError;
+use unleash_edge_types::metrics::MetricsCache;
 use unleash_edge_types::tokens::{EdgeToken, cache_key};
 use unleash_edge_types::{EdgeJsonResult, EdgeResult, EngineCache, TokenCache};
 use unleash_types::client_features::Context;
-use unleash_types::client_metrics::{ClientApplication, ClientMetrics};
+use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ConnectVia};
 use unleash_types::frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult};
 
 #[utoipa::path(
@@ -31,8 +35,8 @@ use unleash_types::frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult}
 )]
 #[instrument(skip(app_state, edge_token, client_ip, context))]
 pub async fn frontend_get_all_features(
-    State(app_state): State<AppState>,
-    edge_token: EdgeToken,
+    State(app_state): State<FrontendState>,
+    AuthToken(edge_token): AuthToken,
     client_ip: ConnectInfo<SocketAddr>,
     QsQueryCfg(context): QsQueryCfg<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
@@ -41,8 +45,8 @@ pub async fn frontend_get_all_features(
 
 #[instrument(skip(app_state, edge_token, client_ip, context))]
 pub async fn frontend_post_all_features(
-    State(app_state): State<AppState>,
-    edge_token: EdgeToken,
+    State(app_state): State<FrontendState>,
+    AuthToken(edge_token): AuthToken,
     client_ip: ConnectInfo<SocketAddr>,
     Json(context): Json<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
@@ -51,8 +55,8 @@ pub async fn frontend_post_all_features(
 
 #[instrument(skip(app_state, edge_token, client_ip, context))]
 pub async fn frontend_get_enabled_features(
-    State(app_state): State<AppState>,
-    edge_token: EdgeToken,
+    State(app_state): State<FrontendState>,
+    AuthToken(edge_token): AuthToken,
     client_ip: ConnectInfo<SocketAddr>,
     QsQueryCfg(context): QsQueryCfg<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
@@ -61,8 +65,8 @@ pub async fn frontend_get_enabled_features(
 
 #[instrument(skip(app_state, edge_token, client_ip, context))]
 pub async fn frontend_post_enabled_features(
-    State(app_state): State<AppState>,
-    edge_token: EdgeToken,
+    State(app_state): State<FrontendState>,
+    AuthToken(edge_token): AuthToken,
     client_ip: ConnectInfo<SocketAddr>,
     Json(context): Json<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
@@ -71,8 +75,8 @@ pub async fn frontend_post_enabled_features(
 
 #[instrument(skip(app_state, edge_token, metrics))]
 pub async fn frontend_post_metrics(
-    app_state: State<AppState>,
-    edge_token: EdgeToken,
+    app_state: State<FrontendState>,
+    AuthToken(edge_token): AuthToken,
     Json(metrics): Json<ClientMetrics>,
 ) -> impl IntoResponse {
     unleash_edge_metrics::client_metrics::register_client_metrics(
@@ -88,8 +92,8 @@ pub async fn frontend_post_metrics(
 
 #[instrument(skip(app_state, edge_token, client_application))]
 pub async fn frontend_register_client(
-    State(app_state): State<AppState>,
-    edge_token: EdgeToken,
+    State(app_state): State<FrontendState>,
+    AuthToken(edge_token): AuthToken,
     Json(client_application): Json<ClientApplication>,
 ) -> impl IntoResponse {
     unleash_edge_metrics::client_metrics::register_client_application(
@@ -106,8 +110,8 @@ pub async fn frontend_register_client(
 
 #[instrument(skip(app_state, edge_token, feature_name, context, connect_info))]
 pub async fn frontend_get_feature(
-    State(app_state): State<AppState>,
-    edge_token: EdgeToken,
+    State(app_state): State<FrontendState>,
+    AuthToken(edge_token): AuthToken,
     Path(feature_name): Path<String>,
     QsQueryCfg(context): QsQueryCfg<Context>,
     ConnectInfo(connect_info): ConnectInfo<SocketAddr>,
@@ -125,8 +129,8 @@ pub async fn frontend_get_feature(
 
 #[instrument(skip(app_state, edge_token, feature_name, context, connect_info))]
 pub async fn frontend_post_feature(
-    State(app_state): State<AppState>,
-    edge_token: EdgeToken,
+    State(app_state): State<FrontendState>,
+    AuthToken(edge_token): AuthToken,
     Path(feature_name): Path<String>,
     ConnectInfo(connect_info): ConnectInfo<SocketAddr>,
     Json(context): Json<Context>,
@@ -191,7 +195,33 @@ fn evaluate_feature(
         .ok_or_else(|| EdgeError::FeatureNotFound(feature_name.clone()))
 }
 
-pub fn router(disable_all_endpoints: bool) -> Router<AppState> {
+#[derive(Clone)]
+pub struct FrontendState {
+    pub token_cache: Arc<TokenCache>,
+    pub features_cache: Arc<FeatureCache>,
+    pub engine_cache: Arc<EngineCache>,
+    pub metrics_cache: Arc<MetricsCache>,
+    pub connect_via: ConnectVia,
+}
+
+impl FromRef<AppState> for FrontendState {
+    fn from_ref(app: &AppState) -> Self {
+        Self {
+            features_cache: app.features_cache.clone(),
+            token_cache: app.token_cache.clone(),
+            engine_cache: app.engine_cache.clone(),
+            metrics_cache: app.metrics_cache.clone(),
+            connect_via: app.connect_via.clone(),
+        }
+    }
+}
+
+pub(crate) fn frontend_router_for<S>(disable_all_endpoints: bool) -> Router<S>
+where
+    S: Clone + Send + Sync + 'static,
+    FrontendState: FromRef<S>,
+    AuthState: FromRef<S>,
+{
     let mut common_router = Router::new()
         .route(
             "/frontend",
@@ -228,6 +258,10 @@ pub fn router(disable_all_endpoints: bool) -> Router<AppState> {
             .route("/proxy/all/client/register", post(frontend_register_client));
     }
     common_router
+}
+
+pub fn router(disable_all_endpoints: bool) -> Router<AppState> {
+    frontend_router_for::<AppState>(disable_all_endpoints)
 }
 
 #[cfg(test)]
