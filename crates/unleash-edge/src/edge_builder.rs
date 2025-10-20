@@ -49,7 +49,6 @@ pub struct EdgeStateArgs {
     pub args: CliArgs,
     pub edge_args: EdgeArgs,
     pub client_meta_information: ClientMetaInformation,
-    // pub edge_instance_data: Arc<EdgeInstanceData>,
     pub instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>>,
     pub auth_headers: AuthHeaders,
     pub http_client: reqwest::Client,
