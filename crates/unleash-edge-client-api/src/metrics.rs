@@ -94,7 +94,7 @@ impl FromRef<AppState> for MetricsState {
     }
 }
 
-fn metrics_router_for<S>() -> Router<S>
+pub(crate) fn metrics_router_for<S>() -> Router<S>
 where
     S: Clone + Send + Sync + 'static,
     MetricsState: FromRef<S>,
@@ -112,6 +112,7 @@ pub fn router() -> Router<AppState> {
 
 #[cfg(test)]
 mod tests {
+    use axum::extract::FromRef;
     use axum::http::StatusCode;
     use axum_test::TestServer;
     use chrono::{DateTime, TimeZone, Utc};
@@ -120,7 +121,8 @@ mod tests {
     use std::str::FromStr;
     use std::sync::Arc;
     use ulid::Ulid;
-    use unleash_edge_appstate::AppState;
+    use unleash_edge_appstate::edge_token_extractor::AuthState;
+    use unleash_edge_cli::AuthHeaders;
     use unleash_edge_types::metrics::{ImpactMetricsKey, MetricsCache};
     use unleash_edge_types::tokens::EdgeToken;
     use unleash_edge_types::{BatchMetricsRequestBody, MetricsKey, TokenCache};
@@ -130,15 +132,42 @@ mod tests {
         MetricsMetadata, NumericMetricSample, ToggleStats,
     };
 
+    use crate::metrics::{MetricsState, metrics_router_for};
+    #[derive(Clone)]
+    struct TestState {
+        auth: AuthState,
+        metrics: MetricsState,
+    }
+
+    impl FromRef<TestState> for AuthState {
+        fn from_ref(s: &TestState) -> Self {
+            s.auth.clone()
+        }
+    }
+
+    impl FromRef<TestState> for MetricsState {
+        fn from_ref(s: &TestState) -> Self {
+            s.metrics.clone()
+        }
+    }
+
     async fn build_metrics_server(metrics_cache: Arc<MetricsCache>) -> TestServer {
-        let app_state = AppState::builder()
-            .with_metrics_cache(metrics_cache.clone())
-            .with_connect_via(ConnectVia {
-                app_name: "test".into(),
-                instance_id: Ulid::new().to_string(),
-            })
-            .build();
-        let router = super::router().with_state(app_state);
+        let test_state = TestState {
+            auth: AuthState {
+                auth_headers: AuthHeaders::default(),
+                token_cache: Arc::new(TokenCache::default()),
+            },
+            metrics: MetricsState {
+                metrics_cache,
+                connect_via: ConnectVia {
+                    app_name: "test".into(),
+                    instance_id: Ulid::new().to_string(),
+                },
+                connected_instances: Arc::new(tokio::sync::RwLock::new(vec![])),
+            },
+        };
+
+        let router = metrics_router_for::<TestState>().with_state(test_state);
         TestServer::builder()
             .http_transport()
             .build(router)

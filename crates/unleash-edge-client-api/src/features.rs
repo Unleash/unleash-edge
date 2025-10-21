@@ -143,7 +143,7 @@ impl FromRef<AppState> for FeatureState {
     }
 }
 
-fn features_router_for<S>() -> Router<S>
+pub(crate) fn features_router_for<S>() -> Router<S>
 where
     S: Clone + Send + Sync + 'static,
     FeatureState: FromRef<S>,

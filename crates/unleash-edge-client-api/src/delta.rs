@@ -162,7 +162,7 @@ impl FromRef<AppState> for DeltaState {
     }
 }
 
-fn features_router_for<S>() -> Router<S>
+pub(crate) fn delta_router_for<S>() -> Router<S>
 where
     S: Clone + Send + Sync + 'static,
     DeltaState: FromRef<S>,
@@ -172,5 +172,5 @@ where
 }
 
 pub fn router() -> Router<AppState> {
-    features_router_for::<AppState>()
+    delta_router_for::<AppState>()
 }

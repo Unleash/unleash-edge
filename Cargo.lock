@@ -5451,6 +5451,7 @@ dependencies = [
  "tracing-test",
  "ulid",
  "unleash-edge-appstate",
+ "unleash-edge-cli",
  "unleash-edge-delta",
  "unleash-edge-feature-cache",
  "unleash-edge-feature-filters",

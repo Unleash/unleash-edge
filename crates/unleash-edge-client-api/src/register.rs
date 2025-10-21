@@ -1,14 +1,17 @@
+use std::sync::Arc;
+
 use axum::body::Body;
-use axum::extract::State;
+use axum::extract::{FromRef, State};
 use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::post;
 use axum::{Json, Router};
 use tracing::instrument;
-use unleash_edge_appstate::edge_token_extractor::AuthToken;
 use unleash_edge_appstate::AppState;
+use unleash_edge_appstate::edge_token_extractor::{AuthState, AuthToken};
 use unleash_edge_types::EDGE_VERSION;
-use unleash_types::client_metrics::ClientApplication;
+use unleash_edge_types::metrics::MetricsCache;
+use unleash_types::client_metrics::{ClientApplication, ConnectVia};
 
 #[utoipa::path(
     path = "/register",
@@ -25,7 +28,7 @@ use unleash_types::client_metrics::ClientApplication;
 )]
 #[instrument(skip(app_state, edge_token, client_application))]
 pub async fn register(
-    app_state: State<AppState>,
+    app_state: State<RegisterState>,
     AuthToken(edge_token): AuthToken,
     client_application: Json<ClientApplication>,
 ) -> impl IntoResponse {
@@ -42,8 +45,31 @@ pub async fn register(
         .unwrap()
 }
 
-pub fn router() -> Router<AppState> {
+pub struct RegisterState {
+    pub connect_via: ConnectVia,
+    pub metrics_cache: Arc<MetricsCache>,
+}
+
+impl FromRef<AppState> for RegisterState {
+    fn from_ref(app_state: &AppState) -> Self {
+        RegisterState {
+            connect_via: app_state.connect_via.clone(),
+            metrics_cache: app_state.metrics_cache.clone(),
+        }
+    }
+}
+
+pub(crate) fn register_router_for<S>() -> Router<S>
+where
+    S: Clone + Send + Sync + 'static,
+    RegisterState: FromRef<S>,
+    AuthState: FromRef<S>,
+{
     Router::new().route("/register", post(register))
+}
+
+pub fn router() -> Router<AppState> {
+    register_router_for::<AppState>()
 }
 
 #[cfg(test)]

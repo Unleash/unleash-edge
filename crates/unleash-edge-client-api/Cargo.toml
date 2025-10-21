@@ -35,3 +35,4 @@ utoipa = { workspace = true }
 axum-test = { workspace = true }
 maplit = { workspace = true }
 tracing-test = { workspace = true }
+unleash-edge-cli = { workspace = true }

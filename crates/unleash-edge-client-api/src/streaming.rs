@@ -16,7 +16,7 @@ use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_streaming::stream_broadcast::stream_deltas;
 use unleash_edge_types::{EdgeResult, FeatureFilters, TokenCache, errors::EdgeError};
 
-fn streaming_router_for<S>() -> Router<S>
+pub(crate) fn streaming_router_for<S>() -> Router<S>
 where
     S: Clone + Send + Sync + 'static,
     StreamingState: FromRef<S>,
