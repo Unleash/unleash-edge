@@ -314,8 +314,8 @@ mod tests {
         fn from_caches(token_cache: Arc<TokenCache>, engine_cache: Arc<EngineCache>) -> Self {
             TestState {
                 frontend: FrontendState {
-                    token_cache: token_cache,
-                    engine_cache: engine_cache,
+                    token_cache,
+                    engine_cache,
                     features_cache: Arc::new(FeatureCache::new(Default::default())),
                     metrics_cache: Arc::new(MetricsCache::default()),
                     connect_via: ConnectVia {
