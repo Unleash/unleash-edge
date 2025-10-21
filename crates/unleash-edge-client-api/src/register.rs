@@ -45,6 +45,7 @@ pub async fn register(
         .unwrap()
 }
 
+#[derive(Clone)]
 pub struct RegisterState {
     pub connect_via: ConnectVia,
     pub metrics_cache: Arc<MetricsCache>,
@@ -74,26 +75,53 @@ pub fn router() -> Router<AppState> {
 
 #[cfg(test)]
 mod tests {
+    use axum::extract::FromRef;
     use axum::http::{HeaderValue, StatusCode};
     use axum_test::TestServer;
     use std::str::FromStr;
     use std::sync::Arc;
-    use unleash_edge_appstate::AppState;
+    use unleash_edge_appstate::edge_token_extractor::AuthState;
+    use unleash_edge_cli::AuthHeaders;
     use unleash_edge_types::metrics::{ApplicationKey, MetricsCache};
     use unleash_edge_types::tokens::EdgeToken;
     use unleash_edge_types::{EDGE_VERSION, TokenCache};
     use unleash_types::client_metrics::{ClientApplication, ConnectVia};
 
+    use crate::register::RegisterState;
+
+    #[derive(Clone)]
+    struct TestState {
+        auth: AuthState,
+        register: RegisterState,
+    }
+
+    impl FromRef<TestState> for AuthState {
+        fn from_ref(s: &TestState) -> Self {
+            s.auth.clone()
+        }
+    }
+    impl FromRef<TestState> for RegisterState {
+        fn from_ref(s: &TestState) -> Self {
+            s.register.clone()
+        }
+    }
+
     fn build_server(metrics_cache: Arc<MetricsCache>, token_cache: Arc<TokenCache>) -> TestServer {
-        let app_state = AppState::builder()
-            .with_metrics_cache(metrics_cache.clone())
-            .with_token_cache(token_cache.clone())
-            .with_connect_via(ConnectVia {
-                app_name: "unleash-edge".into(),
-                instance_id: "unleash-edge-test-server".into(),
-            })
-            .build();
-        let router = super::router().with_state(app_state);
+        let app_state = TestState {
+            auth: AuthState {
+                token_cache: token_cache.clone(),
+                auth_headers: AuthHeaders::default(),
+            },
+            register: RegisterState {
+                connect_via: ConnectVia {
+                    app_name: "unleash-edge".into(),
+                    instance_id: "unleash-edge-test-server".into(),
+                },
+                metrics_cache: metrics_cache.clone(),
+            },
+        };
+
+        let router = super::register_router_for::<TestState>().with_state(app_state);
         TestServer::builder()
             .http_transport()
             .build(router)

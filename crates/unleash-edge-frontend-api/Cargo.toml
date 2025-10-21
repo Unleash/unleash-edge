@@ -26,6 +26,8 @@ unleash-edge-types = { workspace = true }
 unleash-types = { workspace = true }
 unleash-yggdrasil = { workspace = true }
 utoipa = { workspace = true }
+
 [dev-dependencies]
 axum-test = { workspace = true }
 tower = { workspace = true }
+unleash-edge-cli = { workspace = true }

@@ -40,4 +40,4 @@ ulid = { workspace = true }
 unleash-edge-appstate = { workspace = true }
 unleash-edge-client-api = { workspace = true }
 unleash-edge-edge-api = { workspace = true }
-unleash-edge-feature-refresh = { workspace = true }
+unleash-edge-cli = { workspace = true }

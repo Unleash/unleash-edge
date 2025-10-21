@@ -13,8 +13,8 @@ pub mod metrics;
 pub mod register;
 pub mod streaming;
 
-pub trait EdgeApiState: Clone + Send + Sync + 'static {}
-impl<S> EdgeApiState for S
+pub trait ClientApiState: Clone + Send + Sync + 'static {}
+impl<S> ClientApiState for S
 where
     S: Clone + Send + Sync + 'static,
     FeatureState: FromRef<S>,
@@ -28,7 +28,7 @@ where
 
 pub fn router_for<S>() -> Router<S>
 where
-    S: Clone + Send + Sync + 'static + EdgeApiState,
+    S: Clone + Send + Sync + 'static + ClientApiState,
     FeatureState: FromRef<S>,
     DeltaState: FromRef<S>,
     MetricsState: FromRef<S>,

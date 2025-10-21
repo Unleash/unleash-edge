@@ -266,28 +266,74 @@ pub fn router(disable_all_endpoints: bool) -> Router<AppState> {
 
 #[cfg(test)]
 mod tests {
+    use axum::extract::FromRef;
     use axum::extract::connect_info::MockConnectInfo;
     use axum::http::StatusCode;
     use axum_test::TestServer;
     use serde_json::json;
+    use unleash_edge_cli::AuthHeaders;
     use std::fs;
     use std::io::BufReader;
     use std::net::SocketAddr;
     use std::path::PathBuf;
     use std::str::FromStr;
     use std::sync::Arc;
-    use unleash_edge_appstate::AppState;
+    use unleash_edge_appstate::edge_token_extractor::AuthState;
+    use unleash_edge_feature_cache::FeatureCache;
+    use unleash_edge_types::metrics::MetricsCache;
     use unleash_edge_types::tokens::{EdgeToken, cache_key};
     use unleash_edge_types::{EngineCache, TokenCache, TokenType, TokenValidationStatus};
     use unleash_types::client_features::{
         ClientFeature, ClientFeatures, Constraint, Operator, Strategy,
     };
+    use unleash_types::client_metrics::ConnectVia;
     use unleash_types::frontend::FrontendResult;
     use unleash_yggdrasil::{EngineState, UpdateMessage};
 
-    fn frontend_test_server(app_state: AppState, disable_all_endpoints: bool) -> TestServer {
-        let router = super::router(disable_all_endpoints)
-            .with_state(app_state)
+    use crate::frontend::FrontendState;
+
+    #[derive(Clone)]
+    struct TestState {
+        frontend: FrontendState,
+        auth: AuthState,
+    }
+
+    impl FromRef<TestState> for AuthState {
+        fn from_ref(s: &TestState) -> Self {
+            s.auth.clone()
+        }
+    }
+
+    impl FromRef<TestState> for FrontendState {
+        fn from_ref(s: &TestState) -> Self {
+            s.frontend.clone()
+        }
+    }
+
+    impl TestState {
+        fn from_caches(token_cache: Arc<TokenCache>, engine_cache: Arc<EngineCache>) -> Self {
+            TestState {
+                frontend: FrontendState {
+                    token_cache: token_cache,
+                    engine_cache: engine_cache,
+                    features_cache: Arc::new(FeatureCache::new(Default::default())),
+                    metrics_cache: Arc::new(MetricsCache::default()),
+                    connect_via: ConnectVia {
+                        app_name: "unleash-edge".into(),
+                        instance_id: "unleash-edge-test-server".into(),
+                    },
+                },
+                auth: AuthState {
+                    token_cache: Arc::new(TokenCache::new()),
+                    auth_headers: AuthHeaders::default(),
+                },
+            }
+        }
+    }
+
+    fn frontend_test_server(test_state: TestState, disable_all_endpoints: bool) -> TestServer {
+        let router = super::frontend_router_for::<TestState>(disable_all_endpoints)
+            .with_state(test_state)
             .into_make_service_with_connect_info::<SocketAddr>();
         TestServer::builder()
             .http_transport()
@@ -295,10 +341,10 @@ mod tests {
             .expect("Failed to build test server")
     }
 
-    fn frontend_test_server_with_ip(app_state: AppState, ip_addr: &str) -> TestServer {
+    fn frontend_test_server_with_ip(test_state: TestState, ip_addr: &str) -> TestServer {
         let fake_addr = SocketAddr::from_str(ip_addr).unwrap();
-        let router = super::router(false)
-            .with_state(app_state)
+        let router = super::frontend_router_for::<TestState>(false)
+            .with_state(test_state)
             .layer(MockConnectInfo(fake_addr));
         TestServer::builder()
             .http_transport()
@@ -319,11 +365,11 @@ mod tests {
         ));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let app_state = AppState::builder()
-            .with_token_cache(token_cache)
-            .with_engine_cache(engine_cache)
-            .build();
-        let server = frontend_test_server(app_state.clone(), true);
+        let test_state = TestState::from_caches(
+            token_cache,
+            engine_cache,
+        );
+        let server = frontend_test_server(test_state, true);
         let res = server
             .get("/frontend")
             .add_header("Authorization", frontend_token.token)
@@ -347,11 +393,11 @@ mod tests {
         ));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let app_state = AppState::builder()
-            .with_token_cache(token_cache)
-            .with_engine_cache(engine_cache)
-            .build();
-        let server = frontend_test_server(app_state.clone(), false);
+        let test_state = TestState::from_caches(
+            token_cache,
+            engine_cache,
+        );
+        let server = frontend_test_server(test_state, false);
         let res = server
             .get("/frontend/all")
             .add_header("Authorization", frontend_token.token)
@@ -376,11 +422,11 @@ mod tests {
         ));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let app_state = AppState::builder()
-            .with_token_cache(token_cache)
-            .with_engine_cache(engine_cache)
-            .build();
-        let server = frontend_test_server(app_state.clone(), true);
+        let test_state = TestState::from_caches(
+            token_cache,
+            engine_cache,
+        );
+        let server = frontend_test_server(test_state, true);
         let res = server
             .get("/frontend?userId=7")
             .add_header("Authorization", frontend_token.token.clone())
@@ -411,11 +457,11 @@ mod tests {
         ));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let app_state = AppState::builder()
-            .with_token_cache(token_cache)
-            .with_engine_cache(engine_cache)
-            .build();
-        let server = frontend_test_server(app_state.clone(), true);
+        let test_state = TestState::from_caches(
+            token_cache,
+            engine_cache,
+        );
+        let server = frontend_test_server(test_state, true);
         let res = server
             .post("/frontend")
             .add_header("Authorization", frontend_token.token.clone())
@@ -452,11 +498,11 @@ mod tests {
         ));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let app_state = AppState::builder()
-            .with_token_cache(token_cache)
-            .with_engine_cache(engine_cache)
-            .build();
-        let server = frontend_test_server(app_state.clone(), true);
+        let test_state = TestState::from_caches(
+            token_cache,
+            engine_cache,
+        );
+        let server = frontend_test_server(test_state, true);
         let frontend_response = server
             .get("/frontend")
             .add_header("Authorization", frontend_token.token.clone())
@@ -492,11 +538,11 @@ mod tests {
         ));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let app_state = AppState::builder()
-            .with_token_cache(token_cache)
-            .with_engine_cache(engine_cache)
-            .build();
-        let server = frontend_test_server(app_state.clone(), true);
+        let test_state = TestState::from_caches(
+            token_cache,
+            engine_cache,
+        );
+        let server = frontend_test_server(test_state, true);
         let res = server
             .get("/frontend/features/test?test_property=42")
             .add_header("Authorization", frontend_token.token.clone())
@@ -518,11 +564,11 @@ mod tests {
         )));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let app_state = AppState::builder()
-            .with_token_cache(token_cache)
-            .with_engine_cache(engine_cache)
-            .build();
-        let server = frontend_test_server(app_state.clone(), true);
+        let test_state = TestState::from_caches(
+            token_cache,
+            engine_cache,
+        );
+        let server = frontend_test_server(test_state, true);
         let res = server
             .get("/frontend/features/variantsPerEnvironment")
             .add_header("Authorization", frontend_token.token.clone())
@@ -544,11 +590,11 @@ mod tests {
         )));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let app_state = AppState::builder()
-            .with_token_cache(token_cache)
-            .with_engine_cache(engine_cache)
-            .build();
-        let server = frontend_test_server(app_state.clone(), true);
+        let test_state = TestState::from_caches(
+            token_cache,
+            engine_cache,
+        );
+        let server = frontend_test_server(test_state, true);
         let res = server
             .get("/frontend?properties[companyId]=bricks")
             .add_header("Authorization", frontend_token.token.clone())
@@ -578,11 +624,11 @@ mod tests {
         )));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let app_state = AppState::builder()
-            .with_token_cache(token_cache)
-            .with_engine_cache(engine_cache)
-            .build();
-        let server = frontend_test_server(app_state.clone(), true);
+        let test_state = TestState::from_caches(
+            token_cache,
+            engine_cache,
+        );
+        let server = frontend_test_server(test_state, true);
         let res = server
             .post("/frontend")
             .add_header("Authorization", frontend_token.token.clone())
@@ -611,11 +657,11 @@ mod tests {
         )));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let app_state = AppState::builder()
-            .with_token_cache(token_cache)
-            .with_engine_cache(engine_cache)
-            .build();
-        let server = frontend_test_server_with_ip(app_state.clone(), "192.168.0.1:80");
+        let test_state = TestState::from_caches(
+            token_cache,
+            engine_cache,
+        );
+        let server = frontend_test_server_with_ip(test_state.clone(), "192.168.0.1:80");
         let res = server
             .get("/frontend")
             .add_header("Content-Type", "application/json")

@@ -179,6 +179,35 @@ fn client_application_from_token_and_name(
     }
 }
 
+pub fn features_for_filter(
+    tokens_to_refresh: &TokenRefreshSet,
+    features_cache: &FeatureCache,
+    token: EdgeToken,
+    filters: &FeatureFilterSet,
+) -> EdgeResult<ClientFeatures> {
+    match get_features_by_filter(features_cache, &token, filters) {
+        Some(features) if tokens_to_refresh.token_is_subsumed(&token) => Ok(features),
+        Some(_features) if !tokens_to_refresh.token_is_subsumed(&token) => {
+            debug!("Token is not subsumed by any registered tokens. Returning error");
+            Err(EdgeError::InvalidToken)
+        }
+        _ => {
+            debug!("No features set available. Edge isn't ready");
+            Err(EdgeError::InvalidToken)
+        }
+    }
+}
+
+fn get_features_by_filter(
+    features_cache: &FeatureCache,
+    token: &EdgeToken,
+    filters: &FeatureFilterSet,
+) -> Option<ClientFeatures> {
+    features_cache
+        .get(&cache_key(token))
+        .map(|client_features| filter_client_features(&client_features, filters))
+}
+
 pub async fn start_refresh_features_background_task(refresher: Arc<FeatureRefresher>) {
     loop {
         tokio::select! {
@@ -233,24 +262,6 @@ impl FeatureRefresher {
     pub async fn register_and_hydrate_token(&self, token: &EdgeToken) {
         self.register_token_for_refresh(token.clone(), None).await;
         self.hydrate_new_tokens().await;
-    }
-
-    pub fn features_for_filter(
-        &self,
-        token: EdgeToken,
-        filters: &FeatureFilterSet,
-    ) -> EdgeResult<ClientFeatures> {
-        match self.get_features_by_filter(&token, filters) {
-            Some(features) if self.tokens_to_refresh.token_is_subsumed(&token) => Ok(features),
-            Some(_features) if !self.tokens_to_refresh.token_is_subsumed(&token) => {
-                debug!("Token is not subsumed by any registered tokens. Returning error");
-                Err(EdgeError::InvalidToken)
-            }
-            _ => {
-                debug!("No features set available. Edge isn't ready");
-                Err(EdgeError::InvalidToken)
-            }
-        }
     }
 
     /// Registers a token for refresh, the token will be discarded if it can be subsumed by another previously registered token
@@ -409,16 +420,6 @@ impl FeatureRefresher {
             }
         }
     }
-
-    fn get_features_by_filter(
-        &self,
-        token: &EdgeToken,
-        filters: &FeatureFilterSet,
-    ) -> Option<ClientFeatures> {
-        self.features_cache
-            .get(&cache_key(token))
-            .map(|client_features| filter_client_features(&client_features, filters))
-    }
 }
 
 #[cfg(test)]
@@ -426,10 +427,12 @@ mod tests {
     use crate::TokenRefreshStatus;
 
     use super::*;
+    use axum::extract::FromRef;
     use chrono::{Duration, Utc};
     use dashmap::DashMap;
     use etag::EntityTag;
     use reqwest::Url;
+    use unleash_edge_cli::AuthHeaders;
     use std::fs;
     use std::io::BufReader;
     use std::path::PathBuf;
@@ -446,9 +449,11 @@ mod tests {
     use axum_test::TestServer;
     use pretty_assertions::assert_eq;
     use std::str::FromStr;
-    use unleash_edge_appstate::AppState;
     use unleash_edge_feature_cache::update_projects_from_feature_update;
 
+    use unleash_edge_appstate::edge_token_extractor::AuthState;
+    use unleash_edge_client_api::features::{FeatureState, features_router_for};
+    use unleash_edge_edge_api::{EdgeApiState, edge_api_router_for};
     use unleash_edge_types::TokenValidationStatus::Validated;
     use unleash_edge_types::tokens::cache_key;
     use unleash_edge_types::{EngineCache, TokenCache, TokenRefresh, TokenType};
@@ -825,20 +830,55 @@ mod tests {
         assert!(tokens_to_refresh.contains(&no_etag_so_is_due_for_refresh));
     }
 
+    #[derive(Clone)]
+    struct TestState {
+        upstream_token_cache: Arc<TokenCache>,
+        upstream_features_cache: Arc<FeatureCache>,
+        auth: AuthState,
+    }
+
+    impl FromRef<TestState> for AuthState {
+        fn from_ref(s: &TestState) -> Self {
+            s.auth.clone()
+        }
+    }
+
+    impl FromRef<TestState> for FeatureState {
+        fn from_ref(s: &TestState) -> Self {
+            FeatureState {
+                tokens_to_refresh: None, //this is cheating, this will skip token subsumption but it's good enough for tests
+                features_cache: s.upstream_features_cache.clone(),
+                token_cache: s.upstream_token_cache.clone(),
+            }
+        }
+    }
+
+    impl FromRef<TestState> for EdgeApiState {
+        fn from_ref(input: &TestState) -> Self {
+            EdgeApiState {
+                token_cache: input.upstream_token_cache.clone(),
+                token_validator: Arc::new(None)
+            }
+        }
+    }
+
     async fn client_api_test_server(
         upstream_token_cache: Arc<TokenCache>,
         upstream_features_cache: Arc<FeatureCache>,
-        upstream_engine_cache: Arc<EngineCache>,
     ) -> TestServer {
-        let app_state = AppState::builder()
-            .with_token_cache(upstream_token_cache.clone())
-            .with_features_cache(upstream_features_cache.clone())
-            .with_engine_cache(upstream_engine_cache.clone())
-            .build();
+        let test_state = TestState {
+            upstream_features_cache,
+            upstream_token_cache: upstream_token_cache.clone(),
+            auth: AuthState {
+                auth_headers: AuthHeaders::default(),
+                token_cache: upstream_token_cache
+            },
+        };
+
         let router = Router::new()
-            .nest("/api/client", unleash_edge_client_api::router())
-            .nest("/edge", unleash_edge_edge_api::router())
-            .with_state(app_state);
+            .nest("/api/client", features_router_for::<TestState>())
+            .nest("/edge", edge_api_router_for::<TestState>())
+            .with_state(test_state);
         TestServer::builder()
             .http_transport()
             .build(router)
@@ -848,12 +888,10 @@ mod tests {
     #[tokio::test]
     pub async fn getting_403_when_refreshing_features_will_remove_token() {
         let upstream_features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
-        let upstream_engine_cache: Arc<EngineCache> = Arc::new(DashMap::default());
         let upstream_token_cache: Arc<TokenCache> = Arc::new(DashMap::default());
         let server = client_api_test_server(
             upstream_token_cache,
             upstream_features_cache,
-            upstream_engine_cache,
         )
         .await;
 
@@ -902,7 +940,6 @@ mod tests {
         let server = client_api_test_server(
             upstream_token_cache,
             upstream_features_cache,
-            upstream_engine_cache,
         )
         .await;
         let unleash_client = create_test_client(TestClientOptions {
@@ -959,7 +996,6 @@ mod tests {
         let server = client_api_test_server(
             upstream_token_cache,
             upstream_features_cache,
-            upstream_engine_cache,
         )
         .await;
         let unleash_client = create_test_client(TestClientOptions {
@@ -1048,7 +1084,6 @@ mod tests {
         let server = client_api_test_server(
             upstream_token_cache,
             upstream_features_cache.clone(),
-            upstream_engine_cache,
         )
         .await;
         let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());

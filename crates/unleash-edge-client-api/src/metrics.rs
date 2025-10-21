@@ -79,9 +79,9 @@ pub async fn post_edge_instance_data(
 
 #[derive(Clone)]
 pub struct MetricsState {
-    metrics_cache: Arc<MetricsCache>,
-    connect_via: ConnectVia,
-    connected_instances: Arc<tokio::sync::RwLock<Vec<EdgeInstanceData>>>,
+    pub metrics_cache: Arc<MetricsCache>,
+    pub connect_via: ConnectVia,
+    pub connected_instances: Arc<tokio::sync::RwLock<Vec<EdgeInstanceData>>>,
 }
 
 impl FromRef<AppState> for MetricsState {

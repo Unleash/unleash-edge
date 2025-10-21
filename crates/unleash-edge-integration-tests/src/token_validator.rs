@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod tests {
+    use axum::extract::FromRef;
     use axum::response::IntoResponse;
     use axum::routing::post;
     use axum::{Json, Router};
@@ -10,13 +11,13 @@ mod tests {
     use serde::{Deserialize, Serialize};
     use std::sync::Arc;
     use ulid::Ulid;
-    use unleash_edge_appstate::AppState;
     use unleash_edge_auth::token_validator::TokenValidator;
+    use unleash_edge_edge_api::{EdgeApiState, edge_api_router_for};
     use unleash_edge_http_client::{
         ClientMetaInformation, HttpClientArgs, UnleashClient, new_reqwest_client,
     };
     use unleash_edge_types::tokens::EdgeToken;
-    use unleash_edge_types::{TokenType, TokenValidationStatus};
+    use unleash_edge_types::{TokenCache, TokenType, TokenValidationStatus};
 
     #[derive(Clone, Debug, Serialize, Deserialize)]
     pub struct EdgeTokens {
@@ -33,6 +34,21 @@ mod tests {
                 app_name: "test_app".into(),
                 instance_id: Ulid::new(),
                 connection_id: Ulid::new(),
+            }
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct TestState {
+        pub token_cache: Arc<TokenCache>,
+        pub token_validator: Arc<Option<TokenValidator>>,
+    }
+
+    impl FromRef<TestState> for EdgeApiState {
+        fn from_ref(app_state: &TestState) -> Self {
+            EdgeApiState {
+                token_cache: app_state.token_cache.clone(),
+                token_validator: app_state.token_validator.clone(),
             }
         }
     }
@@ -89,12 +105,14 @@ mod tests {
             unleash_client: build_unleash_client(Url::parse("http://localhost:4242").unwrap()),
             deferred_validation_tx: None,
         };
-        let app_state = AppState::builder()
-            .with_token_validator(Arc::new(Some(token_validator)))
-            .build();
+        let test_state = TestState {
+            token_cache,
+            token_validator: Arc::new(Some(token_validator)),
+        };
+
         let router = Router::new()
-            .nest("/edge", unleash_edge_edge_api::router())
-            .with_state(app_state);
+            .nest("/edge", edge_api_router_for::<TestState>())
+            .with_state(test_state);
         TestServer::builder()
             .http_transport()
             .build(router)

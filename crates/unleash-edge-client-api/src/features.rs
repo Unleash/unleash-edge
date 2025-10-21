@@ -1,6 +1,7 @@
 use axum::extract::{FromRef, Query, State};
 use axum::routing::get;
 use axum::{Json, Router};
+use dashmap::DashMap;
 use std::sync::Arc;
 use tracing::{instrument, trace};
 use unleash_edge_appstate::AppState;
@@ -9,10 +10,10 @@ use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_filters::{
     FeatureFilterSet, filter_client_features, name_prefix_filter, project_filter,
 };
-use unleash_edge_feature_refresh::HydratorType;
+use unleash_edge_feature_refresh::{HydratorType, features_for_filter};
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::tokens::{EdgeToken, cache_key};
-use unleash_edge_types::{EdgeJsonResult, EdgeResult, FeatureFilters, TokenCache};
+use unleash_edge_types::{EdgeJsonResult, EdgeResult, FeatureFilters, TokenCache, TokenRefresh};
 use unleash_types::client_features::ClientFeatures;
 
 #[utoipa::path(
@@ -70,13 +71,13 @@ async fn resolve_features(
     let (validated_token, filter_set, query) =
         get_feature_filter(&edge_token, &app_state.token_cache, filter_query)?;
 
-    let client_features = match &app_state.hydrator {
-        Some(HydratorType::Streaming(streamer)) => {
-            streamer.features_for_filter(validated_token.clone(), &filter_set)
-        }
-        Some(HydratorType::Polling(poller)) => {
-            poller.features_for_filter(validated_token.clone(), &filter_set)
-        }
+    let client_features = match &app_state.tokens_to_refresh {
+        Some(tokens_to_refresh) => features_for_filter(
+            tokens_to_refresh,
+            &app_state.features_cache,
+            validated_token.clone(),
+            &filter_set,
+        ),
         None => app_state
             .features_cache
             .get(&cache_key(&validated_token))
@@ -128,22 +129,28 @@ fn get_feature_filter(
 
 #[derive(Clone)]
 pub struct FeatureState {
-    pub hydrator: Option<HydratorType>,
+    pub tokens_to_refresh: Option<Arc<DashMap<String, TokenRefresh>>>,
     pub features_cache: Arc<FeatureCache>,
     pub token_cache: Arc<TokenCache>,
 }
 
 impl FromRef<AppState> for FeatureState {
     fn from_ref(app: &AppState) -> Self {
+        let tokens_to_refresh = match &app.hydrator {
+            Some(HydratorType::Streaming(streamer)) => Some(streamer.tokens_to_refresh.clone()),
+            Some(HydratorType::Polling(poller)) => Some(poller.tokens_to_refresh.clone()),
+            None => None,
+        };
+
         Self {
-            hydrator: app.hydrator.clone(),
             features_cache: app.features_cache.clone(),
             token_cache: app.token_cache.clone(),
+            tokens_to_refresh,
         }
     }
 }
 
-pub(crate) fn features_router_for<S>() -> Router<S>
+pub fn features_router_for<S>() -> Router<S>
 where
     S: Clone + Send + Sync + 'static,
     FeatureState: FromRef<S>,
