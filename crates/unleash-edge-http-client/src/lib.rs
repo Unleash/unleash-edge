@@ -14,6 +14,7 @@ use std::io::{BufReader, Read};
 use std::path::PathBuf;
 use std::str::FromStr;
 use tracing::{debug, error, info, trace, warn};
+use ulid::Ulid;
 use unleash_edge_cli::ClientIdentity;
 use unleash_edge_types::errors::EdgeError::EdgeMetricsRequestError;
 use unleash_edge_types::errors::{CertificateError, EdgeError, FeatureError};
@@ -103,34 +104,15 @@ lazy_static! {
     .unwrap();
 }
 
+#[cfg_attr(test, derive(Default))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClientMetaInformation {
     pub app_name: String,
-    pub instance_id: String,
-    pub connection_id: String,
+    pub instance_id: Ulid,
+    pub connection_id: Ulid,
 }
 
-impl Default for ClientMetaInformation {
-    fn default() -> Self {
-        let connection_id = ulid::Ulid::new().to_string();
-        Self {
-            app_name: "unleash-edge".into(),
-            instance_id: format!("unleash-edge@{}", connection_id.clone()),
-            connection_id,
-        }
-    }
-}
-
-impl ClientMetaInformation {
-    pub fn test_config() -> Self {
-        Self {
-            app_name: "test-app-name".into(),
-            instance_id: "test-instance-id".into(),
-            connection_id: "test-connection-id".into(),
-        }
-    }
-}
-
+#[cfg_attr(test, derive(Default))]
 #[derive(Clone, Debug)]
 pub struct HttpClientArgs {
     pub skip_ssl_verification: bool,
@@ -142,25 +124,7 @@ pub struct HttpClientArgs {
     pub client_meta_information: ClientMetaInformation,
 }
 
-impl Default for HttpClientArgs {
-    fn default() -> Self {
-        Self {
-            skip_ssl_verification: false,
-            client_identity: None,
-            upstream_certificate_file: None,
-            connect_timeout: Duration::seconds(5),
-            socket_timeout: Duration::seconds(5),
-            keep_alive_timeout: Duration::seconds(15),
-            client_meta_information: ClientMetaInformation {
-                app_name: "unleash-edge".into(),
-                instance_id: "unleash-edge@default".into(),
-                connection_id: ulid::Ulid::new().to_string(),
-            },
-        }
-    }
-}
-
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct UnleashClient {
     pub urls: UnleashUrls,
     backing_client: Client,
@@ -289,11 +253,17 @@ pub fn new_reqwest_client(args: HttpClientArgs) -> EdgeResult<Client> {
             );
             header_map.insert(
                 UNLEASH_INSTANCE_ID_HEADER,
-                header::HeaderValue::from_str(&args.client_meta_information.instance_id).unwrap(),
+                header::HeaderValue::from_str(
+                    &args.client_meta_information.instance_id.to_string(),
+                )
+                .unwrap(),
             );
             header_map.insert(
                 UNLEASH_CONNECTION_ID_HEADER,
-                header::HeaderValue::from_str(&args.client_meta_information.connection_id).unwrap(),
+                header::HeaderValue::from_str(
+                    &args.client_meta_information.connection_id.to_string(),
+                )
+                .unwrap(),
             );
             header_map.insert(
                 UNLEASH_CLIENT_SPEC_HEADER,
@@ -351,46 +321,19 @@ impl UnleashClient {
         }
     }
 
-    pub fn from_url(server_url: Url, instance_id_opt: Option<String>) -> Result<Self, EdgeError> {
-        UnleashClient::new(server_url.as_str(), instance_id_opt)
-    }
-
-    pub fn new(server_url: &str, instance_id_opt: Option<String>) -> Result<Self, EdgeError> {
-        use ulid::Ulid;
-
-        let connection_id = Ulid::new().to_string();
-        let instance_id = instance_id_opt.unwrap_or_else(|| connection_id.clone());
-        let client_meta_info = ClientMetaInformation {
-            instance_id,
-            connection_id,
-            app_name: "test-client".into(),
-        };
-        Ok(Self {
-            urls: UnleashUrls::from_str(server_url)?,
-            backing_client: new_reqwest_client(HttpClientArgs {
-                client_meta_information: client_meta_info.clone(),
-                ..Default::default()
-            })
-            .unwrap(),
-            custom_headers: Default::default(),
-            token_header: "Authorization".to_string(),
-            meta_info: client_meta_info.clone(),
-        })
-    }
-
     #[cfg(test)]
     pub fn new_insecure(server_url: &str) -> Result<Self, EdgeError> {
         Ok(Self {
             urls: UnleashUrls::from_str(server_url)?,
             backing_client: new_reqwest_client(HttpClientArgs {
                 skip_ssl_verification: true,
-                client_meta_information: ClientMetaInformation::test_config(),
+                client_meta_information: ClientMetaInformation::default(),
                 ..Default::default()
             })
             .unwrap(),
             custom_headers: Default::default(),
             token_header: "Authorization".to_string(),
-            meta_info: ClientMetaInformation::test_config(),
+            meta_info: ClientMetaInformation::default(),
         })
     }
 
@@ -464,7 +407,7 @@ impl UnleashClient {
                         .with_label_values(&[
                             r.status().as_str(),
                             &self.meta_info.app_name,
-                            &self.meta_info.instance_id,
+                            &self.meta_info.instance_id.to_string(),
                         ])
                         .inc();
                     warn!(
@@ -496,7 +439,7 @@ impl UnleashClient {
             .with_label_values(&[
                 &response.status().as_u16().to_string(),
                 &self.meta_info.app_name,
-                &self.meta_info.instance_id,
+                &self.meta_info.instance_id.to_string(),
             ])
             .observe(
                 stop_time
@@ -523,7 +466,7 @@ impl UnleashClient {
                 .with_label_values(&[
                     response.status().as_str(),
                     &self.meta_info.app_name,
-                    &self.meta_info.instance_id,
+                    &self.meta_info.instance_id.to_string(),
                 ])
                 .inc();
             Err(EdgeError::ClientFeaturesFetchError(
@@ -534,7 +477,7 @@ impl UnleashClient {
                 .with_label_values(&[
                     response.status().as_str(),
                     &self.meta_info.app_name,
-                    &self.meta_info.instance_id,
+                    &self.meta_info.instance_id.to_string(),
                 ])
                 .inc();
             warn!(
@@ -549,7 +492,7 @@ impl UnleashClient {
                 .with_label_values(&[
                     response.status().as_str(),
                     &self.meta_info.app_name,
-                    &self.meta_info.instance_id,
+                    &self.meta_info.instance_id.to_string(),
                 ])
                 .inc();
             warn!(
@@ -563,7 +506,7 @@ impl UnleashClient {
                 .with_label_values(&[
                     response.status().as_str(),
                     &self.meta_info.app_name,
-                    &self.meta_info.instance_id,
+                    &self.meta_info.instance_id.to_string(),
                 ])
                 .inc();
             Err(EdgeError::ClientFeaturesFetchError(
@@ -593,7 +536,7 @@ impl UnleashClient {
             .with_label_values(&[
                 &response.status().as_u16().to_string(),
                 &self.meta_info.app_name,
-                &self.meta_info.instance_id,
+                &self.meta_info.instance_id.to_string(),
             ])
             .observe(
                 stop_time
@@ -620,7 +563,7 @@ impl UnleashClient {
                 .with_label_values(&[
                     response.status().as_str(),
                     &self.meta_info.app_name,
-                    &self.meta_info.instance_id,
+                    &self.meta_info.instance_id.to_string(),
                 ])
                 .inc();
             Err(EdgeError::ClientFeaturesFetchError(
@@ -631,7 +574,7 @@ impl UnleashClient {
                 .with_label_values(&[
                     response.status().as_str(),
                     &self.meta_info.app_name,
-                    &self.meta_info.instance_id,
+                    &self.meta_info.instance_id.to_string(),
                 ])
                 .inc();
             warn!(
@@ -646,7 +589,7 @@ impl UnleashClient {
                 .with_label_values(&[
                     response.status().as_str(),
                     &self.meta_info.app_name,
-                    &self.meta_info.instance_id,
+                    &self.meta_info.instance_id.to_string(),
                 ])
                 .inc();
             warn!(
@@ -660,7 +603,7 @@ impl UnleashClient {
                 .with_label_values(&[
                     response.status().as_str(),
                     &self.meta_info.app_name,
-                    &self.meta_info.instance_id,
+                    &self.meta_info.instance_id.to_string(),
                 ])
                 .inc();
             Err(EdgeError::ClientFeaturesFetchError(
@@ -730,7 +673,7 @@ impl UnleashClient {
             .with_label_values(&[
                 result.status().as_str(),
                 &self.meta_info.app_name,
-                &self.meta_info.instance_id,
+                &self.meta_info.instance_id.to_string(),
             ])
             .observe(ended.signed_duration_since(started_at).num_milliseconds() as f64);
         if result.status().is_success() {
@@ -769,7 +712,7 @@ impl UnleashClient {
             .with_label_values(&[
                 result.status().as_str(),
                 &self.meta_info.app_name,
-                &self.meta_info.instance_id,
+                &self.meta_info.instance_id.to_string(),
             ])
             .observe(
                 ended_at
@@ -840,7 +783,7 @@ impl UnleashClient {
                     .with_label_values(&[
                         result.status().as_str(),
                         &self.meta_info.app_name,
-                        &self.meta_info.instance_id,
+                        &self.meta_info.instance_id.to_string(),
                     ])
                     .inc();
                 error!(

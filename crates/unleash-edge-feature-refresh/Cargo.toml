@@ -33,5 +33,11 @@ unleash-yggdrasil = { workspace = true }
 
 [dev-dependencies]
 axum-test = { workspace = true }
+pretty_assertions = { workspace = true }
 test-case = { workspace = true }
 tracing-test = { workspace = true }
+ulid = { workspace = true }
+unleash-edge-appstate = { workspace = true }
+unleash-edge-client-api = { workspace = true }
+unleash-edge-edge-api = { workspace = true }
+unleash-edge-feature-refresh = { workspace = true }

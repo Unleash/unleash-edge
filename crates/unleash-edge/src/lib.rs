@@ -24,7 +24,7 @@ use unleash_edge_metrics::axum_prometheus_metrics::{
 };
 use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_request_logger::log_request_middleware;
-use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
+use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
 use unleash_edge_types::{BackgroundTask, EdgeResult, EngineCache, TokenCache};
 
 pub mod edge_builder;
@@ -59,16 +59,10 @@ pub async fn configure_server(
     shutdown_hook: Sender<()>,
 ) -> EdgeResult<(Router, Vec<BackgroundTask>)> {
     let app_id: Ulid = Ulid::new();
-    let hosting = Hosting::from_env();
-    let edge_instance_data = Arc::new(EdgeInstanceData::new(
-        &args.app_name,
-        &app_id,
-        Some(hosting),
-    ));
     let client_meta_information = ClientMetaInformation {
         app_name: args.app_name.clone(),
-        instance_id: app_id.to_string(),
-        connection_id: app_id.to_string(),
+        instance_id: app_id,
+        connection_id: app_id.clone(),
     };
     let instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>> =
         Arc::new(RwLock::new(Vec::new()));
@@ -93,7 +87,6 @@ pub async fn configure_server(
                 args: args.clone(),
                 edge_args: edge_args.clone(),
                 client_meta_information,
-                edge_instance_data: edge_instance_data.clone(),
                 instances_observed_for_app_context: instances_observed_for_app_context.clone(),
                 auth_headers,
                 http_client,
