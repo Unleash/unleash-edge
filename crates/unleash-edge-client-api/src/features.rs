@@ -1,7 +1,7 @@
-use std::sync::Arc;
 use axum::extract::{FromRef, Query, State};
 use axum::routing::get;
 use axum::{Json, Router};
+use std::sync::Arc;
 use tracing::{instrument, trace};
 use unleash_edge_appstate::AppState;
 use unleash_edge_appstate::edge_token_extractor::{AuthState, AuthToken};

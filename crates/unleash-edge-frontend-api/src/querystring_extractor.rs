@@ -14,10 +14,7 @@ where
 {
     type Rejection = EdgeError;
 
-    async fn from_request_parts(
-        parts: &mut Parts,
-        _state: &S,
-    ) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
         let query_str = parts.uri.query().unwrap_or("");
 
         let cfg = Config::new(5, false);
@@ -48,4 +45,3 @@ mod tests {
         assert_eq!(props.get("companyId"), Some(&"bricks".to_string()));
     }
 }
-
