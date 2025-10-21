@@ -432,12 +432,12 @@ mod tests {
     use dashmap::DashMap;
     use etag::EntityTag;
     use reqwest::Url;
-    use unleash_edge_cli::AuthHeaders;
     use std::fs;
     use std::io::BufReader;
     use std::path::PathBuf;
     use std::sync::Arc;
     use ulid::Ulid;
+    use unleash_edge_cli::AuthHeaders;
     use unleash_edge_delta::cache_manager::DeltaCacheManager;
     use unleash_edge_feature_cache::FeatureCache;
     use unleash_edge_http_client::{
@@ -857,7 +857,7 @@ mod tests {
         fn from_ref(input: &TestState) -> Self {
             EdgeApiState {
                 token_cache: input.upstream_token_cache.clone(),
-                token_validator: Arc::new(None)
+                token_validator: Arc::new(None),
             }
         }
     }
@@ -871,7 +871,7 @@ mod tests {
             upstream_token_cache: upstream_token_cache.clone(),
             auth: AuthState {
                 auth_headers: AuthHeaders::default(),
-                token_cache: upstream_token_cache
+                token_cache: upstream_token_cache,
             },
         };
 
@@ -889,11 +889,7 @@ mod tests {
     pub async fn getting_403_when_refreshing_features_will_remove_token() {
         let upstream_features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let upstream_token_cache: Arc<TokenCache> = Arc::new(DashMap::default());
-        let server = client_api_test_server(
-            upstream_token_cache,
-            upstream_features_cache,
-        )
-        .await;
+        let server = client_api_test_server(upstream_token_cache, upstream_features_cache).await;
 
         let unleash_client = create_test_client(TestClientOptions {
             client_url: Some(server.server_url("/").unwrap()),
@@ -937,11 +933,7 @@ mod tests {
             engine_state.take_state(UpdateMessage::FullResponse(example_features.clone()));
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         upstream_engine_cache.insert(cache_key.clone(), engine_state);
-        let server = client_api_test_server(
-            upstream_token_cache,
-            upstream_features_cache,
-        )
-        .await;
+        let server = client_api_test_server(upstream_token_cache, upstream_features_cache).await;
         let unleash_client = create_test_client(TestClientOptions {
             client_url: Some(server.server_url("/").unwrap()),
         });
@@ -993,11 +985,7 @@ mod tests {
             engine_state.take_state(UpdateMessage::FullResponse(example_features.clone()));
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
         upstream_engine_cache.insert(cache_key.clone(), engine_state);
-        let server = client_api_test_server(
-            upstream_token_cache,
-            upstream_features_cache,
-        )
-        .await;
+        let server = client_api_test_server(upstream_token_cache, upstream_features_cache).await;
         let unleash_client = create_test_client(TestClientOptions {
             client_url: Some(server.server_url("/").unwrap()),
         });
@@ -1081,11 +1069,8 @@ mod tests {
         let warnings =
             engine_state.take_state(UpdateMessage::FullResponse(example_features.clone()));
         upstream_engine_cache.insert(cache_key.clone(), engine_state);
-        let server = client_api_test_server(
-            upstream_token_cache,
-            upstream_features_cache.clone(),
-        )
-        .await;
+        let server =
+            client_api_test_server(upstream_token_cache, upstream_features_cache.clone()).await;
         let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let unleash_client = create_test_client(TestClientOptions {
             client_url: Some(server.server_url("/").unwrap()),

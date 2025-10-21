@@ -271,7 +271,6 @@ mod tests {
     use axum::http::StatusCode;
     use axum_test::TestServer;
     use serde_json::json;
-    use unleash_edge_cli::AuthHeaders;
     use std::fs;
     use std::io::BufReader;
     use std::net::SocketAddr;
@@ -279,6 +278,7 @@ mod tests {
     use std::str::FromStr;
     use std::sync::Arc;
     use unleash_edge_appstate::edge_token_extractor::AuthState;
+    use unleash_edge_cli::AuthHeaders;
     use unleash_edge_feature_cache::FeatureCache;
     use unleash_edge_types::metrics::MetricsCache;
     use unleash_edge_types::tokens::{EdgeToken, cache_key};
@@ -365,10 +365,7 @@ mod tests {
         ));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let test_state = TestState::from_caches(
-            token_cache,
-            engine_cache,
-        );
+        let test_state = TestState::from_caches(token_cache, engine_cache);
         let server = frontend_test_server(test_state, true);
         let res = server
             .get("/frontend")
@@ -393,10 +390,7 @@ mod tests {
         ));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let test_state = TestState::from_caches(
-            token_cache,
-            engine_cache,
-        );
+        let test_state = TestState::from_caches(token_cache, engine_cache);
         let server = frontend_test_server(test_state, false);
         let res = server
             .get("/frontend/all")
@@ -422,10 +416,7 @@ mod tests {
         ));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let test_state = TestState::from_caches(
-            token_cache,
-            engine_cache,
-        );
+        let test_state = TestState::from_caches(token_cache, engine_cache);
         let server = frontend_test_server(test_state, true);
         let res = server
             .get("/frontend?userId=7")
@@ -457,10 +448,7 @@ mod tests {
         ));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let test_state = TestState::from_caches(
-            token_cache,
-            engine_cache,
-        );
+        let test_state = TestState::from_caches(token_cache, engine_cache);
         let server = frontend_test_server(test_state, true);
         let res = server
             .post("/frontend")
@@ -498,10 +486,7 @@ mod tests {
         ));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let test_state = TestState::from_caches(
-            token_cache,
-            engine_cache,
-        );
+        let test_state = TestState::from_caches(token_cache, engine_cache);
         let server = frontend_test_server(test_state, true);
         let frontend_response = server
             .get("/frontend")
@@ -538,10 +523,7 @@ mod tests {
         ));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let test_state = TestState::from_caches(
-            token_cache,
-            engine_cache,
-        );
+        let test_state = TestState::from_caches(token_cache, engine_cache);
         let server = frontend_test_server(test_state, true);
         let res = server
             .get("/frontend/features/test?test_property=42")
@@ -564,10 +546,7 @@ mod tests {
         )));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let test_state = TestState::from_caches(
-            token_cache,
-            engine_cache,
-        );
+        let test_state = TestState::from_caches(token_cache, engine_cache);
         let server = frontend_test_server(test_state, true);
         let res = server
             .get("/frontend/features/variantsPerEnvironment")
@@ -590,10 +569,7 @@ mod tests {
         )));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let test_state = TestState::from_caches(
-            token_cache,
-            engine_cache,
-        );
+        let test_state = TestState::from_caches(token_cache, engine_cache);
         let server = frontend_test_server(test_state, true);
         let res = server
             .get("/frontend?properties[companyId]=bricks")
@@ -624,10 +600,7 @@ mod tests {
         )));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let test_state = TestState::from_caches(
-            token_cache,
-            engine_cache,
-        );
+        let test_state = TestState::from_caches(token_cache, engine_cache);
         let server = frontend_test_server(test_state, true);
         let res = server
             .post("/frontend")
@@ -657,10 +630,7 @@ mod tests {
         )));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let test_state = TestState::from_caches(
-            token_cache,
-            engine_cache,
-        );
+        let test_state = TestState::from_caches(token_cache, engine_cache);
         let server = frontend_test_server_with_ip(test_state.clone(), "192.168.0.1:80");
         let res = server
             .get("/frontend")
