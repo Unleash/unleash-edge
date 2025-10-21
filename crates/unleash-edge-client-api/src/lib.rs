@@ -13,19 +13,6 @@ pub mod metrics;
 pub mod register;
 pub mod streaming;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 pub fn router_for<S>() -> Router<S>
 where
     S: Clone + Send + Sync + 'static,
