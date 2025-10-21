@@ -62,7 +62,7 @@ pub async fn configure_server(
     let client_meta_information = ClientMetaInformation {
         app_name: args.app_name.clone(),
         instance_id: app_id,
-        connection_id: app_id.clone(),
+        connection_id: app_id,
     };
     let instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>> =
         Arc::new(RwLock::new(Vec::new()));
