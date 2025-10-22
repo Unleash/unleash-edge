@@ -13,22 +13,9 @@ pub mod metrics;
 pub mod register;
 pub mod streaming;
 
-pub trait ClientApiState: Clone + Send + Sync + 'static {}
-impl<S> ClientApiState for S
-where
-    S: Clone + Send + Sync + 'static,
-    FeatureState: FromRef<S>,
-    DeltaState: FromRef<S>,
-    MetricsState: FromRef<S>,
-    AuthState: FromRef<S>,
-    RegisterState: FromRef<S>,
-    StreamingState: FromRef<S>,
-{
-}
-
 pub fn router_for<S>() -> Router<S>
 where
-    S: Clone + Send + Sync + 'static + ClientApiState,
+    S: Clone + Send + Sync + 'static,
     FeatureState: FromRef<S>,
     DeltaState: FromRef<S>,
     MetricsState: FromRef<S>,
