@@ -1,5 +1,5 @@
 use axum::body::Body;
-use axum::extract::{FromRequestParts, Query, State};
+use axum::extract::{FromRef, FromRequestParts, Query, State};
 use axum::http::request::Parts;
 use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
@@ -8,6 +8,7 @@ use axum::{Json, Router, http};
 use std::sync::Arc;
 use tracing::instrument;
 use unleash_edge_appstate::AppState;
+use unleash_edge_appstate::edge_token_extractor::{AuthState, AuthToken};
 use unleash_edge_feature_filters::delta_filters::{DeltaFilterSet, combined_filter};
 use unleash_edge_feature_filters::get_feature_filter;
 use unleash_edge_feature_refresh::HydratorType;
@@ -22,13 +23,13 @@ pub struct RevisionId {
     requested_revision_id: u32,
 }
 
-impl FromRequestParts<AppState> for RevisionId {
+impl<S> FromRequestParts<S> for RevisionId
+where
+    S: Send + Sync,
+{
     type Rejection = EdgeError;
 
-    async fn from_request_parts(
-        parts: &mut Parts,
-        _state: &AppState,
-    ) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
         Ok(parts
             .headers
             .get(http::header::IF_NONE_MATCH)
@@ -51,8 +52,8 @@ pub struct DeltaResolverArgs {
 
 #[instrument(skip(app_state, edge_token, filter_query, revision_id))]
 pub async fn get_features_delta(
-    app_state: State<AppState>,
-    edge_token: EdgeToken,
+    app_state: State<DeltaState>,
+    AuthToken(edge_token): AuthToken,
     revision_id: RevisionId,
     Query(filter_query): Query<FeatureFilters>,
 ) -> impl IntoResponse {
@@ -146,6 +147,30 @@ async fn resolve_delta(args: DeltaResolverArgs) -> EdgeJsonResult<Option<ClientF
     Ok(Json(Some(delta)))
 }
 
-pub fn router() -> Router<AppState> {
+#[derive(Clone)]
+pub struct DeltaState {
+    pub hydrator: Option<HydratorType>,
+    pub token_cache: Arc<TokenCache>,
+}
+
+impl FromRef<AppState> for DeltaState {
+    fn from_ref(app: &AppState) -> Self {
+        Self {
+            hydrator: app.hydrator.clone(),
+            token_cache: app.token_cache.clone(),
+        }
+    }
+}
+
+pub(crate) fn delta_router_for<S>() -> Router<S>
+where
+    S: Clone + Send + Sync + 'static,
+    DeltaState: FromRef<S>,
+    AuthState: FromRef<S>,
+{
     Router::new().route("/delta", get(get_features_delta))
+}
+
+pub fn router() -> Router<AppState> {
+    delta_router_for::<AppState>()
 }

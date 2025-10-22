@@ -616,7 +616,7 @@ impl UnleashClient {
         let response = self
             .backing_client
             .post(self.urls.heartbeat_url.to_string())
-            .query(&[("connectionId", self.meta_info.connection_id.clone())])
+            .query(&[("connectionId", self.meta_info.connection_id)])
             .headers(self.header_map(Some(api_key.token.clone())))
             .send()
             .await

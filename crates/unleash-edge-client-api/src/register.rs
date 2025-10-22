@@ -1,14 +1,17 @@
+use std::sync::Arc;
+
 use axum::body::Body;
-use axum::extract::State;
+use axum::extract::{FromRef, State};
 use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::post;
 use axum::{Json, Router};
 use tracing::instrument;
 use unleash_edge_appstate::AppState;
+use unleash_edge_appstate::edge_token_extractor::{AuthState, AuthToken};
 use unleash_edge_types::EDGE_VERSION;
-use unleash_edge_types::tokens::EdgeToken;
-use unleash_types::client_metrics::ClientApplication;
+use unleash_edge_types::metrics::MetricsCache;
+use unleash_types::client_metrics::{ClientApplication, ConnectVia};
 
 #[utoipa::path(
     path = "/register",
@@ -25,8 +28,8 @@ use unleash_types::client_metrics::ClientApplication;
 )]
 #[instrument(skip(app_state, edge_token, client_application))]
 pub async fn register(
-    app_state: State<AppState>,
-    edge_token: EdgeToken,
+    app_state: State<RegisterState>,
+    AuthToken(edge_token): AuthToken,
     client_application: Json<ClientApplication>,
 ) -> impl IntoResponse {
     unleash_edge_metrics::client_metrics::register_client_application(
@@ -42,32 +45,83 @@ pub async fn register(
         .unwrap()
 }
 
-pub fn router() -> Router<AppState> {
+#[derive(Clone)]
+pub struct RegisterState {
+    pub connect_via: ConnectVia,
+    pub metrics_cache: Arc<MetricsCache>,
+}
+
+impl FromRef<AppState> for RegisterState {
+    fn from_ref(app_state: &AppState) -> Self {
+        RegisterState {
+            connect_via: app_state.connect_via.clone(),
+            metrics_cache: app_state.metrics_cache.clone(),
+        }
+    }
+}
+
+pub(crate) fn register_router_for<S>() -> Router<S>
+where
+    S: Clone + Send + Sync + 'static,
+    RegisterState: FromRef<S>,
+    AuthState: FromRef<S>,
+{
     Router::new().route("/register", post(register))
+}
+
+pub fn router() -> Router<AppState> {
+    register_router_for::<AppState>()
 }
 
 #[cfg(test)]
 mod tests {
+    use axum::extract::FromRef;
     use axum::http::{HeaderValue, StatusCode};
     use axum_test::TestServer;
     use std::str::FromStr;
     use std::sync::Arc;
-    use unleash_edge_appstate::AppState;
+    use unleash_edge_appstate::edge_token_extractor::AuthState;
+    use unleash_edge_cli::AuthHeaders;
     use unleash_edge_types::metrics::{ApplicationKey, MetricsCache};
     use unleash_edge_types::tokens::EdgeToken;
     use unleash_edge_types::{EDGE_VERSION, TokenCache};
     use unleash_types::client_metrics::{ClientApplication, ConnectVia};
 
+    use crate::register::RegisterState;
+
+    #[derive(Clone)]
+    struct TestState {
+        auth: AuthState,
+        register: RegisterState,
+    }
+
+    impl FromRef<TestState> for AuthState {
+        fn from_ref(s: &TestState) -> Self {
+            s.auth.clone()
+        }
+    }
+    impl FromRef<TestState> for RegisterState {
+        fn from_ref(s: &TestState) -> Self {
+            s.register.clone()
+        }
+    }
+
     fn build_server(metrics_cache: Arc<MetricsCache>, token_cache: Arc<TokenCache>) -> TestServer {
-        let app_state = AppState::builder()
-            .with_metrics_cache(metrics_cache.clone())
-            .with_token_cache(token_cache.clone())
-            .with_connect_via(ConnectVia {
-                app_name: "unleash-edge".into(),
-                instance_id: "unleash-edge-test-server".into(),
-            })
-            .build();
-        let router = super::router().with_state(app_state);
+        let app_state = TestState {
+            auth: AuthState {
+                token_cache: token_cache.clone(),
+                auth_headers: AuthHeaders::default(),
+            },
+            register: RegisterState {
+                connect_via: ConnectVia {
+                    app_name: "unleash-edge".into(),
+                    instance_id: "unleash-edge-test-server".into(),
+                },
+                metrics_cache: metrics_cache.clone(),
+            },
+        };
+
+        let router = super::register_router_for::<TestState>().with_state(app_state);
         TestServer::builder()
             .http_transport()
             .build(router)

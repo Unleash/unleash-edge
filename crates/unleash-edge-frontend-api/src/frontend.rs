@@ -1,19 +1,23 @@
 use crate::querystring_extractor::QsQueryCfg;
 use crate::{all_features, enabled_features};
 use axum::body::Body;
-use axum::extract::{ConnectInfo, Path, State};
+use axum::extract::{ConnectInfo, FromRef, Path, State};
 use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use std::net::{IpAddr, SocketAddr};
+use std::sync::Arc;
 use tracing::instrument;
 use unleash_edge_appstate::AppState;
+use unleash_edge_appstate::edge_token_extractor::{AuthState, AuthToken};
+use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_types::errors::EdgeError;
+use unleash_edge_types::metrics::MetricsCache;
 use unleash_edge_types::tokens::{EdgeToken, cache_key};
 use unleash_edge_types::{EdgeJsonResult, EdgeResult, EngineCache, TokenCache};
 use unleash_types::client_features::Context;
-use unleash_types::client_metrics::{ClientApplication, ClientMetrics};
+use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ConnectVia};
 use unleash_types::frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult};
 
 #[utoipa::path(
@@ -31,8 +35,8 @@ use unleash_types::frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult}
 )]
 #[instrument(skip(app_state, edge_token, client_ip, context))]
 pub async fn frontend_get_all_features(
-    State(app_state): State<AppState>,
-    edge_token: EdgeToken,
+    State(app_state): State<FrontendState>,
+    AuthToken(edge_token): AuthToken,
     client_ip: ConnectInfo<SocketAddr>,
     QsQueryCfg(context): QsQueryCfg<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
@@ -41,8 +45,8 @@ pub async fn frontend_get_all_features(
 
 #[instrument(skip(app_state, edge_token, client_ip, context))]
 pub async fn frontend_post_all_features(
-    State(app_state): State<AppState>,
-    edge_token: EdgeToken,
+    State(app_state): State<FrontendState>,
+    AuthToken(edge_token): AuthToken,
     client_ip: ConnectInfo<SocketAddr>,
     Json(context): Json<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
@@ -51,8 +55,8 @@ pub async fn frontend_post_all_features(
 
 #[instrument(skip(app_state, edge_token, client_ip, context))]
 pub async fn frontend_get_enabled_features(
-    State(app_state): State<AppState>,
-    edge_token: EdgeToken,
+    State(app_state): State<FrontendState>,
+    AuthToken(edge_token): AuthToken,
     client_ip: ConnectInfo<SocketAddr>,
     QsQueryCfg(context): QsQueryCfg<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
@@ -61,8 +65,8 @@ pub async fn frontend_get_enabled_features(
 
 #[instrument(skip(app_state, edge_token, client_ip, context))]
 pub async fn frontend_post_enabled_features(
-    State(app_state): State<AppState>,
-    edge_token: EdgeToken,
+    State(app_state): State<FrontendState>,
+    AuthToken(edge_token): AuthToken,
     client_ip: ConnectInfo<SocketAddr>,
     Json(context): Json<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
@@ -71,8 +75,8 @@ pub async fn frontend_post_enabled_features(
 
 #[instrument(skip(app_state, edge_token, metrics))]
 pub async fn frontend_post_metrics(
-    app_state: State<AppState>,
-    edge_token: EdgeToken,
+    app_state: State<FrontendState>,
+    AuthToken(edge_token): AuthToken,
     Json(metrics): Json<ClientMetrics>,
 ) -> impl IntoResponse {
     unleash_edge_metrics::client_metrics::register_client_metrics(
@@ -88,8 +92,8 @@ pub async fn frontend_post_metrics(
 
 #[instrument(skip(app_state, edge_token, client_application))]
 pub async fn frontend_register_client(
-    State(app_state): State<AppState>,
-    edge_token: EdgeToken,
+    State(app_state): State<FrontendState>,
+    AuthToken(edge_token): AuthToken,
     Json(client_application): Json<ClientApplication>,
 ) -> impl IntoResponse {
     unleash_edge_metrics::client_metrics::register_client_application(
@@ -106,8 +110,8 @@ pub async fn frontend_register_client(
 
 #[instrument(skip(app_state, edge_token, feature_name, context, connect_info))]
 pub async fn frontend_get_feature(
-    State(app_state): State<AppState>,
-    edge_token: EdgeToken,
+    State(app_state): State<FrontendState>,
+    AuthToken(edge_token): AuthToken,
     Path(feature_name): Path<String>,
     QsQueryCfg(context): QsQueryCfg<Context>,
     ConnectInfo(connect_info): ConnectInfo<SocketAddr>,
@@ -125,8 +129,8 @@ pub async fn frontend_get_feature(
 
 #[instrument(skip(app_state, edge_token, feature_name, context, connect_info))]
 pub async fn frontend_post_feature(
-    State(app_state): State<AppState>,
-    edge_token: EdgeToken,
+    State(app_state): State<FrontendState>,
+    AuthToken(edge_token): AuthToken,
     Path(feature_name): Path<String>,
     ConnectInfo(connect_info): ConnectInfo<SocketAddr>,
     Json(context): Json<Context>,
@@ -191,7 +195,33 @@ fn evaluate_feature(
         .ok_or_else(|| EdgeError::FeatureNotFound(feature_name.clone()))
 }
 
-pub fn router(disable_all_endpoints: bool) -> Router<AppState> {
+#[derive(Clone)]
+pub struct FrontendState {
+    pub token_cache: Arc<TokenCache>,
+    pub features_cache: Arc<FeatureCache>,
+    pub engine_cache: Arc<EngineCache>,
+    pub metrics_cache: Arc<MetricsCache>,
+    pub connect_via: ConnectVia,
+}
+
+impl FromRef<AppState> for FrontendState {
+    fn from_ref(app: &AppState) -> Self {
+        Self {
+            features_cache: app.features_cache.clone(),
+            token_cache: app.token_cache.clone(),
+            engine_cache: app.engine_cache.clone(),
+            metrics_cache: app.metrics_cache.clone(),
+            connect_via: app.connect_via.clone(),
+        }
+    }
+}
+
+pub(crate) fn frontend_router_for<S>(disable_all_endpoints: bool) -> Router<S>
+where
+    S: Clone + Send + Sync + 'static,
+    FrontendState: FromRef<S>,
+    AuthState: FromRef<S>,
+{
     let mut common_router = Router::new()
         .route(
             "/frontend",
@@ -230,8 +260,13 @@ pub fn router(disable_all_endpoints: bool) -> Router<AppState> {
     common_router
 }
 
+pub fn router(disable_all_endpoints: bool) -> Router<AppState> {
+    frontend_router_for::<AppState>(disable_all_endpoints)
+}
+
 #[cfg(test)]
 mod tests {
+    use axum::extract::FromRef;
     use axum::extract::connect_info::MockConnectInfo;
     use axum::http::StatusCode;
     use axum_test::TestServer;
@@ -242,18 +277,63 @@ mod tests {
     use std::path::PathBuf;
     use std::str::FromStr;
     use std::sync::Arc;
-    use unleash_edge_appstate::AppState;
+    use unleash_edge_appstate::edge_token_extractor::AuthState;
+    use unleash_edge_cli::AuthHeaders;
+    use unleash_edge_feature_cache::FeatureCache;
+    use unleash_edge_types::metrics::MetricsCache;
     use unleash_edge_types::tokens::{EdgeToken, cache_key};
     use unleash_edge_types::{EngineCache, TokenCache, TokenType, TokenValidationStatus};
     use unleash_types::client_features::{
         ClientFeature, ClientFeatures, Constraint, Operator, Strategy,
     };
+    use unleash_types::client_metrics::ConnectVia;
     use unleash_types::frontend::FrontendResult;
     use unleash_yggdrasil::{EngineState, UpdateMessage};
 
-    fn frontend_test_server(app_state: AppState, disable_all_endpoints: bool) -> TestServer {
-        let router = super::router(disable_all_endpoints)
-            .with_state(app_state)
+    use crate::frontend::FrontendState;
+
+    #[derive(Clone)]
+    struct TestState {
+        frontend: FrontendState,
+        auth: AuthState,
+    }
+
+    impl FromRef<TestState> for AuthState {
+        fn from_ref(s: &TestState) -> Self {
+            s.auth.clone()
+        }
+    }
+
+    impl FromRef<TestState> for FrontendState {
+        fn from_ref(s: &TestState) -> Self {
+            s.frontend.clone()
+        }
+    }
+
+    impl TestState {
+        fn from_caches(token_cache: Arc<TokenCache>, engine_cache: Arc<EngineCache>) -> Self {
+            TestState {
+                frontend: FrontendState {
+                    token_cache,
+                    engine_cache,
+                    features_cache: Arc::new(FeatureCache::new(Default::default())),
+                    metrics_cache: Arc::new(MetricsCache::default()),
+                    connect_via: ConnectVia {
+                        app_name: "unleash-edge".into(),
+                        instance_id: "unleash-edge-test-server".into(),
+                    },
+                },
+                auth: AuthState {
+                    token_cache: Arc::new(TokenCache::new()),
+                    auth_headers: AuthHeaders::default(),
+                },
+            }
+        }
+    }
+
+    fn frontend_test_server(test_state: TestState, disable_all_endpoints: bool) -> TestServer {
+        let router = super::frontend_router_for::<TestState>(disable_all_endpoints)
+            .with_state(test_state)
             .into_make_service_with_connect_info::<SocketAddr>();
         TestServer::builder()
             .http_transport()
@@ -261,10 +341,10 @@ mod tests {
             .expect("Failed to build test server")
     }
 
-    fn frontend_test_server_with_ip(app_state: AppState, ip_addr: &str) -> TestServer {
+    fn frontend_test_server_with_ip(test_state: TestState, ip_addr: &str) -> TestServer {
         let fake_addr = SocketAddr::from_str(ip_addr).unwrap();
-        let router = super::router(false)
-            .with_state(app_state)
+        let router = super::frontend_router_for::<TestState>(false)
+            .with_state(test_state)
             .layer(MockConnectInfo(fake_addr));
         TestServer::builder()
             .http_transport()
@@ -285,11 +365,8 @@ mod tests {
         ));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let app_state = AppState::builder()
-            .with_token_cache(token_cache)
-            .with_engine_cache(engine_cache)
-            .build();
-        let server = frontend_test_server(app_state.clone(), true);
+        let test_state = TestState::from_caches(token_cache, engine_cache);
+        let server = frontend_test_server(test_state, true);
         let res = server
             .get("/frontend")
             .add_header("Authorization", frontend_token.token)
@@ -313,11 +390,8 @@ mod tests {
         ));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let app_state = AppState::builder()
-            .with_token_cache(token_cache)
-            .with_engine_cache(engine_cache)
-            .build();
-        let server = frontend_test_server(app_state.clone(), false);
+        let test_state = TestState::from_caches(token_cache, engine_cache);
+        let server = frontend_test_server(test_state, false);
         let res = server
             .get("/frontend/all")
             .add_header("Authorization", frontend_token.token)
@@ -342,11 +416,8 @@ mod tests {
         ));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let app_state = AppState::builder()
-            .with_token_cache(token_cache)
-            .with_engine_cache(engine_cache)
-            .build();
-        let server = frontend_test_server(app_state.clone(), true);
+        let test_state = TestState::from_caches(token_cache, engine_cache);
+        let server = frontend_test_server(test_state, true);
         let res = server
             .get("/frontend?userId=7")
             .add_header("Authorization", frontend_token.token.clone())
@@ -377,11 +448,8 @@ mod tests {
         ));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let app_state = AppState::builder()
-            .with_token_cache(token_cache)
-            .with_engine_cache(engine_cache)
-            .build();
-        let server = frontend_test_server(app_state.clone(), true);
+        let test_state = TestState::from_caches(token_cache, engine_cache);
+        let server = frontend_test_server(test_state, true);
         let res = server
             .post("/frontend")
             .add_header("Authorization", frontend_token.token.clone())
@@ -418,11 +486,8 @@ mod tests {
         ));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let app_state = AppState::builder()
-            .with_token_cache(token_cache)
-            .with_engine_cache(engine_cache)
-            .build();
-        let server = frontend_test_server(app_state.clone(), true);
+        let test_state = TestState::from_caches(token_cache, engine_cache);
+        let server = frontend_test_server(test_state, true);
         let frontend_response = server
             .get("/frontend")
             .add_header("Authorization", frontend_token.token.clone())
@@ -458,11 +523,8 @@ mod tests {
         ));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let app_state = AppState::builder()
-            .with_token_cache(token_cache)
-            .with_engine_cache(engine_cache)
-            .build();
-        let server = frontend_test_server(app_state.clone(), true);
+        let test_state = TestState::from_caches(token_cache, engine_cache);
+        let server = frontend_test_server(test_state, true);
         let res = server
             .get("/frontend/features/test?test_property=42")
             .add_header("Authorization", frontend_token.token.clone())
@@ -484,11 +546,8 @@ mod tests {
         )));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let app_state = AppState::builder()
-            .with_token_cache(token_cache)
-            .with_engine_cache(engine_cache)
-            .build();
-        let server = frontend_test_server(app_state.clone(), true);
+        let test_state = TestState::from_caches(token_cache, engine_cache);
+        let server = frontend_test_server(test_state, true);
         let res = server
             .get("/frontend/features/variantsPerEnvironment")
             .add_header("Authorization", frontend_token.token.clone())
@@ -510,11 +569,8 @@ mod tests {
         )));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let app_state = AppState::builder()
-            .with_token_cache(token_cache)
-            .with_engine_cache(engine_cache)
-            .build();
-        let server = frontend_test_server(app_state.clone(), true);
+        let test_state = TestState::from_caches(token_cache, engine_cache);
+        let server = frontend_test_server(test_state, true);
         let res = server
             .get("/frontend?properties[companyId]=bricks")
             .add_header("Authorization", frontend_token.token.clone())
@@ -544,11 +600,8 @@ mod tests {
         )));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let app_state = AppState::builder()
-            .with_token_cache(token_cache)
-            .with_engine_cache(engine_cache)
-            .build();
-        let server = frontend_test_server(app_state.clone(), true);
+        let test_state = TestState::from_caches(token_cache, engine_cache);
+        let server = frontend_test_server(test_state, true);
         let res = server
             .post("/frontend")
             .add_header("Authorization", frontend_token.token.clone())
@@ -577,11 +630,8 @@ mod tests {
         )));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let app_state = AppState::builder()
-            .with_token_cache(token_cache)
-            .with_engine_cache(engine_cache)
-            .build();
-        let server = frontend_test_server_with_ip(app_state.clone(), "192.168.0.1:80");
+        let test_state = TestState::from_caches(token_cache, engine_cache);
+        let server = frontend_test_server_with_ip(test_state.clone(), "192.168.0.1:80");
         let res = server
             .get("/frontend")
             .add_header("Content-Type", "application/json")

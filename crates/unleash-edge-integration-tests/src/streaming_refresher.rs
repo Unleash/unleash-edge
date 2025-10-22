@@ -1,39 +1,60 @@
 #[cfg(test)]
 mod tests {
-    use axum::Router;
+    use axum::{Router, extract::FromRef};
     use axum_test::TestServer;
     use eventsource_stream::Eventsource;
     use std::{sync::Arc, time::Duration};
     use tokio::time::timeout;
     use tokio_stream::StreamExt as _;
-    use unleash_edge_appstate::AppState;
+    use unleash_edge_appstate::edge_token_extractor::AuthState;
+    use unleash_edge_cli::AuthHeaders;
+    use unleash_edge_client_api::streaming::{StreamingState, streaming_router_for};
     use unleash_edge_delta::{
         cache::{DeltaCache, DeltaHydrationEvent},
         cache_manager::DeltaCacheManager,
     };
-    use unleash_edge_feature_cache::FeatureCache;
     use unleash_types::client_features::{
         ClientFeature, ClientFeaturesDelta, DeltaEvent, Strategy,
     };
 
-    use unleash_edge_types::{
-        EngineCache, TokenCache, TokenType, TokenValidationStatus, tokens::EdgeToken,
-    };
+    use unleash_edge_types::{TokenCache, TokenType, TokenValidationStatus, tokens::EdgeToken};
+
+    #[derive(Clone)]
+    struct TestState {
+        auth_headers: AuthHeaders,
+        token_cache: Arc<TokenCache>,
+        delta_cache_manager: Option<Arc<DeltaCacheManager>>,
+    }
+
+    impl FromRef<TestState> for AuthState {
+        fn from_ref(s: &TestState) -> Self {
+            AuthState {
+                auth_headers: s.auth_headers.clone(),
+                token_cache: Arc::clone(&s.token_cache),
+            }
+        }
+    }
+
+    impl FromRef<TestState> for StreamingState {
+        fn from_ref(s: &TestState) -> Self {
+            StreamingState {
+                delta_cache_manager: s.delta_cache_manager.clone(),
+                token_cache: s.token_cache.clone(),
+            }
+        }
+    }
 
     async fn client_api_test_server(
         upstream_token_cache: Arc<TokenCache>,
-        upstream_features_cache: Arc<FeatureCache>,
-        upstream_engine_cache: Arc<EngineCache>,
         upstream_delta_cache_manager: Arc<DeltaCacheManager>,
     ) -> TestServer {
-        let app_state = AppState::builder()
-            .with_token_cache(upstream_token_cache.clone())
-            .with_features_cache(upstream_features_cache.clone())
-            .with_engine_cache(upstream_engine_cache.clone())
-            .with_delta_cache_manager(upstream_delta_cache_manager.clone())
-            .build();
+        let app_state = TestState {
+            auth_headers: AuthHeaders::default(),
+            token_cache: upstream_token_cache,
+            delta_cache_manager: Some(upstream_delta_cache_manager),
+        };
         let router = Router::new()
-            .nest("/api/client", unleash_edge_client_api::router())
+            .nest("/api/client", streaming_router_for::<TestState>())
             .with_state(app_state);
         TestServer::builder()
             .http_transport()
@@ -52,8 +73,6 @@ mod tests {
         };
 
         let token_cache = Arc::new(TokenCache::default());
-        let features_cache = Arc::new(FeatureCache::default());
-        let engine_cache = Arc::new(EngineCache::default());
         let delta_cache_manager = Arc::new(DeltaCacheManager::new());
 
         delta_cache_manager.insert_cache(
@@ -115,13 +134,7 @@ mod tests {
 
         token_cache.insert(token.token.clone(), token.clone());
 
-        let test_server = client_api_test_server(
-            token_cache,
-            features_cache,
-            engine_cache,
-            delta_cache_manager.clone(),
-        )
-        .await;
+        let test_server = client_api_test_server(token_cache, delta_cache_manager.clone()).await;
         let url = test_server.server_url("/").unwrap();
 
         let mut event_stream = reqwest::Client::new()
@@ -213,8 +226,6 @@ mod tests {
         };
 
         let token_cache = Arc::new(TokenCache::default());
-        let features_cache = Arc::new(FeatureCache::default());
-        let engine_cache = Arc::new(EngineCache::default());
         let delta_cache_manager = Arc::new(DeltaCacheManager::new());
 
         delta_cache_manager.insert_cache(
@@ -256,13 +267,7 @@ mod tests {
 
         token_cache.insert(token.token.clone(), token.clone());
 
-        let test_server = client_api_test_server(
-            token_cache,
-            features_cache,
-            engine_cache,
-            delta_cache_manager.clone(),
-        )
-        .await;
+        let test_server = client_api_test_server(token_cache, delta_cache_manager.clone()).await;
         let url = test_server.server_url("/").unwrap();
 
         let mut event_stream = reqwest::Client::new()
@@ -383,8 +388,6 @@ mod tests {
         };
 
         let token_cache = Arc::new(TokenCache::default());
-        let features_cache = Arc::new(FeatureCache::default());
-        let engine_cache = Arc::new(EngineCache::default());
         let delta_cache_manager = Arc::new(DeltaCacheManager::new());
 
         delta_cache_manager.insert_cache(
@@ -426,13 +429,8 @@ mod tests {
 
         token_cache.insert(token.token.clone(), token.clone());
 
-        let test_server = client_api_test_server(
-            token_cache.clone(),
-            features_cache,
-            engine_cache,
-            delta_cache_manager.clone(),
-        )
-        .await;
+        let test_server =
+            client_api_test_server(token_cache.clone(), delta_cache_manager.clone()).await;
         let url = test_server.server_url("/").unwrap();
 
         let mut event_stream = reqwest::Client::new()
@@ -515,8 +513,6 @@ mod tests {
         };
 
         let token_cache = Arc::new(TokenCache::default());
-        let features_cache = Arc::new(FeatureCache::default());
-        let engine_cache = Arc::new(EngineCache::default());
         let delta_cache_manager = Arc::new(DeltaCacheManager::new());
 
         delta_cache_manager.insert_cache(
@@ -559,13 +555,7 @@ mod tests {
         token_cache.insert(dev_token.token.clone(), dev_token.clone());
         token_cache.insert(prod_token.token.clone(), prod_token.clone());
 
-        let test_server = client_api_test_server(
-            token_cache,
-            features_cache,
-            engine_cache,
-            delta_cache_manager.clone(),
-        )
-        .await;
+        let test_server = client_api_test_server(token_cache, delta_cache_manager.clone()).await;
         let url = test_server.server_url("/").unwrap();
 
         let mut event_stream = reqwest::Client::new()

@@ -10,8 +10,8 @@ use tracing::{debug, info, warn};
 use unleash_edge_delta::cache::{DeltaCache, DeltaHydrationEvent};
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
+use unleash_edge_feature_filters::FeatureFilterSet;
 use unleash_edge_feature_filters::delta_filters::{DeltaFilterSet, filter_delta_events};
-use unleash_edge_feature_filters::{FeatureFilterSet, filter_client_features};
 use unleash_edge_http_client::{ClientMetaInformation, UnleashClient};
 use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_types::errors::{EdgeError, FeatureError};
@@ -23,7 +23,7 @@ use unleash_edge_types::tokens::{EdgeToken, cache_key, simplify};
 use unleash_edge_types::{
     ClientFeaturesDeltaResponse, ClientFeaturesRequest, EdgeResult, TokenRefresh,
 };
-use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta, DeltaEvent};
+use unleash_types::client_features::{ClientFeaturesDelta, DeltaEvent};
 use unleash_yggdrasil::EngineState;
 
 use crate::{TokenRefreshSet, TokenRefreshStatus, client_application_from_token_and_name};
@@ -282,34 +282,6 @@ impl DeltaRefresher {
     pub async fn register_and_hydrate_token(&self, token: &EdgeToken) {
         self.register_token_for_refresh(token.clone(), None).await;
         self.hydrate_new_tokens().await;
-    }
-
-    pub fn features_for_filter(
-        &self,
-        token: EdgeToken,
-        filters: &FeatureFilterSet,
-    ) -> EdgeResult<ClientFeatures> {
-        match self.get_features_by_filter(&token, filters) {
-            Some(features) if self.tokens_to_refresh.token_is_subsumed(&token) => Ok(features),
-            Some(_features) if !self.tokens_to_refresh.token_is_subsumed(&token) => {
-                debug!("Token is not subsumed by any registered tokens. Returning error");
-                Err(EdgeError::InvalidToken)
-            }
-            _ => {
-                debug!("No features set available. Edge isn't ready");
-                Err(EdgeError::InvalidToken)
-            }
-        }
-    }
-
-    fn get_features_by_filter(
-        &self,
-        token: &EdgeToken,
-        filters: &FeatureFilterSet,
-    ) -> Option<ClientFeatures> {
-        self.features_cache
-            .get(&cache_key(token))
-            .map(|client_features| filter_client_features(&client_features, filters))
     }
 
     fn get_delta_events_by_filter(

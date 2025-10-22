@@ -1,13 +1,16 @@
+use std::sync::Arc;
+
 use axum::Json;
-use axum::extract::State;
+use axum::extract::{FromRef, State};
 use axum::routing::{Router, post};
 use tracing::instrument;
 use unleash_edge_appstate::AppState;
+use unleash_edge_appstate::edge_token_extractor::{AuthState, AuthToken};
 use unleash_edge_metrics::client_metrics::{register_bulk_metrics, register_client_metrics};
+use unleash_edge_types::metrics::MetricsCache;
 use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
-use unleash_edge_types::tokens::EdgeToken;
 use unleash_edge_types::{AcceptedJson, BatchMetricsRequestBody, EdgeAcceptedJsonResult};
-use unleash_types::client_metrics::ClientMetrics;
+use unleash_types::client_metrics::{ClientMetrics, ConnectVia};
 
 #[utoipa::path(
     post,
@@ -24,8 +27,8 @@ use unleash_types::client_metrics::ClientMetrics;
 )]
 #[instrument(skip(app_state, edge_token, metrics))]
 pub async fn post_metrics(
-    State(app_state): State<AppState>,
-    edge_token: EdgeToken,
+    State(app_state): State<MetricsState>,
+    AuthToken(edge_token): AuthToken,
     Json(metrics): Json<ClientMetrics>,
 ) -> EdgeAcceptedJsonResult<()> {
     register_client_metrics(edge_token, metrics, app_state.metrics_cache.clone());
@@ -47,8 +50,8 @@ security(
 )]
 #[instrument(skip(app_state, edge_token, bulk_metrics))]
 pub async fn post_bulk_metrics(
-    State(app_state): State<AppState>,
-    edge_token: EdgeToken,
+    State(app_state): State<MetricsState>,
+    AuthToken(edge_token): AuthToken,
     Json(bulk_metrics): Json<BatchMetricsRequestBody>,
 ) -> EdgeAcceptedJsonResult<()> {
     register_bulk_metrics(
@@ -62,8 +65,8 @@ pub async fn post_bulk_metrics(
 
 #[instrument(skip(app_state, _edge_token, instance_data))]
 pub async fn post_edge_instance_data(
-    State(app_state): State<AppState>,
-    _edge_token: EdgeToken,
+    State(app_state): State<MetricsState>,
+    AuthToken(_edge_token): AuthToken,
     Json(instance_data): Json<EdgeInstanceData>,
 ) -> EdgeAcceptedJsonResult<()> {
     app_state
@@ -74,15 +77,42 @@ pub async fn post_edge_instance_data(
     Ok(AcceptedJson { body: () })
 }
 
-pub fn router() -> Router<AppState> {
+#[derive(Clone)]
+pub struct MetricsState {
+    pub metrics_cache: Arc<MetricsCache>,
+    pub connect_via: ConnectVia,
+    pub connected_instances: Arc<tokio::sync::RwLock<Vec<EdgeInstanceData>>>,
+}
+
+impl FromRef<AppState> for MetricsState {
+    fn from_ref(app: &AppState) -> Self {
+        Self {
+            metrics_cache: Arc::clone(&app.metrics_cache),
+            connect_via: app.connect_via.clone(),
+            connected_instances: Arc::clone(&app.connected_instances),
+        }
+    }
+}
+
+pub(crate) fn metrics_router_for<S>() -> Router<S>
+where
+    S: Clone + Send + Sync + 'static,
+    MetricsState: FromRef<S>,
+    AuthState: FromRef<S>,
+{
     Router::new()
         .route("/metrics", post(post_metrics))
         .route("/metrics/bulk", post(post_bulk_metrics))
         .route("/metrics/edge", post(post_edge_instance_data))
 }
 
+pub fn router() -> Router<AppState> {
+    metrics_router_for::<AppState>()
+}
+
 #[cfg(test)]
 mod tests {
+    use axum::extract::FromRef;
     use axum::http::StatusCode;
     use axum_test::TestServer;
     use chrono::{DateTime, TimeZone, Utc};
@@ -91,7 +121,8 @@ mod tests {
     use std::str::FromStr;
     use std::sync::Arc;
     use ulid::Ulid;
-    use unleash_edge_appstate::AppState;
+    use unleash_edge_appstate::edge_token_extractor::AuthState;
+    use unleash_edge_cli::AuthHeaders;
     use unleash_edge_types::metrics::{ImpactMetricsKey, MetricsCache};
     use unleash_edge_types::tokens::EdgeToken;
     use unleash_edge_types::{BatchMetricsRequestBody, MetricsKey, TokenCache};
@@ -101,19 +132,42 @@ mod tests {
         MetricsMetadata, NumericMetricSample, ToggleStats,
     };
 
-    async fn build_metrics_server(
-        metrics_cache: Arc<MetricsCache>,
-        token_cache: Arc<TokenCache>,
-    ) -> TestServer {
-        let app_state = AppState::builder()
-            .with_metrics_cache(metrics_cache.clone())
-            .with_token_cache(token_cache.clone())
-            .with_connect_via(ConnectVia {
-                app_name: "test".into(),
-                instance_id: Ulid::new().to_string(),
-            })
-            .build();
-        let router = super::router().with_state(app_state);
+    use crate::metrics::{MetricsState, metrics_router_for};
+    #[derive(Clone)]
+    struct TestState {
+        auth: AuthState,
+        metrics: MetricsState,
+    }
+
+    impl FromRef<TestState> for AuthState {
+        fn from_ref(s: &TestState) -> Self {
+            s.auth.clone()
+        }
+    }
+
+    impl FromRef<TestState> for MetricsState {
+        fn from_ref(s: &TestState) -> Self {
+            s.metrics.clone()
+        }
+    }
+
+    async fn build_metrics_server(metrics_cache: Arc<MetricsCache>) -> TestServer {
+        let test_state = TestState {
+            auth: AuthState {
+                auth_headers: AuthHeaders::default(),
+                token_cache: Arc::new(TokenCache::default()),
+            },
+            metrics: MetricsState {
+                metrics_cache,
+                connect_via: ConnectVia {
+                    app_name: "test".into(),
+                    instance_id: Ulid::new().to_string(),
+                },
+                connected_instances: Arc::new(tokio::sync::RwLock::new(vec![])),
+            },
+        };
+
+        let router = metrics_router_for::<TestState>().with_state(test_state);
         TestServer::builder()
             .http_transport()
             .build(router)
@@ -128,7 +182,7 @@ mod tests {
             EdgeToken::from_str("*:development.abc123def").expect("Failed to build edge token");
         token_cache.insert(token.token.clone(), token.clone());
 
-        let server = build_metrics_server(metrics_cache.clone(), token_cache).await;
+        let server = build_metrics_server(metrics_cache.clone()).await;
         make_metrics_post_request(server, &token.token).await;
         let cache = metrics_cache.clone();
         assert!(!cache.metrics.is_empty());
@@ -200,15 +254,14 @@ mod tests {
         let token =
             EdgeToken::from_str("*:development.abc123def").expect("Failed to build edge token");
         token_cache.insert(token.token.clone(), token.clone());
-        let server = build_metrics_server(metrics_cache.clone(), token_cache).await;
+        let server = build_metrics_server(metrics_cache.clone()).await;
         make_bulk_metrics_post_request(server, &token.token).await;
     }
 
     #[tokio::test]
     pub async fn bulk_metrics_endpoint_correctly_refuses_metrics_without_auth_header() {
         let metrics_cache = Arc::new(MetricsCache::default());
-        let token_cache = Arc::new(TokenCache::default());
-        let server = build_metrics_server(metrics_cache.clone(), token_cache).await;
+        let server = build_metrics_server(metrics_cache.clone()).await;
         let request = server
             .post("/metrics/bulk")
             .json(

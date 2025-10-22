@@ -1,10 +1,28 @@
-use axum::extract::State;
+use std::sync::Arc;
+
+use axum::extract::{FromRef, State};
 use axum::routing::post;
 use axum::{Json, Router};
 use tracing::instrument;
 use unleash_edge_appstate::AppState;
+use unleash_edge_auth::token_validator::TokenValidator;
 use unleash_edge_types::tokens::{EdgeToken, TokenStrings, ValidatedTokens};
-use unleash_edge_types::{EdgeJsonResult, TokenValidationStatus};
+use unleash_edge_types::{EdgeJsonResult, TokenCache, TokenValidationStatus};
+
+#[derive(Clone)]
+pub struct EdgeApiState {
+    pub token_cache: Arc<TokenCache>,
+    pub token_validator: Arc<Option<TokenValidator>>,
+}
+
+impl FromRef<AppState> for EdgeApiState {
+    fn from_ref(app_state: &AppState) -> Self {
+        EdgeApiState {
+            token_cache: app_state.token_cache.clone(),
+            token_validator: app_state.token_validator.clone(),
+        }
+    }
+}
 
 #[utoipa::path(
     post,
@@ -15,8 +33,8 @@ use unleash_edge_types::{EdgeJsonResult, TokenValidationStatus};
     request_body = TokenStrings
 )]
 #[instrument(skip(app_state, tokens))]
-pub async fn validate(
-    app_state: State<AppState>,
+async fn validate(
+    app_state: State<EdgeApiState>,
     tokens: Json<TokenStrings>,
 ) -> EdgeJsonResult<ValidatedTokens> {
     match *app_state.token_validator {
@@ -46,6 +64,14 @@ pub async fn validate(
     }
 }
 
-pub fn router() -> Router<AppState> {
+pub fn edge_api_router_for<S>() -> Router<S>
+where
+    S: Clone + Send + Sync + 'static,
+    EdgeApiState: FromRef<S>,
+{
     Router::new().route("/validate", post(validate))
+}
+
+pub fn router() -> Router<AppState> {
+    edge_api_router_for::<AppState>()
 }
