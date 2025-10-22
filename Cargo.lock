@@ -5406,6 +5406,7 @@ dependencies = [
  "unleash-edge-appstate",
  "unleash-edge-auth",
  "unleash-edge-cli",
+ "unleash-edge-feature-cache",
  "unleash-edge-feature-refresh",
  "unleash-edge-http-client",
  "unleash-edge-persistence",
