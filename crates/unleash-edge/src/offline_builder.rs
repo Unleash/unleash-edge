@@ -128,7 +128,7 @@ pub async fn build_offline_app_state(
         connected_instances: Arc::new(RwLock::new(vec![])),
         auth_headers: AuthHeaders::from(&args),
         connect_via: ConnectVia {
-            app_name: app_name,
+            app_name,
             instance_id: instance_id.to_string(),
         },
     };
