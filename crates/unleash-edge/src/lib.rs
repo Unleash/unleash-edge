@@ -8,7 +8,6 @@ use chrono::Duration;
 use std::env;
 use std::sync::{Arc, LazyLock};
 use tokio::sync::RwLock;
-use tokio::sync::oneshot::Sender;
 use tower::ServiceBuilder;
 use tower_http::compression::CompressionLayer;
 use tower_http::normalize_path::NormalizePathLayer;
@@ -54,10 +53,7 @@ pub type EdgeInfo = (
     Option<Arc<dyn EdgePersistence>>,
 );
 
-pub async fn configure_server(
-    args: CliArgs,
-    shutdown_hook: Sender<()>,
-) -> EdgeResult<(Router, Vec<BackgroundTask>)> {
+pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<BackgroundTask>)> {
     let app_id: Ulid = Ulid::new();
     let client_meta_information = ClientMetaInformation {
         app_name: args.app_name.clone(),
@@ -90,7 +86,6 @@ pub async fn configure_server(
                 instances_observed_for_app_context: instances_observed_for_app_context.clone(),
                 auth_headers,
                 http_client,
-                shutdown_hook,
             })
             .await?
         }
