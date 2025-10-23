@@ -42,6 +42,7 @@ use unleash_edge_types::metrics::MetricsCache;
 use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
 use unleash_edge_types::tokens::EdgeToken;
 use unleash_edge_types::{BackgroundTask, EdgeResult, EngineCache, TokenCache, TokenType};
+use unleash_types::client_metrics::ConnectVia;
 use unleash_yggdrasil::{EngineState, UpdateMessage};
 use url::Url;
 
@@ -332,7 +333,7 @@ pub async fn build_edge_state(
     ) = build_edge(
         &edge_args,
         client_meta_information.clone(),
-        auth_headers,
+        auth_headers.clone(),
         http_client.clone(),
         deferred_validation_tx,
     )
@@ -345,8 +346,8 @@ pub async fn build_edge_state(
     let metrics_cache = Arc::new(MetricsCache::default());
 
     let background_tasks = create_edge_mode_background_tasks(BackgroundTaskArgs {
-        app_name: args.app_name,
-        client_meta_information,
+        app_name: args.clone().app_name,
+        client_meta_information: client_meta_information.clone(),
         deferred_validation_rx,
         edge: edge_args.clone(),
         edge_instance_data: edge_instance_data.clone(),
@@ -376,19 +377,24 @@ pub async fn build_edge_state(
     };
     let shutdown_tasks = create_shutdown_tasks(shutdown_args);
 
-    let app_state = AppState::builder()
-        .with_token_cache(token_cache.clone())
-        .with_features_cache(features_cache.clone())
-        .with_engine_cache(engine_cache.clone())
-        .with_token_validator(Arc::new(Some(token_validator.as_ref().clone())))
-        .with_hydrator(hydrator_type)
-        .with_metrics_cache(metrics_cache.clone())
-        .with_deny_list(args.http.deny_list.unwrap_or_default())
-        .with_allow_list(args.http.allow_list.unwrap_or_default())
-        .with_edge_instance_data(edge_instance_data)
-        .with_delta_cache_manager(delta_cache_manager)
-        .with_connected_instances(instances_observed_for_app_context.clone())
-        .build();
+    let app_state = AppState {
+        token_cache,
+        features_cache,
+        engine_cache,
+        hydrator: Some(hydrator_type),
+        token_validator: Arc::new(Some(token_validator.as_ref().clone())),
+        metrics_cache,
+        delta_cache_manager: Some(delta_cache_manager),
+        edge_instance_data,
+        connected_instances: instances_observed_for_app_context.clone(),
+        deny_list: args.http.deny_list.unwrap_or_default(),
+        allow_list: args.http.allow_list.unwrap_or_default(),
+        auth_headers: auth_headers.clone(),
+        connect_via: ConnectVia {
+            app_name: args.app_name.clone(),
+            instance_id: client_meta_information.instance_id.clone().to_string(),
+        },
+    };
 
     Ok((app_state, background_tasks, shutdown_tasks))
 }

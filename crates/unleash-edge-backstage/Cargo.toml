@@ -21,6 +21,7 @@ unleash-edge-appstate = { workspace = true }
 unleash-edge-auth = { workspace = true }
 unleash-edge-cli = { workspace = true }
 unleash-edge-feature-refresh = { workspace = true }
+unleash-edge-feature-cache = { workspace = true }
 unleash-edge-http-client = { workspace = true }
 unleash-edge-persistence = { workspace = true }
 unleash-edge-types = { workspace = true }
