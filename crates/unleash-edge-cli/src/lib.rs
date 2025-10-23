@@ -11,6 +11,7 @@ use std::str::FromStr;
 use std::time::Duration;
 use tower_http::cors::{AllowHeaders, AllowMethods, AllowOrigin, CorsLayer, ExposeHeaders, MaxAge};
 use unleash_edge_types::errors::{EdgeError, TRUST_PROXY_PARSE_ERROR};
+use unleash_edge_types::metrics::instance_data::Hosting;
 use unleash_edge_types::{tokens::EdgeToken, tokens::parse_trusted_token_pair};
 
 #[derive(Subcommand, Debug, Clone)]
@@ -483,6 +484,18 @@ pub struct CliArgs {
 
     #[clap(flatten)]
     pub otel_config: OpenTelemetryConfig,
+
+    // Internal usage only. Do not set this
+    #[clap(env = "EDGE_HOSTING", value_parser = hosting_type, hide = true)]
+    pub hosting_type: Option<Hosting>,
+}
+
+pub fn hosting_type(value: &str) -> Result<Hosting, String> {
+    if value.trim().eq_ignore_ascii_case("hosted") {
+        Ok(Hosting::Hosted)
+    } else {
+        Err("Value should be 'hosted'. However, this is for internal use only and you should not set this".to_string())
+    }
 }
 
 #[derive(Args, Debug, Clone)]

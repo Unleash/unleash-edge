@@ -123,7 +123,7 @@ pub async fn build_offline_app_state(
         edge_instance_data: Arc::new(EdgeInstanceData::new(
             &app_name,
             &instance_id,
-            Some(Hosting::from_env()),
+            Some(Hosting::SelfHosted),
         )),
         connected_instances: Arc::new(RwLock::new(vec![])),
         auth_headers: AuthHeaders::from(&args),
