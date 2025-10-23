@@ -271,13 +271,6 @@ pub async fn build_edge(
     ))
 }
 
-pub fn hosting_type() -> Hosting {
-    match std::env::var("EDGE_HOSTING") {
-        Ok(val) if val.trim().eq_ignore_ascii_case("hosted") => Hosting::Hosted,
-        _ => DEFAULT_HOSTING,
-    }
-}
-
 pub async fn build_edge_state(
     EdgeStateArgs {
         args,
@@ -292,7 +285,7 @@ pub async fn build_edge_state(
     let edge_instance_data = Arc::new(EdgeInstanceData::new(
         &client_meta_information.app_name,
         &client_meta_information.instance_id,
-        Some(hosting_type()),
+        args.hosting_type.or(Some(DEFAULT_HOSTING)),
     ));
 
     let unleash_client = Url::parse(&edge_args.upstream_url.clone())

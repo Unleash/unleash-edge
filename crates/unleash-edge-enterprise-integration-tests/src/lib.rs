@@ -15,7 +15,7 @@ mod tests {
     use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeArgs, HttpServerArgs};
     use unleash_edge_enterprise::send_heartbeat;
     use unleash_edge_types::errors::EdgeError;
-    use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
+    use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
     use unleash_edge_types::tokens::EdgeToken;
 
     use unleash_edge_http_client::{
@@ -135,6 +135,7 @@ mod tests {
             otel_config: unleash_edge_cli::OpenTelemetryConfig {
                 otel_collector_url: None,
             },
+            hosting_type: Some(Hosting::EnterpriseSelfHosted),
         }
     }
 
