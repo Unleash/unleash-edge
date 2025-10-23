@@ -8,7 +8,6 @@ use prometheus::{HistogramVec, IntGaugeVec, Opts, register_histogram_vec, regist
 use reqwest::header::HeaderMap;
 use reqwest::{Client, ClientBuilder, Identity, RequestBuilder, header};
 use serde::{Deserialize, Serialize};
-use unleash_edge_types::enterprise::EnterpriseEdgeLicenseState;
 use std::fs;
 use std::fs::File;
 use std::io::{BufReader, Read};
@@ -17,6 +16,7 @@ use std::str::FromStr;
 use tracing::{debug, error, info, trace, warn};
 use ulid::Ulid;
 use unleash_edge_cli::ClientIdentity;
+use unleash_edge_types::enterprise::EnterpriseEdgeLicenseState;
 use unleash_edge_types::errors::EdgeError::EdgeMetricsRequestError;
 use unleash_edge_types::errors::{CertificateError, EdgeError, FeatureError};
 use unleash_edge_types::headers::{
@@ -634,24 +634,24 @@ impl UnleashClient {
                 )
             })?;
 
-            if response.status().is_success() {
-                let Ok(heartbeat_response) = response.json::<HeartbeatResponse>().await else {
-                    return Err(EdgeError::InvalidLicense(
+        if response.status().is_success() {
+            let Ok(heartbeat_response) = response.json::<HeartbeatResponse>().await else {
+                return Err(EdgeError::InvalidLicense(
                         "Enterprise Edge requires a license but this could not be confirmed with upstream".to_string()
-                    ))
-                };
+                    ));
+            };
 
-                if heartbeat_response.edge_license_state == EnterpriseEdgeLicenseState::Expired {
-                  return Err(EdgeError::ExpiredLicense(
+            if heartbeat_response.edge_license_state == EnterpriseEdgeLicenseState::Expired {
+                return Err(EdgeError::ExpiredLicense(
                         "Enterprise Edge requires a license but upstream server confirmed the license is expired".to_string()
-                  ))
-                } else if heartbeat_response.edge_license_state != EnterpriseEdgeLicenseState::Valid {
-                    return Err(EdgeError::InvalidLicense(
+                  ));
+            } else if heartbeat_response.edge_license_state != EnterpriseEdgeLicenseState::Valid {
+                return Err(EdgeError::InvalidLicense(
                         "Enterprise Edge requires a license but upstream server confirmed the license is invalid".to_string()
-                    ))
-                }
+                    ));
+            }
 
-                Ok(())
+            Ok(())
         } else {
             Err(EdgeError::HeartbeatError(
                 format!(

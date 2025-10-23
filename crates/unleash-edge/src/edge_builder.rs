@@ -1,11 +1,11 @@
 use crate::{CacheContainer, EdgeInfo, SHOULD_DEFER_VALIDATION};
 use chrono::Duration;
 use dashmap::DashMap;
-use tokio::sync::watch::{channel, Receiver};
 use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::watch::{Receiver, channel};
 use tracing::{debug, error, info, warn};
 use unleash_edge_appstate::AppState;
 use unleash_edge_appstate::token_cache_observer::observe_tokens_in_background;
@@ -41,7 +41,9 @@ use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::MetricsCache;
 use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
 use unleash_edge_types::tokens::EdgeToken;
-use unleash_edge_types::{BackgroundTask, EdgeResult, EngineCache, RefreshState, TokenCache, TokenType};
+use unleash_edge_types::{
+    BackgroundTask, EdgeResult, EngineCache, RefreshState, TokenCache, TokenType,
+};
 use unleash_types::client_metrics::ConnectVia;
 use unleash_yggdrasil::{EngineState, UpdateMessage};
 use url::Url;
@@ -534,7 +536,9 @@ fn create_edge_mode_background_tasks(
             // TODO: Pass refresh_state_rx to streaming as well, so it can be paused
             create_stream_task(&edge, client_meta_information, delta_refresher.clone())
         }
-        HydratorType::Polling(feature_refresher) => create_poll_task(feature_refresher.clone(), refresh_state_rx),
+        HydratorType::Polling(feature_refresher) => {
+            create_poll_task(feature_refresher.clone(), refresh_state_rx)
+        }
     };
     tasks.push(hydration_task);
 

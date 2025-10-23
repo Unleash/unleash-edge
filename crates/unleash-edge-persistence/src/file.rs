@@ -1,11 +1,11 @@
 use ahash::HashMap;
 use async_trait::async_trait;
-use unleash_edge_types::enterprise::EnterpriseEdgeLicenseState;
 use std::path::Path;
 use std::{path::PathBuf, str::FromStr};
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
 use unleash_edge_types::EdgeResult;
+use unleash_edge_types::enterprise::EnterpriseEdgeLicenseState;
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::tokens::EdgeToken;
 use unleash_types::client_features::ClientFeatures;
