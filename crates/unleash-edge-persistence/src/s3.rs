@@ -6,12 +6,12 @@ pub mod s3_persister {
     use async_trait::async_trait;
     use unleash_types::client_features::ClientFeatures;
 
-    use crate::{EdgePersistence, EnterpriseEdgeLicenseState};
+    use crate::EdgePersistence;
     use aws_sdk_s3::{
         self as s3,
         primitives::{ByteStream, SdkBody},
     };
-    use unleash_edge_types::EdgeResult;
+    use unleash_edge_types::{enterprise::EnterpriseEdgeLicenseState, EdgeResult};
     use unleash_edge_types::errors::EdgeError;
     use unleash_edge_types::tokens::EdgeToken;
 

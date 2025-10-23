@@ -1,6 +1,7 @@
 use crate::{CacheContainer, EdgeInfo, SHOULD_DEFER_VALIDATION};
 use chrono::Duration;
 use dashmap::DashMap;
+use tokio::sync::watch::{channel, Receiver};
 use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -40,7 +41,7 @@ use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::MetricsCache;
 use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
 use unleash_edge_types::tokens::EdgeToken;
-use unleash_edge_types::{BackgroundTask, EdgeResult, EngineCache, TokenCache, TokenType};
+use unleash_edge_types::{BackgroundTask, EdgeResult, EngineCache, RefreshState, TokenCache, TokenType};
 use unleash_types::client_metrics::ConnectVia;
 use unleash_yggdrasil::{EngineState, UpdateMessage};
 use url::Url;
@@ -491,6 +492,8 @@ fn create_edge_mode_background_tasks(
         validator,
     }: BackgroundTaskArgs,
 ) -> Vec<BackgroundTask> {
+    let (refresh_state_tx, refresh_state_rx) = channel(RefreshState::Running);
+
     let mut tasks: Vec<BackgroundTask> = vec![
         create_send_metrics_task(
             metrics_cache_clone.clone(),
@@ -528,9 +531,10 @@ fn create_edge_mode_background_tasks(
 
     let hydration_task = match &refresher {
         HydratorType::Streaming(delta_refresher) => {
+            // TODO: Pass refresh_state_rx to streaming as well, so it can be paused
             create_stream_task(&edge, client_meta_information, delta_refresher.clone())
         }
-        HydratorType::Polling(feature_refresher) => create_poll_task(feature_refresher.clone()),
+        HydratorType::Polling(feature_refresher) => create_poll_task(feature_refresher.clone(), refresh_state_rx),
     };
     tasks.push(hydration_task);
 
@@ -558,7 +562,13 @@ fn create_edge_mode_background_tasks(
                 .first()
                 .cloned()
                 .expect("Startup token is required for enterprise feature"),
+            refresh_state_tx,
         ));
+    }
+
+    #[cfg(not(feature = "enterprise"))]
+    {
+        Box::leak(Box::new(refresh_state_tx));
     }
 
     tasks
@@ -566,10 +576,11 @@ fn create_edge_mode_background_tasks(
 
 fn create_poll_task(
     feature_refresher: Arc<FeatureRefresher>,
+    refresh_state_rx: Receiver<RefreshState>,
 ) -> Pin<Box<dyn Future<Output = ()> + Send>> {
     info!("Starting polling background task");
     Box::pin(async move {
-        start_refresh_features_background_task(feature_refresher).await;
+        start_refresh_features_background_task(feature_refresher, refresh_state_rx).await;
     })
 }
 

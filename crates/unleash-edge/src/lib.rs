@@ -53,7 +53,9 @@ pub type EdgeInfo = (
     Option<Arc<dyn EdgePersistence>>,
 );
 
-pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<BackgroundTask>)> {
+pub async fn configure_server(
+    args: CliArgs,
+) -> EdgeResult<(Router, Vec<BackgroundTask>)> {
     let app_id: Ulid = Ulid::new();
     let client_meta_information = ClientMetaInformation {
         app_name: args.app_name.clone(),
