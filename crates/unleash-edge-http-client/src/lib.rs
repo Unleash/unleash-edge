@@ -8,6 +8,7 @@ use prometheus::{HistogramVec, IntGaugeVec, Opts, register_histogram_vec, regist
 use reqwest::header::HeaderMap;
 use reqwest::{Client, ClientBuilder, Identity, RequestBuilder, header};
 use serde::{Deserialize, Serialize};
+use unleash_edge_types::enterprise::EnterpriseEdgeLicenseState;
 use std::fs;
 use std::fs::File;
 use std::io::{BufReader, Read};
@@ -102,6 +103,12 @@ lazy_static! {
         &["server", "version", "app_name", "instance_id"]
     )
     .unwrap();
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HeartbeatResponse {
+    pub edge_license_state: EnterpriseEdgeLicenseState,
 }
 
 #[cfg_attr(test, derive(Default))]
@@ -627,12 +634,24 @@ impl UnleashClient {
                 )
             })?;
 
-        if response.status().is_success() {
-            Ok(())
-        } else if response.status() == StatusCode::PAYMENT_REQUIRED {
-            Err(EdgeError::InvalidLicense(
-                "Enterprise Edge requires a license but upstream server confirmed the license is not active".to_string(),
-            ))
+            if response.status().is_success() {
+                let Ok(heartbeat_response) = response.json::<HeartbeatResponse>().await else {
+                    return Err(EdgeError::InvalidLicense(
+                        "Enterprise Edge requires a license but this could not be confirmed with upstream".to_string()
+                    ))
+                };
+
+                if heartbeat_response.edge_license_state == EnterpriseEdgeLicenseState::Expired {
+                  return Err(EdgeError::ExpiredLicense(
+                        "Enterprise Edge requires a license but upstream server confirmed the license is expired".to_string()
+                  ))
+                } else if heartbeat_response.edge_license_state != EnterpriseEdgeLicenseState::Valid {
+                    return Err(EdgeError::InvalidLicense(
+                        "Enterprise Edge requires a license but upstream server confirmed the license is invalid".to_string()
+                    ))
+                }
+
+                Ok(())
         } else {
             Err(EdgeError::HeartbeatError(
                 format!(

@@ -25,6 +25,7 @@ use unleash_types::client_metrics::{ClientApplication, ClientMetricsEnv, ImpactM
 use unleash_yggdrasil::EngineState;
 use utoipa::{IntoParams, ToSchema};
 
+pub mod enterprise;
 pub mod errors;
 pub mod filters;
 pub mod headers;
@@ -59,6 +60,12 @@ pub fn entity_tag_to_header_value(etag: EntityTag) -> HeaderValue {
 }
 
 pub type BackgroundTask = Pin<Box<dyn Future<Output = ()> + Send>>;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RefreshState {
+    Running,
+    Paused,
+}
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]

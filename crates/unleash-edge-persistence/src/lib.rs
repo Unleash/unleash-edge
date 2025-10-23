@@ -1,7 +1,7 @@
 use ahash::HashMap;
 use async_trait::async_trait;
 use dashmap::DashMap;
-use serde::{Deserialize, Serialize};
+use unleash_edge_types::enterprise::EnterpriseEdgeLicenseState;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
@@ -14,14 +14,6 @@ use unleash_types::client_features::ClientFeatures;
 pub mod file;
 pub mod redis;
 pub mod s3;
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum EnterpriseEdgeLicenseState {
-    Valid,
-    Invalid,
-    Expired,
-    Undetermined,
-}
 
 #[async_trait]
 pub trait EdgePersistence: Send + Sync {

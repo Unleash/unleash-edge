@@ -1,9 +1,9 @@
 use ahash::HashMap;
+use unleash_edge_types::enterprise::EnterpriseEdgeLicenseState;
 use std::sync::Arc;
 use std::time::Duration;
 
 use super::EdgePersistence;
-use crate::EnterpriseEdgeLicenseState;
 use crate::redis::RedisClientOptions::{Cluster, Single};
 use async_trait::async_trait;
 use redis::cluster::ClusterClient;
