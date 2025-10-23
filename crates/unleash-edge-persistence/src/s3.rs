@@ -11,9 +11,9 @@ pub mod s3_persister {
         self as s3,
         primitives::{ByteStream, SdkBody},
     };
-    use unleash_edge_types::{enterprise::EnterpriseEdgeLicenseState, EdgeResult};
     use unleash_edge_types::errors::EdgeError;
     use unleash_edge_types::tokens::EdgeToken;
+    use unleash_edge_types::{EdgeResult, enterprise::EnterpriseEdgeLicenseState};
 
     pub const FEATURES_KEY: &str = "/unleash-features.json";
     pub const TOKENS_KEY: &str = "/unleash-tokens.json";

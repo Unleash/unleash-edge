@@ -17,7 +17,7 @@ use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_types::errors::{EdgeError, FeatureError};
 use unleash_edge_types::tokens::{EdgeToken, cache_key, simplify};
 use unleash_edge_types::{
-    build, ClientFeaturesRequest, ClientFeaturesResponse, EdgeResult, RefreshState, TokenRefresh
+    ClientFeaturesRequest, ClientFeaturesResponse, EdgeResult, RefreshState, TokenRefresh, build,
 };
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::{ClientApplication, MetricsMetadata, SdkType};
@@ -209,15 +209,18 @@ fn get_features_by_filter(
         .map(|client_features| filter_client_features(&client_features, filters))
 }
 
-pub async fn start_refresh_features_background_task(refresher: Arc<FeatureRefresher>, refresh_state_rx: Receiver<RefreshState>) {
-  let mut rx = refresh_state_rx;
+pub async fn start_refresh_features_background_task(
+    refresher: Arc<FeatureRefresher>,
+    refresh_state_rx: Receiver<RefreshState>,
+) {
+    let mut rx = refresh_state_rx;
     loop {
         if *rx.borrow() == RefreshState::Paused {
             debug!("Refresh paused, skipping this cycle");
         } else {
             refresher.refresh_features().await;
         }
-        
+
         tokio::select! {
             _ = tokio::time::sleep(Duration::from_secs(5)) => {}
             changed = rx.changed() => {

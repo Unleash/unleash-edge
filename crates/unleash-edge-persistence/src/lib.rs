@@ -1,12 +1,12 @@
 use ahash::HashMap;
 use async_trait::async_trait;
 use dashmap::DashMap;
-use unleash_edge_types::enterprise::EnterpriseEdgeLicenseState;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{debug, warn};
 use unleash_edge_feature_cache::FeatureCache;
+use unleash_edge_types::enterprise::EnterpriseEdgeLicenseState;
 use unleash_edge_types::tokens::EdgeToken;
 use unleash_edge_types::{EdgeResult, TokenValidationStatus};
 use unleash_types::client_features::ClientFeatures;

@@ -1,7 +1,7 @@
 use ahash::HashMap;
-use unleash_edge_types::enterprise::EnterpriseEdgeLicenseState;
 use std::sync::Arc;
 use std::time::Duration;
+use unleash_edge_types::enterprise::EnterpriseEdgeLicenseState;
 
 use super::EdgePersistence;
 use crate::redis::RedisClientOptions::{Cluster, Single};
