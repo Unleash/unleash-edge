@@ -16,7 +16,7 @@ use std::str::FromStr;
 use tracing::{debug, error, info, trace, warn};
 use ulid::Ulid;
 use unleash_edge_cli::ClientIdentity;
-use unleash_edge_types::enterprise::EnterpriseEdgeLicenseState;
+use unleash_edge_types::enterprise::LicenseStateResponse;
 use unleash_edge_types::errors::EdgeError::EdgeMetricsRequestError;
 use unleash_edge_types::errors::{CertificateError, EdgeError, FeatureError};
 use unleash_edge_types::headers::{
@@ -108,7 +108,7 @@ lazy_static! {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HeartbeatResponse {
-    pub edge_license_state: EnterpriseEdgeLicenseState,
+    pub edge_license_state: LicenseStateResponse,
 }
 
 #[cfg_attr(test, derive(Default))]
@@ -634,10 +634,12 @@ impl UnleashClient {
                 )
             })?;
 
+            
+
             match response.json::<HeartbeatResponse>().await {
               Ok(heartbeat_response) => match heartbeat_response.edge_license_state {
-                  EnterpriseEdgeLicenseState::Valid => Ok(()),
-                  EnterpriseEdgeLicenseState::Expired => Err(EdgeError::ExpiredLicense(
+                  LicenseStateResponse::Valid => Ok(()),
+                  LicenseStateResponse::Expired => Err(EdgeError::ExpiredLicense(
                       "License check failed: upstream reports the Enterprise Edge license is expired".into(),
                   )),
                   _ => Err(EdgeError::InvalidLicense(
