@@ -36,12 +36,7 @@ pub fn create_enterprise_heartbeat_task(
         let sleep_duration = tokio::time::Duration::from_secs(90);
         loop {
             tokio::time::sleep(sleep_duration).await;
-            send_heartbeat(
-                unleash_client.clone(),
-                token.clone(),
-                &refresh_state_tx,
-            )
-            .await;
+            send_heartbeat(unleash_client.clone(), token.clone(), &refresh_state_tx).await;
         }
     })
 }
