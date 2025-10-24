@@ -13,7 +13,7 @@ pub mod s3_persister {
     };
     use unleash_edge_types::errors::EdgeError;
     use unleash_edge_types::tokens::EdgeToken;
-    use unleash_edge_types::{EdgeResult, enterprise::EnterpriseEdgeLicenseState};
+    use unleash_edge_types::{EdgeResult, enterprise::LicenseState};
 
     pub const FEATURES_KEY: &str = "/unleash-features.json";
     pub const TOKENS_KEY: &str = "/unleash-tokens.json";
@@ -138,7 +138,7 @@ pub mod s3_persister {
             }
         }
 
-        async fn load_license_state(&self) -> EnterpriseEdgeLicenseState {
+        async fn load_license_state(&self) -> LicenseState {
             let Ok(response) = self
                 .client
                 .get_object()
@@ -148,18 +148,18 @@ pub mod s3_persister {
                 .send()
                 .await
             else {
-                return EnterpriseEdgeLicenseState::Undetermined;
+                return LicenseState::Undetermined;
             };
             let Ok(data) = response.body.collect().await else {
-                return EnterpriseEdgeLicenseState::Undetermined;
+                return LicenseState::Undetermined;
             };
-            serde_json::from_slice::<EnterpriseEdgeLicenseState>(&data.to_vec())
-                .unwrap_or(EnterpriseEdgeLicenseState::Undetermined)
+            serde_json::from_slice::<LicenseState>(&data.to_vec())
+                .unwrap_or(LicenseState::Undetermined)
         }
 
         async fn save_license_state(
             &self,
-            license_state: &EnterpriseEdgeLicenseState,
+            license_state: &LicenseState,
         ) -> EdgeResult<()> {
             let body_data = serde_json::to_vec(&license_state).map_err(|e| {
                 EdgeError::PersistenceError(format!("Failed to serialize license state: {}", e))
@@ -293,10 +293,10 @@ mod tests {
             let loaded_license_state = persister.load_license_state().await;
             assert_eq!(
                 loaded_license_state,
-                crate::EnterpriseEdgeLicenseState::Undetermined
+                crate::LicenseState::Undetermined
             );
 
-            let license_state = crate::EnterpriseEdgeLicenseState::Valid;
+            let license_state = crate::LicenseState::Valid;
             persister
                 .save_license_state(&license_state)
                 .await
@@ -313,7 +313,7 @@ mod tests {
             let loaded_license_state = persister.load_license_state().await;
             assert_eq!(
                 loaded_license_state,
-                crate::EnterpriseEdgeLicenseState::Undetermined
+                crate::LicenseState::Undetermined
             );
         }
     }

@@ -5,7 +5,7 @@ use std::{path::PathBuf, str::FromStr};
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
 use unleash_edge_types::EdgeResult;
-use unleash_edge_types::enterprise::EnterpriseEdgeLicenseState;
+use unleash_edge_types::enterprise::LicenseState;
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::tokens::EdgeToken;
 use unleash_types::client_features::ClientFeatures;
@@ -149,23 +149,23 @@ impl EdgePersistence for FilePersister {
         .map(|_| ())
     }
 
-    async fn load_license_state(&self) -> EnterpriseEdgeLicenseState {
+    async fn load_license_state(&self) -> LicenseState {
         let Ok(mut file) = tokio::fs::File::open(self.license_path()).await else {
-            return EnterpriseEdgeLicenseState::Undetermined;
+            return LicenseState::Undetermined;
         };
 
         let mut contents = vec![];
 
         let Ok(_) = file.read_to_end(&mut contents).await else {
-            return EnterpriseEdgeLicenseState::Undetermined;
+            return LicenseState::Undetermined;
         };
 
-        serde_json::from_slice(&contents).unwrap_or(EnterpriseEdgeLicenseState::Undetermined)
+        serde_json::from_slice(&contents).unwrap_or(LicenseState::Undetermined)
     }
 
     async fn save_license_state(
         &self,
-        license_state: &EnterpriseEdgeLicenseState,
+        license_state: &LicenseState,
     ) -> EdgeResult<()> {
         let mut file = tokio::fs::File::create(self.license_path())
             .await
@@ -263,7 +263,7 @@ mod tests {
     #[tokio::test]
     async fn file_persister_can_save_and_load_license_state() {
         let persister = FilePersister::try_from(temp_dir().to_str().unwrap()).unwrap();
-        let license_state = crate::EnterpriseEdgeLicenseState::Valid;
+        let license_state = crate::LicenseState::Valid;
         persister.save_license_state(&license_state).await.unwrap();
         let reloaded = persister.load_license_state().await;
         assert_eq!(reloaded, license_state);
@@ -273,6 +273,6 @@ mod tests {
     async fn file_persister_loads_undetermined_license_state_if_no_file() {
         let persister = FilePersister::try_from(temp_dir().to_str().unwrap()).unwrap();
         let reloaded = persister.load_license_state().await;
-        assert_eq!(reloaded, crate::EnterpriseEdgeLicenseState::Undetermined);
+        assert_eq!(reloaded, crate::LicenseState::Undetermined);
     }
 }
