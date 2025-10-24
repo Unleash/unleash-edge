@@ -61,7 +61,7 @@ pub fn entity_tag_to_header_value(etag: EntityTag) -> HeaderValue {
 
 pub type BackgroundTask = Pin<Box<dyn Future<Output = ()> + Send>>;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Copy)]
 pub enum RefreshState {
     Running,
     Paused,
