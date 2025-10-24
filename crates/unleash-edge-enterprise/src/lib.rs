@@ -1,28 +1,32 @@
 use std::{pin::Pin, sync::Arc};
 use tokio::sync::watch::Sender;
-use tracing::{debug, info, warn};
+use tracing::{debug, warn};
 use unleash_edge_http_client::UnleashClient;
-use unleash_edge_types::{RefreshState, errors::EdgeError, tokens::EdgeToken};
+use unleash_edge_types::{enterprise::LicenseStateResponse, tokens::EdgeToken, RefreshState};
 
-pub async fn send_heartbeat(
+async fn send_heartbeat(
     unleash_client: Arc<UnleashClient>,
     token: EdgeToken,
     refresh_state_tx: &Sender<RefreshState>,
 ) {
     match unleash_client.send_heartbeat(&token).await {
-        Err(EdgeError::ExpiredLicense(e)) => {
-            warn!("License is expired according to upstream: {}", e);
+      Ok(response) => {
+            match response {
+                LicenseStateResponse::Valid => {
+                    debug!("License check succeeded: Heartbeat sent successfully");
+                    let _ = refresh_state_tx.send(RefreshState::Running);
+                }
+                LicenseStateResponse::Invalid => {
+                    warn!("License check failed: Upstream reports the Enterprise Edge license is invalid");
+                    let _ = refresh_state_tx.send(RefreshState::Paused);
+                }
+                LicenseStateResponse::Expired => {
+                    warn!("License check failed: Upstream reports the Enterprise Edge license is expired");
+                }
+            }
         }
-        Err(EdgeError::InvalidLicense(e)) => {
-            warn!("License is invalid according to upstream: {}", e);
-            let _ = refresh_state_tx.send(RefreshState::Paused);
-        }
-        Err(e) => {
-            info!("Unexpected error sending heartbeat: {}", e);
-        }
-        Ok(_) => {
-            debug!("Successfully sent heartbeat");
-            let _ = refresh_state_tx.send(RefreshState::Running);
+        Err(err) => {
+            warn!("License check failed: Upstream could not verify the Enterprise Edge license: {err}");
         }
     }
 }
