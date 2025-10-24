@@ -570,11 +570,6 @@ fn create_edge_mode_background_tasks(
         ));
     }
 
-    #[cfg(not(feature = "enterprise"))]
-    {
-        Box::leak(Box::new(refresh_state_tx));
-    }
-
     tasks
 }
 

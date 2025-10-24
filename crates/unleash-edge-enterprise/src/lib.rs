@@ -7,7 +7,7 @@ use unleash_edge_types::{RefreshState, errors::EdgeError, tokens::EdgeToken};
 pub async fn send_heartbeat(
     unleash_client: Arc<UnleashClient>,
     token: EdgeToken,
-    refresh_state_tx: Sender<RefreshState>,
+    refresh_state_tx: &Sender<RefreshState>,
 ) {
     match unleash_client.send_heartbeat(&token).await {
         Err(EdgeError::ExpiredLicense(e)) => {
@@ -39,7 +39,7 @@ pub fn create_enterprise_heartbeat_task(
             send_heartbeat(
                 unleash_client.clone(),
                 token.clone(),
-                refresh_state_tx.clone(),
+                &refresh_state_tx,
             )
             .await;
         }

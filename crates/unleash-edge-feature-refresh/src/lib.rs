@@ -215,21 +215,12 @@ pub async fn start_refresh_features_background_task(
 ) {
     let mut rx = refresh_state_rx;
     loop {
-        if *rx.borrow() == RefreshState::Paused {
+        if *rx.borrow_and_update() == RefreshState::Paused {
             debug!("Refresh paused, skipping this cycle");
         } else {
             refresher.refresh_features().await;
         }
-
-        tokio::select! {
-            _ = tokio::time::sleep(Duration::from_secs(5)) => {}
-            changed = rx.changed() => {
-                if changed.is_err() {
-                    warn!("Refresh state channel closed, feature refresher stopped");
-                    return;
-                }
-            }
-        }
+        tokio::time::sleep(Duration::from_secs(5)).await;
     }
 }
 
