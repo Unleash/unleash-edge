@@ -16,6 +16,7 @@ use std::str::FromStr;
 use tracing::{debug, error, info, trace, warn};
 use ulid::Ulid;
 use unleash_edge_cli::ClientIdentity;
+use unleash_edge_types::enterprise::LicenseStateResponse;
 use unleash_edge_types::errors::EdgeError::EdgeMetricsRequestError;
 use unleash_edge_types::errors::{CertificateError, EdgeError, FeatureError};
 use unleash_edge_types::headers::{
@@ -102,6 +103,12 @@ lazy_static! {
         &["server", "version", "app_name", "instance_id"]
     )
     .unwrap();
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HeartbeatResponse {
+    pub edge_license_state: LicenseStateResponse,
 }
 
 #[cfg_attr(test, derive(Default))]
@@ -612,7 +619,7 @@ impl UnleashClient {
         }
     }
 
-    pub async fn send_heartbeat(&self, api_key: &EdgeToken) -> EdgeResult<()> {
+    pub async fn send_heartbeat(&self, api_key: &EdgeToken) -> EdgeResult<LicenseStateResponse> {
         let response = self
             .backing_client
             .post(self.urls.heartbeat_url.to_string())
@@ -627,21 +634,14 @@ impl UnleashClient {
                 )
             })?;
 
-        if response.status().is_success() {
-            Ok(())
-        } else if response.status() == StatusCode::PAYMENT_REQUIRED {
-            Err(EdgeError::InvalidLicense(
-                "Enterprise Edge requires a license but upstream server confirmed the license is not active".to_string(),
-            ))
-        } else {
-            Err(EdgeError::HeartbeatError(
-                format!(
-                    "Enterprise Edge requires a license but this could not be confirmed with upstream and could not be verified from persistence: {}",
-                    response.status()
-                ),
-                response.status(),
-            ))
-        }
+        let Ok(heartbeat_response) = response.json::<HeartbeatResponse>().await else {
+            return Err(EdgeError::HeartbeatError(
+                "Failed to parse heartbeat response".into(),
+                StatusCode::INTERNAL_SERVER_ERROR,
+            ));
+        };
+
+        Ok(heartbeat_response.edge_license_state)
     }
 
     pub async fn send_bulk_metrics_to_client_endpoint(

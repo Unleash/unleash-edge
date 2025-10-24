@@ -1,9 +1,9 @@
 use ahash::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
+use unleash_edge_types::enterprise::LicenseState;
 
 use super::EdgePersistence;
-use crate::EnterpriseEdgeLicenseState;
 use crate::redis::RedisClientOptions::{Cluster, Single};
 use async_trait::async_trait;
 use redis::cluster::ClusterClient;
@@ -171,7 +171,7 @@ impl EdgePersistence for RedisPersister {
         Ok(())
     }
 
-    async fn load_license_state(&self) -> EnterpriseEdgeLicenseState {
+    async fn load_license_state(&self) -> LicenseState {
         debug!("Loading license state from persistence");
         let mut client = self.redis_client.write().await;
         let raw_license_state: String = match &mut *client {
@@ -183,31 +183,28 @@ impl EdgePersistence for RedisPersister {
                     )
                     .await
                 else {
-                    return EnterpriseEdgeLicenseState::Undetermined;
+                    return LicenseState::Undetermined;
                 };
                 let Ok(raw_license_state) = conn.get(LICENSE_STATE_KEY).await else {
-                    return EnterpriseEdgeLicenseState::Undetermined;
+                    return LicenseState::Undetermined;
                 };
                 raw_license_state
             }
             Cluster(c) => {
                 let Ok(mut conn) = c.get_connection() else {
-                    return EnterpriseEdgeLicenseState::Undetermined;
+                    return LicenseState::Undetermined;
                 };
                 let Ok(raw_license_state) = conn.get(LICENSE_STATE_KEY) else {
-                    return EnterpriseEdgeLicenseState::Undetermined;
+                    return LicenseState::Undetermined;
                 };
                 raw_license_state
             }
         };
-        serde_json::from_str::<EnterpriseEdgeLicenseState>(&raw_license_state)
-            .unwrap_or(EnterpriseEdgeLicenseState::Undetermined)
+        serde_json::from_str::<LicenseState>(&raw_license_state)
+            .unwrap_or(LicenseState::Undetermined)
     }
 
-    async fn save_license_state(
-        &self,
-        license_state: &EnterpriseEdgeLicenseState,
-    ) -> EdgeResult<()> {
+    async fn save_license_state(&self, license_state: &LicenseState) -> EdgeResult<()> {
         debug!("Saving license state to persistence");
         let mut client = self.redis_client.write().await;
         let raw_license_state = serde_json::to_string(&license_state)?;
@@ -304,7 +301,7 @@ mod tests {
     async fn redis_saves_and_restores_license_state_correctly() {
         let (_client, url, _node) = setup_redis().await;
         let redis_persister = RedisPersister::new(&url, TEST_TIMEOUT, TEST_TIMEOUT).unwrap();
-        let license_state = EnterpriseEdgeLicenseState::Valid;
+        let license_state = LicenseState::Valid;
         redis_persister
             .save_license_state(&license_state)
             .await
@@ -318,7 +315,7 @@ mod tests {
         let (_client, url, _node) = setup_redis().await;
         let redis_persister = RedisPersister::new(&url, TEST_TIMEOUT, TEST_TIMEOUT).unwrap();
         let loaded_state = redis_persister.load_license_state().await;
-        assert_eq!(loaded_state, EnterpriseEdgeLicenseState::Undetermined);
+        assert_eq!(loaded_state, LicenseState::Undetermined);
     }
 
     #[tokio::test]
@@ -328,6 +325,6 @@ mod tests {
         // Stop the redis node to simulate an error
         _node.stop().await.expect("Failed to stop redis");
         let loaded_state = redis_persister.load_license_state().await;
-        assert_eq!(loaded_state, EnterpriseEdgeLicenseState::Undetermined);
+        assert_eq!(loaded_state, LicenseState::Undetermined);
     }
 }
