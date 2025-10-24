@@ -163,10 +163,7 @@ impl EdgePersistence for FilePersister {
         serde_json::from_slice(&contents).unwrap_or(LicenseState::Undetermined)
     }
 
-    async fn save_license_state(
-        &self,
-        license_state: &LicenseState,
-    ) -> EdgeResult<()> {
+    async fn save_license_state(&self, license_state: &LicenseState) -> EdgeResult<()> {
         let mut file = tokio::fs::File::create(self.license_path())
             .await
             .map_err(|_| {
