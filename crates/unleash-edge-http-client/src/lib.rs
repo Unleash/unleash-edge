@@ -634,22 +634,23 @@ impl UnleashClient {
                 )
             })?;
 
-            
-
-            match response.json::<HeartbeatResponse>().await {
-              Ok(heartbeat_response) => match heartbeat_response.edge_license_state {
-                  LicenseStateResponse::Valid => Ok(()),
-                  LicenseStateResponse::Expired => Err(EdgeError::ExpiredLicense(
-                      "License check failed: upstream reports the Enterprise Edge license is expired".into(),
-                  )),
-                  _ => Err(EdgeError::InvalidLicense(
-                      "License check failed: upstream reports the Enterprise Edge license is invalid".into(),
-                  )),
-              },
-              Err(_) => Err(EdgeError::InvalidLicense(
-                  "License check failed: upstream could not verify the Enterprise Edge license".into(),
-              )),
-          }
+        match response.json::<HeartbeatResponse>().await {
+            Ok(heartbeat_response) => match heartbeat_response.edge_license_state {
+                LicenseStateResponse::Valid => Ok(()),
+                LicenseStateResponse::Expired => Err(EdgeError::ExpiredLicense(
+                    "License check failed: upstream reports the Enterprise Edge license is expired"
+                        .into(),
+                )),
+                _ => Err(EdgeError::InvalidLicense(
+                    "License check failed: upstream reports the Enterprise Edge license is invalid"
+                        .into(),
+                )),
+            },
+            Err(_) => Err(EdgeError::InvalidLicense(
+                "License check failed: upstream could not verify the Enterprise Edge license"
+                    .into(),
+            )),
+        }
     }
 
     pub async fn send_bulk_metrics_to_client_endpoint(
