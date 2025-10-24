@@ -6,21 +6,17 @@ mod tests {
     use axum::{Router, response::IntoResponse};
     use axum_test::TestServer;
     use chrono::Duration;
-    use reqwest::{Client, Url};
+    use reqwest::Client;
     use serde_json::json;
     use std::sync::Arc;
-    use tokio::sync::{RwLock, oneshot};
+    use tokio::sync::RwLock;
     use ulid::Ulid;
     use unleash_edge::edge_builder::{EdgeStateArgs, build_edge_state};
     use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeArgs, HttpServerArgs};
-    use unleash_edge_enterprise::send_heartbeat;
     use unleash_edge_types::errors::EdgeError;
     use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
-    use unleash_edge_types::tokens::EdgeToken;
 
-    use unleash_edge_http_client::{
-        ClientMetaInformation, HttpClientArgs, UnleashClient, new_reqwest_client,
-    };
+    use unleash_edge_http_client::{ClientMetaInformation, HttpClientArgs, new_reqwest_client};
 
     use unleash_edge_types::EdgeResult;
 
@@ -170,41 +166,8 @@ mod tests {
         )
     }
 
-    trait TestConfig {
-        fn test_config() -> Self;
-    }
-
-    impl TestConfig for ClientMetaInformation {
-        fn test_config() -> Self {
-            ClientMetaInformation {
-                app_name: "test_app".into(),
-                instance_id: Ulid::new(),
-                connection_id: Ulid::new(),
-            }
-        }
-    }
-
-    pub fn build_unleash_client(server_url: Url) -> Arc<UnleashClient> {
-        Arc::new(UnleashClient::from_url_with_backing_client(
-            server_url,
-            "Authorization".to_string(),
-            new_reqwest_client(HttpClientArgs {
-                skip_ssl_verification: false,
-                client_identity: None,
-                upstream_certificate_file: None,
-                connect_timeout: Duration::seconds(10),
-                socket_timeout: Duration::seconds(10),
-                keep_alive_timeout: Duration::seconds(10),
-                client_meta_information: ClientMetaInformation::test_config(),
-            })
-            .unwrap(),
-            ClientMetaInformation::test_config(),
-        ))
-    }
-
     #[tokio::test]
     async fn enterprise_edge_state_errors_with_invalid_license_when_license_is_not_retrievable() {
-        let (shutdown_hook, _) = oneshot::channel();
         let upstream = UpstreamMock::new(Err(EdgeError::InvalidLicense("This Edge instance is not licensed! The police will arrive at your doorstep imminently".into()))).await;
         let (http_client, client_meta_information, instances_observed_for_app_context) =
             build_edge_state_data();
@@ -223,7 +186,6 @@ mod tests {
             instances_observed_for_app_context,
             auth_headers: AuthHeaders::default(),
             http_client,
-            shutdown_hook,
         })
         .await;
 
@@ -235,7 +197,6 @@ mod tests {
 
     #[tokio::test]
     async fn enterprise_edge_state_errors_with_heartbeat_error_when_license_cannot_be_verified() {
-        let (shutdown_hook, _) = oneshot::channel();
         let upstream = UpstreamMock::new(Err(EdgeError::Forbidden("This Edge instance is not licensed! The police will arrive at your doorstep imminently".into()))).await;
         let (http_client, client_meta_information, instances_observed_for_app_context) =
             build_edge_state_data();
@@ -254,7 +215,6 @@ mod tests {
             instances_observed_for_app_context,
             auth_headers: AuthHeaders::default(),
             http_client,
-            shutdown_hook,
         })
         .await;
 
@@ -266,7 +226,6 @@ mod tests {
 
     #[tokio::test]
     async fn enterprise_edge_state_startup_succeeds_if_license_can_be_verified() {
-        let (shutdown_hook, _) = oneshot::channel();
         let upstream = UpstreamMock::new(Ok(())).await;
         let (http_client, client_meta_information, instances_observed_for_app_context) =
             build_edge_state_data();
@@ -285,72 +244,9 @@ mod tests {
             instances_observed_for_app_context,
             auth_headers: AuthHeaders::default(),
             http_client,
-            shutdown_hook,
         })
         .await;
 
         assert!(maybe_edge_state.is_ok());
-    }
-
-    #[tokio::test]
-    async fn shutdown_signal_is_sent_if_upstream_invalidates_license() {
-        let (shutdown_hook, shutdown_rx) = oneshot::channel::<()>();
-        let upstream = UpstreamMock::new(Err(EdgeError::InvalidLicense("This Edge instance is not licensed! The police will arrive at your doorstep imminently".into()))).await;
-
-        let token = EdgeToken {
-            token: "*:development.hashyhashhash".to_string(),
-            environment: Some("development".into()),
-            ..Default::default()
-        };
-
-        let client = build_unleash_client(Url::parse(&upstream.url()).unwrap());
-
-        send_heartbeat(
-            client,
-            token,
-            Arc::new(tokio::sync::Mutex::new(Some(shutdown_hook))),
-        )
-        .await;
-
-        let shutdown_result = tokio::time::timeout(std::time::Duration::from_secs(1), shutdown_rx)
-            .await
-            .expect("Didn't receive shutdown signal in time");
-
-        assert!(
-            shutdown_result.is_ok(),
-            "Did not receive shutdown signal in time"
-        );
-    }
-
-    #[tokio::test]
-    async fn shutdown_signal_is_not_sent_if_a_non_license_error_occurs() {
-        let (shutdown_hook, shutdown_rx) = oneshot::channel::<()>();
-        let upstream = UpstreamMock::new(Err(EdgeError::TlsError(
-            "TLS decided to take up farming instead of serving your request".into(),
-        )))
-        .await;
-
-        let token = EdgeToken {
-            token: "*:development.hashyhashhash".to_string(),
-            environment: Some("development".into()),
-            ..Default::default()
-        };
-
-        let client = build_unleash_client(Url::parse(&upstream.url()).unwrap());
-        // we need to keep the reference alive here, otherwise when the shutdown hook completes, it drops the tx
-        // which is turn means reading from the rx will error out and the test will fail
-        let shutdown_hook = Arc::new(tokio::sync::Mutex::new(Some(shutdown_hook)));
-
-        send_heartbeat(client, token, shutdown_hook.clone()).await;
-
-        let shutdown_result =
-            tokio::time::timeout(std::time::Duration::from_secs(1), shutdown_rx).await;
-
-        println!("{:?}", shutdown_result);
-
-        assert!(
-            shutdown_result.is_err(),
-            "Received shutdown signal when it should not have"
-        );
     }
 }
