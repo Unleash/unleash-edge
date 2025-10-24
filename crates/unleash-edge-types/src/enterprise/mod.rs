@@ -9,7 +9,6 @@ pub enum LicenseStateResponse {
     Expired,
 }
 
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum LicenseState {
     Valid,

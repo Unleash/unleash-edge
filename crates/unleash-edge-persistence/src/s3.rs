@@ -157,10 +157,7 @@ pub mod s3_persister {
                 .unwrap_or(LicenseState::Undetermined)
         }
 
-        async fn save_license_state(
-            &self,
-            license_state: &LicenseState,
-        ) -> EdgeResult<()> {
+        async fn save_license_state(&self, license_state: &LicenseState) -> EdgeResult<()> {
             let body_data = serde_json::to_vec(&license_state).map_err(|e| {
                 EdgeError::PersistenceError(format!("Failed to serialize license state: {}", e))
             })?;
@@ -291,10 +288,7 @@ mod tests {
             let (_localstack, persister) = setup_s3_persister().await;
 
             let loaded_license_state = persister.load_license_state().await;
-            assert_eq!(
-                loaded_license_state,
-                crate::LicenseState::Undetermined
-            );
+            assert_eq!(loaded_license_state, crate::LicenseState::Undetermined);
 
             let license_state = crate::LicenseState::Valid;
             persister
@@ -311,10 +305,7 @@ mod tests {
             let (_localstack, persister) = setup_s3_persister().await;
 
             let loaded_license_state = persister.load_license_state().await;
-            assert_eq!(
-                loaded_license_state,
-                crate::LicenseState::Undetermined
-            );
+            assert_eq!(loaded_license_state, crate::LicenseState::Undetermined);
         }
     }
 }

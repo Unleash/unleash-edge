@@ -204,10 +204,7 @@ impl EdgePersistence for RedisPersister {
             .unwrap_or(LicenseState::Undetermined)
     }
 
-    async fn save_license_state(
-        &self,
-        license_state: &LicenseState,
-    ) -> EdgeResult<()> {
+    async fn save_license_state(&self, license_state: &LicenseState) -> EdgeResult<()> {
         debug!("Saving license state to persistence");
         let mut client = self.redis_client.write().await;
         let raw_license_state = serde_json::to_string(&license_state)?;
