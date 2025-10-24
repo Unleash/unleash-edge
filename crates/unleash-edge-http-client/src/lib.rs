@@ -619,7 +619,7 @@ impl UnleashClient {
         }
     }
 
-    pub async fn send_heartbeat(&self, api_key: &EdgeToken) -> EdgeResult<()> {
+    pub async fn send_heartbeat(&self, api_key: &EdgeToken) -> EdgeResult<LicenseStateResponse> {
         let response = self
             .backing_client
             .post(self.urls.heartbeat_url.to_string())
@@ -634,23 +634,14 @@ impl UnleashClient {
                 )
             })?;
 
-        match response.json::<HeartbeatResponse>().await {
-            Ok(heartbeat_response) => match heartbeat_response.edge_license_state {
-                LicenseStateResponse::Valid => Ok(()),
-                LicenseStateResponse::Expired => Err(EdgeError::ExpiredLicense(
-                    "License check failed: upstream reports the Enterprise Edge license is expired"
-                        .into(),
-                )),
-                _ => Err(EdgeError::InvalidLicense(
-                    "License check failed: upstream reports the Enterprise Edge license is invalid"
-                        .into(),
-                )),
-            },
-            Err(_) => Err(EdgeError::InvalidLicense(
-                "License check failed: upstream could not verify the Enterprise Edge license"
-                    .into(),
-            )),
-        }
+        let Ok(heartbeat_response) = response.json::<HeartbeatResponse>().await else {
+            return Err(EdgeError::HeartbeatError(
+                "Failed to parse heartbeat response".into(),
+                StatusCode::INTERNAL_SERVER_ERROR,
+            ));
+        };
+
+        Ok(heartbeat_response.edge_license_state)
     }
 
     pub async fn send_bulk_metrics_to_client_endpoint(

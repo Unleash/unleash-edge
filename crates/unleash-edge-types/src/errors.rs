@@ -118,7 +118,6 @@ pub enum EdgeError {
     EdgeMetricsRequestError(reqwest::StatusCode, Option<UnleashBadRequest>),
     EdgeTokenError,
     EdgeTokenParseError,
-    ExpiredLicense(String),
     FeatureNotFound(String),
     Forbidden(String),
     FrontendExpectedToBeHydrated(String),
@@ -126,7 +125,6 @@ pub enum EdgeError {
     HealthCheckError(String),
     HeartbeatError(String, StatusCode),
     InvalidBackupFile(String, String),
-    InvalidLicense(String),
     InvalidServerUrl(String),
     InvalidEtag,
     InvalidToken,
@@ -187,8 +185,6 @@ impl Display for EdgeError {
                 write!(f, "Failed to build cert {cert_error:?}")
             }
             EdgeError::ClientBuildError(e) => write!(f, "Failed to build client {e:?}"),
-            EdgeError::InvalidLicense(msg) => write!(f, "License is invalid: [{msg}]"),
-            EdgeError::ExpiredLicense(msg) => write!(f, "License is expired: [{msg}]"),
             EdgeError::InvalidServerUrl(msg) => write!(f, "Failed to parse server url: [{msg}]"),
             EdgeError::EdgeTokenError => write!(f, "Edge token error"),
             EdgeError::EdgeTokenParseError => write!(f, "Failed to parse token response"),
@@ -271,7 +267,6 @@ impl IntoResponse for EdgeError {
             EdgeError::EdgeMetricsRequestError(_, _) => Response::builder().status(self.status_code()).body(Body::empty()),
             EdgeError::EdgeTokenError => Response::builder().status(self.status_code()).body(Body::empty()),
             EdgeError::EdgeTokenParseError => Response::builder().status(self.status_code()).body(Body::empty()),
-            EdgeError::ExpiredLicense(_) => Response::builder().status(self.status_code()).body(Body::empty()),
             EdgeError::FeatureNotFound(_) => Response::builder().status(self.status_code()).body(Body::empty()),
             EdgeError::FrontendExpectedToBeHydrated(_) => Response::builder().status(self.status_code()).body(Body::empty()),
             EdgeError::FrontendNotYetHydrated(frontend_hydration_missing) => Response::builder().status(self.status_code()).body(Body::from(json!({
@@ -284,7 +279,6 @@ impl IntoResponse for EdgeError {
                 "status_code": status_code.as_str()
             }).to_string())),
             EdgeError::InvalidBackupFile(_, _) => Response::builder().status(self.status_code()).body(Body::empty()),
-            EdgeError::InvalidLicense(_) => Response::builder().status(self.status_code()).body(Body::empty()),
             EdgeError::InvalidServerUrl(_) => Response::builder().status(self.status_code()).body(Body::empty()),
             EdgeError::JsonParseError(_) => Response::builder().status(self.status_code()).body(Body::empty()),
             EdgeError::NoFeaturesFile => Response::builder().status(self.status_code()).body(Body::empty()),
@@ -323,8 +317,6 @@ impl EdgeError {
             EdgeError::ClientBuildError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::ClientFeaturesParseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::ClientFeaturesFetchError(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            EdgeError::InvalidLicense(_) => StatusCode::PAYMENT_REQUIRED,
-            EdgeError::ExpiredLicense(_) => StatusCode::PAYMENT_REQUIRED,
             EdgeError::InvalidServerUrl(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::PersistenceError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::JsonParseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
