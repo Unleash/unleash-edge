@@ -247,7 +247,8 @@ impl TokenRefresh {
     pub fn backoff(&self, refresh_interval: &Duration) -> Self {
         let failure_count: u32 = min(self.failure_count + 1, 10);
         let now = Utc::now();
-        let next_refresh = calculate_next_refresh(now, *refresh_interval, failure_count as u64);
+        let base = self.next_refresh.unwrap_or(now);
+        let next_refresh = calculate_next_refresh(base, *refresh_interval, failure_count as u64);
         Self {
             failure_count,
             next_refresh: Some(next_refresh),
@@ -263,7 +264,8 @@ impl TokenRefresh {
             0
         };
         let now = Utc::now();
-        let next_refresh = calculate_next_refresh(now, *refresh_interval, failure_count as u64);
+        let base = self.next_refresh.unwrap_or(now);
+        let next_refresh = calculate_next_refresh(base, *refresh_interval, failure_count as u64);
         Self {
             failure_count,
             next_refresh: Some(next_refresh),
@@ -284,7 +286,8 @@ impl TokenRefresh {
             0
         };
         let now = Utc::now();
-        let next_refresh = calculate_next_refresh(now, *refresh_interval, failure_count as u64);
+        let base = self.next_refresh.unwrap_or(now);
+        let next_refresh = calculate_next_refresh(base, *refresh_interval, failure_count as u64);
         Self {
             failure_count,
             next_refresh: Some(next_refresh),
