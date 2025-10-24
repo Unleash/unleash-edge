@@ -222,15 +222,15 @@ fn get_features_by_filter(
 
 pub async fn start_refresh_features_background_task(
     refresher: Arc<FeatureRefresher>,
-    mut rx: Receiver<RefreshState>,
+    mut refresh_state_rx: Receiver<RefreshState>,
 ) {
     let mut alive = true;
 
     loop {
-        let state = *rx.borrow_and_update();
+        let state = *refresh_state_rx.borrow_and_update();
         if matches!(state, RefreshState::Paused) {
             if alive {
-                if rx.changed().await.is_err() {
+                if refresh_state_rx.changed().await.is_err() {
                     alive = false;
                 }
                 continue;
@@ -256,7 +256,7 @@ pub async fn start_refresh_features_background_task(
 
         tokio::select! {
             _ = sleep_until(time_until_next_due) => {}
-            res = rx.changed(), if alive => {
+            res = refresh_state_rx.changed(), if alive => {
                 // wake up, Samurai, we have a loop to churn
                 if res.is_err() {
                     alive = false;
