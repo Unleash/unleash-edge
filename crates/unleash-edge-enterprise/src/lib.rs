@@ -2,7 +2,7 @@ use std::{pin::Pin, sync::Arc};
 use tokio::sync::watch::Sender;
 use tracing::{debug, warn};
 use unleash_edge_http_client::UnleashClient;
-use unleash_edge_types::{enterprise::LicenseStateResponse, tokens::EdgeToken, RefreshState};
+use unleash_edge_types::{RefreshState, enterprise::LicenseStateResponse, tokens::EdgeToken};
 
 async fn send_heartbeat(
     unleash_client: Arc<UnleashClient>,
@@ -10,23 +10,27 @@ async fn send_heartbeat(
     refresh_state_tx: &Sender<RefreshState>,
 ) {
     match unleash_client.send_heartbeat(&token).await {
-      Ok(response) => {
-            match response {
-                LicenseStateResponse::Valid => {
-                    debug!("License check succeeded: Heartbeat sent successfully");
-                    let _ = refresh_state_tx.send(RefreshState::Running);
-                }
-                LicenseStateResponse::Invalid => {
-                    warn!("License check failed: Upstream reports the Enterprise Edge license is invalid");
-                    let _ = refresh_state_tx.send(RefreshState::Paused);
-                }
-                LicenseStateResponse::Expired => {
-                    warn!("License check failed: Upstream reports the Enterprise Edge license is expired");
-                }
+        Ok(response) => match response {
+            LicenseStateResponse::Valid => {
+                debug!("License check succeeded: Heartbeat sent successfully");
+                let _ = refresh_state_tx.send(RefreshState::Running);
             }
-        }
+            LicenseStateResponse::Invalid => {
+                warn!(
+                    "License check failed: Upstream reports the Enterprise Edge license is invalid"
+                );
+                let _ = refresh_state_tx.send(RefreshState::Paused);
+            }
+            LicenseStateResponse::Expired => {
+                warn!(
+                    "License check failed: Upstream reports the Enterprise Edge license is expired"
+                );
+            }
+        },
         Err(err) => {
-            warn!("License check failed: Upstream could not verify the Enterprise Edge license: {err}");
+            warn!(
+                "License check failed: Upstream could not verify the Enterprise Edge license: {err}"
+            );
         }
     }
 }
