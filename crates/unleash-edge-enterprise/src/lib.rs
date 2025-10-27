@@ -15,16 +15,17 @@ async fn send_heartbeat(
                 debug!("License check succeeded: Heartbeat sent successfully");
                 let _ = refresh_state_tx.send(RefreshState::Running);
             }
+            LicenseStateResponse::Expired => {
+                warn!(
+                    "License check failed: Upstream reports the Enterprise Edge license is expired"
+                );
+                let _ = refresh_state_tx.send(RefreshState::Running);
+            }
             LicenseStateResponse::Invalid => {
                 warn!(
                     "License check failed: Upstream reports the Enterprise Edge license is invalid"
                 );
                 let _ = refresh_state_tx.send(RefreshState::Paused);
-            }
-            LicenseStateResponse::Expired => {
-                warn!(
-                    "License check failed: Upstream reports the Enterprise Edge license is expired"
-                );
             }
         },
         Err(err) => {

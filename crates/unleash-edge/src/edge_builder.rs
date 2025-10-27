@@ -494,6 +494,7 @@ fn create_edge_mode_background_tasks(
         validator,
     }: BackgroundTaskArgs,
 ) -> Vec<BackgroundTask> {
+    #[allow(unused_variables)] // refresh_state_tx used in enterprise feature
     let (refresh_state_tx, refresh_state_rx) = channel(RefreshState::Running);
 
     let mut tasks: Vec<BackgroundTask> = vec![

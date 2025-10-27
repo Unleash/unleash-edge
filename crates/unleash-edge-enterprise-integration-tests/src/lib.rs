@@ -13,6 +13,7 @@ mod tests {
     use ulid::Ulid;
     use unleash_edge::edge_builder::{EdgeStateArgs, build_edge_state};
     use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeArgs, HttpServerArgs};
+    use unleash_edge_types::enterprise::LicenseStateResponse;
     use unleash_edge_types::errors::EdgeError;
     use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
 
@@ -22,7 +23,7 @@ mod tests {
 
     #[derive(Clone)]
     struct MockState {
-        license_result: Arc<RwLock<EdgeResult<()>>>,
+        license_result: EdgeResult<LicenseStateResponse>,
     }
 
     pub struct UpstreamMock {
@@ -30,9 +31,9 @@ mod tests {
     }
 
     impl UpstreamMock {
-        pub async fn new(initial: EdgeResult<()>) -> Self {
+        pub async fn new(initial: EdgeResult<LicenseStateResponse>) -> Self {
             let state = MockState {
-                license_result: Arc::new(RwLock::new(initial)),
+                license_result: initial,
             };
 
             let app = Router::new()
@@ -59,8 +60,23 @@ mod tests {
             self.server.server_url("/").unwrap().to_string()
         }
 
-        async fn heartbeat(State(s): State<MockState>) -> EdgeResult<()> {
-            s.license_result.read().await.clone()
+        async fn heartbeat(State(s): State<MockState>) -> impl IntoResponse {
+            if s.license_result.is_err() {
+                return (
+                    axum::http::StatusCode::FORBIDDEN,
+                    Json(json!({"message": "License verification failed"})),
+                );
+            }
+
+            return (
+                axum::http::StatusCode::ACCEPTED,
+                Json(json!({
+                    "edgeLicenseState": match s.license_result {
+                        Ok(license_state) => license_state,
+                        Err(_) => LicenseStateResponse::Invalid,
+                    }
+                })),
+            );
         }
 
         async fn validate_all_tokens() -> impl IntoResponse {
@@ -167,35 +183,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn enterprise_edge_state_errors_with_invalid_license_when_license_is_not_retrievable() {
-        let upstream = UpstreamMock::new(Err(EdgeError::InvalidLicense("This Edge instance is not licensed! The police will arrive at your doorstep imminently".into()))).await;
-        let (http_client, client_meta_information, instances_observed_for_app_context) =
-            build_edge_state_data();
-
-        let args = mock_cli_args();
-        let edge_args = EdgeArgs {
-            upstream_url: upstream.url(),
-            tokens: vec!["*:development.hashyhashhash".to_string()],
-            ..EdgeArgs::default()
-        };
-
-        let maybe_edge_state = build_edge_state(EdgeStateArgs {
-            args,
-            edge_args,
-            client_meta_information,
-            instances_observed_for_app_context,
-            auth_headers: AuthHeaders::default(),
-            http_client,
-        })
-        .await;
-
-        assert!(matches!(
-            maybe_edge_state,
-            Err(EdgeError::InvalidLicense(_))
-        ));
-    }
-
-    #[tokio::test]
     async fn enterprise_edge_state_errors_with_heartbeat_error_when_license_cannot_be_verified() {
         let upstream = UpstreamMock::new(Err(EdgeError::Forbidden("This Edge instance is not licensed! The police will arrive at your doorstep imminently".into()))).await;
         let (http_client, client_meta_information, instances_observed_for_app_context) =
@@ -226,7 +213,7 @@ mod tests {
 
     #[tokio::test]
     async fn enterprise_edge_state_startup_succeeds_if_license_can_be_verified() {
-        let upstream = UpstreamMock::new(Ok(())).await;
+        let upstream = UpstreamMock::new(Ok(LicenseStateResponse::Valid)).await;
         let (http_client, client_meta_information, instances_observed_for_app_context) =
             build_edge_state_data();
 
