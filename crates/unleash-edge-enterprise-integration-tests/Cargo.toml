@@ -38,8 +38,8 @@ unleash-edge-http-client = { workspace = true }
 unleash-edge-types = { workspace = true }
 
 [dev-dependencies]
-unleash-edge = { path = "../unleash-edge", version = "20.0.0", features = ["enterprise"]}
 axum-test = { workspace = true }
 pretty_assertions = { workspace = true }
 test-case = { workspace = true }
 tracing-test = { workspace = true }
+unleash-edge = { path = "../unleash-edge", version = "20.0.0", features = ["enterprise"] }

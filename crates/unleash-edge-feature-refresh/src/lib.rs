@@ -7,6 +7,7 @@ use chrono::{TimeDelta, Utc};
 use dashmap::DashMap;
 use etag::EntityTag;
 use reqwest::StatusCode;
+use tokio::sync::watch::Receiver;
 use tracing::{debug, info, warn};
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
@@ -16,7 +17,7 @@ use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_types::errors::{EdgeError, FeatureError};
 use unleash_edge_types::tokens::{EdgeToken, cache_key, simplify};
 use unleash_edge_types::{
-    ClientFeaturesRequest, ClientFeaturesResponse, EdgeResult, TokenRefresh, build,
+    ClientFeaturesRequest, ClientFeaturesResponse, EdgeResult, RefreshState, TokenRefresh, build,
 };
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::{ClientApplication, MetricsMetadata, SdkType};
@@ -208,13 +209,18 @@ fn get_features_by_filter(
         .map(|client_features| filter_client_features(&client_features, filters))
 }
 
-pub async fn start_refresh_features_background_task(refresher: Arc<FeatureRefresher>) {
+pub async fn start_refresh_features_background_task(
+    refresher: Arc<FeatureRefresher>,
+    refresh_state_rx: Receiver<RefreshState>,
+) {
+    let mut rx = refresh_state_rx;
     loop {
-        tokio::select! {
-            _ = tokio::time::sleep(Duration::from_secs(5)) => {
-                refresher.refresh_features().await;
-            }
+        if *rx.borrow_and_update() == RefreshState::Paused {
+            debug!("Refresh paused, skipping this cycle");
+        } else {
+            refresher.refresh_features().await;
         }
+        tokio::time::sleep(Duration::from_secs(5)).await;
     }
 }
 
