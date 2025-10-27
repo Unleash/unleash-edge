@@ -268,7 +268,7 @@ mod tests {
     #[tokio::test]
     async fn file_persister_can_save_and_load_license_state() {
         let persister = FilePersister::try_from(get_test_dir().as_str()).unwrap();
-        let license_state = crate::EnterpriseEdgeLicenseState::Valid;
+        let license_state = crate::LicenseState::Valid;
         persister.save_license_state(&license_state).await.unwrap();
         let reloaded = persister.load_license_state().await;
         assert_eq!(reloaded, license_state);
