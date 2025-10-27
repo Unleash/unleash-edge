@@ -193,13 +193,21 @@ mod tests {
 
     use crate::EdgePersistence;
     use crate::file::FilePersister;
+    use ulid::Ulid;
     use unleash_edge_types::tokens::EdgeToken;
     use unleash_edge_types::{TokenType, TokenValidationStatus};
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
 
+    fn get_test_dir() -> String {
+        let temp_dir = temp_dir();
+        let folder = temp_dir.join(Ulid::new().to_string());
+        std::fs::create_dir_all(&folder).unwrap();
+        folder.to_str().unwrap().to_string()
+    }
+
     #[tokio::test]
     async fn file_persister_can_save_and_load_features() {
-        let persister = FilePersister::try_from(temp_dir().to_str().unwrap()).unwrap();
+        let persister = FilePersister::try_from(get_test_dir().as_str()).unwrap();
         let client_features = ClientFeatures {
             features: vec![
                 ClientFeature {
@@ -239,7 +247,7 @@ mod tests {
 
     #[tokio::test]
     async fn file_persister_can_save_and_load_tokens() {
-        let persister = FilePersister::try_from(temp_dir().to_str().unwrap()).unwrap();
+        let persister = FilePersister::try_from(get_test_dir().as_str()).unwrap();
         let tokens = vec![
             EdgeToken {
                 token: "default:development:ajsdkajnsdlsan".into(),
@@ -263,7 +271,7 @@ mod tests {
 
     #[tokio::test]
     async fn file_persister_can_save_and_load_license_state() {
-        let persister = FilePersister::try_from(temp_dir().to_str().unwrap()).unwrap();
+        let persister = FilePersister::try_from(get_test_dir().as_str()).unwrap();
         let license_state = crate::EnterpriseEdgeLicenseState::Valid;
         persister.save_license_state(&license_state).await.unwrap();
         let reloaded = persister.load_license_state().await;
@@ -272,7 +280,7 @@ mod tests {
 
     #[tokio::test]
     async fn file_persister_loads_undetermined_license_state_if_no_file() {
-        let persister = FilePersister::try_from(temp_dir().to_str().unwrap()).unwrap();
+        let persister = FilePersister::try_from(get_test_dir().as_str()).unwrap();
         let reloaded = persister.load_license_state().await;
         assert_eq!(reloaded, crate::EnterpriseEdgeLicenseState::Undetermined);
     }
