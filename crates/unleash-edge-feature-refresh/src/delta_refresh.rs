@@ -37,7 +37,7 @@ const DELTA_CACHE_LIMIT: usize = 100;
 type SseStream = Pin<
     Box<
         dyn futures::Stream<Item = Result<eventsource_client::SSE, eventsource_client::Error>>
-            + Send
+            + Send,
     >,
 >;
 
@@ -150,7 +150,12 @@ async fn run_stream_task(
         }
 
         if stream.is_none() {
-            match build_sse_stream(&streaming_url, &token, &client_meta_information, &custom_headers) {
+            match build_sse_stream(
+                &streaming_url,
+                &token,
+                &client_meta_information,
+                &custom_headers,
+            ) {
                 Ok(s) => {
                     stream = Some(s);
                     info!(
@@ -218,7 +223,15 @@ pub async fn start_streaming_delta_background_task(
         let refresh_state_rx = refresh_state_rx.clone();
 
         tokio::spawn(async move {
-            run_stream_task(refresher, token, streaming_url, client_meta_information, custom_headers, refresh_state_rx).await;
+            run_stream_task(
+                refresher,
+                token,
+                streaming_url,
+                client_meta_information,
+                custom_headers,
+                refresh_state_rx,
+            )
+            .await;
         });
     }
 
