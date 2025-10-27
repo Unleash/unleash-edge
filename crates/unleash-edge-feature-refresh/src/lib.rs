@@ -8,6 +8,7 @@ use dashmap::DashMap;
 use etag::EntityTag;
 use reqwest::StatusCode;
 use tokio::sync::watch::Receiver;
+use tokio::time::{Instant, sleep_until};
 use tracing::{debug, info, warn};
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
@@ -78,6 +79,7 @@ impl HydratorType {
 type TokenRefreshSet = Arc<DashMap<String, TokenRefresh>>;
 
 trait TokenRefreshStatus {
+    fn next_due_refresh(&self) -> Option<Instant>;
     fn get_tokens_due_for_refresh(&self) -> Vec<TokenRefresh>;
     fn get_tokens_never_refreshed(&self) -> Vec<TokenRefresh>;
     fn token_is_subsumed(&self, token: &EdgeToken) -> bool;
@@ -93,6 +95,15 @@ trait TokenRefreshStatus {
 }
 
 impl TokenRefreshStatus for TokenRefreshSet {
+    fn next_due_refresh(&self) -> Option<Instant> {
+        let now = chrono::Utc::now();
+        self.iter()
+            .filter_map(|e| e.value().next_refresh)
+            .map(|t| (t - now).to_std().unwrap_or(Duration::from_secs(0)))
+            .min()
+            .map(|delta| Instant::now() + delta)
+    }
+
     fn get_tokens_due_for_refresh(&self) -> Vec<TokenRefresh> {
         self.iter()
             .map(|e| e.value().clone())
@@ -211,16 +222,47 @@ fn get_features_by_filter(
 
 pub async fn start_refresh_features_background_task(
     refresher: Arc<FeatureRefresher>,
-    refresh_state_rx: Receiver<RefreshState>,
+    mut refresh_state_rx: Receiver<RefreshState>,
 ) {
-    let mut rx = refresh_state_rx;
+    let mut alive = true;
+
     loop {
-        if *rx.borrow_and_update() == RefreshState::Paused {
-            debug!("Refresh paused, skipping this cycle");
-        } else {
-            refresher.refresh_features().await;
+        let state = *refresh_state_rx.borrow_and_update();
+        if matches!(state, RefreshState::Paused) {
+            if alive {
+                if refresh_state_rx.changed().await.is_err() {
+                    alive = false;
+                }
+                continue;
+            }
         }
-        tokio::time::sleep(Duration::from_secs(5)).await;
+
+        let due_now = refresher.tokens_to_refresh.get_tokens_due_for_refresh();
+        if !due_now.is_empty() {
+            for token in due_now {
+                refresher.refresh_single(token).await;
+            }
+            // Re-check immediately - a new token could have become due while we were chatting to upstream
+            // unlikely to occur but polite to handle
+            continue;
+        }
+
+        let time_until_next_due = refresher
+            .tokens_to_refresh
+            .next_due_refresh()
+            // there should always be a token due for a next refresh
+            // but our modelling is a little wonky here
+            .unwrap_or_else(|| Instant::now() + Duration::from_secs(5));
+
+        tokio::select! {
+            _ = sleep_until(time_until_next_due) => {}
+            res = refresh_state_rx.changed(), if alive => {
+                // wake up, Samurai, we have a loop to churn
+                if res.is_err() {
+                    alive = false;
+                }
+            }
+        }
     }
 }
 
