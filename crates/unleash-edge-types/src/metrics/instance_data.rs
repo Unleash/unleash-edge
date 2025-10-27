@@ -41,23 +41,8 @@ pub enum Hosting {
     SelfHosted,
     #[serde(rename = "hosted")]
     Hosted,
-}
-
-impl Hosting {
-    pub fn from_env() -> Self {
-        std::env::var("EDGE_HOSTING")
-            .map(Into::into)
-            .unwrap_or(Hosting::SelfHosted)
-    }
-}
-
-impl From<String> for Hosting {
-    fn from(value: String) -> Self {
-        match value.to_lowercase().as_str() {
-            "hosted" => Hosting::Hosted,
-            _ => Hosting::SelfHosted,
-        }
-    }
+    #[serde(rename = "enterprise-self-hosted")]
+    EnterpriseSelfHosted,
 }
 
 impl EdgeInstanceData {

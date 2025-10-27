@@ -1,21 +1,74 @@
 #[cfg(test)]
 mod tests {
+    use axum::extract::FromRef;
     use axum::response::IntoResponse;
     use axum::routing::post;
     use axum::{Json, Router};
     use axum_test::TestServer;
+    use chrono::Duration;
     use dashmap::DashMap;
+    use reqwest::Url;
     use serde::{Deserialize, Serialize};
     use std::sync::Arc;
-    use unleash_edge_appstate::AppState;
+    use ulid::Ulid;
     use unleash_edge_auth::token_validator::TokenValidator;
-    use unleash_edge_http_client::UnleashClient;
+    use unleash_edge_edge_api::{EdgeApiState, edge_api_router_for};
+    use unleash_edge_http_client::{
+        ClientMetaInformation, HttpClientArgs, UnleashClient, new_reqwest_client,
+    };
     use unleash_edge_types::tokens::EdgeToken;
-    use unleash_edge_types::{TokenType, TokenValidationStatus};
+    use unleash_edge_types::{TokenCache, TokenType, TokenValidationStatus};
 
     #[derive(Clone, Debug, Serialize, Deserialize)]
     pub struct EdgeTokens {
         pub tokens: Vec<EdgeToken>,
+    }
+
+    trait TestConfig {
+        fn test_config() -> Self;
+    }
+
+    impl TestConfig for ClientMetaInformation {
+        fn test_config() -> Self {
+            ClientMetaInformation {
+                app_name: "test_app".into(),
+                instance_id: Ulid::new(),
+                connection_id: Ulid::new(),
+            }
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct TestState {
+        pub token_cache: Arc<TokenCache>,
+        pub token_validator: Arc<Option<TokenValidator>>,
+    }
+
+    impl FromRef<TestState> for EdgeApiState {
+        fn from_ref(app_state: &TestState) -> Self {
+            EdgeApiState {
+                token_cache: app_state.token_cache.clone(),
+                token_validator: app_state.token_validator.clone(),
+            }
+        }
+    }
+
+    pub fn build_unleash_client(server_url: Url) -> Arc<UnleashClient> {
+        Arc::new(UnleashClient::from_url_with_backing_client(
+            server_url,
+            "Authorization".to_string(),
+            new_reqwest_client(HttpClientArgs {
+                skip_ssl_verification: false,
+                client_identity: None,
+                upstream_certificate_file: None,
+                connect_timeout: Duration::seconds(10),
+                socket_timeout: Duration::seconds(10),
+                keep_alive_timeout: Duration::seconds(10),
+                client_meta_information: ClientMetaInformation::test_config(),
+            })
+            .unwrap(),
+            ClientMetaInformation::test_config(),
+        ))
     }
 
     async fn return_validated_tokens() -> impl IntoResponse {
@@ -49,15 +102,17 @@ mod tests {
         let token_validator = TokenValidator {
             token_cache: token_cache.clone(),
             persistence: None,
-            unleash_client: Arc::new(UnleashClient::new("http://localhost:4242", None).unwrap()),
+            unleash_client: build_unleash_client(Url::parse("http://localhost:4242").unwrap()),
             deferred_validation_tx: None,
         };
-        let app_state = AppState::builder()
-            .with_token_validator(Arc::new(Some(token_validator)))
-            .build();
+        let test_state = TestState {
+            token_cache,
+            token_validator: Arc::new(Some(token_validator)),
+        };
+
         let router = Router::new()
-            .nest("/edge", unleash_edge_edge_api::router())
-            .with_state(app_state);
+            .nest("/edge", edge_api_router_for::<TestState>())
+            .with_state(test_state);
         TestServer::builder()
             .http_transport()
             .build(router)
@@ -67,10 +122,10 @@ mod tests {
     #[tokio::test]
     pub async fn can_validate_tokens() {
         let srv = test_validation_server().await;
-        let unleash_client = UnleashClient::from_url(srv.server_url("/").unwrap(), None)
-            .expect("Couldn't build client");
+        let unleash_client =
+            build_unleash_client(srv.server_url("/").expect("Couldn't build client"));
         let validation_holder = TokenValidator {
-            unleash_client: Arc::new(unleash_client),
+            unleash_client,
             token_cache: Arc::new(DashMap::default()),
             persistence: None,
             deferred_validation_tx: None,
@@ -100,10 +155,10 @@ mod tests {
     #[tokio::test]
     pub async fn tokens_with_wrong_format_is_not_included() {
         let srv = test_validation_server().await;
-        let unleash_client = UnleashClient::from_url(srv.server_url("/").unwrap(), None)
-            .expect("Couldn't build client");
+        let unleash_client =
+            build_unleash_client(srv.server_url("/").expect("Couldn't build client"));
         let validation_holder = TokenValidator {
-            unleash_client: Arc::new(unleash_client),
+            unleash_client,
             token_cache: Arc::new(DashMap::default()),
             persistence: None,
             deferred_validation_tx: None,
@@ -137,8 +192,8 @@ mod tests {
         );
 
         let srv = validation_server_with_valid_tokens(upstream_tokens).await;
-        let unleash_client = UnleashClient::from_url(srv.server_url("/").unwrap(), None)
-            .expect("Couldn't build client");
+        let unleash_client =
+            build_unleash_client(srv.server_url("/").expect("Couldn't build client"));
 
         let local_token_cache = Arc::new(DashMap::default());
         let mut previously_valid_token = no_longer_valid_token.clone();
@@ -148,7 +203,7 @@ mod tests {
             previously_valid_token.clone(),
         );
         let validation_holder = TokenValidator {
-            unleash_client: Arc::new(unleash_client),
+            unleash_client,
             token_cache: local_token_cache.clone(),
             persistence: None,
             deferred_validation_tx: None,
@@ -182,7 +237,8 @@ mod tests {
             valid_token_production.clone(),
         );
         let server = validation_server_with_valid_tokens(upstream_tokens).await;
-        let client = UnleashClient::from_url(server.server_url("/").unwrap(), None).unwrap();
+        let unleash_client =
+            build_unleash_client(server.server_url("/").expect("Couldn't build client"));
         let local_tokens: DashMap<String, EdgeToken> = DashMap::default();
         local_tokens.insert(
             valid_token_development.token.clone(),
@@ -194,7 +250,7 @@ mod tests {
         );
         let validator = TokenValidator {
             token_cache: Arc::new(local_tokens),
-            unleash_client: Arc::new(client),
+            unleash_client,
             persistence: None,
             deferred_validation_tx: None,
         };
@@ -222,7 +278,8 @@ mod tests {
         );
 
         let server = validation_server_with_valid_tokens(upstream_tokens).await;
-        let client = UnleashClient::from_url(server.server_url("/").unwrap(), None).unwrap();
+        let unleash_client =
+            build_unleash_client(server.server_url("/").expect("Couldn't build client"));
         let local_tokens: DashMap<String, EdgeToken> = DashMap::default();
         local_tokens.insert(
             valid_token_development.token.clone(),
@@ -233,7 +290,7 @@ mod tests {
             tokio::sync::mpsc::unbounded_channel();
         let validator = TokenValidator {
             token_cache: Arc::new(local_tokens),
-            unleash_client: Arc::new(client),
+            unleash_client,
             persistence: None,
             deferred_validation_tx: Some(deferred_validation_tx),
         };

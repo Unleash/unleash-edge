@@ -5,18 +5,21 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::str::FromStr;
 use std::sync::Arc;
+use tokio::sync::RwLock;
+use ulid::Ulid;
 use unleash_edge_appstate::AppState;
-use unleash_edge_cli::{CliArgs, OfflineArgs};
+use unleash_edge_cli::{AuthHeaders, CliArgs, OfflineArgs};
 use unleash_edge_feature_cache::FeatureCache;
-use unleash_edge_http_client::instance_data::InstanceDataSending;
 use unleash_edge_offline::hotload::{
     create_hotload_task, load_bootstrap, load_offline_engine_cache,
 };
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::MetricsCache;
+use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
 use unleash_edge_types::tokens::EdgeToken;
 use unleash_edge_types::{BackgroundTask, EdgeResult, TokenType};
 use unleash_types::client_features::ClientFeatures;
+use unleash_types::client_metrics::ConnectVia;
 use unleash_yggdrasil::EngineState;
 
 pub(crate) fn build_offline_mode(
@@ -104,17 +107,31 @@ pub async fn build_offline_app_state(
     let (token_cache, features_cache, _, engine_cache) = build_offline(offline_args.clone())?;
     let metrics_cache = Arc::new(MetricsCache::default());
 
-    let instance_data_sender = Arc::new(InstanceDataSending::SendNothing);
+    let app_name = args.app_name.clone();
+    let instance_id = Ulid::new();
 
-    let app_state = AppState::builder()
-        .with_token_cache(token_cache.clone())
-        .with_features_cache(features_cache.clone())
-        .with_engine_cache(engine_cache.clone())
-        .with_metrics_cache(metrics_cache.clone())
-        .with_deny_list(args.http.deny_list.unwrap_or_default())
-        .with_allow_list(args.http.allow_list.unwrap_or_default())
-        .with_instance_sending(instance_data_sender)
-        .build();
+    let app_state = AppState {
+        token_cache,
+        features_cache: features_cache.clone(),
+        engine_cache: engine_cache.clone(),
+        hydrator: None,
+        token_validator: Arc::new(None),
+        metrics_cache,
+        deny_list: args.http.deny_list.clone().unwrap_or_default(),
+        allow_list: args.http.allow_list.clone().unwrap_or_default(),
+        delta_cache_manager: None,
+        edge_instance_data: Arc::new(EdgeInstanceData::new(
+            &app_name,
+            &instance_id,
+            Some(Hosting::SelfHosted),
+        )),
+        connected_instances: Arc::new(RwLock::new(vec![])),
+        auth_headers: AuthHeaders::from(&args),
+        connect_via: ConnectVia {
+            app_name,
+            instance_id: instance_id.to_string(),
+        },
+    };
 
     let background_tasks =
         create_offline_background_tasks(features_cache, engine_cache, offline_args);

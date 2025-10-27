@@ -3,8 +3,6 @@ use std::io::BufReader;
 use std::path::PathBuf;
 use unleash_types::client_features::ClientFeatures;
 
-pub mod delta_refresher;
-pub mod feature_refresher;
 pub mod streaming_refresher;
 pub mod token_validator;
 

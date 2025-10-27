@@ -23,6 +23,7 @@ unleash-edge-appstate = { workspace = true }
 unleash-edge-delta = { workspace = true }
 unleash-edge-feature-filters = { workspace = true }
 unleash-edge-feature-refresh = { workspace = true }
+unleash-edge-feature-cache = { workspace = true }
 unleash-edge-metrics = { workspace = true }
 unleash-edge-streaming = { workspace = true }
 unleash-edge-types = { workspace = true }
@@ -34,3 +35,4 @@ utoipa = { workspace = true }
 axum-test = { workspace = true }
 maplit = { workspace = true }
 tracing-test = { workspace = true }
+unleash-edge-cli = { workspace = true }

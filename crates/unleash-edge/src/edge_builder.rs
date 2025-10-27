@@ -5,7 +5,6 @@ use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio::sync::mpsc::UnboundedSender;
-use tokio::sync::oneshot::Sender;
 use tracing::{debug, error, info, warn};
 use unleash_edge_appstate::AppState;
 use unleash_edge_appstate::token_cache_observer::observe_tokens_in_background;
@@ -39,21 +38,26 @@ use unleash_edge_persistence::{
 };
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::MetricsCache;
-use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
+use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
 use unleash_edge_types::tokens::EdgeToken;
 use unleash_edge_types::{BackgroundTask, EdgeResult, EngineCache, TokenCache, TokenType};
+use unleash_types::client_metrics::ConnectVia;
 use unleash_yggdrasil::{EngineState, UpdateMessage};
 use url::Url;
+
+#[cfg(feature = "enterprise")]
+const DEFAULT_HOSTING: Hosting = Hosting::EnterpriseSelfHosted;
+
+#[cfg(not(feature = "enterprise"))]
+const DEFAULT_HOSTING: Hosting = Hosting::SelfHosted;
 
 pub struct EdgeStateArgs {
     pub args: CliArgs,
     pub edge_args: EdgeArgs,
     pub client_meta_information: ClientMetaInformation,
-    pub edge_instance_data: Arc<EdgeInstanceData>,
     pub instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>>,
     pub auth_headers: AuthHeaders,
     pub http_client: reqwest::Client,
-    pub shutdown_hook: Sender<()>,
 }
 
 pub fn build_caches() -> CacheContainer {
@@ -270,13 +274,17 @@ pub async fn build_edge_state(
         args,
         edge_args,
         client_meta_information,
-        edge_instance_data,
         instances_observed_for_app_context,
         auth_headers,
         http_client,
-        shutdown_hook,
     }: EdgeStateArgs,
 ) -> EdgeResult<(AppState, Vec<BackgroundTask>, Vec<BackgroundTask>)> {
+    let edge_instance_data = Arc::new(EdgeInstanceData::new(
+        &client_meta_information.app_name,
+        &client_meta_information.instance_id,
+        args.hosting_type.or(Some(DEFAULT_HOSTING)),
+    ));
+
     let unleash_client = Url::parse(&edge_args.upstream_url.clone())
         .map(|url| {
             UnleashClient::from_url_with_backing_client(
@@ -328,7 +336,7 @@ pub async fn build_edge_state(
     ) = build_edge(
         &edge_args,
         client_meta_information.clone(),
-        auth_headers,
+        auth_headers.clone(),
         http_client.clone(),
         deferred_validation_tx,
     )
@@ -341,8 +349,8 @@ pub async fn build_edge_state(
     let metrics_cache = Arc::new(MetricsCache::default());
 
     let background_tasks = create_edge_mode_background_tasks(BackgroundTaskArgs {
-        app_name: args.app_name,
-        client_meta_information,
+        app_name: args.clone().app_name,
+        client_meta_information: client_meta_information.clone(),
         deferred_validation_rx,
         edge: edge_args.clone(),
         edge_instance_data: edge_instance_data.clone(),
@@ -356,7 +364,6 @@ pub async fn build_edge_state(
         token_cache: token_cache.clone(),
         unleash_client: unleash_client.clone(),
         validator: token_validator.clone(),
-        shutdown_hook,
     });
     let shutdown_args = ShutdownTaskArgs {
         delta_cache_manager: delta_cache_manager.clone(),
@@ -372,21 +379,24 @@ pub async fn build_edge_state(
     };
     let shutdown_tasks = create_shutdown_tasks(shutdown_args);
 
-    let app_state = AppState::builder()
-        .with_token_cache(token_cache.clone())
-        .with_features_cache(features_cache.clone())
-        .with_engine_cache(engine_cache.clone())
-        .with_token_validator(Arc::new(Some(token_validator.as_ref().clone())))
-        .with_hydrator(hydrator_type)
-        .with_metrics_cache(metrics_cache.clone())
-        .with_persistence(persistence)
-        .with_deny_list(args.http.deny_list.unwrap_or_default())
-        .with_allow_list(args.http.allow_list.unwrap_or_default())
-        .with_instance_sending(instance_data_sender)
-        .with_edge_instance_data(edge_instance_data)
-        .with_delta_cache_manager(delta_cache_manager)
-        .with_connected_instances(instances_observed_for_app_context.clone())
-        .build();
+    let app_state = AppState {
+        token_cache,
+        features_cache,
+        engine_cache,
+        hydrator: Some(hydrator_type),
+        token_validator: Arc::new(Some(token_validator.as_ref().clone())),
+        metrics_cache,
+        delta_cache_manager: Some(delta_cache_manager),
+        edge_instance_data,
+        connected_instances: instances_observed_for_app_context.clone(),
+        deny_list: args.http.deny_list.unwrap_or_default(),
+        allow_list: args.http.allow_list.unwrap_or_default(),
+        auth_headers: auth_headers.clone(),
+        connect_via: ConnectVia {
+            app_name: args.app_name.clone(),
+            instance_id: client_meta_information.instance_id.clone().to_string(),
+        },
+    };
 
     Ok((app_state, background_tasks, shutdown_tasks))
 }
@@ -461,7 +471,6 @@ pub(crate) struct BackgroundTaskArgs {
     token_cache: Arc<TokenCache>,
     unleash_client: Arc<UnleashClient>,
     validator: Arc<TokenValidator>,
-    shutdown_hook: Sender<()>,
 }
 fn create_edge_mode_background_tasks(
     BackgroundTaskArgs {
@@ -480,7 +489,6 @@ fn create_edge_mode_background_tasks(
         token_cache,
         unleash_client,
         validator,
-        shutdown_hook,
     }: BackgroundTaskArgs,
 ) -> Vec<BackgroundTask> {
     let mut tasks: Vec<BackgroundTask> = vec![
@@ -550,7 +558,6 @@ fn create_edge_mode_background_tasks(
                 .first()
                 .cloned()
                 .expect("Startup token is required for enterprise feature"),
-            shutdown_hook,
         ));
     }
 

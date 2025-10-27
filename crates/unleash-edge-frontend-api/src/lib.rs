@@ -13,14 +13,16 @@ use unleash_types::client_features::Context;
 use unleash_types::frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult};
 use unleash_yggdrasil::ResolvedToggle;
 
+use crate::frontend::FrontendState;
+
 pub struct UnleashSdkHeader(pub Option<String>);
-impl FromRequestParts<AppState> for UnleashSdkHeader {
+impl<S> FromRequestParts<S> for UnleashSdkHeader
+where
+    S: Send + Sync,
+{
     type Rejection = EdgeError;
 
-    async fn from_request_parts(
-        parts: &mut Parts,
-        _state: &AppState,
-    ) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
         let ver = parts
             .headers
             .get("unleash-sdk")
@@ -33,12 +35,12 @@ pub mod frontend;
 pub mod querystring_extractor;
 
 pub fn router(disable_all_endpoints: bool) -> Router<AppState> {
-    Router::new().merge(frontend::router(disable_all_endpoints))
+    Router::new().merge(frontend::frontend_router_for(disable_all_endpoints))
 }
 
 #[instrument(skip(app_state, edge_token, context, client_ip))]
 pub fn enabled_features(
-    app_state: AppState,
+    app_state: FrontendState,
     edge_token: EdgeToken,
     context: &Context,
     client_ip: IpAddr,
@@ -74,7 +76,7 @@ pub fn enabled_features(
 
 #[instrument(skip(app_state, edge_token, context, client_ip))]
 pub fn all_features(
-    app_state: AppState,
+    app_state: FrontendState,
     edge_token: EdgeToken,
     context: &Context,
     client_ip: IpAddr,

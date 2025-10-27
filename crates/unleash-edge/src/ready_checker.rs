@@ -64,6 +64,7 @@ mod tests {
     use crate::ready_checker::check_ready;
     use axum::Router;
     use axum::body::Body;
+    use axum::extract::FromRef;
     use axum::http::{Response, StatusCode};
     use axum::response::IntoResponse;
     use axum::routing::get;
@@ -71,12 +72,27 @@ mod tests {
     use dashmap::DashMap;
     use std::str::FromStr;
     use std::sync::Arc;
-    use unleash_edge_appstate::AppState;
-    use unleash_edge_backstage::ready;
+    use unleash_edge_backstage::{ReadyCheckState, ready};
     use unleash_edge_cli::ReadyCheckArgs;
     use unleash_edge_feature_cache::FeatureCache;
+    use unleash_edge_types::TokenCache;
     use unleash_edge_types::tokens::EdgeToken;
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
+
+    #[derive(Clone)]
+    struct TestState {
+        pub token_cache: Arc<TokenCache>,
+        pub features_cache: Arc<FeatureCache>,
+    }
+
+    impl FromRef<TestState> for ReadyCheckState {
+        fn from_ref(app_state: &TestState) -> Self {
+            ReadyCheckState {
+                token_cache: app_state.token_cache.clone(),
+                features_cache: app_state.features_cache.clone(),
+            }
+        }
+    }
 
     #[tokio::test]
     pub async fn runs_ready_check() {
@@ -100,14 +116,14 @@ mod tests {
         let token = EdgeToken::from_str("[]:fancyenvironment.somerandomsecretstring").unwrap();
         token_cache.insert(token.token.clone(), token);
         let token_cache_arc = Arc::new(token_cache);
-        let app_state = AppState::builder()
-            .with_token_cache(token_cache_arc.clone())
-            .with_features_cache(client_features_arc.clone())
-            .build();
+        let test_state = TestState {
+            token_cache: token_cache_arc,
+            features_cache: client_features_arc,
+        };
 
         let router = Router::new()
             .route("/internal-backstage/ready", get(ready))
-            .with_state(app_state);
+            .with_state(test_state);
         let srv = TestServer::builder()
             .http_transport()
             .build(router)

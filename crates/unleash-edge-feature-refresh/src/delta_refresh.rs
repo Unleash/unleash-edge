@@ -10,8 +10,8 @@ use tracing::{debug, info, warn};
 use unleash_edge_delta::cache::{DeltaCache, DeltaHydrationEvent};
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
+use unleash_edge_feature_filters::FeatureFilterSet;
 use unleash_edge_feature_filters::delta_filters::{DeltaFilterSet, filter_delta_events};
-use unleash_edge_feature_filters::{FeatureFilterSet, filter_client_features};
 use unleash_edge_http_client::{ClientMetaInformation, UnleashClient};
 use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_types::errors::{EdgeError, FeatureError};
@@ -23,7 +23,7 @@ use unleash_edge_types::tokens::{EdgeToken, cache_key, simplify};
 use unleash_edge_types::{
     ClientFeaturesDeltaResponse, ClientFeaturesRequest, EdgeResult, TokenRefresh,
 };
-use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta, DeltaEvent};
+use unleash_types::client_features::{ClientFeaturesDelta, DeltaEvent};
 use unleash_yggdrasil::EngineState;
 
 use crate::{TokenRefreshSet, TokenRefreshStatus, client_application_from_token_and_name};
@@ -60,11 +60,11 @@ pub async fn start_streaming_delta_background_task(
             .header(UNLEASH_APPNAME_HEADER, &client_meta_information.app_name)?
             .header(
                 UNLEASH_INSTANCE_ID_HEADER,
-                &client_meta_information.instance_id,
+                &client_meta_information.instance_id.to_string(),
             )?
             .header(
                 UNLEASH_CONNECTION_ID_HEADER,
-                &client_meta_information.connection_id,
+                &client_meta_information.connection_id.to_string(),
             )?
             .header(
                 UNLEASH_CLIENT_SPEC_HEADER,
@@ -284,34 +284,6 @@ impl DeltaRefresher {
         self.hydrate_new_tokens().await;
     }
 
-    pub fn features_for_filter(
-        &self,
-        token: EdgeToken,
-        filters: &FeatureFilterSet,
-    ) -> EdgeResult<ClientFeatures> {
-        match self.get_features_by_filter(&token, filters) {
-            Some(features) if self.tokens_to_refresh.token_is_subsumed(&token) => Ok(features),
-            Some(_features) if !self.tokens_to_refresh.token_is_subsumed(&token) => {
-                debug!("Token is not subsumed by any registered tokens. Returning error");
-                Err(EdgeError::InvalidToken)
-            }
-            _ => {
-                debug!("No features set available. Edge isn't ready");
-                Err(EdgeError::InvalidToken)
-            }
-        }
-    }
-
-    fn get_features_by_filter(
-        &self,
-        token: &EdgeToken,
-        filters: &FeatureFilterSet,
-    ) -> Option<ClientFeatures> {
-        self.features_cache
-            .get(&cache_key(token))
-            .map(|client_features| filter_client_features(&client_features, filters))
-    }
-
     fn get_delta_events_by_filter(
         &self,
         token: &EdgeToken,
@@ -433,10 +405,14 @@ mod tests {
     use dashmap::DashMap;
     use etag::EntityTag;
     use http::StatusCode;
+    use reqwest::Url;
     use std::sync::Arc;
+    use ulid::Ulid;
     use unleash_edge_delta::cache_manager::DeltaCacheManager;
     use unleash_edge_feature_cache::FeatureCache;
-    use unleash_edge_http_client::{ClientMetaInformation, UnleashClient};
+    use unleash_edge_http_client::{
+        ClientMetaInformation, HttpClientArgs, UnleashClient, new_reqwest_client,
+    };
     use unleash_edge_types::entity_tag_to_header_value;
     use unleash_edge_types::tokens::EdgeToken;
     use unleash_types::client_features::{
@@ -445,12 +421,43 @@ mod tests {
     };
     use unleash_yggdrasil::EngineState;
 
+    trait TestConfig {
+        fn test_config() -> Self;
+    }
+
+    impl TestConfig for ClientMetaInformation {
+        fn test_config() -> Self {
+            ClientMetaInformation {
+                app_name: "test_app".into(),
+                instance_id: Ulid::new(),
+                connection_id: Ulid::new(),
+            }
+        }
+    }
+
+    pub fn build_unleash_client(server_url: Url) -> Arc<UnleashClient> {
+        Arc::new(UnleashClient::from_url_with_backing_client(
+            server_url,
+            "Authorization".to_string(),
+            new_reqwest_client(HttpClientArgs {
+                skip_ssl_verification: false,
+                client_identity: None,
+                upstream_certificate_file: None,
+                connect_timeout: Duration::seconds(10),
+                socket_timeout: Duration::seconds(10),
+                keep_alive_timeout: Duration::seconds(10),
+                client_meta_information: ClientMetaInformation::test_config(),
+            })
+            .unwrap(),
+            ClientMetaInformation::test_config(),
+        ))
+    }
+
     #[tokio::test]
     #[tracing_test::traced_test]
     async fn test_delta() {
         let srv = test_features_server().await;
-        let unleash_client =
-            Arc::new(UnleashClient::new(srv.server_url("/").unwrap().as_str(), None).unwrap());
+        let unleash_client = build_unleash_client(srv.server_url("/").unwrap());
         let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
         let delta_cache_manager: Arc<DeltaCacheManager> = Arc::new(DeltaCacheManager::new());
         let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());

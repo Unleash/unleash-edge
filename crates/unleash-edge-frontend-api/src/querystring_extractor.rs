@@ -2,22 +2,19 @@ use axum::extract::FromRequestParts;
 use axum::http::request::Parts;
 use serde::de::DeserializeOwned;
 use serde_qs::Config;
-use unleash_edge_appstate::AppState;
 use unleash_edge_types::errors::EdgeError;
 
 /// Wrapper type like QsQuery, but with custom config.
 pub struct QsQueryCfg<T>(pub T);
 
-impl<T> FromRequestParts<AppState> for QsQueryCfg<T>
+impl<S, T> FromRequestParts<S> for QsQueryCfg<T>
 where
+    S: Send + Sync,
     T: DeserializeOwned,
 {
     type Rejection = EdgeError;
 
-    async fn from_request_parts(
-        parts: &mut Parts,
-        _state: &AppState,
-    ) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
         let query_str = parts.uri.query().unwrap_or("");
 
         let cfg = Config::new(5, false);

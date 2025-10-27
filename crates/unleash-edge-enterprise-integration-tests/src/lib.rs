@@ -9,18 +9,14 @@ mod tests {
     use reqwest::Client;
     use serde_json::json;
     use std::sync::Arc;
-    use tokio::sync::{RwLock, oneshot};
+    use tokio::sync::RwLock;
     use ulid::Ulid;
     use unleash_edge::edge_builder::{EdgeStateArgs, build_edge_state};
     use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeArgs, HttpServerArgs};
-    use unleash_edge_enterprise::send_heartbeat;
     use unleash_edge_types::errors::EdgeError;
-    use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
-    use unleash_edge_types::tokens::EdgeToken;
+    use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
 
-    use unleash_edge_http_client::{
-        ClientMetaInformation, HttpClientArgs, UnleashClient, new_reqwest_client,
-    };
+    use unleash_edge_http_client::{ClientMetaInformation, HttpClientArgs, new_reqwest_client};
 
     use unleash_edge_types::EdgeResult;
 
@@ -135,22 +131,20 @@ mod tests {
             otel_config: unleash_edge_cli::OpenTelemetryConfig {
                 otel_collector_url: None,
             },
+            hosting_type: Some(Hosting::EnterpriseSelfHosted),
         }
     }
 
     fn build_edge_state_data() -> (
         Client,
-        Arc<EdgeInstanceData>,
         ClientMetaInformation,
         Arc<RwLock<Vec<EdgeInstanceData>>>,
     ) {
         let client_meta_information = ClientMetaInformation {
             app_name: "unleash-edge-test".to_string(),
-            connection_id: "test-connection-id".to_string(),
-            instance_id: "test-instance-id".to_string(),
+            connection_id: Ulid::new(),
+            instance_id: Ulid::new(),
         };
-
-        let edge_instance_data = Arc::new(EdgeInstanceData::new("cheese-shop", &Ulid::new(), None));
 
         let http_client = new_reqwest_client(HttpClientArgs {
             skip_ssl_verification: false,
@@ -167,7 +161,6 @@ mod tests {
 
         (
             http_client,
-            edge_instance_data,
             client_meta_information,
             instances_observed_for_app_context,
         )
@@ -175,14 +168,9 @@ mod tests {
 
     #[tokio::test]
     async fn enterprise_edge_state_errors_with_invalid_license_when_license_is_not_retrievable() {
-        let (shutdown_hook, _) = oneshot::channel();
         let upstream = UpstreamMock::new(Err(EdgeError::InvalidLicense("This Edge instance is not licensed! The police will arrive at your doorstep imminently".into()))).await;
-        let (
-            http_client,
-            edge_instance_data,
-            client_meta_information,
-            instances_observed_for_app_context,
-        ) = build_edge_state_data();
+        let (http_client, client_meta_information, instances_observed_for_app_context) =
+            build_edge_state_data();
 
         let args = mock_cli_args();
         let edge_args = EdgeArgs {
@@ -195,11 +183,9 @@ mod tests {
             args,
             edge_args,
             client_meta_information,
-            edge_instance_data,
             instances_observed_for_app_context,
             auth_headers: AuthHeaders::default(),
             http_client,
-            shutdown_hook,
         })
         .await;
 
@@ -211,14 +197,9 @@ mod tests {
 
     #[tokio::test]
     async fn enterprise_edge_state_errors_with_heartbeat_error_when_license_cannot_be_verified() {
-        let (shutdown_hook, _) = oneshot::channel();
         let upstream = UpstreamMock::new(Err(EdgeError::Forbidden("This Edge instance is not licensed! The police will arrive at your doorstep imminently".into()))).await;
-        let (
-            http_client,
-            edge_instance_data,
-            client_meta_information,
-            instances_observed_for_app_context,
-        ) = build_edge_state_data();
+        let (http_client, client_meta_information, instances_observed_for_app_context) =
+            build_edge_state_data();
 
         let args = mock_cli_args();
         let edge_args = EdgeArgs {
@@ -231,11 +212,9 @@ mod tests {
             args,
             edge_args,
             client_meta_information,
-            edge_instance_data,
             instances_observed_for_app_context,
             auth_headers: AuthHeaders::default(),
             http_client,
-            shutdown_hook,
         })
         .await;
 
@@ -247,14 +226,9 @@ mod tests {
 
     #[tokio::test]
     async fn enterprise_edge_state_startup_succeeds_if_license_can_be_verified() {
-        let (shutdown_hook, _) = oneshot::channel();
         let upstream = UpstreamMock::new(Ok(())).await;
-        let (
-            http_client,
-            edge_instance_data,
-            client_meta_information,
-            instances_observed_for_app_context,
-        ) = build_edge_state_data();
+        let (http_client, client_meta_information, instances_observed_for_app_context) =
+            build_edge_state_data();
 
         let args = mock_cli_args();
         let edge_args = EdgeArgs {
@@ -267,76 +241,12 @@ mod tests {
             args,
             edge_args,
             client_meta_information,
-            edge_instance_data,
             instances_observed_for_app_context,
             auth_headers: AuthHeaders::default(),
             http_client,
-            shutdown_hook,
         })
         .await;
 
         assert!(maybe_edge_state.is_ok());
-    }
-
-    #[tokio::test]
-    async fn shutdown_signal_is_sent_if_upstream_invalidates_license() {
-        let (shutdown_hook, shutdown_rx) = oneshot::channel::<()>();
-        let upstream = UpstreamMock::new(Err(EdgeError::InvalidLicense("This Edge instance is not licensed! The police will arrive at your doorstep imminently".into()))).await;
-
-        let token = EdgeToken {
-            token: "*:development.hashyhashhash".to_string(),
-            environment: Some("development".into()),
-            ..Default::default()
-        };
-
-        let client = Arc::new(UnleashClient::new(&upstream.url(), None).unwrap());
-
-        send_heartbeat(
-            client,
-            token,
-            Arc::new(tokio::sync::Mutex::new(Some(shutdown_hook))),
-        )
-        .await;
-
-        let shutdown_result = tokio::time::timeout(std::time::Duration::from_secs(1), shutdown_rx)
-            .await
-            .expect("Didn't receive shutdown signal in time");
-
-        assert!(
-            shutdown_result.is_ok(),
-            "Did not receive shutdown signal in time"
-        );
-    }
-
-    #[tokio::test]
-    async fn shutdown_signal_is_not_sent_if_a_non_license_error_occurs() {
-        let (shutdown_hook, shutdown_rx) = oneshot::channel::<()>();
-        let upstream = UpstreamMock::new(Err(EdgeError::TlsError(
-            "TLS decided to take up farming instead of serving your request".into(),
-        )))
-        .await;
-
-        let token = EdgeToken {
-            token: "*:development.hashyhashhash".to_string(),
-            environment: Some("development".into()),
-            ..Default::default()
-        };
-
-        let client = Arc::new(UnleashClient::new(&upstream.url(), None).unwrap());
-        // we need to keep the reference alive here, otherwise when the shutdown hook completes, it drops the tx
-        // which is turn means reading from the rx will error out and the test will fail
-        let shutdown_hook = Arc::new(tokio::sync::Mutex::new(Some(shutdown_hook)));
-
-        send_heartbeat(client, token, shutdown_hook.clone()).await;
-
-        let shutdown_result =
-            tokio::time::timeout(std::time::Duration::from_secs(1), shutdown_rx).await;
-
-        println!("{:?}", shutdown_result);
-
-        assert!(
-            shutdown_result.is_err(),
-            "Received shutdown signal when it should not have"
-        );
     }
 }
