@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.2.0](https://github.com/Unleash/unleash-edge/compare/unleash-edge-types-v20.1.0...unleash-edge-types-v20.2.0) - 2025-10-27
+
+### 🚀 Features
+- add enterprise self hosted type ([#1233](https://github.com/unleash/unleash-edge/issues/1233)) (by @sighphyre) - #1233
+- enterprise edge heartbeat ([#1211](https://github.com/unleash/unleash-edge/issues/1211)) (by @nunogois) - #1211
+
+### Contributors
+
+* @sighphyre
+* @nunogois
+
 ## [20.0.0](https://github.com/Unleash/unleash-edge/releases/tag/unleash-edge-types-v20.0.0) - 2025-10-06
 
 ### 🚀 Features

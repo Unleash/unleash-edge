@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.2.0](https://github.com/Unleash/unleash-edge/compare/unleash-edge-backstage-v20.1.0...unleash-edge-backstage-v20.2.0) - 2025-10-27
+
+### ⚙️ Miscellaneous Tasks
+- no more app state builder ([#1232](https://github.com/unleash/unleash-edge/issues/1232)) (by @sighphyre) - #1232
+
+### Contributors
+
+* @sighphyre
+
 ## [20.0.0](https://github.com/Unleash/unleash-edge/releases/tag/unleash-edge-backstage-v20.0.0) - 2025-10-06
 
 ### 🚀 Features

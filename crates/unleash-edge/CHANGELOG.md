@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.2.0](https://github.com/Unleash/unleash-edge/compare/unleash-edge-v20.1.0...unleash-edge-v20.2.0) - 2025-10-27
+
+### 🚀 Features
+- add enterprise self hosted type ([#1233](https://github.com/unleash/unleash-edge/issues/1233)) (by @sighphyre) - #1233
+- enterprise edge heartbeat ([#1211](https://github.com/unleash/unleash-edge/issues/1211)) (by @nunogois) - #1211
+
+### 🚜 Refactor
+- test config ([#1229](https://github.com/unleash/unleash-edge/issues/1229)) (by @sighphyre) - #1229
+
+### ⚙️ Miscellaneous Tasks
+- remove shutdown signal, no longer needed ([#1235](https://github.com/unleash/unleash-edge/issues/1235)) (by @sighphyre) - #1235
+- no more app state builder ([#1232](https://github.com/unleash/unleash-edge/issues/1232)) (by @sighphyre) - #1232
+- isolate app state ([#1230](https://github.com/unleash/unleash-edge/issues/1230)) (by @sighphyre) - #1230
+
+### Contributors
+
+* @sighphyre
+* @nunogois
+
 ## [20.1.0](https://github.com/Unleash/unleash-edge/compare/unleash-edge-v20.0.0...unleash-edge-v20.1.0) - 2025-10-10
 
 ### 🚀 Features

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.2.0](https://github.com/Unleash/unleash-edge/compare/unleash-edge-feature-refresh-v20.1.0...unleash-edge-feature-refresh-v20.2.0) - 2025-10-27
+
+### 🚜 Refactor
+- test config ([#1229](https://github.com/unleash/unleash-edge/issues/1229)) (by @sighphyre) - #1229
+
+### ⚙️ Miscellaneous Tasks
+- isolate app state ([#1230](https://github.com/unleash/unleash-edge/issues/1230)) (by @sighphyre) - #1230
+
+### Contributors
+
+* @sighphyre
+
 ## [20.1.0](https://github.com/Unleash/unleash-edge/compare/unleash-edge-feature-refresh-v20.0.0...unleash-edge-feature-refresh-v20.1.0) - 2025-10-10
 
 ### ⚙️ Miscellaneous Tasks

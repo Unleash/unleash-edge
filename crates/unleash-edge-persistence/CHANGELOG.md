@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.2.0](https://github.com/Unleash/unleash-edge/compare/unleash-edge-persistence-v20.1.0...unleash-edge-persistence-v20.2.0) - 2025-10-27
+
+### 🚀 Features
+- add license state to backup ([#1215](https://github.com/unleash/unleash-edge/issues/1215)) (by @nunogois) - #1215
+
+### ⚙️ Miscellaneous Tasks
+- isolate file io tests to be independent of each other ([#1242](https://github.com/unleash/unleash-edge/issues/1242)) (by @sighphyre) - #1242
+- restore persistence tests ([#1220](https://github.com/unleash/unleash-edge/issues/1220)) (by @sighphyre) - #1220
+
+### Contributors
+
+* @sighphyre
+* @nunogois
+
 ## [20.1.0](https://github.com/Unleash/unleash-edge/compare/unleash-edge-persistence-v20.0.0...unleash-edge-persistence-v20.1.0) - 2025-10-10
 
 ### ⚙️ Miscellaneous Tasks
