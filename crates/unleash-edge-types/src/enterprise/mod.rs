@@ -31,7 +31,6 @@ impl From<EdgeResult<LicenseStateResponse>> for LicenseState {
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-
 pub struct HeartbeatResponse {
     pub edge_license_state: LicenseStateResponse,
 }
