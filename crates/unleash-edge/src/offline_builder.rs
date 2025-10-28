@@ -1,7 +1,6 @@
 use crate::CacheContainer;
 use crate::edge_builder::build_caches;
 use dashmap::DashMap;
-use unleash_edge_types::enterprise::LicenseState;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::str::FromStr;
@@ -14,6 +13,7 @@ use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_offline::hotload::{
     create_hotload_task, load_bootstrap, load_offline_engine_cache,
 };
+use unleash_edge_types::enterprise::LicenseState;
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::MetricsCache;
 use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};

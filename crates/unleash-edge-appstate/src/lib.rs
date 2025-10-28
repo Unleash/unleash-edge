@@ -1,5 +1,4 @@
 use ipnet::IpNet;
-use unleash_edge_types::enterprise::LicenseState;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use unleash_edge_auth::token_validator::TokenValidator;
@@ -7,6 +6,7 @@ use unleash_edge_cli::AuthHeaders;
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_refresh::HydratorType;
+use unleash_edge_types::enterprise::LicenseState;
 use unleash_edge_types::metrics::MetricsCache;
 use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
 use unleash_edge_types::{EngineCache, TokenCache};
