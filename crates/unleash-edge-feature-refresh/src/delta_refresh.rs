@@ -1,11 +1,14 @@
+use anyhow::Context;
 use dashmap::DashMap;
 use etag::EntityTag;
 use eventsource_client::Client;
-use futures::TryStreamExt;
+use futures::StreamExt;
 use reqwest::StatusCode;
 use std::collections::HashSet;
+use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::watch::Receiver;
 use tracing::{debug, info, warn};
 use unleash_edge_delta::cache::{DeltaCache, DeltaHydrationEvent};
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
@@ -21,7 +24,7 @@ use unleash_edge_types::headers::{
 };
 use unleash_edge_types::tokens::{EdgeToken, cache_key, simplify};
 use unleash_edge_types::{
-    ClientFeaturesDeltaResponse, ClientFeaturesRequest, EdgeResult, TokenRefresh,
+    ClientFeaturesDeltaResponse, ClientFeaturesRequest, EdgeResult, RefreshState, TokenRefresh,
 };
 use unleash_types::client_features::{ClientFeaturesDelta, DeltaEvent};
 use unleash_yggdrasil::EngineState;
@@ -32,129 +35,203 @@ pub type Environment = String;
 
 const DELTA_CACHE_LIMIT: usize = 100;
 
+type SseStream = Pin<
+    Box<
+        dyn futures::Stream<Item = Result<eventsource_client::SSE, eventsource_client::Error>>
+            + Send,
+    >,
+>;
+
+fn reconnect_opts() -> eventsource_client::ReconnectOptions {
+    eventsource_client::ReconnectOptions::reconnect(true)
+        .retry_initial(true)
+        .delay(Duration::from_secs(5))
+        .delay_max(Duration::from_secs(30))
+        .backoff_factor(2)
+        .build()
+}
+
+fn build_sse_stream(
+    streaming_url: &str,
+    token: &EdgeToken,
+    client_meta_information: &ClientMetaInformation,
+    custom_headers: &[(String, String)],
+) -> anyhow::Result<SseStream> {
+    let mut es_client_builder = eventsource_client::ClientBuilder::for_url(streaming_url)
+        .context("Failed to create EventSource client for streaming")?
+        .header("Authorization", &token.token)?
+        .header(UNLEASH_APPNAME_HEADER, &client_meta_information.app_name)?
+        .header(
+            UNLEASH_INSTANCE_ID_HEADER,
+            &client_meta_information.instance_id.to_string(),
+        )?
+        .header(
+            UNLEASH_CONNECTION_ID_HEADER,
+            &client_meta_information.connection_id.to_string(),
+        )?
+        .header(
+            UNLEASH_CLIENT_SPEC_HEADER,
+            unleash_yggdrasil::SUPPORTED_SPEC_VERSION,
+        )?;
+
+    for (key, value) in custom_headers {
+        es_client_builder = es_client_builder.header(key, value)?;
+    }
+
+    let client = es_client_builder.reconnect(reconnect_opts()).build();
+    Ok(client.stream())
+}
+
+async fn handle_sse(
+    sse: eventsource_client::SSE,
+    delta_refresher: &Arc<DeltaRefresher>,
+    token: &EdgeToken,
+) {
+    match sse {
+        eventsource_client::SSE::Event(event)
+            if event.event_type == "unleash-connected" || event.event_type == "unleash-updated" =>
+        {
+            if event.event_type == "unleash-connected" {
+                debug!("Connected to unleash! Populating flag cache now.");
+            } else {
+                debug!("Got an unleash updated event. Updating cache.");
+            }
+
+            match serde_json::from_str(&event.data) {
+                Ok(delta) => {
+                    delta_refresher
+                        .handle_client_features_delta_updated(token, delta, None)
+                        .await;
+                }
+                Err(e) => {
+                    warn!("Could not parse features response to internal representation: {e:?}");
+                }
+            }
+        }
+        eventsource_client::SSE::Event(event) => {
+            info!("Got an SSE event that I wasn't expecting: {:#?}", event);
+        }
+        eventsource_client::SSE::Connected(_) => {
+            debug!("SSE Connection established");
+        }
+        eventsource_client::SSE::Comment(_) => {
+            // purposefully left blank.
+        }
+    }
+}
+
+async fn run_stream_task(
+    delta_refresher: Arc<DeltaRefresher>,
+    token: EdgeToken,
+    streaming_url: String,
+    client_meta_information: ClientMetaInformation,
+    custom_headers: Vec<(String, String)>,
+    mut refresh_state_rx: Receiver<RefreshState>,
+) {
+    let mut stream: Option<SseStream> = None;
+
+    loop {
+        let state = *refresh_state_rx.borrow_and_update();
+        if matches!(state, RefreshState::Paused) {
+            if refresh_state_rx.changed().await.is_err() {
+                info!("Refresh state channel closed; stopping SSE stream task");
+                return;
+            }
+            continue;
+        }
+
+        if stream.is_none() {
+            let s: SseStream = match build_sse_stream(
+                &streaming_url,
+                &token,
+                &client_meta_information,
+                &custom_headers,
+            ) {
+                Ok(s) => s,
+                Err(e) => {
+                    warn!(
+                        "SSE misconfiguration detected; cannot build stream: {e:?}. Exiting stream task."
+                    );
+                    return;
+                }
+            };
+
+            stream = Some(s);
+            info!(
+                "SSE connected (app: {}, instance: {})",
+                client_meta_information.app_name, client_meta_information.instance_id
+            );
+        }
+
+        if let Some(s) = stream.as_mut() {
+            tokio::select! {
+                _ = refresh_state_rx.changed() => {
+                    continue;
+                }
+
+                next = s.next() => {
+                    match next {
+                        Some(Ok(sse)) => {
+                            handle_sse(sse, &delta_refresher, &token).await;
+                        }
+                        Some(Err(e)) => {
+                            info!("SSE stream error: {e:?}; reconnecting immediately");
+                            stream = None;
+                            continue;
+                        }
+                        None => {
+                            info!("SSE stream ended; reconnecting immediately");
+                            stream = None;
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 pub async fn start_streaming_delta_background_task(
     delta_refresher: Arc<DeltaRefresher>,
     client_meta_information: ClientMetaInformation,
     custom_headers: Vec<(String, String)>,
+    refresh_state_rx: Receiver<RefreshState>,
 ) -> anyhow::Result<()> {
-    use anyhow::Context;
-
     let refreshes = delta_refresher
         .tokens_to_refresh
         .clone()
         .iter()
         .map(|e| e.value().clone())
         .collect::<Vec<_>>();
+
     debug!("Spawning refreshers for {} tokens", refreshes.len());
+
     for refresh in refreshes {
-        let token = refresh.token.clone();
+        let token = refresh.token;
         let streaming_url = delta_refresher
             .unleash_client
             .urls
             .client_features_stream_url
-            .as_str();
-
-        let mut es_client_builder = eventsource_client::ClientBuilder::for_url(streaming_url)
-            .context("Failed to create EventSource client for streaming")?
-            .header("Authorization", &token.token)?
-            .header(UNLEASH_APPNAME_HEADER, &client_meta_information.app_name)?
-            .header(
-                UNLEASH_INSTANCE_ID_HEADER,
-                &client_meta_information.instance_id.to_string(),
-            )?
-            .header(
-                UNLEASH_CONNECTION_ID_HEADER,
-                &client_meta_information.connection_id.to_string(),
-            )?
-            .header(
-                UNLEASH_CLIENT_SPEC_HEADER,
-                unleash_yggdrasil::SUPPORTED_SPEC_VERSION,
-            )?;
-
-        for (key, value) in custom_headers.clone() {
-            es_client_builder = es_client_builder.header(&key, &value)?;
-        }
-
-        let es_client = es_client_builder
-            .reconnect(
-                eventsource_client::ReconnectOptions::reconnect(true)
-                    .retry_initial(true)
-                    .delay(Duration::from_secs(5))
-                    .delay_max(Duration::from_secs(30))
-                    .backoff_factor(2)
-                    .build(),
-            )
-            .build();
+            .to_string();
 
         let refresher = delta_refresher.clone();
+        let client_meta_information = client_meta_information.clone();
+        let custom_headers = custom_headers.clone();
+        let refresh_state_rx = refresh_state_rx.clone();
 
         tokio::spawn(async move {
-            let mut stream = es_client
-                    .stream()
-                    .map_ok(move |sse| {
-                        let token = token.clone();
-                        let refresher = refresher.clone();
-                        debug!("Receiving an SSE event from Unleash");
-                        async move {
-                            match sse {
-                                // The first time we're connecting to Unleash.
-                                eventsource_client::SSE::Event(event)
-                                if event.event_type == "unleash-connected" =>
-                                    {
-                                        debug!(
-                                        "Connected to unleash! Populating my flag cache now.",
-                                    );
-
-                                        match serde_json::from_str(&event.data) {
-                                            Ok(delta) => { refresher.handle_client_features_delta_updated(&token, delta, None).await; }
-                                            Err(e) => { warn!("Could not parse features response to internal representation: {e:?}");
-                                            }
-                                        }
-                                    }
-                                // Unleash has updated features for us.
-                                eventsource_client::SSE::Event(event)
-                                if event.event_type == "unleash-updated" =>
-                                    {
-                                        debug!(
-                                        "Got an unleash updated event. Updating cache.",
-                                    );
-
-                                        match serde_json::from_str(&event.data) {
-                                            Ok(delta) => { refresher.handle_client_features_delta_updated(&token, delta, None).await; }
-                                            Err(e) => { warn!("Could not parse features response to internal representation: {e:?}");
-                                            }
-                                        }
-                                    }
-                                eventsource_client::SSE::Event(event) => {
-                                    info!(
-                                        "Got an SSE event that I wasn't expecting: {:#?}",
-                                        event
-                                    );
-                                }
-                                eventsource_client::SSE::Connected(_) => {
-                                    debug!("SSE Connection established");
-                                }
-                                eventsource_client::SSE::Comment(_) => {
-                                    // purposefully left blank.
-                                },
-                            }
-                        }
-                    })
-                    .map_err(|e| warn!("Error in SSE stream: {:?}", e));
-
-            loop {
-                match stream.try_next().await {
-                    Ok(Some(handler)) => handler.await,
-                    Ok(None) => {
-                        info!("SSE stream ended? Handler was None, anyway. Reconnecting.");
-                    }
-                    Err(e) => {
-                        info!("SSE stream error: {e:?}. Reconnecting");
-                    }
-                }
-            }
+            run_stream_task(
+                refresher,
+                token,
+                streaming_url,
+                client_meta_information,
+                custom_headers,
+                refresh_state_rx,
+            )
+            .await;
         });
     }
+
     Ok(())
 }
 

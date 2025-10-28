@@ -534,14 +534,12 @@ fn create_edge_mode_background_tasks(
     }
 
     let hydration_task = match &refresher {
-        HydratorType::Streaming(delta_refresher) => {
-            // TODO: Pass refresh_state_rx to streaming as well, so it can be paused
-            create_stream_task(
-                &edge,
-                client_meta_information.clone(),
-                delta_refresher.clone(),
-            )
-        }
+        HydratorType::Streaming(delta_refresher) => create_stream_task(
+            &edge,
+            client_meta_information.clone(),
+            delta_refresher.clone(),
+            refresh_state_rx,
+        ),
         HydratorType::Polling(feature_refresher) => {
             create_poll_task(feature_refresher.clone(), refresh_state_rx)
         }
@@ -594,6 +592,7 @@ fn create_stream_task(
     edge: &EdgeArgs,
     client_meta_information: ClientMetaInformation,
     delta_refresher: Arc<DeltaRefresher>,
+    refresh_state_rx: Receiver<RefreshState>,
 ) -> Pin<Box<dyn Future<Output = ()> + Send>> {
     let custom_headers = edge.custom_client_headers.clone();
     Box::pin(async move {
@@ -601,6 +600,7 @@ fn create_stream_task(
             delta_refresher,
             client_meta_information,
             custom_headers,
+            refresh_state_rx,
         )
         .await;
     })
