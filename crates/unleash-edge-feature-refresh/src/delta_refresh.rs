@@ -1,3 +1,4 @@
+use anyhow::Context;
 use dashmap::DashMap;
 use etag::EntityTag;
 use eventsource_client::Client;
@@ -56,8 +57,6 @@ fn build_sse_stream(
     client_meta_information: &ClientMetaInformation,
     custom_headers: &[(String, String)],
 ) -> anyhow::Result<SseStream> {
-    use anyhow::Context;
-
     let mut es_client_builder = eventsource_client::ClientBuilder::for_url(streaming_url)
         .context("Failed to create EventSource client for streaming")?
         .header("Authorization", &token.token)?
