@@ -1,6 +1,7 @@
 use std::{pin::Pin, sync::Arc};
 use tokio::sync::watch::Sender;
 use tracing::{debug, warn};
+use ulid::Ulid;
 use unleash_edge_http_client::UnleashClient;
 use unleash_edge_types::{RefreshState, enterprise::LicenseStateResponse, tokens::EdgeToken};
 
@@ -8,8 +9,9 @@ async fn send_heartbeat(
     unleash_client: Arc<UnleashClient>,
     token: EdgeToken,
     refresh_state_tx: &Sender<RefreshState>,
+    connection_id: &Ulid,
 ) {
-    match unleash_client.send_heartbeat(&token).await {
+    match unleash_client.send_heartbeat(&token, connection_id).await {
         Ok(response) => match response {
             LicenseStateResponse::Valid => {
                 debug!("License check succeeded: Heartbeat sent successfully");
@@ -40,12 +42,19 @@ pub fn create_enterprise_heartbeat_task(
     unleash_client: Arc<UnleashClient>,
     token: EdgeToken,
     refresh_state_tx: Sender<RefreshState>,
+    connection_id: Ulid,
 ) -> Pin<Box<dyn Future<Output = ()> + Send>> {
     Box::pin(async move {
         let sleep_duration = tokio::time::Duration::from_secs(90);
         loop {
             tokio::time::sleep(sleep_duration).await;
-            send_heartbeat(unleash_client.clone(), token.clone(), &refresh_state_tx).await;
+            send_heartbeat(
+                unleash_client.clone(),
+                token.clone(),
+                &refresh_state_tx,
+                &connection_id,
+            )
+            .await;
         }
     })
 }

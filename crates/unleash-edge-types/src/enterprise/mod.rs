@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 use crate::EdgeResult;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 pub enum LicenseStateResponse {
     Valid,
     Invalid,
@@ -26,4 +27,11 @@ impl From<EdgeResult<LicenseStateResponse>> for LicenseState {
             Err(_) => LicenseState::Undetermined,
         }
     }
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+
+pub struct HeartbeatResponse {
+    pub edge_license_state: LicenseStateResponse,
 }

@@ -16,7 +16,7 @@ use std::str::FromStr;
 use tracing::{debug, error, info, trace, warn};
 use ulid::Ulid;
 use unleash_edge_cli::ClientIdentity;
-use unleash_edge_types::enterprise::LicenseStateResponse;
+use unleash_edge_types::enterprise::{HeartbeatResponse, LicenseStateResponse};
 use unleash_edge_types::errors::EdgeError::EdgeMetricsRequestError;
 use unleash_edge_types::errors::{CertificateError, EdgeError, FeatureError};
 use unleash_edge_types::headers::{
@@ -103,12 +103,6 @@ lazy_static! {
         &["server", "version", "app_name", "instance_id"]
     )
     .unwrap();
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct HeartbeatResponse {
-    pub edge_license_state: LicenseStateResponse,
 }
 
 #[cfg_attr(test, derive(Default))]
@@ -619,11 +613,15 @@ impl UnleashClient {
         }
     }
 
-    pub async fn send_heartbeat(&self, api_key: &EdgeToken) -> EdgeResult<LicenseStateResponse> {
+    pub async fn send_heartbeat(
+        &self,
+        api_key: &EdgeToken,
+        connection_id: &Ulid,
+    ) -> EdgeResult<LicenseStateResponse> {
         let response = self
             .backing_client
             .post(self.urls.heartbeat_url.to_string())
-            .query(&[("connectionId", self.meta_info.connection_id)])
+            .query(&[("connectionId", connection_id)])
             .headers(self.header_map(Some(api_key.token.clone())))
             .send()
             .await
@@ -634,6 +632,7 @@ impl UnleashClient {
                 )
             })?;
 
+        println!("Received heartbeat response: {:?}", response);
         let Ok(heartbeat_response) = response.json::<HeartbeatResponse>().await else {
             return Err(EdgeError::HeartbeatError(
                 "Failed to parse heartbeat response".into(),

@@ -3,8 +3,7 @@ use unleash_edge_appstate::AppState;
 use unleash_edge_appstate::edge_token_extractor::AuthState;
 
 use crate::{
-    delta::DeltaState, features::FeatureState, metrics::MetricsState, register::RegisterState,
-    streaming::StreamingState,
+    delta::DeltaState, features::FeatureState, heartbeat::HeartbeatState, metrics::MetricsState, register::RegisterState, streaming::StreamingState
 };
 
 pub mod delta;
@@ -12,6 +11,7 @@ pub mod features;
 pub mod metrics;
 pub mod register;
 pub mod streaming;
+pub mod heartbeat;
 
 pub fn router_for<S>() -> Router<S>
 where
@@ -22,6 +22,7 @@ where
     AuthState: FromRef<S>,
     RegisterState: FromRef<S>,
     StreamingState: FromRef<S>,
+    HeartbeatState: FromRef<S>,
 {
     Router::new()
         .merge(features::features_router_for::<S>())
@@ -29,6 +30,7 @@ where
         .merge(metrics::metrics_router_for::<S>())
         .merge(register::register_router_for::<S>())
         .merge(streaming::streaming_router_for::<S>())
+        .merge(heartbeat::heartbeat_router_for::<S>())
 }
 
 pub fn router() -> Router<AppState> {
@@ -38,4 +40,5 @@ pub fn router() -> Router<AppState> {
         .merge(metrics::router())
         .merge(register::router())
         .merge(streaming::router())
+        .merge(heartbeat::router())
 }
