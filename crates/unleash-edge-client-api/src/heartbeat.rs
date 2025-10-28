@@ -199,10 +199,6 @@ mod tests {
                 "/api/client/edge-licensing/heartbeat",
                 post({
                     move |_: axum::http::HeaderMap, Query(conn): Query<ConnectionId>| {
-                        println!(
-                            "Upstream received heartbeat for connection id: {}",
-                            conn.connection_id
-                        );
                         if let Some(tx) = seen_tx_clone.lock().unwrap().take() {
                             let _ = tx.send(conn.connection_id);
                         }
