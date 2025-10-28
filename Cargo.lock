@@ -5497,6 +5497,7 @@ dependencies = [
  "tracing",
  "ulid",
  "unleash-edge-http-client",
+ "unleash-edge-persistence",
  "unleash-edge-types",
 ]
 

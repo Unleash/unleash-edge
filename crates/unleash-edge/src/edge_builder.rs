@@ -552,7 +552,7 @@ fn create_edge_mode_background_tasks(
     };
     tasks.push(hydration_task);
 
-    if let Some(persistence) = persistence {
+    if let Some(persistence) = persistence.clone() {
         tasks.push(create_persist_data_task(
             persistence.clone(),
             token_cache.clone(),
@@ -579,6 +579,7 @@ fn create_edge_mode_background_tasks(
             refresh_state_tx,
             client_meta_information.connection_id,
             license_state,
+            persistence,
         ));
     }
 
