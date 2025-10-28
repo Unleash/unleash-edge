@@ -16,7 +16,7 @@ use std::str::FromStr;
 use tracing::{debug, error, info, trace, warn};
 use ulid::Ulid;
 use unleash_edge_cli::ClientIdentity;
-use unleash_edge_types::enterprise::{HeartbeatResponse, LicenseStateResponse};
+use unleash_edge_types::enterprise::{HeartbeatResponse, LicenseState};
 use unleash_edge_types::errors::EdgeError::EdgeMetricsRequestError;
 use unleash_edge_types::errors::{CertificateError, EdgeError, FeatureError};
 use unleash_edge_types::headers::{
@@ -617,7 +617,7 @@ impl UnleashClient {
         &self,
         api_key: &EdgeToken,
         connection_id: &Ulid,
-    ) -> EdgeResult<LicenseStateResponse> {
+    ) -> EdgeResult<LicenseState> {
         let response = self
             .backing_client
             .post(self.urls.heartbeat_url.to_string())

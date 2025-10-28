@@ -138,8 +138,8 @@ pub mod s3_persister {
             }
         }
 
-        async fn load_license_state(&self) -> LicenseState {
-            let Ok(response) = self
+        async fn load_license_state(&self) -> EdgeResult<LicenseState> {
+            let response = self
                 .client
                 .get_object()
                 .bucket(self.bucket.clone())
@@ -147,14 +147,13 @@ pub mod s3_persister {
                 .response_content_type("application/json")
                 .send()
                 .await
-            else {
-                return LicenseState::Undetermined;
-            };
-            let Ok(data) = response.body.collect().await else {
-                return LicenseState::Undetermined;
-            };
-            serde_json::from_slice::<LicenseState>(&data.to_vec())
-                .unwrap_or(LicenseState::Undetermined)
+                .map_err(|_| {
+                    EdgeError::PersistenceError("Failed to load license state".to_string())
+                })?;
+            let data = response.body.collect().await.map_err(|_| {
+                EdgeError::PersistenceError("Failed to read license state data".to_string())
+            })?;
+            serde_json::from_slice(&data.to_vec()).map_err(EdgeError::from)
         }
 
         async fn save_license_state(&self, license_state: &LicenseState) -> EdgeResult<()> {
@@ -198,6 +197,7 @@ mod tests {
         use testcontainers::ContainerAsync;
         use testcontainers::{ImageExt, runners::AsyncRunner};
         use testcontainers_modules::localstack::LocalStack;
+        use unleash_edge_types::errors::EdgeError;
         use unleash_edge_types::tokens::EdgeToken;
         use unleash_types::client_features::ClientFeature;
         use unleash_types::client_features::ClientFeatures;
@@ -288,7 +288,10 @@ mod tests {
             let (_localstack, persister) = setup_s3_persister().await;
 
             let loaded_license_state = persister.load_license_state().await;
-            assert_eq!(loaded_license_state, crate::LicenseState::Undetermined);
+            assert!(matches!(
+                loaded_license_state,
+                Err(EdgeError::PersistenceError(_))
+            ));
 
             let license_state = crate::LicenseState::Valid;
             persister
@@ -297,15 +300,18 @@ mod tests {
                 .expect("Failed to save license state");
 
             let loaded_license_state = persister.load_license_state().await;
-            assert_eq!(loaded_license_state, license_state);
+            assert_eq!(loaded_license_state.unwrap(), license_state);
         }
 
         #[tokio::test]
-        async fn test_s3_persister_returns_undetermined_when_no_data_present() {
+        async fn test_s3_persister_returns_error_when_no_data_present() {
             let (_localstack, persister) = setup_s3_persister().await;
 
             let loaded_license_state = persister.load_license_state().await;
-            assert_eq!(loaded_license_state, crate::LicenseState::Undetermined);
+            assert!(matches!(
+                loaded_license_state,
+                Err(EdgeError::PersistenceError(_))
+            ));
         }
     }
 }

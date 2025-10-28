@@ -10,7 +10,7 @@ use ulid::Ulid;
 use unleash_edge_appstate::AppState;
 use unleash_edge_appstate::edge_token_extractor::{AuthState, AuthToken};
 use unleash_edge_http_client::UnleashClient;
-use unleash_edge_types::enterprise::{HeartbeatResponse, LicenseStateResponse};
+use unleash_edge_types::enterprise::{HeartbeatResponse, LicenseState};
 use utoipa::IntoParams;
 
 #[derive(Clone, Debug, Deserialize, IntoParams)]
@@ -72,7 +72,7 @@ async fn heartbeat(
 
 #[derive(Clone)]
 pub struct HeartbeatState {
-    license_state: LicenseStateResponse,
+    license_state: LicenseState,
     client: Arc<UnleashClient>,
 }
 
@@ -87,7 +87,7 @@ impl FromRef<AppState> for HeartbeatState {
 
         HeartbeatState {
             client,
-            license_state: LicenseStateResponse::Valid, //TODO: get this from either the API call or Backup. This probably needs to be set at the AppState level
+            license_state: LicenseState::Valid, //TODO: get this from either the API call or Backup. This probably needs to be set at the AppState level
         }
     }
 }
@@ -129,7 +129,7 @@ mod tests {
     impl FromRef<TestState> for HeartbeatState {
         fn from_ref(app: &TestState) -> Self {
             HeartbeatState {
-                license_state: LicenseStateResponse::Valid,
+                license_state: LicenseState::Valid,
                 client: app.client.clone(),
             }
         }
@@ -206,7 +206,7 @@ mod tests {
                             (
                                 StatusCode::ACCEPTED,
                                 Json(HeartbeatResponse {
-                                    edge_license_state: LicenseStateResponse::Valid,
+                                    edge_license_state: LicenseState::Valid,
                                 }),
                             )
                         }
@@ -261,7 +261,7 @@ mod tests {
 
         response.assert_status(StatusCode::ACCEPTED);
         response.assert_json(&HeartbeatResponse {
-            edge_license_state: LicenseStateResponse::Valid,
+            edge_license_state: LicenseState::Valid,
         });
     }
 }
