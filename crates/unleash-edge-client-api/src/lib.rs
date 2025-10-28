@@ -3,15 +3,16 @@ use unleash_edge_appstate::AppState;
 use unleash_edge_appstate::edge_token_extractor::AuthState;
 
 use crate::{
-    delta::DeltaState, features::FeatureState, heartbeat::HeartbeatState, metrics::MetricsState, register::RegisterState, streaming::StreamingState
+    delta::DeltaState, features::FeatureState, heartbeat::HeartbeatState, metrics::MetricsState,
+    register::RegisterState, streaming::StreamingState,
 };
 
 pub mod delta;
 pub mod features;
+pub mod heartbeat;
 pub mod metrics;
 pub mod register;
 pub mod streaming;
-pub mod heartbeat;
 
 pub fn router_for<S>() -> Router<S>
 where
