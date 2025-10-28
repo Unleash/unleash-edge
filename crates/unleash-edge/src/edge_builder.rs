@@ -38,7 +38,6 @@ use unleash_edge_persistence::s3::s3_persister::S3Persister;
 use unleash_edge_persistence::{
     EdgePersistence, create_once_off_persist, create_persist_data_task,
 };
-#[cfg(feature = "enterprise")]
 use unleash_edge_types::enterprise::LicenseState;
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::MetricsCache;
@@ -651,7 +650,7 @@ async fn resolve_license(
 #[cfg(not(feature = "enterprise"))]
 async fn resolve_license(
     _unleash_client: &UnleashClient,
-    _persistence: Option<Arc<dyn Persistence>>,
+    _persistence: Option<Arc<dyn EdgePersistence>>,
     _startup_tokens: &[EdgeToken],
     _client_meta_information: &ClientMetaInformation,
 ) -> Result<LicenseState, EdgeError> {
