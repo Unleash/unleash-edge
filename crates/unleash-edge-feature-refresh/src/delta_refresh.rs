@@ -91,12 +91,10 @@ async fn handle_sse(
         eventsource_client::SSE::Event(event)
             if event.event_type == "unleash-connected" || event.event_type == "unleash-updated" =>
         {
-            match event.event_type.as_str() {
-                "unleash-connected" => {
-                    debug!("Connected to unleash! Populating my flag cache now.")
-                }
-                "unleash-updated" => debug!("Got an unleash updated event. Updating cache."),
-                _ => unreachable!(),
+            if event.event_type == "unleash-connected" {
+                debug!("Connected to unleash! Populating flag cache now.");
+            } else {
+                debug!("Got an unleash updated event. Updating cache.");
             }
 
             match serde_json::from_str(&event.data) {
