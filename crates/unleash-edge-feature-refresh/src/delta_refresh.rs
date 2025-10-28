@@ -214,8 +214,7 @@ pub async fn start_streaming_delta_background_task(
             .unleash_client
             .urls
             .client_features_stream_url
-            .as_str()
-            .to_owned();
+            .to_string();
 
         let refresher = delta_refresher.clone();
         let client_meta_information = client_meta_information.clone();
