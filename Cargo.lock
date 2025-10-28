@@ -5440,6 +5440,7 @@ dependencies = [
  "dashmap",
  "futures-util",
  "maplit",
+ "reqwest",
  "serde",
  "serde_json",
  "tokio",
@@ -5453,6 +5454,7 @@ dependencies = [
  "unleash-edge-feature-cache",
  "unleash-edge-feature-filters",
  "unleash-edge-feature-refresh",
+ "unleash-edge-http-client",
  "unleash-edge-metrics",
  "unleash-edge-streaming",
  "unleash-edge-types",
@@ -5493,6 +5495,7 @@ version = "20.1.0"
 dependencies = [
  "tokio",
  "tracing",
+ "ulid",
  "unleash-edge-http-client",
  "unleash-edge-types",
 ]
