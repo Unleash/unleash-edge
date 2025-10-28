@@ -632,7 +632,6 @@ impl UnleashClient {
                 )
             })?;
 
-        println!("Received heartbeat response: {:?}", response);
         let Ok(heartbeat_response) = response.json::<HeartbeatResponse>().await else {
             return Err(EdgeError::HeartbeatError(
                 "Failed to parse heartbeat response".into(),
