@@ -5,7 +5,7 @@ use axum::routing::post;
 use axum::{Json, Router};
 use serde::Deserialize;
 use std::sync::Arc;
-use tracing::{debug, instrument};
+use tracing::{debug, info, instrument};
 use ulid::Ulid;
 use unleash_edge_appstate::AppState;
 use unleash_edge_appstate::edge_token_extractor::{AuthState, AuthToken};
@@ -54,7 +54,7 @@ async fn heartbeat(
             .await
         {
             Err(e) => {
-                tracing::info!("Unexpected error sending heartbeat: {}", e);
+                info!("Unexpected error sending heartbeat: {}", e);
             }
             Ok(_) => {
                 debug!("Successfully forwarded heartbeat for downstream instance");
