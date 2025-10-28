@@ -1,6 +1,8 @@
 use crate::{CacheContainer, EdgeInfo, SHOULD_DEFER_VALIDATION};
 use chrono::Duration;
 use dashmap::DashMap;
+#[cfg(feature = "enterprise")]
+use http::StatusCode;
 use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -496,6 +498,7 @@ fn create_edge_mode_background_tasks(
         token_cache,
         unleash_client,
         validator,
+        #[allow(unused_variables)] // license_state used in enterprise feature
         license_state,
     }: BackgroundTaskArgs,
 ) -> Vec<BackgroundTask> {
