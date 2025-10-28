@@ -1,4 +1,5 @@
 use ipnet::IpNet;
+use unleash_edge_types::enterprise::LicenseState;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use unleash_edge_auth::token_validator::TokenValidator;
@@ -26,6 +27,7 @@ pub struct AppState {
     pub connected_instances: Arc<RwLock<Vec<EdgeInstanceData>>>,
     pub deny_list: Vec<IpNet>,
     pub allow_list: Vec<IpNet>,
+    pub license_state: Arc<RwLock<LicenseState>>,
 }
 
 pub mod edge_token_extractor;

@@ -1,6 +1,7 @@
 use crate::{CacheContainer, EdgeInfo, SHOULD_DEFER_VALIDATION};
 use chrono::Duration;
 use dashmap::DashMap;
+use http::StatusCode;
 use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -37,6 +38,8 @@ use unleash_edge_persistence::s3::s3_persister::S3Persister;
 use unleash_edge_persistence::{
     EdgePersistence, create_once_off_persist, create_persist_data_task,
 };
+#[cfg(feature = "enterprise")]
+use unleash_edge_types::enterprise::LicenseState;
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::MetricsCache;
 use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
@@ -313,18 +316,6 @@ pub async fn build_edge_state(
         })
         .collect::<Vec<_>>();
 
-    #[cfg(feature = "enterprise")]
-    {
-        unleash_client
-            .send_heartbeat(
-                startup_tokens
-                    .first()
-                    .expect("Startup token is required for enterprise feature"),
-                &client_meta_information.instance_id,
-            )
-            .await?;
-    }
-
     let (deferred_validation_tx, deferred_validation_rx) = if *SHOULD_DEFER_VALIDATION {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
         (Some(tx), Some(rx))
@@ -345,6 +336,17 @@ pub async fn build_edge_state(
         deferred_validation_tx,
     )
     .await?;
+
+    let license_state = Arc::new(RwLock::new(
+        resolve_license(
+            &unleash_client,
+            persistence.clone(),
+            &startup_tokens,
+            &client_meta_information,
+        )
+        .await?,
+    ));
+
     let instance_data_sender: Arc<InstanceDataSending> = Arc::new(InstanceDataSending::from_args(
         args.clone(),
         &client_meta_information,
@@ -368,6 +370,7 @@ pub async fn build_edge_state(
         token_cache: token_cache.clone(),
         unleash_client: unleash_client.clone(),
         validator: token_validator.clone(),
+        license_state: license_state.clone(),
     });
     let shutdown_args = ShutdownTaskArgs {
         delta_cache_manager: delta_cache_manager.clone(),
@@ -400,6 +403,7 @@ pub async fn build_edge_state(
             app_name: args.app_name.clone(),
             instance_id: client_meta_information.instance_id.clone().to_string(),
         },
+        license_state: license_state.clone(),
     };
 
     Ok((app_state, background_tasks, shutdown_tasks))
@@ -475,6 +479,7 @@ pub(crate) struct BackgroundTaskArgs {
     token_cache: Arc<TokenCache>,
     unleash_client: Arc<UnleashClient>,
     validator: Arc<TokenValidator>,
+    license_state: Arc<RwLock<LicenseState>>,
 }
 fn create_edge_mode_background_tasks(
     BackgroundTaskArgs {
@@ -493,6 +498,7 @@ fn create_edge_mode_background_tasks(
         token_cache,
         unleash_client,
         validator,
+        license_state,
     }: BackgroundTaskArgs,
 ) -> Vec<BackgroundTask> {
     #[allow(unused_variables)] // refresh_state_tx used in enterprise feature
@@ -572,6 +578,7 @@ fn create_edge_mode_background_tasks(
                 .expect("Startup token is required for enterprise feature"),
             refresh_state_tx,
             client_meta_information.connection_id,
+            license_state,
         ));
     }
 
@@ -604,4 +611,48 @@ fn create_stream_task(
         )
         .await;
     })
+}
+
+#[cfg(feature = "enterprise")]
+async fn resolve_license(
+    unleash_client: &UnleashClient,
+    persistence: Option<Arc<dyn EdgePersistence>>,
+    startup_tokens: &[EdgeToken],
+    client_meta_information: &ClientMetaInformation,
+) -> Result<LicenseState, EdgeError> {
+    match unleash_client
+        .send_heartbeat(
+            startup_tokens.first().unwrap(),
+            &client_meta_information.instance_id,
+        )
+        .await
+    {
+        Ok(license) => Ok(license),
+
+        Err(_) => {
+            if let Some(p) = persistence {
+                p.load_license_state().await.map_err(|_| {
+                    EdgeError::HeartbeatError(
+                        "Could not load license from either persistence or API".into(),
+                        StatusCode::SERVICE_UNAVAILABLE,
+                    )
+                })
+            } else {
+                Err(EdgeError::HeartbeatError(
+                    "Could not reach unleash API and no cached license found".into(),
+                    StatusCode::SERVICE_UNAVAILABLE,
+                ))
+            }
+        }
+    }
+}
+
+#[cfg(not(feature = "enterprise"))]
+async fn resolve_license(
+    _unleash_client: &UnleashClient,
+    _persistence: Option<Arc<dyn Persistence>>,
+    _startup_tokens: &[EdgeToken],
+    _client_meta_information: &ClientMetaInformation,
+) -> Result<LicenseState, EdgeError> {
+    Ok(LicenseState::Valid)
 }

@@ -1,6 +1,7 @@
 use crate::CacheContainer;
 use crate::edge_builder::build_caches;
 use dashmap::DashMap;
+use unleash_edge_types::enterprise::LicenseState;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::str::FromStr;
@@ -131,6 +132,7 @@ pub async fn build_offline_app_state(
             app_name,
             instance_id: instance_id.to_string(),
         },
+        license_state: Arc::new(RwLock::new(LicenseState::Valid)),
     };
 
     let background_tasks =

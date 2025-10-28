@@ -5,6 +5,7 @@ use axum::routing::post;
 use axum::{Json, Router};
 use serde::Deserialize;
 use std::sync::Arc;
+use tokio::sync::RwLock;
 use tracing::{debug, info, instrument};
 use ulid::Ulid;
 use unleash_edge_appstate::AppState;
@@ -65,14 +66,14 @@ async fn heartbeat(
     (
         StatusCode::ACCEPTED,
         Json(HeartbeatResponse {
-            edge_license_state: app_state.license_state,
+            edge_license_state: app_state.license_state.read().await.clone(),
         }),
     )
 }
 
 #[derive(Clone)]
 pub struct HeartbeatState {
-    license_state: LicenseState,
+    license_state: Arc<RwLock<LicenseState>>,
     client: Arc<UnleashClient>,
 }
 
@@ -87,7 +88,7 @@ impl FromRef<AppState> for HeartbeatState {
 
         HeartbeatState {
             client,
-            license_state: LicenseState::Valid, //TODO: get this from either the API call or Backup. This probably needs to be set at the AppState level
+            license_state: app_state.license_state.clone(),
         }
     }
 }
@@ -129,7 +130,7 @@ mod tests {
     impl FromRef<TestState> for HeartbeatState {
         fn from_ref(app: &TestState) -> Self {
             HeartbeatState {
-                license_state: LicenseState::Valid,
+                license_state: Arc::new(RwLock::new(LicenseState::Valid)),
                 client: app.client.clone(),
             }
         }
