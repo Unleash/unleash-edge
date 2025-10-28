@@ -21,7 +21,7 @@ pub trait EdgePersistence: Send + Sync {
     async fn save_tokens(&self, tokens: Vec<EdgeToken>) -> EdgeResult<()>;
     async fn load_features(&self) -> EdgeResult<HashMap<String, ClientFeatures>>;
     async fn save_features(&self, features: Vec<(String, ClientFeatures)>) -> EdgeResult<()>;
-    async fn load_license_state(&self) -> LicenseState;
+    async fn load_license_state(&self) -> EdgeResult<LicenseState>;
     async fn save_license_state(&self, license: &LicenseState) -> EdgeResult<()>;
 }
 
@@ -135,7 +135,7 @@ pub mod tests {
             panic!("Not expected to be called");
         }
 
-        async fn load_license_state(&self) -> LicenseState {
+        async fn load_license_state(&self) -> EdgeResult<LicenseState> {
             panic!("Not expected to be called");
         }
 
