@@ -66,7 +66,7 @@ async fn heartbeat(
     (
         StatusCode::ACCEPTED,
         Json(HeartbeatResponse {
-            edge_license_state: app_state.license_state.read().await.clone(),
+            edge_license_state: *app_state.license_state.read().await,
         }),
     )
 }

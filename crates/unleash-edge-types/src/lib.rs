@@ -68,9 +68,9 @@ pub enum RefreshState {
     Paused,
 }
 
-impl Into<RefreshState> for LicenseState {
-    fn into(self) -> RefreshState {
-        match self {
+impl From<LicenseState> for RefreshState {
+    fn from(val: LicenseState) -> Self {
+        match val {
             LicenseState::Valid => RefreshState::Running,
             LicenseState::Invalid => RefreshState::Paused,
             LicenseState::Expired => RefreshState::Running,
