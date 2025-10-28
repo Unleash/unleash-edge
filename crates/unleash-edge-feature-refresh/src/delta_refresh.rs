@@ -133,55 +133,62 @@ async fn run_stream_task(
     let mut stream: Option<SseStream> = None;
 
     loop {
-        if *refresh_state_rx.borrow_and_update() == RefreshState::Paused {
-            if stream.is_some() {
-                info!("SSE paused: disconnecting stream");
-                stream = None;
+        let state = *refresh_state_rx.borrow_and_update();
+        if matches!(state, RefreshState::Paused) {
+            if refresh_state_rx.changed().await.is_err() {
+                info!("Refresh state channel closed; stopping SSE stream task");
+                return;
             }
-            tokio::time::sleep(Duration::from_secs(5)).await;
             continue;
         }
 
         if stream.is_none() {
-            match build_sse_stream(
+            let s: SseStream = match build_sse_stream(
                 &streaming_url,
                 &token,
                 &client_meta_information,
                 &custom_headers,
             ) {
-                Ok(s) => {
-                    stream = Some(s);
-                    info!(
-                        "SSE connected (app: {}, instance: {})",
-                        client_meta_information.app_name, client_meta_information.instance_id
-                    );
-                }
+                Ok(s) => s,
                 Err(e) => {
-                    warn!("build_sse_stream: {e:?}");
-                    tokio::time::sleep(Duration::from_secs(5)).await;
-                    continue;
+                    warn!(
+                        "SSE misconfiguration detected; cannot build stream: {e:?}. Exiting stream task."
+                    );
+                    return;
                 }
-            }
+            };
+
+            stream = Some(s);
+            info!(
+                "SSE connected (app: {}, instance: {})",
+                client_meta_information.app_name, client_meta_information.instance_id
+            );
         }
 
         if let Some(s) = stream.as_mut() {
-            match s.next().await {
-                Some(Ok(sse)) => {
-                    handle_sse(sse, &delta_refresher, &token).await;
+            tokio::select! {
+                _ = refresh_state_rx.changed() => {
+                    continue;
                 }
-                Some(Err(e)) => {
-                    info!("SSE stream error: {e:?}. Reconnecting");
-                    stream = None;
-                    tokio::time::sleep(Duration::from_secs(5)).await;
-                }
-                None => {
-                    info!("SSE stream ended. Reconnecting");
-                    stream = None;
-                    tokio::time::sleep(Duration::from_secs(5)).await;
+
+                next = s.next() => {
+                    match next {
+                        Some(Ok(sse)) => {
+                            handle_sse(sse, &delta_refresher, &token).await;
+                        }
+                        Some(Err(e)) => {
+                            info!("SSE stream error: {e:?}; reconnecting immediately");
+                            stream = None;
+                            continue;
+                        }
+                        None => {
+                            info!("SSE stream ended; reconnecting immediately");
+                            stream = None;
+                            continue;
+                        }
+                    }
                 }
             }
-        } else {
-            tokio::time::sleep(Duration::from_secs(5)).await;
         }
     }
 }
