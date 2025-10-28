@@ -320,6 +320,7 @@ pub async fn build_edge_state(
                 startup_tokens
                     .first()
                     .expect("Startup token is required for enterprise feature"),
+                &client_meta_information.instance_id,
             )
             .await?;
     }
@@ -535,7 +536,11 @@ fn create_edge_mode_background_tasks(
     let hydration_task = match &refresher {
         HydratorType::Streaming(delta_refresher) => {
             // TODO: Pass refresh_state_rx to streaming as well, so it can be paused
-            create_stream_task(&edge, client_meta_information, delta_refresher.clone())
+            create_stream_task(
+                &edge,
+                client_meta_information.clone(),
+                delta_refresher.clone(),
+            )
         }
         HydratorType::Polling(feature_refresher) => {
             create_poll_task(feature_refresher.clone(), refresh_state_rx)
@@ -568,6 +573,7 @@ fn create_edge_mode_background_tasks(
                 .cloned()
                 .expect("Startup token is required for enterprise feature"),
             refresh_state_tx,
+            client_meta_information.connection_id,
         ));
     }
 
