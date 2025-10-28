@@ -88,22 +88,16 @@ async fn handle_sse(
     token: &EdgeToken,
 ) {
     match sse {
-        eventsource_client::SSE::Event(event) if event.event_type == "unleash-connected" => {
-            debug!("Connected to unleash! Populating my flag cache now.",);
-
-            match serde_json::from_str(&event.data) {
-                Ok(delta) => {
-                    delta_refresher
-                        .handle_client_features_delta_updated(token, delta, None)
-                        .await;
+        eventsource_client::SSE::Event(event)
+            if event.event_type == "unleash-connected" || event.event_type == "unleash-updated" =>
+        {
+            match event.event_type.as_str() {
+                "unleash-connected" => {
+                    debug!("Connected to unleash! Populating my flag cache now.")
                 }
-                Err(e) => {
-                    warn!("Could not parse features response to internal representation: {e:?}");
-                }
+                "unleash-updated" => debug!("Got an unleash updated event. Updating cache."),
+                _ => unreachable!(),
             }
-        }
-        eventsource_client::SSE::Event(event) if event.event_type == "unleash-updated" => {
-            debug!("Got an unleash updated event. Updating cache.",);
 
             match serde_json::from_str(&event.data) {
                 Ok(delta) => {
