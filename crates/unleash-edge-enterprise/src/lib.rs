@@ -3,7 +3,7 @@ use tokio::sync::watch::Sender;
 use tracing::{debug, warn};
 use ulid::Ulid;
 use unleash_edge_http_client::UnleashClient;
-use unleash_edge_types::{RefreshState, enterprise::LicenseStateResponse, tokens::EdgeToken};
+use unleash_edge_types::{RefreshState, enterprise::LicenseState, tokens::EdgeToken};
 
 async fn send_heartbeat(
     unleash_client: Arc<UnleashClient>,
@@ -13,17 +13,17 @@ async fn send_heartbeat(
 ) {
     match unleash_client.send_heartbeat(&token, connection_id).await {
         Ok(response) => match response {
-            LicenseStateResponse::Valid => {
+            LicenseState::Valid => {
                 debug!("License check succeeded: Heartbeat sent successfully");
                 let _ = refresh_state_tx.send(RefreshState::Running);
             }
-            LicenseStateResponse::Expired => {
+            LicenseState::Expired => {
                 warn!(
                     "License check failed: Upstream reports the Enterprise Edge license is expired"
                 );
                 let _ = refresh_state_tx.send(RefreshState::Running);
             }
-            LicenseStateResponse::Invalid => {
+            LicenseState::Invalid => {
                 warn!(
                     "License check failed: Upstream reports the Enterprise Edge license is invalid"
                 );

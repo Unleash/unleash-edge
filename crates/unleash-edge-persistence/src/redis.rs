@@ -171,37 +171,26 @@ impl EdgePersistence for RedisPersister {
         Ok(())
     }
 
-    async fn load_license_state(&self) -> LicenseState {
+    async fn load_license_state(&self) -> EdgeResult<LicenseState> {
         debug!("Loading license state from persistence");
         let mut client = self.redis_client.write().await;
         let raw_license_state: String = match &mut *client {
-            Single(c) => {
-                let Ok(mut conn) = c
+            Single(client) => {
+                let mut conn = client
                     .get_multiplexed_tokio_connection_with_response_timeouts(
                         self.read_timeout,
                         self.read_timeout,
                     )
-                    .await
-                else {
-                    return LicenseState::Undetermined;
-                };
-                let Ok(raw_license_state) = conn.get(LICENSE_STATE_KEY).await else {
-                    return LicenseState::Undetermined;
-                };
-                raw_license_state
+                    .await?;
+                conn.get(LICENSE_STATE_KEY).await?
             }
-            Cluster(c) => {
-                let Ok(mut conn) = c.get_connection() else {
-                    return LicenseState::Undetermined;
-                };
-                let Ok(raw_license_state) = conn.get(LICENSE_STATE_KEY) else {
-                    return LicenseState::Undetermined;
-                };
-                raw_license_state
+            Cluster(client) => {
+                let mut conn = client.get_connection()?;
+                conn.get(LICENSE_STATE_KEY)?
             }
         };
-        serde_json::from_str::<LicenseState>(&raw_license_state)
-            .unwrap_or(LicenseState::Undetermined)
+
+        serde_json::from_str::<LicenseState>(&raw_license_state).map_err(EdgeError::from)
     }
 
     async fn save_license_state(&self, license_state: &LicenseState) -> EdgeResult<()> {
@@ -307,24 +296,24 @@ mod tests {
             .await
             .unwrap();
         let loaded_state = redis_persister.load_license_state().await;
-        assert_eq!(loaded_state, license_state);
+        assert_eq!(loaded_state.unwrap(), LicenseState::Valid);
     }
 
     #[tokio::test]
-    async fn redis_returns_undetermined_license_state_when_no_state_saved() {
+    async fn redis_returns_error_when_no_state_saved() {
         let (_client, url, _node) = setup_redis().await;
         let redis_persister = RedisPersister::new(&url, TEST_TIMEOUT, TEST_TIMEOUT).unwrap();
         let loaded_state = redis_persister.load_license_state().await;
-        assert_eq!(loaded_state, LicenseState::Undetermined);
+        assert!(loaded_state.is_err());
     }
 
     #[tokio::test]
-    async fn redis_returns_undetermined_license_state_when_an_error_occurs() {
+    async fn redis_returns_error_when_an_error_occurs() {
         let (_client, url, mut _node) = setup_redis().await;
         let redis_persister = RedisPersister::new(&url, TEST_TIMEOUT, TEST_TIMEOUT).unwrap();
         // Stop the redis node to simulate an error
         _node.stop().await.expect("Failed to stop redis");
         let loaded_state = redis_persister.load_license_state().await;
-        assert_eq!(loaded_state, LicenseState::Undetermined);
+        assert!(loaded_state.is_err());
     }
 }

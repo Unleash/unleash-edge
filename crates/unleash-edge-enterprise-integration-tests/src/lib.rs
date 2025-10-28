@@ -13,7 +13,7 @@ mod tests {
     use ulid::Ulid;
     use unleash_edge::edge_builder::{EdgeStateArgs, build_edge_state};
     use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeArgs, HttpServerArgs};
-    use unleash_edge_types::enterprise::LicenseStateResponse;
+    use unleash_edge_types::enterprise::LicenseState;
     use unleash_edge_types::errors::EdgeError;
     use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
 
@@ -23,7 +23,7 @@ mod tests {
 
     #[derive(Clone)]
     struct MockState {
-        license_result: EdgeResult<LicenseStateResponse>,
+        license_result: EdgeResult<LicenseState>,
     }
 
     pub struct UpstreamMock {
@@ -31,7 +31,7 @@ mod tests {
     }
 
     impl UpstreamMock {
-        pub async fn new(initial: EdgeResult<LicenseStateResponse>) -> Self {
+        pub async fn new(initial: EdgeResult<LicenseState>) -> Self {
             let state = MockState {
                 license_result: initial,
             };
@@ -73,7 +73,7 @@ mod tests {
                 Json(json!({
                     "edgeLicenseState": match s.license_result {
                         Ok(license_state) => license_state,
-                        Err(_) => LicenseStateResponse::Invalid,
+                        Err(_) => LicenseState::Invalid,
                     }
                 })),
             );
@@ -213,7 +213,7 @@ mod tests {
 
     #[tokio::test]
     async fn enterprise_edge_state_startup_succeeds_if_license_can_be_verified() {
-        let upstream = UpstreamMock::new(Ok(LicenseStateResponse::Valid)).await;
+        let upstream = UpstreamMock::new(Ok(LicenseState::Valid)).await;
         let (http_client, client_meta_information, instances_observed_for_app_context) =
             build_edge_state_data();
 
