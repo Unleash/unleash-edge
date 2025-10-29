@@ -641,7 +641,7 @@ async fn resolve_license(
                 })
             } else {
                 Err(EdgeError::HeartbeatError(
-                    "Could not reach unleash API and no cached license found".into(),
+                    "Could not reach upstream API and no cached license found".into(),
                     StatusCode::SERVICE_UNAVAILABLE,
                 ))
             }
