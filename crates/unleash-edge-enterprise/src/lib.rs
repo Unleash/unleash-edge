@@ -1,60 +1,45 @@
 use std::{pin::Pin, sync::Arc};
 use tokio::sync::watch::Sender;
-use tracing::{debug, warn};
+use tracing::warn;
 use ulid::Ulid;
 use unleash_edge_http_client::UnleashClient;
-use unleash_edge_types::{RefreshState, enterprise::LicenseState, tokens::EdgeToken};
-
-async fn send_heartbeat(
-    unleash_client: Arc<UnleashClient>,
-    token: EdgeToken,
-    refresh_state_tx: &Sender<RefreshState>,
-    connection_id: &Ulid,
-) {
-    match unleash_client.send_heartbeat(&token, connection_id).await {
-        Ok(response) => match response {
-            LicenseState::Valid => {
-                debug!("License check succeeded: Heartbeat sent successfully");
-                let _ = refresh_state_tx.send(RefreshState::Running);
-            }
-            LicenseState::Expired => {
-                warn!(
-                    "License check failed: Upstream reports the Enterprise Edge license is expired"
-                );
-                let _ = refresh_state_tx.send(RefreshState::Running);
-            }
-            LicenseState::Invalid => {
-                warn!(
-                    "License check failed: Upstream reports the Enterprise Edge license is invalid"
-                );
-                let _ = refresh_state_tx.send(RefreshState::Paused);
-            }
-        },
-        Err(err) => {
-            warn!(
-                "License check failed: Upstream could not verify the Enterprise Edge license: {err}"
-            );
-        }
-    }
-}
+use unleash_edge_persistence::EdgePersistence;
+use unleash_edge_types::{
+    RefreshState,
+    enterprise::{ApplicationLicenseState, LicenseState},
+    tokens::EdgeToken,
+};
 
 pub fn create_enterprise_heartbeat_task(
     unleash_client: Arc<UnleashClient>,
     token: EdgeToken,
     refresh_state_tx: Sender<RefreshState>,
     connection_id: Ulid,
+    app_license_state: ApplicationLicenseState,
+    persistence: Option<Arc<dyn EdgePersistence>>,
 ) -> Pin<Box<dyn Future<Output = ()> + Send>> {
     Box::pin(async move {
         let sleep_duration = tokio::time::Duration::from_secs(90);
         loop {
             tokio::time::sleep(sleep_duration).await;
-            send_heartbeat(
-                unleash_client.clone(),
-                token.clone(),
-                &refresh_state_tx,
-                &connection_id,
-            )
-            .await;
+            let license_state = unleash_client
+                .send_heartbeat(&token.clone(), &connection_id)
+                .await;
+
+            if let Ok(new_state) = license_state {
+                app_license_state.set(new_state);
+                if new_state == LicenseState::Invalid {
+                    warn!(
+                        "Edge license is invalid, features will not be refreshed until this is resolved. This needs to be fixed in your upstream Unleash instance."
+                    );
+                }
+
+                let _ = refresh_state_tx.send(new_state.into());
+
+                if let Some(persistence) = &persistence {
+                    let _ = persistence.save_license_state(&new_state).await;
+                }
+            }
         }
     })
 }

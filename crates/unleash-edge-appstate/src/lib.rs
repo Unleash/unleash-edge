@@ -6,6 +6,7 @@ use unleash_edge_cli::AuthHeaders;
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_refresh::HydratorType;
+use unleash_edge_types::enterprise::ApplicationLicenseState;
 use unleash_edge_types::metrics::MetricsCache;
 use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
 use unleash_edge_types::{EngineCache, TokenCache};
@@ -26,6 +27,7 @@ pub struct AppState {
     pub connected_instances: Arc<RwLock<Vec<EdgeInstanceData>>>,
     pub deny_list: Vec<IpNet>,
     pub allow_list: Vec<IpNet>,
+    pub license_state: ApplicationLicenseState,
 }
 
 pub mod edge_token_extractor;
