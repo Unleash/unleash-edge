@@ -1,9 +1,14 @@
 use std::{pin::Pin, sync::Arc};
 use tokio::sync::watch::Sender;
+use tracing::warn;
 use ulid::Ulid;
 use unleash_edge_http_client::UnleashClient;
 use unleash_edge_persistence::EdgePersistence;
-use unleash_edge_types::{RefreshState, enterprise::ApplicationLicenseState, tokens::EdgeToken};
+use unleash_edge_types::{
+    RefreshState,
+    enterprise::{ApplicationLicenseState, LicenseState},
+    tokens::EdgeToken,
+};
 
 pub fn create_enterprise_heartbeat_task(
     unleash_client: Arc<UnleashClient>,
@@ -23,6 +28,12 @@ pub fn create_enterprise_heartbeat_task(
 
             if let Ok(new_state) = license_state {
                 app_license_state.set(new_state);
+                if new_state == LicenseState::Invalid {
+                    warn!(
+                        "Edge license is invalid, features will not be refreshed until this is resolved. This needs to be fixed in your upstream Unleash instance."
+                    );
+                }
+
                 let _ = refresh_state_tx.send(new_state.into());
 
                 if let Some(persistence) = &persistence {
