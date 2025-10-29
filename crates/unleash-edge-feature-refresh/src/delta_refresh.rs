@@ -167,7 +167,7 @@ async fn run_stream_task(
         if let Some(s) = stream.as_mut() {
             tokio::select! {
                 result = refresh_state_rx.changed() => {
-                    if let Ok(_) = result {
+                    if result.is_ok() {
                         continue;
                     } else {
                         sleep(Duration::from_secs(1)).await;
