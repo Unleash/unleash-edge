@@ -9,6 +9,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::watch::Receiver;
+use tokio::time::sleep;
 use tracing::{debug, info, warn};
 use unleash_edge_delta::cache::{DeltaCache, DeltaHydrationEvent};
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
@@ -165,10 +166,13 @@ async fn run_stream_task(
 
         if let Some(s) = stream.as_mut() {
             tokio::select! {
-                _ = refresh_state_rx.changed() => {
-                    continue;
+                result = refresh_state_rx.changed() => {
+                    if let Ok(_) = result {
+                        continue;
+                    } else {
+                        sleep(Duration::from_secs(1)).await;
+                    }
                 }
-
                 next = s.next() => {
                     match next {
                         Some(Ok(sse)) => {
