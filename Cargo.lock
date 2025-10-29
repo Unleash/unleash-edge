@@ -5505,6 +5505,8 @@ dependencies = [
 name = "unleash-edge-enterprise-integration-tests"
 version = "20.1.0"
 dependencies = [
+ "ahash",
+ "async-trait",
  "axum",
  "axum-test",
  "chrono",
@@ -5534,6 +5536,7 @@ dependencies = [
  "unleash-edge-feature-filters",
  "unleash-edge-feature-refresh",
  "unleash-edge-http-client",
+ "unleash-edge-persistence",
  "unleash-edge-types",
  "unleash-types",
  "unleash-yggdrasil",

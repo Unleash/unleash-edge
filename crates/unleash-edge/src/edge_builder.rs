@@ -616,7 +616,7 @@ fn create_stream_task(
 }
 
 #[cfg(feature = "enterprise")]
-async fn resolve_license(
+pub async fn resolve_license(
     unleash_client: &UnleashClient,
     persistence: Option<Arc<dyn EdgePersistence>>,
     startup_tokens: &[EdgeToken],
@@ -650,7 +650,7 @@ async fn resolve_license(
 }
 
 #[cfg(not(feature = "enterprise"))]
-async fn resolve_license(
+pub async fn resolve_license(
     _unleash_client: &UnleashClient,
     _persistence: Option<Arc<dyn EdgePersistence>>,
     _startup_tokens: &[EdgeToken],
