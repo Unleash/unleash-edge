@@ -13,7 +13,7 @@ use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_offline::hotload::{
     create_hotload_task, load_bootstrap, load_offline_engine_cache,
 };
-use unleash_edge_types::enterprise::LicenseState;
+use unleash_edge_types::enterprise::{ApplicationLicenseState, LicenseState};
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::MetricsCache;
 use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
@@ -132,7 +132,7 @@ pub async fn build_offline_app_state(
             app_name,
             instance_id: instance_id.to_string(),
         },
-        license_state: Arc::new(RwLock::new(LicenseState::Valid)),
+        license_state: ApplicationLicenseState::new(LicenseState::Valid),
     };
 
     let background_tasks =

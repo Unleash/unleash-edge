@@ -38,7 +38,7 @@ use unleash_edge_persistence::s3::s3_persister::S3Persister;
 use unleash_edge_persistence::{
     EdgePersistence, create_once_off_persist, create_persist_data_task,
 };
-use unleash_edge_types::enterprise::LicenseState;
+use unleash_edge_types::enterprise::{ApplicationLicenseState, LicenseState};
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::MetricsCache;
 use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
@@ -336,7 +336,7 @@ pub async fn build_edge_state(
     )
     .await?;
 
-    let license_state = Arc::new(RwLock::new(
+    let license_state = ApplicationLicenseState::new(
         resolve_license(
             &unleash_client,
             persistence.clone(),
@@ -344,7 +344,7 @@ pub async fn build_edge_state(
             &client_meta_information,
         )
         .await?,
-    ));
+    );
 
     let instance_data_sender: Arc<InstanceDataSending> = Arc::new(InstanceDataSending::from_args(
         args.clone(),
@@ -478,7 +478,7 @@ pub(crate) struct BackgroundTaskArgs {
     token_cache: Arc<TokenCache>,
     unleash_client: Arc<UnleashClient>,
     validator: Arc<TokenValidator>,
-    license_state: Arc<RwLock<LicenseState>>,
+    license_state: ApplicationLicenseState,
 }
 fn create_edge_mode_background_tasks(
     BackgroundTaskArgs {
