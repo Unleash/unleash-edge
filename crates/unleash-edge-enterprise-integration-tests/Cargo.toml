@@ -43,3 +43,6 @@ pretty_assertions = { workspace = true }
 test-case = { workspace = true }
 tracing-test = { workspace = true }
 unleash-edge = { path = "../unleash-edge", version = "20.0.0", features = ["enterprise"] }
+unleash-edge-persistence = { workspace = true }
+async-trait = { workspace = true }
+ahash = { workspace = true }

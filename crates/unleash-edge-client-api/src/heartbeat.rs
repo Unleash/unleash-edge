@@ -87,7 +87,7 @@ impl FromRef<AppState> for HeartbeatState {
 
         HeartbeatState {
             client,
-            license_state: LicenseState::Valid, //TODO: get this from either the API call or Backup. This probably needs to be set at the AppState level
+            license_state: app_state.license_state.get(),
         }
     }
 }

@@ -32,6 +32,7 @@ pub mod headers;
 pub mod metrics;
 pub mod tokens;
 pub mod urls;
+use crate::enterprise::LicenseState;
 use crate::errors::EdgeError;
 use crate::tokens::EdgeToken;
 
@@ -65,6 +66,16 @@ pub type BackgroundTask = Pin<Box<dyn Future<Output = ()> + Send>>;
 pub enum RefreshState {
     Running,
     Paused,
+}
+
+impl From<LicenseState> for RefreshState {
+    fn from(val: LicenseState) -> Self {
+        match val {
+            LicenseState::Valid => RefreshState::Running,
+            LicenseState::Invalid => RefreshState::Paused,
+            LicenseState::Expired => RefreshState::Running,
+        }
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
