@@ -1,6 +1,7 @@
 use crate::{CacheContainer, EdgeInfo, SHOULD_DEFER_VALIDATION};
 use chrono::Duration;
 use dashmap::DashMap;
+#[cfg(feature = "enterprise")]
 use http::StatusCode;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -497,6 +498,7 @@ fn create_edge_mode_background_tasks(
         token_cache,
         unleash_client,
         validator,
+        #[allow(unused_variables)] // license_state used in enterprise feature
         license_state,
     }: BackgroundTaskArgs,
 ) -> Vec<BackgroundTask> {
@@ -639,7 +641,7 @@ async fn resolve_license(
                 })
             } else {
                 Err(EdgeError::HeartbeatError(
-                    "Could not reach unleash API and no cached license found".into(),
+                    "Could not reach upstream API and no cached license found".into(),
                     StatusCode::SERVICE_UNAVAILABLE,
                 ))
             }
