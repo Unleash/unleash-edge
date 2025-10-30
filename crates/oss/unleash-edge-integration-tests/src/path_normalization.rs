@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use axum::Router;
     use axum::extract::connect_info::MockConnectInfo;
+    use axum::Router;
     use clap::Parser;
     use hyper::StatusCode;
     use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
@@ -18,7 +18,7 @@ mod tests {
             "--frontend-tokens",
             "[]:development.secret-token",
             "-b",
-            "../../examples/features.json",
+            "../../../examples/features.json",
         ];
         let args = CliArgs::parse_from(args);
         let (router, _) = unleash_edge::configure_server(args)
