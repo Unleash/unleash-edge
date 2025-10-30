@@ -83,6 +83,7 @@ tracing-subscriber = { version = "0.3.20", features = ["env-filter", "json"] }
 tracing-test = { version = "0.2.5" }
 traced-test = { version = "1.0.4" }
 ulid = { version = "1.2.1", features = ["serde"] }
+unleash-edge = { path = "./crates/oss/unleash-edge", version = "20.1.0" }
 unleash-edge-appstate = { path = "./crates/oss/unleash-edge-appstate", version = "20.1.0" }
 unleash-edge-auth = { path = "./crates/oss/unleash-edge-auth", version = "20.1.0" }
 unleash-edge-backstage = { path = "./crates/oss/unleash-edge-backstage", version = "20.1.0" }

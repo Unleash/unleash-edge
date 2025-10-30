@@ -11,15 +11,21 @@ license.workspace = true
 [dependencies]
 axum = { workspace = true }
 chrono = { workspace = true }
+clap = { workspace = true }
 dashmap = { workspace = true }
 etag = { workspace = true }
 futures = { workspace = true }
 eventsource-stream = { workspace = true }
+http-body-util = { workspace = true }
+hyper = { workspace = true }
+hyper-util = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
+tower-http = { workspace = true }
+tower = { workspace = true }
 tracing = { workspace = true }
 ulid = { workspace = true }
 unleash-edge-appstate = { workspace = true }
@@ -40,4 +46,5 @@ axum-test = { workspace = true }
 pretty_assertions = { workspace = true }
 test-case = { workspace = true }
 tracing-test = { workspace = true }
+unleash-edge = { workspace = true }
 unleash-edge-cli = { workspace = true }

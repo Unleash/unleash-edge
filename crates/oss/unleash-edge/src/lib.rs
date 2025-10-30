@@ -2,13 +2,11 @@ use crate::edge_builder::{EdgeStateArgs, build_edge_state};
 use crate::offline_builder::build_offline_app_state;
 use ::tracing::info;
 use axum::Router;
-
 use axum::middleware::{from_fn, from_fn_with_state};
 use axum::routing::get;
 use chrono::Duration;
 
 use std::env;
-
 use std::sync::{Arc, LazyLock};
 use tokio::sync::RwLock;
 
