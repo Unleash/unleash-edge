@@ -542,7 +542,7 @@ mod tests {
         token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
         let mut engine_state = EngineState::default();
         engine_state.take_state(UpdateMessage::FullResponse(features_from_disk(
-            "../../examples/hostedexample.json",
+            "../../../examples/hostedexample.json",
         )));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
@@ -565,7 +565,7 @@ mod tests {
         token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
         let mut engine_state = EngineState::default();
         engine_state.take_state(UpdateMessage::FullResponse(features_from_disk(
-            "../../examples/with_custom_constraint.json",
+            "../../../examples/with_custom_constraint.json",
         )));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
@@ -596,7 +596,7 @@ mod tests {
         token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
         let mut engine_state = EngineState::default();
         engine_state.take_state(UpdateMessage::FullResponse(features_from_disk(
-            "../../examples/with_custom_constraint.json",
+            "../../../examples/with_custom_constraint.json",
         )));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
@@ -626,7 +626,7 @@ mod tests {
         token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
         let mut engine_state = EngineState::default();
         engine_state.take_state(UpdateMessage::FullResponse(features_from_disk(
-            "../../examples/ip_address_feature.json",
+            "../../../examples/ip_address_feature.json",
         )));
         let engine_cache = Arc::new(EngineCache::new());
         engine_cache.insert(cache_key(&frontend_token), engine_state);
