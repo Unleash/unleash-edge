@@ -115,7 +115,7 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
         .service(router)
         .map_request(|req: Request<hyper::body::Incoming>| {
             let (parts, incoming) = req.into_parts();
-            let stream = incoming.into_data_stream(); // <-- turns Incoming into a Stream of Bytes
+            let stream = incoming.into_data_stream();
             Request::from_parts(parts, Body::from_stream(stream))
         });
     let server = svc.into_make_service_with_connect_info::<SocketAddr>();
