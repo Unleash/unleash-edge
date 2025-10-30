@@ -218,10 +218,12 @@ pub struct EdgeArgs {
     #[clap(flatten)]
     pub s3: Option<S3Args>,
 
+    #[cfg(feature = "enterprise")]
     /// If set to true, Edge connects to upstream using streaming instead of polling. This is an experimental feature and may change. Changes to this feature may not follow semantic versioning.
     #[clap(long, env, default_value_t = false, hide = true)]
     pub streaming: bool,
 
+    #[cfg(feature = "enterprise")]
     /// If set to true, Edge connects to upstream using delta polling instead of normal polling. This is an experimental feature and may change. Changes to this feature may not follow semantic versioning.
     #[clap(long, env, default_value_t = false, hide = true)]
     pub delta: bool,
@@ -233,16 +235,6 @@ pub struct EdgeArgs {
     /// Sets the keep-alive timeout for connections from Edge to upstream
     #[clap(long, env, default_value_t = 15)]
     pub client_keepalive_timeout: i64,
-
-    /// If set to true, it compares features payload with delta payload and logs diff. This flag is for internal testing only. Do not turn this on for production configurations
-    #[clap(
-        long,
-        env,
-        default_value_t = false,
-        conflicts_with = "delta",
-        hide = true
-    )]
-    pub delta_diff: bool,
 
     /// Sets a remote write url for prometheus metrics, if this is set, prometheus metrics will be written upstream
     #[clap(long, env)]
