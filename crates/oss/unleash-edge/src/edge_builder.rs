@@ -208,32 +208,16 @@ pub async fn build_edge(
         client_meta_information.clone(),
     );
 
-    let hydrator_type = if args.streaming {
-        let delta_refresher = Arc::new(DeltaRefresher {
-            unleash_client: unleash_client.clone(),
-            tokens_to_refresh: Arc::new(Default::default()),
-            delta_cache_manager: delta_cache_manager.clone(),
-            features_cache: feature_cache.clone(),
-            engine_cache: engine_cache.clone(),
-            refresh_interval: Duration::seconds(args.features_refresh_interval_seconds as i64),
-            persistence: persistence.clone(),
-            streaming: true,
-            client_meta_information: client_meta_information.clone(),
-        });
-
-        HydratorType::Streaming(delta_refresher)
-    } else {
-        let feature_refresher = Arc::new(FeatureRefresher::new(
-            unleash_client,
-            feature_cache.clone(),
-            delta_cache_manager.clone(),
-            engine_cache.clone(),
-            persistence.clone(),
-            feature_config,
-        ));
-
-        HydratorType::Polling(feature_refresher)
-    };
+    let hydrator_type = load_hydrator(LoadHydratorArgs {
+        args,
+        unleash_client: unleash_client.clone(),
+        feature_cache: feature_cache.clone(),
+        delta_cache_manager: delta_cache_manager.clone(),
+        engine_cache: engine_cache.clone(),
+        persistence: persistence.clone(),
+        feature_config: &feature_config,
+        client_meta_information: &client_meta_information,
+    });
 
     let _ = token_validator.register_tokens(args.tokens.clone()).await;
     if let Some(persistence) = persistence.clone() {
@@ -620,6 +604,84 @@ fn create_stream_task(
         )
         .await;
     })
+}
+
+struct LoadHydratorArgs<'a> {
+    args: &'a EdgeArgs,
+    unleash_client: Arc<UnleashClient>,
+    feature_cache: Arc<FeatureCache>,
+    delta_cache_manager: Arc<DeltaCacheManager>,
+    engine_cache: Arc<EngineCache>,
+    persistence: Option<Arc<dyn EdgePersistence>>,
+    feature_config: &'a FeatureRefreshConfig,
+    client_meta_information: &'a ClientMetaInformation,
+}
+
+#[cfg(feature = "enterprise")]
+fn load_hydrator(
+    LoadHydratorArgs {
+        args,
+        unleash_client,
+        feature_cache,
+        delta_cache_manager,
+        engine_cache,
+        persistence,
+        feature_config,
+        client_meta_information,
+    }: LoadHydratorArgs,
+) -> HydratorType {
+    if args.streaming {
+        let delta_refresher = Arc::new(DeltaRefresher {
+            unleash_client: unleash_client.clone(),
+            tokens_to_refresh: Arc::new(Default::default()),
+            delta_cache_manager: delta_cache_manager.clone(),
+            features_cache: feature_cache.clone(),
+            engine_cache: engine_cache.clone(),
+            refresh_interval: Duration::seconds(args.features_refresh_interval_seconds as i64),
+            persistence: persistence.clone(),
+            streaming: true,
+            client_meta_information: client_meta_information.clone(),
+        });
+
+        HydratorType::Streaming(delta_refresher)
+    } else {
+        let feature_refresher = Arc::new(FeatureRefresher::new(
+            unleash_client,
+            feature_cache.clone(),
+            delta_cache_manager.clone(),
+            engine_cache.clone(),
+            persistence.clone(),
+            feature_config.clone(),
+        ));
+
+        HydratorType::Polling(feature_refresher)
+    }
+}
+
+#[cfg(not(feature = "enterprise"))]
+fn load_hydrator(
+    #[allow(unused_variables)]
+    LoadHydratorArgs {
+        args,
+        unleash_client,
+        feature_cache,
+        delta_cache_manager,
+        engine_cache,
+        persistence,
+        feature_config,
+        client_meta_information,
+    }: LoadHydratorArgs,
+) -> HydratorType {
+    let feature_refresher = Arc::new(FeatureRefresher::new(
+        unleash_client,
+        feature_cache.clone(),
+        delta_cache_manager.clone(),
+        engine_cache.clone(),
+        persistence.clone(),
+        feature_config.clone(),
+    ));
+
+    HydratorType::Polling(feature_refresher)
 }
 
 #[cfg(feature = "enterprise")]
