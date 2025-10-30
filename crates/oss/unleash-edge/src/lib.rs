@@ -5,13 +5,15 @@ use axum::Router;
 use axum::middleware::{from_fn, from_fn_with_state};
 use axum::routing::get;
 use chrono::Duration;
+
 use std::env;
 use std::sync::{Arc, LazyLock};
 use tokio::sync::RwLock;
+
 use tower::ServiceBuilder;
 use tower_http::compression::CompressionLayer;
-use tower_http::normalize_path::NormalizePathLayer;
 use ulid::Ulid;
+
 use unleash_edge_auth::token_validator::TokenValidator;
 use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeMode};
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
@@ -132,7 +134,6 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
         .nest("/internal-backstage", backstage_router)
         .layer(
             ServiceBuilder::new()
-                .layer(NormalizePathLayer::trim_trailing_slash())
                 .layer(CompressionLayer::new())
                 .layer(metrics_middleware)
                 .layer(args.http.cors.middleware())
@@ -151,6 +152,7 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
                 .layer(tower_http::trace::TraceLayer::new_for_http()),
         )
         .with_state(app_state);
+
     let router_to_host = if args.http.base_path.len() > 1 {
         info!("Had a path different from root. Setting up a nested router");
         let path = if !args.http.base_path.starts_with("/") {
