@@ -8,6 +8,9 @@ edition.workspace = true
 publish = true
 license.workspace = true
 
+[features]
+enterprise = []
+
 [dependencies]
 axum = { workspace = true }
 cidr = { workspace = true }

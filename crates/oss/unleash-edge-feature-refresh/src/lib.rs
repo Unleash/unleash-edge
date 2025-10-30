@@ -224,6 +224,7 @@ pub async fn start_refresh_features_background_task(
     }
 }
 
+#[derive(Clone)]
 pub struct FeatureRefreshConfig {
     features_refresh_interval: chrono::Duration,
     client_meta_information: ClientMetaInformation,
