@@ -1,7 +1,6 @@
 use crate::{CacheContainer, EdgeInfo, SHOULD_DEFER_VALIDATION};
 use chrono::Duration;
 use dashmap::DashMap;
-#[cfg(feature = "enterprise")]
 use http::StatusCode;
 use std::pin::Pin;
 use std::sync::Arc;
