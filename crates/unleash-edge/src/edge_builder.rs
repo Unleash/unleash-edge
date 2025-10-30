@@ -338,13 +338,21 @@ pub async fn build_edge_state(
     .await?;
 
     let license_state = ApplicationLicenseState::new(
-        resolve_license(
+        match resolve_license(
             &unleash_client,
             persistence.clone(),
             &startup_tokens,
             &client_meta_information,
         )
-        .await?,
+        .await?
+        {
+            LicenseState::Valid => LicenseState::Valid,
+            LicenseState::Expired => LicenseState::Expired,
+            LicenseState::Invalid => Err(EdgeError::HeartbeatError(
+                "License is invalid".into(),
+                StatusCode::FORBIDDEN,
+            ))?,
+        },
     );
 
     let instance_data_sender: Arc<InstanceDataSending> = Arc::new(InstanceDataSending::from_args(
@@ -622,6 +630,7 @@ pub async fn resolve_license(
     startup_tokens: &[EdgeToken],
     client_meta_information: &ClientMetaInformation,
 ) -> Result<LicenseState, EdgeError> {
+    debug!("Starting enterprise license check");
     match unleash_client
         .send_heartbeat(
             startup_tokens.first().unwrap(),
@@ -656,5 +665,6 @@ pub async fn resolve_license(
     _startup_tokens: &[EdgeToken],
     _client_meta_information: &ClientMetaInformation,
 ) -> Result<LicenseState, EdgeError> {
+    debug!("Running non enterprise Edge, skipping license check");
     Ok(LicenseState::Valid)
 }
