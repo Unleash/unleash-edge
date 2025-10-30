@@ -16,6 +16,8 @@ COPY --from=planner /app/recipe.json recipe.json
 
 ARG TARGETPLATFORM
 ARG TARGETARCH
+ARG CARGO_FEATURES=""
+ENV CARGO_FEATURES=${CARGO_FEATURES}
 
 # Copy runtime dependencies for specific target platform/architecture
 # ARM specific folders
@@ -77,20 +79,30 @@ RUN dpkg --add-architecture arm64 \
     && rm -rf /var/lib/apt/lists/*
 
 # Build dependencies - this is the caching Docker layer!
-RUN case ${TARGETARCH} in \
-    arm64) PKG_CONFIG_SYSROOT_DIR=/ CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc cargo chef cook --target=aarch64-unknown-linux-gnu --release --recipe-path recipe.json ;; \
-    amd64) cargo chef cook --release --recipe-path recipe.json ;; \
-    *) exit 1 ;; \
+RUN set -eux; \
+    feature_flags=""; \
+    if [ -n "${CARGO_FEATURES}" ]; then \
+        feature_flags="--features ${CARGO_FEATURES}"; \
+    fi; \
+    case ${TARGETARCH} in \
+        arm64) PKG_CONFIG_SYSROOT_DIR=/ CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc cargo chef cook --target=aarch64-unknown-linux-gnu --release --recipe-path recipe.json ${feature_flags} ;; \
+        amd64) cargo chef cook --release --recipe-path recipe.json ${feature_flags} ;; \
+        *) exit 1 ;; \
     esac
 
 # Copy the source code
 COPY . /app
 
 # Build application - this is the caching Docker layer!
-RUN case ${TARGETARCH} in \
-    arm64) PKG_CONFIG_SYSROOT_DIR=/ CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc cargo build --target=aarch64-unknown-linux-gnu --release ;; \
-    amd64) cargo build --release ;; \
-    *) exit 1 ;; \
+RUN set -eux; \
+    feature_flags=""; \
+    if [ -n "${CARGO_FEATURES}" ]; then \
+        feature_flags="--features ${CARGO_FEATURES}"; \
+    fi; \
+    case ${TARGETARCH} in \
+        arm64) PKG_CONFIG_SYSROOT_DIR=/ CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc cargo build --target=aarch64-unknown-linux-gnu --release ${feature_flags} ;; \
+        amd64) cargo build --release ${feature_flags} ;; \
+        *) exit 1 ;; \
     esac
 
 # Copy all the dependencies to a separate folder
