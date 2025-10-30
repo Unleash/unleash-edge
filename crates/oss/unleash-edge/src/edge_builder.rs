@@ -660,8 +660,7 @@ fn load_hydrator(
 
 #[cfg(not(feature = "enterprise"))]
 fn load_hydrator(
-    #[allow(unused_variables)]
-    LoadHydratorArgs {
+    #[allow(unused_variables)] LoadHydratorArgs {
         args,
         unleash_client,
         feature_cache,
