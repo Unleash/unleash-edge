@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use axum::extract::connect_info::MockConnectInfo;
     use axum::Router;
+    use axum::extract::connect_info::MockConnectInfo;
     use clap::Parser;
     use hyper::StatusCode;
     use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
