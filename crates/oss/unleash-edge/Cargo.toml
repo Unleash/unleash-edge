@@ -33,6 +33,8 @@ dashmap = { workspace = true }
 etag = { workspace = true }
 futures = { workspace = true }
 http = { workspace = true }
+http-body-util = { workspace = true }
+hyper = { workspace = true }
 hyper-util = { workspace = true }
 ipnet = { workspace = true }
 opentelemetry = { workspace = true }

@@ -1,5 +1,7 @@
-use axum::Router;
-use axum::extract::State;
+use axum::{Router, ServiceExt as _};
+
+use axum::body::Body;
+use axum::extract::{Request, State};
 use axum::response::{IntoResponse, Redirect};
 use axum_extra::extract::Host;
 use axum_server::Handle;
@@ -7,6 +9,7 @@ use clap::Parser;
 use futures::future::join_all;
 use http::Uri;
 use http::uri::Authority;
+use http_body_util::BodyExt;
 use hyper_util::rt::TokioTimer;
 use socket2::{Domain, Protocol, Socket, Type};
 use std::net::{SocketAddr, TcpListener};
@@ -16,6 +19,7 @@ use tokio::signal;
 #[cfg(unix)]
 use tokio::signal::unix::{SignalKind, signal};
 use tokio::try_join;
+use tower::{ServiceBuilder, ServiceExt as TowerServiceExt};
 use tower_http::normalize_path::NormalizePathLayer;
 use tracing::info;
 use tracing_subscriber::layer::SubscriberExt;
@@ -105,12 +109,18 @@ fn make_listener(addr: SocketAddr) -> std::io::Result<TcpListener> {
 }
 
 async fn run_server(args: CliArgs) -> EdgeResult<()> {
-    if args.http.tls.tls_enable {
-        let (router, shutdown_tasks) = configure_server(args.clone()).await?;
-        let server = router
-            .layer(NormalizePathLayer::trim_trailing_slash())
-            .into_make_service_with_connect_info::<SocketAddr>();
+    let (router, shutdown_tasks) = configure_server(args.clone()).await?;
+    let svc = ServiceBuilder::new()
+        .layer(NormalizePathLayer::trim_trailing_slash())
+        .service(router)
+        .map_request(|req: Request<hyper::body::Incoming>| {
+            let (parts, incoming) = req.into_parts();
+            let stream = incoming.into_data_stream(); // <-- turns Incoming into a Stream of Bytes
+            Request::from_parts(parts, Body::from_stream(stream))
+        });
+    let server = svc.into_make_service_with_connect_info::<SocketAddr>();
 
+    if args.http.tls.tls_enable {
         let https_handle = Handle::new();
         let https_handle_clone = https_handle.clone();
         let shutdown_fut = shutdown_signal(
@@ -177,8 +187,6 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
             _ = builder.serve(server.clone()).await;
         }
     } else {
-        let (router, shutdown_tasks) = configure_server(args.clone()).await?;
-        let server = router.into_make_service_with_connect_info::<SocketAddr>();
         let handle = Handle::new();
         let http_handle_clone = handle.clone();
         let shutdown_fut = shutdown_signal(
