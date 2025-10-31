@@ -188,7 +188,7 @@ mod tests {
         let token =
             EdgeToken::from_str("*:development.abc123def").expect("Failed to build edge token");
 
-        // build the the upstream server, we're using this to ensure that our responses get forwarded correctly
+        // build the upstream server, we're using this to ensure that our responses get forwarded correctly
         let (seen_tx, seen_rx) = oneshot::channel::<Ulid>();
         let seen_tx = std::sync::Arc::new(std::sync::Mutex::new(Some(seen_tx)));
         let seen_tx_clone = seen_tx.clone();
@@ -227,7 +227,7 @@ mod tests {
         let response = test_server
             .post("/api/client/edge-licensing/heartbeat")
             .add_query_param("connectionId", connection_id.to_string())
-            .add_header("Authorization", format!("{}", token.token))
+            .add_header("Authorization", token.token.to_string())
             .await;
 
         let seen_ulid = timeout(TokioDuration::from_millis(200), seen_rx)
@@ -256,7 +256,7 @@ mod tests {
         let response = test_server
             .post("/api/client/edge-licensing/heartbeat")
             .add_query_param("connectionId", connection_id.to_string())
-            .add_header("Authorization", format!("{}", token.token))
+            .add_header("Authorization", token.token.to_string())
             .await;
 
         response.assert_status(StatusCode::ACCEPTED);
