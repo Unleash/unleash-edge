@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.1.1](https://github.com/Unleash/unleash-edge/compare/unleash-edge-backstage-v20.1.0...unleash-edge-backstage-v20.1.1) - 2025-10-31
+
+### ⚙️ Miscellaneous Tasks
+- move enterprise features to their own folder ([#1254](https://github.com/unleash/unleash-edge/issues/1254)) (by @sighphyre) - #1254
+
+### Contributors
+
+* @sighphyre
+
 ## [20.0.0](https://github.com/Unleash/unleash-edge/releases/tag/unleash-edge-backstage-v20.0.0) - 2025-10-06
 
 ### 🚀 Features
