@@ -75,15 +75,12 @@ mod tests {
                 );
             }
 
-            return (
+            (
                 axum::http::StatusCode::ACCEPTED,
                 Json(json!({
-                    "edgeLicenseState": match s.license_result {
-                        Ok(license_state) => license_state,
-                        Err(_) => LicenseState::Invalid,
-                    }
+                    "edgeLicenseState": s.license_result.unwrap_or(LicenseState::Invalid)
                 })),
-            );
+            )
         }
 
         async fn validate_all_tokens() -> impl IntoResponse {
