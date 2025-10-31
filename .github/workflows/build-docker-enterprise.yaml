@@ -93,7 +93,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
       - name: Download meta bake definition
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           name: bake-meta
           path: /tmp
@@ -165,12 +165,12 @@ jobs:
       - build
     steps:
       - name: Download meta bake definition
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           name: bake-meta
           path: /tmp
       - name: Download digests
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           path: /tmp/digests
           pattern: digests-*
