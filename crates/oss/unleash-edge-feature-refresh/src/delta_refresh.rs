@@ -1,7 +1,7 @@
 use anyhow::Context;
 use dashmap::DashMap;
 use etag::EntityTag;
-use eventsource_client::Client;
+use eventsource_client::{Client, Error};
 use futures::StreamExt;
 use reqwest::StatusCode;
 use std::collections::HashSet;
@@ -10,7 +10,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::watch::Receiver;
 use tokio::time::sleep;
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
 use unleash_edge_delta::cache::{DeltaCache, DeltaHydrationEvent};
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
@@ -35,6 +35,7 @@ use crate::{TokenRefreshSet, TokenRefreshStatus, client_application_from_token_a
 pub type Environment = String;
 
 const DELTA_CACHE_LIMIT: usize = 100;
+const SDK_TYPE_HEADER: &str = "Unleash-Sdk-Type";
 
 type SseStream = Pin<
     Box<
@@ -66,6 +67,7 @@ fn build_sse_stream(
             UNLEASH_INSTANCE_ID_HEADER,
             &client_meta_information.instance_id.to_string(),
         )?
+        .header(SDK_TYPE_HEADER, "edge")?
         .header(
             UNLEASH_CONNECTION_ID_HEADER,
             &client_meta_information.connection_id.to_string(),
@@ -179,9 +181,20 @@ async fn run_stream_task(
                             handle_sse(sse, &delta_refresher, &token).await;
                         }
                         Some(Err(e)) => {
-                            info!("SSE stream error: {e:?}; reconnecting immediately");
-                            stream = None;
-                            continue;
+
+                            match e {
+                                Error::UnexpectedResponse(response, _) => {
+                                    if response.status() == StatusCode::UNAUTHORIZED || response.status() == StatusCode::FORBIDDEN {
+                                        error!("Streaming was rejected with status code {}; stopping stream task", response.status());
+                                        return;
+                                    }
+                                },
+                                _ => {
+                                    info!("SSE stream error: {e:?}; reconnecting immediately");
+                                    stream = None;
+                                    continue;
+                                }
+                            }
                         }
                         None => {
                             info!("SSE stream ended; reconnecting immediately");
