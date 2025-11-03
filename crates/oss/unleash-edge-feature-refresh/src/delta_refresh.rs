@@ -35,6 +35,7 @@ use crate::{TokenRefreshSet, TokenRefreshStatus, client_application_from_token_a
 pub type Environment = String;
 
 const DELTA_CACHE_LIMIT: usize = 100;
+const SDK_TYPE_HEADER: &str = "Unleash-Sdk-Type";
 
 type SseStream = Pin<
     Box<
@@ -66,6 +67,7 @@ fn build_sse_stream(
             UNLEASH_INSTANCE_ID_HEADER,
             &client_meta_information.instance_id.to_string(),
         )?
+        .header(SDK_TYPE_HEADER, "edge")?
         .header(
             UNLEASH_CONNECTION_ID_HEADER,
             &client_meta_information.connection_id.to_string(),
@@ -179,6 +181,13 @@ async fn run_stream_task(
                             handle_sse(sse, &delta_refresher, &token).await;
                         }
                         Some(Err(e)) => {
+                            if let eventsource_client::Error::UnexpectedResponse(response, _) = &e {
+                                if response.status() == StatusCode::UNAUTHORIZED || response.status() == StatusCode::FORBIDDEN {
+                                    warn!("SSE stream received unauthorized or forbidden response; stopping stream task");
+                                    return;
+                                }
+                            }
+
                             info!("SSE stream error: {e:?}; reconnecting immediately");
                             stream = None;
                             continue;
