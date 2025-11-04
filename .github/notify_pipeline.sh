@@ -17,7 +17,7 @@ function generate_buildinfo() {
         "id": "${self_git_sha}"
       }
     ],
-    "project": "unleash-edge",
+    "project": "${PROJECT}",
     "trigger": {
       "type": "commit",
       "source": "Unleash/unleash-edge",

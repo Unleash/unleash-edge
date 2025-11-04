@@ -90,4 +90,11 @@ jobs:
         run: |
           bash ./.github/notify_pipeline.sh
         env:
+          PROJECT: "unleash-edge"
           DOCKER_IMAGE: "726824350591.dkr.ecr.eu-north-1.amazonaws.com/unleash-edge"
+      - name: Send to enterprise pipeline
+        run: |
+          bash ./.github/notify_pipeline.sh
+        env:
+          PROJECT: "unleash-edge-enterprise"
+          DOCKER_IMAGE: "726824350591.dkr.ecr.eu-north-1.amazonaws.com/unleash-edge-enterprise"
