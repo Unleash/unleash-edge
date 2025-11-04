@@ -20,7 +20,14 @@ permissions:
   contents: read
 jobs:
   docker:
+    name: Build docker image (${{ matrix.variant }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        variant:
+          - oss
+          - enterprise
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -37,12 +44,21 @@ jobs:
         if: github.event_name != 'pull_request'
       - name: Setup docker buildx
         uses: docker/setup-buildx-action@v3
+      - name: Configure image variant
+        run: |
+          if [ "${{ matrix.variant }}" = "enterprise" ]; then
+            echo "IMAGE_NAME=unleash-edge-enterprise" >> $GITHUB_ENV
+            echo "CACHE_SCOPE=build-linux-arm64-ecr-enterprise" >> $GITHUB_ENV
+          else
+            echo "IMAGE_NAME=unleash-edge" >> $GITHUB_ENV
+            echo "CACHE_SCOPE=build-linux-arm64-ecr" >> $GITHUB_ENV
+          fi
       - name: Docker meta configuration (set image and tag)
         uses: docker/metadata-action@v5
         id: meta
         with:
           images: |
-            ${{ steps.login-ecr-eu-north.outputs.registry }}/unleash-edge
+            ${{ steps.login-ecr-eu-north.outputs.registry }}/${{ env.IMAGE_NAME }}
           tags: |
             type=ref,event=branch
             type=sha
@@ -56,8 +72,11 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           labels: ${{ steps.meta.outputs.labels }}
           tags: ${{ steps.meta.outputs.tags }}
-          cache-from: "type=gha,scope=build-linux-arm64-ecr"
-          cache-to: "type=gha,scope=build-linux-arm64-ecr"
+          cache-from: |
+            type=gha,scope=${{ env.CACHE_SCOPE }}
+          cache-to: |
+            type=gha,scope=${{ env.CACHE_SCOPE }}
+          build-args: ${{ matrix.variant == 'enterprise' && 'CARGO_FEATURES=enterprise' || '' }}
 
   notifypipeline:
     runs-on: ubuntu-latest
