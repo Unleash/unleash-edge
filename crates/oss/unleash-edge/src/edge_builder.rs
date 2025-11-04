@@ -698,11 +698,16 @@ pub async fn resolve_license(
         )
         .await
     {
-        Ok(license) => Ok(license),
+        Ok(license) => {
+            if let Some(persistence) = persistence {
+                let _ = persistence.save_license_state(&license).await;
+            }
+            Ok(license)
+        }
 
         Err(_) => {
-            if let Some(p) = persistence {
-                p.load_license_state().await.map_err(|_| {
+            if let Some(persistence) = persistence {
+                persistence.load_license_state().await.map_err(|_| {
                     EdgeError::HeartbeatError(
                         "Could not load license from either persistence or API".into(),
                         StatusCode::SERVICE_UNAVAILABLE,
