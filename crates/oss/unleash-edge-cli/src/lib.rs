@@ -219,13 +219,13 @@ pub struct EdgeArgs {
     pub s3: Option<S3Args>,
 
     #[cfg(feature = "enterprise")]
-    /// If set to true, Edge connects to upstream using streaming instead of polling. This is an experimental feature and may change. Changes to this feature may not follow semantic versioning.
-    #[clap(long, env, default_value_t = false, hide = true)]
+    /// If set to true, Edge connects to upstream using streaming instead of polling. This is an experimental feature and may change.
+    #[clap(long, env, default_value_t = false)]
     pub streaming: bool,
 
     #[cfg(feature = "enterprise")]
-    /// If set to true, Edge connects to upstream using delta polling instead of normal polling. This is an experimental feature and may change. Changes to this feature may not follow semantic versioning.
-    #[clap(long, env, default_value_t = false, hide = true)]
+    /// If set to true, Edge connects to upstream using delta polling instead of normal polling. This is an experimental feature and may change.
+    #[clap(long, env, default_value_t = false)]
     pub delta: bool,
 
     /// If set to true, Edge will track and report consumption metrics. This is an experimental feature and may change. Changes to this feature may not follow semantic versioning.
