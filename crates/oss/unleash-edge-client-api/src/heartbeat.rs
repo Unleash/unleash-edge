@@ -188,7 +188,7 @@ mod tests {
         let token =
             EdgeToken::from_str("*:development.abc123def").expect("Failed to build edge token");
 
-        // build the the upstream server, we're using this to ensure that our responses get forwarded correctly
+        // build the upstream server, we're using this to ensure that our responses get forwarded correctly
         let (seen_tx, seen_rx) = oneshot::channel::<Ulid>();
         let seen_tx = std::sync::Arc::new(std::sync::Mutex::new(Some(seen_tx)));
         let seen_tx_clone = seen_tx.clone();

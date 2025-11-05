@@ -4,6 +4,7 @@ mod tests {
     use async_trait::async_trait;
     use axum::Json;
     use axum::extract::State;
+    use axum::http::StatusCode;
     use axum::routing::post;
     use axum::{Router, response::IntoResponse};
     use axum_test::TestServer;
@@ -68,19 +69,18 @@ mod tests {
         }
 
         async fn heartbeat(State(s): State<MockState>) -> impl IntoResponse {
-            if s.license_result.is_err() {
-                return (
-                    axum::http::StatusCode::FORBIDDEN,
+            match s.license_result {
+                Ok(license_state) => (
+                    StatusCode::ACCEPTED,
+                    Json(json!({
+                        "edgeLicenseState": license_state
+                    })),
+                ),
+                Err(_) => (
+                    StatusCode::FORBIDDEN,
                     Json(json!({"message": "License verification failed"})),
-                );
+                ),
             }
-
-            (
-                axum::http::StatusCode::ACCEPTED,
-                Json(json!({
-                    "edgeLicenseState": s.license_result.unwrap_or(LicenseState::Invalid)
-                })),
-            )
         }
 
         async fn validate_all_tokens() -> impl IntoResponse {

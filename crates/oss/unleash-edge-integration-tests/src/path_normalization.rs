@@ -6,7 +6,7 @@ mod tests {
     use hyper::StatusCode;
     use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
     use tower::ServiceBuilder;
-    use tower_http::normalize_path::NormalizePathLayer;
+    use unleash_edge::middleware::trim_multiple_and_trailing_slashes::NormalizePathFullLayer;
     use unleash_edge_cli::CliArgs;
     #[tokio::test]
     async fn normalizes_paths() {
@@ -25,7 +25,7 @@ mod tests {
             .await
             .expect("Failed to configure server");
         let svc = ServiceBuilder::new()
-            .layer(NormalizePathLayer::trim_trailing_slash())
+            .layer(NormalizePathFullLayer)
             .layer(MockConnectInfo(SocketAddr::V4(SocketAddrV4::new(
                 Ipv4Addr::new(127, 0, 0, 1),
                 1337,
@@ -49,5 +49,10 @@ mod tests {
             .add_header("Authorization", "[]:development.secret-token")
             .await
             .assert_status(StatusCode::OK);
+        srv.post("/api/frontend//client/metrics")
+            .add_header("Authorization", "[]:development.secret-token")
+            .add_header("Content-Type", "application/json")
+            .await
+            .assert_status(StatusCode::BAD_REQUEST) // Not 404
     }
 }
