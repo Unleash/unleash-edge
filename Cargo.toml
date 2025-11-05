@@ -62,6 +62,7 @@ prometheus-reqwest-remote-write = { version = "0.4.0" }
 proptest = { version = "1.9.0" }
 rand = "0.9.2"
 redis = { version = "0.32.7", features = ["tokio-rustls-comp", "cluster"] }
+regex = { version = "1.12.2" }
 reqwest = { version = "0.12.24", default-features = false, features = ["rustls-tls", "json", "stream"] }
 rustls = { version = "0.23.35", default-features = false, features = ["ring"] }
 rustls-pemfile = { version = "2.2.0" }
@@ -91,7 +92,7 @@ unleash-edge-cli = { path = "./crates/oss/unleash-edge-cli", version = "20.1.1" 
 unleash-edge-client-api = { path = "./crates/oss/unleash-edge-client-api", version = "20.1.1" }
 unleash-edge-delta = { path = "./crates/enterprise/unleash-edge-delta", version = "20.1.1" }
 unleash-edge-edge-api = { path = "./crates/oss/unleash-edge-edge-api", version = "20.1.1" }
-unleash-edge-enterprise = {path = "./crates/enterprise/unleash-edge-enterprise", version = "20.1.1" }
+unleash-edge-enterprise = { path = "./crates/enterprise/unleash-edge-enterprise", version = "20.1.1" }
 unleash-edge-feature-cache = { path = "./crates/oss/unleash-edge-feature-cache", version = "20.1.1" }
 unleash-edge-feature-filters = { path = "./crates/oss/unleash-edge-feature-filters", version = "20.1.1" }
 unleash-edge-feature-refresh = { path = "./crates/oss/unleash-edge-feature-refresh", version = "20.1.1" }

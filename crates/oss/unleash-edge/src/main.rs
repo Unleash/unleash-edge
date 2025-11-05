@@ -20,11 +20,11 @@ use tokio::signal;
 use tokio::signal::unix::{SignalKind, signal};
 use tokio::try_join;
 use tower::{ServiceBuilder, ServiceExt as TowerServiceExt};
-use tower_http::normalize_path::NormalizePathLayer;
 use tracing::info;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use unleash_edge::configure_server;
+use unleash_edge::middleware::trim_multiple_and_trailing_slashes::NormalizePathFullLayer;
 use unleash_edge_cli::{CliArgs, EdgeMode};
 use unleash_edge_types::{BackgroundTask, EdgeResult};
 
@@ -111,7 +111,7 @@ fn make_listener(addr: SocketAddr) -> std::io::Result<TcpListener> {
 async fn run_server(args: CliArgs) -> EdgeResult<()> {
     let (router, shutdown_tasks) = configure_server(args.clone()).await?;
     let svc = ServiceBuilder::new()
-        .layer(NormalizePathLayer::trim_trailing_slash())
+        .layer(NormalizePathFullLayer)
         .service(router)
         .map_request(|req: Request<hyper::body::Incoming>| {
             let (parts, incoming) = req.into_parts();

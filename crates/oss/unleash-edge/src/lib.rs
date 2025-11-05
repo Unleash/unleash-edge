@@ -30,7 +30,7 @@ use unleash_edge_types::{BackgroundTask, EdgeResult, EngineCache, TokenCache};
 
 pub mod edge_builder;
 pub mod health_checker;
-mod middleware;
+pub mod middleware;
 pub mod offline_builder;
 pub mod ready_checker;
 pub mod tls;
