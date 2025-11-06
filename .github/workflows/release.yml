@@ -295,8 +295,9 @@ jobs:
           submodules: recursive
   uploadsbom:
     needs:
+      - plan
       - host
     if: ${{ always() && needs.host.result == 'success' }}
     uses: ./.github/workflows/generate-sbom.yml
     with:
-      tag: ${{ github.ref_name }}
+      tag: ${{ needs.plan.outputs.tag }}
