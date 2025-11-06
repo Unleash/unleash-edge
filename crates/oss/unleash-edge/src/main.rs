@@ -7,8 +7,8 @@ use axum_extra::extract::Host;
 use axum_server::Handle;
 use clap::Parser;
 use futures::future::join_all;
-use http::uri::Authority;
 use http::Uri;
+use http::uri::Authority;
 use http_body_util::BodyExt;
 use hyper_util::rt::TokioTimer;
 use socket2::{Domain, Protocol, Socket, Type};
@@ -17,7 +17,7 @@ use std::pin::pin;
 use std::time::Duration;
 use tokio::signal;
 #[cfg(unix)]
-use tokio::signal::unix::{signal, SignalKind};
+use tokio::signal::unix::{SignalKind, signal};
 use tokio::try_join;
 use tower::{ServiceBuilder, ServiceExt as TowerServiceExt};
 use tracing::info;
