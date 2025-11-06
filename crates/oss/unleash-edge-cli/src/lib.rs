@@ -597,7 +597,7 @@ pub struct HttpServerArgs {
     /// Which port should this server listen for HTTP traffic on
     #[clap(short, long, env, default_value_t = 3063)]
     pub port: u16,
-    /// Which interfaces should this server listen for HTTP traffic on. Listens on "::" by default dual stack
+    /// Which interface should this server listen for HTTP traffic on. Listens on "::" by default for dual stack
     #[clap(short, long, env, default_value = "::")]
     pub interface: String,
     /// Which base path should this server listen for HTTP traffic on
