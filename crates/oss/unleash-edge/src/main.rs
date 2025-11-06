@@ -105,9 +105,33 @@ fn make_listener(bind_ip: IpAddr, port: u16) -> EdgeResult<StdTcpListener> {
     };
 
     // Nonblocking stream socket
-    let socket = Socket::new(domain, Type::STREAM.nonblocking(), Some(Protocol::TCP))
-        .map_err(|e| EdgeError::SocketBindError(e.to_string()))?;
+    #[cfg(any(
+        target_os = "android",
+        target_os = "dragonfly",
+        target_os = "freebsd",
+        target_os = "fuchsia",
+        target_os = "illumos",
+        target_os = "linux",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "cygwin",
+    ))]
+    let socket = Socket::new(domain, Type::STREAM.nonblocking(), Some(Protocol::TCP));
+    #[cfg(not(any(
+        target_os = "android",
+        target_os = "dragonfly",
+        target_os = "freebsd",
+        target_os = "fuchsia",
+        target_os = "illumos",
+        target_os = "linux",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "cygwin",
+    )))]
+    let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP));
     // Reuse addr/port is usually convenient for restarts.
+    let socket = socket.map_err(|e| EdgeError::SocketBindError(e.to_string()))?;
+
     let _ = socket.set_reuse_address(true);
     #[cfg(any(
         target_os = "linux",
