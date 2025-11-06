@@ -5,7 +5,7 @@ use cidr::{Ipv4Cidr, Ipv6Cidr};
 use clap::{ArgGroup, Args, Parser, Subcommand, ValueEnum};
 use ipnet::IpNet;
 use std::fmt::{Display, Formatter};
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4};
+use std::net::IpAddr;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
@@ -597,8 +597,8 @@ pub struct HttpServerArgs {
     /// Which port should this server listen for HTTP traffic on
     #[clap(short, long, env, default_value_t = 3063)]
     pub port: u16,
-    /// Which interfaces should this server listen for HTTP traffic on
-    #[clap(short, long, env, default_value = "0.0.0.0")]
+    /// Which interface should this server listen for HTTP traffic on. Listens on "::" by default for dual-stack
+    #[clap(short, long, env, default_value = "::")]
     pub interface: String,
     /// Which base path should this server listen for HTTP traffic on
     #[clap(long, env, default_value = "", global = true)]
@@ -700,20 +700,15 @@ impl HttpServerArgs {
     pub fn https_server_tuple(&self) -> (String, u16) {
         (self.interface.clone(), self.tls.tls_server_port)
     }
-    pub fn https_server_socket(&self) -> SocketAddr {
-        SocketAddr::V4(SocketAddrV4::new(
-            Ipv4Addr::from_str(&self.interface.clone()).unwrap(),
-            self.tls.tls_server_port,
-        ))
-    }
+
     pub fn https_server_addr(&self) -> String {
         format!("{}:{}", self.interface.clone(), self.tls.tls_server_port)
     }
-    pub fn http_server_socket(&self) -> SocketAddr {
-        SocketAddr::V4(SocketAddrV4::new(
-            Ipv4Addr::from_str(&self.interface.clone()).unwrap(),
-            self.port,
-        ))
+
+    pub fn ip_addr(&self) -> Result<IpAddr, String> {
+        self.interface
+            .parse()
+            .map_err(|e| format!("Invalid IP address '{}': {}", self.interface, e))
     }
 }
 
@@ -723,6 +718,7 @@ mod tests {
     use axum::http;
     use clap::Parser;
     use ipnet::IpNet;
+    use std::net::IpAddr;
     use std::str::FromStr;
     use tracing::info;
     use tracing_test::traced_test;
@@ -1247,5 +1243,22 @@ mod tests {
         ];
         let args = CliArgs::try_parse_from(args);
         assert!(args.is_ok());
+    }
+
+    #[test]
+    pub fn understand_ip_addr() {
+        let dual: IpAddr = "::".parse().unwrap();
+        let ipv4: IpAddr = "0.0.0.0".parse().unwrap();
+        let specific_ipv4: IpAddr = "127.0.0.1".parse().unwrap();
+        let ipv6: IpAddr = "::1".parse().unwrap();
+        assert!(dual.is_unspecified());
+        assert!(dual.is_ipv6());
+        assert!(ipv4.is_ipv4());
+        assert!(ipv4.is_unspecified());
+        assert!(!ipv4.is_ipv6());
+        assert!(ipv6.is_ipv6());
+        assert!(!ipv6.is_ipv4());
+        assert!(!ipv6.is_unspecified());
+        assert!(!specific_ipv4.is_unspecified());
     }
 }
