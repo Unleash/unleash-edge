@@ -7,8 +7,8 @@ use axum_extra::extract::Host;
 use axum_server::Handle;
 use clap::Parser;
 use futures::future::join_all;
-use http::Uri;
 use http::uri::Authority;
+use http::Uri;
 use http_body_util::BodyExt;
 use hyper_util::rt::TokioTimer;
 use socket2::{Domain, Protocol, Socket, Type};
@@ -17,7 +17,7 @@ use std::pin::pin;
 use std::time::Duration;
 use tokio::signal;
 #[cfg(unix)]
-use tokio::signal::unix::{SignalKind, signal};
+use tokio::signal::unix::{signal, SignalKind};
 use tokio::try_join;
 use tower::{ServiceBuilder, ServiceExt as TowerServiceExt};
 use tracing::info;
@@ -104,34 +104,8 @@ fn make_listener(bind_ip: IpAddr, port: u16) -> EdgeResult<StdTcpListener> {
         IpAddr::V6(ip) => (Domain::IPV6, SocketAddr::new(IpAddr::V6(ip), port)),
     };
 
-    // Nonblocking stream socket
-    #[cfg(any(
-        target_os = "android",
-        target_os = "dragonfly",
-        target_os = "freebsd",
-        target_os = "fuchsia",
-        target_os = "illumos",
-        target_os = "linux",
-        target_os = "netbsd",
-        target_os = "openbsd",
-        target_os = "cygwin",
-    ))]
-    let socket = Socket::new(domain, Type::STREAM.nonblocking(), Some(Protocol::TCP));
-    #[cfg(not(any(
-        target_os = "android",
-        target_os = "dragonfly",
-        target_os = "freebsd",
-        target_os = "fuchsia",
-        target_os = "illumos",
-        target_os = "linux",
-        target_os = "netbsd",
-        target_os = "openbsd",
-        target_os = "cygwin",
-    )))]
-    let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP));
-    let socket = socket.map_err(|e| EdgeError::SocketBindError(e.to_string()))?;
-
-    // Reuse addr/port is usually convenient for restarts.
+    let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))
+        .map_err(|e| EdgeError::SocketBindError(e.to_string()))?;
     let _ = socket.set_reuse_address(true);
     #[cfg(any(
         target_os = "linux",
@@ -142,7 +116,7 @@ fn make_listener(bind_ip: IpAddr, port: u16) -> EdgeResult<StdTcpListener> {
         target_os = "macos"
     ))]
     let _ = socket.set_reuse_port(true);
-
+    let _ = socket.set_nonblocking(true);
     // If the user asked for "::" specifically, make it dual-stack (v4mapped) when possible.
     if let IpAddr::V6(ipv6) = bind_ip {
         let _ = socket.set_only_v6(!ipv6.is_unspecified());
@@ -154,7 +128,6 @@ fn make_listener(bind_ip: IpAddr, port: u16) -> EdgeResult<StdTcpListener> {
     socket
         .listen(1024)
         .map_err(|e| EdgeError::SocketBindError(e.to_string()))?;
-
     Ok(socket.into())
 }
 
