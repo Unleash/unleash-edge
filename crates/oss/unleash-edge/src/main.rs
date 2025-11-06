@@ -130,9 +130,7 @@ fn make_listener(bind_ip: IpAddr, port: u16) -> std::io::Result<StdTcpListener> 
 
     socket.bind(&sock_addr.into())?;
     socket.listen(1024)?;
-    let std_listener: StdTcpListener = socket.into();
-    std_listener.set_nonblocking(true)?;
-    Ok(std_listener)
+    Ok(socket.into())
 }
 
 async fn run_server(args: CliArgs) -> EdgeResult<()> {
