@@ -705,8 +705,8 @@ impl HttpServerArgs {
         format!("{}:{}", self.interface.clone(), self.tls.tls_server_port)
     }
 
-    pub fn ip_addr(&self) -> IpAddr {
-        self.interface.parse().unwrap()
+    pub fn ip_addr(&self) -> Result<IpAddr, String> {
+        self.interface.parse().map_err(|e| format!("Invalid IP address '{}': {}", self.interface, e))
     }
 }
 
