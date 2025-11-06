@@ -129,9 +129,9 @@ fn make_listener(bind_ip: IpAddr, port: u16) -> EdgeResult<StdTcpListener> {
         target_os = "cygwin",
     )))]
     let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP));
-    // Reuse addr/port is usually convenient for restarts.
     let socket = socket.map_err(|e| EdgeError::SocketBindError(e.to_string()))?;
 
+    // Reuse addr/port is usually convenient for restarts.
     let _ = socket.set_reuse_address(true);
     #[cfg(any(
         target_os = "linux",
