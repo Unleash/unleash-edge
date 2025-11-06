@@ -98,14 +98,15 @@ const H1_HEADER_TIMEOUT: Duration = Duration::from_secs(15); // protects against
 const KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(20);
 const KEEP_ALIVE_TIMEOUT: Duration = Duration::from_secs(20);
 
-fn make_listener(bind_ip: IpAddr, port: u16) -> std::io::Result<StdTcpListener> {
+fn make_listener(bind_ip: IpAddr, port: u16) -> EdgeResult<StdTcpListener> {
     let (domain, sock_addr) = match bind_ip {
         IpAddr::V4(ip) => (Domain::IPV4, SocketAddr::new(IpAddr::V4(ip), port)),
         IpAddr::V6(ip) => (Domain::IPV6, SocketAddr::new(IpAddr::V6(ip), port)),
     };
 
     // Nonblocking stream socket
-    let socket = Socket::new(domain, Type::STREAM.nonblocking(), Some(Protocol::TCP))?;
+    let socket = Socket::new(domain, Type::STREAM.nonblocking(), Some(Protocol::TCP))
+        .map_err(|e| EdgeError::SocketBindError(e.to_string()))?;
     // Reuse addr/port is usually convenient for restarts.
     let _ = socket.set_reuse_address(true);
     #[cfg(any(
@@ -120,17 +121,16 @@ fn make_listener(bind_ip: IpAddr, port: u16) -> std::io::Result<StdTcpListener> 
 
     // If the user asked for "::" specifically, make it dual-stack (v4mapped) when possible.
     if let IpAddr::V6(ipv6) = bind_ip {
-        if ipv6.is_unspecified() {
-            // On Windows and BSD/macOS, IPV6_V6ONLY defaults to true; turn it off for dual-stack.
-            let _ = socket.set_only_v6(false);
-        } else {
-            // Binding a specific v6 address: keep v6-only (safer/expected).
-            let _ = socket.set_only_v6(true);
-        }
+        let _ = socket.set_only_v6(!ipv6.is_unspecified());
     }
 
-    socket.bind(&sock_addr.into())?;
-    socket.listen(1024)?;
+    socket
+        .bind(&sock_addr.into())
+        .map_err(|e| EdgeError::SocketBindError(e.to_string()))?;
+    socket
+        .listen(1024)
+        .map_err(|e| EdgeError::SocketBindError(e.to_string()))?;
+
     Ok(socket.into())
 }
 
@@ -172,14 +172,12 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
                         https_port: args.http.tls.tls_server_port,
                     });
             let ip_addr = args.http.ip_addr().map_err(EdgeError::InvalidServerUrl)?;
-            let http_listener =
-                make_listener(ip_addr, args.http.port).expect("Failed to bind HTTP socket");
+            let http_listener = make_listener(ip_addr, args.http.port)?;
             let http = axum_server::from_tcp(http_listener)
                 .handle(http_handle)
                 .serve(http_redirect_app.into_make_service());
 
-            let https_listener = make_listener(ip_addr, args.http.tls.tls_server_port)
-                .expect("Failed to bind tls socket");
+            let https_listener = make_listener(ip_addr, args.http.tls.tls_server_port)?;
             let mut builder =
                 axum_server::from_tcp_rustls(https_listener, config).handle(https_handle.clone());
             let https_builder = builder.http_builder();
@@ -197,8 +195,7 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
             _ = try_join!(http, https);
         } else {
             let ip_addr = args.http.ip_addr().map_err(EdgeError::InvalidServerUrl)?;
-            let https_listener = make_listener(ip_addr, args.http.tls.tls_server_port)
-                .expect("Failed to bind tls socket");
+            let https_listener = make_listener(ip_addr, args.http.tls.tls_server_port)?;
             let mut builder =
                 axum_server::from_tcp_rustls(https_listener, config).handle(https_handle.clone());
             let https_builder = builder.http_builder();
@@ -228,8 +225,7 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
             http_handle_clone.graceful_shutdown(Some(Duration::from_secs(10)));
         });
         let ip_addr = args.http.ip_addr().map_err(EdgeError::InvalidServerUrl)?;
-        let http_listener =
-            make_listener(ip_addr, args.http.port).expect("Failed to bind HTTP socket");
+        let http_listener = make_listener(ip_addr, args.http.port)?;
         let mut builder = axum_server::from_tcp(http_listener).handle(handle);
         let http_builder = builder.http_builder();
         http_builder
