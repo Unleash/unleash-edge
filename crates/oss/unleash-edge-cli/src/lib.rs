@@ -12,7 +12,7 @@ use std::time::Duration;
 use tower_http::cors::{AllowHeaders, AllowMethods, AllowOrigin, CorsLayer, ExposeHeaders, MaxAge};
 use unleash_edge_types::errors::{EdgeError, TRUST_PROXY_PARSE_ERROR};
 use unleash_edge_types::metrics::instance_data::Hosting;
-use unleash_edge_types::{tokens::parse_trusted_token_pair, tokens::EdgeToken};
+use unleash_edge_types::{tokens::EdgeToken, tokens::parse_trusted_token_pair};
 
 #[derive(Subcommand, Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
@@ -706,7 +706,9 @@ impl HttpServerArgs {
     }
 
     pub fn ip_addr(&self) -> Result<IpAddr, String> {
-        self.interface.parse().map_err(|e| format!("Invalid IP address '{}': {}", self.interface, e))
+        self.interface
+            .parse()
+            .map_err(|e| format!("Invalid IP address '{}': {}", self.interface, e))
     }
 }
 

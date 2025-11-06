@@ -7,8 +7,8 @@ use axum_extra::extract::Host;
 use axum_server::Handle;
 use clap::Parser;
 use futures::future::join_all;
-use http::uri::Authority;
 use http::Uri;
+use http::uri::Authority;
 use http_body_util::BodyExt;
 use hyper_util::rt::TokioTimer;
 use socket2::{Domain, Protocol, Socket, Type};
@@ -17,7 +17,7 @@ use std::pin::pin;
 use std::time::Duration;
 use tokio::signal;
 #[cfg(unix)]
-use tokio::signal::unix::{signal, SignalKind};
+use tokio::signal::unix::{SignalKind, signal};
 use tokio::try_join;
 use tower::{ServiceBuilder, ServiceExt as TowerServiceExt};
 use tracing::info;
@@ -26,6 +26,7 @@ use tracing_subscriber::util::SubscriberInitExt;
 use unleash_edge::configure_server;
 use unleash_edge::middleware::trim_multiple_and_trailing_slashes::NormalizePathFullLayer;
 use unleash_edge_cli::{CliArgs, EdgeMode};
+use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::{BackgroundTask, EdgeResult};
 
 async fn shutdown_signal(
@@ -170,13 +171,14 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
                     .with_state(HttpAppCfg {
                         https_port: args.http.tls.tls_server_port,
                     });
-            let http_listener = make_listener(args.http.ip_addr(), args.http.port)
-                .expect("Failed to bind HTTP socket");
+            let ip_addr = args.http.ip_addr().map_err(EdgeError::InvalidServerUrl)?;
+            let http_listener =
+                make_listener(ip_addr, args.http.port).expect("Failed to bind HTTP socket");
             let http = axum_server::from_tcp(http_listener)
                 .handle(http_handle)
                 .serve(http_redirect_app.into_make_service());
 
-            let https_listener = make_listener(args.http.ip_addr(), args.http.tls.tls_server_port)
+            let https_listener = make_listener(ip_addr, args.http.tls.tls_server_port)
                 .expect("Failed to bind tls socket");
             let mut builder =
                 axum_server::from_tcp_rustls(https_listener, config).handle(https_handle.clone());
@@ -194,7 +196,8 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
             let https = builder.serve(server.clone());
             _ = try_join!(http, https);
         } else {
-            let https_listener = make_listener(args.http.ip_addr(), args.http.tls.tls_server_port)
+            let ip_addr = args.http.ip_addr().map_err(EdgeError::InvalidServerUrl)?;
+            let https_listener = make_listener(ip_addr, args.http.tls.tls_server_port)
                 .expect("Failed to bind tls socket");
             let mut builder =
                 axum_server::from_tcp_rustls(https_listener, config).handle(https_handle.clone());
@@ -224,8 +227,9 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
             let _ = shutdown_fut.await;
             http_handle_clone.graceful_shutdown(Some(Duration::from_secs(10)));
         });
+        let ip_addr = args.http.ip_addr().map_err(EdgeError::InvalidServerUrl)?;
         let http_listener =
-            make_listener(args.http.ip_addr(), args.http.port).expect("Failed to bind HTTP socket");
+            make_listener(ip_addr, args.http.port).expect("Failed to bind HTTP socket");
         let mut builder = axum_server::from_tcp(http_listener).handle(handle);
         let http_builder = builder.http_builder();
         http_builder
