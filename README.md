@@ -51,7 +51,7 @@ docker run -it -p 3063:3063 -e UPSTREAM_URL=<your_unleash_instance> -e TOKENS=<y
 For example:
 
 ```shell
-docker run -it -p 3063:3063 -e UPSTREAM_URL=https://app.unleash-hosted.com/testclient -e TOKENS='*:development.4a798ad11cde8c0e637ff19f3287683ebc21d23d607c641f2dd79daa54' unleashorg/unleash-edge:v19.6.2 edge
+docker run -it -p 3063:3063 -e UPSTREAM_URL=https://app.unleash-hosted.com/testclient -e TOKENS='*:development.4a798ad11cde8c0e637ff19f3287683ebc21d23d607c641f2dd79daa54' unleashorg/unleash-edge:<version> edge
 ```
 
 ## Versioning and availability
@@ -103,12 +103,21 @@ Once Edge is up and running, your SDKs should connect to EDGE_URL/api.
 ### Tokens in edge mode
 
 Edge requires tokens at startup and refuses requests from SDKs that have a wider or different access scope than the
-initial tokens. Incoming requests must have a token that exactly matches the environment and projects specified in the
-initial tokens.
+initial tokens. Incoming requests must have a token that exactly matches the environment, as well as no projects not
+specified in the initial tokens.
+
+So if your token `[]:development.<somesecret>` only had access to `projecta` and `projectb` and you try to access Edge
+with `projectc:development.<somesecret>` Edge will reject the request.
+Same will happen if the incoming request uses a different environment, e.g. `[].production.<somesecret>`.
 
 For example, if you start Edge with a wildcard token with access to the development environment (
 `*:development.<some_token_string>`) and your clients use various tokens with access to specific projects in the
 development environment, Edge filters features to only grant access to the narrower scope.
+
+Use:
+
+- `TOKENS` environment variable
+- `--tokens` CLI flag
 
 ### Client and frontend tokens in offline mode
 
