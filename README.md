@@ -107,7 +107,7 @@ initial tokens. Incoming requests must have a token that exactly matches the env
 specified in the initial tokens.
 
 For example, if your token `[]:development.<somesecret>` only had access to `project-a` and `project-b` and you try to access Edge
-with `projectc:development.<somesecret>` Edge will reject the request.
+with `project-c:development.<somesecret>` Edge will reject the request.
 Same will happen if the incoming request uses a different environment, e.g. `*:production.<somesecret>`.
 
 For example, if you start Edge with a wildcard token with access to the development environment (
