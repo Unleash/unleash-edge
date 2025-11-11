@@ -108,7 +108,7 @@ specified in the initial tokens.
 
 So if your token `[]:development.<somesecret>` only had access to `projecta` and `projectb` and you try to access Edge
 with `projectc:development.<somesecret>` Edge will reject the request.
-Same will happen if the incoming request uses a different environment, e.g. `[].production.<somesecret>`.
+Same will happen if the incoming request uses a different environment, e.g. `*:production.<somesecret>`.
 
 For example, if you start Edge with a wildcard token with access to the development environment (
 `*:development.<some_token_string>`) and your clients use various tokens with access to specific projects in the
