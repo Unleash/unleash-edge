@@ -103,7 +103,7 @@ Once Edge is up and running, your SDKs should connect to EDGE_URL/api.
 ### Tokens in edge mode
 
 Edge requires tokens at startup and refuses requests from SDKs that have a wider or different access scope than the
-initial tokens. Incoming requests must have a token that exactly matches the environment, as well as no projects not
+initial tokens. Incoming requests must have a token that exactly matches the environment and project access
 specified in the initial tokens.
 
 So if your token `[]:development.<somesecret>` only had access to `projecta` and `projectb` and you try to access Edge
