@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.1.3](https://github.com/Unleash/unleash-edge/compare/unleash-edge-appstate-v20.1.2...unleash-edge-appstate-v20.1.3) - 2025-11-06
+
+### ⚙️ Miscellaneous Tasks
+- update Cargo.toml dependencies
+
 ## [20.1.2](https://github.com/Unleash/unleash-edge/compare/unleash-edge-appstate-v20.1.1...unleash-edge-appstate-v20.1.2) - 2025-11-05
 
 ### ⚙️ Miscellaneous Tasks
