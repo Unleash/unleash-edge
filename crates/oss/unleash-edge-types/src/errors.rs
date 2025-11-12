@@ -139,6 +139,7 @@ pub enum EdgeError {
     TlsError(String),
     TokenParseError(String),
     TokenValidationError(StatusCode),
+    SocketBindError(String),
 }
 
 impl Error for EdgeError {}
@@ -244,6 +245,9 @@ impl Display for EdgeError {
             EdgeError::SseError(message) => write!(f, "{}", message),
             EdgeError::Forbidden(reason) => write!(f, "{}", reason),
             EdgeError::InvalidEtag => write!(f, "Failed to parse ETag header"),
+            EdgeError::SocketBindError(msg) => {
+                write!(f, "Failed to configure listening socket {msg}")
+            }
         }
     }
 }
@@ -301,6 +305,7 @@ impl IntoResponse for EdgeError {
             EdgeError::InvalidEtag => Response::builder().status(self.status_code()).body(Body::from(json!({
                 "explanation": "Failed to parse ETag header"
             }).to_string())),
+            EdgeError::SocketBindError(_) => Response::builder().status(self.status_code()).body(Body::empty())
         }.expect("Failed to build response")
     }
 }
@@ -344,6 +349,7 @@ impl EdgeError {
             EdgeError::SseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::Forbidden(_) => StatusCode::FORBIDDEN,
             &EdgeError::InvalidEtag => StatusCode::BAD_REQUEST,
+            EdgeError::SocketBindError(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
 }
