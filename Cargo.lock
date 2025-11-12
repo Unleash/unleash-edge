@@ -5301,6 +5301,7 @@ dependencies = [
  "unleash-edge-delta",
  "unleash-edge-edge-api",
  "unleash-edge-enterprise",
+ "unleash-edge-enterprise-api",
  "unleash-edge-feature-cache",
  "unleash-edge-feature-refresh",
  "unleash-edge-frontend-api",
@@ -5471,6 +5472,27 @@ dependencies = [
  "unleash-edge-http-client",
  "unleash-edge-persistence",
  "unleash-edge-types",
+]
+
+[[package]]
+name = "unleash-edge-enterprise-api"
+version = "20.1.2"
+dependencies = [
+ "axum",
+ "axum-test",
+ "chrono",
+ "maplit",
+ "reqwest",
+ "serde",
+ "tokio",
+ "tracing",
+ "tracing-test",
+ "ulid",
+ "unleash-edge-appstate",
+ "unleash-edge-cli",
+ "unleash-edge-http-client",
+ "unleash-edge-types",
+ "utoipa",
 ]
 
 [[package]]
