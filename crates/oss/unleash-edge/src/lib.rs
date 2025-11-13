@@ -7,7 +7,7 @@ use axum::routing::get;
 use chrono::Duration;
 use unleash_edge_appstate::AppState;
 #[cfg(feature = "enterprise")]
-use unleash_edge_client_api::heartbeat;
+use unleash_edge_enterprise_api::heartbeat;
 
 use std::env;
 use std::sync::{Arc, LazyLock};
