@@ -31,7 +31,6 @@ where
         .merge(metrics::metrics_router_for::<S>())
         .merge(register::register_router_for::<S>())
         .merge(streaming::streaming_router_for::<S>())
-        .merge(heartbeat::heartbeat_router_for::<S>())
 }
 
 pub fn router() -> Router<AppState> {
@@ -41,5 +40,4 @@ pub fn router() -> Router<AppState> {
         .merge(metrics::router())
         .merge(register::router())
         .merge(streaming::router())
-        .merge(heartbeat::router())
 }

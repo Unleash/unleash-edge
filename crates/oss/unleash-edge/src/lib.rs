@@ -5,6 +5,9 @@ use axum::Router;
 use axum::middleware::{from_fn, from_fn_with_state};
 use axum::routing::get;
 use chrono::Duration;
+use unleash_edge_appstate::AppState;
+#[cfg(feature = "enterprise")]
+use unleash_edge_client_api::heartbeat;
 
 use std::env;
 use std::sync::{Arc, LazyLock};
@@ -102,7 +105,7 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
     }
 
     let api_router = Router::new()
-        .nest("/client", unleash_edge_client_api::router())
+        .nest("/client", build_edge_router())
         .merge(unleash_edge_frontend_api::router(args.disable_all_endpoint))
         .layer(
             ServiceBuilder::new()
@@ -166,4 +169,14 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
     };
 
     Ok((router_to_host, shutdown_tasks))
+}
+
+#[cfg(feature = "enterprise")]
+pub fn build_edge_router() -> Router<AppState> {
+    unleash_edge_client_api::router().merge(heartbeat::router())
+}
+
+#[cfg(not(feature = "enterprise"))]
+pub fn build_edge_router() -> Router<AppState> {
+    unleash_edge_client_api::router()
 }
