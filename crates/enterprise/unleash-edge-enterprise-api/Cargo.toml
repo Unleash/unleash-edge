@@ -1,0 +1,28 @@
+[package]
+name = "unleash-edge-enterprise-api"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+documentation.workspace = true
+edition.workspace = true
+publish = false
+license.workspace = true
+
+[dependencies]
+axum = { workspace = true }
+serde = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+unleash-edge-appstate = { workspace = true }
+unleash-edge-http-client = { workspace = true }
+unleash-edge-types = { workspace = true }
+ulid = { workspace = true }
+utoipa = { workspace = true }
+
+[dev-dependencies]
+chrono = { workspace = true }
+axum-test = { workspace = true }
+maplit = { workspace = true }
+reqwest = { workspace = true }
+tracing-test = { workspace = true }
+unleash-edge-cli = { workspace = true }

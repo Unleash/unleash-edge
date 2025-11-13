@@ -61,6 +61,7 @@ unleash-edge-client-api = { workspace = true }
 unleash-edge-delta = { workspace = true }
 unleash-edge-edge-api = { workspace = true }
 unleash-edge-enterprise = { workspace = true }
+unleash-edge-enterprise-api = { workspace = true }
 unleash-edge-feature-cache = { workspace = true }
 unleash-edge-feature-refresh = { workspace = true }
 unleash-edge-frontend-api = { workspace = true }
