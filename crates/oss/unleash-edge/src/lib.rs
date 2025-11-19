@@ -118,6 +118,10 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
                     app_state.clone(),
                     middleware::consumption::connection_consumption,
                 ))
+                .layer(from_fn_with_state(
+                    app_state.clone(),
+                    middleware::consumption::request_consumption,
+                ))
                 .layer(from_fn(middleware::etag::etag_middleware)),
         );
 
