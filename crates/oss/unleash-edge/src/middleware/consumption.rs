@@ -29,7 +29,7 @@ fn should_observe_connection_consumption(path: &str, status_code: u16) -> bool {
 }
 
 fn should_observe_request_consumption(path: &str, status_code: u16) -> bool {
-    let is_valid_path = path.starts_with("/api/frontend");
+    let is_valid_path = path.starts_with("/api/frontend") || path.starts_with("/api/proxy");
 
     is_valid_path && ((200..300).contains(&status_code) || status_code == 304)
 }
