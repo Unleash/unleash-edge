@@ -30,7 +30,7 @@ fn should_observe_connection_consumption(path: &str, status_code: StatusCode) ->
 }
 
 fn should_observe_request_consumption(path: &str, status_code: StatusCode) -> bool {
-    let is_valid_path = path.starts_with("/api/frontend") || path.starts_with("/api/proxy");
+    let is_valid_path = path.contains("/frontend") || path.contains("/proxy");
 
     is_valid_path && (status_code.is_success() || status_code == StatusCode::NOT_MODIFIED)
 }
