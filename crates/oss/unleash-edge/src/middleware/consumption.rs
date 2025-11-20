@@ -3,6 +3,7 @@ use std::sync::Arc;
 use axum::extract::{FromRef, Request, State};
 use axum::middleware::Next;
 use axum::response::Response;
+use http::StatusCode;
 use unleash_edge_appstate::AppState;
 use unleash_edge_types::headers::UNLEASH_INTERVAL;
 use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
@@ -20,18 +21,18 @@ impl FromRef<AppState> for ConsumptionState {
     }
 }
 
-fn should_observe_connection_consumption(path: &str, status_code: u16) -> bool {
+fn should_observe_connection_consumption(path: &str, status_code: StatusCode) -> bool {
     let is_valid_path = path.contains("client/features")
         || path.contains("client/delta")
         || path.contains("client/metrics");
 
-    is_valid_path && ((200..300).contains(&status_code) || status_code == 304)
+    is_valid_path && (status_code.is_success() || status_code == StatusCode::NOT_MODIFIED)
 }
 
-fn should_observe_request_consumption(path: &str, status_code: u16) -> bool {
+fn should_observe_request_consumption(path: &str, status_code: StatusCode) -> bool {
     let is_valid_path = path.starts_with("/api/frontend") || path.starts_with("/api/proxy");
 
-    is_valid_path && ((200..300).contains(&status_code) || status_code == 304)
+    is_valid_path && (status_code.is_success() || status_code == StatusCode::NOT_MODIFIED)
 }
 
 pub async fn connection_consumption(
@@ -55,8 +56,7 @@ pub async fn connection_consumption(
 
     let instance_data = state.edge_instance_data.clone();
     let res = next.run(req).await;
-    let status_code = res.status().as_u16();
-    if !should_observe_connection_consumption(path, status_code) {
+    if !should_observe_connection_consumption(path, res.status()) {
         return res;
     }
     instance_data.observe_connection_consumption(path, interval);
@@ -73,8 +73,7 @@ pub async fn request_consumption(
 
     let instance_data = state.edge_instance_data.clone();
     let res = next.run(req).await;
-    let status_code = res.status().as_u16();
-    if !should_observe_request_consumption(path, status_code) {
+    if !should_observe_request_consumption(path, res.status()) {
         return res;
     }
     instance_data.observe_request_consumption();
