@@ -71,3 +71,4 @@ url = { workspace = true }
 [dev-dependencies]
 axum-test = { workspace = true }
 tracing-test = { workspace = true }
+serde_json = { workspace = true }
