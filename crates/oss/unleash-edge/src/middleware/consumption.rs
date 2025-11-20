@@ -21,18 +21,36 @@ impl FromRef<AppState> for ConsumptionState {
     }
 }
 
-fn should_observe_connection_consumption(path: &str, status_code: StatusCode) -> bool {
-    let is_valid_path = path.contains("/client/features")
-        || path.contains("/client/delta")
-        || path.contains("/client/metrics");
+fn normalize_path(path: &str) -> &str {
+    path.strip_prefix("/api").unwrap_or(path)
+}
 
-    is_valid_path && (status_code.is_success() || status_code == StatusCode::NOT_MODIFIED)
+fn is_connection_consumption_path(path: &str) -> bool {
+    let path = normalize_path(path);
+
+    !(path.starts_with("/frontend") || path.starts_with("/proxy"))
+        && (path.starts_with("/client/features")
+            || path.starts_with("/client/delta")
+            || path.starts_with("/client/metrics"))
+}
+
+fn is_request_consumption_path(path: &str) -> bool {
+    let path = normalize_path(path);
+
+    !(path.starts_with("/client/features")
+        || path.starts_with("/client/delta")
+        || path.starts_with("/client/metrics"))
+        && (path.starts_with("/frontend") || path.starts_with("/proxy"))
+}
+
+fn should_observe_connection_consumption(path: &str, status_code: StatusCode) -> bool {
+    is_connection_consumption_path(path)
+        && (status_code.is_success() || status_code == StatusCode::NOT_MODIFIED)
 }
 
 fn should_observe_request_consumption(path: &str, status_code: StatusCode) -> bool {
-    let is_valid_path = path.contains("/frontend") || path.contains("/proxy");
-
-    is_valid_path && (status_code.is_success() || status_code == StatusCode::NOT_MODIFIED)
+    is_request_consumption_path(path)
+        && (status_code.is_success() || status_code == StatusCode::NOT_MODIFIED)
 }
 
 pub async fn connection_consumption(
@@ -42,9 +60,7 @@ pub async fn connection_consumption(
 ) -> Response {
     let url = req.uri().clone();
     let path = url.path();
-    let should_observe = path.contains("/client/features")
-        || path.contains("/client/delta")
-        || path.contains("/client/metrics");
+    let should_observe = is_connection_consumption_path(path);
     let interval = if should_observe {
         req.headers()
             .get(UNLEASH_INTERVAL)
@@ -196,6 +212,77 @@ mod tests {
             .expect("Failed to build test server");
 
         let response = server.get("/api/frontend/features").await;
+        assert_eq!(response.status_code(), StatusCode::OK);
+
+        let (feature_requests, metric_requests) = connection_totals(&edge_instance_data);
+        assert_eq!(feature_requests, 0);
+        assert_eq!(metric_requests, 0);
+        assert_eq!(frontend_requests(&edge_instance_data), 1);
+    }
+
+    #[tokio::test]
+    async fn test_no_consumption_on_invalid_path() {
+        let edge_instance_data = Arc::new(EdgeInstanceData::new(
+            "test",
+            &Ulid::new(),
+            Some(Hosting::SelfHosted),
+        ));
+        let app_state = ConsumptionState {
+            edge_instance_data: edge_instance_data.clone(),
+        };
+
+        let router = Router::new()
+            .route("/api/unknown/path", get(|| async { StatusCode::OK }))
+            .layer(from_fn_with_state(
+                app_state.clone(),
+                connection_consumption,
+            ))
+            .layer(from_fn_with_state(app_state.clone(), request_consumption))
+            .with_state(app_state);
+
+        let server = TestServer::builder()
+            .http_transport()
+            .build(router)
+            .expect("Failed to build test server");
+
+        let response = server.get("/api/unknown/path").await;
+        assert_eq!(response.status_code(), StatusCode::OK);
+
+        let (feature_requests, metric_requests) = connection_totals(&edge_instance_data);
+        assert_eq!(feature_requests, 0);
+        assert_eq!(metric_requests, 0);
+        assert_eq!(frontend_requests(&edge_instance_data), 0);
+    }
+
+    #[tokio::test]
+    async fn test_no_connection_consumption_on_frontend_client_metrics() {
+        let edge_instance_data = Arc::new(EdgeInstanceData::new(
+            "test",
+            &Ulid::new(),
+            Some(Hosting::SelfHosted),
+        ));
+        let app_state = ConsumptionState {
+            edge_instance_data: edge_instance_data.clone(),
+        };
+
+        let router = Router::new()
+            .route(
+                "/api/frontend/client/metrics",
+                get(|| async { StatusCode::OK }),
+            )
+            .layer(from_fn_with_state(
+                app_state.clone(),
+                connection_consumption,
+            ))
+            .layer(from_fn_with_state(app_state.clone(), request_consumption))
+            .with_state(app_state);
+
+        let server = TestServer::builder()
+            .http_transport()
+            .build(router)
+            .expect("Failed to build test server");
+
+        let response = server.get("/api/frontend/client/metrics").await;
         assert_eq!(response.status_code(), StatusCode::OK);
 
         let (feature_requests, metric_requests) = connection_totals(&edge_instance_data);
