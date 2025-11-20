@@ -42,9 +42,9 @@ pub async fn connection_consumption(
 ) -> Response {
     let url = req.uri().clone();
     let path = url.path();
-    let should_observe = path.contains("client/features")
-        || path.contains("client/delta")
-        || path.contains("client/metrics");
+    let should_observe = path.contains("/client/features")
+        || path.contains("/client/delta")
+        || path.contains("/client/metrics");
     let interval = if should_observe {
         req.headers()
             .get(UNLEASH_INTERVAL)
