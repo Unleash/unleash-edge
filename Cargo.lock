@@ -4803,7 +4803,7 @@ checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
 
 [[package]]
 name = "unleash-edge"
-version = "20.0.0"
+version = "20.0.1"
 dependencies = [
  "anyhow",
  "aws-config",
@@ -4829,7 +4829,7 @@ dependencies = [
  "rustls 0.23.32",
  "rustls-pemfile 2.2.0",
  "serde_json",
- "socket2 0.6.1",
+ "socket2 0.6.0",
  "tokio",
  "tokio-rustls 0.26.4",
  "tower",
@@ -4860,7 +4860,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-appstate"
-version = "20.0.0"
+version = "20.0.1"
 dependencies = [
  "axum",
  "dashmap",
@@ -4883,7 +4883,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-auth"
-version = "20.0.0"
+version = "20.0.1"
 dependencies = [
  "axum",
  "axum-test",
@@ -4904,7 +4904,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-backstage"
-version = "20.0.0"
+version = "20.0.1"
 dependencies = [
  "axum",
  "dashmap",
@@ -4926,7 +4926,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-cli"
-version = "20.0.0"
+version = "20.0.1"
 dependencies = [
  "axum",
  "cidr",
@@ -4946,7 +4946,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-client-api"
-version = "20.0.0"
+version = "20.0.1"
 dependencies = [
  "axum",
  "axum-test",
@@ -4975,7 +4975,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-delta"
-version = "20.0.0"
+version = "20.0.1"
 dependencies = [
  "dashmap",
  "prometheus",
@@ -4988,7 +4988,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-edge-api"
-version = "20.0.0"
+version = "20.0.1"
 dependencies = [
  "axum",
  "tokio",
@@ -5001,7 +5001,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-feature-cache"
-version = "20.0.0"
+version = "20.0.1"
 dependencies = [
  "dashmap",
  "tokio",
@@ -5011,7 +5011,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-feature-filters"
-version = "20.0.0"
+version = "20.0.1"
 dependencies = [
  "dashmap",
  "tracing",
@@ -5023,7 +5023,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-feature-refresh"
-version = "20.0.0"
+version = "20.0.1"
 dependencies = [
  "anyhow",
  "axum",
@@ -5053,7 +5053,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-frontend-api"
-version = "20.0.0"
+version = "20.0.1"
 dependencies = [
  "axum",
  "axum-test",
@@ -5077,7 +5077,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-http-client"
-version = "20.0.0"
+version = "20.0.1"
 dependencies = [
  "ahash",
  "axum",
@@ -5103,7 +5103,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-integration-tests"
-version = "20.0.0"
+version = "20.0.1"
 dependencies = [
  "axum",
  "axum-test",
@@ -5137,7 +5137,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-metrics"
-version = "20.0.0"
+version = "20.0.1"
 dependencies = [
  "axum",
  "axum-test",
@@ -5168,7 +5168,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-offline"
-version = "20.0.0"
+version = "20.0.1"
 dependencies = [
  "axum",
  "axum-test",
@@ -5191,7 +5191,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-persistence"
-version = "20.0.0"
+version = "20.0.1"
 dependencies = [
  "ahash",
  "async-trait",
@@ -5215,7 +5215,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-streaming"
-version = "20.0.0"
+version = "20.0.1"
 dependencies = [
  "anyhow",
  "axum",
@@ -5244,7 +5244,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-types"
-version = "20.0.0"
+version = "20.0.1"
 dependencies = [
  "ahash",
  "async-trait",
