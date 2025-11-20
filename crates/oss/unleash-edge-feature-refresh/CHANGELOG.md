@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.1.5](https://github.com/Unleash/unleash-edge/compare/unleash-edge-feature-refresh-v20.1.4...unleash-edge-feature-refresh-v20.1.5) - 2025-11-20
+
+### ⚙️ Miscellaneous Tasks
+- update Cargo.toml dependencies
+
 ## [20.1.4](https://github.com/Unleash/unleash-edge/compare/unleash-edge-feature-refresh-v20.1.3...unleash-edge-feature-refresh-v20.1.4) - 2025-11-13
 
 ### ⚙️ Miscellaneous Tasks
