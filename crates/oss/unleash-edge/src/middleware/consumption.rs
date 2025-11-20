@@ -22,9 +22,9 @@ impl FromRef<AppState> for ConsumptionState {
 }
 
 fn should_observe_connection_consumption(path: &str, status_code: StatusCode) -> bool {
-    let is_valid_path = path.contains("client/features")
-        || path.contains("client/delta")
-        || path.contains("client/metrics");
+    let is_valid_path = path.contains("/client/features")
+        || path.contains("/client/delta")
+        || path.contains("/client/metrics");
 
     is_valid_path && (status_code.is_success() || status_code == StatusCode::NOT_MODIFIED)
 }
@@ -54,12 +54,13 @@ pub async fn connection_consumption(
         None
     };
 
-    let instance_data = state.edge_instance_data.clone();
     let res = next.run(req).await;
     if !should_observe_connection_consumption(path, res.status()) {
         return res;
     }
-    instance_data.observe_connection_consumption(path, interval);
+    state
+        .edge_instance_data
+        .observe_connection_consumption(path, interval);
     res
 }
 
@@ -71,12 +72,11 @@ pub async fn request_consumption(
     let url = req.uri().clone();
     let path = url.path();
 
-    let instance_data = state.edge_instance_data.clone();
     let res = next.run(req).await;
     if !should_observe_request_consumption(path, res.status()) {
         return res;
     }
-    instance_data.observe_request_consumption();
+    state.edge_instance_data.observe_request_consumption();
     res
 }
 
