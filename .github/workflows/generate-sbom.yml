@@ -22,7 +22,7 @@ jobs:
   sbom:
     runs-on: "ubuntu-24.04"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         name: Checkout code
       - name: Install cargo-sbom
         run:
@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: sbom
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         name: Checkout code
       - name: Download sbom artifact
         uses: actions/download-artifact@v6
