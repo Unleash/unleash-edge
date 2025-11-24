@@ -6,7 +6,7 @@ Enterprise Edge is the commercial build of Unleash Edge. It extends the open-sou
 
 ### License requirements
 
-Enterprise Edge requires an Enterprise plan license issued to your Unleash instance. Licenses are provided through the Unleash sales team or your customer success representative. Once the license is applied to your Unleash instance, Enterprise Edge will validate itself against it during startup.
+Enterprise Edge requires an Enterprise plan license issued to your Unleash instance. Licenses are provided through the Unleash sales team or your customer success representative. Once the license is applied to your Unleash instance, Enterprise Edge will validate itself against that license during startup.
 
 ### Download the image
 
