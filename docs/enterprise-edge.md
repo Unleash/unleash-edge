@@ -2,6 +2,16 @@
 
 Enterprise Edge is the commercial build of Unleash Edge. It extends the open-source runtime with additional functionality for licensed [Unleash Enterprise](https://www.getunleash.io/pricing) installations. It runs the same commands and configuration as the OSS binary, but requires a valid Enterprise license to start and access its extended capabilities.
 
+## Enterprise-only features
+
+Enterprise Edge enables the following features:
+
+- **Streaming:** Maintains a streaming connection to the upstream Unleash instance instead of polling. Enable with `--streaming` or `STREAMING=true`. When using a streaming-capable SDK, Edge can also stream updates to SDK clients. Streaming is in early access; consult your Unleash Enterprise contact for compatibility notes.
+
+- **Edge observability:** Enterprise Edge reports heartbeat and instance state to Unleash Enterprise. This data is displayed in the Unleash Admin UI to assist with monitoring replica health, token usage, and deployment status.
+
+Enterprise Edge is also available as a managed service for Unleash Enterprise Cloud deployments.
+
 ## Getting Enterprise Edge
 
 ### License requirements
@@ -46,11 +56,3 @@ docker run -it \
   unleashorg/unleash-edge-enterprise:<version> edge
 ```
 The Enterprise image exposes all the API endpoints from the OSS build, along with additional endpoints used for enterprise features, so existing SDKs can be redirected without application changes.
-
-## Enterprise-only features
-
-Enterprise Edge enables the following features:
-
-- **Streaming:** Maintains a streaming connection to the upstream Unleash instance instead of polling. Enable with `--streaming` or `STREAMING=true`. When using a streaming-capable SDK, Edge can also stream updates to SDK clients. Streaming is in early access; consult your Unleash Enterprise contact for compatibility notes.
-
-- **Edge observability:** Enterprise Edge reports heartbeat and instance state to Unleash Enterprise. This data is displayed in the Unleash Admin UI to assist with monitoring replica health, token usage, and deployment status.
