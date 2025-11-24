@@ -41,11 +41,9 @@ Enterprise Edge is deployed the same way as the standard Edge image. Provide the
 ```shell
 docker run -it \
   -p 3063:3063 \
-  -e UPSTREAM_URL=<your_unleash_instance> \
+  -e UPSTREAM_URL=<https://your-unleash-instance.com> \
   -e TOKENS=<your_client_token> \
   unleashorg/unleash-edge-enterprise:<version> edge
-```
-
 The Enterprise image exposes all the API endpoints from the OSS build, along with additional endpoints used for enterprise features, so existing SDKs can be redirected without application changes.
 
 ## Enterprise-only features
