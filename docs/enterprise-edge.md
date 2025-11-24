@@ -55,5 +55,3 @@ Enterprise Edge enables the following features:
 - **Streaming:** Maintains a streaming connection to the upstream Unleash instance instead of polling. Enable with `--streaming` or `STREAMING=true`. When using a streaming-capable SDK, Edge can also stream updates to SDK clients. Streaming is in early access; consult your Unleash Enterprise contact for compatibility notes.
 
 - **Edge observability:** Enterprise Edge reports heartbeat and instance state to Unleash Enterprise. This data is displayed in the Unleash Admin UI to assist with monitoring replica health, token usage, and deployment status.
-
-Additional enterprise capabilities may be introduced in future releases.
