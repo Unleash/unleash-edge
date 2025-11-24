@@ -50,7 +50,7 @@ The Enterprise image exposes all the API endpoints from the OSS build, along wit
 
 ## Enterprise-only features
 
-Enterprise Edge currently enables the following features:
+Enterprise Edge enables the following features:
 
 - **Streaming:** Maintains a streaming connection to the upstream Unleash instance instead of polling. Enable with `--streaming` or `STREAMING=true`. When using a streaming-capable SDK, Edge can also stream updates to SDK clients. Streaming is in early access; consult your Unleash Enterprise contact for compatibility notes.
 
