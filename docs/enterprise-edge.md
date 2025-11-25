@@ -16,7 +16,7 @@ Enterprise Edge is also available as a managed service for Unleash Enterprise Cl
 
 ### License requirements
 
-Enterprise Edge requires an Enterprise plan license issued to your Unleash instance. Licenses are provided through the Unleash sales team or your customer success representative. Once the license is applied to your Unleash instance, Enterprise Edge will validate itself against that license during startup.
+Enterprise Edge requires a new Enterprise plan license issued to your Unleash instance. Licenses are provided through the Unleash sales team or your customer success representative. Once the license is applied to your Unleash instance, Enterprise Edge will validate itself against that license during startup.
 
 ### Download the image
 
