@@ -1,6 +1,6 @@
 **Note**: This commercial license applies only to the enterprise-specific crates in this repository (located under `crates/enterprise/`). These crates are licensed under the terms described in this document.
 
-The open-source crates are licensed separately under the MIT license, as found in `LICENSE.md`.
+The open-source crates are licensed separately under the MIT license, as found in `LICENSE`.
 
 ---
 
