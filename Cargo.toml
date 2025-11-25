@@ -77,7 +77,7 @@ tokio = { version = "1.48.0", features = ["macros", "rt-multi-thread", "tracing"
 tokio-rustls = { version = "0.26.4" }
 tokio-stream = { version = "0.1.17", features = ["sync"] }
 tower = { version = "0.5.2" }
-tower-http = { version = "0.6.6", features = ["cors", "normalize-path", "trace", "compression-gzip", "compression-zstd", "compression-br", "compression-deflate"] }
+tower-http = { version = "0.6.7", features = ["cors", "normalize-path", "trace", "compression-gzip", "compression-zstd", "compression-br", "compression-deflate"] }
 tracing = { version = "0.1.41" }
 tracing-opentelemetry = { version = "0.32.0", features = ["metrics"] }
 tracing-subscriber = { version = "0.3.20", features = ["env-filter", "json"] }
