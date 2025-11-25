@@ -26,7 +26,7 @@ The Enterprise container image can be pulled from Docker Hub:
 docker pull unleashorg/unleash-edge-enterprise:<version>
 ```
 
-All CLI arguments and environment variables documented for Unleash Edge apply to this image. Replace `<version>` with the version you want to run. We recommend staying up to date with the latest release. Available tags can be viewed on
+All [CLI arguments and environment variables](/docs/CLI.md) documented for Unleash Edge apply to this image. Replace `<version>` with the version you want to run. We recommend staying up to date with the latest release. Available tags can be viewed on
 [Docker Hub](https://hub.docker.com/r/unleashorg/unleash-edge-enterprise/tags).
 
 ## Persistence and cold-start reliability
