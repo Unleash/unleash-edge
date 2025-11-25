@@ -2,3 +2,5 @@
 !crates/
 !Cargo.toml
 !Cargo.lock
+!LICENSE
+!LICENSE-ENTERPRISE.md
