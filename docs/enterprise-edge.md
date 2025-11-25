@@ -1,6 +1,6 @@
 # Enterprise Edge
 
-Enterprise Edge is the commercial build of Unleash Edge. It extends the open-source runtime with additional functionality for licensed [Unleash Enterprise](https://www.getunleash.io/pricing) installations. It runs the same commands and configuration as the OSS binary, but requires a valid Enterprise license to start and access its extended capabilities.
+Enterprise Edge is the commercial build of Unleash Edge. It extends the open-source runtime with additional functionality for licensed [Unleash Enterprise](https://www.getunleash.io/pricing) installations. It supports the same base commands and configuration as the OSS binary, but requires a valid Enterprise license to start and access its extended capabilities.
 
 ## Enterprise-only features
 
