@@ -11,7 +11,7 @@
 
 This repository contains both open-source and enterprise-only components.
 
-- The open-source crates are licensed under the MIT license (see [LICENSE](./LICENSE.md)).
+- The open-source crates are licensed under the MIT license (see [LICENSE](./LICENSE)).
 - The enterprise crates under `crates/enterprise/` are licensed under a commercial license (see [LICENSE-ENTERPRISE.md](./LICENSE-ENTERPRISE.md)).
 
 Please refer to each crate's `Cargo.toml` for the exact license applying to that crate.
