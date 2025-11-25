@@ -76,14 +76,14 @@ not supported.
 Unleash Edge is distributed as a binary and as a Docker image.
 
 - **Binary**:
-  - Downloadable from our [Releases page](https://github.com/Unleash/unleash-edge/releases/latest). Available for
-    Linux x86_64, Windows x86_64, Darwin (OS X) x86_64, and Darwin (OS X) aarch64 (M1/M2 Macs).
-  - If you have the [Rust toolchain](https://rustup.rs) installed, you can build a binary for the platform you're
-    running by cloning this repository and running `cargo build --release`. The binary will be located in
-    `./target/release`.
+    - Downloadable from our [Releases page](https://github.com/Unleash/unleash-edge/releases/latest). Available for
+      Linux x86_64, Windows x86_64, Darwin (OS X) x86_64, and Darwin (OS X) aarch64 (M1/M2 Macs).
+    - If you have the [Rust toolchain](https://rustup.rs) installed, you can build a binary for the platform you're
+      running by cloning this repository and running `cargo build --release`. The binary will be located in
+      `./target/release`.
 - **Docker**: The Docker image is available on:
-  - Docker Hub: `unleashorg/unleash-edge:<version>`.
-  - GitHub Packages: `ghcr.io/unleash/unleash-edge:<version>`.
+    - Docker Hub: `unleashorg/unleash-edge:<version>`.
+    - GitHub Packages: `ghcr.io/unleash/unleash-edge:<version>`.
 
 ## Running Unleash Edge
 
