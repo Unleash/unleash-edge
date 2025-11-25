@@ -2,11 +2,19 @@
 
 [![crates.io](https://img.shields.io/crates/v/unleash-edge?label=latest)](https://crates.io/crates/unleash-edge)
 [![Documentation](https://docs.rs/unleash-edge/badge.svg?version=latest)](https://docs.rs/unleash-edge/latest)
-![MIT licensed](https://img.shields.io/crates/l/unleash-edge.svg)
 [![Dependency Status](https://deps.rs/crate/unleash-edge/19.11.0/status.svg)](https://deps.rs/crate/unleash-edge/19.11.0)
 [![CI](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml/badge.svg)](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml)
 [![Coverage Status](https://coveralls.io/repos/github/Unleash/unleash-edge/badge.svg?branch=main)](https://coveralls.io/github/Unleash/unleash-edge?branch=main)
 ![downloads](https://img.shields.io/crates/d/unleash-edge.svg)
+
+## License
+
+This repository contains both open-source and enterprise-only components.
+
+- The open-source crates are licensed under the MIT license (see [LICENSE](./LICENSE.md)).
+- The enterprise crates under `crates/enterprise/` are licensed under a commercial license (see [LICENSE-ENTERPRISE.md](./LICENSE-ENTERPRISE.md)).
+
+Please refer to each crate's `Cargo.toml` for the exact license applying to that crate.
 
 ## Overview
 
@@ -68,14 +76,14 @@ not supported.
 Unleash Edge is distributed as a binary and as a Docker image.
 
 - **Binary**:
-    - Downloadable from our [Releases page](https://github.com/Unleash/unleash-edge/releases/latest). Available for
-      Linux x86_64, Windows x86_64, Darwin (OS X) x86_64, and Darwin (OS X) aarch64 (M1/M2 Macs).
-    - If you have the [Rust toolchain](https://rustup.rs) installed, you can build a binary for the platform you're
-      running by cloning this repository and running `cargo build --release`. The binary will be located in
-      `./target/release`.
+  - Downloadable from our [Releases page](https://github.com/Unleash/unleash-edge/releases/latest). Available for
+    Linux x86_64, Windows x86_64, Darwin (OS X) x86_64, and Darwin (OS X) aarch64 (M1/M2 Macs).
+  - If you have the [Rust toolchain](https://rustup.rs) installed, you can build a binary for the platform you're
+    running by cloning this repository and running `cargo build --release`. The binary will be located in
+    `./target/release`.
 - **Docker**: The Docker image is available on:
-    - Docker Hub: `unleashorg/unleash-edge:<version>`.
-    - GitHub Packages: `ghcr.io/unleash/unleash-edge:<version>`.
+  - Docker Hub: `unleashorg/unleash-edge:<version>`.
+  - GitHub Packages: `ghcr.io/unleash/unleash-edge:<version>`.
 
 ## Running Unleash Edge
 

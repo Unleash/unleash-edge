@@ -6,7 +6,7 @@ description.workspace = true
 documentation.workspace = true
 edition.workspace = true
 publish = true
-license.workspace = true
+license-file = "../../../LICENSE-ENTERPRISE.md"
 
 [dependencies]
 dashmap = { workspace = true }

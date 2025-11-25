@@ -1,3 +1,9 @@
+Note: This MIT license applies only to the open-source crates in this repository.
+Enterprise-specific crates (located under `crates/enterprise/`) are licensed
+separately under the terms found in `LICENSE-ENTERPRISE.md`.
+
+---
+
 MIT License
 
 Copyright (c) 2023 Unleash
