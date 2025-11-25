@@ -116,6 +116,15 @@ RUN set -ex; \
     # Copy files from the target folder to app folder
     cp $target/unleash-edge     /all-files/${TARGETPLATFORM}/app
 
+# Always include MIT license in the image (OSS + enterprise)
+RUN cp /app/LICENSE /all-files/${TARGETPLATFORM}/LICENSE
+
+# Only include enterprise license for enterprise builds
+RUN set -eux; \
+    if echo ",${CARGO_FEATURES}," | grep -q ",enterprise,"; then \
+        cp /app/LICENSE-ENTERPRISE.md /all-files/${TARGETPLATFORM}/LICENSE-ENTERPRISE.md; \
+    fi
+
 ## Create a passwd to avoid running as root
 FROM --platform=$BUILDPLATFORM ubuntu:25.04 AS passwdsource
 
