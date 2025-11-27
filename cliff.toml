@@ -1,0 +1,96 @@
+[remote.github]
+owner = "Unleash"
+repo = "unleash-edge"
+
+[changelog]
+
+commit_parsers = [
+    { message = "^feat", group = "<!-- 0 -->🚀 Features" },
+    { message = "^fix", group = "<!-- 1 -->🐛 Bug Fixes" },
+    { message = "^doc", group = "<!-- 3 -->📚 Documentation" },
+    { message = "^perf", group = "<!-- 4 -->⚡ Performance" },
+    { message = "^refactor", group = "<!-- 2 -->🚜 Refactor" },
+    { message = "^style", group = "<!-- 5 -->🎨 Styling" },
+    { message = "^test", group = "<!-- 6 -->🧪 Testing" },
+    { message = "^dep-update", group = "<!-- 11 --> Dependency updates" },
+    { message = "^build\\(deps\\)", group = "<!-- 11 --> Dependency updates" },
+    { message = "^chore\\(release\\): prepare for", skip = true },
+    { message = "^chore\\(deps.*\\)", skip = true },
+    { message = "^chore\\(pr\\)", skip = true },
+    { message = "^chore\\(pull\\)", skip = true },
+    { message = "^chore|^ci", group = "<!-- 7 -->⚙️ Miscellaneous Tasks" },
+    { body = ".*security", group = "<!-- 8 -->🛡️ Security" },
+    { message = "^revert", group = "<!-- 9 -->◀️ Revert" },
+    { message = ".*", group = "<!-- 10 -->💼 Other" },
+]
+
+commit_preprocessors = [
+    # Replace `foo` with `bar`
+    { pattern = "foo", replace = "bar" },
+    # Replace `<REPO>` in the template body with the repository URL
+    { pattern = '<REPO>', replace = "https://github.com/unleash/unleash-edge" },
+    # Replace multiple spaces with a single space.
+    { pattern = "  +", replace = " " },
+    # Replace the issue number with the link.
+    { pattern = "\\(#([0-9]+)\\)", replace = "([#${1}](https://github.com/unleash/unleash-edge/issues/${1}))" },
+    # Remove prefix
+    { pattern = 'Merged PR #[0-9]: (.*)', replace = "$1" },
+    # Remove gitmoji from commit messages, both actual UTF emoji and :emoji:
+    { pattern = ' *(:\w+:|[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{200D}]) *', replace = "" },
+    # Hyperlink PR references from merge commits.
+    { pattern = "Merge pull request #([0-9]+) from [^ ]+", replace = "PR # [${1}](https://github.com/unleash/unleash-edge/pull/${1}):" },
+    # Hyperlink commit links, with short commit hash as description.
+    { pattern = "https://github.com/unleash/unleash-edge/commit/([a-f0-9]{7})[a-f0-9]*", replace = "commit # [${1}](${0})" },
+    # Linear issue references
+    { pattern = "\\(([0-9]-[0-9]+)\\)", replace = "Linear issue: [${1}](https://linear.app/unleash/issue/${1})" },
+    # Hyperlink bare commit hashes like "abcd1234" in commit logs, with short commit hash as description.
+    { pattern = "([ \\n])(([a-f0-9]{7})[a-f0-9]*)", replace = "${1}commit # [${3}](https://github.com/unleash/unleash-edge/commit/${2})" },
+]
+
+body = """
+
+## [{{ version }}]\
+    {%- if release_link -%}\
+        ({{ release_link }})\
+    {% endif %} \
+    - {{ timestamp }}
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | striptags | trim | upper_first }}
+    {% for commit in commits %}
+        {%- if commit.scope -%}
+            - *({{commit.scope}})* {% if commit.breaking %}[**breaking**] {% endif %}\
+                {{ commit.message }}{{ self::username(commit=commit) }}\
+                {%- if commit.links %} \
+                    ({% for link in commit.links %}[{{link.text}}]({{link.href}}) {% endfor -%})\
+                {% endif %}
+        {% else -%}
+            - {% if commit.breaking %}[**breaking**] {% endif %}{{ commit.message }}{{ self::username(commit=commit) }}{{ self::pr(commit=commit) }}
+        {% endif -%}
+    {% endfor -%}
+{% endfor %}
+- {{ statistics.commit_count }} commit(s) contributed to the release.
+- {{ statistics.commits_timespan | default(value=0) }} day(s) passed between the first and last commit.
+- {{ statistics.conventional_commit_count }} commit(s) parsed as conventional.
+- {{ statistics.links | length }} linked issue(s) detected in commits.
+{%- if statistics.links | length > 0 %}
+	{%- for link in statistics.links %}
+        {{ "  " }}- [{{ link.text }}]({{ link.href }}) (referenced {{ link.count }} time(s))
+	{%- endfor %}
+{%- endif %}
+{%- if statistics.days_passed_since_last_release %}
+	- {{ statistics.days_passed_since_last_release }} day(s) passed between releases.
+{%- endif %}
+{%- if remote.contributors %}
+### Contributors
+{% for contributor in remote.contributors %}
+    * @{{ contributor.username }}
+{%- endfor %}
+{% endif -%}
+{%- macro username(commit) -%}
+    {% if commit.remote.username %} (by @{{ commit.remote.username }}){% endif -%}
+{% endmacro -%}
+{%- macro pr(commit) -%}
+    {% if commit.remote.pr_number %} - #{{ commit.remote.pr_number }}{% endif -%}
+{% endmacro -%}
+
+"""
