@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.1.6](https://github.com/Unleash/unleash-edge/compare/unleash-edge-enterprise-v20.1.5...unleash-edge-enterprise-v20.1.6) - 2025-11-27
+
+### ⚙️ Miscellaneous Tasks
+- add enterprise license ([#1307](https://github.com/unleash/unleash-edge/issues/1307)) (by @nunogois) - #1307
+- release v20.1.5 ([#1291](https://github.com/unleash/unleash-edge/issues/1291)) (by @unleash-bot[bot]) - #1291
+- release v20.1.4 ([#1283](https://github.com/unleash/unleash-edge/issues/1283)) (by @unleash-bot[bot]) - #1283
+- release v20.1.3 ([#1278](https://github.com/unleash/unleash-edge/issues/1278)) (by @unleash-bot[bot]) - #1278
+- release v20.1.2 ([#1265](https://github.com/unleash/unleash-edge/issues/1265)) (by @unleash-bot[bot]) - #1265
+- release v20.1.1 ([#1214](https://github.com/unleash/unleash-edge/issues/1214)) (by @unleash-bot[bot]) - #1214
+- move enterprise features to their own folder ([#1254](https://github.com/unleash/unleash-edge/issues/1254)) (by @sighphyre) - #1254
+
+### Contributors
+
+* @nunogois
+* @unleash-bot[bot]
+* @sighphyre
+
 ## [20.1.5](https://github.com/Unleash/unleash-edge/compare/unleash-edge-enterprise-v20.1.4...unleash-edge-enterprise-v20.1.5) - 2025-11-20
 
 ### ⚙️ Miscellaneous Tasks

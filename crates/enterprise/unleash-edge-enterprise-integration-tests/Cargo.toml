@@ -42,7 +42,7 @@ axum-test = { workspace = true }
 pretty_assertions = { workspace = true }
 test-case = { workspace = true }
 tracing-test = { workspace = true }
-unleash-edge = { path = "../../oss/unleash-edge", version = "20.1.5", features = ["enterprise"] }
+unleash-edge = { path = "../../oss/unleash-edge", version = "20.1.6", features = ["enterprise"] }
 unleash-edge-persistence = { workspace = true }
 async-trait = { workspace = true }
 ahash = { workspace = true }
