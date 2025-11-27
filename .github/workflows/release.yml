@@ -165,6 +165,76 @@ jobs:
             ${{ steps.cargo-dist.outputs.paths }}
             ${{ env.BUILD_MANIFEST_NAME }}
 
+  build-enterprise-artifacts:
+    name: build-enterprise-artifacts (${{ join(matrix.targets, ', ') }})
+    needs:
+      - plan
+    if: ${{ fromJson(needs.plan.outputs.val).ci.github.artifacts_matrix.include != null && (needs.plan.outputs.publishing == 'true' || fromJson(needs.plan.outputs.val).ci.github.pr_run_mode == 'upload') }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.plan.outputs.val).ci.github.artifacts_matrix }}
+    runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container && matrix.container.image || null }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      BUILD_MANIFEST_NAME: target/distrib/enterprise-${{ join(matrix.targets, '-') }}-dist-manifest.json
+    steps:
+      - name: enable windows longpaths
+        run: |
+          git config --global core.longpaths true
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          submodules: recursive
+      - name: Install Rust non-interactively if not already installed
+        if: ${{ matrix.container }}
+        run: |
+          if ! command -v cargo > /dev/null 2>&1; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+            echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          fi
+      - name: Install dist
+        run: ${{ matrix.install_dist.run }}
+      - name: Fetch local artifacts
+        uses: actions/download-artifact@v6
+        with:
+          pattern: artifacts-*
+          path: target/distrib/
+          merge-multiple: true
+      - name: Install dependencies
+        run: |
+          ${{ matrix.packages_install }}
+      - name: Build enterprise artifacts
+        run: |
+          dist build ${{ needs.plan.outputs.tag-flag }} --features enterprise --print=linkage --output-format=json ${{ matrix.dist_args }} > dist-manifest.json
+          echo "dist ran successfully"
+      - id: rename-enterprise
+        name: Rename artifacts with enterprise suffix
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p renamed
+          mapfile -t files < <(dist print-upload-files-from-manifest --manifest dist-manifest.json)
+          for f in "${files[@]}"; do
+            base="$(basename "$f")"
+            new_base="$(echo "$base" | sed 's/^unleash-edge/unleash-edge-enterprise/')"
+            cp "$f" "renamed/$new_base"
+          done
+          cp dist-manifest.json "$BUILD_MANIFEST_NAME"
+
+          echo "paths<<EOF" >> "$GITHUB_OUTPUT"
+          for f in renamed/*; do
+            echo "$(pwd)/$f" >> "$GITHUB_OUTPUT"
+          done
+          echo "EOF" >> "$GITHUB_OUTPUT"
+      - name: "Upload enterprise artifacts"
+        uses: actions/upload-artifact@v5
+        with:
+          name: artifacts-enterprise-build-local-${{ join(matrix.targets, '_') }}
+          path: |
+            ${{ steps.rename-enterprise.outputs.paths }}
+            ${{ env.BUILD_MANIFEST_NAME }}
+
   # Build and package all the platform-agnostic(ish) things
   build-global-artifacts:
     needs:
@@ -217,8 +287,9 @@ jobs:
       - plan
       - build-local-artifacts
       - build-global-artifacts
+      - build-enterprise-artifacts
     # Only run if we're "publishing", and only if local and global didn't fail (skipped is fine)
-    if: ${{ always() && needs.plan.outputs.publishing == 'true' && (needs.build-global-artifacts.result == 'skipped' || needs.build-global-artifacts.result == 'success') && (needs.build-local-artifacts.result == 'skipped' || needs.build-local-artifacts.result == 'success') }}
+    if: ${{ always() && needs.plan.outputs.publishing == 'true' && (needs.build-global-artifacts.result == 'skipped' || needs.build-global-artifacts.result == 'success') && (needs.build-enterprise-artifacts.result == 'skipped' || needs.build-enterprise-artifacts.result == 'success') && (needs.build-local-artifacts.result == 'skipped' || needs.build-local-artifacts.result == 'success') }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     runs-on: "ubuntu-24.04"
