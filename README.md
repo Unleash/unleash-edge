@@ -1,6 +1,5 @@
 # Unleash Edge
 
-[![crates.io](https://img.shields.io/crates/v/unleash-edge?label=latest)](https://crates.io/crates/unleash-edge)
 [![Documentation](https://docs.rs/unleash-edge/badge.svg?version=latest)](https://docs.rs/unleash-edge/latest)
 [![Dependency Status](https://deps.rs/crate/unleash-edge/19.11.0/status.svg)](https://deps.rs/crate/unleash-edge/19.11.0)
 [![CI](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml/badge.svg)](https://github.com/Unleash/unleash-edge/actions/workflows/test-with-coverage.yaml)
