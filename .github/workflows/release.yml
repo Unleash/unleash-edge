@@ -87,7 +87,7 @@ jobs:
           name: artifacts-plan-dist-manifest
           path: plan-dist-manifest.json
 
-  # Build and packages all the platform-specific things
+  # Build and packages all the platform-specific things (OSS)
   build-local-artifacts:
     name: build-local-artifacts (${{ join(matrix.targets, ', ') }})
     # Let the initial task tell us to not run (currently very blunt)
@@ -165,6 +165,7 @@ jobs:
             ${{ steps.cargo-dist.outputs.paths }}
             ${{ env.BUILD_MANIFEST_NAME }}
 
+  # Enterprise build (manual via cargo + tar.gz)
   build-enterprise-artifacts:
     name: build-enterprise-artifacts (${{ join(matrix.targets, ', ') }})
     needs:
@@ -177,7 +178,6 @@ jobs:
     container: ${{ matrix.container && matrix.container.image || null }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      BUILD_MANIFEST_NAME: target/distrib/enterprise-${{ join(matrix.targets, '-') }}-dist-manifest.json
     steps:
       - name: enable windows longpaths
         run: |
@@ -193,34 +193,48 @@ jobs:
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
             echo "$HOME/.cargo/bin" >> $GITHUB_PATH
           fi
-      - name: Install dist
-        run: ${{ matrix.install_dist.run }}
-      - name: Fetch local artifacts
-        uses: actions/download-artifact@v6
-        with:
-          pattern: artifacts-*
-          path: target/distrib/
-          merge-multiple: true
       - name: Install dependencies
         run: |
           ${{ matrix.packages_install }}
-      - name: Build enterprise artifacts
-        run: |
-          dist build ${{ needs.plan.outputs.tag-flag }} --features enterprise --print=linkage --output-format=json ${{ matrix.dist_args }} > dist-manifest.json
-          echo "dist ran successfully"
-      - id: rename-enterprise
-        name: Rename artifacts with enterprise suffix
+      - id: build-enterprise
+        name: Build enterprise artifacts
         shell: bash
+        env:
+          RELEASE_TAG: ${{ needs.plan.outputs.tag }}
         run: |
           set -euo pipefail
           mkdir -p renamed
-          mapfile -t files < <(dist print-upload-files-from-manifest --manifest dist-manifest.json)
-          for f in "${files[@]}"; do
-            base="$(basename "$f")"
-            new_base="$(echo "$base" | sed 's/^unleash-edge/unleash-edge-enterprise/')"
-            cp "$f" "renamed/$new_base"
+
+          # RELEASE_TAG is something like "unleash-edge-v1.2.3"
+          tag="${RELEASE_TAG:-}"
+          version="$tag"
+          if [[ "$tag" == unleash-edge-v* ]]; then
+            # Strip "unleash-edge-" so we keep "v1.2.3" (and any suffix)
+            version="${tag#unleash-edge-}"
+          fi
+          if [[ -z "$version" ]]; then
+            version="dev"
+          fi
+
+          # Build and package for each target in this matrix entry
+          for target in ${{ join(matrix.targets, ' ') }}; do
+            echo "Building enterprise binary for $target"
+            cargo build --release --bin unleash-edge --features enterprise --target "$target"
+
+            bin_path="target/$target/release/unleash-edge"
+            if [[ "$target" == *"windows"* ]]; then
+              bin_path="$bin_path.exe"
+            fi
+
+            archive="renamed/unleash-edge-enterprise-${version}-${target}.tar.xz"
+            tar -cJf "$archive" -C "$(dirname "$bin_path")" "$(basename "$bin_path")"
+
+            if command -v sha256sum >/dev/null 2>&1; then
+              sha256sum "$archive" > "${archive}.sha256"
+            else
+              shasum -a 256 "$archive" > "${archive}.sha256"
+            fi
           done
-          cp dist-manifest.json "$BUILD_MANIFEST_NAME"
 
           echo "paths<<EOF" >> "$GITHUB_OUTPUT"
           for f in renamed/*; do
@@ -232,8 +246,7 @@ jobs:
         with:
           name: artifacts-enterprise-build-local-${{ join(matrix.targets, '_') }}
           path: |
-            ${{ steps.rename-enterprise.outputs.paths }}
-            ${{ env.BUILD_MANIFEST_NAME }}
+            ${{ steps.build-enterprise.outputs.paths }}
 
   # Build and package all the platform-agnostic(ish) things
   build-global-artifacts:
