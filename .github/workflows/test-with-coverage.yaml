@@ -39,14 +39,11 @@ jobs:
           cache-on-failure: true
       - name: Check formatting with cargo fmt
         run: cargo fmt --all -- --check
-      - name: Build so our integration tests have a binary
-        run: |
-          cargo build
       - name: Install required cargo packages for reporting test coverage
         run: cargo install cargo-llvm-cov
       - name: Run cargo-llvm-cov
         run: |
-          cargo llvm-cov --all-features --lcov --output-path ./test-results.lcov --no-clean
+          cargo llvm-cov --all-features --lcov --output-path ./test-results.lcov
       - name: Upload to coveralls
         uses: coverallsapp/github-action@v2
         with:
