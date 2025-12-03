@@ -21,6 +21,8 @@ Unleash Edge is a fast and lightweight proxy layer between your Unleash API and 
 Unleash instance and is designed to help you scale Unleash. It allows you to support thousands of connected SDKs without
 increasing the number of requests you make to your Unleash instance.
 
+If you're running the Enterprise build, see the [Enterprise Edge documentation](/docs/enterprise-edge.md) for licensing, configuration and deployment considerations.
+
 Edge supports both client-side and server-side SDKs and has multi-environment and project awareness. You can daisy-chain
 Edge instances to support more complex setups, such as multi-cloud deployments.
 
