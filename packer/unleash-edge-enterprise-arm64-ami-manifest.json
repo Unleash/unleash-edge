@@ -1,0 +1,14 @@
+{
+  "builds": [
+    {
+      "name": "unleash-edge-enterprise",
+      "builder_type": "amazon-ebs",
+      "build_time": 1764776641,
+      "files": null,
+      "artifact_id": "ap-northeast-1:ami-0135333779e61a792,eu-central-1:ami-079688a6c0d2ba499,eu-north-1:ami-0ef9fd50095485e79,eu-west-1:ami-0ba7168e9cd706558,eu-west-2:ami-0cbc4700f998180e8,us-east-1:ami-0d524f5154e009ce1,us-east-2:ami-08ef0424d7050fe71,us-west-2:ami-0a9e575d4f5a985b3",
+      "packer_run_uuid": "06e98e22-d613-b507-1edc-e7ec5c221a3f",
+      "custom_data": null
+    }
+  ],
+  "last_run_uuid": "06e98e22-d613-b507-1edc-e7ec5c221a3f"
+}
