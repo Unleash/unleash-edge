@@ -33,7 +33,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.config/packer/plugins
-          key: packer-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/*.pkr.hcl')}}
+          key: packer-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/*.pkr.hcl') }}
       - name: Packer Init
         working-directory: packer
         run: packer init .
