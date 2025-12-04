@@ -35,7 +35,7 @@ run_step sudo chage --warndays 14 root
 
 # CIS: File permissions
 run_step sudo chmod 644 /etc/passwd
-run_step sudo chmod 000 /etc/shadow
+run_step sudo chmod 600 /etc/shadow
 
 echo "[15-hardening] ====================================================="
 echo "[15-hardening] Successfully completed hardening..."
