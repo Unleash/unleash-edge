@@ -14,5 +14,7 @@ cd /tmp/unleash-edge
 source /home/ubuntu/.cargo/env
 cargo build --release --features enterprise
 cp target/release/unleash-edge /home/ubuntu/unleash-edge
+chown ubuntu:ubuntu /home/ubuntu/unleash-edge
+chmod 755 /home/ubuntu/unleash-edge
 rm -rf /tmp/unleash-edge
 echo "[10-clone-and-build] Successfully built and copied"
