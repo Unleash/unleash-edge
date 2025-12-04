@@ -18,7 +18,7 @@ homepage = "https://github.com/Unleash/unleash-edge"
 documentation = "https://docs.getunleash.io/reference/unleash-edge"
 license = "MIT"
 repository = "https://github.com/Unleash/unleash-edge"
-rust-version = "1.89.0"
+rust-version = "1.91.1"
 
 [workspace.dependencies]
 ahash = { version = "0.8.12" }

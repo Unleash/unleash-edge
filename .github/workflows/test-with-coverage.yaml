@@ -16,7 +16,7 @@ on:
     branches:
       - main
 env:
-  RUST_VERSION: 1.89.0
+  RUST_VERSION: 1.91.1
 jobs:
   tarpaulin:
     runs-on: ubuntu-latest
