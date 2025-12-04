@@ -40,14 +40,12 @@ jobs:
       - name: Packer Validate
         working-directory: packer
         run: |
-          packer validate . \
-            -var "edge_version=${{ github.ref }}"
+          packer validate -var "edge_version=${{ github.ref_name }}" .
       - name: Build AMI
         id: build
         working-directory: packer
         run: |
-          packer build \
-            -var "edge_version=${{ github.ref }}"
+          packer build -var "edge_version=${{ github.ref_name }}" .
       - name: Upload manifest
         uses: actions/upload-artifact@v4
         with:
