@@ -22,9 +22,9 @@ sudo tee /etc/systemd/system/unleash-edge.service > /dev/null <<'UNIT'
 
           [Install]
           WantedBy=multi-user.target
-        UNIT
+UNIT
 
-        sudo systemctl daemon-reload
-        sudo systemctl enable unleash-edge
+sudo systemctl daemon-reload
+sudo systemctl enable unleash-edge
 
 echo "[20-unleash-edge-service-unit]: Service unit configured successfully."

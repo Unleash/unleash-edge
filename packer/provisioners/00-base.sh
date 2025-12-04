@@ -9,9 +9,11 @@ echo "[00-base] 🟩 Ubuntu detected"
 echo "[00-base] Updating system packages..."
 export DEBIAN_FRONTEND=noninteractive
 sudo apt-get update -y
-sudo apt-get upgrade -y || true
-sudo apt-get install -y jq curl unzip tar git build-essential || true
-
+echo "[00-base] Apt cache refreshed"
+sudo apt-get upgrade -y
+echo "[00-base] Apt system upgraded"
+sudo apt-get install -y jq curl unzip tar git vim build-essential
+echo "[00-base] JQ, curl, unzip, tar, git vim and build-essential installed"
 # ------------------------------------------------------------------------------
 # SSH configuration tuning
 # ------------------------------------------------------------------------------

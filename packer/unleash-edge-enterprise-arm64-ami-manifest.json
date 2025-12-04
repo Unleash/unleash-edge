@@ -8,7 +8,16 @@
       "artifact_id": "ap-northeast-1:ami-0135333779e61a792,eu-central-1:ami-079688a6c0d2ba499,eu-north-1:ami-0ef9fd50095485e79,eu-west-1:ami-0ba7168e9cd706558,eu-west-2:ami-0cbc4700f998180e8,us-east-1:ami-0d524f5154e009ce1,us-east-2:ami-08ef0424d7050fe71,us-west-2:ami-0a9e575d4f5a985b3",
       "packer_run_uuid": "06e98e22-d613-b507-1edc-e7ec5c221a3f",
       "custom_data": null
+    },
+    {
+      "name": "unleash-edge-enterprise",
+      "builder_type": "amazon-ebs",
+      "build_time": 1764845244,
+      "files": null,
+      "artifact_id": "ap-northeast-1:ami-020729205c131c3a0,eu-central-1:ami-07e102391a5f9fd28,eu-north-1:ami-0183765d3dafa9f83,eu-west-1:ami-0f38df1b74e136a71,eu-west-2:ami-0ac0e415570862c68,us-east-1:ami-0cfedcc70845a8269,us-east-2:ami-09e7eecf764072b44,us-west-2:ami-09c75ac17df5064ef",
+      "packer_run_uuid": "5e496c70-5307-df10-893f-6890937d8d05",
+      "custom_data": null
     }
   ],
-  "last_run_uuid": "06e98e22-d613-b507-1edc-e7ec5c221a3f"
+  "last_run_uuid": "5e496c70-5307-df10-893f-6890937d8d05"
 }
