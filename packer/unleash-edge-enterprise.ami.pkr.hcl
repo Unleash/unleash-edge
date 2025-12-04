@@ -96,6 +96,7 @@ build {
   }
   provisioner "shell" {
     script = "${path.root}/provisioners/25-clean-build-tools.sh"
+    valid_exit_codes = [0]
   }
   provisioner "shell" {
     inline = ["echo ✅ Build complete: unleash-edge-enterprise-arm64-ubuntu-24.04"]
