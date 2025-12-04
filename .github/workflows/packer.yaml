@@ -47,5 +47,5 @@ jobs:
       - name: Upload manifest
         uses: actions/upload-artifact@v4
         with:
-          name: manifest-${{ github.ref }}
+          name: manifest-${{ github.ref_name }}
           path: packer/unleash-edge-enterprise-arm64-ami-manifest.json
