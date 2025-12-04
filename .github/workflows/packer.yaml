@@ -5,6 +5,10 @@ on:
       - "unleash-edge-v*"
   workflow_dispatch:
 
+concurrency:
+  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -15,7 +19,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: eu-north-1
-          role-to-assume: arn:aws:iam::726824350591:role/edge-packer-role
+          role-to-assume: arn:aws:iam::726824350591:role/unleash-github-actions-packer
           role-session-name: gha-packer-session
       - name: Install Packer
         uses: hashicorp/setup-packer@v2
