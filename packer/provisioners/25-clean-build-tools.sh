@@ -9,7 +9,6 @@ source $HOME/.cargo/env
 rustup self uninstall -y
 sudo apt-get purge -y git build-essential
 sudo apt-get autoremove -y
-rm -rf /home/ubuntu/.cargo || true
 
 echo "[25-clean-build-tools] ====================================================="
 echo "[25-clean-build-tools] Successfully purged rust, git and build essential..."
