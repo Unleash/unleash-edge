@@ -47,7 +47,7 @@ jobs:
         run: |
           packer build -var "edge_version=${{ github.ref_name }}" .
       - name: Upload manifest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: manifest-${{ github.ref_name }}
           path: packer/unleash-edge-enterprise-arm64-ami-manifest.json
