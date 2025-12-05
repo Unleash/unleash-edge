@@ -20,13 +20,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           aws-region: eu-north-1
           role-to-assume: arn:aws:iam::726824350591:role/unleash-github-actions-packer
           role-session-name: gha-packer-session
       - name: Install Packer
-        uses: hashicorp/setup-packer@v2
+        uses: hashicorp/setup-packer@v3
         with:
           version: "1.14.3"
       - name: Cache packer plugins
