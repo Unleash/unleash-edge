@@ -1,6 +1,6 @@
 **Note**: This commercial license applies only to the enterprise-specific crates in this repository (located under `crates/enterprise/`). These crates are licensed under the terms described in this document.
 
-The open-source crates are licensed separately under the MIT license, as found in `LICENSE`.
+All other files in this repository, including the open-source crates, are licensed separately under the MIT license, as found in `LICENSE`.
 
 ---
 
@@ -62,6 +62,4 @@ Provisions regarding warranties, liabilities, and indemnification will be govern
 
 7.4 Severability: If any provision of this Agreement is held invalid, the remaining provisions shall remain in full force and effect.
 
-
-
-*By using the Software, you acknowledge that you have read, understood, and agree to the terms of this Commercial Software License Agreement.*
+_By using the Software, you acknowledge that you have read, understood, and agree to the terms of this Commercial Software License Agreement._
