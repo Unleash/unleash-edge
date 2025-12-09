@@ -1,3 +1,9 @@
+**Note**: This commercial license applies only to the enterprise-specific crates in this repository (located under `crates/enterprise/`). These crates are licensed under the terms described in this document.
+
+All other files in this repository, including the open-source crates, are licensed separately under the MIT license, as found in `LICENSE`.
+
+---
+
 **Commercial Software License Agreement**
 
 This Commercial Software License Agreement ("Agreement") is a legal agreement between you ("Licensee") and Bricks Software AS. ("Licensor") governing the use of the Unleash Enterprise ("Software"). By downloading, installing, or using the Software, you agree to be bound by the terms of this Agreement.
@@ -56,6 +62,4 @@ Provisions regarding warranties, liabilities, and indemnification will be govern
 
 7.4 Severability: If any provision of this Agreement is held invalid, the remaining provisions shall remain in full force and effect.
 
-
-
-*By using the Software, you acknowledge that you have read, understood, and agree to the terms of this Commercial Software License Agreement.*
+_By using the Software, you acknowledge that you have read, understood, and agree to the terms of this Commercial Software License Agreement._
