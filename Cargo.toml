@@ -80,7 +80,7 @@ tower = { version = "0.5.2" }
 tower-http = { version = "0.6.8", features = ["cors", "normalize-path", "trace", "compression-gzip", "compression-zstd", "compression-br", "compression-deflate"] }
 tracing = { version = "0.1.43" }
 tracing-opentelemetry = { version = "0.32.0", features = ["metrics"] }
-tracing-subscriber = { version = "0.3.20", features = ["env-filter", "json"] }
+tracing-subscriber = { version = "0.3.22", features = ["env-filter", "json"] }
 tracing-test = { version = "0.2.5" }
 traced-test = { version = "1.0.4" }
 ulid = { version = "1.2.1", features = ["serde"] }
