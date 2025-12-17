@@ -70,7 +70,7 @@ jobs:
         run: |
           mv "${{ steps.meta.outputs.bake-file }}" "/tmp/bake-meta.json"
       - name: Upload meta bake definition
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: bake-meta
           path: /tmp/bake-meta.json
@@ -150,7 +150,7 @@ jobs:
           digest="${{ fromJSON(steps.bake.outputs.metadata).image['containerimage.digest'] }}"
           touch "/tmp/digests/${digest#sha256:}"
       - name: Upload digests
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: digests-${{ env.PLATFORM_PAIR }}
           path: /tmp/digests/*

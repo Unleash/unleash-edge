@@ -34,7 +34,7 @@ jobs:
           cargo sbom --output-format=cyclone_dx_json_1_6 \
                      --cargo-package unleash-edge > unleash-edge-cyclone-dx.sbom.json
       - name: Upload artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: sbom-artifact
           path: unleash-edge-cyclone-dx.sbom.json
