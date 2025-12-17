@@ -30,7 +30,7 @@ jobs:
         with:
           version: "1.14.3"
       - name: Cache packer plugins
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.config/packer/plugins
           key: packer-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/*.pkr.hcl') }}
@@ -47,7 +47,7 @@ jobs:
         run: |
           packer build -var "edge_version=${{ github.ref_name }}" .
       - name: Upload manifest
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: manifest-${{ github.ref_name }}
           path: packer/unleash-edge-enterprise-arm64-ami-manifest.json
