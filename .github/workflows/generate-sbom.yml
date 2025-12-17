@@ -4,7 +4,7 @@ permissions:
 
 on:
   release:
-    types: [ published ]
+    types: [published]
   workflow_dispatch:
     inputs:
       tag:
@@ -22,11 +22,9 @@ jobs:
   sbom:
     runs-on: "ubuntu-24.04"
     steps:
-      - uses: actions/checkout@v5
-        name: Checkout code
+      - uses: actions/checkout@v6
       - name: Install cargo-sbom
-        run:
-          cargo install cargo-sbom
+        run: cargo install cargo-sbom
       - name: Run sbom
         shell: bash
         run: |
@@ -44,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: sbom
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         name: Checkout code
       - name: Download sbom artifact
         uses: actions/download-artifact@v7
