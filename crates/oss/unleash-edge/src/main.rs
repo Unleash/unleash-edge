@@ -171,12 +171,14 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
             let ip_addr = args.http.ip_addr().map_err(EdgeError::InvalidServerUrl)?;
             let http_listener = make_listener(ip_addr, args.http.port)?;
             let http = axum_server::from_tcp(http_listener)
+                .map_err(|e| EdgeError::SocketBindError(e.to_string()))?
                 .handle(http_handle)
                 .serve(http_redirect_app.into_make_service());
 
             let https_listener = make_listener(ip_addr, args.http.tls.tls_server_port)?;
-            let mut builder =
-                axum_server::from_tcp_rustls(https_listener, config).handle(https_handle.clone());
+            let mut builder = axum_server::from_tcp_rustls(https_listener, config)
+                .expect("Failed to setup TLS")
+                .handle(https_handle.clone());
             let https_builder = builder.http_builder();
             https_builder
                 .http1()
@@ -193,8 +195,9 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
         } else {
             let ip_addr = args.http.ip_addr().map_err(EdgeError::InvalidServerUrl)?;
             let https_listener = make_listener(ip_addr, args.http.tls.tls_server_port)?;
-            let mut builder =
-                axum_server::from_tcp_rustls(https_listener, config).handle(https_handle.clone());
+            let mut builder = axum_server::from_tcp_rustls(https_listener, config)
+                .map_err(|e| EdgeError::SocketBindError(e.to_string()))?
+                .handle(https_handle.clone());
             let https_builder = builder.http_builder();
             https_builder
                 .http1()
@@ -223,7 +226,9 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
         });
         let ip_addr = args.http.ip_addr().map_err(EdgeError::InvalidServerUrl)?;
         let http_listener = make_listener(ip_addr, args.http.port)?;
-        let mut builder = axum_server::from_tcp(http_listener).handle(handle);
+        let mut builder = axum_server::from_tcp(http_listener)
+            .map_err(|e| EdgeError::SocketBindError(e.to_string()))?
+            .handle(handle);
         let http_builder = builder.http_builder();
         http_builder
             .http1()

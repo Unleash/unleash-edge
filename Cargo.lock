@@ -763,20 +763,28 @@ dependencies = [
 
 [[package]]
 name = "axum-server"
-version = "0.7.3"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1ab4a3ec9ea8a657c72d99a03a824af695bd0fb5ec639ccbd9cd3543b41a5f9"
+checksum = "b1df331683d982a0b9492b38127151e6453639cd34926eb9c07d4cd8c6d22bfc"
 dependencies = [
  "arc-swap",
  "bytes",
+ "either",
  "fs-err",
  "http 1.4.0",
  "http-body 1.0.1",
  "hyper 1.8.1",
  "hyper-util",
  "pin-project-lite",
+<<<<<<< HEAD
  "rustls 0.23.36",
  "rustls-pemfile 2.2.0",
+||||||| parent of a9a4569 (from_* methods now yield Result, so map_err to keep mostly the same code)
+ "rustls 0.23.35",
+ "rustls-pemfile 2.2.0",
+=======
+ "rustls 0.23.35",
+>>>>>>> a9a4569 (from_* methods now yield Result, so map_err to keep mostly the same code)
  "rustls-pki-types",
  "tokio",
  "tokio-rustls 0.26.4",
