@@ -55,7 +55,7 @@ opentelemetry = { version = "0.31.0", features = ["trace", "metrics", "logs", "t
 opentelemetry-otlp = { version = "0.31.0", features = ["reqwest", "tracing", "grpc-tonic"] }
 opentelemetry_sdk = { version = "0.31.0", features = ["trace"] }
 p12-keystore = { version = "0.2.0" }
-pkix = { version = "0.2.4" }
+pkix = { version = "0.2.5" }
 pretty_assertions = { version = "1.4.1" }
 prometheus = { version = "0.14.0", features = ["process"] }
 prometheus-reqwest-remote-write = { version = "0.4.0" }
