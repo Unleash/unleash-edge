@@ -32,7 +32,7 @@ rustls = { workspace = true }
 
 [dev-dependencies]
 testcontainers = "0.25.2"
-testcontainers-modules = { version = "0.13.0", features = [
+testcontainers-modules = { version = "0.14.0", features = [
     "redis",
     "localstack",
 ] }
