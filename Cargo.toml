@@ -75,7 +75,7 @@ socket2 = { version = "0.6.1" }
 test-case = { version = "3.3.1" }
 tokio = { version = "1.48.0", features = ["macros", "rt-multi-thread", "tracing", "fs", "signal"] }
 tokio-rustls = { version = "0.26.4" }
-tokio-stream = { version = "0.1.17", features = ["sync"] }
+tokio-stream = { version = "0.1.18", features = ["sync"] }
 tower = { version = "0.5.2" }
 tower-http = { version = "0.6.8", features = ["cors", "normalize-path", "trace", "compression-gzip", "compression-zstd", "compression-br", "compression-deflate"] }
 tracing = { version = "0.1.44" }
