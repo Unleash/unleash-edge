@@ -20,17 +20,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           aws-region: eu-north-1
           role-to-assume: arn:aws:iam::726824350591:role/unleash-github-actions-packer
           role-session-name: gha-packer-session
       - name: Install Packer
-        uses: hashicorp/setup-packer@v2
+        uses: hashicorp/setup-packer@v3
         with:
           version: "1.14.3"
       - name: Cache packer plugins
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.config/packer/plugins
           key: packer-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/*.pkr.hcl') }}
@@ -40,16 +40,14 @@ jobs:
       - name: Packer Validate
         working-directory: packer
         run: |
-          packer validate . \
-            -var "edge_version=${{ github.ref }}"
+          packer validate -var "edge_version=${{ github.ref_name }}" .
       - name: Build AMI
         id: build
         working-directory: packer
         run: |
-          packer build \
-            -var "edge_version=${{ github.ref }}"
+          packer build -var "edge_version=${{ github.ref_name }}" .
       - name: Upload manifest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: manifest-${{ github.ref_name }}
           path: packer/unleash-edge-enterprise-arm64-ami-manifest.json
