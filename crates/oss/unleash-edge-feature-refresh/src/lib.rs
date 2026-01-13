@@ -339,7 +339,7 @@ impl FeatureRefresher {
     ) {
         debug!("Got updated client features. Updating features with {etag:?}");
         let key = cache_key(refresh_token);
-        if let Some(revision_id) = features.meta.clone().and_then(|m| m.revision_id) {
+        if let Some(revision_id) = features.meta.as_ref().and_then(|m| m.revision_id) {
             POLLING_REVISION_ID
                 .with_label_values(&[
                     &refresh_token.environment.clone().unwrap_or("*".to_string()),
