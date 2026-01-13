@@ -252,7 +252,7 @@ impl Display for EdgeError {
             EdgeError::TracingInitError => {
                 write!(
                     f,
-                    "Failed to instantiate tracing and logging. Please unset the OTEL_EXPORTER_OTLP_ENDPOINT environment variable"
+                    "Failed to instantiate tracing and logging. Please check the OTEL_EXPORTER_OTLP_ENDPOINT environment variable configuration and connectivity, or unset it to disable the custom OpenTelemetry endpoint."
                 )
             }
         }
