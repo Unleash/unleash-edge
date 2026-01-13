@@ -345,7 +345,7 @@ impl FeatureRefresher {
                     &refresh_token.environment.clone().unwrap_or("*".to_string()),
                     &refresh_token.projects.join(","),
                 ])
-                .set(revision_id as i64)
+                .set(revision_id as i64);
         }
         POLLING_LAST_UPDATE
             .with_label_values(&[
