@@ -1,12 +1,14 @@
 use anyhow::Context;
+use chrono::Utc;
 use dashmap::DashMap;
 use etag::EntityTag;
 use eventsource_client::{Client, Error};
 use futures::StreamExt;
+use prometheus::{IntGaugeVec, register_int_gauge_vec};
 use reqwest::StatusCode;
 use std::collections::HashSet;
 use std::pin::Pin;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 use tokio::sync::watch::Receiver;
 use tokio::time::sleep;
@@ -36,6 +38,24 @@ pub type Environment = String;
 
 const DELTA_CACHE_LIMIT: usize = 100;
 const SDK_TYPE_HEADER: &str = "Unleash-Sdk-Type";
+
+static DELTA_REVISION_ID: LazyLock<IntGaugeVec> = LazyLock::new(|| {
+    register_int_gauge_vec!(
+        "delta_revision_id",
+        "Revision ID for delta refreshes",
+        &["environment", "projects"]
+    )
+    .unwrap()
+});
+
+static DELTA_LAST_UPDATE: LazyLock<IntGaugeVec> = LazyLock::new(|| {
+    register_int_gauge_vec!(
+        "delta_last_update",
+        "Timestamp for last update over delta",
+        &["environment", "projects"]
+    )
+    .unwrap()
+});
 
 type SseStream = Pin<
     Box<
@@ -326,6 +346,20 @@ impl DeltaRefresher {
             self.features_cache.get(&key).unwrap().features.len(),
             &self.refresh_interval,
         );
+        if let Some(max_event_id) = delta.events.iter().map(|e| e.get_event_id()).max() {
+            DELTA_REVISION_ID
+                .with_label_values(&[
+                    &refresh_token.environment.clone().unwrap_or("*".to_string()),
+                    &refresh_token.projects.join(","),
+                ])
+                .set(max_event_id as i64);
+        }
+        DELTA_LAST_UPDATE
+            .with_label_values(&[
+                &refresh_token.environment.clone().unwrap_or("*".to_string()),
+                &refresh_token.projects.join(","),
+            ])
+            .set(Utc::now().timestamp());
         self.engine_cache
             .entry(key.clone())
             .and_modify(|engine| {
