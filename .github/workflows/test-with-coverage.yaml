@@ -23,9 +23,10 @@ jobs:
     name: Run test coverage using llvm-cov
     env:
       CARGO_TERM_COLOR: always
+      CARGO_INCREMENTAL: 0
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Install rust
