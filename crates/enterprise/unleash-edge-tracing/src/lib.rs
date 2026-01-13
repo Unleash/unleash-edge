@@ -151,7 +151,7 @@ pub fn init_tracing_and_logging(args: &CliArgs, app_id: String) -> EdgeResult<Ot
                     &args.otel_config.otel_exporter_otlp_protocol,
                     app_id,
                 )
-                .map_err(|e| EdgeError::TracingInitError)?;
+                .map_err(|_e| EdgeError::TracingInitError)?;
                 init_tracing_subscriber(&logger, args);
                 Ok(OtelHolder {
                     tracer_provider: Some(tracer),
