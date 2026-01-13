@@ -21,8 +21,6 @@ use tokio::signal::unix::{SignalKind, signal};
 use tokio::try_join;
 use tower::{ServiceBuilder, ServiceExt as TowerServiceExt};
 use tracing::info;
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::util::SubscriberInitExt;
 use unleash_edge::configure_server;
 use unleash_edge::middleware::trim_multiple_and_trailing_slashes::NormalizePathFullLayer;
 use unleash_edge_cli::{CliArgs, EdgeMode};
@@ -68,16 +66,11 @@ async fn shutdown_signal(
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
-    let args = unleash_edge_cli::CliArgs::parse();
+    let args = CliArgs::parse();
     if args.markdown_help {
         clap_markdown::print_help_markdown::<CliArgs>();
         return Ok(());
     }
-
-    tracing_subscriber::registry()
-        .with(unleash_edge::tracing::formatting_layer(&args))
-        .with(unleash_edge::tracing::log_filter())
-        .init();
 
     match args.mode {
         EdgeMode::Health(health_args) => {

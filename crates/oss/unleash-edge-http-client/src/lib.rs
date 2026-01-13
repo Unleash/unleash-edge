@@ -13,7 +13,7 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::PathBuf;
 use std::str::FromStr;
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, error, info, instrument, trace, warn};
 use ulid::Ulid;
 use unleash_edge_cli::ClientIdentity;
 use unleash_edge_types::enterprise::{HeartbeatResponse, LicenseState};
@@ -387,6 +387,7 @@ impl UnleashClient {
         }
     }
 
+    #[instrument(skip(self, api_key))]
     pub async fn register_as_client(
         &self,
         api_key: String,
@@ -419,6 +420,7 @@ impl UnleashClient {
             })
     }
 
+    #[instrument(skip(self, request))]
     pub async fn get_client_features(
         &self,
         request: ClientFeaturesRequest,
@@ -516,6 +518,7 @@ impl UnleashClient {
         }
     }
 
+    #[instrument(skip(self, request))]
     pub async fn get_client_features_delta(
         &self,
         request: ClientFeaturesRequest,
@@ -613,6 +616,7 @@ impl UnleashClient {
         }
     }
 
+    #[instrument(skip(self, api_key))]
     pub async fn send_heartbeat(
         &self,
         api_key: &EdgeToken,
@@ -642,6 +646,7 @@ impl UnleashClient {
         Ok(heartbeat_response.edge_license_state)
     }
 
+    #[instrument(skip(self, request, token))]
     pub async fn send_bulk_metrics_to_client_endpoint(
         &self,
         request: MetricsBatch,
@@ -732,6 +737,7 @@ impl UnleashClient {
         r
     }
 
+    #[instrument(skip(self, request))]
     pub async fn validate_tokens(
         &self,
         request: ValidateTokensRequest,
