@@ -7,6 +7,7 @@ use opentelemetry_sdk::Resource;
 use opentelemetry_sdk::logs::SdkLoggerProvider;
 use opentelemetry_sdk::metrics::SdkMeterProvider;
 use opentelemetry_sdk::trace::SdkTracerProvider;
+use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 use tracing_subscriber::layer::SubscriberExt;
@@ -15,7 +16,6 @@ use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, Layer};
 use unleash_edge_cli::{CliArgs, LogFormat};
 use unleash_edge_types::EdgeResult;
-use unleash_edge_types::errors::EdgeError;
 
 #[derive(Debug, Clone)]
 pub struct OtelHolder {
