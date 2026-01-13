@@ -24,7 +24,10 @@ pub async fn log_request_middleware(req: Request, next: Next) -> Response {
     let res = next.run(req).await;
     trace!(
         "Request: uri=[{}], method=[{}], headers=[{:?}], status=[{:?}]",
-        uri, method, headers, res.status()
+        uri,
+        method,
+        headers,
+        res.status()
     );
     res
 }
