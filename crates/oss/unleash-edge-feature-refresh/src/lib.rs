@@ -10,7 +10,7 @@ use etag::EntityTag;
 use prometheus::{IntGaugeVec, register_int_gauge_vec};
 use reqwest::StatusCode;
 use tokio::sync::watch::Receiver;
-use tracing::{debug, info, warn};
+use tracing::{debug, info, instrument, warn};
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_filters::{FeatureFilterSet, filter_client_features};
@@ -385,6 +385,7 @@ impl FeatureRefresher {
             });
     }
 
+    #[instrument(skip(self))]
     pub async fn refresh_single(&self, refresh: TokenRefresh) {
         let features_result = self
             .unleash_client

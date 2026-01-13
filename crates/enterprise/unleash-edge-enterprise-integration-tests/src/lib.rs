@@ -149,7 +149,8 @@ mod tests {
             },
             datadog_config: unleash_edge_cli::DatadogConfig { datadog_url: None },
             otel_config: unleash_edge_cli::OpenTelemetryConfig {
-                otel_collector_url: None,
+                otel_exporter_otlp_endpoint: None,
+                otel_exporter_otlp_protocol: "grpc".to_string(),
             },
             hosting_type: Some(Hosting::EnterpriseSelfHosted),
         }

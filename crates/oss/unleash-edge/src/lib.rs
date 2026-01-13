@@ -9,12 +9,18 @@ use unleash_edge_appstate::AppState;
 #[cfg(feature = "enterprise")]
 use unleash_edge_enterprise_api::heartbeat;
 
+use opentelemetry_sdk::logs::SdkLoggerProvider;
+use opentelemetry_sdk::metrics::SdkMeterProvider;
+use opentelemetry_sdk::trace::SdkTracerProvider;
 use std::env;
-use std::sync::{Arc, LazyLock};
+use std::pin::Pin;
+use std::sync::{Arc, LazyLock, OnceLock};
 use tokio::sync::RwLock;
 
 use tower::ServiceBuilder;
 use tower_http::compression::CompressionLayer;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
 use ulid::Ulid;
 
 use unleash_edge_auth::token_validator::TokenValidator;
@@ -28,6 +34,8 @@ use unleash_edge_metrics::axum_prometheus_metrics::{
 };
 use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_request_logger::log_request_middleware;
+use unleash_edge_tracing::{OtelHolder, init_tracing_and_logging, shutdown_logging};
+use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
 use unleash_edge_types::{BackgroundTask, EdgeResult, EngineCache, TokenCache};
 
@@ -37,7 +45,6 @@ pub mod middleware;
 pub mod offline_builder;
 pub mod ready_checker;
 pub mod tls;
-pub mod tracing;
 
 static SHOULD_DEFER_VALIDATION: LazyLock<bool> = LazyLock::new(|| {
     env::var("EDGE_DEFER_TOKEN_VALIDATION")
@@ -58,6 +65,8 @@ pub type EdgeInfo = (
     Option<Arc<dyn EdgePersistence>>,
 );
 
+static OTEL_INIT: OnceLock<Arc<OtelHolder>> = OnceLock::new();
+
 pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<BackgroundTask>)> {
     let app_id: Ulid = Ulid::new();
     let client_meta_information = ClientMetaInformation {
@@ -65,12 +74,21 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
         instance_id: app_id,
         connection_id: app_id,
     };
+
+    let logging = OTEL_INIT
+        .get_or_init(|| {
+            Arc::new(
+                init_tracing_and_logging(&args, app_id.clone().to_string())
+                    .expect("Failed to instantiate logging and tracing"),
+            )
+        })
+        .clone();
     let instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>> =
         Arc::new(RwLock::new(Vec::new()));
     let metrics_middleware =
         PrometheusAxumLayer::new(&args.app_name.clone(), &app_id.clone().to_string());
 
-    let (app_state, background_tasks, shutdown_tasks) = match &args.mode {
+    let (app_state, background_tasks, mut shutdown_tasks) = match &args.mode {
         EdgeMode::Edge(edge_args) => {
             let http_client = new_reqwest_client(HttpClientArgs {
                 skip_ssl_verification: edge_args.skip_ssl_verification,
@@ -103,7 +121,7 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
     for task in background_tasks {
         tokio::spawn(task);
     }
-
+    shutdown_tasks.push(shutdown_logging(logging));
     let api_router = Router::new()
         .nest("/client", build_edge_router())
         .merge(unleash_edge_frontend_api::router(args.disable_all_endpoint))

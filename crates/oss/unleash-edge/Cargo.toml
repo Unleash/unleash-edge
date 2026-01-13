@@ -70,6 +70,7 @@ unleash-edge-metrics = { workspace = true }
 unleash-edge-offline = { workspace = true }
 unleash-edge-persistence = { workspace = true }
 unleash-edge-request-logger = { workspace = true }
+unleash-edge-tracing = { workspace = true }
 unleash-edge-types = { workspace = true }
 unleash-types = { workspace = true }
 unleash-yggdrasil = { workspace = true }

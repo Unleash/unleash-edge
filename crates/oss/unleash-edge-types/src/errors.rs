@@ -140,6 +140,7 @@ pub enum EdgeError {
     TokenParseError(String),
     TokenValidationError(StatusCode),
     SocketBindError(String),
+    TracingInitError,
 }
 
 impl Error for EdgeError {}
@@ -248,6 +249,12 @@ impl Display for EdgeError {
             EdgeError::SocketBindError(msg) => {
                 write!(f, "Failed to configure listening socket {msg}")
             }
+            EdgeError::TracingInitError => {
+                write!(
+                    f,
+                    "Failed to instantiate tracing and logging. Please unset the OTEL_EXPORTER_OTLP_ENDPOINT environment variable"
+                )
+            }
         }
     }
 }
@@ -305,7 +312,8 @@ impl IntoResponse for EdgeError {
             EdgeError::InvalidEtag => Response::builder().status(self.status_code()).body(Body::from(json!({
                 "explanation": "Failed to parse ETag header"
             }).to_string())),
-            EdgeError::SocketBindError(_) => Response::builder().status(self.status_code()).body(Body::empty())
+            EdgeError::SocketBindError(_) => Response::builder().status(self.status_code()).body(Body::empty()),
+            EdgeError::TracingInitError => Response::builder().status(self.status_code()).body(Body::empty())
         }.expect("Failed to build response")
     }
 }
@@ -350,6 +358,7 @@ impl EdgeError {
             EdgeError::Forbidden(_) => StatusCode::FORBIDDEN,
             &EdgeError::InvalidEtag => StatusCode::BAD_REQUEST,
             EdgeError::SocketBindError(_) => StatusCode::SERVICE_UNAVAILABLE,
+            EdgeError::TracingInitError => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }
