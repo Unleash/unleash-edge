@@ -31,7 +31,7 @@ static POLLING_REVISION_ID: LazyLock<IntGaugeVec> = LazyLock::new(|| {
     register_int_gauge_vec!(
         "polling_revision_id",
         "Revision ID for polling fetcher",
-        &["environment", "project"]
+        &["environment", "projects"]
     )
     .unwrap()
 });
@@ -40,7 +40,7 @@ static POLLING_LAST_UPDATE: LazyLock<IntGaugeVec> = LazyLock::new(|| {
     register_int_gauge_vec!(
         "polling_last_update",
         "Timestamp of last update for polling fetcher",
-        &["environment", "project"]
+        &["environment", "projects"]
     )
     .unwrap()
 });
