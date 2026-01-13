@@ -177,7 +177,7 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
 
             let https_listener = make_listener(ip_addr, args.http.tls.tls_server_port)?;
             let mut builder = axum_server::from_tcp_rustls(https_listener, config)
-                .expect("Failed to setup TLS")
+                .map_err(|e| EdgeError::SocketBindError(e.to_string()))?
                 .handle(https_handle.clone());
             let https_builder = builder.http_builder();
             https_builder
