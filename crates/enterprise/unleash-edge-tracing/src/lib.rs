@@ -26,8 +26,8 @@ pub struct OtelHolder {
 
 impl OtelHolder {
     pub fn shutdown(&self) {
-        if let Some(tracing) = self.tracer_provider.as_ref() {
-            let _ = tracing.shutdown();
+        if let Some(tracer_provider) = self.tracer_provider.as_ref() {
+            let _ = tracer_provider.shutdown();
         }
         if let Some(meters) = self.meter_provider.as_ref() {
             let _ = meters.shutdown();
