@@ -25,3 +25,4 @@ unleash-edge-types = { workspace = true }
 
 
 [dev-dependencies]
+clap = { workspace = true }

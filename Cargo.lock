@@ -5788,6 +5788,7 @@ name = "unleash-edge-tracing"
 version = "20.1.6"
 dependencies = [
  "anyhow",
+ "clap",
  "opentelemetry",
  "opentelemetry-appender-tracing",
  "opentelemetry-otlp",

@@ -151,7 +151,7 @@ pub fn init_tracing_and_logging(args: &CliArgs, app_id: String) -> EdgeResult<Ot
                     &args.otel_config.otel_exporter_otlp_protocol,
                     app_id,
                 )
-                .map_err(|_e| EdgeError::TracingInitError)?;
+                .map_err(|_e| unleash_edge_types::errors::EdgeError::TracingInitError)?;
                 init_tracing_subscriber(&logger, args);
                 Ok(OtelHolder {
                     tracer_provider: Some(tracer),
@@ -196,4 +196,80 @@ pub fn shutdown_logging(otel_holder: Arc<OtelHolder>) -> Pin<Box<dyn Future<Outp
     Box::pin(async move {
         otel_holder.shutdown();
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+    use unleash_edge_cli::{CliArgs, LogFormat};
+
+    #[test]
+    fn test_otel_holder_empty() {
+        let holder = OtelHolder::empty();
+        assert!(holder.tracer_provider.is_none());
+        assert!(holder.meter_provider.is_none());
+        assert!(holder.logger_provider.is_none());
+    }
+
+    #[test]
+    fn test_simple_logging_initialization() {
+        let args = CliArgs::parse_from([
+            "unleash-edge",
+            "edge",
+            "--upstream-url",
+            "http://localhost:3000",
+        ]);
+        let result = simple_logging(&args);
+        assert!(result.is_ok());
+        let holder = result.unwrap();
+        assert!(holder.tracer_provider.is_none());
+    }
+
+    #[test]
+    fn test_init_tracing_and_logging_no_otel() {
+        let args = CliArgs::parse_from([
+            "unleash-edge",
+            "edge",
+            "--upstream-url",
+            "http://localhost:3000",
+        ]);
+        let result = init_tracing_and_logging(&args, "test-app".to_string());
+        assert!(result.is_ok());
+        let holder = result.unwrap();
+        assert!(holder.tracer_provider.is_none());
+    }
+
+    #[test]
+    fn test_formatting_layer_creation() {
+        let mut args = CliArgs::parse_from([
+            "unleash-edge",
+            "edge",
+            "--upstream-url",
+            "http://localhost:3000",
+        ]);
+
+        args.log_format = LogFormat::Plain;
+        let _ = formatting_layer::<tracing_subscriber::Registry>(&args);
+
+        args.log_format = LogFormat::Json;
+        let _ = formatting_layer::<tracing_subscriber::Registry>(&args);
+
+        args.log_format = LogFormat::Pretty;
+        let _ = formatting_layer::<tracing_subscriber::Registry>(&args);
+    }
+
+    #[test]
+    fn test_resource_creation() {
+        let app_id = "test-instance".to_string();
+        let res = resource(app_id.clone());
+
+        let service_name = res.iter().find(|(k, _)| k.as_str() == "service.name");
+        assert!(service_name.is_some());
+
+        let instance_id = res
+            .iter()
+            .find(|(k, _)| k.as_str() == "service_instance_id");
+        assert_eq!(instance_id.unwrap().1.to_string(), app_id);
+    }
 }
