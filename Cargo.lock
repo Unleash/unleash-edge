@@ -5498,6 +5498,7 @@ dependencies = [
  "http 1.4.0",
  "json-structural-diff",
  "pretty_assertions",
+ "prometheus",
  "reqwest",
  "serde_json",
  "test-case",
