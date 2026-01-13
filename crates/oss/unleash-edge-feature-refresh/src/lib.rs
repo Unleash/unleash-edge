@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::sync::LazyLock;
 use std::{sync::Arc, time::Duration};
 
 pub mod delta_refresh;
@@ -6,6 +7,7 @@ pub mod delta_refresh;
 use chrono::{TimeDelta, Utc};
 use dashmap::DashMap;
 use etag::EntityTag;
+use prometheus::{IntGaugeVec, register_int_gauge_vec};
 use reqwest::StatusCode;
 use tokio::sync::watch::Receiver;
 use tracing::{debug, info, warn};
@@ -24,6 +26,24 @@ use unleash_types::client_metrics::{ClientApplication, MetricsMetadata, SdkType}
 use unleash_yggdrasil::{EngineState, UpdateMessage};
 
 use crate::delta_refresh::DeltaRefresher;
+
+static POLLING_REVISION_ID: LazyLock<IntGaugeVec> = LazyLock::new(|| {
+    register_int_gauge_vec!(
+        "polling_revision_id",
+        "Revision ID for polling fetcher",
+        &["environment", "projects"]
+    )
+    .unwrap()
+});
+
+static POLLING_LAST_UPDATE: LazyLock<IntGaugeVec> = LazyLock::new(|| {
+    register_int_gauge_vec!(
+        "polling_last_update",
+        "Timestamp of last update for polling fetcher",
+        &["environment", "projects"]
+    )
+    .unwrap()
+});
 
 pub fn frontend_token_is_covered_by_tokens(
     frontend_token: &EdgeToken,
@@ -319,6 +339,20 @@ impl FeatureRefresher {
     ) {
         debug!("Got updated client features. Updating features with {etag:?}");
         let key = cache_key(refresh_token);
+        if let Some(revision_id) = features.meta.as_ref().and_then(|m| m.revision_id) {
+            POLLING_REVISION_ID
+                .with_label_values(&[
+                    &refresh_token.environment.clone().unwrap_or("*".to_string()),
+                    &refresh_token.projects.join(","),
+                ])
+                .set(revision_id as i64);
+        }
+        POLLING_LAST_UPDATE
+            .with_label_values(&[
+                &refresh_token.environment.clone().unwrap_or("*".to_string()),
+                &refresh_token.projects.join(","),
+            ])
+            .set(Utc::now().timestamp());
         self.tokens_to_refresh.update_last_refresh(
             refresh_token,
             etag,
