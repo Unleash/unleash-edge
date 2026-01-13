@@ -21,9 +21,10 @@ pub async fn log_request_middleware(req: Request, next: Next) -> Response {
             })
             .unwrap_or_else(|| HeaderValue::from_str("No authorization header").unwrap()),
     );
+    let res = next.run(req).await;
     trace!(
-        "Request: uri=[{}], method=[{}], headers=[{:?}]",
-        uri, method, headers
+        "Request: uri=[{}], method=[{}], headers=[{:?}], status=[{:?}]",
+        uri, method, headers, res.status()
     );
-    next.run(req).await
+    res
 }
