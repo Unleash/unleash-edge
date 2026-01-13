@@ -29,11 +29,11 @@ impl OtelHolder {
         if let Some(tracer_provider) = self.tracer_provider.as_ref() {
             let _ = tracer_provider.shutdown();
         }
-        if let Some(meters) = self.meter_provider.as_ref() {
-            let _ = meters.shutdown();
+        if let Some(meter_provider) = self.meter_provider.as_ref() {
+            let _ = meter_provider.shutdown();
         }
-        if let Some(loggers) = self.logger_provider.as_ref() {
-            let _ = loggers.shutdown();
+        if let Some(logger_provider) = self.logger_provider.as_ref() {
+            let _ = logger_provider.shutdown();
         }
     }
 
