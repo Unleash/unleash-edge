@@ -9,18 +9,12 @@ use unleash_edge_appstate::AppState;
 #[cfg(feature = "enterprise")]
 use unleash_edge_enterprise_api::heartbeat;
 
-use opentelemetry_sdk::logs::SdkLoggerProvider;
-use opentelemetry_sdk::metrics::SdkMeterProvider;
-use opentelemetry_sdk::trace::SdkTracerProvider;
 use std::env;
-use std::pin::Pin;
 use std::sync::{Arc, LazyLock, OnceLock};
 use tokio::sync::RwLock;
 
 use tower::ServiceBuilder;
 use tower_http::compression::CompressionLayer;
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::util::SubscriberInitExt;
 use ulid::Ulid;
 
 use unleash_edge_auth::token_validator::TokenValidator;
@@ -35,7 +29,6 @@ use unleash_edge_metrics::axum_prometheus_metrics::{
 use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_request_logger::log_request_middleware;
 use unleash_edge_tracing::{OtelHolder, init_tracing_and_logging, shutdown_logging};
-use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
 use unleash_edge_types::{BackgroundTask, EdgeResult, EngineCache, TokenCache};
 
