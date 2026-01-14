@@ -80,7 +80,7 @@ fn init_otel(
 ) -> anyhow::Result<(SdkTracerProvider, SdkMeterProvider, SdkLoggerProvider)> {
     let res = resource(app_id);
     // --- Traces ----
-    let span_exporter = if mode.contains("http") {
+    let span_exporter = if mode.starts_with("http") {
         SpanExporter::builder()
             .with_http()
             .with_endpoint(endpoint)
@@ -100,7 +100,7 @@ fn init_otel(
     global::set_tracer_provider(tracer_provider.clone());
 
     // --- Metrics ---
-    let metric_exporter = if mode.contains("http") {
+    let metric_exporter = if mode.starts_with("http") {
         MetricExporter::builder()
             .with_http()
             .with_compression(Compression::Gzip)
@@ -119,7 +119,7 @@ fn init_otel(
     global::set_meter_provider(meter_provider.clone());
 
     // --- Logs ---
-    let log_exporter = if mode.contains("http") {
+    let log_exporter = if mode.starts_with("http") {
         LogExporter::builder()
             .with_http()
             .with_endpoint(endpoint)
