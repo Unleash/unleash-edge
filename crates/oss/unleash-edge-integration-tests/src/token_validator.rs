@@ -265,7 +265,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[tracing_test::traced_test]
     pub async fn deferred_validation_sends_tokens_to_channel() {
         let upstream_tokens: Arc<DashMap<String, EdgeToken>> = Arc::new(DashMap::default());
         let mut valid_token_development =
