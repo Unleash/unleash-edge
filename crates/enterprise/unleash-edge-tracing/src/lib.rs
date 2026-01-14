@@ -69,7 +69,7 @@ fn resource(app_id: String) -> Resource {
             "version",
             unleash_edge_types::build::PKG_VERSION,
         ))
-        .with_attribute(KeyValue::new("service_instance_id", app_id.clone()))
+        .with_attribute(KeyValue::new("service_instance_id", app_id))
         .build()
 }
 
