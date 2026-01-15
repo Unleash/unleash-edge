@@ -174,13 +174,10 @@ impl EdgePersistence for RedisPersister {
     async fn load_license_state(&self) -> EdgeResult<LicenseState> {
         debug!("Loading license state from persistence");
         let mut client = self.redis_client.write().await;
-        let config = AsyncConnectionConfig::new()
-            .set_connection_timeout(Some(self.read_timeout))
-            .set_response_timeout(Some(self.read_timeout));
         let raw_license_state: String = match &mut *client {
             Single(client) => {
                 let mut conn = client
-                    .get_multiplexed_async_connection_with_config(&config)
+                    .get_multiplexed_async_connection_with_config(&self.async_read_config())
                     .await?;
                 conn.get(LICENSE_STATE_KEY).await?
             }
