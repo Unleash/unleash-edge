@@ -151,7 +151,10 @@ pub fn init_tracing_and_logging(args: &CliArgs, app_id: String) -> EdgeResult<Ot
                     &args.otel_config.otel_exporter_otlp_protocol,
                     app_id,
                 )
-                .map_err(|_e| unleash_edge_types::errors::EdgeError::TracingInitError)?;
+                .map_err(|e| {
+                    tracing::error!("Failed to initialize OpenTelemetry {e:?}");
+                    unleash_edge_types::errors::EdgeError::TracingInitError?;
+                });
                 init_tracing_subscriber(&logger, args);
                 Ok(OtelHolder {
                     tracer_provider: Some(tracer),
