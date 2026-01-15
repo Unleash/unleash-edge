@@ -1,3 +1,9 @@
+**Note**: This MIT license applies to all files in this repository except the enterprise-specific crates located under `crates/enterprise/`.
+
+Enterprise-specific crates are licensed separately under the terms found in `LICENSE-ENTERPRISE.md`.
+
+---
+
 MIT License
 
 Copyright (c) 2023 Unleash

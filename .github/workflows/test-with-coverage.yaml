@@ -16,18 +16,24 @@ on:
     branches:
       - main
 env:
-  RUST_VERSION: 1.89.0
+  RUST_VERSION: 1.91.1
 jobs:
   tarpaulin:
     runs-on: ubuntu-latest
     name: Run test coverage using llvm-cov
     env:
       CARGO_TERM_COLOR: always
+      CARGO_INCREMENTAL: 0
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+      - name: Free Disk Space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
       - name: Install rust
         run: |
           rustup set auto-self-update disable
@@ -37,6 +43,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
+      - name: Set up fmt and clippy
+        run: rustup component add rustfmt clippy
       - name: Check formatting with cargo fmt
         run: cargo fmt --all -- --check
       - name: Install required cargo packages for reporting test coverage

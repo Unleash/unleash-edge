@@ -18,33 +18,33 @@ homepage = "https://github.com/Unleash/unleash-edge"
 documentation = "https://docs.getunleash.io/reference/unleash-edge"
 license = "MIT"
 repository = "https://github.com/Unleash/unleash-edge"
-rust-version = "1.89.0"
+rust-version = "1.92.0"
 
 [workspace.dependencies]
 ahash = { version = "0.8.12" }
 anyhow = { version = "1.0.100" }
 async-trait = { version = "0.1.89" }
-aws-config = { version = "1.8.10", features = ["behavior-version-latest"] }
-aws-sdk-s3 = { version = "1.115.0", features = ["behavior-version-latest"] }
-axum = { version = "0.8.7", features = ["macros", "tokio", "json", "query", "tracing"] }
-axum-extra = { version = "0.12.2", features = ["tracing"] }
-axum-server = { version = "0.7.3", features = ["tls-rustls"] }
-axum-test = { version = "18.3.0", features = ["pretty-assertions", "reqwest"] }
+aws-config = { version = "1.8.12", features = ["behavior-version-latest"] }
+aws-sdk-s3 = { version = "1.119.0", features = ["behavior-version-latest"] }
+axum = { version = "0.8.8", features = ["macros", "tokio", "json", "query", "tracing"] }
+axum-extra = { version = "0.12.5", features = ["tracing"] }
+axum-server = { version = "0.8.0", default-features = false, features = ["tls-rustls"] }
+axum-test = { version = "18.6.0", features = ["pretty-assertions", "reqwest"] }
 base64 = { version = "0.22.1" }
-chrono = { version = "0.4.42", features = ["serde"] }
-cidr = { version = "0.3.1" }
-clap = { version = "4.5.53", features = ["derive", "env"] }
+chrono = { version = "0.4.43", features = ["serde"] }
+cidr = { version = "0.3.2" }
+clap = { version = "4.5.54", features = ["derive", "env"] }
 clap-markdown = { version = "0.1.5" }
 dashmap = { version = "6.1.0", features = ["serde"] }
 etag = { version = "4.0.0" }
-eventsource-client = { version = "0.15.1" }
+eventsource-client = { version = "0.16.0" }
 eventsource-stream = { version = "0.2.3" }
 futures = { version = "0.3.31" }
 futures-util = { version = "0.3.31" }
 http = { version = "1.4.0" }
 http-body-util = { version = "0.1.3" }
 hyper = { version = "1.8.1" }
-hyper-util = { version = "0.1.18" }
+hyper-util = { version = "0.1.19" }
 ipnet = { version = "2.11.0" }
 itertools = { version = "0.14.0" }
 json-structural-diff = { version = "0.2.0" }
@@ -55,32 +55,32 @@ opentelemetry = { version = "0.31.0", features = ["trace", "metrics", "logs", "t
 opentelemetry-otlp = { version = "0.31.0", features = ["reqwest", "tracing", "grpc-tonic"] }
 opentelemetry_sdk = { version = "0.31.0", features = ["trace"] }
 p12-keystore = { version = "0.2.0" }
-pkix = { version = "0.2.4" }
+pkix = { version = "0.2.5" }
 pretty_assertions = { version = "1.4.1" }
 prometheus = { version = "0.14.0", features = ["process"] }
-prometheus-reqwest-remote-write = { version = "0.4.0" }
+prometheus-reqwest-remote-write = { version = "0.5.0" }
 proptest = { version = "1.9.0" }
 rand = "0.9.2"
-redis = { version = "0.32.7", features = ["tokio-rustls-comp", "cluster"] }
+redis = { version = "1.0.2", features = ["tokio-rustls-comp", "cluster"] }
 regex = { version = "1.12.2" }
-reqwest = { version = "0.12.24", default-features = false, features = ["rustls-tls", "json", "stream"] }
-rustls = { version = "0.23.35", default-features = false, features = ["ring"] }
+reqwest = { version = "0.13.1", default-features = false, features = ["rustls", "json", "stream", "query"] }
+rustls = { version = "0.23.36", default-features = false, features = ["ring"] }
 rustls-pemfile = { version = "2.2.0" }
 semver = { version = "1.0.27" }
 serde = { version = "1.0.228", features = ["derive"] }
-serde_json = { version = "1.0.145" }
+serde_json = { version = "1.0.149" }
 serde_qs = { version = "0.15.0", features = ["axum"] }
-shadow-rs = { version = "1.4.0" }
+shadow-rs = { version = "1.5.0" }
 socket2 = { version = "0.6.1" }
 test-case = { version = "3.3.1" }
-tokio = { version = "1.48.0", features = ["macros", "rt-multi-thread", "tracing", "fs", "signal"] }
+tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread", "tracing", "fs", "signal"] }
 tokio-rustls = { version = "0.26.4" }
-tokio-stream = { version = "0.1.17", features = ["sync"] }
-tower = { version = "0.5.2" }
-tower-http = { version = "0.6.7", features = ["cors", "normalize-path", "trace", "compression-gzip", "compression-zstd", "compression-br", "compression-deflate"] }
-tracing = { version = "0.1.41" }
+tokio-stream = { version = "0.1.18", features = ["sync"] }
+tower = { version = "0.5.3" }
+tower-http = { version = "0.6.8", features = ["cors", "normalize-path", "trace", "compression-gzip", "compression-zstd", "compression-br", "compression-deflate"] }
+tracing = { version = "0.1.44" }
 tracing-opentelemetry = { version = "0.32.0", features = ["metrics"] }
-tracing-subscriber = { version = "0.3.20", features = ["env-filter", "json"] }
+tracing-subscriber = { version = "0.3.22", features = ["env-filter", "json"] }
 tracing-test = { version = "0.2.5" }
 traced-test = { version = "1.0.4" }
 ulid = { version = "1.2.1", features = ["serde"] }
@@ -107,7 +107,7 @@ unleash-edge-streaming = { path = "./crates/enterprise/unleash-edge-streaming", 
 unleash-edge-types = { path = "./crates/oss/unleash-edge-types", version = "20.1.6" }
 unleash-types = { version = "0.15.21", features = ["hashes", "openapi"] }
 unleash-yggdrasil = { version = "0.18.1" }
-url = { version = "2.5.7" }
+url = { version = "2.5.8" }
 utoipa = { version = "5.4.0", features = ["chrono", "axum_extras"] }
 utoipauto = { version = "0.3.0-alpha.2" }
 utoipa-swagger-ui = { version = "9.0.2", features = ["axum"] }

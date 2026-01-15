@@ -10,10 +10,13 @@
 
 This repository contains both open-source and enterprise-only components.
 
-- The open-source crates are licensed under the MIT license (see [LICENSE](./LICENSE)).
 - The enterprise crates under `crates/enterprise/` are licensed under a commercial license (see [LICENSE-ENTERPRISE.md](./LICENSE-ENTERPRISE.md)).
+- The open-source crates are licensed under the MIT license (see [LICENSE](./LICENSE)).
 
 Please refer to each crate's `Cargo.toml` for the exact license applying to that crate.
+ 
+> [!WARNING]
+> The open-source version of Unleash Edge is in long-term maintenance mode, with **end-of-life scheduled for December 31, 2026**. We recommend that customers migrate to [Enterprise Edge](https://docs.getunleash.io/unleash-edge).
 
 ## Overview
 
@@ -21,7 +24,7 @@ Unleash Edge is a fast and lightweight proxy layer between your Unleash API and 
 Unleash instance and is designed to help you scale Unleash. It allows you to support thousands of connected SDKs without
 increasing the number of requests you make to your Unleash instance.
 
-If you're running the Enterprise build, see the [Enterprise Edge documentation](/docs/enterprise-edge.md) for licensing, configuration and deployment considerations.
+If you're running the Enterprise build, see the [Enterprise Edge documentation](https://docs.getunleash.io/unleash-edge) for licensing, configuration and deployment considerations.
 
 Edge supports both client-side and server-side SDKs and has multi-environment and project awareness. You can daisy-chain
 Edge instances to support more complex setups, such as multi-cloud deployments.
@@ -35,10 +38,10 @@ Key features:
 - **Security**: Edge supports frontend applications without exposing sensitive data to end-users or to Unleash.
 
 You can run Edge in two different modes: **edge** or **offline**. To learn about the different modes and other Edge
-concepts, visit [Concepts](/docs/concepts.md).
+concepts, visit [Modes of operation](https://docs.getunleash.io/unleash-edge/deploy#modes-of-operation).
 
 Unleash Edge is the successor to Unleash Proxy. For help with migrating from Proxy to Edge, refer to
-the [migration guide](/docs/migration-guide.md).
+the [migration guide](https://docs.getunleash.io/unleash-edge/migrate-from-proxy).
 
 If you're looking for the simplest way to connect your client SDKs, explore
 our [Frontend API](https://docs.getunleash.io/reference/front-end-api). For additional recommendations on scaling your
@@ -105,144 +108,15 @@ docker run -v ./examples:/edge/data -p 3063:3063 -e BOOTSTRAP_FILE=/edge/data/fe
 
 ### Connecting SDKs
 
-Once Edge is up and running, your SDKs should connect to EDGE_URL/api.
-
-- With the default configuration that would be http://localhost:3063/api
-
-### Tokens in edge mode
-
-Edge requires tokens at startup and refuses requests from SDKs that have a wider or different access scope than the
-initial tokens. Incoming requests must have a token that exactly matches the environment and project access
-specified in the initial tokens.
-
-For example, if your token `[]:development.<somesecret>` only had access to `project-a` and `project-b` and you try to access Edge
-with `project-c:development.<somesecret>` Edge will reject the request.
-Same will happen if the incoming request uses a different environment, e.g. `*:production.<somesecret>`.
-
-For example, if you start Edge with a wildcard token with access to the development environment (
-`*:development.<some_token_string>`) and your clients use various tokens with access to specific projects in the
-development environment, Edge filters features to only grant access to the narrower scope.
-
-Use:
-
-- `TOKENS` environment variable
-- `--tokens` CLI flag
-
-### Client and frontend tokens in offline mode
-
-> Availability: Unleash Edge v19.4+
-
-Offline mode supports multiple [token types](https://docs.getunleash.io/reference/api-tokens-and-client-keys).
-
-For [client tokens](https://docs.getunleash.io/reference/api-tokens-and-client-keys#client-tokens), use:
-
-- `CLIENT_TOKENS` or `TOKENS` environment variables
-- `--client-tokens` or `--tokens` CLI flags
-
-For [frontend tokens](https://docs.getunleash.io/reference/api-tokens-and-client-keys#front-end-tokens), use:
-
-- `FRONTEND_TOKENS` environment variable
-- `--frontend-tokens` CLI flag
-
-When configured this way, Edge in offline mode can validate tokens and tell daisy-chained Edges instances the type of
-token calling the validate endpoint.
-
-> Since: Unleash Edge v20.0.0
-
-Offline mode no longer supports the `--tokens` flag, use `--client-tokens` for `/api/client/features` access control and
-`--frontend-tokens` for `/api/frontend` access
-
-### Pretrusted tokens
-
-> Availability: Unleash Edge v19.10+
-
-Pretrusted tokens allow you to bypass upstream validation for frontend tokens. This can be useful when you want to
-explicitly authorize known frontend tokens without relying on Unleash to validate them or you need to use the same
-authorization scheme as the Unleash Proxy.
-
-You can provide pretrusted tokens using either the --pretrusted-tokens CLI flag or the PRETRUSTED_TOKENS environment
-variable.
-
-Each token must be in one of the following formats:
-
-- A valid Unleash frontend token, such as:
-
-  `*:development.969e810bb1237ef465c42cb5d8c32c47c1377a4c0885ca3671183255`
-
-- A legacy proxy-style token, of the form:
-
-  `some-secret@development`
-
-  In this format, `some-secret` is the token your frontend client will use and `development` is the environment the
-  token applies to.
-
-> ℹ️ **Note**: When using legacy-style tokens (`some-secret@environment`), you must also configure at least one standard
-> client token (via `TOKENS`) that covers the specified environment. This is required so that Edge knows which features
-> to
-> fetch for that environment.
-
-## Metrics
-
-> Availability: Unleash v5.9+. For daisy-chaining, ensure Edge v17+ is upstream of any Edge v19+ to preserve metrics.
-
-Edge is designed to minimize load on its upstream by batching SDK usage metrics. Metrics are gathered over a set
-interval (`METRICS_INTERVAL_SECONDS`) and sent upstream in a single batch.
-
-Unleash versions older than 4.22 cannot process these metrics, so an update is required to see metrics from clients
-connected to Edge.
-
-### Prometheus integration
-
-To monitor the health and performance of your Edge instances, you can consume Prometheus metrics at:
-
-`http://<your-edge-url>/internal-backstage/metrics`
-
-## Compatibility
-
-Unleash Edge adheres to Semantic Versioning (SemVer) on the API and CLI layers. If you're using Unleash Edge as a
-library in your projects, note that internal changes could affect your implementation, even in minor or patch versions.
-
-## Debugging
-
-You can view the internal state of Edge at:
-
-- `http://<your-edge-url>/internal-backstage/tokens`: Displays the tokens known to Edge.
-- `http://<your-edge-url>/internal-backstage/features`: Shows the current state of features.
-
-Note: The `/internal-backstage/*` endpoints should not be publicly accessible.
-
-To enable verbose logging, adjust the `RUST_LOG` environment variable. For example, to see logs originating directly
-from Edge but not its dependencies, you can raise the default log level from `error` to `warning` and set Edge to
-`debug`, like this:
-
-```sh
-RUST_LOG="warn,unleash_edge=debug" ./unleash-edge #<command>
-```
-
-See more about available logging and log levels [here](https://docs.rs/env_logger/latest/env_logger/#enabling-logging).
+Once Edge is up and running, your SDKs should connect to EDGE_URL/api. For example, `http://localhost:3063/api`.
 
 ## Additional resources
 
-### Edge concepts
-
-To learn more about Unleash Edge, see the [Concepts](/docs/concepts.md) documentation.
-
-### CLI
-
-For a list of available command-line arguments, see [CLI](/docs/CLI.md).
-
-### Deploying Edge
-
-For deployment instructions, see our [Deploying Edge](/docs/deploying.md) guide.
-
-### Migrating from Unleash Proxy
-
-To migrate from the Unleash Proxy to Unleash Edge, refer to the [migration guide](/docs/migration-guide.md).
-
-### Performance benchmarking
-
-For performance benchmarking, see our [Benchmarking](/docs/benchmarking.md) page.
-
-### Contribution and development guide
-
-See our [Contributors guide](/CONTRIBUTING.md) as well as our [development-guide](/docs/development-guide.md).
+- [Edge overview and concepts](https://docs.getunleash.io/unleash-edge)
+- [CLI](/docs/CLI.md)
+- [Deploying Edge](https://docs.getunleash.io/unleash-edge/deploy)
+- [How tokens work](https://docs.getunleash.io/unleash-edge/deploy#tokens)
+- [Troubleshooting](https://docs.getunleash.io/unleash-edge/deploy#troubleshooting)
+- [Migrating from Unleash Proxy](https://docs.getunleash.io/unleash-edge/migrate-from-proxy)
+- [Performance benchmarking](/docs/benchmarking.md)
+- [Contributors guide](/CONTRIBUTING.md) and [development guide](/docs/development-guide.md)

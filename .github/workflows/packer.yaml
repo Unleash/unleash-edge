@@ -1,0 +1,53 @@
+name: Build packer AMI
+on:
+  push:
+    tags:
+      - "unleash-edge-v*"
+  workflow_dispatch:
+
+concurrency:
+  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          aws-region: eu-north-1
+          role-to-assume: arn:aws:iam::726824350591:role/unleash-github-actions-packer
+          role-session-name: gha-packer-session
+      - name: Install Packer
+        uses: hashicorp/setup-packer@v3
+        with:
+          version: "1.14.3"
+      - name: Cache packer plugins
+        uses: actions/cache@v5
+        with:
+          path: ~/.config/packer/plugins
+          key: packer-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/*.pkr.hcl') }}
+      - name: Packer Init
+        working-directory: packer
+        run: packer init .
+      - name: Packer Validate
+        working-directory: packer
+        run: |
+          packer validate -var "edge_version=${{ github.ref_name }}" .
+      - name: Build AMI
+        id: build
+        working-directory: packer
+        run: |
+          packer build -var "edge_version=${{ github.ref_name }}" .
+      - name: Upload manifest
+        uses: actions/upload-artifact@v6
+        with:
+          name: manifest-${{ github.ref_name }}
+          path: packer/unleash-edge-enterprise-arm64-ami-manifest.json
