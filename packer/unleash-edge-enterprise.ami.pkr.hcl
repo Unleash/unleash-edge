@@ -56,7 +56,7 @@ source "amazon-ebs" "unleash-edge-enterprise" {
   }
 
   tags = {
-    Name        = "Unleash Edge Enterprise ARM64 AMI"
+    Name        = "Unleash Edge Enterprise ARM64 AMI {{ var.edge_version }}"
     EdgeVersion = var.edge_version
   }
 }
