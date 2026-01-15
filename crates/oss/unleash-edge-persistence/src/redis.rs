@@ -7,7 +7,7 @@ use super::EdgePersistence;
 use crate::redis::RedisClientOptions::{Cluster, Single};
 use async_trait::async_trait;
 use redis::cluster::ClusterClient;
-use redis::{AsyncCommands, Client, Commands, RedisError};
+use redis::{AsyncCommands, AsyncConnectionConfig, Client, Commands, RedisError};
 use tokio::sync::RwLock;
 use tracing::{debug, info};
 use unleash_edge_types::EdgeResult;
@@ -27,6 +27,7 @@ enum RedisClientOptions {
 pub struct RedisPersister {
     read_timeout: Duration,
     write_timeout: Duration,
+
     redis_client: Arc<RwLock<RedisClientOptions>>,
 }
 impl RedisPersister {
@@ -42,7 +43,7 @@ impl RedisPersister {
             );
         }
         let client = Client::open(url)?;
-        let addr = client.get_connection_info().addr.clone();
+        let addr = client.get_connection_info();
         info!("[REDIS Persister]: Configured single node client {addr:?}");
         Ok(Self {
             redis_client: Arc::new(RwLock::new(Single(client))),
@@ -71,6 +72,17 @@ impl RedisPersister {
             write_timeout,
         })
     }
+
+    pub fn async_read_config(&self) -> AsyncConnectionConfig {
+        AsyncConnectionConfig::new()
+            .set_connection_timeout(Some(self.read_timeout))
+            .set_response_timeout(Some(self.read_timeout))
+    }
+    pub fn async_write_config(&self) -> AsyncConnectionConfig {
+        AsyncConnectionConfig::new()
+            .set_connection_timeout(Some(self.write_timeout))
+            .set_response_timeout(Some(self.write_timeout))
+    }
 }
 
 #[async_trait]
@@ -81,10 +93,7 @@ impl EdgePersistence for RedisPersister {
         let raw_tokens: String = match &mut *client {
             Single(c) => {
                 let mut conn = c
-                    .get_multiplexed_tokio_connection_with_response_timeouts(
-                        self.read_timeout,
-                        self.read_timeout,
-                    )
+                    .get_multiplexed_async_connection_with_config(&self.async_read_config())
                     .await?;
                 conn.get(TOKENS_KEY).await?
             }
@@ -102,17 +111,14 @@ impl EdgePersistence for RedisPersister {
         let mut client = self.redis_client.write().await;
         let raw_tokens = serde_json::to_string(&tokens)?;
         match &mut *client {
-            RedisClientOptions::Single(c) => {
+            Single(c) => {
                 let mut conn = c
-                    .get_multiplexed_tokio_connection_with_response_timeouts(
-                        self.write_timeout,
-                        self.write_timeout,
-                    )
+                    .get_multiplexed_async_connection_with_config(&self.async_write_config())
                     .await?;
                 let res: Result<(), RedisError> = conn.set(TOKENS_KEY, raw_tokens).await;
                 res?;
             }
-            RedisClientOptions::Cluster(c) => {
+            Cluster(c) => {
                 let mut conn = c.get_connection()?;
                 conn.set(TOKENS_KEY, raw_tokens)?
             }
@@ -126,10 +132,7 @@ impl EdgePersistence for RedisPersister {
         let raw_features: String = match &mut *client {
             Single(client) => {
                 let mut conn = client
-                    .get_multiplexed_tokio_connection_with_response_timeouts(
-                        self.read_timeout,
-                        self.read_timeout,
-                    )
+                    .get_multiplexed_async_connection_with_config(&self.async_read_config())
                     .await?;
                 conn.get(FEATURES_KEY).await?
             }
@@ -150,10 +153,7 @@ impl EdgePersistence for RedisPersister {
         match &mut *client {
             Single(client) => {
                 let mut conn = client
-                    .get_multiplexed_tokio_connection_with_response_timeouts(
-                        self.write_timeout,
-                        self.write_timeout,
-                    )
+                    .get_multiplexed_async_connection_with_config(&self.async_write_config())
                     .await?;
                 conn.set(FEATURES_KEY, raw_features)
                     .await
@@ -174,13 +174,13 @@ impl EdgePersistence for RedisPersister {
     async fn load_license_state(&self) -> EdgeResult<LicenseState> {
         debug!("Loading license state from persistence");
         let mut client = self.redis_client.write().await;
+        let config = AsyncConnectionConfig::new()
+            .set_connection_timeout(Some(self.read_timeout))
+            .set_response_timeout(Some(self.read_timeout));
         let raw_license_state: String = match &mut *client {
             Single(client) => {
                 let mut conn = client
-                    .get_multiplexed_tokio_connection_with_response_timeouts(
-                        self.read_timeout,
-                        self.read_timeout,
-                    )
+                    .get_multiplexed_async_connection_with_config(&config)
                     .await?;
                 conn.get(LICENSE_STATE_KEY).await?
             }
@@ -198,18 +198,15 @@ impl EdgePersistence for RedisPersister {
         let mut client = self.redis_client.write().await;
         let raw_license_state = serde_json::to_string(&license_state)?;
         match &mut *client {
-            RedisClientOptions::Single(c) => {
+            Single(c) => {
                 let mut conn = c
-                    .get_multiplexed_tokio_connection_with_response_timeouts(
-                        self.write_timeout,
-                        self.write_timeout,
-                    )
+                    .get_multiplexed_async_connection_with_config(&self.async_write_config())
                     .await?;
                 let res: Result<(), RedisError> =
                     conn.set(LICENSE_STATE_KEY, raw_license_state).await;
                 res?;
             }
-            RedisClientOptions::Cluster(c) => {
+            Cluster(c) => {
                 let mut conn = c.get_connection()?;
                 conn.set(LICENSE_STATE_KEY, raw_license_state)?
             }
