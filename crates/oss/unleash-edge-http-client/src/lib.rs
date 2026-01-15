@@ -330,8 +330,7 @@ impl UnleashClient {
                 skip_ssl_verification: true,
                 client_meta_information: ClientMetaInformation::default(),
                 ..Default::default()
-            })
-            .unwrap(),
+            })?,
             custom_headers: Default::default(),
             token_header: "Authorization".to_string(),
             meta_info: ClientMetaInformation::default(),
