@@ -1,0 +1,28 @@
+[package]
+name = "unleash-edge-tracing"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+documentation.workspace = true
+edition.workspace = true
+publish = true
+license-file = "../../../LICENSE-ENTERPRISE.md"
+[features]
+default = []
+enterprise = []
+
+[dependencies]
+anyhow = { workspace = true }
+opentelemetry = { workspace = true }
+opentelemetry-otlp = { workspace = true }
+opentelemetry_sdk = { workspace = true }
+opentelemetry-appender-tracing = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-opentelemetry = { workspace = true }
+unleash-edge-cli = { workspace = true }
+unleash-edge-types = { workspace = true }
+
+
+[dev-dependencies]
+clap = { workspace = true }
