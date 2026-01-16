@@ -7,42 +7,27 @@ use opentelemetry_sdk::Resource;
 use opentelemetry_sdk::logs::SdkLoggerProvider;
 use opentelemetry_sdk::metrics::SdkMeterProvider;
 use opentelemetry_sdk::trace::SdkTracerProvider;
-use std::future::Future;
-use std::pin::Pin;
 use std::sync::Arc;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, Layer};
 use unleash_edge_cli::{CliArgs, LogFormat};
-use unleash_edge_types::EdgeResult;
+use unleash_edge_types::errors::EdgeError;
+use unleash_edge_types::{BackgroundTask, EdgeResult};
 
 #[derive(Debug, Clone)]
 pub struct OtelHolder {
-    tracer_provider: Option<SdkTracerProvider>,
-    meter_provider: Option<SdkMeterProvider>,
-    logger_provider: Option<SdkLoggerProvider>,
+    tracer_provider: SdkTracerProvider,
+    meter_provider: SdkMeterProvider,
+    logger_provider: SdkLoggerProvider,
 }
 
 impl OtelHolder {
     pub fn shutdown(&self) {
-        if let Some(tracer_provider) = self.tracer_provider.as_ref() {
-            let _ = tracer_provider.shutdown();
-        }
-        if let Some(meter_provider) = self.meter_provider.as_ref() {
-            let _ = meter_provider.shutdown();
-        }
-        if let Some(logger_provider) = self.logger_provider.as_ref() {
-            let _ = logger_provider.shutdown();
-        }
-    }
-
-    fn empty() -> Self {
-        Self {
-            tracer_provider: None,
-            meter_provider: None,
-            logger_provider: None,
-        }
+        let _ = self.tracer_provider.shutdown();
+        let _ = self.meter_provider.shutdown();
+        let _ = self.logger_provider.shutdown();
     }
 }
 
@@ -138,32 +123,33 @@ fn init_otel(
     Ok((tracer_provider, meter_provider, logger_provider))
 }
 
+fn enterprise_tracing(args: &CliArgs, app_id: String) -> EdgeResult<Option<OtelHolder>> {
+    match args.otel_config.otel_exporter_otlp_endpoint.as_ref() {
+        Some(endpoint) => {
+            let (tracer_provider, meter_provider, logger_provider) = init_otel(
+                endpoint,
+                &args.otel_config.otel_exporter_otlp_protocol,
+                app_id,
+            )
+            .map_err(|e| EdgeError::TracingInitError(e.to_string()))?;
+            let _ = init_tracing_subscriber(&logger_provider, args);
+            Ok(Some(OtelHolder {
+                tracer_provider,
+                meter_provider,
+                logger_provider,
+            }))
+        }
+        None => simple_logging(args),
+    }
+}
+
 /// Instantiates exporters for traces, metrics and logs
 /// the exporter will read environment variables as specified in (Otel docs)[https://opentelemetry.io/docs/specs/otel/protocol/exporter/]
 ///
-pub fn init_tracing_and_logging(args: &CliArgs, app_id: String) -> EdgeResult<OtelHolder> {
+pub fn init_tracing_and_logging(args: &CliArgs, app_id: String) -> EdgeResult<Option<OtelHolder>> {
     #[cfg(feature = "enterprise")]
     {
-        match args.otel_config.otel_exporter_otlp_endpoint.as_ref() {
-            Some(endpoint) => {
-                let (tracer, metrics, logger) = init_otel(
-                    endpoint,
-                    &args.otel_config.otel_exporter_otlp_protocol,
-                    app_id,
-                )
-                .map_err(|e| {
-                    tracing::error!("Failed to initialize OpenTelemetry {e:?}");
-                    unleash_edge_types::errors::EdgeError::TracingInitError?;
-                });
-                init_tracing_subscriber(&logger, args);
-                Ok(OtelHolder {
-                    tracer_provider: Some(tracer),
-                    meter_provider: Some(metrics),
-                    logger_provider: Some(logger),
-                })
-            }
-            None => simple_logging(args),
-        }
+        enterprise_tracing(args, app_id)
     }
     #[cfg(not(feature = "enterprise"))]
     {
@@ -171,33 +157,39 @@ pub fn init_tracing_and_logging(args: &CliArgs, app_id: String) -> EdgeResult<Ot
     }
 }
 
-fn simple_logging(args: &CliArgs) -> EdgeResult<OtelHolder> {
-    init_logging(args);
-    Ok(OtelHolder::empty())
+fn simple_logging(args: &CliArgs) -> EdgeResult<Option<OtelHolder>> {
+    init_logging(args).map(|_| None)
 }
 
-fn init_tracing_subscriber(logger_provider: &SdkLoggerProvider, cli_args: &CliArgs) {
+fn init_tracing_subscriber(
+    logger_provider: &SdkLoggerProvider,
+    cli_args: &CliArgs,
+) -> EdgeResult<()> {
     let otel_logs_layer = OpenTelemetryTracingBridge::new(logger_provider);
     let tracer = global::tracer("unleash_edge");
     let otel_traces_layer = tracing_opentelemetry::layer().with_tracer(tracer);
-    let _ = tracing_subscriber::registry()
+    tracing_subscriber::registry()
         .with(log_filter())
         .with(otel_traces_layer)
         .with(otel_logs_layer)
         .with(formatting_layer(cli_args))
-        .try_init();
+        .try_init()
+        .map_err(|e| EdgeError::TracingInitError(e.to_string()))
 }
 
-fn init_logging(args: &CliArgs) {
-    let _ = tracing_subscriber::registry()
+fn init_logging(args: &CliArgs) -> EdgeResult<()> {
+    tracing_subscriber::registry()
         .with(formatting_layer(args))
         .with(log_filter())
-        .try_init();
+        .try_init()
+        .map_err(|e| EdgeError::TracingInitError(e.to_string()))
 }
 
-pub fn shutdown_logging(otel_holder: Arc<OtelHolder>) -> Pin<Box<dyn Future<Output = ()> + Send>> {
+pub fn shutdown_logging(otel_holder: Arc<Option<OtelHolder>>) -> BackgroundTask {
     Box::pin(async move {
-        otel_holder.shutdown();
+        if let Some(holder) = otel_holder.as_ref() {
+            holder.shutdown()
+        };
     })
 }
 
@@ -206,14 +198,6 @@ mod tests {
     use super::*;
     use clap::Parser;
     use unleash_edge_cli::{CliArgs, LogFormat};
-
-    #[test]
-    fn test_otel_holder_empty() {
-        let holder = OtelHolder::empty();
-        assert!(holder.tracer_provider.is_none());
-        assert!(holder.meter_provider.is_none());
-        assert!(holder.logger_provider.is_none());
-    }
 
     #[test]
     fn test_simple_logging_initialization() {
@@ -226,7 +210,7 @@ mod tests {
         let result = simple_logging(&args);
         assert!(result.is_ok());
         let holder = result.unwrap();
-        assert!(holder.tracer_provider.is_none());
+        assert!(holder.is_none());
     }
 
     #[test]
@@ -240,7 +224,7 @@ mod tests {
         let result = init_tracing_and_logging(&args, "test-app".to_string());
         assert!(result.is_ok());
         let holder = result.unwrap();
-        assert!(holder.tracer_provider.is_none());
+        assert!(holder.is_none());
     }
 
     #[test]

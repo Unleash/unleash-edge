@@ -58,7 +58,7 @@ pub type EdgeInfo = (
     Option<Arc<dyn EdgePersistence>>,
 );
 
-static OTEL_INIT: OnceLock<Arc<OtelHolder>> = OnceLock::new();
+static OTEL_INIT: OnceLock<Arc<Option<OtelHolder>>> = OnceLock::new();
 
 pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<BackgroundTask>)> {
     let app_id: Ulid = Ulid::new();
@@ -68,20 +68,12 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
         connection_id: app_id,
     };
 
-    let logging = OTEL_INIT
-        .get_or_init(|| {
-            Arc::new(
-                init_tracing_and_logging(&args, app_id.clone().to_string())
-                    .expect("Failed to instantiate logging and tracing"),
-            )
-        })
-        .clone();
     let instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>> =
         Arc::new(RwLock::new(Vec::new()));
     let metrics_middleware =
         PrometheusAxumLayer::new(&args.app_name.clone(), &app_id.clone().to_string());
 
-    let (app_state, background_tasks, mut shutdown_tasks) = match &args.mode {
+    let (app_state, background_tasks, shutdown_tasks) = match &args.mode {
         EdgeMode::Edge(edge_args) => {
             let http_client = new_reqwest_client(HttpClientArgs {
                 skip_ssl_verification: edge_args.skip_ssl_verification,
@@ -114,7 +106,6 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
     for task in background_tasks {
         tokio::spawn(task);
     }
-    shutdown_tasks.push(shutdown_logging(logging));
     let api_router = Router::new()
         .nest("/client", build_edge_router())
         .merge(unleash_edge_frontend_api::router(args.disable_all_endpoint))
