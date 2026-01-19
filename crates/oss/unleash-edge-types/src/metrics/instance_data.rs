@@ -228,17 +228,19 @@ impl EdgeInstanceData {
         revision_id: usize,
         last_updated: DateTime<Utc>,
     ) {
-        let mut entry = self
+        self
             .edge_api_key_revision_ids
             .entry(api_key_hash(&environment, &projects))
+            .and_modify(|entry| {
+                entry.revision_id = revision_id;
+                entry.last_updated = last_updated;
+            })
             .or_insert(EdgeApiKeyRevisionId {
                 environment,
                 projects,
                 revision_id,
                 last_updated,
             });
-        entry.revision_id = revision_id;
-        entry.last_updated = last_updated;
     }
 
     pub fn observe(&self, connected_instances: Vec<EdgeInstanceData>, base_path: &str) -> Self {
