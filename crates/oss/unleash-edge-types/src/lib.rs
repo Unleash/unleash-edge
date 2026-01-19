@@ -305,7 +305,7 @@ impl TokenRefresh {
             last_refreshed: Some(now),
             last_check: Some(now),
             last_feature_count: Some(feature_count),
-            etag: etag.clone(),
+            etag,
             revision_id,
             ..self.clone()
         }
