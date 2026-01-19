@@ -161,6 +161,7 @@ async fn hydrate_from_persistent_storage(cache: CacheContainer, storage: Arc<dyn
 pub async fn build_edge(
     args: &EdgeArgs,
     client_meta_information: ClientMetaInformation,
+    edge_instance_data: Arc<EdgeInstanceData>,
     auth_headers: AuthHeaders,
     http_client: reqwest::Client,
     tx: Option<UnboundedSender<String>>,
@@ -218,6 +219,7 @@ pub async fn build_edge(
         persistence: persistence.clone(),
         feature_config: &feature_config,
         client_meta_information: &client_meta_information,
+        edge_instance_data: edge_instance_data.clone()
     });
 
     let _ = token_validator.register_tokens(args.tokens.clone()).await;
@@ -325,6 +327,7 @@ pub async fn build_edge_state(
     ) = build_edge(
         &edge_args,
         client_meta_information.clone(),
+        edge_instance_data.clone(),
         auth_headers.clone(),
         http_client.clone(),
         deferred_validation_tx,
@@ -630,6 +633,7 @@ struct LoadHydratorArgs<'a> {
     persistence: Option<Arc<dyn EdgePersistence>>,
     feature_config: &'a FeatureRefreshConfig,
     client_meta_information: &'a ClientMetaInformation,
+    edge_instance_data: Arc<EdgeInstanceData>,
 }
 
 #[cfg(feature = "enterprise")]
@@ -643,6 +647,7 @@ fn load_hydrator(
         persistence,
         feature_config,
         client_meta_information,
+        edge_instance_data
     }: LoadHydratorArgs,
 ) -> HydratorType {
     if args.streaming {
@@ -656,6 +661,7 @@ fn load_hydrator(
             persistence: persistence.clone(),
             streaming: true,
             client_meta_information: client_meta_information.clone(),
+            edge_instance_data: edge_instance_data.clone()
         });
 
         HydratorType::Streaming(delta_refresher)
@@ -667,6 +673,7 @@ fn load_hydrator(
             engine_cache.clone(),
             persistence.clone(),
             feature_config.clone(),
+            edge_instance_data.clone()
         ));
 
         HydratorType::Polling(feature_refresher)
@@ -684,6 +691,7 @@ fn load_hydrator(
         persistence,
         feature_config,
         client_meta_information,
+        edge_instance_data
     }: LoadHydratorArgs,
 ) -> HydratorType {
     let feature_refresher = Arc::new(FeatureRefresher::new(
@@ -693,6 +701,7 @@ fn load_hydrator(
         engine_cache.clone(),
         persistence.clone(),
         feature_config.clone(),
+        edge_instance_data.clone()
     ));
 
     HydratorType::Polling(feature_refresher)

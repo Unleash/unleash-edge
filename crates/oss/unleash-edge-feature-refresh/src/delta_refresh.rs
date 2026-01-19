@@ -1,3 +1,4 @@
+use crate::{TokenRefreshSet, TokenRefreshStatus, client_application_from_token_and_name};
 use anyhow::Context;
 use chrono::Utc;
 use dashmap::DashMap;
@@ -25,14 +26,13 @@ use unleash_edge_types::headers::{
     UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_CONNECTION_ID_HEADER,
     UNLEASH_INSTANCE_ID_HEADER,
 };
+use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
 use unleash_edge_types::tokens::{EdgeToken, cache_key, simplify};
 use unleash_edge_types::{
     ClientFeaturesDeltaResponse, ClientFeaturesRequest, EdgeResult, RefreshState, TokenRefresh,
 };
 use unleash_types::client_features::{ClientFeaturesDelta, DeltaEvent};
 use unleash_yggdrasil::EngineState;
-
-use crate::{TokenRefreshSet, TokenRefreshStatus, client_application_from_token_and_name};
 
 pub type Environment = String;
 
@@ -282,6 +282,7 @@ pub struct DeltaRefresher {
     pub persistence: Option<Arc<dyn EdgePersistence>>,
     pub streaming: bool,
     pub client_meta_information: ClientMetaInformation,
+    pub edge_instance_data: Arc<EdgeInstanceData>,
 }
 
 impl DeltaRefresher {
@@ -339,21 +340,29 @@ impl DeltaRefresher {
                 "Warning: No hydrationEvent found in delta.events, but cache empty for environment"
             );
         }
-
-        self.tokens_to_refresh.update_last_refresh(
-            refresh_token,
-            etag,
-            self.features_cache.get(&key).unwrap().features.len(),
-            &self.refresh_interval,
-        );
-        if let Some(max_event_id) = delta.events.iter().map(|e| e.get_event_id()).max() {
+        let max_event_id = delta.events.iter().map(|e| e.get_event_id()).max().map(|e| e as usize);
+        if let Some(max) = max_event_id {
             DELTA_REVISION_ID
                 .with_label_values(&[
                     &refresh_token.environment.clone().unwrap_or("*".to_string()),
                     &refresh_token.projects.join(","),
                 ])
-                .set(max_event_id as i64);
+                .set(max as i64);
+            self.edge_instance_data.observe_api_key_refresh(
+                refresh_token.environment.clone().unwrap_or("*".to_string()),
+                refresh_token.projects.clone(),
+                max,
+                Utc::now(),
+            )
         }
+
+        self.tokens_to_refresh.update_last_refresh(
+            refresh_token,
+            etag,
+            self.features_cache.get(&key).unwrap().features.len(),
+            max_event_id,
+            &self.refresh_interval,
+        );
         DELTA_LAST_UPDATE
             .with_label_values(&[
                 &refresh_token.environment.clone().unwrap_or("*".to_string()),
@@ -542,6 +551,7 @@ mod tests {
         ClientMetaInformation, HttpClientArgs, UnleashClient, new_reqwest_client,
     };
     use unleash_edge_types::entity_tag_to_header_value;
+    use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
     use unleash_edge_types::tokens::EdgeToken;
     use unleash_types::client_features::{
         ClientFeature, ClientFeatures, ClientFeaturesDelta, Constraint, DeltaEvent, Operator,
@@ -551,6 +561,26 @@ mod tests {
 
     trait TestConfig {
         fn test_config() -> Self;
+    }
+
+    fn edge_instance_data_for_delta_refresher_test() -> EdgeInstanceData {
+        EdgeInstanceData {
+            identifier: Ulid::new().to_string(),
+            app_name: "app_testing".to_string(),
+            hosting: Some(Hosting::SelfHosted),
+            region: None,
+            edge_version: "".to_string(),
+            process_metrics: None,
+            started: Default::default(),
+            traffic: Default::default(),
+            latency_upstream: Default::default(),
+            requests_since_last_report: Default::default(),
+            connected_streaming_clients: 0,
+            connected_edges: vec![],
+            connection_consumption_since_last_report: Default::default(),
+            request_consumption_since_last_report: Default::default(),
+            edge_api_key_revision_ids: Default::default(),
+        }
     }
 
     impl TestConfig for ClientMetaInformation {
@@ -601,6 +631,7 @@ mod tests {
             persistence: None,
             streaming: false,
             client_meta_information: ClientMetaInformation::test_config(),
+            edge_instance_data: Arc::new(edge_instance_data_for_delta_refresher_test()),
         });
         let mut delta_features = ClientFeatures::create_from_delta(&revision(1));
         let token =

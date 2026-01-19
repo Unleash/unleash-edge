@@ -214,6 +214,7 @@ pub struct TokenRefresh {
     pub last_refreshed: Option<DateTime<Utc>>,
     pub last_feature_count: Option<usize>,
     pub last_check: Option<DateTime<Utc>>,
+    pub revision_id: Option<usize>,
     pub failure_count: u32,
 }
 
@@ -245,12 +246,13 @@ impl TokenRefresh {
     pub fn new(token: EdgeToken, etag: Option<EntityTag>) -> Self {
         Self {
             token,
-            etag,
+            etag: etag.clone(),
             last_refreshed: None,
             last_check: None,
             next_refresh: None,
             failure_count: 0,
             last_feature_count: None,
+            revision_id: try_extract_from_etag(etag)
         }
     }
 
@@ -282,12 +284,13 @@ impl TokenRefresh {
             ..self.clone()
         }
     }
-    /// We successfully talked to upstream. There were updates. Update next_refresh, last_refreshed and last_check, and decrement our failure count
+    /// We successfully talked to upstream. There were updates. Update next_refresh, revision_id, last_refreshed, and last_check, and decrement our failure count
     pub fn successful_refresh(
         &self,
         refresh_interval: &Duration,
         etag: Option<EntityTag>,
         feature_count: usize,
+        revision_id: Option<usize>,
     ) -> Self {
         let failure_count = if self.failure_count > 0 {
             self.failure_count - 1
@@ -302,10 +305,17 @@ impl TokenRefresh {
             last_refreshed: Some(now),
             last_check: Some(now),
             last_feature_count: Some(feature_count),
-            etag,
+            etag: etag.clone(),
+            revision_id,
             ..self.clone()
         }
     }
+}
+
+fn try_extract_from_etag(etag: Option<EntityTag>) -> Option<usize> {
+    etag.and_then(|etag| {
+        etag.to_string().splitn(3, ':').nth(1).and_then(|possibly_revision_id| str::parse::<usize>(possibly_revision_id).ok())
+    })
 }
 
 fn calculate_next_refresh(
@@ -504,7 +514,7 @@ pub struct EdgeTokens {
 mod tests {
     use std::collections::HashMap;
     use std::str::FromStr;
-
+    use etag::EntityTag;
     use serde_json::json;
     use test_case::test_case;
     use tracing::warn;
@@ -512,7 +522,7 @@ mod tests {
 
     use crate::errors::EdgeError::EdgeTokenParseError;
 
-    use super::{EdgeResult, EdgeToken, EdgeTokens};
+    use super::{try_extract_from_etag, EdgeResult, EdgeToken, EdgeTokens};
 
     fn test_str(token: &str) -> EdgeToken {
         EdgeToken::from_str(
@@ -752,5 +762,21 @@ mod tests {
         );
 
         assert_eq!(parsed_context.user_id, Some("7".into()));
+    }
+
+    #[test]
+    fn extracts_revision_id_from_unleash_revision_id() {
+        let etag = EntityTag::checked_strong("6ef7ec5a:28:v1").ok();
+        assert!(etag.is_some());
+        let revision_id = try_extract_from_etag(etag);
+        assert_eq!(revision_id, Some(28));
+    }
+
+    #[test]
+    fn edge_revision_id_is_ignored() {
+        let edge_etag = EntityTag::checked_strong("1341-303621334951872547993221074776049883985").ok();
+        assert!(edge_etag.is_some());
+        let revision_id = try_extract_from_etag(edge_etag);
+        assert_eq!(revision_id, None);
     }
 }

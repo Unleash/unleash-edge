@@ -4,6 +4,7 @@ use std::{sync::Arc, time::Duration};
 
 pub mod delta_refresh;
 
+use crate::delta_refresh::DeltaRefresher;
 use chrono::{TimeDelta, Utc};
 use dashmap::DashMap;
 use etag::EntityTag;
@@ -17,6 +18,7 @@ use unleash_edge_feature_filters::{FeatureFilterSet, filter_client_features};
 use unleash_edge_http_client::{ClientMetaInformation, UnleashClient};
 use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_types::errors::{EdgeError, FeatureError};
+use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
 use unleash_edge_types::tokens::{EdgeToken, cache_key, simplify};
 use unleash_edge_types::{
     ClientFeaturesRequest, ClientFeaturesResponse, EdgeResult, RefreshState, TokenRefresh, build,
@@ -24,8 +26,6 @@ use unleash_edge_types::{
 use unleash_types::client_features::ClientFeatures;
 use unleash_types::client_metrics::{ClientApplication, MetricsMetadata, SdkType};
 use unleash_yggdrasil::{EngineState, UpdateMessage};
-
-use crate::delta_refresh::DeltaRefresher;
 
 static POLLING_REVISION_ID: LazyLock<IntGaugeVec> = LazyLock::new(|| {
     register_int_gauge_vec!(
@@ -107,6 +107,7 @@ trait TokenRefreshStatus {
         token: &EdgeToken,
         etag: Option<EntityTag>,
         feature_count: usize,
+        revision_id: Option<usize>,
         refresh_interval: &TimeDelta,
     );
     fn update_last_check(&self, token: &EdgeToken, refresh_interval: &TimeDelta);
@@ -149,10 +150,11 @@ impl TokenRefreshStatus for TokenRefreshSet {
         token: &EdgeToken,
         etag: Option<EntityTag>,
         feature_count: usize,
+        revision_id: Option<usize>,
         refresh_interval: &TimeDelta,
     ) {
         self.alter(&token.token, |_k, old_refresh| {
-            old_refresh.successful_refresh(refresh_interval, etag, feature_count)
+            old_refresh.successful_refresh(refresh_interval, etag, feature_count, revision_id)
         });
     }
 
@@ -173,6 +175,7 @@ pub struct FeatureRefresher {
     pub refresh_interval: chrono::Duration,
     pub persistence: Option<Arc<dyn EdgePersistence>>,
     pub client_meta_information: ClientMetaInformation,
+    pub edge_instance_data: Arc<EdgeInstanceData>,
 }
 
 fn client_application_from_token_and_name(
@@ -270,6 +273,7 @@ impl FeatureRefresher {
         engines: Arc<DashMap<String, EngineState>>,
         persistence: Option<Arc<dyn EdgePersistence>>,
         config: FeatureRefreshConfig,
+        edge_instance_data: Arc<EdgeInstanceData>,
     ) -> Self {
         FeatureRefresher {
             unleash_client,
@@ -280,6 +284,7 @@ impl FeatureRefresher {
             refresh_interval: config.features_refresh_interval,
             persistence,
             client_meta_information: config.client_meta_information,
+            edge_instance_data,
         }
     }
 
@@ -339,13 +344,20 @@ impl FeatureRefresher {
     ) {
         debug!("Got updated client features. Updating features with {etag:?}");
         let key = cache_key(refresh_token);
-        if let Some(revision_id) = features.meta.as_ref().and_then(|m| m.revision_id) {
+        let revision_id = features.meta.as_ref().and_then(|m| m.revision_id);
+        if let Some(revision_id) = revision_id {
             POLLING_REVISION_ID
                 .with_label_values(&[
                     &refresh_token.environment.clone().unwrap_or("*".to_string()),
                     &refresh_token.projects.join(","),
                 ])
                 .set(revision_id as i64);
+            self.edge_instance_data.observe_api_key_refresh(
+                refresh_token.environment.clone().unwrap_or("*".to_string()),
+                refresh_token.projects.clone(),
+                revision_id,
+                Utc::now(),
+            );
         }
         POLLING_LAST_UPDATE
             .with_label_values(&[
@@ -357,6 +369,7 @@ impl FeatureRefresher {
             refresh_token,
             etag,
             features.features.len(),
+            revision_id,
             &self.refresh_interval,
         );
         self.features_cache
@@ -371,7 +384,6 @@ impl FeatureRefresher {
                         warn!("The following toggle failed to compile and will be defaulted to off: {warnings:?}");
                     };
                     *engine = new_state;
-
                 }
             })
             .or_insert_with(|| {
@@ -497,6 +509,7 @@ mod tests {
     use unleash_edge_client_api::features::{FeatureState, features_router_for};
     use unleash_edge_edge_api::{EdgeApiState, edge_api_router_for};
     use unleash_edge_types::TokenValidationStatus::Validated;
+    use unleash_edge_types::metrics::instance_data::Hosting;
     use unleash_edge_types::tokens::cache_key;
     use unleash_edge_types::{EngineCache, TokenCache, TokenRefresh, TokenType};
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
@@ -517,7 +530,28 @@ mod tests {
                     instance_id: Ulid::new(),
                     connection_id: Ulid::new(),
                 },
+                edge_instance_data: Arc::new(edge_instance_data_for_feature_refresher_test()),
             }
+        }
+    }
+
+    fn edge_instance_data_for_feature_refresher_test() -> EdgeInstanceData {
+        EdgeInstanceData {
+            identifier: Ulid::new().to_string(),
+            app_name: "app_testing".to_string(),
+            hosting: Some(Hosting::SelfHosted),
+            region: None,
+            edge_version: "".to_string(),
+            process_metrics: None,
+            started: Default::default(),
+            traffic: Default::default(),
+            latency_upstream: Default::default(),
+            requests_since_last_report: Default::default(),
+            connected_streaming_clients: 0,
+            connected_edges: vec![],
+            connection_consumption_since_last_report: Default::default(),
+            request_consumption_since_last_report: Default::default(),
+            edge_api_key_revision_ids: Default::default(),
         }
     }
 
@@ -825,6 +859,7 @@ mod tests {
             last_check: None,
             failure_count: 0,
             last_feature_count: None,
+            revision_id: None
         };
         let etag_and_last_refreshed_token =
             EdgeToken::try_from("projectb:development.etag_and_last_refreshed_token".to_string())
@@ -837,6 +872,7 @@ mod tests {
             last_check: Some(Utc::now()),
             failure_count: 0,
             last_feature_count: None,
+            revision_id: None
         };
         let etag_but_old_token =
             EdgeToken::try_from("projectb:development.etag_but_old_token".to_string()).unwrap();
@@ -850,6 +886,7 @@ mod tests {
             last_check: Some(ten_seconds_ago),
             failure_count: 0,
             last_feature_count: None,
+            revision_id: None
         };
         feature_refresher.tokens_to_refresh.insert(
             etag_but_last_refreshed_ten_seconds_ago.token.token.clone(),
@@ -1084,6 +1121,7 @@ mod tests {
             last_check: None,
             failure_count: 0,
             last_feature_count: None,
+            revision_id: None
         };
 
         current_tokens.insert(wildcard_token.token, token_refresh);
