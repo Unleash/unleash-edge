@@ -219,7 +219,7 @@ pub async fn build_edge(
         persistence: persistence.clone(),
         feature_config: &feature_config,
         client_meta_information: &client_meta_information,
-        edge_instance_data: edge_instance_data.clone()
+        edge_instance_data: edge_instance_data.clone(),
     });
 
     let _ = token_validator.register_tokens(args.tokens.clone()).await;
@@ -647,7 +647,7 @@ fn load_hydrator(
         persistence,
         feature_config,
         client_meta_information,
-        edge_instance_data
+        edge_instance_data,
     }: LoadHydratorArgs,
 ) -> HydratorType {
     if args.streaming {
@@ -661,7 +661,7 @@ fn load_hydrator(
             persistence: persistence.clone(),
             streaming: true,
             client_meta_information: client_meta_information.clone(),
-            edge_instance_data: edge_instance_data.clone()
+            edge_instance_data: edge_instance_data.clone(),
         });
 
         HydratorType::Streaming(delta_refresher)
@@ -673,7 +673,7 @@ fn load_hydrator(
             engine_cache.clone(),
             persistence.clone(),
             feature_config.clone(),
-            edge_instance_data.clone()
+            edge_instance_data.clone(),
         ));
 
         HydratorType::Polling(feature_refresher)
@@ -691,7 +691,7 @@ fn load_hydrator(
         persistence,
         feature_config,
         client_meta_information,
-        edge_instance_data
+        edge_instance_data,
     }: LoadHydratorArgs,
 ) -> HydratorType {
     let feature_refresher = Arc::new(FeatureRefresher::new(
@@ -701,7 +701,7 @@ fn load_hydrator(
         engine_cache.clone(),
         persistence.clone(),
         feature_config.clone(),
-        edge_instance_data.clone()
+        edge_instance_data.clone(),
     ));
 
     HydratorType::Polling(feature_refresher)

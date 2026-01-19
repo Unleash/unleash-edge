@@ -810,32 +810,32 @@ mod tests {
     pub fn deserializes_list_of_edge_api_key_revision_ids_to_map_internally() {
         let requests_since_last_report: DashMap<String, RequestStats> = DashMap::default();
         let json = json!({
-                            "identifier": Ulid::new().to_string(),
-                            "appName": "test",
-                            "hosting": "hosted",
-                            "edgeVersion": "1.0.0",
-                            "region": "us-west-1",
-                            "started": Utc::now(),
-                            "traffic": InstanceTraffic::default(),
-                            "latencyUpstream": UpstreamLatency::default(),
-                            "requestsSinceLastReport": requests_since_last_report,
-                            "connectedStreamingClients": 0,
-                            "connectedEdges": Vec::<String>::new(),
-                            "connectionConsumptionSinceLastReport": ConnectionConsumptionData::default(),
-                            "requestConsumptionSinceLastReport": RequestConsumptionData::default(),
-                            "edgeApiKeyRevisionIds": vec![
-                EdgeApiKeyRevisionId {
-                    environment: "development".to_string(),
-                    projects: vec!["*".to_string()],
-                    revision_id: 100,
-                    last_updated: Utc::now(),
-                }, EdgeApiKeyRevisionId {
-                    environment: "production".to_string(),
-                    projects: vec!["*".to_string()],
-                    revision_id: 102,
-                    last_updated: Utc::now(),
-                }
-            ]});
+                        "identifier": Ulid::new().to_string(),
+                        "appName": "test",
+                        "hosting": "hosted",
+                        "edgeVersion": "1.0.0",
+                        "region": "us-west-1",
+                        "started": Utc::now(),
+                        "traffic": InstanceTraffic::default(),
+                        "latencyUpstream": UpstreamLatency::default(),
+                        "requestsSinceLastReport": requests_since_last_report,
+                        "connectedStreamingClients": 0,
+                        "connectedEdges": Vec::<String>::new(),
+                        "connectionConsumptionSinceLastReport": ConnectionConsumptionData::default(),
+                        "requestConsumptionSinceLastReport": RequestConsumptionData::default(),
+                        "edgeApiKeyRevisionIds": vec![
+            EdgeApiKeyRevisionId {
+                environment: "development".to_string(),
+                projects: vec!["*".to_string()],
+                revision_id: 100,
+                last_updated: Utc::now(),
+            }, EdgeApiKeyRevisionId {
+                environment: "production".to_string(),
+                projects: vec!["*".to_string()],
+                revision_id: 102,
+                last_updated: Utc::now(),
+            }
+        ]});
         let instance_data = serde_json::from_value::<EdgeInstanceData>(json);
         match instance_data {
             Ok(data) => assert_eq!(data.edge_api_key_revision_ids.len(), 2),

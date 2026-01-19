@@ -859,7 +859,7 @@ mod tests {
             last_check: None,
             failure_count: 0,
             last_feature_count: None,
-            revision_id: None
+            revision_id: None,
         };
         let etag_and_last_refreshed_token =
             EdgeToken::try_from("projectb:development.etag_and_last_refreshed_token".to_string())
@@ -872,7 +872,7 @@ mod tests {
             last_check: Some(Utc::now()),
             failure_count: 0,
             last_feature_count: None,
-            revision_id: None
+            revision_id: None,
         };
         let etag_but_old_token =
             EdgeToken::try_from("projectb:development.etag_but_old_token".to_string()).unwrap();
@@ -886,7 +886,7 @@ mod tests {
             last_check: Some(ten_seconds_ago),
             failure_count: 0,
             last_feature_count: None,
-            revision_id: None
+            revision_id: None,
         };
         feature_refresher.tokens_to_refresh.insert(
             etag_but_last_refreshed_ten_seconds_ago.token.token.clone(),
@@ -1121,7 +1121,7 @@ mod tests {
             last_check: None,
             failure_count: 0,
             last_feature_count: None,
-            revision_id: None
+            revision_id: None,
         };
 
         current_tokens.insert(wildcard_token.token, token_refresh);

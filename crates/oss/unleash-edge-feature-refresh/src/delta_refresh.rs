@@ -340,7 +340,12 @@ impl DeltaRefresher {
                 "Warning: No hydrationEvent found in delta.events, but cache empty for environment"
             );
         }
-        let max_event_id = delta.events.iter().map(|e| e.get_event_id()).max().map(|e| e as usize);
+        let max_event_id = delta
+            .events
+            .iter()
+            .map(|e| e.get_event_id())
+            .max()
+            .map(|e| e as usize);
         if let Some(max) = max_event_id {
             DELTA_REVISION_ID
                 .with_label_values(&[
