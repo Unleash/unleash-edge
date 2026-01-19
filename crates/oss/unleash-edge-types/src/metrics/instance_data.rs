@@ -781,7 +781,7 @@ mod tests {
     }
 
     #[test]
-    pub fn successfully_serializes_with_no_edge_api_key_revision_id_entry() {
+    pub fn successfully_deserializes_with_no_edge_api_key_revision_id_entry() {
         let requests_since_last_report: DashMap<String, RequestStats> = DashMap::default();
 
         let json = json!({
@@ -807,7 +807,7 @@ mod tests {
     }
 
     #[test]
-    pub fn serializes_list_of_edge_api_key_revision_ids_to_map_internally() {
+    pub fn deserializes_list_of_edge_api_key_revision_ids_to_map_internally() {
         let requests_since_last_report: DashMap<String, RequestStats> = DashMap::default();
         let json = json!({
                             "identifier": Ulid::new().to_string(),
