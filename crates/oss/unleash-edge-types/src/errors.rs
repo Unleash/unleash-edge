@@ -140,6 +140,7 @@ pub enum EdgeError {
     TokenParseError(String),
     TokenValidationError(StatusCode),
     SocketBindError(String),
+    TracingInitError(String),
 }
 
 impl Error for EdgeError {}
@@ -248,6 +249,14 @@ impl Display for EdgeError {
             EdgeError::SocketBindError(msg) => {
                 write!(f, "Failed to configure listening socket {msg}")
             }
+            EdgeError::TracingInitError(s) => {
+                write!(
+                    f,
+                    r#"Failed to instantiate tracing and logging (error message ${s}).
+                    Please check the OTEL_EXPORTER_OTLP_ENDPOINT environment variable configuration and connectivity,
+                    or unset it to disable the custom OpenTelemetry endpoint."#
+                )
+            }
         }
     }
 }
@@ -305,12 +314,15 @@ impl IntoResponse for EdgeError {
             EdgeError::InvalidEtag => Response::builder().status(self.status_code()).body(Body::from(json!({
                 "explanation": "Failed to parse ETag header"
             }).to_string())),
-            EdgeError::SocketBindError(_) => Response::builder().status(self.status_code()).body(Body::empty())
+            EdgeError::SocketBindError(_) => Response::builder().status(self.status_code()).body(Body::empty()),
+            EdgeError::TracingInitError(msg) => Response::builder().status(self.status_code()).body(Body::from(json!({
+                "explanation": format!("Failed to instantiate tracing with error message: {msg}")
+            }).to_string()))
         }.expect("Failed to build response")
     }
 }
 impl EdgeError {
-    pub fn status_code(&self) -> axum::http::StatusCode {
+    pub fn status_code(&self) -> StatusCode {
         match self {
             EdgeError::InvalidBackupFile(_, _) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::TlsError(_) => StatusCode::INTERNAL_SERVER_ERROR,
@@ -350,6 +362,7 @@ impl EdgeError {
             EdgeError::Forbidden(_) => StatusCode::FORBIDDEN,
             &EdgeError::InvalidEtag => StatusCode::BAD_REQUEST,
             EdgeError::SocketBindError(_) => StatusCode::SERVICE_UNAVAILABLE,
+            EdgeError::TracingInitError(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }

@@ -16,18 +16,18 @@ mod tests {
     use tokio::sync::RwLock;
     use ulid::Ulid;
     use unleash_edge::edge_builder::{EdgeStateArgs, build_edge_state, resolve_license};
+    use unleash_edge_cli::OtelExporterProtocol::Grpc;
     use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeArgs, HttpServerArgs};
     use unleash_edge_http_client::{
         ClientMetaInformation, HttpClientArgs, UnleashClient, new_reqwest_client,
     };
     use unleash_edge_persistence::EdgePersistence;
+    use unleash_edge_types::EdgeResult;
     use unleash_edge_types::enterprise::LicenseState;
     use unleash_edge_types::errors::EdgeError;
     use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
     use unleash_edge_types::tokens::EdgeToken;
     use unleash_types::client_features::ClientFeatures;
-
-    use unleash_edge_types::EdgeResult;
 
     #[derive(Clone)]
     struct MockState {
@@ -132,7 +132,7 @@ mod tests {
             edge_request_timeout: 5,
             edge_keepalive_timeout: 5,
             log_format: unleash_edge_cli::LogFormat::Plain,
-            auth_headers: unleash_edge_cli::AuthHeaders::default(),
+            auth_headers: AuthHeaders::default(),
             token_header: None,
             internal_backstage: unleash_edge_cli::InternalBackstageArgs {
                 disable_metrics_batch_endpoint: false,
@@ -149,7 +149,8 @@ mod tests {
             },
             datadog_config: unleash_edge_cli::DatadogConfig { datadog_url: None },
             otel_config: unleash_edge_cli::OpenTelemetryConfig {
-                otel_collector_url: None,
+                otel_exporter_otlp_endpoint: None,
+                otel_exporter_otlp_protocol: Grpc,
             },
             hosting_type: Some(Hosting::EnterpriseSelfHosted),
         }
