@@ -46,12 +46,12 @@ pub struct EdgeInstanceData {
     #[serde(
         default,
         serialize_with = "serialize_map_to_values",
-        deserialize_with = "deserialize_optional_values_to_map"
+        deserialize_with = "deserialize_array_to_dashmap"
     )]
     pub edge_api_key_revision_ids: DashMap<String, EdgeApiKeyRevisionId>,
 }
 
-fn deserialize_optional_values_to_map<'de, D>(
+fn deserialize_array_to_dashmap<'de, D>(
     de: D,
 ) -> Result<DashMap<String, EdgeApiKeyRevisionId>, D::Error>
 where
@@ -89,6 +89,7 @@ fn api_key_hash(environment: &str, projects: &[String]) -> String {
     hasher.update(environment.as_bytes());
     for project in projects {
         hasher.update(project.as_bytes());
+        hasher.update(",".as_bytes());
     }
     format!("{:x}", hasher.finalize())
 }
@@ -228,8 +229,7 @@ impl EdgeInstanceData {
         revision_id: usize,
         last_updated: DateTime<Utc>,
     ) {
-        self
-            .edge_api_key_revision_ids
+        self.edge_api_key_revision_ids
             .entry(api_key_hash(&environment, &projects))
             .and_modify(|entry| {
                 entry.revision_id = revision_id;
@@ -505,7 +505,7 @@ mod tests {
         let serialized = serde_json::to_value(&instance_data).unwrap();
         assert_eq!(
             serialized["requestConsumptionSinceLastReport"],
-            serde_json::json!([
+            json!([
                 {
                     "meteredGroup": "default",
                     "requests": 4
@@ -518,7 +518,7 @@ mod tests {
         let serialized_cleared = serde_json::to_value(&instance_data).unwrap();
         assert_eq!(
             serialized_cleared["requestConsumptionSinceLastReport"],
-            serde_json::json!([
+            json!([
                 {
                     "meteredGroup": "default",
                     "requests": 0
@@ -548,21 +548,19 @@ mod tests {
         let features_data_points = actual_features["dataPoints"].as_array().unwrap();
         assert_eq!(features_data_points.len(), 2);
         assert!(features_data_points.iter().any(|data_point| {
-            data_point["interval"] == serde_json::json!([0, 15000]) && data_point["requests"] == 2
+            data_point["interval"] == json!([0, 15000]) && data_point["requests"] == 2
         }));
         assert!(features_data_points.iter().any(|data_point| {
-            data_point["interval"] == serde_json::json!([15000, 20000])
-                && data_point["requests"] == 1
+            data_point["interval"] == json!([15000, 20000]) && data_point["requests"] == 1
         }));
 
         let metrics_data_points = actual_metrics["dataPoints"].as_array().unwrap();
         assert_eq!(metrics_data_points.len(), 2);
         assert!(metrics_data_points.iter().any(|data_point| {
-            data_point["interval"] == serde_json::json!([0, 60000]) && data_point["requests"] == 2
+            data_point["interval"] == json!([0, 60000]) && data_point["requests"] == 2
         }));
         assert!(metrics_data_points.iter().any(|data_point| {
-            data_point["interval"] == serde_json::json!([60000, 120000])
-                && data_point["requests"] == 1
+            data_point["interval"] == json!([60000, 120000]) && data_point["requests"] == 1
         }));
     }
 
