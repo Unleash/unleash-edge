@@ -28,7 +28,7 @@ use unleash_edge_metrics::axum_prometheus_metrics::{
 };
 use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_request_logger::log_request_middleware;
-use unleash_edge_tracing::{OtelHolder, init_tracing_and_logging, shutdown_logging};
+use unleash_edge_tracing::OtelHolder;
 use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
 use unleash_edge_types::{BackgroundTask, EdgeResult, EngineCache, TokenCache};
 

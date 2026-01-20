@@ -650,12 +650,17 @@ pub struct DatadogConfig {
     pub datadog_url: Option<String>,
 }
 
+#[derive(Debug, Clone, ValueEnum)]
+pub enum OtelExporterProtocol {
+    Grpc,
+    Http,
+}
 #[derive(Args, Debug, Clone)]
 pub struct OpenTelemetryConfig {
     #[arg(long, env, global = true)]
     pub otel_exporter_otlp_endpoint: Option<String>,
-    #[arg(long, env, global = true, default_value = "grpc")]
-    pub otel_exporter_otlp_protocol: String,
+    #[arg(long, env, global = true, value_enum, default_value_t = OtelExporterProtocol::Grpc)]
+    pub otel_exporter_otlp_protocol: OtelExporterProtocol,
 }
 
 fn ip_net_parser(arg: &str) -> Result<IpNet, String> {

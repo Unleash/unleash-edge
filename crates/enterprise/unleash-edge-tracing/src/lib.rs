@@ -12,7 +12,7 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, Layer};
-use unleash_edge_cli::{CliArgs, LogFormat};
+use unleash_edge_cli::{CliArgs, LogFormat, OtelExporterProtocol};
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::{BackgroundTask, EdgeResult};
 
@@ -58,24 +58,24 @@ fn resource(app_id: String) -> Resource {
         .build()
 }
 
+#[cfg(feature = "enterprise")]
 fn init_otel(
     endpoint: &str,
-    mode: &str,
+    mode: &OtelExporterProtocol,
     app_id: String,
 ) -> anyhow::Result<(SdkTracerProvider, SdkMeterProvider, SdkLoggerProvider)> {
     let res = resource(app_id);
     // --- Traces ----
-    let span_exporter = if mode.starts_with("http") {
-        SpanExporter::builder()
+    let span_exporter = match mode {
+        OtelExporterProtocol::Http => SpanExporter::builder()
             .with_http()
             .with_endpoint(endpoint)
             .with_compression(Compression::Gzip)
-            .build()
-    } else {
-        SpanExporter::builder()
+            .build(),
+        OtelExporterProtocol::Grpc => SpanExporter::builder()
             .with_tonic()
             .with_endpoint(endpoint)
-            .build()
+            .build(),
     }?;
     let tracer_provider = SdkTracerProvider::builder()
         .with_resource(res.clone())
@@ -85,17 +85,16 @@ fn init_otel(
     global::set_tracer_provider(tracer_provider.clone());
 
     // --- Metrics ---
-    let metric_exporter = if mode.starts_with("http") {
-        MetricExporter::builder()
+    let metric_exporter = match mode {
+        OtelExporterProtocol::Http => MetricExporter::builder()
             .with_http()
-            .with_compression(Compression::Gzip)
             .with_endpoint(endpoint)
-            .build()
-    } else {
-        MetricExporter::builder()
+            .with_compression(Compression::Gzip)
+            .build(),
+        OtelExporterProtocol::Grpc => MetricExporter::builder()
             .with_tonic()
             .with_endpoint(endpoint)
-            .build()
+            .build(),
     }?;
     let meter_provider = SdkMeterProvider::builder()
         .with_resource(res.clone())
@@ -104,16 +103,16 @@ fn init_otel(
     global::set_meter_provider(meter_provider.clone());
 
     // --- Logs ---
-    let log_exporter = if mode.starts_with("http") {
-        LogExporter::builder()
+    let log_exporter = match mode {
+        OtelExporterProtocol::Http => LogExporter::builder()
             .with_http()
             .with_endpoint(endpoint)
-            .build()
-    } else {
-        LogExporter::builder()
+            .with_compression(Compression::Gzip)
+            .build(),
+        OtelExporterProtocol::Grpc => LogExporter::builder()
             .with_tonic()
             .with_endpoint(endpoint)
-            .build()
+            .build(),
     }?;
     let logger_provider = SdkLoggerProvider::builder()
         .with_resource(res)
@@ -123,6 +122,7 @@ fn init_otel(
     Ok((tracer_provider, meter_provider, logger_provider))
 }
 
+#[cfg(feature = "enterprise")]
 fn enterprise_tracing(args: &CliArgs, app_id: String) -> EdgeResult<Option<OtelHolder>> {
     match args.otel_config.otel_exporter_otlp_endpoint.as_ref() {
         Some(endpoint) => {
@@ -158,9 +158,15 @@ pub fn init_tracing_and_logging(args: &CliArgs, app_id: String) -> EdgeResult<Op
 }
 
 fn simple_logging(args: &CliArgs) -> EdgeResult<Option<OtelHolder>> {
-    init_logging(args).map(|_| None)
+    init_logging(args)
+        .map_err(|e| {
+            println!("Something went wrong {:?}", e);
+            e
+        })
+        .map(|_| None)
 }
 
+#[cfg(feature = "enterprise")]
 fn init_tracing_subscriber(
     logger_provider: &SdkLoggerProvider,
     cli_args: &CliArgs,
