@@ -10,8 +10,8 @@ license.workspace = true
 
 [dependencies]
 ahash = { workspace = true }
-async-trait = { workspace = true }
 axum = { workspace = true }
+axum-core = { workspace = true }
 chrono = { workspace = true }
 dashmap = { workspace = true }
 etag = { workspace = true }
@@ -31,6 +31,9 @@ utoipa = { workspace = true }
 [dev-dependencies]
 pretty_assertions = { workspace = true }
 test-case = { workspace = true }
+axum-test = { workspace = true }
+tokio = { workspace = true }
+
 
 [build-dependencies]
 shadow-rs = { workspace = true }

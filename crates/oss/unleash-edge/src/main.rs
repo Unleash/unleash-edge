@@ -3,7 +3,6 @@ use axum::{Router, ServiceExt as _};
 use axum::body::Body;
 use axum::extract::{Request, State};
 use axum::response::{IntoResponse, Redirect};
-use axum_extra::extract::Host;
 use axum_server::Handle;
 use clap::Parser;
 use futures::future::join_all;
@@ -25,6 +24,7 @@ use unleash_edge::configure_server;
 use unleash_edge::middleware::trim_multiple_and_trailing_slashes::NormalizePathFullLayer;
 use unleash_edge_cli::{CliArgs, EdgeMode};
 use unleash_edge_types::errors::EdgeError;
+use unleash_edge_types::extract::host::Host;
 use unleash_edge_types::{BackgroundTask, EdgeResult};
 
 async fn shutdown_signal(
