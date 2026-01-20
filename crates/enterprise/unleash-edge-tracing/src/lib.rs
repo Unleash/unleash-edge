@@ -1,5 +1,4 @@
 use opentelemetry::KeyValue;
-use opentelemetry_otlp::{WithExportConfig, WithHttpConfig};
 use opentelemetry_sdk::Resource;
 use opentelemetry_sdk::logs::SdkLoggerProvider;
 use opentelemetry_sdk::metrics::SdkMeterProvider;
@@ -11,6 +10,9 @@ use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, Layer};
 use unleash_edge_cli::{CliArgs, LogFormat};
 use unleash_edge_types::{BackgroundTask, EdgeResult};
+
+#[cfg(feature = "enterprise")]
+use opentelemetry_otlp::{WithExportConfig, WithHttpConfig};
 
 #[derive(Debug, Clone)]
 pub struct OtelHolder {
