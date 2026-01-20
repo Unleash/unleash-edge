@@ -1,4 +1,4 @@
-use crate::{CacheContainer, EdgeInfo, SHOULD_DEFER_VALIDATION};
+use crate::{CacheContainer, EdgeInfo, OTEL_INIT, SHOULD_DEFER_VALIDATION};
 use chrono::Duration;
 use dashmap::DashMap;
 use http::StatusCode;
@@ -38,6 +38,7 @@ use unleash_edge_persistence::s3::s3_persister::S3Persister;
 use unleash_edge_persistence::{
     EdgePersistence, create_once_off_persist, create_persist_data_task,
 };
+use unleash_edge_tracing::{init_tracing_and_logging, shutdown_logging};
 use unleash_edge_types::enterprise::{ApplicationLicenseState, LicenseState};
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::MetricsCache;
@@ -274,6 +275,16 @@ pub async fn build_edge_state(
         args.hosting_type.or(Some(DEFAULT_HOSTING)),
     ));
 
+    OTEL_INIT.get_or_init(|| {
+        Arc::new(
+            init_tracing_and_logging(
+                &args,
+                client_meta_information.instance_id.clone().to_string(),
+            )
+            .unwrap_or_default(),
+        )
+    });
+
     let unleash_client = Url::parse(&edge_args.upstream_url.clone())
         .map(|url| {
             UnleashClient::from_url_with_backing_client(
@@ -451,6 +462,10 @@ fn create_shutdown_tasks(
     tasks.push(create_terminate_sse_connections_task(
         delta_cache_manager.clone(),
     ));
+
+    if let Some(otel) = OTEL_INIT.get() {
+        tasks.push(shutdown_logging(otel.clone()));
+    };
 
     tasks
 }

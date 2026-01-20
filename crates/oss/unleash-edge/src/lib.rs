@@ -10,7 +10,7 @@ use unleash_edge_appstate::AppState;
 use unleash_edge_enterprise_api::heartbeat;
 
 use std::env;
-use std::sync::{Arc, LazyLock};
+use std::sync::{Arc, LazyLock, OnceLock};
 use tokio::sync::RwLock;
 
 use tower::ServiceBuilder;
@@ -28,6 +28,7 @@ use unleash_edge_metrics::axum_prometheus_metrics::{
 };
 use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_request_logger::log_request_middleware;
+use unleash_edge_tracing::OtelHolder;
 use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
 use unleash_edge_types::{BackgroundTask, EdgeResult, EngineCache, TokenCache};
 
@@ -37,7 +38,6 @@ pub mod middleware;
 pub mod offline_builder;
 pub mod ready_checker;
 pub mod tls;
-pub mod tracing;
 
 static SHOULD_DEFER_VALIDATION: LazyLock<bool> = LazyLock::new(|| {
     env::var("EDGE_DEFER_TOKEN_VALIDATION")
@@ -58,6 +58,8 @@ pub type EdgeInfo = (
     Option<Arc<dyn EdgePersistence>>,
 );
 
+static OTEL_INIT: OnceLock<Arc<Option<OtelHolder>>> = OnceLock::new();
+
 pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<BackgroundTask>)> {
     let app_id: Ulid = Ulid::new();
     let client_meta_information = ClientMetaInformation {
@@ -65,6 +67,7 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
         instance_id: app_id,
         connection_id: app_id,
     };
+
     let instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>> =
         Arc::new(RwLock::new(Vec::new()));
     let metrics_middleware =
@@ -103,7 +106,6 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
     for task in background_tasks {
         tokio::spawn(task);
     }
-
     let api_router = Router::new()
         .nest("/client", build_edge_router())
         .merge(unleash_edge_frontend_api::router(args.disable_all_endpoint))

@@ -428,7 +428,12 @@ pub struct CliArgs {
     pub mode: EdgeMode,
 
     /// Instance id. Used for metrics reporting.
-    #[clap(long, env, global = true, default_value_t = format!("unleash-edge@{}", ulid::Ulid::new()))]
+    #[clap(
+        long,
+        env,
+        global = true,
+        default_value_t = format!("unleash-edge@{}", ulid::Ulid::new())
+    )]
     pub instance_id: String,
 
     /// App name. Used for metrics reporting.
@@ -645,10 +650,17 @@ pub struct DatadogConfig {
     pub datadog_url: Option<String>,
 }
 
+#[derive(Debug, Clone, ValueEnum)]
+pub enum OtelExporterProtocol {
+    Grpc,
+    Http,
+}
 #[derive(Args, Debug, Clone)]
 pub struct OpenTelemetryConfig {
     #[arg(long, env, global = true)]
-    pub otel_collector_url: Option<String>,
+    pub otel_exporter_otlp_endpoint: Option<String>,
+    #[arg(long, env, global = true, value_enum, default_value_t = OtelExporterProtocol::Grpc)]
+    pub otel_exporter_otlp_protocol: OtelExporterProtocol,
 }
 
 fn ip_net_parser(arg: &str) -> Result<IpNet, String> {
