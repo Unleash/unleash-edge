@@ -1,8 +1,5 @@
-use opentelemetry::{KeyValue, global};
-use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
-use opentelemetry_otlp::{
-    Compression, LogExporter, MetricExporter, SpanExporter, WithExportConfig, WithHttpConfig,
-};
+use opentelemetry::KeyValue;
+use opentelemetry_otlp::{WithExportConfig, WithHttpConfig};
 use opentelemetry_sdk::Resource;
 use opentelemetry_sdk::logs::SdkLoggerProvider;
 use opentelemetry_sdk::metrics::SdkMeterProvider;
@@ -12,8 +9,7 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, Layer};
-use unleash_edge_cli::{CliArgs, LogFormat, OtelExporterProtocol};
-use unleash_edge_types::errors::EdgeError;
+use unleash_edge_cli::{CliArgs, LogFormat};
 use unleash_edge_types::{BackgroundTask, EdgeResult};
 
 #[derive(Debug, Clone)]
@@ -61,18 +57,18 @@ fn resource(app_id: String) -> Resource {
 #[cfg(feature = "enterprise")]
 fn init_otel(
     endpoint: &str,
-    mode: &OtelExporterProtocol,
+    mode: &unleash_edge_cli::OtelExporterProtocol,
     app_id: String,
 ) -> anyhow::Result<(SdkTracerProvider, SdkMeterProvider, SdkLoggerProvider)> {
     let res = resource(app_id);
     // --- Traces ----
     let span_exporter = match mode {
-        OtelExporterProtocol::Http => SpanExporter::builder()
+        unleash_edge_cli::OtelExporterProtocol::Http => opentelemetry_otlp::SpanExporter::builder()
             .with_http()
             .with_endpoint(endpoint)
-            .with_compression(Compression::Gzip)
+            .with_compression(opentelemetry_otlp::Compression::Gzip)
             .build(),
-        OtelExporterProtocol::Grpc => SpanExporter::builder()
+        unleash_edge_cli::OtelExporterProtocol::Grpc => opentelemetry_otlp::SpanExporter::builder()
             .with_tonic()
             .with_endpoint(endpoint)
             .build(),
@@ -82,34 +78,38 @@ fn init_otel(
         .with_batch_exporter(span_exporter)
         .build();
 
-    global::set_tracer_provider(tracer_provider.clone());
+    opentelemetry::global::set_tracer_provider(tracer_provider.clone());
 
     // --- Metrics ---
     let metric_exporter = match mode {
-        OtelExporterProtocol::Http => MetricExporter::builder()
-            .with_http()
-            .with_endpoint(endpoint)
-            .with_compression(Compression::Gzip)
-            .build(),
-        OtelExporterProtocol::Grpc => MetricExporter::builder()
-            .with_tonic()
-            .with_endpoint(endpoint)
-            .build(),
+        unleash_edge_cli::OtelExporterProtocol::Http => {
+            opentelemetry_otlp::MetricExporter::builder()
+                .with_http()
+                .with_endpoint(endpoint)
+                .with_compression(opentelemetry_otlp::Compression::Gzip)
+                .build()
+        }
+        unleash_edge_cli::OtelExporterProtocol::Grpc => {
+            opentelemetry_otlp::MetricExporter::builder()
+                .with_tonic()
+                .with_endpoint(endpoint)
+                .build()
+        }
     }?;
     let meter_provider = SdkMeterProvider::builder()
         .with_resource(res.clone())
         .with_periodic_exporter(metric_exporter)
         .build();
-    global::set_meter_provider(meter_provider.clone());
+    opentelemetry::global::set_meter_provider(meter_provider.clone());
 
     // --- Logs ---
     let log_exporter = match mode {
-        OtelExporterProtocol::Http => LogExporter::builder()
+        unleash_edge_cli::OtelExporterProtocol::Http => opentelemetry_otlp::LogExporter::builder()
             .with_http()
             .with_endpoint(endpoint)
-            .with_compression(Compression::Gzip)
+            .with_compression(opentelemetry_otlp::Compression::Gzip)
             .build(),
-        OtelExporterProtocol::Grpc => LogExporter::builder()
+        unleash_edge_cli::OtelExporterProtocol::Grpc => opentelemetry_otlp::LogExporter::builder()
             .with_tonic()
             .with_endpoint(endpoint)
             .build(),
@@ -131,7 +131,7 @@ fn enterprise_tracing(args: &CliArgs, app_id: String) -> EdgeResult<Option<OtelH
                 &args.otel_config.otel_exporter_otlp_protocol,
                 app_id,
             )
-            .map_err(|e| EdgeError::TracingInitError(e.to_string()))?;
+            .map_err(|e| unleash_edge_types::errors::EdgeError::TracingInitError(e.to_string()))?;
             let _ = init_tracing_subscriber(&logger_provider, args);
             Ok(Some(OtelHolder {
                 tracer_provider,
@@ -171,24 +171,25 @@ fn init_tracing_subscriber(
     logger_provider: &SdkLoggerProvider,
     cli_args: &CliArgs,
 ) -> EdgeResult<()> {
-    let otel_logs_layer = OpenTelemetryTracingBridge::new(logger_provider);
-    let tracer = global::tracer("unleash_edge");
+    let otel_logs_layer =
+        opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge::new(logger_provider);
+    let tracer = opentelemetry::global::tracer("unleash_edge");
     let otel_traces_layer = tracing_opentelemetry::layer().with_tracer(tracer);
-    tracing_subscriber::registry()
+    let _ = tracing_subscriber::registry()
         .with(log_filter())
         .with(otel_traces_layer)
         .with(otel_logs_layer)
         .with(formatting_layer(cli_args))
-        .try_init()
-        .map_err(|e| EdgeError::TracingInitError(e.to_string()))
+        .try_init();
+    Ok(())
 }
 
 fn init_logging(args: &CliArgs) -> EdgeResult<()> {
-    tracing_subscriber::registry()
+    let _ = tracing_subscriber::registry()
         .with(formatting_layer(args))
         .with(log_filter())
-        .try_init()
-        .map_err(|e| EdgeError::TracingInitError(e.to_string()))
+        .try_init();
+    Ok(())
 }
 
 pub fn shutdown_logging(otel_holder: Arc<Option<OtelHolder>>) -> BackgroundTask {
@@ -228,9 +229,14 @@ mod tests {
             "http://localhost:3000",
         ]);
         let result = init_tracing_and_logging(&args, "test-app".to_string());
-        assert!(result.is_ok());
-        let holder = result.unwrap();
-        assert!(holder.is_none());
+        match result {
+            Ok(r) => {
+                assert!(r.is_none())
+            }
+            Err(e) => {
+                panic!("{e:?}")
+            }
+        }
     }
 
     #[test]
