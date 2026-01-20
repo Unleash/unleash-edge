@@ -768,7 +768,7 @@ mod tests {
     }
 
     #[test]
-    fn extracts_revision_id_from_unleash_revision_id() {
+    fn extracts_revision_id_from_unleash_upstream_etag() {
         let etag = EntityTag::checked_strong("6ef7ec5a:28:v1").ok();
         assert!(etag.is_some());
         let revision_id = try_extract_from_etag(etag);
@@ -776,7 +776,7 @@ mod tests {
     }
 
     #[test]
-    fn edge_revision_id_is_ignored() {
+    fn edge_etag_has_no_revision_id_in_it() {
         let edge_etag =
             EntityTag::checked_strong("1341-303621334951872547993221074776049883985").ok();
         assert!(edge_etag.is_some());
