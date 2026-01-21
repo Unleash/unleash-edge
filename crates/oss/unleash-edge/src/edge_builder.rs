@@ -245,19 +245,18 @@ pub async fn build_edge(
         hydrator_type
             .register_token_for_refresh(validated_token.clone(), None)
             .await;
-        edge_instance_data.observe_api_key_refresh(
-            validated_token
-                .environment
-                .clone()
-                .expect("Must have an environment when we're here"),
-            validated_token.projects.clone(),
-            feature_cache
-                .get(&cache_key(&validated_token))
-                .map(|f| f.value().clone())
-                .and_then(|features| features.meta.and_then(|meta| meta.revision_id))
-                .unwrap_or(0),
-            Utc::now(),
-        );
+        if let Some(env) = validated_token.environment.as_ref() {
+            edge_instance_data.observe_api_key_refresh(
+                env.clone(),
+                validated_token.projects.clone(),
+                feature_cache
+                    .get(&cache_key(&validated_token))
+                    .map(|f| f.value().clone())
+                    .and_then(|features| features.meta.and_then(|meta| meta.revision_id))
+                    .unwrap_or(0),
+                Utc::now(),
+            );
+        }
     }
     hydrator_type.hydrate_new_tokens().await;
     Ok((
@@ -824,7 +823,7 @@ mod tests {
             Some(Hosting::SelfHosted),
         ));
         let http_client = reqwest::Client::new();
-        let info = build_edge(
+        let _ = build_edge(
             &edge_args,
             client_meta_information,
             edge_instance_data.clone(),

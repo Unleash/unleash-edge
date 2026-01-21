@@ -345,15 +345,15 @@ impl FeatureRefresher {
         debug!("Got updated client features. Updating features with {etag:?}");
         let key = cache_key(refresh_token);
         let revision_id = features.meta.as_ref().and_then(|m| m.revision_id);
-        if let Some(revision_id) = revision_id {
+        if let (Some(revision_id), Some(env)) = (revision_id, refresh_token.environment.as_ref()) {
             POLLING_REVISION_ID
                 .with_label_values(&[
-                    &refresh_token.environment.clone().unwrap_or("*".to_string()),
+                    env,
                     &refresh_token.projects.join(","),
                 ])
                 .set(revision_id as i64);
             self.edge_instance_data.observe_api_key_refresh(
-                refresh_token.environment.clone().unwrap_or("*".to_string()),
+                env.clone(),
                 refresh_token.projects.clone(),
                 revision_id,
                 Utc::now(),
