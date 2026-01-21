@@ -349,12 +349,18 @@ impl DeltaRefresher {
         if let Some(max) = max_event_id {
             DELTA_REVISION_ID
                 .with_label_values(&[
-                    &refresh_token.environment.clone().expect("Could not use a token with no environment for updating delta"),
+                    &refresh_token
+                        .environment
+                        .clone()
+                        .expect("Could not use a token with no environment for updating delta"),
                     &refresh_token.projects.join(","),
                 ])
                 .set(max as i64);
             self.edge_instance_data.observe_api_key_refresh(
-                refresh_token.environment.clone().expect("Could not use a token with no environment for updating delta"),
+                refresh_token
+                    .environment
+                    .clone()
+                    .expect("Could not use a token with no environment for updating delta"),
                 refresh_token.projects.clone(),
                 max,
                 Utc::now(),

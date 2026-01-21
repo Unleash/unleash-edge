@@ -243,7 +243,9 @@ pub async fn build_edge(
         .iter()
         .filter(|candidate| candidate.value().token_type == Some(TokenType::Backend))
     {
-        hydrator_type.register_token_for_refresh(validated_token.clone(), None).await;
+        hydrator_type
+            .register_token_for_refresh(validated_token.clone(), None)
+            .await;
         edge_instance_data.observe_api_key_refresh(
             validated_token
                 .environment
@@ -782,7 +784,6 @@ mod tests {
     #[tokio::test]
     #[cfg(feature = "enterprise")]
     async fn restores_revision_id_from_backup_if_present() {
-
         let path_buf = Path::new("../../../examples/backup/sandbox");
         let edge_args = EdgeArgs {
             upstream_url: "http://localhost:3063".to_string(),

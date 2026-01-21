@@ -71,7 +71,10 @@ where
     D: Deserializer<'de>,
 {
     let vec = Vec::<EdgeApiKeyRevisionId>::deserialize(de)?;
-    Ok(vec.into_iter().map(|item| (ApiKeyIdentity::from(&item), item)).collect())
+    Ok(vec
+        .into_iter()
+        .map(|item| (ApiKeyIdentity::from(&item), item))
+        .collect())
 }
 fn serialize_map_to_values<S>(
     value: &DashMap<ApiKeyIdentity, EdgeApiKeyRevisionId>,
@@ -714,7 +717,7 @@ mod tests {
         let now = Utc::now();
         let key = ApiKeyIdentity {
             environment: "development".to_string(),
-            projects: vec!["*".to_string()]
+            projects: vec!["*".to_string()],
         };
         self_hosted.observe_api_key_refresh(
             "development".to_string(),
@@ -751,7 +754,10 @@ mod tests {
         let self_hosted = EdgeInstanceData::new("test", &Ulid::new(), Some(Hosting::Hosted));
         assert!(self_hosted.edge_api_key_revision_ids.is_empty());
         let now = Utc::now();
-        let dev_key = ApiKeyIdentity { environment: "development".to_string(), projects: vec!["*".to_string()] };
+        let dev_key = ApiKeyIdentity {
+            environment: "development".to_string(),
+            projects: vec!["*".to_string()],
+        };
         self_hosted.observe_api_key_refresh(
             "development".to_string(),
             vec!["*".to_string()],
@@ -773,7 +779,10 @@ mod tests {
             505,
             new_update,
         );
-        let prod_key = ApiKeyIdentity { environment: "production".to_string(), projects: vec!["*".to_string()] };
+        let prod_key = ApiKeyIdentity {
+            environment: "production".to_string(),
+            projects: vec!["*".to_string()],
+        };
         let observed = self_hosted
             .edge_api_key_revision_ids
             .get(&prod_key)
