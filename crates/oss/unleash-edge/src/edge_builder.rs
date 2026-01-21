@@ -1,5 +1,5 @@
 use crate::{CacheContainer, EdgeInfo, OTEL_INIT, SHOULD_DEFER_VALIDATION};
-use chrono::Duration;
+use chrono::{Duration, Utc};
 use dashmap::DashMap;
 use http::StatusCode;
 use std::pin::Pin;
@@ -43,7 +43,7 @@ use unleash_edge_types::enterprise::{ApplicationLicenseState, LicenseState};
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::MetricsCache;
 use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
-use unleash_edge_types::tokens::EdgeToken;
+use unleash_edge_types::tokens::{EdgeToken, cache_key};
 use unleash_edge_types::{
     BackgroundTask, EdgeResult, EngineCache, RefreshState, TokenCache, TokenType,
 };
@@ -140,6 +140,7 @@ async fn hydrate_from_persistent_storage(cache: CacheContainer, storage: Arc<dyn
         warn!("Failed to load features from cache {error:?}");
         Default::default()
     });
+    println!("Loaded features {:?}", features);
     for token in tokens {
         debug!("Hydrating tokens {token:?}");
         token_cache.insert(token.token.clone(), token);
@@ -172,7 +173,6 @@ pub async fn build_edge(
         ));
     }
     let (token_cache, feature_cache, delta_cache, engine_cache) = build_caches();
-
     let persistence = get_data_source(args).await;
 
     let unleash_client = Url::parse(&args.upstream_url.clone())
@@ -243,9 +243,20 @@ pub async fn build_edge(
         .iter()
         .filter(|candidate| candidate.value().token_type == Some(TokenType::Backend))
     {
-        hydrator_type
-            .register_token_for_refresh(validated_token.clone(), None)
-            .await;
+        hydrator_type.register_token_for_refresh(validated_token.clone(), None).await;
+        edge_instance_data.observe_api_key_refresh(
+            validated_token
+                .environment
+                .clone()
+                .expect("Must have an environment when we're here"),
+            validated_token.projects.clone(),
+            feature_cache
+                .get(&cache_key(&validated_token))
+                .map(|f| f.value().clone())
+                .and_then(|features| features.meta.and_then(|meta| meta.revision_id))
+                .unwrap_or(0),
+            Utc::now(),
+        );
     }
     hydrator_type.hydrate_new_tokens().await;
     Ok((
@@ -756,4 +767,82 @@ pub async fn resolve_license(
 ) -> Result<LicenseState, EdgeError> {
     debug!("Running non enterprise Edge, skipping license check");
     Ok(LicenseState::Valid)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::edge_builder::build_edge;
+    use std::path::{Path, PathBuf};
+    use std::sync::Arc;
+    use ulid::Ulid;
+    use unleash_edge_cli::{AuthHeaders, EdgeArgs};
+    use unleash_edge_http_client::ClientMetaInformation;
+    use unleash_edge_types::metrics::instance_data::{ApiKeyIdentity, EdgeInstanceData, Hosting};
+
+    #[tokio::test]
+    #[cfg(feature = "enterprise")]
+    async fn restores_revision_id_from_backup_if_present() {
+
+        let path_buf = Path::new("../../../examples/backup/sandbox");
+        let edge_args = EdgeArgs {
+            upstream_url: "http://localhost:3063".to_string(),
+            backup_folder: Some(path_buf.to_path_buf()),
+            metrics_interval_seconds: 0,
+            features_refresh_interval_seconds: 30,
+            token_revalidation_interval_seconds: 30,
+            tokens: vec![
+                "default:development.f1339a9b0e67fd8dafe0a19a85809fb88262b2e74c213087c6b3b3a9"
+                    .to_string(),
+            ],
+            pretrusted_tokens: None,
+            custom_client_headers: vec![],
+            skip_ssl_verification: false,
+            client_identity: None,
+            upstream_certificate_file: None,
+            upstream_request_timeout: 0,
+            upstream_socket_timeout: 0,
+            redis: None,
+            s3: None,
+            streaming: false,
+            delta: false,
+            consumption: false,
+            client_keepalive_timeout: 0,
+            prometheus_remote_write_url: None,
+            prometheus_push_interval: 0,
+            prometheus_username: None,
+            prometheus_password: None,
+            prometheus_user_id: None,
+        };
+        let client_meta_information = ClientMetaInformation {
+            app_name: "test_app".to_string(),
+            instance_id: Ulid::new(),
+            connection_id: Ulid::new(),
+        };
+        let edge_instance_data = Arc::new(EdgeInstanceData::new(
+            &client_meta_information.app_name,
+            &client_meta_information.instance_id,
+            Some(Hosting::SelfHosted),
+        ));
+        let http_client = reqwest::Client::new();
+        let info = build_edge(
+            &edge_args,
+            client_meta_information,
+            edge_instance_data.clone(),
+            AuthHeaders::default(),
+            http_client,
+            None,
+        )
+        .await
+        .unwrap();
+        assert_eq!(edge_instance_data.edge_api_key_revision_ids.len(), 1);
+        let expected_key = ApiKeyIdentity {
+            environment: "development".to_string(),
+            projects: vec!["default".to_string()],
+        };
+        let revision_info = edge_instance_data
+            .edge_api_key_revision_ids
+            .get(&expected_key)
+            .expect("revision id should be present for backed up key");
+        assert_eq!(revision_info.revision_id, 80543)
+    }
 }

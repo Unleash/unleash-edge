@@ -17,8 +17,8 @@ pub const CONNECTED_STREAMING_CLIENTS: &str = "connected_streaming_clients";
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct ApiKeyIdentity {
-    environment: String,
-    projects: Vec<String>,
+    pub environment: String,
+    pub projects: Vec<String>,
 }
 
 impl From<&EdgeApiKeyRevisionId> for ApiKeyIdentity {
