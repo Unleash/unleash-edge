@@ -10,12 +10,25 @@ use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use prometheus::gather;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use sha2::{Digest, Sha256};
 use std::sync::atomic::{AtomicU64, Ordering};
 use ulid::Ulid;
 
 pub const CONNECTED_STREAMING_CLIENTS: &str = "connected_streaming_clients";
 
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct ApiKeyIdentity {
+    environment: String,
+    projects: Vec<String>,
+}
+
+impl From<&EdgeApiKeyRevisionId> for ApiKeyIdentity {
+    fn from(value: &EdgeApiKeyRevisionId) -> Self {
+        Self {
+            environment: value.environment.clone(),
+            projects: value.projects.clone(),
+        }
+    }
+}
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EdgeApiKeyRevisionId {
@@ -48,23 +61,20 @@ pub struct EdgeInstanceData {
         serialize_with = "serialize_map_to_values",
         deserialize_with = "deserialize_array_to_dashmap"
     )]
-    pub edge_api_key_revision_ids: DashMap<String, EdgeApiKeyRevisionId>,
+    pub edge_api_key_revision_ids: DashMap<ApiKeyIdentity, EdgeApiKeyRevisionId>,
 }
 
 fn deserialize_array_to_dashmap<'de, D>(
     de: D,
-) -> Result<DashMap<String, EdgeApiKeyRevisionId>, D::Error>
+) -> Result<DashMap<ApiKeyIdentity, EdgeApiKeyRevisionId>, D::Error>
 where
     D: Deserializer<'de>,
 {
     let vec = Vec::<EdgeApiKeyRevisionId>::deserialize(de)?;
-    Ok(vec.into_iter().fold(DashMap::new(), |map, item| {
-        map.insert(api_key_hash(&item.environment, &item.projects), item);
-        map
-    }))
+    Ok(vec.into_iter().map(|item| (ApiKeyIdentity::from(&item), item)).collect())
 }
 fn serialize_map_to_values<S>(
-    value: &DashMap<String, EdgeApiKeyRevisionId>,
+    value: &DashMap<ApiKeyIdentity, EdgeApiKeyRevisionId>,
     serializer: S,
 ) -> Result<S::Ok, S::Error>
 where
@@ -82,16 +92,6 @@ pub enum Hosting {
     Hosted,
     #[serde(rename = "enterprise-self-hosted")]
     EnterpriseSelfHosted,
-}
-
-fn api_key_hash(environment: &str, projects: &[String]) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(environment.as_bytes());
-    for project in projects {
-        hasher.update(project.as_bytes());
-        hasher.update(",".as_bytes());
-    }
-    format!("{:x}", hasher.finalize())
 }
 
 impl EdgeInstanceData {
@@ -229,18 +229,19 @@ impl EdgeInstanceData {
         revision_id: usize,
         last_updated: DateTime<Utc>,
     ) {
+        let revision_info = EdgeApiKeyRevisionId {
+            environment,
+            projects,
+            revision_id,
+            last_updated,
+        };
         self.edge_api_key_revision_ids
-            .entry(api_key_hash(&environment, &projects))
+            .entry(ApiKeyIdentity::from(&revision_info))
             .and_modify(|entry| {
                 entry.revision_id = revision_id;
                 entry.last_updated = last_updated;
             })
-            .or_insert(EdgeApiKeyRevisionId {
-                environment,
-                projects,
-                revision_id,
-                last_updated,
-            });
+            .or_insert(revision_info);
     }
 
     pub fn observe(&self, connected_instances: Vec<EdgeInstanceData>, base_path: &str) -> Self {
@@ -711,7 +712,10 @@ mod tests {
         let self_hosted = EdgeInstanceData::new("test", &Ulid::new(), Some(Hosting::Hosted));
         assert!(self_hosted.edge_api_key_revision_ids.is_empty());
         let now = Utc::now();
-        let hash = api_key_hash("development", &["*".to_string()]);
+        let key = ApiKeyIdentity {
+            environment: "development".to_string(),
+            projects: vec!["*".to_string()]
+        };
         self_hosted.observe_api_key_refresh(
             "development".to_string(),
             vec!["*".to_string()],
@@ -721,7 +725,7 @@ mod tests {
         assert_eq!(self_hosted.edge_api_key_revision_ids.len(), 1);
         let observed = self_hosted
             .edge_api_key_revision_ids
-            .get(&hash)
+            .get(&key)
             .map(|k| k.value().clone())
             .unwrap();
         assert_eq!(observed.revision_id, 500);
@@ -735,7 +739,7 @@ mod tests {
         );
         let observed = self_hosted
             .edge_api_key_revision_ids
-            .get(&hash)
+            .get(&key)
             .map(|k| k.value().clone())
             .unwrap();
         assert_eq!(observed.revision_id, 505);
@@ -747,7 +751,7 @@ mod tests {
         let self_hosted = EdgeInstanceData::new("test", &Ulid::new(), Some(Hosting::Hosted));
         assert!(self_hosted.edge_api_key_revision_ids.is_empty());
         let now = Utc::now();
-        let hash = api_key_hash("development", &["*".to_string()]);
+        let dev_key = ApiKeyIdentity { environment: "development".to_string(), projects: vec!["*".to_string()] };
         self_hosted.observe_api_key_refresh(
             "development".to_string(),
             vec!["*".to_string()],
@@ -757,7 +761,7 @@ mod tests {
         assert_eq!(self_hosted.edge_api_key_revision_ids.len(), 1);
         let observed = self_hosted
             .edge_api_key_revision_ids
-            .get(&hash)
+            .get(&dev_key)
             .map(|k| k.value().clone())
             .unwrap();
         assert_eq!(observed.revision_id, 500);
@@ -769,10 +773,10 @@ mod tests {
             505,
             new_update,
         );
-        let prod_hash = api_key_hash("production", &["*".to_string()]);
+        let prod_key = ApiKeyIdentity { environment: "production".to_string(), projects: vec!["*".to_string()] };
         let observed = self_hosted
             .edge_api_key_revision_ids
-            .get(&prod_hash)
+            .get(&prod_key)
             .map(|k| k.value().clone())
             .unwrap();
         assert_eq!(observed.revision_id, 505);

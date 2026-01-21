@@ -252,7 +252,7 @@ impl TokenRefresh {
             next_refresh: None,
             failure_count: 0,
             last_feature_count: None,
-            revision_id: try_extract_from_etag(etag),
+            revision_id: None,
         }
     }
 
@@ -310,15 +310,6 @@ impl TokenRefresh {
             ..self.clone()
         }
     }
-}
-
-fn try_extract_from_etag(etag: Option<EntityTag>) -> Option<usize> {
-    etag.and_then(|etag| {
-        etag.to_string()
-            .splitn(3, ':')
-            .nth(1)
-            .and_then(|possibly_revision_id| str::parse::<usize>(possibly_revision_id).ok())
-    })
 }
 
 fn calculate_next_refresh(
@@ -515,7 +506,6 @@ pub struct EdgeTokens {
 
 #[cfg(test)]
 mod tests {
-    use etag::EntityTag;
     use serde_json::json;
     use std::collections::HashMap;
     use std::str::FromStr;
@@ -525,7 +515,7 @@ mod tests {
 
     use crate::errors::EdgeError::EdgeTokenParseError;
 
-    use super::{EdgeResult, EdgeToken, EdgeTokens, try_extract_from_etag};
+    use super::{EdgeResult, EdgeToken, EdgeTokens};
 
     fn test_str(token: &str) -> EdgeToken {
         EdgeToken::from_str(
@@ -767,20 +757,4 @@ mod tests {
         assert_eq!(parsed_context.user_id, Some("7".into()));
     }
 
-    #[test]
-    fn extracts_revision_id_from_unleash_upstream_etag() {
-        let etag = EntityTag::checked_strong("6ef7ec5a:28:v1").ok();
-        assert!(etag.is_some());
-        let revision_id = try_extract_from_etag(etag);
-        assert_eq!(revision_id, Some(28));
-    }
-
-    #[test]
-    fn edge_etag_has_no_revision_id_in_it() {
-        let edge_etag =
-            EntityTag::checked_strong("1341-303621334951872547993221074776049883985").ok();
-        assert!(edge_etag.is_some());
-        let revision_id = try_extract_from_etag(edge_etag);
-        assert_eq!(revision_id, None);
-    }
 }

@@ -316,7 +316,7 @@ impl DeltaRefresher {
         let key: String = cache_key(refresh_token);
         self.features_cache.apply_delta(key.clone(), &delta);
 
-        if let Some(mut _entry) = self.delta_cache_manager.get(&key) {
+        if let Some(_entry) = self.delta_cache_manager.get(&key) {
             self.delta_cache_manager.update_cache(&key, &delta.events);
         } else if let Some(DeltaEvent::Hydration {
             event_id,
@@ -349,12 +349,12 @@ impl DeltaRefresher {
         if let Some(max) = max_event_id {
             DELTA_REVISION_ID
                 .with_label_values(&[
-                    &refresh_token.environment.clone().unwrap_or("*".to_string()),
+                    &refresh_token.environment.clone().expect("Could not use a token with no environment for updating delta"),
                     &refresh_token.projects.join(","),
                 ])
                 .set(max as i64);
             self.edge_instance_data.observe_api_key_refresh(
-                refresh_token.environment.clone().unwrap_or("*".to_string()),
+                refresh_token.environment.clone().expect("Could not use a token with no environment for updating delta"),
                 refresh_token.projects.clone(),
                 max,
                 Utc::now(),
