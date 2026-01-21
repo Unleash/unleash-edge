@@ -32,7 +32,7 @@ impl DeltaCache {
             .cloned()
             .expect("Hydration event must have at least one feature");
 
-        self.add_events(&vec![DeltaEvent::FeatureUpdated {
+        self.add_events(&[DeltaEvent::FeatureUpdated {
             event_id: hydration_event.event_id,
             feature: last_feature,
         }]);
