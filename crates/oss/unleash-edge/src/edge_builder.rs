@@ -140,7 +140,6 @@ async fn hydrate_from_persistent_storage(cache: CacheContainer, storage: Arc<dyn
         warn!("Failed to load features from cache {error:?}");
         Default::default()
     });
-    println!("Loaded features {:?}", features);
     for token in tokens {
         debug!("Hydrating tokens {token:?}");
         token_cache.insert(token.token.clone(), token);
