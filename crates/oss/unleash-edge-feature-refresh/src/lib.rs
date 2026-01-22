@@ -347,10 +347,7 @@ impl FeatureRefresher {
         let revision_id = features.meta.as_ref().and_then(|m| m.revision_id);
         if let (Some(revision_id), Some(env)) = (revision_id, refresh_token.environment.as_ref()) {
             POLLING_REVISION_ID
-                .with_label_values(&[
-                    env,
-                    &refresh_token.projects.join(","),
-                ])
+                .with_label_values(&[env, &refresh_token.projects.join(",")])
                 .set(revision_id as i64);
             self.edge_instance_data.observe_api_key_refresh(
                 env.clone(),
