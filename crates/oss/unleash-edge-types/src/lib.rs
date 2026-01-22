@@ -214,6 +214,7 @@ pub struct TokenRefresh {
     pub last_refreshed: Option<DateTime<Utc>>,
     pub last_feature_count: Option<usize>,
     pub last_check: Option<DateTime<Utc>>,
+    pub revision_id: Option<usize>,
     pub failure_count: u32,
 }
 
@@ -251,10 +252,11 @@ impl TokenRefresh {
             next_refresh: None,
             failure_count: 0,
             last_feature_count: None,
+            revision_id: None,
         }
     }
 
-    /// Something went wrong (but it was retriable. Increment our failure count and set last_checked and next_refresh
+    /// Something went wrong (but it was retriable). Increment our failure count and set last_checked and next_refresh
     pub fn backoff(&self, refresh_interval: &Duration) -> Self {
         let failure_count: u32 = min(self.failure_count + 1, 10);
         let now = Utc::now();
@@ -282,12 +284,13 @@ impl TokenRefresh {
             ..self.clone()
         }
     }
-    /// We successfully talked to upstream. There were updates. Update next_refresh, last_refreshed and last_check, and decrement our failure count
+    /// We successfully talked to upstream. There were updates. Update next_refresh, revision_id, last_refreshed, and last_check, and decrement our failure count
     pub fn successful_refresh(
         &self,
         refresh_interval: &Duration,
         etag: Option<EntityTag>,
         feature_count: usize,
+        revision_id: Option<usize>,
     ) -> Self {
         let failure_count = if self.failure_count > 0 {
             self.failure_count - 1
@@ -303,6 +306,7 @@ impl TokenRefresh {
             last_check: Some(now),
             last_feature_count: Some(feature_count),
             etag,
+            revision_id,
             ..self.clone()
         }
     }
@@ -502,10 +506,9 @@ pub struct EdgeTokens {
 
 #[cfg(test)]
 mod tests {
+    use serde_json::json;
     use std::collections::HashMap;
     use std::str::FromStr;
-
-    use serde_json::json;
     use test_case::test_case;
     use tracing::warn;
     use unleash_types::client_features::Context;
