@@ -9,11 +9,34 @@ use ahash::HashMap;
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use prometheus::gather;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::sync::atomic::{AtomicU64, Ordering};
 use ulid::Ulid;
 
 pub const CONNECTED_STREAMING_CLIENTS: &str = "connected_streaming_clients";
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct ApiKeyIdentity {
+    pub environment: String,
+    pub projects: Vec<String>,
+}
+
+impl From<&EdgeApiKeyRevisionId> for ApiKeyIdentity {
+    fn from(value: &EdgeApiKeyRevisionId) -> Self {
+        Self {
+            environment: value.environment.clone(),
+            projects: value.projects.clone(),
+        }
+    }
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EdgeApiKeyRevisionId {
+    pub environment: String,
+    pub projects: Vec<String>,
+    pub revision_id: usize,
+    pub last_updated: DateTime<Utc>,
+}
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -33,6 +56,35 @@ pub struct EdgeInstanceData {
     pub connected_edges: Vec<EdgeInstanceData>,
     pub connection_consumption_since_last_report: ConnectionConsumptionData,
     pub request_consumption_since_last_report: RequestConsumptionData,
+    #[serde(
+        default,
+        serialize_with = "serialize_map_to_values",
+        deserialize_with = "deserialize_array_to_dashmap"
+    )]
+    pub edge_api_key_revision_ids: DashMap<ApiKeyIdentity, EdgeApiKeyRevisionId>,
+}
+
+fn deserialize_array_to_dashmap<'de, D>(
+    de: D,
+) -> Result<DashMap<ApiKeyIdentity, EdgeApiKeyRevisionId>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let vec = Vec::<EdgeApiKeyRevisionId>::deserialize(de)?;
+    Ok(vec
+        .into_iter()
+        .map(|item| (ApiKeyIdentity::from(&item), item))
+        .collect())
+}
+fn serialize_map_to_values<S>(
+    value: &DashMap<ApiKeyIdentity, EdgeApiKeyRevisionId>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let values: Vec<EdgeApiKeyRevisionId> = value.iter().map(|item| item.value().clone()).collect();
+    values.serialize(serializer)
 }
 
 #[derive(Debug, Copy, Clone, Deserialize, Serialize, Eq, PartialEq)]
@@ -65,6 +117,7 @@ impl EdgeInstanceData {
             request_consumption_since_last_report: RequestConsumptionData {
                 metered_groups: DashMap::new(),
             },
+            edge_api_key_revision_ids: DashMap::default(),
         }
     }
 
@@ -170,6 +223,28 @@ impl EdgeInstanceData {
                 }
             }
         }
+    }
+
+    pub fn observe_api_key_refresh(
+        &self,
+        environment: String,
+        projects: Vec<String>,
+        revision_id: usize,
+        last_updated: DateTime<Utc>,
+    ) {
+        let revision_info = EdgeApiKeyRevisionId {
+            environment,
+            projects,
+            revision_id,
+            last_updated,
+        };
+        self.edge_api_key_revision_ids
+            .entry(ApiKeyIdentity::from(&revision_info))
+            .and_modify(|entry| {
+                entry.revision_id = revision_id;
+                entry.last_updated = last_updated;
+            })
+            .or_insert(revision_info);
     }
 
     pub fn observe(&self, connected_instances: Vec<EdgeInstanceData>, base_path: &str) -> Self {
@@ -376,6 +451,7 @@ fn round_to_3_decimals(number: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
     pub fn can_find_p99_of_a_range() {
@@ -433,7 +509,7 @@ mod tests {
         let serialized = serde_json::to_value(&instance_data).unwrap();
         assert_eq!(
             serialized["requestConsumptionSinceLastReport"],
-            serde_json::json!([
+            json!([
                 {
                     "meteredGroup": "default",
                     "requests": 4
@@ -446,7 +522,7 @@ mod tests {
         let serialized_cleared = serde_json::to_value(&instance_data).unwrap();
         assert_eq!(
             serialized_cleared["requestConsumptionSinceLastReport"],
-            serde_json::json!([
+            json!([
                 {
                     "meteredGroup": "default",
                     "requests": 0
@@ -476,21 +552,19 @@ mod tests {
         let features_data_points = actual_features["dataPoints"].as_array().unwrap();
         assert_eq!(features_data_points.len(), 2);
         assert!(features_data_points.iter().any(|data_point| {
-            data_point["interval"] == serde_json::json!([0, 15000]) && data_point["requests"] == 2
+            data_point["interval"] == json!([0, 15000]) && data_point["requests"] == 2
         }));
         assert!(features_data_points.iter().any(|data_point| {
-            data_point["interval"] == serde_json::json!([15000, 20000])
-                && data_point["requests"] == 1
+            data_point["interval"] == json!([15000, 20000]) && data_point["requests"] == 1
         }));
 
         let metrics_data_points = actual_metrics["dataPoints"].as_array().unwrap();
         assert_eq!(metrics_data_points.len(), 2);
         assert!(metrics_data_points.iter().any(|data_point| {
-            data_point["interval"] == serde_json::json!([0, 60000]) && data_point["requests"] == 2
+            data_point["interval"] == json!([0, 60000]) && data_point["requests"] == 2
         }));
         assert!(metrics_data_points.iter().any(|data_point| {
-            data_point["interval"] == serde_json::json!([60000, 120000])
-                && data_point["requests"] == 1
+            data_point["interval"] == json!([60000, 120000]) && data_point["requests"] == 1
         }));
     }
 
@@ -619,6 +693,166 @@ mod tests {
             assert!(!map.contains_key("hosting"));
         } else {
             panic!("Expected JSON value to be an object");
+        }
+    }
+
+    #[test]
+    fn can_observe_refreshed_api_key() {
+        let self_hosted = EdgeInstanceData::new("test", &Ulid::new(), Some(Hosting::Hosted));
+        assert!(self_hosted.edge_api_key_revision_ids.is_empty());
+        let now = Utc::now();
+        self_hosted.observe_api_key_refresh(
+            "development".to_string(),
+            vec!["*".to_string()],
+            500,
+            now,
+        );
+        assert_eq!(self_hosted.edge_api_key_revision_ids.len(), 1);
+    }
+
+    #[test]
+    fn updating_same_key_updates_revision_id_and_timestamp() {
+        let self_hosted = EdgeInstanceData::new("test", &Ulid::new(), Some(Hosting::Hosted));
+        assert!(self_hosted.edge_api_key_revision_ids.is_empty());
+        let now = Utc::now();
+        let key = ApiKeyIdentity {
+            environment: "development".to_string(),
+            projects: vec!["*".to_string()],
+        };
+        self_hosted.observe_api_key_refresh(
+            "development".to_string(),
+            vec!["*".to_string()],
+            500,
+            now,
+        );
+        assert_eq!(self_hosted.edge_api_key_revision_ids.len(), 1);
+        let observed = self_hosted
+            .edge_api_key_revision_ids
+            .get(&key)
+            .map(|k| k.value().clone())
+            .unwrap();
+        assert_eq!(observed.revision_id, 500);
+        assert_eq!(observed.last_updated, now);
+        let new_update = Utc::now();
+        self_hosted.observe_api_key_refresh(
+            "development".to_string(),
+            vec!["*".to_string()],
+            505,
+            new_update,
+        );
+        let observed = self_hosted
+            .edge_api_key_revision_ids
+            .get(&key)
+            .map(|k| k.value().clone())
+            .unwrap();
+        assert_eq!(observed.revision_id, 505);
+        assert_eq!(observed.last_updated, new_update);
+    }
+
+    #[test]
+    pub fn unique_keys_all_get_stored() {
+        let self_hosted = EdgeInstanceData::new("test", &Ulid::new(), Some(Hosting::Hosted));
+        assert!(self_hosted.edge_api_key_revision_ids.is_empty());
+        let now = Utc::now();
+        let dev_key = ApiKeyIdentity {
+            environment: "development".to_string(),
+            projects: vec!["*".to_string()],
+        };
+        self_hosted.observe_api_key_refresh(
+            "development".to_string(),
+            vec!["*".to_string()],
+            500,
+            now,
+        );
+        assert_eq!(self_hosted.edge_api_key_revision_ids.len(), 1);
+        let observed = self_hosted
+            .edge_api_key_revision_ids
+            .get(&dev_key)
+            .map(|k| k.value().clone())
+            .unwrap();
+        assert_eq!(observed.revision_id, 500);
+        assert_eq!(observed.last_updated, now);
+        let new_update = Utc::now();
+        self_hosted.observe_api_key_refresh(
+            "production".to_string(),
+            vec!["*".to_string()],
+            505,
+            new_update,
+        );
+        let prod_key = ApiKeyIdentity {
+            environment: "production".to_string(),
+            projects: vec!["*".to_string()],
+        };
+        let observed = self_hosted
+            .edge_api_key_revision_ids
+            .get(&prod_key)
+            .map(|k| k.value().clone())
+            .unwrap();
+        assert_eq!(observed.revision_id, 505);
+        assert_eq!(observed.last_updated, new_update);
+        assert_eq!(self_hosted.edge_api_key_revision_ids.len(), 2);
+    }
+
+    #[test]
+    pub fn successfully_deserializes_with_no_edge_api_key_revision_id_entry() {
+        let requests_since_last_report: DashMap<String, RequestStats> = DashMap::default();
+
+        let json = json!({
+            "identifier": Ulid::new().to_string(),
+            "appName": "test",
+            "hosting": "hosted",
+            "edgeVersion": "1.0.0",
+            "region": "us-west-1",
+            "started": Utc::now(),
+            "traffic": InstanceTraffic::default(),
+            "latencyUpstream": UpstreamLatency::default(),
+            "requestsSinceLastReport": requests_since_last_report,
+            "connectedStreamingClients": 0,
+            "connectedEdges": Vec::<String>::new(),
+            "connectionConsumptionSinceLastReport": ConnectionConsumptionData::default(),
+            "requestConsumptionSinceLastReport": RequestConsumptionData::default(),
+        });
+        let instance_data = serde_json::from_value::<EdgeInstanceData>(json);
+        match instance_data {
+            Ok(data) => assert_eq!(data.edge_api_key_revision_ids.len(), 0),
+            Err(e) => panic!("Failed to deserialize instance data: {}", e),
+        }
+    }
+
+    #[test]
+    pub fn deserializes_list_of_edge_api_key_revision_ids_to_map_internally() {
+        let requests_since_last_report: DashMap<String, RequestStats> = DashMap::default();
+        let json = json!({
+                        "identifier": Ulid::new().to_string(),
+                        "appName": "test",
+                        "hosting": "hosted",
+                        "edgeVersion": "1.0.0",
+                        "region": "us-west-1",
+                        "started": Utc::now(),
+                        "traffic": InstanceTraffic::default(),
+                        "latencyUpstream": UpstreamLatency::default(),
+                        "requestsSinceLastReport": requests_since_last_report,
+                        "connectedStreamingClients": 0,
+                        "connectedEdges": Vec::<String>::new(),
+                        "connectionConsumptionSinceLastReport": ConnectionConsumptionData::default(),
+                        "requestConsumptionSinceLastReport": RequestConsumptionData::default(),
+                        "edgeApiKeyRevisionIds": vec![
+            EdgeApiKeyRevisionId {
+                environment: "development".to_string(),
+                projects: vec!["*".to_string()],
+                revision_id: 100,
+                last_updated: Utc::now(),
+            }, EdgeApiKeyRevisionId {
+                environment: "production".to_string(),
+                projects: vec!["*".to_string()],
+                revision_id: 102,
+                last_updated: Utc::now(),
+            }
+        ]});
+        let instance_data = serde_json::from_value::<EdgeInstanceData>(json);
+        match instance_data {
+            Ok(data) => assert_eq!(data.edge_api_key_revision_ids.len(), 2),
+            Err(e) => panic!("Failed to deserialize instance data: {}", e),
         }
     }
 }
