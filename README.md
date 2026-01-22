@@ -10,13 +10,15 @@
 
 This repository contains both open-source and enterprise-only components.
 
-- The enterprise crates under `crates/enterprise/` are licensed under a commercial license (see [LICENSE-ENTERPRISE.md](./LICENSE-ENTERPRISE.md)).
+- The enterprise crates under `crates/enterprise/` are licensed under a commercial license (
+  see [LICENSE-ENTERPRISE.md](./LICENSE-ENTERPRISE.md)).
 - The open-source crates are licensed under the MIT license (see [LICENSE](./LICENSE)).
 
 Please refer to each crate's `Cargo.toml` for the exact license applying to that crate.
- 
+
 > [!WARNING]
-> The open-source version of Unleash Edge is in long-term maintenance mode, with **end-of-life scheduled for December 31, 2026**. We recommend that customers migrate to [Enterprise Edge](https://docs.getunleash.io/unleash-edge).
+> The open-source version of Unleash Edge is in long-term maintenance mode, with **end-of-life scheduled for December
+31, 2026**. We recommend that customers migrate to [Enterprise Edge](https://docs.getunleash.io/unleash-edge).
 
 ## Overview
 
@@ -24,7 +26,8 @@ Unleash Edge is a fast and lightweight proxy layer between your Unleash API and 
 Unleash instance and is designed to help you scale Unleash. It allows you to support thousands of connected SDKs without
 increasing the number of requests you make to your Unleash instance.
 
-If you're running the Enterprise build, see the [Enterprise Edge documentation](https://docs.getunleash.io/unleash-edge) for licensing, configuration and deployment considerations.
+If you're running the Enterprise build, see the [Enterprise Edge documentation](https://docs.getunleash.io/unleash-edge)
+for licensing, configuration and deployment considerations.
 
 Edge supports both client-side and server-side SDKs and has multi-environment and project awareness. You can daisy-chain
 Edge instances to support more complex setups, such as multi-cloud deployments.
@@ -119,4 +122,5 @@ Once Edge is up and running, your SDKs should connect to EDGE_URL/api. For examp
 - [Troubleshooting](https://docs.getunleash.io/unleash-edge/deploy#troubleshooting)
 - [Migrating from Unleash Proxy](https://docs.getunleash.io/unleash-edge/migrate-from-proxy)
 - [Performance benchmarking](/docs/benchmarking.md)
+- [OpenTelemetry (Traces and Logs)](/docs/opentelemetry.md)
 - [Contributors guide](/CONTRIBUTING.md) and [development guide](/docs/development-guide.md)
