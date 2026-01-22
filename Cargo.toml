@@ -110,7 +110,7 @@ unleash-edge-streaming = { path = "./crates/enterprise/unleash-edge-streaming" }
 unleash-edge-tracing = { path = "./crates/enterprise/unleash-edge-tracing" }
 unleash-edge-types = { path = "./crates/oss/unleash-edge-types" }
 unleash-types = { version = "0.15.21", features = ["hashes", "openapi"] }
-unleash-yggdrasil = { version = "0.18.2" }
+unleash-yggdrasil = { version = "0.19.0" }
 url = { version = "2.5.8" }
 utoipa = { version = "5.4.0", features = ["chrono", "axum_extras"] }
 utoipauto = { version = "0.3.0-alpha.2" }
