@@ -782,10 +782,10 @@ mod tests {
     #[tokio::test]
     #[cfg(feature = "enterprise")]
     async fn restores_revision_id_from_backup_if_present() {
-        let path_buf = Path::new("../../../examples/backup/sandbox");
+        let backup_folder = Path::new("../../../examples/backup/sandbox");
         let edge_args = EdgeArgs {
             upstream_url: "http://localhost:3063".to_string(),
-            backup_folder: Some(path_buf.to_path_buf()),
+            backup_folder: Some(backup_folder.to_path_buf()),
             metrics_interval_seconds: 0,
             features_refresh_interval_seconds: 30,
             token_revalidation_interval_seconds: 30,

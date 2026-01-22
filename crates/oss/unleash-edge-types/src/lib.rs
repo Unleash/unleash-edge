@@ -10,9 +10,9 @@ use std::{
     str::FromStr,
 };
 
-use axum::Json;
 use axum::http::HeaderValue;
 use axum::response::{IntoResponse, Response};
+use axum::Json;
 use chrono::{DateTime, Duration, Utc};
 use dashmap::DashMap;
 use etag::EntityTag;
@@ -246,7 +246,7 @@ impl TokenRefresh {
     pub fn new(token: EdgeToken, etag: Option<EntityTag>) -> Self {
         Self {
             token,
-            etag: etag.clone(),
+            etag,
             last_refreshed: None,
             last_check: None,
             next_refresh: None,
@@ -256,7 +256,7 @@ impl TokenRefresh {
         }
     }
 
-    /// Something went wrong (but it was retriable. Increment our failure count and set last_checked and next_refresh
+    /// Something went wrong (but it was retriable). Increment our failure count and set last_checked and next_refresh
     pub fn backoff(&self, refresh_interval: &Duration) -> Self {
         let failure_count: u32 = min(self.failure_count + 1, 10);
         let now = Utc::now();
