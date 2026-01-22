@@ -34,6 +34,6 @@ the [OTLP docs](https://opentelemetry.io/docs/specs/otel/protocol/exporter/#spec
 
 For the current implementation:
 
-* OTLP_EXPORTER_OTLP_HEADERS will add headers for tracing and logs in W3C Baggage format
-* OTLP_EXPORTER_OTLP_TRACES_HEADERS will add headers for tracing only
-* OTLP_EXPORTER_OTLP_LOGS_HEADERS will add headers for logs only
+* OTEL_EXPORTER_OTLP_HEADERS will add headers for tracing and logs in W3C Baggage format
+* OTEL_EXPORTER_OTLP_TRACES_HEADERS will add headers for tracing only
+* OTEL_EXPORTER_OTLP_LOGS_HEADERS will add headers for logs only
