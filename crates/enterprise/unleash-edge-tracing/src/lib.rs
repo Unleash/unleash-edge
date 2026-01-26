@@ -1,4 +1,8 @@
+#[cfg(feature = "enterprise")]
 use opentelemetry::KeyValue;
+#[cfg(feature = "enterprise")]
+use opentelemetry_otlp::{WithExportConfig, WithHttpConfig};
+#[cfg(feature = "enterprise")]
 use opentelemetry_sdk::Resource;
 use opentelemetry_sdk::logs::SdkLoggerProvider;
 use opentelemetry_sdk::metrics::SdkMeterProvider;
@@ -45,6 +49,7 @@ where
     }
 }
 
+#[cfg(feature = "enterprise")]
 fn resource(app_id: String) -> Resource {
     Resource::builder()
         .with_service_name("unleash_edge")
