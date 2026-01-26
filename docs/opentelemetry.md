@@ -10,7 +10,7 @@ LOG_FORMAT (json / pretty / plain) setting
 #### GRPC
 
 To have Unleash Edge export tracing and logs to an OTLP/GRPC compatible collector, set the CLI Arg
-`--otel_exporter_otlp_endpoint` or env var `OTEL_EXPORTER_OTLP_ENDPOINT` to the URL of your collector.
+`--otel-exporter-otlp-endpoint` or env var `OTEL_EXPORTER_OTLP_ENDPOINT` to the URL of your collector.
 With a default collector listening for GRPC on port 4317, set this to `http://localhost:4317`
 
 #### HTTP (Json)
@@ -18,8 +18,8 @@ With a default collector listening for GRPC on port 4317, set this to `http://lo
 At this time Edge only supports HTTP/JSON as an HTTP exporter. We do not support HTTP/Protobuf.
 
 To have Unleash Edge export tracing and logs to an HTTP/JSON compatible collector, you'll need to set two variables:
-`--otel_exporter_otlp_endpoint / OTEL_EXPORTER_OTLP_ENDPOINT` (default collector listens at http://localhost:4318)
-`--otel_exporter_otlp_protocol / OTEL_EXPORTER_OTLP_PROTOCOL`. (set this to `http`)
+`--otel-exporter-otlp-endpoint / OTEL_EXPORTER_OTLP_ENDPOINT` (default collector listens at http://localhost:4318)
+`--otel-exporter-otlp-protocol / OTEL_EXPORTER_OTLP_PROTOCOL`. (set this to `http`)
 
 ### Further customizations
 
