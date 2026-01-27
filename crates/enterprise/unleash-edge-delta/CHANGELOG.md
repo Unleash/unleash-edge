@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.1.7](https://github.com/Unleash/unleash-edge/compare/unleash-edge-delta-v20.1.1...unleash-edge-delta-v20.1.7) - 2026-01-27
+
+### 🚀 Features
+- add revisionId to things updated by refreshers ([#1378](https://github.com/unleash/unleash-edge/issues/1378)) (by @chriswk) - #1378
+
+### Contributors
+
+* @chriswk
+
 ## [20.1.2](https://github.com/Unleash/unleash-edge/compare/unleash-edge-delta-v20.1.1...unleash-edge-delta-v20.1.2) - 2025-11-05
 
 ### ⚙️ Miscellaneous Tasks

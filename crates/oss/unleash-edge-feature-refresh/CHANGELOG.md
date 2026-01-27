@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.1.7](https://github.com/Unleash/unleash-edge/compare/unleash-edge-feature-refresh-v20.1.0...unleash-edge-feature-refresh-v20.1.7) - 2026-01-27
+
+### 🚀 Features
+- add revisionId to things updated by refreshers ([#1378](https://github.com/unleash/unleash-edge/issues/1378)) (by @chriswk) - #1378
+- add Opentelemetry tracing support to enterprise ([#1372](https://github.com/unleash/unleash-edge/issues/1372)) (by @chriswk) - #1372
+- added revision id and last update to prometheus metrics ([#1371](https://github.com/unleash/unleash-edge/issues/1371)) (by @chriswk) - #1371
+
+### Contributors
+
+* @chriswk
+
 ## [20.1.6](https://github.com/Unleash/unleash-edge/compare/unleash-edge-feature-refresh-v20.1.5...unleash-edge-feature-refresh-v20.1.6) - 2025-11-27
 
 ### ⚙️ Miscellaneous Tasks
