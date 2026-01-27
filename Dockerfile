@@ -2,7 +2,7 @@ FROM --platform=linux/amd64 lukemathwalker/cargo-chef:latest-rust-1.93-slim-book
 FROM --platform=linux/arm64 lukemathwalker/cargo-chef:latest-rust-1.93-slim-bookworm AS arm64-chef
 
 # Base image for the build stage - this is a multi-stage build that uses cross-compilation (thanks to --platform switch)
-FROM --platform=$BUILDPLATFORM lukemathwalker/cargo-chef:latest-rust-latest AS chef
+FROM --platform=$BUILDPLATFORM lukemathwalker/cargo-chef:latest-rust-1.93-slim-bookworm AS chef
 WORKDIR /app
 
 # Planner stage
