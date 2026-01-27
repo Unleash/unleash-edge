@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.1.7](https://github.com/Unleash/unleash-edge/compare/unleash-edge-cli-v20.1.1...unleash-edge-cli-v20.1.7) - 2026-01-27
+
+### 🚀 Features
+- add Opentelemetry tracing support to enterprise ([#1372](https://github.com/unleash/unleash-edge/issues/1372)) (by @chriswk) - #1372
+
+### Contributors
+
+* @chriswk
+
 ## [20.1.6](https://github.com/Unleash/unleash-edge/compare/unleash-edge-cli-v20.1.5...unleash-edge-cli-v20.1.6) - 2025-11-27
 
 ### ⚙️ Miscellaneous Tasks
