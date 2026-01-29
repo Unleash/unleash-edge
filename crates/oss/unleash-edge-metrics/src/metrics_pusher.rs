@@ -5,12 +5,24 @@ use reqwest::{Client, header};
 use tracing::debug;
 use unleash_edge_types::BackgroundTask;
 
+pub struct PrometheusWriteTaskArgs {
+    pub url: String,
+    pub interval: u64,
+    pub app_name: String,
+    pub client_id: Option<String>,
+    pub username: Option<String>,
+    pub password: Option<String>,
+}
+
 pub fn create_prometheus_write_task(
-    url: String,
-    interval: u64,
-    app_name: String,
-    username: Option<String>,
-    password: Option<String>,
+    PrometheusWriteTaskArgs {
+        url,
+        interval,
+        app_name,
+        client_id,
+        username,
+        password,
+    }: PrometheusWriteTaskArgs,
 ) -> BackgroundTask {
     let client = get_client(username.clone(), password.clone());
     Box::pin(async move {
@@ -18,7 +30,7 @@ pub fn create_prometheus_write_task(
         loop {
             tokio::select! {
                 _ = tokio::time::sleep(sleep_duration) => {
-                    remote_write_prom(url.clone(), client.clone(), app_name.clone()).await;
+                    remote_write_prom(url.clone(), client.clone(), app_name.clone(), client_id.clone()).await;
                 }
             }
         }
@@ -48,10 +60,21 @@ fn get_client(username: Option<String>, password: Option<String>) -> Client {
     }
 }
 
-async fn remote_write_prom(url: String, client: Client, app_name: String) {
-    let write_request =
-        WriteRequest::from_metric_families(gather(), Some(vec![("app_name".into(), app_name)]))
-            .expect("Could not format write request");
+async fn remote_write_prom(
+    url: String,
+    client: Client,
+    app_name: String,
+    client_id: Option<String>,
+) {
+    let write_request = WriteRequest::from_metric_families(
+        gather(),
+        Some(
+            std::iter::once(("app_name".into(), app_name))
+                .chain(client_id.into_iter().map(|c| ("client_id".into(), c)))
+                .collect(),
+        ),
+    )
+    .expect("Could not format write request");
     let http_request = write_request
         .build_http_request(client.clone(), &url, "unleash_edge")
         .expect("Failed to build http request");
@@ -110,6 +133,7 @@ mod tests {
             srv.server_url("/prometheus").unwrap().to_string(),
             client,
             "hosted-edge".into(),
+            Some("hosted".into()),
         )
         .await;
     }

@@ -50,7 +50,7 @@ where
 }
 
 #[cfg(feature = "enterprise")]
-fn resource(app_id: String) -> Resource {
+fn resource(app_id: String, client_id: Option<String>) -> Resource {
     Resource::builder()
         .with_service_name("unleash_edge")
         .with_attribute(KeyValue::new(
@@ -58,6 +58,10 @@ fn resource(app_id: String) -> Resource {
             unleash_edge_types::build::PKG_VERSION,
         ))
         .with_attribute(KeyValue::new("service_instance_id", app_id))
+        .with_attribute(KeyValue::new(
+            "service_client_id",
+            client_id.unwrap_or("no_client_id_set".to_string()),
+        ))
         .build()
 }
 
@@ -66,8 +70,9 @@ fn init_otel(
     endpoint: &str,
     mode: &unleash_edge_cli::OtelExporterProtocol,
     app_id: String,
+    client_id: Option<String>,
 ) -> anyhow::Result<(SdkTracerProvider, SdkMeterProvider, SdkLoggerProvider)> {
-    let res = resource(app_id);
+    let res = resource(app_id, client_id);
     // --- Traces ----
     let span_exporter = match mode {
         unleash_edge_cli::OtelExporterProtocol::Http => opentelemetry_otlp::SpanExporter::builder()
@@ -137,6 +142,7 @@ fn enterprise_tracing(args: &CliArgs, app_id: String) -> EdgeResult<Option<OtelH
                 endpoint,
                 &args.otel_config.otel_exporter_otlp_protocol,
                 app_id,
+                args.client_id.clone(),
             )
             .map_err(|e| unleash_edge_types::errors::EdgeError::TracingInitError(e.to_string()))?;
             let _ = init_tracing_subscriber(&logger_provider, args);
@@ -266,9 +272,10 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "enterprise")]
     fn test_resource_creation() {
         let app_id = "test-instance".to_string();
-        let res = resource(app_id.clone());
+        let res = resource(app_id.clone(), None);
 
         let service_name = res.iter().find(|(k, _)| k.as_str() == "service.name");
         assert!(service_name.is_some());

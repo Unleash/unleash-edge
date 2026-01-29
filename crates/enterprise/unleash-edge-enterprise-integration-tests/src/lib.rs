@@ -122,6 +122,7 @@ mod tests {
             },
             mode: unleash_edge_cli::EdgeMode::default(),
             instance_id: "test-instance".to_string(),
+            client_id: Some("test".to_string()),
             app_name: "unleash-edge-test".to_string(),
             markdown_help: false,
             trust_proxy: unleash_edge_cli::TrustProxy {

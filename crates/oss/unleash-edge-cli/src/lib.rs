@@ -436,6 +436,10 @@ pub struct CliArgs {
     )]
     pub instance_id: String,
 
+    /// Client id. Used for prometheus label.
+    #[clap(long, env, global = true, hide = true)]
+    pub client_id: Option<String>,
+
     /// App name. Used for metrics reporting.
     #[clap(short, long, env, global = true, default_value = "unleash-edge")]
     pub app_name: String,

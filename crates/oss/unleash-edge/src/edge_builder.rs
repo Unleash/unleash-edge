@@ -27,7 +27,7 @@ use unleash_edge_http_client::instance_data::{
     InstanceDataSending, create_once_off_send_instance_data, create_send_instance_data_task,
 };
 use unleash_edge_http_client::{ClientMetaInformation, UnleashClient};
-use unleash_edge_metrics::metrics_pusher::create_prometheus_write_task;
+use unleash_edge_metrics::metrics_pusher::{PrometheusWriteTaskArgs, create_prometheus_write_task};
 use unleash_edge_metrics::send_unleash_metrics::{
     create_once_off_send_metrics, create_send_metrics_task,
 };
@@ -371,7 +371,8 @@ pub async fn build_edge_state(
     let metrics_cache = Arc::new(MetricsCache::default());
 
     let background_tasks = create_edge_mode_background_tasks(BackgroundTaskArgs {
-        app_name: args.clone().app_name,
+        app_name: args.app_name.clone(),
+        client_id: args.client_id.clone(),
         client_meta_information: client_meta_information.clone(),
         deferred_validation_rx,
         edge: edge_args.clone(),
@@ -485,6 +486,7 @@ fn create_shutdown_tasks(
 }
 pub(crate) struct BackgroundTaskArgs {
     app_name: String,
+    client_id: Option<String>,
     client_meta_information: ClientMetaInformation,
     deferred_validation_rx: Option<tokio::sync::mpsc::UnboundedReceiver<String>>,
     edge: EdgeArgs,
@@ -504,6 +506,7 @@ pub(crate) struct BackgroundTaskArgs {
 fn create_edge_mode_background_tasks(
     BackgroundTaskArgs {
         app_name,
+        client_id,
         client_meta_information,
         deferred_validation_rx,
         edge,
@@ -551,13 +554,14 @@ fn create_edge_mode_background_tasks(
     ];
 
     if let Some(url) = edge.clone().prometheus_remote_write_url {
-        tasks.push(create_prometheus_write_task(
+        tasks.push(create_prometheus_write_task(PrometheusWriteTaskArgs {
             url,
-            edge.prometheus_push_interval,
+            interval: edge.prometheus_push_interval,
             app_name,
-            edge.clone().prometheus_username,
-            edge.clone().prometheus_password,
-        ));
+            client_id,
+            username: edge.prometheus_username.clone(),
+            password: edge.prometheus_password.clone(),
+        }));
     }
 
     let hydration_task = match &refresher {
