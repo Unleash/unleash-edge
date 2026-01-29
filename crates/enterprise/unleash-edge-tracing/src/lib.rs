@@ -268,6 +268,7 @@ mod tests {
         let _ = formatting_layer::<tracing_subscriber::Registry>(&args);
     }
 
+    #[cfg(feature = "enterprise")]
     #[test]
     #[cfg(feature = "enterprise")]
     fn test_resource_creation() {
