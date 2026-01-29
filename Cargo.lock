@@ -5818,8 +5818,9 @@ name = "unleash-edge-types"
 version = "20.1.7"
 dependencies = [
  "ahash",
- "async-trait",
  "axum",
+ "axum-core",
+ "axum-test",
  "chrono",
  "dashmap",
  "etag",
@@ -5832,6 +5833,7 @@ dependencies = [
  "serde_json",
  "shadow-rs",
  "test-case",
+ "tokio",
  "tracing",
  "ulid",
  "unleash-types",

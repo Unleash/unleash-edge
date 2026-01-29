@@ -27,6 +27,7 @@ use utoipa::{IntoParams, ToSchema};
 
 pub mod enterprise;
 pub mod errors;
+pub mod extract;
 pub mod filters;
 pub mod headers;
 pub mod metrics;
