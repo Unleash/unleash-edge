@@ -1,9 +1,11 @@
+use std::collections::HashSet;
+
 use dashmap::mapref::one::Ref;
 use tracing::info;
 use unleash_edge_types::{
     EdgeResult, FeatureFilters, TokenCache, errors::EdgeError, tokens::EdgeToken,
 };
-use unleash_types::client_features::{ClientFeature, ClientFeatures};
+use unleash_types::client_features::{ClientFeature, ClientFeatures, Segment};
 
 pub mod delta_filters;
 
@@ -47,13 +49,50 @@ pub fn filter_client_features(
     feature_cache: &Ref<'_, String, ClientFeatures>,
     filters: &FeatureFilterSet,
 ) -> ClientFeatures {
+    let features = filter_features(feature_cache, filters);
+
     ClientFeatures {
-        features: filter_features(feature_cache, filters),
-        segments: feature_cache.segments.clone(),
+        segments: filter_segments(&features, feature_cache.segments.as_deref()),
+        features,
         query: feature_cache.query.clone(),
         version: feature_cache.version,
         meta: feature_cache.meta.clone(),
     }
+}
+
+fn filter_segments(
+    features: &[ClientFeature],
+    segments: Option<&[Segment]>,
+) -> Option<Vec<Segment>> {
+    let segments = segments?;
+
+    let mut required = std::collections::HashSet::new();
+
+    for feature in features {
+        let Some(strategies) = &feature.strategies else {
+            continue;
+        };
+        for strategy in strategies {
+            let Some(seg_ids) = &strategy.segments else {
+                continue;
+            };
+            for &id in seg_ids {
+                required.insert(id);
+            }
+        }
+    }
+
+    if required.is_empty() {
+        return None;
+    }
+
+    let out: Vec<Segment> = segments
+        .iter()
+        .filter(|s| required.contains(&s.id))
+        .cloned()
+        .collect();
+
+    Some(out)
 }
 
 pub fn name_prefix_filter(name_prefix: String) -> FeatureFilter {
