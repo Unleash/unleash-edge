@@ -262,6 +262,7 @@ mod tests {
         let _ = formatting_layer::<tracing_subscriber::Registry>(&args);
     }
 
+    #[cfg(feature = "enterprise")]
     #[test]
     fn test_resource_creation() {
         let app_id = "test-instance".to_string();
