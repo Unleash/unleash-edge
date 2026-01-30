@@ -4,7 +4,7 @@ resolver = "3"
 members = ["crates/oss/*", "crates/enterprise/*"]
 
 [workspace.package]
-version = "20.1.7"
+version = "20.1.8"
 authors = [
     "Unleash developers <team@getunleash.io>",
     "Christopher Kolstad <chriswk@getunleash.io>",
