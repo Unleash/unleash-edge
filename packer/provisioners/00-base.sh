@@ -5,6 +5,14 @@ echo "[00-base] ====================================================="
 echo "[00-base] Starting base provisioning..."
 echo "[00-base] ====================================================="
 
+echo "[00-base] ====================================================="
+echo "[00-base] Disabling ipv6 for apt"
+echo "[00-base] ====================================================="
+
+sudo tee /etc/apt/apt.conf.d/99force-ipv4 >/dev/null <<'EOF'
+Acquire::ForceIPv4 "true";
+EOF
+
 echo "[00-base] 🟩 Ubuntu detected"
 echo "[00-base] Updating system packages..."
 export DEBIAN_FRONTEND=noninteractive
