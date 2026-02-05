@@ -129,9 +129,9 @@ checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
 
 [[package]]
 name = "arc-swap"
-version = "1.8.0"
+version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51d03449bb8ca2cc2ef70869af31463d1ae5ccc8fa3e334b307203fbf815207e"
+checksum = "9ded5f9a03ac8f24d1b8a25101ee812cd32cdc8c50a4c50237de2c4915850e73"
 dependencies = [
  "rustversion",
 ]
@@ -1060,9 +1060,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.54"
+version = "1.2.55"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6354c81bbfd62d9cfa9cb3c773c2b7b2a3a482d569de977fd0e961f6e7c00583"
+checksum = "47b26a0954ae34af09b50f0de26458fa95369a0d478d8236d3f93082b219bd29"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -1874,9 +1874,9 @@ dependencies = [
 
 [[package]]
 name = "find-msvc-tools"
-version = "0.1.8"
+version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8591b0bcc8a98a64310a2fae1bb3e9b8564dd10e381e6e28010fde8e8e8568db"
+checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
 
 [[package]]
 name = "flagset"
@@ -1886,9 +1886,9 @@ checksum = "b7ac824320a75a52197e8f2d787f6a38b6718bb6897a35142d749af3c0e8f4fe"
 
 [[package]]
 name = "flate2"
-version = "1.1.8"
+version = "1.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b375d6465b98090a5f25b1c7703f3859783755aa9a80433b36e0379a3ec2f369"
+checksum = "843fba2746e448b37e26a819579957415c8cef339bf08564fe8b7ddbd959573c"
 dependencies = [
  "crc32fast",
  "miniz_oxide",
@@ -2059,9 +2059,9 @@ dependencies = [
 
 [[package]]
 name = "git2"
-version = "0.20.3"
+version = "0.20.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e2b37e2f62729cdada11f0e6b3b6fe383c69c29fc619e391223e12856af308c"
+checksum = "7b88256088d75a56f8ecfa070513a775dd9107f6530ef14919dac831af9cfe2b"
 dependencies = [
  "bitflags 2.10.0",
  "libc",
@@ -2407,9 +2407,9 @@ dependencies = [
 
 [[package]]
 name = "iana-time-zone"
-version = "0.1.64"
+version = "0.1.65"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33e57f83510bb73707521ebaffa789ec8caf86f9657cad665b092b581d40e9fb"
+checksum = "e31bc9ad994ba00e440a8aa5c9ef0ec67d5cb5e5cb0cc7f8b744a35b389cc470"
 dependencies = [
  "android_system_properties",
  "core-foundation-sys",
@@ -3375,9 +3375,9 @@ dependencies = [
 
 [[package]]
 name = "portable-atomic"
-version = "1.13.0"
+version = "1.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f89776e4d69bb58bc6993e99ffa1d11f228b839984854c7daeb5d37f87cbe950"
+checksum = "c33a9471896f1c69cecef8d20cbe2f7accd12527ce60845ff44c153bb2a21b49"
 
 [[package]]
 name = "potential_utf"
@@ -3795,9 +3795,9 @@ dependencies = [
 
 [[package]]
 name = "regex-automata"
-version = "0.4.13"
+version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5276caf25ac86c8d810222b3dbb938e512c55c6831a10f3e6ed1c93b84041f1c"
+checksum = "6e1dd4122fc1595e8162618945476892eefca7b88c52820e74af6262213cae8f"
 dependencies = [
  "aho-corasick",
  "memchr",
@@ -3806,15 +3806,15 @@ dependencies = [
 
 [[package]]
 name = "regex-lite"
-version = "0.1.8"
+version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d942b98df5e658f56f20d592c7f868833fe38115e65c33003d8cd224b0155da"
+checksum = "cab834c73d247e67f4fae452806d17d3c7501756d98c8808d7c9c7aa7d18f973"
 
 [[package]]
 name = "regex-syntax"
-version = "0.8.8"
+version = "0.8.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a2d987857b319362043e95f5353c0535c1f58eec5336fdfcf626430af7def58"
+checksum = "a96887878f22d7bad8a3b6dc5b7440e0ada9a245242924394987b21cf2210a4c"
 
 [[package]]
 name = "reqwest"
@@ -4190,9 +4190,9 @@ dependencies = [
 
 [[package]]
 name = "schemars"
-version = "1.2.0"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54e910108742c57a770f492731f99be216a52fadd361b06c8fb59d74ccc267d2"
+checksum = "a2b42f36aa1cd011945615b92222f6bf73c599a102a300334cd7f8dbeec726cc"
 dependencies = [
  "dyn-clone",
  "ref-cast",
@@ -4385,7 +4385,7 @@ dependencies = [
  "indexmap 1.9.3",
  "indexmap 2.13.0",
  "schemars 0.9.0",
- "schemars 1.2.0",
+ "schemars 1.2.1",
  "serde_core",
  "serde_json",
  "serde_with_macros",
@@ -4488,9 +4488,9 @@ checksum = "e320a6c5ad31d271ad523dcf3ad13e2767ad8b1cb8f047f75a8aeaf8da139da2"
 
 [[package]]
 name = "slab"
-version = "0.4.11"
+version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a2ae44ef20feb57a68b23d846850f861394c2e02dc425a50098ae8c90267589"
+checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
 name = "smallvec"
@@ -4926,9 +4926,9 @@ dependencies = [
 
 [[package]]
 name = "tonic"
-version = "0.14.2"
+version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb7613188ce9f7df5bfe185db26c5814347d110db17920415cf2fbcad85e7203"
+checksum = "a286e33f82f8a1ee2df63f4fa35c0becf4a85a0cb03091a15fd7bf0b402dc94a"
 dependencies = [
  "async-trait",
  "axum",
@@ -4955,9 +4955,9 @@ dependencies = [
 
 [[package]]
 name = "tonic-prost"
-version = "0.14.2"
+version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66bd50ad6ce1252d87ef024b3d64fe4c3cf54a86fb9ef4c631fdd0ded7aeaa67"
+checksum = "d6c55a2d6a14174563de34409c9f92ff981d006f56da9c6ecd40d9d4a31500b0"
 dependencies = [
  "bytes",
  "prost",
@@ -5174,9 +5174,9 @@ dependencies = [
 
 [[package]]
 name = "tz-rs"
-version = "0.7.2"
+version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b2df019c305771deac375d9657fc75fa394bde69102a870c923e779c3746642"
+checksum = "4fc6c929ffa10fb34f4a3c7e9a73620a83ef2e85e47f9ec3381b8289e6762f42"
 
 [[package]]
 name = "tzdb"
@@ -5247,7 +5247,7 @@ checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
 
 [[package]]
 name = "unleash-edge"
-version = "20.1.7"
+version = "20.1.8"
 dependencies = [
  "anyhow",
  "aws-config",
@@ -5311,7 +5311,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-appstate"
-version = "20.1.7"
+version = "20.1.8"
 dependencies = [
  "axum",
  "dashmap",
@@ -5334,7 +5334,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-auth"
-version = "20.1.7"
+version = "20.1.8"
 dependencies = [
  "axum",
  "axum-test",
@@ -5355,7 +5355,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-backstage"
-version = "20.1.7"
+version = "20.1.8"
 dependencies = [
  "axum",
  "dashmap",
@@ -5378,7 +5378,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-cli"
-version = "20.1.7"
+version = "20.1.8"
 dependencies = [
  "axum",
  "cidr",
@@ -5398,7 +5398,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-client-api"
-version = "20.1.7"
+version = "20.1.8"
 dependencies = [
  "axum",
  "axum-test",
@@ -5431,7 +5431,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-delta"
-version = "20.1.7"
+version = "20.1.8"
 dependencies = [
  "dashmap",
  "prometheus",
@@ -5444,7 +5444,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-edge-api"
-version = "20.1.7"
+version = "20.1.8"
 dependencies = [
  "axum",
  "tokio",
@@ -5457,7 +5457,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-enterprise"
-version = "20.1.7"
+version = "20.1.8"
 dependencies = [
  "tokio",
  "tracing",
@@ -5469,7 +5469,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-enterprise-api"
-version = "20.1.7"
+version = "20.1.8"
 dependencies = [
  "axum",
  "axum-test",
@@ -5490,7 +5490,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-enterprise-integration-tests"
-version = "20.1.7"
+version = "20.1.8"
 dependencies = [
  "ahash",
  "async-trait",
@@ -5531,7 +5531,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-feature-cache"
-version = "20.1.7"
+version = "20.1.8"
 dependencies = [
  "dashmap",
  "tokio",
@@ -5541,7 +5541,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-feature-filters"
-version = "20.1.7"
+version = "20.1.8"
 dependencies = [
  "dashmap",
  "tracing",
@@ -5553,7 +5553,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-feature-refresh"
-version = "20.1.7"
+version = "20.1.8"
 dependencies = [
  "anyhow",
  "axum",
@@ -5591,7 +5591,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-frontend-api"
-version = "20.1.7"
+version = "20.1.8"
 dependencies = [
  "axum",
  "axum-test",
@@ -5617,7 +5617,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-http-client"
-version = "20.1.7"
+version = "20.1.8"
 dependencies = [
  "ahash",
  "axum",
@@ -5643,7 +5643,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-integration-tests"
-version = "20.1.7"
+version = "20.1.8"
 dependencies = [
  "axum",
  "axum-test",
@@ -5686,7 +5686,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-metrics"
-version = "20.1.7"
+version = "20.1.8"
 dependencies = [
  "axum",
  "axum-test",
@@ -5717,7 +5717,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-offline"
-version = "20.1.7"
+version = "20.1.8"
 dependencies = [
  "axum",
  "axum-test",
@@ -5740,7 +5740,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-persistence"
-version = "20.1.7"
+version = "20.1.8"
 dependencies = [
  "ahash",
  "async-trait",
@@ -5766,7 +5766,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-request-logger"
-version = "20.1.7"
+version = "20.1.8"
 dependencies = [
  "axum",
  "http 1.4.0",
@@ -5775,7 +5775,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-streaming"
-version = "20.1.7"
+version = "20.1.8"
 dependencies = [
  "anyhow",
  "axum",
@@ -5804,7 +5804,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-tracing"
-version = "20.1.7"
+version = "20.1.8"
 dependencies = [
  "anyhow",
  "clap",
@@ -5821,7 +5821,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-types"
-version = "20.1.7"
+version = "20.1.8"
 dependencies = [
  "ahash",
  "async-trait",
@@ -6150,18 +6150,18 @@ dependencies = [
 
 [[package]]
 name = "webpki-root-certs"
-version = "1.0.5"
+version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36a29fc0408b113f68cf32637857ab740edfafdf460c326cd2afaa2d84cc05dc"
+checksum = "804f18a4ac2676ffb4e8b5b5fa9ae38af06df08162314f96a68d2a363e21a8ca"
 dependencies = [
  "rustls-pki-types",
 ]
 
 [[package]]
 name = "webpki-roots"
-version = "1.0.5"
+version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12bed680863276c63889429bfd6cab3b99943659923822de1c8a39c49e4d722c"
+checksum = "22cfaf3c063993ff62e73cb4311efde4db1efb31ab78a3e5c457939ad5cc0bed"
 dependencies = [
  "rustls-pki-types",
 ]
@@ -6601,18 +6601,18 @@ dependencies = [
 
 [[package]]
 name = "zerocopy"
-version = "0.8.34"
+version = "0.8.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71ddd76bcebeed25db614f82bf31a9f4222d3fbba300e6fb6c00afa26cbd4d9d"
+checksum = "57cf3aa6855b23711ee9852dfc97dfaa51c45feaba5b645d0c777414d494a961"
 dependencies = [
  "zerocopy-derive",
 ]
 
 [[package]]
 name = "zerocopy-derive"
-version = "0.8.34"
+version = "0.8.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8187381b52e32220d50b255276aa16a084ec0a9017a0ca2152a1f55c539758d"
+checksum = "8a616990af1a287837c4fe6596ad77ef57948f787e46ce28e166facc0cc1cb75"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6681,9 +6681,9 @@ dependencies = [
 
 [[package]]
 name = "zmij"
-version = "1.0.17"
+version = "1.0.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02aae0f83f69aafc94776e879363e9771d7ecbffe2c7fbb6c14c5e00dfe88439"
+checksum = "3ff05f8caa9038894637571ae6b9e29466c1f4f829d26c9b28f869a29cbe3445"
 
 [[package]]
 name = "zstd"

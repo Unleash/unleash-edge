@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.1.8](https://github.com/Unleash/unleash-edge/compare/unleash-edge-auth-v20.1.7...unleash-edge-auth-v20.1.8) - 2026-02-04
+
+### ⚙️ Miscellaneous Tasks
+- update Cargo.toml dependencies
+
 ## [20.1.7](https://github.com/Unleash/unleash-edge/compare/unleash-edge-auth-v20.1.6...unleash-edge-auth-v20.1.7) - 2026-01-27
 
 ### ⚙️ Miscellaneous Tasks
