@@ -84,7 +84,7 @@ tower-http = { version = "0.6.8", features = ["cors", "normalize-path", "trace",
 tracing = { version = "0.1.44" }
 tracing-opentelemetry = { version = "0.32.1", features = ["metrics"] }
 tracing-subscriber = { version = "0.3.22", features = ["env-filter", "json"] }
-tracing-test = { version = "0.2.5" }
+tracing-test = { version = "0.2.6" }
 traced-test = { version = "1.0.4" }
 ulid = { version = "1.2.1", features = ["serde"] }
 unleash-edge = { path = "./crates/oss/unleash-edge" }
