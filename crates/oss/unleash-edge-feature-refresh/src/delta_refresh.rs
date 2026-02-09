@@ -777,6 +777,17 @@ mod tests {
             .collect::<std::collections::HashSet<_>>();
         assert!(hydration_feature_names.contains("flag-a"));
         assert!(hydration_feature_names.contains("flag-b"));
+
+        let engine = engine_cache
+            .get(&cache_key)
+            .expect("Engine cache should exist");
+        let known_toggles = engine
+            .list_known_toggles()
+            .into_iter()
+            .map(|toggle| toggle.name)
+            .collect::<std::collections::HashSet<_>>();
+        assert!(known_toggles.contains("flag-a"));
+        assert!(known_toggles.contains("flag-b"));
     }
 
     fn cache_key(token: &EdgeToken) -> String {

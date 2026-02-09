@@ -202,4 +202,99 @@ mod tests {
         }
         assert!(delta_cache_manager.get(env).is_none());
     }
+
+    #[test]
+    fn test_merge_hydration_cache_inserts_missing_cache_and_emits_full() {
+        let delta_cache_manager = DeltaCacheManager::new();
+        let mut rx = delta_cache_manager.subscribe();
+        let env = "hydrate-insert-env";
+
+        delta_cache_manager.merge_hydration_cache(
+            env,
+            &["project-a".to_string()],
+            DeltaHydrationEvent {
+                event_id: 15,
+                features: vec![ClientFeature {
+                    name: "feature-inserted".to_string(),
+                    project: Some("project-a".to_string()),
+                    ..Default::default()
+                }],
+                segments: vec![],
+            },
+            10,
+        );
+
+        match rx.try_recv() {
+            Ok(DeltaCacheUpdate::Full(e)) => assert_eq!(e, env),
+            e => panic!("Expected Full update, got {:?}", e),
+        }
+        assert!(delta_cache_manager.get(env).is_some());
+    }
+
+    #[test]
+    fn test_merge_hydration_cache_updates_existing_cache_and_emits_update() {
+        let delta_cache_manager = DeltaCacheManager::new();
+        let env = "hydrate-update-env";
+
+        delta_cache_manager.insert_cache(
+            env,
+            DeltaCache::new(
+                DeltaHydrationEvent {
+                    event_id: 1,
+                    features: vec![
+                        ClientFeature {
+                            name: "feature-a".to_string(),
+                            project: Some("project-a".to_string()),
+                            ..Default::default()
+                        },
+                        ClientFeature {
+                            name: "feature-b".to_string(),
+                            project: Some("project-b".to_string()),
+                            ..Default::default()
+                        },
+                    ],
+                    segments: vec![Segment {
+                        id: 1,
+                        constraints: vec![],
+                    }],
+                },
+                10,
+            ),
+        );
+
+        let mut rx = delta_cache_manager.subscribe();
+
+        delta_cache_manager.merge_hydration_cache(
+            env,
+            &["project-a".to_string()],
+            DeltaHydrationEvent {
+                event_id: 2,
+                features: vec![ClientFeature {
+                    name: "feature-a-updated".to_string(),
+                    project: Some("project-a".to_string()),
+                    ..Default::default()
+                }],
+                segments: vec![Segment {
+                    id: 2,
+                    constraints: vec![],
+                }],
+            },
+            10,
+        );
+
+        match rx.try_recv() {
+            Ok(DeltaCacheUpdate::Update(e)) => assert_eq!(e, env),
+            e => panic!("Expected Update event, got {:?}", e),
+        }
+
+        let cache = delta_cache_manager.get(env).expect("Cache should exist");
+        let names = cache
+            .get_hydration_event()
+            .features
+            .iter()
+            .map(|feature| feature.name.clone())
+            .collect::<std::collections::HashSet<_>>();
+        assert!(names.contains("feature-a-updated"));
+        assert!(names.contains("feature-b"));
+    }
 }

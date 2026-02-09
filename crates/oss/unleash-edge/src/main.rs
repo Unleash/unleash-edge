@@ -3,11 +3,10 @@ use axum::{Router, ServiceExt as _};
 use axum::body::Body;
 use axum::extract::{Request, State};
 use axum::response::{IntoResponse, Redirect};
-use axum_extra::extract::Host;
 use axum_server::Handle;
 use clap::Parser;
 use futures::future::join_all;
-use http::Uri;
+use http::header::HOST;
 use http::uri::Authority;
 use http_body_util::BodyExt;
 use hyper_util::rt::TokioTimer;
@@ -238,12 +237,14 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
     Ok(())
 }
 
-pub async fn redirect_to_https(
-    State(cfg): State<HttpAppCfg>,
-    Host(host): Host,
-    uri: Uri,
-) -> impl IntoResponse {
-    let authority = rewrite_authority_port(&host, cfg.https_port)
+pub async fn redirect_to_https(State(cfg): State<HttpAppCfg>, req: Request) -> impl IntoResponse {
+    let host = req
+        .headers()
+        .get(HOST)
+        .and_then(|h| h.to_str().ok())
+        .unwrap_or_default();
+    let uri = req.uri().clone();
+    let authority = rewrite_authority_port(host, cfg.https_port)
         .unwrap_or_else(|| format!("{}:{}", host, cfg.https_port));
 
     let path_and_query = uri.path_and_query().map(|pq| pq.as_str()).unwrap_or("/");

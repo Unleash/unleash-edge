@@ -94,7 +94,7 @@ mod tests {
 
         delta_cache_manager.update_cache(
             &token.environment.clone().unwrap(),
-            &vec![DeltaEvent::FeatureUpdated {
+            &[DeltaEvent::FeatureUpdated {
                 event_id: 1,
                 feature: ClientFeature {
                     name: "Inigo Montoya".into(),
@@ -114,7 +114,7 @@ mod tests {
 
         delta_cache_manager.update_cache(
             &token.environment.clone().unwrap(),
-            &vec![DeltaEvent::FeatureUpdated {
+            &[DeltaEvent::FeatureUpdated {
                 event_id: 1,
                 feature: ClientFeature {
                     name: "Westley".into(),
@@ -184,7 +184,7 @@ mod tests {
         assert!(event_id == &1);
         assert!(
             features
-                == &vec![
+                == &[
                     ClientFeature {
                         name: "Inigo Montoya".into(),
                         project: Some("Princess bride".into()),
@@ -247,7 +247,7 @@ mod tests {
 
         delta_cache_manager.update_cache(
             &token.environment.clone().unwrap(),
-            &vec![DeltaEvent::FeatureUpdated {
+            &[DeltaEvent::FeatureUpdated {
                 event_id: 1,
                 feature: ClientFeature {
                     name: "Inigo Montoya".into(),
@@ -303,7 +303,7 @@ mod tests {
         let inject_event = async move || {
             delta_cache_manager.update_cache(
                 &token.environment.clone().unwrap(),
-                &vec![DeltaEvent::FeatureUpdated {
+                &[DeltaEvent::FeatureUpdated {
                     event_id: 2,
                     feature: ClientFeature {
                         name: "Westley".into(),
@@ -339,7 +339,7 @@ mod tests {
         assert!(event_id == &1);
         assert!(
             features
-                == &vec![ClientFeature {
+                == &[ClientFeature {
                     name: "Inigo Montoya".into(),
                     project: Some("Princess bride".into()),
                     strategies: Some(vec![Strategy {
@@ -409,7 +409,7 @@ mod tests {
 
         delta_cache_manager.update_cache(
             &token.environment.clone().unwrap(),
-            &vec![DeltaEvent::FeatureUpdated {
+            &[DeltaEvent::FeatureUpdated {
                 event_id: 1,
                 feature: ClientFeature {
                     name: "Inigo Montoya".into(),
@@ -470,7 +470,7 @@ mod tests {
 
             delta_cache_manager.update_cache(
                 &token.environment.clone().unwrap(),
-                &vec![DeltaEvent::FeatureUpdated {
+                &[DeltaEvent::FeatureUpdated {
                     event_id: 2,
                     feature: ClientFeature {
                         name: "Westley".into(),
@@ -534,7 +534,7 @@ mod tests {
 
         delta_cache_manager.update_cache(
             &dev_token.environment.clone().unwrap(),
-            &vec![DeltaEvent::FeatureUpdated {
+            &[DeltaEvent::FeatureUpdated {
                 event_id: 1,
                 feature: ClientFeature {
                     name: "Inigo Montoya".into(),
@@ -607,7 +607,7 @@ mod tests {
             );
             delta_cache_manager.update_cache(
                 &prod_token.environment.clone().unwrap(),
-                &vec![DeltaEvent::FeatureUpdated {
+                &[DeltaEvent::FeatureUpdated {
                     event_id: 1,
                     feature: ClientFeature {
                         name: "Inigo Montoya".into(),
