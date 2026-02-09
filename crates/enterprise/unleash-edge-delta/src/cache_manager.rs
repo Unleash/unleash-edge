@@ -1,4 +1,4 @@
-use crate::cache::DeltaCache;
+use crate::cache::{DeltaCache, DeltaHydrationEvent};
 use dashmap::DashMap;
 use prometheus::{IntCounter, IntGauge, register_int_counter, register_int_gauge};
 use std::sync::{Arc, LazyLock};
@@ -79,6 +79,27 @@ impl DeltaCacheManager {
             if result.is_err() {
                 info!("No active subscribers to delta broadcast for env: {env}");
             }
+        }
+    }
+
+    pub fn merge_hydration_cache(
+        &self,
+        env: &str,
+        projects: &[String],
+        hydration_event: DeltaHydrationEvent,
+        max_length: usize,
+    ) {
+        if let Some(mut cache) = self.caches.get_mut(env) {
+            cache.merge_hydration_for_projects(projects, hydration_event);
+            CONNECTED_STREAMING_CLIENTS_GAUGE.set(self.update_sender.receiver_count() as i64);
+            let result = self
+                .update_sender
+                .send(DeltaCacheUpdate::Update(env.to_string()));
+            if result.is_err() {
+                info!("No active subscribers to delta broadcast for env: {env}");
+            }
+        } else {
+            self.insert_cache(env, DeltaCache::new(hydration_event, max_length));
         }
     }
 

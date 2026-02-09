@@ -14,7 +14,7 @@ use std::time::Duration;
 use tokio::sync::watch::Receiver;
 use tokio::time::sleep;
 use tracing::{debug, error, info, warn};
-use unleash_edge_delta::cache::{DeltaCache, DeltaHydrationEvent};
+use unleash_edge_delta::cache::DeltaHydrationEvent;
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_filters::FeatureFilterSet;
@@ -31,8 +31,8 @@ use unleash_edge_types::tokens::{EdgeToken, cache_key, simplify};
 use unleash_edge_types::{
     ClientFeaturesDeltaResponse, ClientFeaturesRequest, EdgeResult, RefreshState, TokenRefresh,
 };
-use unleash_types::client_features::{ClientFeaturesDelta, DeltaEvent};
-use unleash_yggdrasil::EngineState;
+use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta, DeltaEvent};
+use unleash_yggdrasil::{EngineState, UpdateMessage};
 
 pub type Environment = String;
 
@@ -314,27 +314,36 @@ impl DeltaRefresher {
         );
 
         let key: String = cache_key(refresh_token);
-        self.features_cache.apply_delta(key.clone(), &delta);
+        let hydration_event = extract_hydration_event(&delta);
+        let has_hydration_event = hydration_event.is_some();
 
-        if let Some(_entry) = self.delta_cache_manager.get(&key) {
-            self.delta_cache_manager.update_cache(&key, &delta.events);
-        } else if let Some(DeltaEvent::Hydration {
-            event_id,
-            features,
-            segments,
-        }) = delta.events.clone().into_iter().next()
-        {
-            self.delta_cache_manager.insert_cache(
+        if has_hydration_event {
+            let hydrated_features = ClientFeatures::create_from_delta(&delta);
+            self.features_cache
+                .modify(key.clone(), refresh_token, hydrated_features);
+        } else {
+            self.features_cache.apply_delta(key.clone(), &delta);
+        }
+
+        if let Some(hydration_event) = hydration_event {
+            self.delta_cache_manager.merge_hydration_cache(
                 &key,
-                DeltaCache::new(
-                    DeltaHydrationEvent {
-                        event_id,
-                        features,
-                        segments,
-                    },
-                    DELTA_CACHE_LIMIT,
-                ),
+                &refresh_token.projects,
+                hydration_event,
+                DELTA_CACHE_LIMIT,
             );
+            let non_hydration_events = delta
+                .events
+                .iter()
+                .filter(|event| !matches!(event, DeltaEvent::Hydration { .. }))
+                .cloned()
+                .collect::<Vec<_>>();
+            if !non_hydration_events.is_empty() {
+                self.delta_cache_manager
+                    .update_cache(&key, &non_hydration_events);
+            }
+        } else if self.delta_cache_manager.get(&key).is_some() {
+            self.delta_cache_manager.update_cache(&key, &delta.events);
         } else {
             warn!(
                 "Warning: No hydrationEvent found in delta.events, but cache empty for environment"
@@ -371,20 +380,38 @@ impl DeltaRefresher {
                 &refresh_token.projects.join(","),
             ])
             .set(Utc::now().timestamp());
-        self.engine_cache
-            .entry(key.clone())
-            .and_modify(|engine| {
-                engine.apply_delta(&delta);
-            })
-            .or_insert_with(|| {
-                let mut new_state = EngineState::default();
 
-                let warnings = new_state.apply_delta(&delta);
-                if let Some(warnings) = warnings {
-                    warn!("The following toggle failed to compile and will be defaulted to off: {warnings:?}");
-                };
-                new_state
-            });
+        if has_hydration_event {
+            self.rebuild_engine_from_cache(&key);
+        } else {
+            self.engine_cache
+                .entry(key.clone())
+                .and_modify(|engine| {
+                    engine.apply_delta(&delta);
+                })
+                .or_insert_with(|| {
+                    let mut new_state = EngineState::default();
+
+                    let warnings = new_state.apply_delta(&delta);
+                    if let Some(warnings) = warnings {
+                        warn!("The following toggle failed to compile and will be defaulted to off: {warnings:?}");
+                    };
+                    new_state
+                });
+        }
+    }
+
+    fn rebuild_engine_from_cache(&self, key: &str) {
+        if let Some(features) = self.features_cache.get(key) {
+            let mut new_state = EngineState::default();
+            let warnings = new_state.take_state(UpdateMessage::FullResponse(features.clone()));
+            if let Some(warnings) = warnings {
+                warn!(
+                    "The following toggle failed to compile and will be defaulted to off: {warnings:?}"
+                );
+            };
+            self.engine_cache.insert(key.to_string(), new_state);
+        }
     }
 
     /// Registers a token for refresh, the token will be discarded if it can be subsumed by another previously registered token
@@ -529,6 +556,25 @@ impl DeltaRefresher {
             }
         }
     }
+}
+
+fn extract_hydration_event(delta: &ClientFeaturesDelta) -> Option<DeltaHydrationEvent> {
+    delta.events.iter().find_map(|event| {
+        if let DeltaEvent::Hydration {
+            event_id,
+            features,
+            segments,
+        } = event
+        {
+            Some(DeltaHydrationEvent {
+                event_id: *event_id,
+                features: features.clone(),
+                segments: segments.clone(),
+            })
+        } else {
+            None
+        }
+    })
 }
 
 #[cfg(test)]
