@@ -345,7 +345,7 @@ impl EdgeError {
             EdgeError::EdgeMetricsError(_) => StatusCode::BAD_REQUEST,
             EdgeError::ClientRegisterError => StatusCode::BAD_REQUEST,
             EdgeError::ClientCertificateError(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            EdgeError::FrontendNotYetHydrated(_) => StatusCode::NETWORK_AUTHENTICATION_REQUIRED,
+            EdgeError::FrontendNotYetHydrated(_) => StatusCode::FORBIDDEN,
             EdgeError::ContextParseError => StatusCode::BAD_REQUEST,
             EdgeError::EdgeMetricsRequestError(status_code, _) => {
                 StatusCode::from_u16(status_code.as_u16()).unwrap()
