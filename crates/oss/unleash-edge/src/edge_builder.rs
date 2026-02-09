@@ -2,7 +2,9 @@ use crate::{CacheContainer, EdgeInfo, OTEL_INIT, SHOULD_DEFER_VALIDATION};
 use chrono::{Duration, Utc};
 use dashmap::DashMap;
 use http::StatusCode;
+use itertools::Itertools;
 use std::pin::Pin;
+use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio::sync::mpsc::UnboundedSender;
@@ -44,6 +46,7 @@ use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::MetricsCache;
 use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
 use unleash_edge_types::tokens::{EdgeToken, cache_key};
+use unleash_edge_types::urls::UnleashUrls;
 use unleash_edge_types::{
     BackgroundTask, EdgeResult, EngineCache, RefreshState, TokenCache, TokenType,
 };
@@ -166,10 +169,21 @@ pub async fn build_edge(
     http_client: reqwest::Client,
     tx: Option<UnboundedSender<String>>,
 ) -> EdgeResult<EdgeInfo> {
-    if args.tokens.is_empty() {
-        return Err(EdgeError::NoTokens(
-            "No tokens provided. Tokens must be specified".into(),
-        ));
+    #[cfg(not(feature = "enterprise"))]
+    {
+        if args.tokens.is_empty() {
+            return Err(EdgeError::NoTokens(
+                "No tokens provided. Tokens must be specified".into(),
+            ));
+        }
+    }
+    #[cfg(feature = "enterprise")]
+    {
+        if args.tokens.is_empty() && !args.hmac_config.is_configurable() {
+            return Err(EdgeError::NoTokens(
+                "No tokens provided, and no client".into(),
+            ));
+        }
     }
     let (token_cache, feature_cache, delta_cache, engine_cache) = build_caches();
     let persistence = get_data_source(args).await;
@@ -221,7 +235,9 @@ pub async fn build_edge(
         edge_instance_data: edge_instance_data.clone(),
     });
 
+    #[cfg(not(feature = "enterprise"))]
     let _ = token_validator.register_tokens(args.tokens.clone()).await;
+
     if let Some(persistence) = persistence.clone() {
         hydrate_from_persistent_storage(
             (
@@ -234,6 +250,24 @@ pub async fn build_edge(
         )
         .await;
     }
+    #[cfg(feature = "enterprise")]
+    {
+        let urls = UnleashUrls::from_str(&args.upstream_url)?;
+
+        if args.tokens.is_empty()
+            && let Some(token_request) = args
+                .hmac_config
+                .possible_token_request(urls.token_request_url)
+        {
+            let tokens =
+                unleash_edge_http_client::token_request::request_tokens(token_request).await?;
+
+            for token in tokens {
+                token_cache.insert(token.token.clone(), token.clone());
+            }
+        }
+    }
+
     if token_cache.is_empty() {
         error!("Edge was not able to validate any of the tokens configured at startup");
         return Err(EdgeError::NoTokens("No valid tokens provided on startup. At least one valid token must be specified at startup".into()));
@@ -345,11 +379,23 @@ pub async fn build_edge_state(
     )
     .await?;
 
+    let startup_tokens = if startup_tokens.is_empty() {
+        token_cache
+            .as_ref()
+            .clone()
+            .into_read_only()
+            .iter()
+            .map(|(_key, edge_token)| edge_token.clone())
+            .collect_vec()
+    } else {
+        startup_tokens
+    };
+
     let license_state = ApplicationLicenseState::new(
         match resolve_license(
             &unleash_client,
             persistence.clone(),
-            &startup_tokens,
+            &token_cache.iter().map(|(e)| e.clone()).collect_vec(),
             &client_meta_information,
         )
         .await?
@@ -779,7 +825,7 @@ mod tests {
     use std::path::Path;
     use std::sync::Arc;
     use ulid::Ulid;
-    use unleash_edge_cli::{AuthHeaders, EdgeArgs};
+    use unleash_edge_cli::{AuthHeaders, EdgeArgs, HmacConfig};
     use unleash_edge_http_client::ClientMetaInformation;
     use unleash_edge_types::metrics::instance_data::{ApiKeyIdentity, EdgeInstanceData, Hosting};
 
@@ -815,6 +861,7 @@ mod tests {
             prometheus_username: None,
             prometheus_password: None,
             prometheus_user_id: None,
+            hmac_config: HmacConfig::default(),
         };
         let client_meta_information = ClientMetaInformation {
             app_name: "test_app".to_string(),

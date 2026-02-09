@@ -12,7 +12,9 @@ use std::time::Duration;
 use tower_http::cors::{AllowHeaders, AllowMethods, AllowOrigin, CorsLayer, ExposeHeaders, MaxAge};
 use unleash_edge_types::errors::{EdgeError, TRUST_PROXY_PARSE_ERROR};
 use unleash_edge_types::metrics::instance_data::Hosting;
+use unleash_edge_types::tokens::RequestTokensArg;
 use unleash_edge_types::{tokens::EdgeToken, tokens::parse_trusted_token_pair};
+use url::Url;
 
 #[derive(Subcommand, Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
@@ -252,6 +254,9 @@ pub struct EdgeArgs {
 
     #[clap(long, env)]
     pub prometheus_user_id: Option<String>,
+
+    #[clap(flatten)]
+    pub hmac_config: HmacConfig,
 }
 
 pub fn string_to_header_tuple(s: &str) -> Result<(String, String), String> {
@@ -416,6 +421,51 @@ pub enum LogFormat {
     Plain,
     Json,
     Pretty,
+}
+
+#[derive(Args, Debug, Clone, Default)]
+pub struct HmacConfig {
+    #[clap(env, long, hide = true)]
+    pub unleash_client_id: Option<String>,
+
+    #[clap(env, long, hide = true)]
+    pub unleash_client_secret: Option<String>,
+
+    #[clap(env, long, hide = true, value_delimiter = ',')]
+    pub desired_environments: Option<Vec<String>>,
+
+    #[clap(env, long, hide = true, value_delimiter = ',', default_value = "*")]
+    pub desired_projects: Vec<String>,
+}
+
+impl HmacConfig {
+    pub fn is_configurable(&self) -> bool {
+        self.unleash_client_secret.is_some()
+            && self.unleash_client_id.is_some()
+            && self
+                .desired_environments
+                .as_ref()
+                .map(|envs| !envs.is_empty())
+                .unwrap_or(false)
+    }
+
+    pub fn possible_token_request(&self, issue_token_url: Url) -> Option<RequestTokensArg> {
+        if let (Some(client_id), Some(client_secret), Some(envs)) = (
+            self.unleash_client_id.clone(),
+            self.unleash_client_secret.clone(),
+            self.desired_environments.clone(),
+        ) {
+            Some(RequestTokensArg {
+                environments: envs,
+                projects: self.desired_projects.clone(),
+                client_id,
+                client_secret,
+                issue_token_url,
+            })
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Parser, Debug, Clone)]

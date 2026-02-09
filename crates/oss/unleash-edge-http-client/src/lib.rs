@@ -37,6 +37,7 @@ use url::Url;
 
 pub mod instance_data;
 pub mod tls;
+pub mod token_request;
 
 lazy_static! {
     pub static ref CLIENT_REGISTER_FAILURES: IntGaugeVec = register_int_gauge_vec!(

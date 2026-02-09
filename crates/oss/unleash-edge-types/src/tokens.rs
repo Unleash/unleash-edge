@@ -3,6 +3,7 @@ use crate::{ClientTokenRequest, EdgeResult, TokenRefresh, TokenType, TokenValida
 use ahash::HashSet;
 use axum::http::HeaderValue;
 use chrono::{DateTime, Duration, Utc};
+use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::{Debug, Formatter};
@@ -328,4 +329,12 @@ fn clean_hash(hash: &str) -> String {
         &hash[..6].to_string(),
         &hash[hash.len() - 6..].to_string()
     )
+}
+
+pub struct RequestTokensArg {
+    pub environments: Vec<String>,
+    pub projects: Vec<String>,
+    pub client_id: String,
+    pub client_secret: String,
+    pub issue_token_url: Url,
 }
