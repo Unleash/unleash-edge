@@ -664,6 +664,75 @@ mod tests {
         assert_eq!(refreshed_features, delta_features);
     }
 
+    #[tokio::test]
+    async fn hydration_for_one_project_does_not_remove_other_project_features() {
+        let unleash_client = build_unleash_client(Url::parse("http://127.0.0.1:1").unwrap());
+        let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
+        let delta_cache_manager: Arc<DeltaCacheManager> = Arc::new(DeltaCacheManager::new());
+        let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
+        let tokens_to_refresh = Arc::new(DashMap::default());
+
+        let delta_refresher = Arc::new(DeltaRefresher {
+            unleash_client: unleash_client.clone(),
+            tokens_to_refresh,
+            delta_cache_manager,
+            features_cache: features_cache.clone(),
+            engine_cache: engine_cache.clone(),
+            refresh_interval: Duration::seconds(6000),
+            persistence: None,
+            streaming: false,
+            client_meta_information: ClientMetaInformation::test_config(),
+            edge_instance_data: Arc::new(edge_instance_data_for_delta_refresher_test()),
+        });
+
+        let token_project_a =
+            EdgeToken::try_from("project-a:development.token-a".to_string()).unwrap();
+        let token_project_b =
+            EdgeToken::try_from("project-b:development.token-b".to_string()).unwrap();
+
+        delta_refresher
+            .register_token_for_refresh(token_project_a.clone(), None)
+            .await;
+        delta_refresher
+            .register_token_for_refresh(token_project_b.clone(), None)
+            .await;
+
+        delta_refresher
+            .handle_client_features_delta_updated(
+                &token_project_a,
+                hydration_delta(10, "project-a", "flag-a"),
+                None,
+            )
+            .await;
+        delta_refresher
+            .handle_client_features_delta_updated(
+                &token_project_b,
+                hydration_delta(11, "project-b", "flag-b"),
+                None,
+            )
+            .await;
+
+        let cache_key = cache_key(&token_project_a);
+        let cached = features_cache.get(&cache_key).unwrap();
+        let feature_names = cached
+            .features
+            .iter()
+            .map(|feature| feature.name.clone())
+            .collect::<std::collections::HashSet<_>>();
+        assert!(feature_names.contains("flag-a"));
+        assert!(feature_names.contains("flag-b"));
+
+        let delta_cache = delta_refresher.delta_cache_manager.get(&cache_key).unwrap();
+        let hydration_feature_names = delta_cache
+            .get_hydration_event()
+            .features
+            .iter()
+            .map(|feature| feature.name.clone())
+            .collect::<std::collections::HashSet<_>>();
+        assert!(hydration_feature_names.contains("flag-a"));
+        assert!(hydration_feature_names.contains("flag-b"));
+    }
+
     fn cache_key(token: &EdgeToken) -> String {
         token
             .environment
@@ -724,6 +793,20 @@ mod tests {
                     },
                 ],
             },
+        }
+    }
+
+    fn hydration_delta(event_id: u32, project: &str, feature_name: &str) -> ClientFeaturesDelta {
+        ClientFeaturesDelta {
+            events: vec![DeltaEvent::Hydration {
+                event_id,
+                features: vec![ClientFeature {
+                    name: feature_name.to_string(),
+                    project: Some(project.to_string()),
+                    ..ClientFeature::default()
+                }],
+                segments: vec![],
+            }],
         }
     }
 
