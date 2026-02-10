@@ -7,7 +7,7 @@ use axum_core::{
 define_rejection! {
     #[status = BAD_REQUEST]
     #[body = "No host found in request"]
-    /// Rejection type used if the [`Host`](super::Host) extractor is unable to
+    /// Rejection type used if the [`Host`](super::host::Host) extractor is unable to
     /// resolve a host.
     pub struct FailedToResolveHost;
 }
@@ -15,7 +15,7 @@ define_rejection! {
 composite_rejection! {
     /// Rejection used for [`Host`](super::Host).
     ///
-    /// Contains one variant for each way the [`Host`](super::Host) extractor
+    /// Contains one variant for each way the [`Host`](super::host::Host) extractor
     /// can fail.
     pub enum HostRejection {
         FailedToResolveHost,
