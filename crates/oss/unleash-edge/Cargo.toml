@@ -37,7 +37,6 @@ http-body-util = { workspace = true }
 hyper = { workspace = true }
 hyper-util = { workspace = true }
 ipnet = { workspace = true }
-itertools = { workspace = true }
 opentelemetry = { workspace = true }
 opentelemetry-otlp = { workspace = true, optional = true }
 opentelemetry_sdk = { workspace = true }
