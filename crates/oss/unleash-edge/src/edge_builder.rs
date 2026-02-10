@@ -2,7 +2,6 @@ use crate::{CacheContainer, EdgeInfo, OTEL_INIT, SHOULD_DEFER_VALIDATION};
 use chrono::{Duration, Utc};
 use dashmap::DashMap;
 use http::StatusCode;
-use itertools::Itertools;
 use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -49,6 +48,7 @@ use unleash_edge_types::tokens::{EdgeToken, cache_key};
 use unleash_edge_types::urls::UnleashUrls;
 use unleash_edge_types::{
     BackgroundTask, EdgeResult, EngineCache, RefreshState, TokenCache, TokenType,
+    TokenValidationStatus,
 };
 use unleash_types::client_metrics::ConnectVia;
 use unleash_yggdrasil::{EngineState, UpdateMessage};
@@ -169,25 +169,18 @@ pub async fn build_edge(
     http_client: reqwest::Client,
     tx: Option<UnboundedSender<String>>,
 ) -> EdgeResult<EdgeInfo> {
-    #[cfg(not(feature = "enterprise"))]
-    {
-        if args.tokens.is_empty() {
-            return Err(EdgeError::NoTokens(
-                "No tokens provided. Tokens must be specified".into(),
-            ));
-        }
-    }
-    #[cfg(feature = "enterprise")]
-    {
-        if args.tokens.is_empty() && !args.hmac_config.is_configurable() {
-            return Err(EdgeError::NoTokens(
-                "No tokens provided, and no client".into(),
-            ));
-        }
+    if args.tokens.is_empty() {
+        return Err(EdgeError::NoTokens(
+            "No tokens provided. Tokens must be specified".into(),
+        ));
     }
     let (token_cache, feature_cache, delta_cache, engine_cache) = build_caches();
     let persistence = get_data_source(args).await;
-
+    args.tokens.iter().for_each(|token| {
+        if token.status == TokenValidationStatus::Validated {
+            token_cache.insert(token.token.clone(), token.clone());
+        }
+    });
     let unleash_client = Url::parse(&args.upstream_url.clone())
         .map(|url| {
             UnleashClient::from_url_with_backing_client(
@@ -235,9 +228,9 @@ pub async fn build_edge(
         edge_instance_data: edge_instance_data.clone(),
     });
 
-    #[cfg(not(feature = "enterprise"))]
-    let _ = token_validator.register_tokens(args.tokens.clone()).await;
-
+    let _ = token_validator
+        .register_tokens(args.tokens.clone().into_iter().map(|t| t.token).collect())
+        .await;
     if let Some(persistence) = persistence.clone() {
         hydrate_from_persistent_storage(
             (
@@ -250,24 +243,6 @@ pub async fn build_edge(
         )
         .await;
     }
-    #[cfg(feature = "enterprise")]
-    {
-        let urls = UnleashUrls::from_str(&args.upstream_url)?;
-
-        if args.tokens.is_empty()
-            && let Some(token_request) = args
-                .hmac_config
-                .possible_token_request(urls.token_request_url)
-        {
-            let tokens =
-                unleash_edge_http_client::token_request::request_tokens(token_request).await?;
-
-            for token in tokens {
-                token_cache.insert(token.token.clone(), token.clone());
-            }
-        }
-    }
-
     if token_cache.is_empty() {
         error!("Edge was not able to validate any of the tokens configured at startup");
         return Err(EdgeError::NoTokens("No valid tokens provided on startup. At least one valid token must be specified at startup".into()));
@@ -331,7 +306,20 @@ pub async fn build_edge_state(
             .unwrap_or_default(),
         )
     });
-
+    let mut edge_args = edge_args.clone();
+    if let Some(token_request) = edge_args
+        .hmac_config
+        .possible_token_request(UnleashUrls::from_str(&edge_args.upstream_url)?.token_request_url)
+    {
+        let unleash_granted_tokens =
+            unleash_edge_http_client::token_request::request_tokens(token_request).await?;
+        if !edge_args.tokens.is_empty() {
+            warn!(
+                "Both tokens and hmac_config are configured. Using tokens from startup configuration."
+            );
+        }
+        edge_args.tokens = unleash_granted_tokens;
+    }
     let unleash_client = Url::parse(&edge_args.upstream_url.clone())
         .map(|url| {
             UnleashClient::from_url_with_backing_client(
@@ -379,23 +367,11 @@ pub async fn build_edge_state(
     )
     .await?;
 
-    let startup_tokens = if startup_tokens.is_empty() {
-        token_cache
-            .as_ref()
-            .clone()
-            .into_read_only()
-            .iter()
-            .map(|(_key, edge_token)| edge_token.clone())
-            .collect_vec()
-    } else {
-        startup_tokens
-    };
-
     let license_state = ApplicationLicenseState::new(
         match resolve_license(
             &unleash_client,
             persistence.clone(),
-            &token_cache.iter().map(|(e)| e.clone()).collect_vec(),
+            &startup_tokens,
             &client_meta_information,
         )
         .await?
@@ -584,7 +560,7 @@ fn create_edge_mode_background_tasks(
         create_revalidation_task(&validator, edge.token_revalidation_interval_seconds),
         create_revalidation_of_startup_tokens_task(
             &validator,
-            edge.tokens.clone(),
+            edge.tokens.clone().into_iter().map(|t| t.token).collect(),
             refresher.clone(),
         ),
         create_send_instance_data_task(
@@ -822,12 +798,14 @@ pub async fn resolve_license(
 #[cfg(test)]
 mod tests {
     use crate::edge_builder::build_edge;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
+    use std::str::FromStr;
     use std::sync::Arc;
     use ulid::Ulid;
     use unleash_edge_cli::{AuthHeaders, EdgeArgs, HmacConfig};
     use unleash_edge_http_client::ClientMetaInformation;
     use unleash_edge_types::metrics::instance_data::{ApiKeyIdentity, EdgeInstanceData, Hosting};
+    use unleash_edge_types::tokens::EdgeToken;
 
     #[tokio::test]
     #[cfg(feature = "enterprise")]
@@ -840,8 +818,10 @@ mod tests {
             features_refresh_interval_seconds: 30,
             token_revalidation_interval_seconds: 30,
             tokens: vec![
-                "default:development.f1339a9b0e67fd8dafe0a19a85809fb88262b2e74c213087c6b3b3a9"
-                    .to_string(),
+                EdgeToken::from_str(
+                    "default:development.f1339a9b0e67fd8dafe0a19a85809fb88262b2e74c213087c6b3b3a9",
+                )
+                .unwrap(),
             ],
             pretrusted_tokens: None,
             custom_client_headers: vec![],

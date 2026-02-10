@@ -181,8 +181,8 @@ pub struct EdgeArgs {
     pub token_revalidation_interval_seconds: u64,
 
     /// Get data for these client tokens at startup. Accepts comma-separated list of tokens. Hot starts your feature cache
-    #[clap(short, long, env, value_delimiter = ',')]
-    pub tokens: Vec<String>,
+    #[clap(short, long, env, value_delimiter = ',', value_parser = EdgeToken::from_str)]
+    pub tokens: Vec<EdgeToken>,
 
     /// Set a list of frontend tokens that Edge will always trust. These need to either match the Unleash token format, or they're an arbitrary string followed by an @ and then an environment, e.g. secret-123@development
     #[clap(short, long, env, value_delimiter = ',', value_parser = parse_trusted_token_pair)]
