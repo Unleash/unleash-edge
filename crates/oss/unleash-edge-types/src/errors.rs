@@ -241,13 +241,13 @@ impl Display for EdgeError {
             EdgeError::HmacTokenRequestError(msg) => {
                 write!(
                     f,
-                    r#"Something went wrong when requesting tokens from Unleash. Upstream said ${msg}"#
+                    r#"Something went wrong when requesting tokens from Unleash. Upstream said {msg}"#
                 )
             }
             EdgeError::HmacTokenResponseError(msg) => {
                 write!(
                     f,
-                    r#"Failed to parse response when parsing to EdgeTokens from request for new tokens. Upstream said ${msg}"#
+                    r#"Failed to parse response when parsing to EdgeTokens from request for new tokens. Upstream said {msg}"#
                 )
             }
         }
