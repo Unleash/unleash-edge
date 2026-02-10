@@ -7,7 +7,7 @@ use std::net::IpAddr;
 use tracing::instrument;
 use unleash_edge_appstate::AppState;
 use unleash_edge_types::EdgeJsonResult;
-use unleash_edge_types::errors::{EdgeError, FrontendHydrationMissing};
+use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::tokens::{EdgeToken, cache_key};
 use unleash_types::client_features::Context;
 use unleash_types::frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult};
@@ -60,12 +60,10 @@ pub fn enabled_features(
         .unwrap_or_else(|| edge_token.clone());
     let key = cache_key(&token);
     let engine = app_state.engine_cache.get(&key).ok_or_else(|| {
-        EdgeError::FrontendNotYetHydrated(FrontendHydrationMissing::from(&edge_token))
+        EdgeError::Forbidden("The token used does not have access to this edge".into())
     })?;
     let feature_results = engine.resolve_all(context_with_ip, &None).ok_or_else(|| {
-        EdgeError::FrontendExpectedToBeHydrated(
-            "Feature cache has not been hydrated yet, but it was expected to be. This can be due to a race condition from calling edge before it's ready. This error might auto resolve as soon as edge is able to fetch from upstream".into(),
-        )
+        EdgeError::Forbidden("The token used does not have access to this edge".into())
     })?;
     Ok(Json(frontend_from_yggdrasil(
         feature_results,
@@ -96,12 +94,10 @@ pub fn all_features(
         .unwrap_or_else(|| edge_token.clone());
     let key = cache_key(&token);
     let engine = app_state.engine_cache.get(&key).ok_or_else(|| {
-        EdgeError::FrontendNotYetHydrated(FrontendHydrationMissing::from(&edge_token))
+        EdgeError::Forbidden("The token used does not have access to this edge".into())
     })?;
     let feature_results = engine.resolve_all(context_with_ip, &None).ok_or_else(|| {
-        EdgeError::FrontendExpectedToBeHydrated(
-            "Feature cache has not been hydrated yet, but it was expected to be. This can be due to a race condition from calling edge before it's ready. This error might auto resolve as soon as edge is able to fetch from upstream".into(),
-        )
+        EdgeError::Forbidden("The token used does not have access to this edge".into())
     })?;
     Ok(Json(frontend_from_yggdrasil(feature_results, true, &token)))
 }
