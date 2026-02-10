@@ -75,7 +75,9 @@ pub async fn request_tokens(
         nonce_as_hex,
         hash_as_hex
     );
-    let key = URL_SAFE.decode(client_secret.as_bytes()).unwrap();
+    let key = URL_SAFE
+        .decode(client_secret.as_bytes())
+        .map_err(|_e| EdgeError::HmacSignatureError)?;
     let mut signature =
         HmacSha256::new_from_slice(&key).map_err(|_e| EdgeError::HmacSignatureError)?;
     signature.update(canonical_request.as_bytes());
