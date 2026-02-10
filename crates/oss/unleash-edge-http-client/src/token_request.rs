@@ -75,14 +75,12 @@ pub async fn request_tokens(
         nonce_as_hex,
         hash_as_hex
     );
-    info!("{client_secret} - {canonical_request}");
     let key = URL_SAFE.decode(client_secret.as_bytes()).unwrap();
     let mut signature =
         HmacSha256::new_from_slice(&key).map_err(|_e| EdgeError::HmacSignatureError)?;
     signature.update(canonical_request.as_bytes());
     let url_safe_signature_base64 =
         BASE64_URL_SAFE_NO_PAD.encode(signature.finalize().into_bytes());
-    info!("base64 sig: {url_safe_signature_base64}");
     let client = Client::new();
     let response = client
         .post(issue_token_url)
