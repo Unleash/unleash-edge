@@ -315,7 +315,7 @@ pub async fn build_edge_state(
             unleash_edge_http_client::token_request::request_tokens(token_request).await?;
         if !edge_args.tokens.is_empty() {
             warn!(
-                "Both tokens and hmac_config are configured. Using tokens from startup configuration."
+                "Both tokens and hmac_config are configured. Overriding startup tokens with tokens obtained via hmac_config."
             );
         }
         edge_args.tokens = unleash_granted_tokens;

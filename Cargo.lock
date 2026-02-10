@@ -5268,7 +5268,6 @@ dependencies = [
  "hyper 1.8.1",
  "hyper-util",
  "ipnet",
- "itertools",
  "opentelemetry",
  "opentelemetry-otlp",
  "opentelemetry_sdk",
