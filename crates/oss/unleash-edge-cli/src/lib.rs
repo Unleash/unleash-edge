@@ -425,8 +425,8 @@ pub enum LogFormat {
 
 #[derive(Args, Debug, Clone, Default)]
 pub struct HmacConfig {
-    #[clap(env, long, hide = true)]
-    pub unleash_client_id: Option<String>,
+    #[clap(env, long, hide = true, default_value = "enterprise-edge")]
+    pub unleash_client_id: String,
 
     #[clap(env, long, hide = true)]
     pub unleash_client_secret: Option<String>,
@@ -441,7 +441,6 @@ pub struct HmacConfig {
 impl HmacConfig {
     pub fn is_configurable(&self) -> bool {
         self.unleash_client_secret.is_some()
-            && self.unleash_client_id.is_some()
             && self
                 .desired_environments
                 .as_ref()
@@ -450,15 +449,14 @@ impl HmacConfig {
     }
 
     pub fn possible_token_request(&self, issue_token_url: Url) -> Option<RequestTokensArg> {
-        if let (Some(client_id), Some(client_secret), Some(envs)) = (
-            self.unleash_client_id.clone(),
+        if let (Some(client_secret), Some(envs)) = (
             self.unleash_client_secret.clone(),
             self.desired_environments.clone(),
         ) {
             Some(RequestTokensArg {
                 environments: envs,
                 projects: self.desired_projects.clone(),
-                client_id,
+                client_id: self.unleash_client_id.clone(),
                 client_secret,
                 issue_token_url,
             })
