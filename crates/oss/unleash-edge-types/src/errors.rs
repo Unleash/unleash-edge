@@ -19,7 +19,6 @@ pub enum FeatureError {
     Retriable(reqwest::StatusCode),
 }
 
-
 impl From<RedisError> for EdgeError {
     fn from(err: RedisError) -> Self {
         EdgeError::PersistenceError(format!("Error connecting to Redis: {err}"))
