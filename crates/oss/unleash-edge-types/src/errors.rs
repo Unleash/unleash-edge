@@ -19,23 +19,6 @@ pub enum FeatureError {
     Retriable(reqwest::StatusCode),
 }
 
-#[derive(Debug, Serialize, Clone)]
-pub struct FrontendHydrationMissing {
-    pub project: String,
-    pub environment: String,
-}
-
-impl From<&EdgeToken> for FrontendHydrationMissing {
-    fn from(value: &EdgeToken) -> Self {
-        Self {
-            project: value.projects.join(","),
-            environment: value
-                .environment
-                .clone()
-                .unwrap_or_else(|| "default".into()), // Should never hit or_else because we don't handle admin tokens
-        }
-    }
-}
 
 impl From<RedisError> for EdgeError {
     fn from(err: RedisError) -> Self {
@@ -120,8 +103,6 @@ pub enum EdgeError {
     EdgeTokenParseError,
     FeatureNotFound(String),
     Forbidden(String),
-    FrontendExpectedToBeHydrated(String),
-    FrontendNotYetHydrated(FrontendHydrationMissing),
     HealthCheckError(String),
     HeartbeatError(String, StatusCode),
     InvalidBackupFile(String, String),
@@ -200,9 +181,6 @@ impl Display for EdgeError {
                 write!(f, "No validation for token has happened yet")
             }
             EdgeError::EdgeMetricsError(message) => write!(f, "Edge metrics error {message}"),
-            EdgeError::FrontendNotYetHydrated(hydration_info) => {
-                write!(f, "Edge not yet hydrated for {hydration_info:?}")
-            }
             EdgeError::ContextParseError => {
                 write!(f, "Failed to parse query parameters to frontend api")
             }
@@ -233,9 +211,6 @@ impl Display for EdgeError {
             }
             EdgeError::ClientCacheError => {
                 write!(f, "Fetching client features from cache failed")
-            }
-            EdgeError::FrontendExpectedToBeHydrated(message) => {
-                write!(f, "{}", message)
             }
             EdgeError::NotReady => {
                 write!(f, "Edge is not ready to serve requests")
@@ -281,11 +256,6 @@ impl IntoResponse for EdgeError {
             EdgeError::EdgeTokenError => Response::builder().status(self.status_code()).body(Body::empty()),
             EdgeError::EdgeTokenParseError => Response::builder().status(self.status_code()).body(Body::empty()),
             EdgeError::FeatureNotFound(_) => Response::builder().status(self.status_code()).body(Body::empty()),
-            EdgeError::FrontendExpectedToBeHydrated(_) => Response::builder().status(self.status_code()).body(Body::empty()),
-            EdgeError::FrontendNotYetHydrated(frontend_hydration_missing) => Response::builder().status(self.status_code()).body(Body::from(json!({
-                "explanation": "Edge does not yet have data for this token. Please make a call against /api/client/features with a client token that has the same access as your token",
-                "access": frontend_hydration_missing.clone()
-            }).to_string())),
             EdgeError::HealthCheckError(_) => Response::builder().status(self.status_code()).body(Body::empty()),
             EdgeError::HeartbeatError(message, status_code) => Response::builder().status(self.status_code()).body(Body::from(json!({
                 "explanation": format!("Received a non 200 status code when trying to validate token upstream: {message}"),
@@ -345,7 +315,6 @@ impl EdgeError {
             EdgeError::EdgeMetricsError(_) => StatusCode::BAD_REQUEST,
             EdgeError::ClientRegisterError => StatusCode::BAD_REQUEST,
             EdgeError::ClientCertificateError(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            EdgeError::FrontendNotYetHydrated(_) => StatusCode::FORBIDDEN,
             EdgeError::ContextParseError => StatusCode::BAD_REQUEST,
             EdgeError::EdgeMetricsRequestError(status_code, _) => {
                 StatusCode::from_u16(status_code.as_u16()).unwrap()
@@ -355,7 +324,6 @@ impl EdgeError {
             EdgeError::ReadyCheckError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::ClientHydrationFailed(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::ClientCacheError => StatusCode::INTERNAL_SERVER_ERROR,
-            EdgeError::FrontendExpectedToBeHydrated(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::NotReady => StatusCode::SERVICE_UNAVAILABLE,
             EdgeError::InvalidToken => StatusCode::FORBIDDEN,
             EdgeError::SseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
