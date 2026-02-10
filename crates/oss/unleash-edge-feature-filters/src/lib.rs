@@ -3,7 +3,7 @@ use tracing::info;
 use unleash_edge_types::{
     EdgeResult, FeatureFilters, TokenCache, errors::EdgeError, tokens::EdgeToken,
 };
-use unleash_types::client_features::{ClientFeature, ClientFeatures};
+use unleash_types::client_features::{ClientFeature, ClientFeatures, Segment};
 
 pub mod delta_filters;
 
@@ -31,7 +31,7 @@ impl FeatureFilterSet {
     }
 }
 
-pub fn filter_features(
+fn filter_features(
     feature_cache: &Ref<'_, String, ClientFeatures>,
     filters: &FeatureFilterSet,
 ) -> Vec<ClientFeature> {
@@ -47,13 +47,50 @@ pub fn filter_client_features(
     feature_cache: &Ref<'_, String, ClientFeatures>,
     filters: &FeatureFilterSet,
 ) -> ClientFeatures {
+    let features = filter_features(feature_cache, filters);
+
     ClientFeatures {
-        features: filter_features(feature_cache, filters),
-        segments: feature_cache.segments.clone(),
+        segments: filter_segments(&features, feature_cache.segments.as_deref()),
+        features,
         query: feature_cache.query.clone(),
         version: feature_cache.version,
         meta: feature_cache.meta.clone(),
     }
+}
+
+fn filter_segments(
+    features: &[ClientFeature],
+    segments: Option<&[Segment]>,
+) -> Option<Vec<Segment>> {
+    let segments = segments?;
+
+    let mut required = std::collections::HashSet::new();
+
+    for feature in features {
+        let Some(strategies) = &feature.strategies else {
+            continue;
+        };
+        for strategy in strategies {
+            let Some(seg_ids) = &strategy.segments else {
+                continue;
+            };
+            for &id in seg_ids {
+                required.insert(id);
+            }
+        }
+    }
+
+    if required.is_empty() {
+        return None;
+    }
+
+    let out: Vec<Segment> = segments
+        .iter()
+        .filter(|s| required.contains(&s.id))
+        .cloned()
+        .collect();
+
+    Some(out)
 }
 
 pub fn name_prefix_filter(name_prefix: String) -> FeatureFilter {
@@ -118,7 +155,18 @@ pub fn get_feature_filter(
 mod tests {
     use super::*;
     use dashmap::DashMap;
-    use unleash_types::client_features::{ClientFeature, ClientFeatures};
+    use unleash_types::client_features::{ClientFeature, ClientFeatures, Strategy};
+
+    fn strategy_test_default() -> Strategy {
+        Strategy {
+            name: "default".to_string(),
+            parameters: None,
+            segments: None,
+            sort_order: None,
+            constraints: None,
+            variants: None,
+        }
+    }
 
     #[test]
     pub fn filter_features_applies_filters() {
@@ -286,5 +334,105 @@ mod tests {
         assert_eq!(filtered_features.len(), 2);
         assert_eq!(filtered_features[0].name, "feature-one".to_string());
         assert_eq!(filtered_features[1].name, "feature-two".to_string());
+    }
+
+    #[test]
+    fn filtering_prunes_out_segments_not_required_by_strategies() {
+        let client_features = ClientFeatures {
+            version: 0,
+            features: vec![
+                ClientFeature {
+                    name: "feature-one".to_string(),
+                    strategies: Some(vec![Strategy {
+                        segments: Some(vec![2, 3]),
+                        ..strategy_test_default()
+                    }]),
+                    ..ClientFeature::default()
+                },
+                ClientFeature {
+                    name: "feature-two".to_string(),
+                    strategies: Some(vec![Strategy {
+                        segments: Some(vec![4, 5]),
+                        ..strategy_test_default()
+                    }]),
+                    ..ClientFeature::default()
+                },
+            ],
+            query: None,
+            segments: Some(
+                (1..=6)
+                    .map(|id| Segment {
+                        id,
+                        constraints: vec![],
+                    })
+                    .collect(),
+            ),
+
+            meta: None,
+        };
+
+        let feature_cache: DashMap<String, ClientFeatures> = DashMap::default();
+        let map_key = "some-key".to_string();
+
+        feature_cache.insert(map_key.clone(), client_features);
+
+        let features = feature_cache.get(&map_key).unwrap();
+        let filter = FeatureFilterSet::from(Box::new(|f| f.name == "feature-one".to_string()));
+        let filtered_client_features = filter_client_features(&features, &filter);
+
+        let sent_segments = filtered_client_features.segments.as_ref().unwrap();
+
+        //and we should only expect segments 2 and 3 to remain
+        assert_eq!(sent_segments.len(), 2);
+
+        assert_eq!(sent_segments[0].id, 2);
+        assert_eq!(sent_segments[1].id, 3);
+    }
+
+    #[test]
+    fn no_segments_are_sent_if_not_required() {
+        let client_features = ClientFeatures {
+            version: 0,
+            features: vec![
+                ClientFeature {
+                    name: "feature-one".to_string(),
+                    strategies: Some(vec![Strategy {
+                        segments: None,
+                        ..strategy_test_default()
+                    }]),
+                    ..ClientFeature::default()
+                },
+                ClientFeature {
+                    name: "feature-two".to_string(),
+                    strategies: Some(vec![Strategy {
+                        segments: Some(vec![4, 5]),
+                        ..strategy_test_default()
+                    }]),
+                    ..ClientFeature::default()
+                },
+            ],
+            query: None,
+            segments: Some(
+                (1..=6)
+                    .map(|id| Segment {
+                        id,
+                        constraints: vec![],
+                    })
+                    .collect(),
+            ),
+
+            meta: None,
+        };
+
+        let feature_cache: DashMap<String, ClientFeatures> = DashMap::default();
+        let map_key = "some-key".to_string();
+
+        feature_cache.insert(map_key.clone(), client_features);
+
+        let features = feature_cache.get(&map_key).unwrap();
+        let filter = FeatureFilterSet::from(Box::new(|f| f.name == "feature-one".to_string()));
+        let filtered_client_features = filter_client_features(&features, &filter);
+
+        assert!(filtered_client_features.segments.is_none());
     }
 }
