@@ -798,7 +798,7 @@ pub async fn resolve_license(
 #[cfg(test)]
 mod tests {
     use crate::edge_builder::build_edge;
-    use std::path::{Path, PathBuf};
+    use std::path::Path;
     use std::str::FromStr;
     use std::sync::Arc;
     use ulid::Ulid;

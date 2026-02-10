@@ -9,7 +9,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::sync::LazyLock;
-use tracing::{info, warn};
+use tracing::warn;
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::tokens::{EdgeToken, RequestTokensArg};
 use unleash_edge_types::{EdgeResult, EdgeTokens, TokenValidationStatus};
