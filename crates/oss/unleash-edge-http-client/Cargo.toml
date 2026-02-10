@@ -36,3 +36,6 @@ unleash-edge-types = { workspace = true }
 unleash-types = { workspace = true }
 unleash-yggdrasil = { workspace = true }
 url = { workspace = true }
+
+[dev-dependencies]
+axum-test = { workspace = true }

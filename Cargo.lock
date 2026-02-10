@@ -5622,6 +5622,7 @@ version = "20.1.7"
 dependencies = [
  "ahash",
  "axum",
+ "axum-test",
  "base64 0.22.1",
  "chrono",
  "etag",

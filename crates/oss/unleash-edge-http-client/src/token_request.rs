@@ -129,3 +129,96 @@ pub async fn request_tokens(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::routing::post;
+    use axum::{Json, Router};
+    use http::HeaderMap;
+    use unleash_edge_types::TokenType;
+    use unleash_edge_types::tokens::EdgeToken;
+
+    fn content_hash(content: &str) -> String {
+        let mut hasher = Sha256::new();
+        hasher.update(content.as_bytes());
+        hex::encode(hasher.finalize())
+    }
+
+    impl TokenRequest {
+        pub fn generated_token(&self) -> String {
+            format!(
+                "{}:{}.{}",
+                if self.projects.len() > 1 {
+                    "[]"
+                } else {
+                    self.projects[0].as_str()
+                },
+                self.environment.as_str(),
+                generate_random(26)
+            )
+        }
+    }
+    fn generate_random(length: usize) -> String {
+        let mut bytes = Vec::with_capacity(length);
+        rng().fill_bytes(&mut bytes);
+        hex::encode(bytes)
+    }
+    async fn validate_token_request(
+        headers: HeaderMap,
+        Json(body): Json<HmacTokenRequest>,
+    ) -> Json<EdgeTokens> {
+        assert!(headers.contains_key("x-timestamp"));
+        assert!(headers.contains_key("x-nonce"));
+        assert_eq!(headers.get("content-type").unwrap(), "application/json");
+        assert!(
+            headers
+                .get("authorization")
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .starts_with("HMAC client_id:")
+        );
+        let expected_content_hash = content_hash(&serde_json::to_string(&body).unwrap());
+        assert_eq!(
+            headers.get("content-sha256").unwrap().to_str().unwrap(),
+            expected_content_hash.as_str()
+        );
+        let tokens: Vec<EdgeToken> = body
+            .tokens
+            .iter()
+            .map(|requested| EdgeToken {
+                token: requested.generated_token(),
+                token_type: Some(TokenType::Backend),
+                environment: Some(requested.environment.clone()),
+                projects: requested.projects.clone(),
+                status: TokenValidationStatus::Validated,
+            })
+            .collect();
+        let edge_tokens = EdgeTokens { tokens };
+        Json(edge_tokens)
+    }
+
+    #[tokio::test]
+    pub async fn makes_hmac_request_based_on_props() {
+        let router = Router::new().route("/edge/issue-token", post(validate_token_request));
+
+        let ts = axum_test::TestServer::builder()
+            .http_transport()
+            .build(router)
+            .expect("Failed to build test server");
+        let url = ts.server_url("/edge/issue-token").unwrap();
+        let tokens = request_tokens(RequestTokensArg {
+            environments: vec!["development".into(), "production".into()],
+            projects: vec!["*".into()],
+            issue_token_url: url,
+            client_id: "client_id".into(),
+            client_secret: "koom8ceiGaeBee9Eivahweideimak4aV".into(),
+        })
+        .await
+        .unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0].environment, Some("development".into()));
+        assert_eq!(tokens[1].environment, Some("production".into()));
+    }
+}
