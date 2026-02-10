@@ -15,9 +15,6 @@ use tracing_subscriber::{EnvFilter, Layer};
 use unleash_edge_cli::{CliArgs, LogFormat};
 use unleash_edge_types::{BackgroundTask, EdgeResult};
 
-#[cfg(feature = "enterprise")]
-use opentelemetry_otlp::{WithExportConfig, WithHttpConfig};
-
 #[derive(Debug, Clone)]
 pub struct OtelHolder {
     tracer_provider: SdkTracerProvider,
