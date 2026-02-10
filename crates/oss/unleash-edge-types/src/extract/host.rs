@@ -4,13 +4,13 @@ use axum_core::{
     extract::{FromRequestParts, OptionalFromRequestParts},
 };
 use http::{
+    HeaderName,
     header::{FORWARDED, HeaderMap},
     request::Parts,
     uri::Authority,
 };
 use std::convert::Infallible;
 
-const X_FORWARDED_HOST_HEADER_KEY: &str = "X-Forwarded-Host";
 /// Copied from axum-extra 0.12.5, deprecated in axum-extra
 ///
 /// Extractor that resolves the host of the request.
@@ -26,6 +26,10 @@ const X_FORWARDED_HOST_HEADER_KEY: &str = "X-Forwarded-Host";
 ///
 /// Note that user agents can set `X-Forwarded-Host` and `Host` headers to arbitrary values so make
 /// sure to validate them to avoid security issues.
+///
+
+static X_FORWARDED_HOST_HEADER: HeaderName = HeaderName::from_static("x-forwarded-host");
+
 #[derive(Debug, Clone)]
 pub struct Host(pub String);
 
@@ -61,7 +65,7 @@ where
 
         if let Some(host) = parts
             .headers
-            .get(X_FORWARDED_HOST_HEADER_KEY)
+            .get(&X_FORWARDED_HOST_HEADER)
             .and_then(|host| host.to_str().ok())
         {
             return Ok(Some(Host(host.to_owned())));
@@ -141,7 +145,7 @@ mod tests {
         let original_host = "some-domain:456";
         let host = test_client()
             .get("/")
-            .add_header(X_FORWARDED_HOST_HEADER_KEY, original_host)
+            .add_header(&X_FORWARDED_HOST_HEADER, original_host)
             .await
             .text();
         assert_eq!(host, original_host);
@@ -153,7 +157,7 @@ mod tests {
         let host_header = "some-domain:123";
         let host = test_client()
             .get("/")
-            .add_header(X_FORWARDED_HOST_HEADER_KEY, x_forwarded_host_header)
+            .add_header(&X_FORWARDED_HOST_HEADER, x_forwarded_host_header)
             .add_header(http::header::HOST, host_header)
             .await
             .text();
