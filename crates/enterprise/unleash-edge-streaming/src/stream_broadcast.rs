@@ -37,9 +37,11 @@ pub async fn stream_deltas(
     let initial_features =
         create_event_list(delta_cache_manager.clone(), 0, &streaming_query).await?;
 
-    let initial_event = Event::default()
-        .event("unleash-connected")
-        .json_data(&initial_features);
+    let mut initial_event = Event::default().event("unleash-connected");
+    if let Some(event_id) = event_list_last_id(&initial_features) {
+        initial_event = initial_event.id(event_id.to_string());
+    }
+    let initial_event = initial_event.json_data(&initial_features);
 
     let intro_stream = once(initial_event);
     let client_data = Arc::new(RwLock::new(ClientData {
@@ -92,11 +94,12 @@ pub async fn stream_deltas(
                                 resolve_last_event_id(delta_cache_manager, streaming_query);
                             client_data.revision = last_event_id;
 
-                            Some(
-                                Event::default()
-                                    .event("unleash-updated")
-                                    .json_data(&event_list),
-                            )
+                            let mut event = Event::default().event("unleash-updated");
+                            if let Some(event_id) = event_list_last_id(&event_list) {
+                                event = event.id(event_id.to_string());
+                            }
+
+                            Some(event.json_data(&event_list))
                         }
                         _ => None,
                     }
@@ -149,6 +152,10 @@ fn resolve_last_event_id(
             .map(|event| event.get_event_id()),
         None => None,
     }
+}
+
+fn event_list_last_id(event_list: &ClientFeaturesDelta) -> Option<u32> {
+    event_list.events.last().map(|event| event.get_event_id())
 }
 
 fn get_query_filters(query: &StreamingQuery) -> FeatureFilterSet {
