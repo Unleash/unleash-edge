@@ -87,13 +87,12 @@ where
     }
 }
 
-#[allow(warnings)]
 fn parse_forwarded(headers: &HeaderMap) -> Option<&str> {
     // if there are multiple `Forwarded` `HeaderMap::get` will return the first one
     let forwarded_values = headers.get(FORWARDED)?.to_str().ok()?;
 
     // get the first set of values
-    let first_value = forwarded_values.split(',').nth(0)?;
+    let first_value = forwarded_values.split(',').next()?;
 
     // find the value of the `host` field
     first_value.split(';').find_map(|pair| {
