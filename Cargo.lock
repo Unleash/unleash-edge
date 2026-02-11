@@ -123,9 +123,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.100"
+version = "1.0.101"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
+checksum = "5f0e0fee31ef5ed1ba1316088939cea399010ed7731dba877ed44aeb407a75ea"
 
 [[package]]
 name = "arc-swap"
@@ -820,7 +820,7 @@ dependencies = [
  "hyper-util",
  "mime",
  "pretty_assertions",
- "reqwest 0.13.1",
+ "reqwest 0.13.2",
  "reserve-port",
  "rust-multipart-rfc7578_2",
  "serde",
@@ -3469,15 +3469,15 @@ checksum = "441b28c02014ba0e458838548d5fe770fd0238f024d250f5512cf8540ab48b7a"
 dependencies = [
  "prometheus",
  "prost",
- "reqwest 0.13.1",
+ "reqwest 0.13.2",
  "snap",
 ]
 
 [[package]]
 name = "proptest"
-version = "1.9.0"
+version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bee689443a2bd0a16ab0348b52ee43e3b2d1b1f931c8aa5c9f8de4c86fbe8c40"
+checksum = "37566cb3fdacef14c0737f9546df7cfeadbfbc9fef10991038bf5015d0c80532"
 dependencies = [
  "bit-set",
  "bit-vec 0.8.0",
@@ -3852,9 +3852,9 @@ dependencies = [
 
 [[package]]
 name = "reqwest"
-version = "0.13.1"
+version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04e9018c9d814e5f30cc16a0f03271aeab3571e609612d9fe78c1aa8d11c2f62"
+checksum = "ab3f43e3283ab1488b624b44b0e988d0acea0b3214e694730a055cb6b2efa801"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -4785,9 +4785,9 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.46"
+version = "0.3.47"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9da98b7d9b7dad93488a84b8248efc35352b0b2657397d4167e7ad67e5d535e5"
+checksum = "743bd48c283afc0388f9b8827b976905fb217ad9e647fae3a379a9283c4def2c"
 dependencies = [
  "deranged",
  "itoa",
@@ -4808,9 +4808,9 @@ checksum = "7694e1cfe791f8d31026952abf09c69ca6f6fa4e1a1229e18988f06a04a12dca"
 
 [[package]]
 name = "time-macros"
-version = "0.2.26"
+version = "0.2.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78cc610bac2dcee56805c99642447d4c5dbde4d01f752ffea0199aee1f601dc4"
+checksum = "2e70e4c5a0e0a8a4823ad65dfe1a6930e4f4d756dcd9dd7939022b5e8c501215"
 dependencies = [
  "num-conv",
  "time-core",
@@ -5111,9 +5111,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-test"
-version = "0.2.5"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "557b891436fe0d5e0e363427fc7f217abf9ccd510d5136549847bdcbcd011d68"
+checksum = "19a4c448db514d4f24c5ddb9f73f2ee71bfb24c526cf0c570ba142d1119e0051"
 dependencies = [
  "tracing-core",
  "tracing-subscriber",
@@ -5122,9 +5122,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-test-macro"
-version = "0.2.5"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04659ddb06c87d233c566112c1c9c5b9e98256d9af50ec3bc9c8327f873a7568"
+checksum = "ad06847b7afb65c7866a36664b75c40b895e318cea4f71299f013fb22965329d"
 dependencies = [
  "quote",
  "syn",
@@ -5272,7 +5272,7 @@ dependencies = [
  "opentelemetry_sdk",
  "prometheus",
  "regex",
- "reqwest 0.13.1",
+ "reqwest 0.13.2",
  "rustls 0.23.36",
  "rustls-pemfile 2.2.0",
  "serde_json",
@@ -5385,7 +5385,7 @@ dependencies = [
  "clap",
  "ipnet",
  "num_cpus",
- "reqwest 0.13.1",
+ "reqwest 0.13.2",
  "serde",
  "tower",
  "tower-http",
@@ -5406,7 +5406,7 @@ dependencies = [
  "dashmap",
  "futures-util",
  "maplit",
- "reqwest 0.13.1",
+ "reqwest 0.13.2",
  "serde",
  "serde_json",
  "tokio",
@@ -5475,7 +5475,7 @@ dependencies = [
  "axum-test",
  "chrono",
  "maplit",
- "reqwest 0.13.1",
+ "reqwest 0.13.2",
  "serde",
  "tokio",
  "tracing",
@@ -5502,7 +5502,7 @@ dependencies = [
  "eventsource-stream",
  "futures",
  "pretty_assertions",
- "reqwest 0.13.1",
+ "reqwest 0.13.2",
  "serde",
  "serde_json",
  "test-case",
@@ -5567,7 +5567,7 @@ dependencies = [
  "json-structural-diff",
  "pretty_assertions",
  "prometheus",
- "reqwest 0.13.1",
+ "reqwest 0.13.2",
  "serde_json",
  "test-case",
  "tokio",
@@ -5627,7 +5627,7 @@ dependencies = [
  "p12-keystore",
  "pkix",
  "prometheus",
- "reqwest 0.13.1",
+ "reqwest 0.13.2",
  "rustls 0.23.36",
  "rustls-pemfile 2.2.0",
  "serde",
@@ -5657,7 +5657,7 @@ dependencies = [
  "hyper 1.8.1",
  "hyper-util",
  "pretty_assertions",
- "reqwest 0.13.1",
+ "reqwest 0.13.2",
  "serde",
  "serde_json",
  "test-case",
@@ -5700,7 +5700,7 @@ dependencies = [
  "prometheus-reqwest-remote-write",
  "proptest",
  "rand 0.9.2",
- "reqwest 0.13.1",
+ "reqwest 0.13.2",
  "semver",
  "serde",
  "serde_json",
@@ -5824,8 +5824,9 @@ name = "unleash-edge-types"
 version = "20.1.7"
 dependencies = [
  "ahash",
- "async-trait",
  "axum",
+ "axum-core",
+ "axum-test",
  "chrono",
  "dashmap",
  "etag",
@@ -5833,11 +5834,12 @@ dependencies = [
  "pretty_assertions",
  "prometheus",
  "redis",
- "reqwest 0.13.1",
+ "reqwest 0.13.2",
  "serde",
  "serde_json",
  "shadow-rs",
  "test-case",
+ "tokio",
  "tracing",
  "ulid",
  "unleash-types",
@@ -6117,9 +6119,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-streams"
-version = "0.4.2"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15053d8d85c7eccdbefef60f06769760a563c7f0a9d6902a13d35c7800b0ad65"
+checksum = "9d1ec4f6517c9e11ae630e200b2b65d193279042e28edd4a2cda233e46670bbb"
 dependencies = [
  "futures-util",
  "js-sys",
