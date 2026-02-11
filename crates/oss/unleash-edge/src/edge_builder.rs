@@ -241,7 +241,7 @@ pub async fn build_edge(
         error!("Edge was not able to validate any of the tokens configured at startup");
         return Err(EdgeError::NoTokens("No valid tokens provided on startup. At least one valid token must be specified at startup".into()));
     }
-    unleash_edge_enterprise::enforce_single_backend_token_per_env(args, &token_cache)?;
+    unleash_edge_enterprise::enforce_single_backend_token_per_env(args)?;
     for validated_token in token_cache
         .iter()
         .filter(|candidate| candidate.value().token_type == Some(TokenType::Backend))
@@ -772,6 +772,7 @@ mod tests {
     use std::sync::Arc;
     use ulid::Ulid;
     use unleash_edge_cli::{AuthHeaders, EdgeArgs};
+    use unleash_edge_enterprise::enforce_single_backend_token_per_env;
     use unleash_edge_http_client::ClientMetaInformation;
     use unleash_edge_types::metrics::instance_data::{ApiKeyIdentity, EdgeInstanceData, Hosting};
     use unleash_edge_types::tokens::EdgeToken;
@@ -860,7 +861,7 @@ mod tests {
         };
         args.delta = true;
 
-        let result = super::enforce_single_backend_token_per_env(&args);
+        let result = enforce_single_backend_token_per_env(&args);
         assert!(result.is_err());
     }
 
@@ -877,7 +878,7 @@ mod tests {
         };
         args.delta = true;
 
-        let result = super::enforce_single_backend_token_per_env(&args);
+        let result = enforce_single_backend_token_per_env(&args);
         assert!(result.is_ok());
     }
 
@@ -893,7 +894,7 @@ mod tests {
             ..Default::default()
         };
 
-        let result = super::enforce_single_backend_token_per_env(&args);
+        let result = enforce_single_backend_token_per_env(&args);
         assert!(result.is_ok());
     }
 }
