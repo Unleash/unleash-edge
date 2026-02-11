@@ -768,8 +768,8 @@ pub async fn resolve_license(
 mod tests {
     use crate::edge_builder::build_edge;
     use std::path::Path;
-    use std::sync::Arc;
     use std::str::FromStr;
+    use std::sync::Arc;
     use ulid::Ulid;
     use unleash_edge_cli::{AuthHeaders, EdgeArgs};
     use unleash_edge_http_client::ClientMetaInformation;
