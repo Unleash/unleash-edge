@@ -378,6 +378,116 @@ mod tests {
     }
 
     #[tokio::test]
+    pub async fn streaming_includes_envelope_id() {
+        let token = EdgeToken {
+            token: "*:development.hashhasin".into(),
+            token_type: Some(TokenType::Backend),
+            environment: Some("development".into()),
+            projects: vec!["*".into()],
+            status: TokenValidationStatus::Validated,
+        };
+
+        let token_cache = Arc::new(TokenCache::default());
+        let delta_cache_manager = Arc::new(DeltaCacheManager::new());
+
+        delta_cache_manager.insert_cache(
+            &token.environment.clone().unwrap(),
+            DeltaCache::new(
+                DeltaHydrationEvent {
+                    event_id: 0,
+                    features: vec![ClientFeature {
+                        name: "Inigo Montoya".into(),
+                        project: Some("Princess bride".into()),
+                        strategies: Some(vec![]),
+                        ..ClientFeature::default()
+                    }],
+                    segments: vec![],
+                },
+                10,
+            ),
+        );
+
+        delta_cache_manager.update_cache(
+            &token.environment.clone().unwrap(),
+            &vec![DeltaEvent::FeatureUpdated {
+                event_id: 1,
+                feature: ClientFeature {
+                    name: "Inigo Montoya".into(),
+                    project: Some("Princess bride".into()),
+                    strategies: Some(vec![Strategy {
+                        name: "prepare to die".into(),
+                        constraints: None,
+                        parameters: None,
+                        segments: None,
+                        sort_order: Some(1),
+                        variants: None,
+                    }]),
+                    ..ClientFeature::default()
+                },
+            }],
+        );
+
+        token_cache.insert(token.token.clone(), token.clone());
+
+        let test_server = client_api_test_server(token_cache, delta_cache_manager.clone()).await;
+        let url = test_server.server_url("/").unwrap();
+
+        let mut event_stream = reqwest::Client::new()
+            .get(format!("{url}api/client/streaming"))
+            .header("Authorization", "*:development.hashhasin")
+            .send()
+            .await
+            .unwrap()
+            .bytes_stream()
+            .eventsource();
+
+        let stream_updates = timeout(Duration::from_secs(5), async {
+            let mut ids: Vec<String> = vec![];
+            while let Some(event) = event_stream.next().await {
+                match event {
+                    Ok(event) => {
+                        ids.push(event.id);
+                        if ids.len() == 2 {
+                            return ids;
+                        }
+                    }
+                    Err(_) => {
+                        panic!("Error in event stream");
+                    }
+                }
+            }
+            ids
+        });
+
+        let inject_event = async move || {
+            delta_cache_manager.update_cache(
+                &token.environment.clone().unwrap(),
+                &vec![DeltaEvent::FeatureUpdated {
+                    event_id: 2,
+                    feature: ClientFeature {
+                        name: "Westley".into(),
+                        project: Some("Princess bride".into()),
+                        strategies: Some(vec![Strategy {
+                            name: "preparing to die".into(),
+                            constraints: None,
+                            parameters: None,
+                            segments: None,
+                            sort_order: Some(1),
+                            variants: None,
+                        }]),
+                        ..ClientFeature::default()
+                    },
+                }],
+            );
+        };
+
+        let (ids, _) = tokio::join!(stream_updates, inject_event());
+        let ids = ids.expect("Failed to complete");
+
+        assert_eq!(ids, vec!["1".to_string(), "2".to_string()]);
+    }
+
+    #[tokio::test]
     async fn streaming_is_terminated_if_token_becomes_invalidated() {
         let token = EdgeToken {
             token: "*:development.hashhasin".into(),
