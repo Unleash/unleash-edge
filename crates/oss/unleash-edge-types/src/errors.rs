@@ -1,10 +1,8 @@
-use crate::tokens::EdgeToken;
 use crate::{Status, UnleashBadRequest};
 use axum::body::Body;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use redis::RedisError;
-use serde::Serialize;
 use serde_json::json;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
