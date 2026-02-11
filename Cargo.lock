@@ -5462,6 +5462,7 @@ dependencies = [
  "tokio",
  "tracing",
  "ulid",
+ "unleash-edge-cli",
  "unleash-edge-http-client",
  "unleash-edge-persistence",
  "unleash-edge-types",

@@ -1,1 +1,1 @@
-[{"token":"default:development.f1339a9b0e67fd8dafe0a19a85809fb88262b2e74c213087c6b3b3a9","type":"backend","environment":"development","projects":["default"],"status":"Validated"}]
+[{"token":"default:development.f1339a9b0e67fd8dafe0a19a85809fb88262b2e74c213087c6b3b3a9","type":"invalid","environment":"development","projects":["default"],"status":"Invalid"}]

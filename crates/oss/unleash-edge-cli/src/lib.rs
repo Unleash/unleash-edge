@@ -218,13 +218,13 @@ pub struct EdgeArgs {
     #[clap(flatten)]
     pub s3: Option<S3Args>,
 
-    #[cfg(feature = "enterprise")]
     /// If set to true, Edge connects to upstream using streaming instead of polling. This is an experimental feature and may change.
+    #[cfg_attr(not(feature = "enterprise"), clap(hide = true))]
     #[clap(long, env, default_value_t = false)]
     pub streaming: bool,
 
-    #[cfg(feature = "enterprise")]
     /// If set to true, Edge connects to upstream using delta polling instead of normal polling. This is an experimental feature and may change.
+    #[cfg_attr(not(feature = "enterprise"), clap(hide = true))]
     #[clap(long, env, default_value_t = false)]
     pub delta: bool,
 

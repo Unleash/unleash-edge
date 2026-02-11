@@ -13,7 +13,7 @@ axum = { workspace = true }
 serde = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
-unleash-edge-appstate = { workspace = true }
+unleash-edge-appstate = { workspace = true, features = ["enterprise"] }
 unleash-edge-http-client = { workspace = true }
 unleash-edge-types = { workspace = true }
 ulid = { workspace = true }

@@ -2,8 +2,6 @@ use crate::{CacheContainer, EdgeInfo, OTEL_INIT, SHOULD_DEFER_VALIDATION};
 use chrono::{Duration, Utc};
 use dashmap::DashMap;
 use http::StatusCode;
-#[cfg(feature = "enterprise")]
-use std::collections::{HashMap, HashSet};
 use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -41,8 +39,6 @@ use unleash_edge_persistence::{
     EdgePersistence, create_once_off_persist, create_persist_data_task,
 };
 use unleash_edge_tracing::{init_tracing_and_logging, shutdown_logging};
-#[cfg(feature = "enterprise")]
-use unleash_edge_types::TokenValidationStatus;
 use unleash_edge_types::enterprise::{ApplicationLicenseState, LicenseState};
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::MetricsCache;
@@ -146,6 +142,9 @@ async fn hydrate_from_persistent_storage(cache: CacheContainer, storage: Arc<dyn
     });
     for token in tokens {
         debug!("Hydrating tokens {token:?}");
+        if token_cache.contains_key(&token.token) {
+            continue;
+        }
         token_cache.insert(token.token.clone(), token);
     }
 
@@ -242,7 +241,7 @@ pub async fn build_edge(
         error!("Edge was not able to validate any of the tokens configured at startup");
         return Err(EdgeError::NoTokens("No valid tokens provided on startup. At least one valid token must be specified at startup".into()));
     }
-    enforce_single_backend_token_per_env(args, &token_cache)?;
+    unleash_edge_enterprise::enforce_single_backend_token_per_env(args, &token_cache)?;
     for validated_token in token_cache
         .iter()
         .filter(|candidate| candidate.value().token_type == Some(TokenType::Backend))
@@ -275,75 +274,6 @@ pub async fn build_edge(
         hydrator_type,
         persistence,
     ))
-}
-
-#[cfg(feature = "enterprise")]
-fn enforce_single_backend_token_per_env(
-    args: &EdgeArgs,
-    token_cache: &TokenCache,
-) -> EdgeResult<()> {
-    if !(args.delta || args.streaming) {
-        return Ok(());
-    }
-
-    let mut tokens_by_env: HashMap<String, Vec<EdgeToken>> = HashMap::new();
-    for token_string in &args.tokens {
-        if let Some(token_ref) = token_cache.get(token_string) {
-            let token = token_ref.value();
-            if token.token_type == Some(TokenType::Backend)
-                && token.status == TokenValidationStatus::Validated
-            {
-                if let Some(environment) = token.environment.clone() {
-                    tokens_by_env
-                        .entry(environment)
-                        .or_default()
-                        .push(token.clone());
-                }
-            }
-        }
-    }
-
-    let mut offenders: Vec<(String, Vec<EdgeToken>)> = tokens_by_env
-        .into_iter()
-        .filter(|(_, tokens)| tokens.len() > 1)
-        .collect();
-    if offenders.is_empty() {
-        return Ok(());
-    }
-
-    offenders.sort_by(|left, right| left.0.cmp(&right.0));
-
-    let mut lines = Vec::new();
-    lines.push("In DELTA/STREAMING mode, only one token per environment is allowed.".to_string());
-    for (environment, tokens) in offenders {
-        let mut projects: HashSet<String> = HashSet::new();
-        for token in tokens {
-            for project in token.projects.iter() {
-                projects.insert(project.clone());
-            }
-        }
-        let mut project_list: Vec<String> = projects.into_iter().collect();
-        project_list.sort();
-        let project_hint = if project_list.is_empty() || project_list.iter().any(|p| p == "*") {
-            "*".to_string()
-        } else {
-            project_list.join(", ")
-        };
-
-        lines.push(format!(
-            "Provide a single merged-scope token for {environment} covering projects: {project_hint} (or * if intended)."
-        ));
-    }
-
-    Err(EdgeError::InvalidTokenConfig(lines.join("\n")))
-}
-
-#[cfg(not(feature = "enterprise"))]
-fn enforce_single_backend_token_per_env(
-    _args: &EdgeArgs,
-    _token_cache: &TokenCache,
-) -> EdgeResult<()> {
-    Ok(())
 }
 
 pub async fn build_edge_state(
@@ -595,7 +525,6 @@ fn create_edge_mode_background_tasks(
         token_cache,
         unleash_client,
         validator,
-        #[allow(unused_variables)] // license_state used in enterprise feature
         license_state,
     }: BackgroundTaskArgs,
 ) -> Vec<BackgroundTask> {
@@ -796,7 +725,6 @@ fn load_hydrator(
     HydratorType::Polling(feature_refresher)
 }
 
-#[cfg(feature = "enterprise")]
 pub async fn resolve_license(
     unleash_client: &UnleashClient,
     persistence: Option<Arc<dyn EdgePersistence>>,
@@ -836,42 +764,38 @@ pub async fn resolve_license(
     }
 }
 
-#[cfg(not(feature = "enterprise"))]
-pub async fn resolve_license(
-    _unleash_client: &UnleashClient,
-    _persistence: Option<Arc<dyn EdgePersistence>>,
-    _startup_tokens: &[EdgeToken],
-    _client_meta_information: &ClientMetaInformation,
-) -> Result<LicenseState, EdgeError> {
-    debug!("Running non enterprise Edge, skipping license check");
-    Ok(LicenseState::Valid)
-}
-
 #[cfg(test)]
 mod tests {
     use crate::edge_builder::build_edge;
     use std::path::Path;
     use std::sync::Arc;
+    use std::str::FromStr;
     use ulid::Ulid;
     use unleash_edge_cli::{AuthHeaders, EdgeArgs};
     use unleash_edge_http_client::ClientMetaInformation;
     use unleash_edge_types::metrics::instance_data::{ApiKeyIdentity, EdgeInstanceData, Hosting};
+    use unleash_edge_types::tokens::EdgeToken;
+    use unleash_edge_types::{TokenType, TokenValidationStatus};
 
     #[tokio::test]
     #[cfg(feature = "enterprise")]
     async fn restores_revision_id_from_backup_if_present() {
         let backup_folder = Path::new("../../../examples/backup/sandbox");
+        let token_string =
+            "default:development.f1339a9b0e67fd8dafe0a19a85809fb88262b2e74c213087c6b3b3a9"
+                .to_string();
+        let mut trusted_token = EdgeToken::from_str(&token_string).unwrap();
+        trusted_token.token_type = Some(TokenType::Backend);
+        trusted_token.status = TokenValidationStatus::Validated;
+
         let edge_args = EdgeArgs {
             upstream_url: "http://localhost:3063".to_string(),
             backup_folder: Some(backup_folder.to_path_buf()),
             metrics_interval_seconds: 0,
             features_refresh_interval_seconds: 30,
             token_revalidation_interval_seconds: 30,
-            tokens: vec![
-                "default:development.f1339a9b0e67fd8dafe0a19a85809fb88262b2e74c213087c6b3b3a9"
-                    .to_string(),
-            ],
-            pretrusted_tokens: None,
+            tokens: vec![token_string.clone()],
+            pretrusted_tokens: Some(vec![(token_string, trusted_token)]),
             custom_client_headers: vec![],
             skip_ssl_verification: false,
             client_identity: None,

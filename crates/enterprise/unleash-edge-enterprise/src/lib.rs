@@ -1,12 +1,15 @@
+use std::collections::{HashMap, HashSet};
 use std::{pin::Pin, sync::Arc};
 use tokio::sync::watch::Sender;
 use tracing::warn;
 use ulid::Ulid;
+use unleash_edge_cli::EdgeArgs;
 use unleash_edge_http_client::UnleashClient;
 use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_types::{
-    RefreshState,
+    EdgeResult, RefreshState, TokenCache, TokenType, TokenValidationStatus,
     enterprise::{ApplicationLicenseState, LicenseState},
+    errors::EdgeError,
     tokens::EdgeToken,
 };
 
@@ -42,4 +45,64 @@ pub fn create_enterprise_heartbeat_task(
             }
         }
     })
+}
+
+pub fn enforce_single_backend_token_per_env(
+    args: &EdgeArgs,
+    token_cache: &TokenCache,
+) -> EdgeResult<()> {
+    if !(args.delta || args.streaming) {
+        return Ok(());
+    }
+
+    let mut tokens_by_env: HashMap<String, Vec<EdgeToken>> = HashMap::new();
+    for token_string in &args.tokens {
+        if let Some(token_ref) = token_cache.get(token_string) {
+            let token = token_ref.value();
+            if token.token_type == Some(TokenType::Backend)
+                && token.status == TokenValidationStatus::Validated
+            {
+                if let Some(environment) = token.environment.clone() {
+                    tokens_by_env
+                        .entry(environment)
+                        .or_default()
+                        .push(token.clone());
+                }
+            }
+        }
+    }
+
+    let mut offenders: Vec<(String, Vec<EdgeToken>)> = tokens_by_env
+        .into_iter()
+        .filter(|(_, tokens)| tokens.len() > 1)
+        .collect();
+    if offenders.is_empty() {
+        return Ok(());
+    }
+
+    offenders.sort_by(|left, right| left.0.cmp(&right.0));
+
+    let mut lines = Vec::new();
+    lines.push("In DELTA/STREAMING mode, only one token per environment is allowed.".to_string());
+    for (environment, tokens) in offenders {
+        let mut projects: HashSet<String> = HashSet::new();
+        for token in tokens {
+            for project in token.projects.iter() {
+                projects.insert(project.clone());
+            }
+        }
+        let mut project_list: Vec<String> = projects.into_iter().collect();
+        project_list.sort();
+        let project_hint = if project_list.is_empty() || project_list.iter().any(|p| p == "*") {
+            "*".to_string()
+        } else {
+            project_list.join(", ")
+        };
+
+        lines.push(format!(
+            "Provide a single merged-scope token for {environment} covering projects: {project_hint} (or * if intended)."
+        ));
+    }
+
+    Err(EdgeError::InvalidTokenConfig(lines.join("\n")))
 }
