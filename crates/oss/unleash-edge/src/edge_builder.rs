@@ -846,4 +846,54 @@ mod tests {
             .expect("revision id should be present for backed up key");
         assert_eq!(revision_info.revision_id, 80543)
     }
+
+    #[test]
+    #[cfg(feature = "enterprise")]
+    fn rejects_multiple_tokens_same_env_in_delta() {
+        let mut args = EdgeArgs {
+            upstream_url: "http://localhost:4242".to_string(),
+            tokens: vec![
+                "project-a:development.abc".to_string(),
+                "project-b:development.def".to_string(),
+            ],
+            ..Default::default()
+        };
+        args.delta = true;
+
+        let result = super::enforce_single_backend_token_per_env(&args);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    #[cfg(feature = "enterprise")]
+    fn allows_multiple_envs_in_delta() {
+        let mut args = EdgeArgs {
+            upstream_url: "http://localhost:4242".to_string(),
+            tokens: vec![
+                "project-a:development.abc".to_string(),
+                "project-b:production.def".to_string(),
+            ],
+            ..Default::default()
+        };
+        args.delta = true;
+
+        let result = super::enforce_single_backend_token_per_env(&args);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    #[cfg(feature = "enterprise")]
+    fn allows_multiple_tokens_same_env_in_polling() {
+        let args = EdgeArgs {
+            upstream_url: "http://localhost:4242".to_string(),
+            tokens: vec![
+                "project-a:development.abc".to_string(),
+                "project-b:development.def".to_string(),
+            ],
+            ..Default::default()
+        };
+
+        let result = super::enforce_single_backend_token_per_env(&args);
+        assert!(result.is_ok());
+    }
 }
