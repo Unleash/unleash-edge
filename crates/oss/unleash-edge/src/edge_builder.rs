@@ -315,7 +315,7 @@ pub async fn build_edge_state(
             unleash_edge_http_client::token_request::request_tokens(token_request).await?;
         if !edge_args.tokens.is_empty() {
             warn!(
-                "Both tokens and hmac_config are configured. Overriding startup tokens with tokens obtained via hmac_config."
+                "Both tokens and hmac_config were configured. Overriding startup tokens with tokens obtained via hmac_config."
             );
         }
         edge_args.tokens = unleash_granted_tokens;
@@ -336,14 +336,7 @@ pub async fn build_edge_state(
         .map(Arc::new)
         .map_err(|_| EdgeError::InvalidServerUrl(edge_args.upstream_url.clone()))?;
 
-    let startup_tokens = edge_args
-        .tokens
-        .iter()
-        .map(|t| {
-            EdgeToken::try_from(t.clone())
-                .expect("Token given at startup in edge mode did not follow valid format")
-        })
-        .collect::<Vec<_>>();
+    let startup_tokens = edge_args.tokens.clone();
 
     let (deferred_validation_tx, deferred_validation_rx) = if *SHOULD_DEFER_VALIDATION {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();

@@ -1,6 +1,6 @@
 use base64::Engine as _;
 use base64::prelude::BASE64_URL_SAFE_NO_PAD;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
 use http::StatusCode;
 use prometheus::{IntGaugeVec, Opts, register_int_gauge_vec};
@@ -68,27 +68,20 @@ pub async fn request_tokens(
     content_hasher.update(&content_string);
     let finalized_hash = content_hasher.finalize();
     let hash_as_hex = hex::encode(finalized_hash);
-    let canonical_request = format!(
-        "POST\n{}\n{}\n{}\n{}",
+    let signature = create_canonical_signature(
+        &client_secret,
+        &timestamp,
+        &nonce_as_hex,
         "/edge/issue-token",
-        timestamp.to_rfc3339(),
-        nonce_as_hex,
-        hash_as_hex
-    );
-    let key = BASE64_URL_SAFE_NO_PAD
-        .decode(client_secret.as_bytes())
-        .map_err(|_e| EdgeError::HmacSignatureError)?;
-    let mut signature =
-        HmacSha256::new_from_slice(&key).map_err(|_e| EdgeError::HmacSignatureError)?;
-    signature.update(canonical_request.as_bytes());
-    let url_safe_signature_base64 =
-        BASE64_URL_SAFE_NO_PAD.encode(signature.finalize().into_bytes());
+        &hash_as_hex,
+    )?;
+
     let client = Client::new();
     let response = client
         .post(issue_token_url)
         .header(
             reqwest::header::AUTHORIZATION,
-            format!("HMAC {}:{}", client_id, url_safe_signature_base64),
+            format!("HMAC {}:{}", client_id, signature),
         )
         .header("x-timestamp", timestamp.to_rfc3339())
         .header("x-nonce", nonce_as_hex)
@@ -130,14 +123,42 @@ pub async fn request_tokens(
     }
 }
 
+fn create_canonical_signature(
+    client_secret: &str,
+    timestamp: &DateTime<Utc>,
+    nonce: &str,
+    path: &str,
+    content_hash: &str,
+) -> EdgeResult<String> {
+    let canonical_request = format!(
+        "{}\n{}\n{}\n{}\n{}",
+        "POST",
+        path,
+        timestamp.to_rfc3339(),
+        nonce,
+        content_hash
+    );
+    let key = BASE64_URL_SAFE_NO_PAD
+        .decode(client_secret.as_bytes())
+        .map_err(|_e| EdgeError::HmacSignatureError)?;
+    let mut signature =
+        HmacSha256::new_from_slice(&key).map_err(|_e| EdgeError::HmacSignatureError)?;
+    signature.update(canonical_request.as_bytes());
+    Ok(BASE64_URL_SAFE_NO_PAD.encode(signature.finalize().into_bytes()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use axum::routing::post;
     use axum::{Json, Router};
+    use chrono::DateTime;
     use http::HeaderMap;
     use unleash_edge_types::TokenType;
     use unleash_edge_types::tokens::EdgeToken;
+
+    const CLIENT_ID: &str = "enterprise-edge";
+    const CLIENT_SECRET: &str = "koom8ceiGaeBee9Eivahweideimak4aV";
 
     fn content_hash(content: &str) -> String {
         let mut hasher = Sha256::new();
@@ -171,19 +192,35 @@ mod tests {
         assert!(headers.contains_key("x-timestamp"));
         assert!(headers.contains_key("x-nonce"));
         assert_eq!(headers.get("content-type").unwrap(), "application/json");
-        assert!(
-            headers
-                .get("authorization")
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .starts_with("HMAC client_id:")
-        );
         let expected_content_hash = content_hash(&serde_json::to_string(&body).unwrap());
         assert_eq!(
             headers.get("content-sha256").unwrap().to_str().unwrap(),
             expected_content_hash.as_str()
         );
+        let timestamp_as_str = headers
+            .get("x-timestamp")
+            .and_then(|t| t.to_str().ok())
+            .expect("Failed to extract timestamp header");
+        let timestamp = DateTime::parse_from_rfc3339(timestamp_as_str)
+            .expect("Failed to convert timestamp")
+            .to_utc();
+        let nonce_as_str = headers
+            .get("x-nonce")
+            .and_then(|t| t.to_str().ok())
+            .expect("Failed to extract nonce");
+        let signature = create_canonical_signature(
+            CLIENT_SECRET,
+            &timestamp,
+            nonce_as_str,
+            "/edge/issue-token",
+            &expected_content_hash,
+        )
+        .expect("Could not create signature");
+        assert_eq!(
+            headers.get("authorization").unwrap().to_str().unwrap(),
+            format!("HMAC {}:{}", CLIENT_ID, signature)
+        );
+
         let tokens: Vec<EdgeToken> = body
             .tokens
             .iter()
@@ -212,8 +249,8 @@ mod tests {
             environments: vec!["development".into(), "production".into()],
             projects: vec!["*".into()],
             issue_token_url: url,
-            client_id: "client_id".into(),
-            client_secret: "koom8ceiGaeBee9Eivahweideimak4aV".into(),
+            client_id: CLIENT_ID.into(),
+            client_secret: CLIENT_SECRET.into(),
         })
         .await
         .unwrap();
