@@ -1,5 +1,5 @@
+use base64::Engine as _;
 use base64::prelude::BASE64_URL_SAFE_NO_PAD;
-use base64::{Engine as _, engine::general_purpose::URL_SAFE};
 use chrono::Utc;
 use hmac::{Hmac, Mac};
 use http::StatusCode;
@@ -75,7 +75,7 @@ pub async fn request_tokens(
         nonce_as_hex,
         hash_as_hex
     );
-    let key = URL_SAFE
+    let key = BASE64_URL_SAFE_NO_PAD
         .decode(client_secret.as_bytes())
         .map_err(|_e| EdgeError::HmacSignatureError)?;
     let mut signature =
