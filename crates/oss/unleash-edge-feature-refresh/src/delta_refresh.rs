@@ -116,7 +116,7 @@ async fn handle_sse(
     sse: eventsource_client::SSE,
     delta_refresher: &Arc<DeltaRefresher>,
     token: &EdgeToken,
-) {
+) -> Option<String> {
     match sse {
         eventsource_client::SSE::Event(event)
             if event.event_type == "unleash-connected" || event.event_type == "unleash-updated" =>
@@ -132,6 +132,7 @@ async fn handle_sse(
                     delta_refresher
                         .handle_client_features_delta_updated(token, delta, None)
                         .await;
+                    return event.id;
                 }
                 Err(e) => {
                     warn!("Could not parse features response to internal representation: {e:?}");
@@ -148,6 +149,7 @@ async fn handle_sse(
             // purposefully left blank.
         }
     }
+    None
 }
 
 async fn run_stream_task(
@@ -207,10 +209,9 @@ async fn run_stream_task(
                 next = s.next() => {
                     match next {
                         Some(Ok(sse)) => {
-                            if let eventsource_client::SSE::Event(ref event) = sse && let Some(id) = &event.id {
-                                last_event_id = Some(id.clone());
+                            if let Some(id) = handle_sse(sse, &delta_refresher, &token).await {
+                                last_event_id = Some(id);
                             }
-                            handle_sse(sse, &delta_refresher, &token).await;
                         }
                         Some(Err(e)) => {
 
