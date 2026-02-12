@@ -53,7 +53,7 @@ impl InstanceDataSending {
                         .expect("Could not construct UnleashClient");
                     let instance_data_sender = InstanceDataSender {
                         unleash_client,
-                        token: token.clone(),
+                        token: token.token.clone(),
                         base_path: args.http.base_path.clone(),
                     };
                     InstanceDataSending::SendInstanceData(instance_data_sender)

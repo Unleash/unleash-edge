@@ -47,8 +47,10 @@ use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::MetricsCache;
 use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
 use unleash_edge_types::tokens::{EdgeToken, cache_key};
+use unleash_edge_types::urls::UnleashUrls;
 use unleash_edge_types::{
     BackgroundTask, EdgeResult, EngineCache, RefreshState, TokenCache, TokenType,
+    TokenValidationStatus,
 };
 use unleash_types::client_metrics::ConnectVia;
 use unleash_yggdrasil::{EngineState, UpdateMessage};
@@ -176,7 +178,11 @@ pub async fn build_edge(
     }
     let (token_cache, feature_cache, delta_cache, engine_cache) = build_caches();
     let persistence = get_data_source(args).await;
-
+    args.tokens.iter().for_each(|token| {
+        if token.status == TokenValidationStatus::Validated {
+            token_cache.insert(token.token.clone(), token.clone());
+        }
+    });
     let unleash_client = Url::parse(&args.upstream_url.clone())
         .map(|url| {
             UnleashClient::from_url_with_backing_client(
@@ -224,7 +230,9 @@ pub async fn build_edge(
         edge_instance_data: edge_instance_data.clone(),
     });
 
-    let _ = token_validator.register_tokens(args.tokens.clone()).await;
+    let _ = token_validator
+        .register_tokens(args.tokens.clone().into_iter().map(|t| t.token).collect())
+        .await;
     if let Some(persistence) = persistence.clone() {
         hydrate_from_persistent_storage(
             (
@@ -356,6 +364,7 @@ pub async fn build_edge_state(
             .unwrap_or_default(),
         )
     });
+    let mut edge_args = edge_args.clone();
 
     let unleash_client = Url::parse(&edge_args.upstream_url.clone())
         .map(|url| {
@@ -372,15 +381,20 @@ pub async fn build_edge_state(
         .map(|c| c.with_custom_client_headers(edge_args.custom_client_headers.clone()))
         .map(Arc::new)
         .map_err(|_| EdgeError::InvalidServerUrl(edge_args.upstream_url.clone()))?;
-
-    let startup_tokens = edge_args
-        .tokens
-        .iter()
-        .map(|t| {
-            EdgeToken::try_from(t.clone())
-                .expect("Token given at startup in edge mode did not follow valid format")
-        })
-        .collect::<Vec<_>>();
+    if let Some(token_request) = edge_args.hmac_config.possible_token_request(
+        unleash_client.configured_client(),
+        UnleashUrls::from_str(&edge_args.upstream_url)?.token_request_url,
+    ) {
+        let unleash_granted_tokens =
+            unleash_edge_http_client::token_request::request_tokens(token_request).await?;
+        if !edge_args.tokens.is_empty() {
+            warn!(
+                "Both tokens and hmac_config were configured. Overriding startup tokens with tokens obtained via hmac_config."
+            );
+        }
+        edge_args.tokens = unleash_granted_tokens;
+    }
+    let startup_tokens = edge_args.tokens.clone();
 
     let (deferred_validation_tx, deferred_validation_rx) = if *SHOULD_DEFER_VALIDATION {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
@@ -597,7 +611,7 @@ fn create_edge_mode_background_tasks(
         create_revalidation_task(&validator, edge.token_revalidation_interval_seconds),
         create_revalidation_of_startup_tokens_task(
             &validator,
-            edge.tokens.clone(),
+            edge.tokens.clone().into_iter().map(|t| t.token).collect(),
             refresher.clone(),
         ),
         create_send_instance_data_task(
@@ -836,11 +850,13 @@ pub async fn resolve_license(
 mod tests {
     use crate::edge_builder::build_edge;
     use std::path::Path;
+    use std::str::FromStr;
     use std::sync::Arc;
     use ulid::Ulid;
-    use unleash_edge_cli::{AuthHeaders, EdgeArgs};
+    use unleash_edge_cli::{AuthHeaders, EdgeArgs, HmacConfig};
     use unleash_edge_http_client::ClientMetaInformation;
     use unleash_edge_types::metrics::instance_data::{ApiKeyIdentity, EdgeInstanceData, Hosting};
+    use unleash_edge_types::tokens::EdgeToken;
 
     #[tokio::test]
     #[cfg(feature = "enterprise")]
@@ -853,8 +869,10 @@ mod tests {
             features_refresh_interval_seconds: 30,
             token_revalidation_interval_seconds: 30,
             tokens: vec![
-                "default:development.f1339a9b0e67fd8dafe0a19a85809fb88262b2e74c213087c6b3b3a9"
-                    .to_string(),
+                EdgeToken::from_str(
+                    "default:development.f1339a9b0e67fd8dafe0a19a85809fb88262b2e74c213087c6b3b3a9",
+                )
+                .unwrap(),
             ],
             pretrusted_tokens: None,
             custom_client_headers: vec![],
@@ -874,6 +892,7 @@ mod tests {
             prometheus_username: None,
             prometheus_password: None,
             prometheus_user_id: None,
+            hmac_config: HmacConfig::default(),
         };
         let client_meta_information = ClientMetaInformation {
             app_name: "test_app".to_string(),
