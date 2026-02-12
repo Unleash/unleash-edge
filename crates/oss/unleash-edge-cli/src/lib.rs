@@ -457,7 +457,6 @@ impl HmacConfig {
             Some(RequestTokensArg {
                 client,
                 environments: envs,
-                projects: self.desired_projects.clone(),
                 client_secret,
                 issue_token_url,
             })

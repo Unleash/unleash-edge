@@ -324,7 +324,7 @@ pub async fn build_edge_state(
         .map(Arc::new)
         .map_err(|_| EdgeError::InvalidServerUrl(edge_args.upstream_url.clone()))?;
     if let Some(token_request) = edge_args.hmac_config.possible_token_request(
-        unleash_client.backing_client.clone(),
+        unleash_client.configured_client(),
         UnleashUrls::from_str(&edge_args.upstream_url)?.token_request_url,
     ) {
         let unleash_granted_tokens =

@@ -129,10 +129,16 @@ pub struct HttpClientArgs {
 #[derive(Clone, Debug)]
 pub struct UnleashClient {
     pub urls: UnleashUrls,
-    pub backing_client: Client,
+    backing_client: Client,
     custom_headers: HashMap<String, String>,
     token_header: String,
     meta_info: ClientMetaInformation,
+}
+
+impl UnleashClient {
+    pub fn configured_client(&self) -> Client {
+        self.backing_client.clone() // Safe since it uses Arc internally
+    }
 }
 
 fn load_pkcs12(id: &ClientIdentity) -> EdgeResult<Identity> {

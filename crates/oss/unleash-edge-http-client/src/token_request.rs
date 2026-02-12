@@ -30,7 +30,6 @@ pub async fn request_tokens(
     RequestTokensArg {
         client,
         environments,
-        projects,
         client_secret,
         issue_token_url,
     }: RequestTokensArg,
@@ -39,7 +38,7 @@ pub async fn request_tokens(
         .iter()
         .map(|environment| TokenRequest {
             environment: environment.clone(),
-            projects: projects.clone(),
+            projects: vec!["*".to_string()],
         })
         .collect();
     let request_body = HmacTokenRequest {
@@ -232,7 +231,6 @@ mod tests {
         let tokens = request_tokens(RequestTokensArg {
             client,
             environments: vec!["development".into(), "production".into()],
-            projects: vec!["*".into()],
             issue_token_url: url,
             client_secret: CLIENT_SECRET.into(),
         })
