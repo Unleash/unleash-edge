@@ -81,7 +81,7 @@ impl DeltaCache {
         projects: &[String],
         hydration_event: DeltaHydrationEvent,
     ) {
-        self.hydration_event.event_id = hydration_event.event_id;
+        let merged_event_id = self.hydration_event.event_id.max(hydration_event.event_id);
 
         if projects.iter().any(|project| project == "*") {
             self.hydration_event.features = hydration_event.features;
@@ -96,13 +96,14 @@ impl DeltaCache {
                 merge_segment_updates(&self.hydration_event.segments, &hydration_event.segments);
         }
 
+        self.hydration_event.event_id = merged_event_id;
         self.events.clear();
         self.add_base_event_from_hydration(&self.hydration_event.clone());
     }
 
     fn update_hydration_event(&mut self, event: &DeltaEvent) {
         let event_id = event.get_event_id();
-        self.hydration_event.event_id = event_id;
+        self.hydration_event.event_id = self.hydration_event.event_id.max(event_id);
         match event {
             DeltaEvent::FeatureUpdated { feature, .. } => {
                 if let Some(existing) = self
@@ -351,5 +352,169 @@ mod tests {
             .map(|event| event.get_event_id())
             .collect::<Vec<_>>();
         assert_eq!(ids, vec![10, 11, 12]);
+        assert_eq!(delta_cache.get_hydration_event().event_id, 12);
+    }
+
+    #[test]
+    fn test_empty_hydration_keeps_revision_marker_without_panicking() {
+        let delta_cache = DeltaCache::new(
+            DeltaHydrationEvent {
+                event_id: 33,
+                features: vec![],
+                segments: vec![],
+            },
+            10,
+        );
+
+        assert!(delta_cache.has_revision(33));
+        assert_eq!(delta_cache.get_events().len(), 1);
+        assert!(matches!(
+            delta_cache.get_events().first(),
+            Some(DeltaEvent::Hydration { event_id: 33, .. })
+        ));
+    }
+
+    #[test]
+    fn test_merge_hydration_for_specific_projects_preserves_other_projects_and_merges_segments() {
+        let mut delta_cache = DeltaCache::new(
+            DeltaHydrationEvent {
+                event_id: 10,
+                features: vec![
+                    ClientFeature {
+                        name: "flag-a-old".to_string(),
+                        project: Some("project-a".to_string()),
+                        ..ClientFeature::default()
+                    },
+                    ClientFeature {
+                        name: "flag-b".to_string(),
+                        project: Some("project-b".to_string()),
+                        ..ClientFeature::default()
+                    },
+                ],
+                segments: vec![Segment {
+                    id: 1,
+                    constraints: vec![],
+                }],
+            },
+            10,
+        );
+
+        delta_cache.merge_hydration_for_projects(
+            &["project-a".to_string()],
+            DeltaHydrationEvent {
+                event_id: 12,
+                features: vec![ClientFeature {
+                    name: "flag-a-new".to_string(),
+                    project: Some("project-a".to_string()),
+                    ..ClientFeature::default()
+                }],
+                segments: vec![Segment {
+                    id: 2,
+                    constraints: vec![],
+                }],
+            },
+        );
+
+        let hydration = delta_cache.get_hydration_event();
+        let feature_names = hydration
+            .features
+            .iter()
+            .map(|feature| feature.name.clone())
+            .collect::<std::collections::HashSet<_>>();
+        assert_eq!(feature_names.len(), 2);
+        assert!(feature_names.contains("flag-a-new"));
+        assert!(feature_names.contains("flag-b"));
+
+        let segment_ids = hydration
+            .segments
+            .iter()
+            .map(|segment| segment.id)
+            .collect::<Vec<_>>();
+        assert_eq!(segment_ids, vec![1, 2]);
+
+        assert_eq!(delta_cache.get_events().len(), 1);
+        assert!(delta_cache.has_revision(12));
+    }
+
+    #[test]
+    fn test_merge_hydration_for_wildcard_replaces_all_projects() {
+        let mut delta_cache = DeltaCache::new(
+            DeltaHydrationEvent {
+                event_id: 1,
+                features: vec![
+                    ClientFeature {
+                        name: "flag-a".to_string(),
+                        project: Some("project-a".to_string()),
+                        ..ClientFeature::default()
+                    },
+                    ClientFeature {
+                        name: "flag-b".to_string(),
+                        project: Some("project-b".to_string()),
+                        ..ClientFeature::default()
+                    },
+                ],
+                segments: vec![Segment {
+                    id: 1,
+                    constraints: vec![],
+                }],
+            },
+            10,
+        );
+
+        delta_cache.merge_hydration_for_projects(
+            &["*".to_string()],
+            DeltaHydrationEvent {
+                event_id: 2,
+                features: vec![ClientFeature {
+                    name: "flag-wildcard".to_string(),
+                    project: Some("project-c".to_string()),
+                    ..ClientFeature::default()
+                }],
+                segments: vec![Segment {
+                    id: 9,
+                    constraints: vec![],
+                }],
+            },
+        );
+
+        let hydration = delta_cache.get_hydration_event();
+        assert_eq!(hydration.event_id, 2);
+        assert_eq!(hydration.features.len(), 1);
+        assert_eq!(hydration.features[0].name, "flag-wildcard");
+        assert_eq!(hydration.segments.len(), 1);
+        assert_eq!(hydration.segments[0].id, 9);
+    }
+
+    #[test]
+    fn test_merge_hydration_for_projects_keeps_monotonic_event_id() {
+        let mut delta_cache = DeltaCache::new(
+            DeltaHydrationEvent {
+                event_id: 20,
+                features: vec![ClientFeature {
+                    name: "flag-a".to_string(),
+                    project: Some("project-a".to_string()),
+                    ..ClientFeature::default()
+                }],
+                segments: vec![],
+            },
+            10,
+        );
+
+        delta_cache.merge_hydration_for_projects(
+            &["project-a".to_string()],
+            DeltaHydrationEvent {
+                event_id: 10,
+                features: vec![ClientFeature {
+                    name: "flag-a-stale".to_string(),
+                    project: Some("project-a".to_string()),
+                    ..ClientFeature::default()
+                }],
+                segments: vec![],
+            },
+        );
+
+        assert_eq!(delta_cache.get_hydration_event().event_id, 20);
+        assert_eq!(delta_cache.get_events().len(), 1);
+        assert_eq!(delta_cache.get_events()[0].get_event_id(), 20);
     }
 }

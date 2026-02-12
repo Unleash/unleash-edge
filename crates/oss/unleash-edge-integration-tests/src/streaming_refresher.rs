@@ -184,7 +184,7 @@ mod tests {
         assert!(event_id == &1);
         assert!(
             features
-                == &vec![
+                == &[
                     ClientFeature {
                         name: "Inigo Montoya".into(),
                         project: Some("Princess bride".into()),
@@ -339,7 +339,7 @@ mod tests {
         assert!(event_id == &1);
         assert!(
             features
-                == &vec![ClientFeature {
+                == &[ClientFeature {
                     name: "Inigo Montoya".into(),
                     project: Some("Princess bride".into()),
                     strategies: Some(vec![Strategy {

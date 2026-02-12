@@ -163,6 +163,7 @@ pub fn init_tracing_and_logging(args: &CliArgs, app_id: String) -> EdgeResult<Op
     }
     #[cfg(not(feature = "enterprise"))]
     {
+        let _ = app_id;
         simple_logging(args)
     }
 }
