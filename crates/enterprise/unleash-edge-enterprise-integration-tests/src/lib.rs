@@ -231,7 +231,7 @@ mod tests {
         let args = mock_cli_args();
         let edge_args = EdgeArgs {
             upstream_url: upstream.url(),
-            tokens: vec!["*:development.hashyhashhash".to_string()],
+            tokens: vec![EdgeToken::from_str("*:development.hashyhashhash").unwrap()],
             ..EdgeArgs::default()
         };
 
@@ -260,7 +260,7 @@ mod tests {
         let args = mock_cli_args();
         let edge_args = EdgeArgs {
             upstream_url: upstream.url(),
-            tokens: vec!["*:development.hashyhashhash".to_string()],
+            tokens: vec![EdgeToken::from_str("*:development.hashyhashhash").unwrap()],
             ..EdgeArgs::default()
         };
 
