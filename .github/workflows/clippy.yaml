@@ -24,11 +24,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      security-events: write
-      actions: read
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
 
       - name: Install rust
         run: |
@@ -36,17 +34,7 @@ jobs:
           rustup show
           rustup component add clippy
 
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2
 
-      - name: Install required cargo packages for reporting format
-        run: cargo install clippy-sarif sarif-fmt
-
-      - name: Run rust-clippy
-        run: |
-          cargo clippy --all-features --all-targets --message-format=json -- -D warnings | clippy-sarif | tee results.sarif | sarif-fmt
-
-      - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: "results.sarif"
+      - name: Run clippy
+        run: cargo clippy --workspace --all-features --all-targets -- -D warnings
