@@ -98,10 +98,10 @@ fn build_sse_stream(
             unleash_yggdrasil::SUPPORTED_SPEC_VERSION,
         )?;
 
-    if let Some(id) = last_event_id {
-        if !id.is_empty() {
-            es_client_builder = es_client_builder.last_event_id(id.to_string());
-        }
+    if let Some(id) = last_event_id
+        && !id.is_empty()
+    {
+        es_client_builder = es_client_builder.last_event_id(id.to_string());
     }
 
     for (key, value) in custom_headers {
@@ -207,10 +207,8 @@ async fn run_stream_task(
                 next = s.next() => {
                     match next {
                         Some(Ok(sse)) => {
-                            if let eventsource_client::SSE::Event(ref event) = sse {
-                                if let Some(id) = &event.id {
-                                    last_event_id = Some(id.clone());
-                                }
+                            if let eventsource_client::SSE::Event(ref event) = sse && let Some(id) = &event.id {
+                                last_event_id = Some(id.clone());
                             }
                             handle_sse(sse, &delta_refresher, &token).await;
                         }
@@ -551,6 +549,7 @@ mod tests {
     use axum::Router;
     use axum::body::Body;
     use axum::extract::Request;
+    use axum::extract::State;
     use axum::response::{IntoResponse, Response};
     use axum::routing::get;
     use axum_test::TestServer;
@@ -560,6 +559,9 @@ mod tests {
     use http::StatusCode;
     use reqwest::Url;
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::time::Duration as StdDuration;
+    use tokio::sync::{Mutex, oneshot, watch};
     use ulid::Ulid;
     use unleash_edge_delta::cache_manager::DeltaCacheManager;
     use unleash_edge_feature_cache::FeatureCache;
@@ -569,6 +571,7 @@ mod tests {
     use unleash_edge_types::entity_tag_to_header_value;
     use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
     use unleash_edge_types::tokens::EdgeToken;
+    use unleash_edge_types::{RefreshState, TokenRefresh};
     use unleash_types::client_features::{
         ClientFeature, ClientFeatures, ClientFeaturesDelta, Constraint, DeltaEvent, Operator,
         Segment,
@@ -676,6 +679,125 @@ mod tests {
             .clone();
         delta_features.apply_delta(&revision(2));
         assert_eq!(refreshed_features, delta_features);
+    }
+
+    #[derive(Clone)]
+    struct StreamingServerState {
+        request_count: Arc<AtomicUsize>,
+        last_event_id_tx: Arc<Mutex<Option<oneshot::Sender<Option<String>>>>>,
+    }
+
+    async fn streaming_handler(
+        State(state): State<StreamingServerState>,
+        request: Request,
+    ) -> impl IntoResponse {
+        let count = state.request_count.fetch_add(1, Ordering::SeqCst) + 1;
+
+        if count == 1 {
+            let delta_json = serde_json::to_string(&revision(1)).unwrap();
+            let sse_body = format!("id: 101\nevent: unleash-updated\ndata: {delta_json}\n\n");
+            return Response::builder()
+                .status(StatusCode::OK)
+                .header(http::header::CONTENT_TYPE, "text/event-stream")
+                .body(Body::from(sse_body))
+                .unwrap();
+        }
+
+        let last_event_id = request
+            .headers()
+            .get("last-event-id")
+            .and_then(|h| h.to_str().ok())
+            .map(|s| s.to_string());
+
+        if let Some(tx) = state.last_event_id_tx.lock().await.take() {
+            let _ = tx.send(last_event_id);
+        }
+
+        Response::builder()
+            .status(StatusCode::UNAUTHORIZED)
+            .body(Body::empty())
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn streaming_sends_last_event_id_on_reconnect() {
+        let (server, last_event_id_rx) = streaming_test_server().await;
+        let (delta_refresher, tokens_to_refresh) =
+            build_delta_refresher_for_stream_test(server.server_url("/").unwrap());
+
+        let token =
+            EdgeToken::try_from("*:development.abcdefghijklmnopqrstuvwxyz".to_string()).unwrap();
+        tokens_to_refresh.insert(token.token.clone(), TokenRefresh::new(token.clone(), None));
+
+        let streaming_url = server
+            .server_url("/api/client/streaming")
+            .unwrap()
+            .to_string();
+
+        let (refresh_state_tx, refresh_state_rx) = watch::channel(RefreshState::Running);
+
+        let join = tokio::spawn(super::run_stream_task(
+            delta_refresher,
+            token,
+            streaming_url,
+            ClientMetaInformation::test_config(),
+            vec![],
+            refresh_state_rx,
+        ));
+
+        let last_event_id = tokio::time::timeout(StdDuration::from_secs(5), last_event_id_rx)
+            .await
+            .expect("timed out waiting for last-event-id")
+            .expect("last-event-id channel closed");
+
+        assert_eq!(last_event_id.as_deref(), Some("101"));
+
+        drop(refresh_state_tx);
+        let _ = tokio::time::timeout(StdDuration::from_secs(5), join).await;
+    }
+
+    fn build_delta_refresher_for_stream_test(
+        server_url: Url,
+    ) -> (Arc<DeltaRefresher>, Arc<DashMap<String, TokenRefresh>>) {
+        let unleash_client = build_unleash_client(server_url);
+        let features_cache: Arc<FeatureCache> = Arc::new(FeatureCache::default());
+        let delta_cache_manager: Arc<DeltaCacheManager> = Arc::new(DeltaCacheManager::new());
+        let engine_cache: Arc<DashMap<String, EngineState>> = Arc::new(DashMap::default());
+        let tokens_to_refresh = Arc::new(DashMap::default());
+
+        let delta_refresher = Arc::new(DeltaRefresher {
+            unleash_client,
+            tokens_to_refresh: tokens_to_refresh.clone(),
+            delta_cache_manager,
+            features_cache,
+            engine_cache,
+            refresh_interval: Duration::seconds(6000),
+            persistence: None,
+            streaming: true,
+            client_meta_information: ClientMetaInformation::test_config(),
+            edge_instance_data: Arc::new(edge_instance_data_for_delta_refresher_test()),
+        });
+
+        (delta_refresher, tokens_to_refresh)
+    }
+
+    async fn streaming_test_server() -> (TestServer, oneshot::Receiver<Option<String>>) {
+        let (last_event_id_tx, last_event_id_rx) = oneshot::channel();
+        let state = StreamingServerState {
+            request_count: Arc::new(AtomicUsize::new(0)),
+            last_event_id_tx: Arc::new(Mutex::new(Some(last_event_id_tx))),
+        };
+
+        let router = Router::new()
+            .route("/api/client/streaming", get(streaming_handler))
+            .with_state(state);
+
+        let server = TestServer::builder()
+            .http_transport()
+            .build(router)
+            .unwrap();
+
+        (server, last_event_id_rx)
     }
 
     fn cache_key(token: &EdgeToken) -> String {
