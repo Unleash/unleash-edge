@@ -26,16 +26,19 @@ impl DeltaCache {
     }
 
     fn add_base_event_from_hydration(&mut self, hydration_event: &DeltaHydrationEvent) {
-        let last_feature = hydration_event
-            .features
-            .last()
-            .cloned()
-            .expect("Hydration event must have at least one feature");
-
-        self.add_events(&[DeltaEvent::FeatureUpdated {
-            event_id: hydration_event.event_id,
-            feature: last_feature,
-        }]);
+        if let Some(last_feature) = hydration_event.features.last().cloned() {
+            self.add_events(&[DeltaEvent::FeatureUpdated {
+                event_id: hydration_event.event_id,
+                feature: last_feature,
+            }]);
+        } else {
+            // Keep one marker event so has_revision() can still resolve the hydration revision.
+            self.add_events(&[DeltaEvent::Hydration {
+                event_id: hydration_event.event_id,
+                features: vec![],
+                segments: vec![],
+            }]);
+        }
     }
 
     pub fn has_revision(&self, revision: u32) -> bool {
@@ -48,11 +51,14 @@ impl DeltaCache {
         for event in events.iter() {
             self.events.push(event.clone());
             self.update_hydration_event(event);
-
-            if self.events.len() > self.max_length {
-                self.events.remove(0);
-            }
         }
+        self.events.sort_by_key(|event| event.get_event_id());
+        if self.events.len() > self.max_length {
+            let to_remove = self.events.len() - self.max_length;
+            self.events.drain(0..to_remove);
+        }
+        self.hydration_event.features.sort();
+        self.hydration_event.segments.sort();
     }
 
     pub fn get_events(&self) -> &Vec<DeltaEvent> {
@@ -68,6 +74,30 @@ impl DeltaCache {
 
     pub fn get_hydration_event(&self) -> &DeltaHydrationEvent {
         &self.hydration_event
+    }
+
+    pub fn merge_hydration_for_projects(
+        &mut self,
+        projects: &[String],
+        hydration_event: DeltaHydrationEvent,
+    ) {
+        self.hydration_event.event_id = hydration_event.event_id;
+
+        if projects.iter().any(|project| project == "*") {
+            self.hydration_event.features = hydration_event.features;
+            self.hydration_event.segments = hydration_event.segments;
+        } else {
+            self.hydration_event.features = replace_projects_from_hydration(
+                projects,
+                &self.hydration_event.features,
+                &hydration_event.features,
+            );
+            self.hydration_event.segments =
+                merge_segment_updates(&self.hydration_event.segments, &hydration_event.segments);
+        }
+
+        self.events.clear();
+        self.add_base_event_from_hydration(&self.hydration_event.clone());
     }
 
     fn update_hydration_event(&mut self, event: &DeltaEvent) {
@@ -113,6 +143,33 @@ impl DeltaCache {
             }
         }
     }
+}
+
+fn replace_projects_from_hydration(
+    projects_to_update: &[String],
+    existing: &[ClientFeature],
+    hydrated: &[ClientFeature],
+) -> Vec<ClientFeature> {
+    let mut to_keep: Vec<ClientFeature> = existing
+        .iter()
+        .filter(|toggle| {
+            let project = toggle.project.clone().unwrap_or_else(|| "default".into());
+            !projects_to_update.contains(&project)
+        })
+        .cloned()
+        .collect();
+    to_keep.extend(hydrated.iter().cloned());
+    to_keep
+}
+
+fn merge_segment_updates(existing: &[Segment], hydrated: &[Segment]) -> Vec<Segment> {
+    let mut merged = hydrated.to_vec();
+    for segment in existing {
+        if !merged.iter().any(|s| s.id == segment.id) {
+            merged.push(segment.clone());
+        }
+    }
+    merged
 }
 
 #[cfg(test)]
@@ -255,5 +312,44 @@ mod tests {
 
         assert_eq!(delta_cache.get_events()[1], initial_feature_event);
         assert_eq!(delta_cache.get_events()[2], updated_feature_event);
+    }
+
+    #[test]
+    fn test_add_events_keeps_deterministic_event_order() {
+        let mut delta_cache = DeltaCache::new(
+            DeltaHydrationEvent {
+                event_id: 10,
+                features: vec![ClientFeature {
+                    name: "bootstrap".to_string(),
+                    ..ClientFeature::default()
+                }],
+                segments: vec![],
+            },
+            10,
+        );
+
+        delta_cache.add_events(&[
+            DeltaEvent::FeatureUpdated {
+                event_id: 12,
+                feature: ClientFeature {
+                    name: "event-12".to_string(),
+                    ..ClientFeature::default()
+                },
+            },
+            DeltaEvent::FeatureUpdated {
+                event_id: 11,
+                feature: ClientFeature {
+                    name: "event-11".to_string(),
+                    ..ClientFeature::default()
+                },
+            },
+        ]);
+
+        let ids = delta_cache
+            .get_events()
+            .iter()
+            .map(|event| event.get_event_id())
+            .collect::<Vec<_>>();
+        assert_eq!(ids, vec![10, 11, 12]);
     }
 }
