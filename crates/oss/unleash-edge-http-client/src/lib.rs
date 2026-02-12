@@ -37,6 +37,7 @@ use url::Url;
 
 pub mod instance_data;
 pub mod tls;
+pub mod token_request;
 
 lazy_static! {
     pub static ref CLIENT_REGISTER_FAILURES: IntGaugeVec = register_int_gauge_vec!(
@@ -132,6 +133,12 @@ pub struct UnleashClient {
     custom_headers: HashMap<String, String>,
     token_header: String,
     meta_info: ClientMetaInformation,
+}
+
+impl UnleashClient {
+    pub fn configured_client(&self) -> Client {
+        self.backing_client.clone() // Safe since it uses Arc internally
+    }
 }
 
 fn load_pkcs12(id: &ClientIdentity) -> EdgeResult<Identity> {

@@ -3,6 +3,7 @@ use crate::{ClientTokenRequest, EdgeResult, TokenRefresh, TokenType, TokenValida
 use ahash::HashSet;
 use axum::http::HeaderValue;
 use chrono::{DateTime, Duration, Utc};
+use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::{Debug, Formatter};
@@ -328,4 +329,38 @@ fn clean_hash(hash: &str) -> String {
         &hash[..6].to_string(),
         &hash[hash.len() - 6..].to_string()
     )
+}
+
+pub struct RequestTokensArg {
+    pub client: reqwest::Client,
+    pub environments: Vec<String>,
+    pub client_secret: String,
+    pub issue_token_url: Url,
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{EdgeTokens, TokenValidationStatus};
+    use serde_json::json;
+
+    #[test]
+    pub fn edge_tokens_parsed_defaults_to_validated_status() {
+        let f = "*:development.abcdefghijklmnopqrstuvwxyz123456";
+        let body = json!({
+            "tokens": [
+                {
+                    "token": f,
+                    "environment": "development",
+                    "projects": ["*"],
+                    "type": "backend"
+                }
+            ]
+        });
+        let edge_tokens: EdgeTokens =
+            serde_json::from_value(body).expect("Failed to parse example response");
+        assert_eq!(
+            edge_tokens.tokens.first().unwrap().status,
+            TokenValidationStatus::Validated
+        );
+    }
 }
