@@ -24,7 +24,7 @@ rust-version = "1.92.0"
 ahash = { version = "0.8.12" }
 anyhow = { version = "1.0.101" }
 async-trait = { version = "0.1.89" }
-aws-config = { version = "1.8.13", features = ["behavior-version-latest"] }
+aws-config = { version = "1.8.14", features = ["behavior-version-latest"] }
 aws-sdk-s3 = { version = "1.122.0", features = ["behavior-version-latest"] }
 axum = { version = "0.8.8", features = ["macros", "tokio", "json", "query", "tracing"] }
 axum-core = { version = "0.5.6" }
