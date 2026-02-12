@@ -4,6 +4,7 @@ use axum::http::{HeaderName, HeaderValue, Method};
 use cidr::{Ipv4Cidr, Ipv6Cidr};
 use clap::{ArgGroup, Args, Parser, Subcommand, ValueEnum};
 use ipnet::IpNet;
+use reqwest::Client;
 use std::fmt::{Display, Formatter};
 use std::net::IpAddr;
 use std::path::PathBuf;
@@ -12,7 +13,9 @@ use std::time::Duration;
 use tower_http::cors::{AllowHeaders, AllowMethods, AllowOrigin, CorsLayer, ExposeHeaders, MaxAge};
 use unleash_edge_types::errors::{EdgeError, TRUST_PROXY_PARSE_ERROR};
 use unleash_edge_types::metrics::instance_data::Hosting;
+use unleash_edge_types::tokens::RequestTokensArg;
 use unleash_edge_types::{tokens::EdgeToken, tokens::parse_trusted_token_pair};
+use url::Url;
 
 #[derive(Subcommand, Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
@@ -179,8 +182,8 @@ pub struct EdgeArgs {
     pub token_revalidation_interval_seconds: u64,
 
     /// Get data for these client tokens at startup. Accepts comma-separated list of tokens. Hot starts your feature cache
-    #[clap(short, long, env, value_delimiter = ',')]
-    pub tokens: Vec<String>,
+    #[clap(short, long, env, value_delimiter = ',', value_parser = EdgeToken::from_str)]
+    pub tokens: Vec<EdgeToken>,
 
     /// Set a list of frontend tokens that Edge will always trust. These need to either match the Unleash token format, or they're an arbitrary string followed by an @ and then an environment, e.g. secret-123@development
     #[clap(short, long, env, value_delimiter = ',', value_parser = parse_trusted_token_pair)]
@@ -252,6 +255,9 @@ pub struct EdgeArgs {
 
     #[clap(long, env)]
     pub prometheus_user_id: Option<String>,
+
+    #[clap(flatten)]
+    pub hmac_config: HmacConfig,
 }
 
 pub fn string_to_header_tuple(s: &str) -> Result<(String, String), String> {
@@ -416,6 +422,48 @@ pub enum LogFormat {
     Plain,
     Json,
     Pretty,
+}
+
+#[derive(Args, Debug, Clone, Default)]
+pub struct HmacConfig {
+    #[clap(env, long, hide = true)]
+    pub unleash_client_secret: Option<String>,
+
+    #[clap(env, long, hide = true, value_delimiter = ',')]
+    pub desired_environments: Option<Vec<String>>,
+
+    #[clap(env, long, hide = true, value_delimiter = ',', default_value = "*")]
+    pub desired_projects: Vec<String>,
+}
+
+impl HmacConfig {
+    pub fn is_configurable(&self) -> bool {
+        self.unleash_client_secret.is_some()
+            && self
+                .desired_environments
+                .as_ref()
+                .is_some_and(|envs| !envs.is_empty())
+    }
+
+    pub fn possible_token_request(
+        &self,
+        client: Client,
+        issue_token_url: Url,
+    ) -> Option<RequestTokensArg> {
+        if let (Some(client_secret), Some(envs)) = (
+            self.unleash_client_secret.clone(),
+            self.desired_environments.clone(),
+        ) {
+            Some(RequestTokensArg {
+                client,
+                environments: envs,
+                client_secret,
+                issue_token_url,
+            })
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Parser, Debug, Clone)]

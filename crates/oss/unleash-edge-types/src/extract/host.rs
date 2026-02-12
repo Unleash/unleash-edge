@@ -28,7 +28,6 @@ use std::convert::Infallible;
 /// Note that user agents can set `X-Forwarded-Host` and `Host` headers to arbitrary values so make
 /// sure to validate them to avoid security issues.
 ///
-
 static X_FORWARDED_HOST_HEADER: HeaderName = HeaderName::from_static("x-forwarded-host");
 
 #[derive(Debug, Clone)]
