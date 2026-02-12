@@ -34,7 +34,8 @@ jobs:
           rustup set auto-self-update disable
           rustup show
 
-      - uses: Swatinem/rust-cache@v2
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
 
       - name: Run clippy
         run: cargo clippy --workspace --all-features --all-targets -- -D warnings
