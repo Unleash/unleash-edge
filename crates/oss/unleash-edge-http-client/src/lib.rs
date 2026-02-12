@@ -129,7 +129,7 @@ pub struct HttpClientArgs {
 #[derive(Clone, Debug)]
 pub struct UnleashClient {
     pub urls: UnleashUrls,
-    backing_client: Client,
+    pub backing_client: Client,
     custom_headers: HashMap<String, String>,
     token_header: String,
     meta_info: ClientMetaInformation,

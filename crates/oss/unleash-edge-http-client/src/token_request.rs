@@ -5,7 +5,6 @@ use hmac::{Hmac, Mac};
 use http::StatusCode;
 use prometheus::{IntGaugeVec, Opts, register_int_gauge_vec};
 use rand::{RngCore, rng};
-use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::sync::LazyLock;
@@ -40,6 +39,7 @@ struct HmacTokenRequest {
 
 pub async fn request_tokens(
     RequestTokensArg {
+        client,
         environments,
         projects,
         client_id,
@@ -72,11 +72,10 @@ pub async fn request_tokens(
         &client_secret,
         &timestamp,
         &nonce_as_hex,
-        "/edge/issue-token",
+        issue_token_url.path(),
         &hash_as_hex,
     )?;
 
-    let client = Client::new();
     let response = client
         .post(issue_token_url)
         .header(
@@ -245,7 +244,9 @@ mod tests {
             .build(router)
             .expect("Failed to build test server");
         let url = ts.server_url("/edge/issue-token").unwrap();
+        let client = reqwest::Client::new();
         let tokens = request_tokens(RequestTokensArg {
+            client,
             environments: vec!["development".into(), "production".into()],
             projects: vec!["*".into()],
             issue_token_url: url,

@@ -307,19 +307,7 @@ pub async fn build_edge_state(
         )
     });
     let mut edge_args = edge_args.clone();
-    if let Some(token_request) = edge_args
-        .hmac_config
-        .possible_token_request(UnleashUrls::from_str(&edge_args.upstream_url)?.token_request_url)
-    {
-        let unleash_granted_tokens =
-            unleash_edge_http_client::token_request::request_tokens(token_request).await?;
-        if !edge_args.tokens.is_empty() {
-            warn!(
-                "Both tokens and hmac_config were configured. Overriding startup tokens with tokens obtained via hmac_config."
-            );
-        }
-        edge_args.tokens = unleash_granted_tokens;
-    }
+
     let unleash_client = Url::parse(&edge_args.upstream_url.clone())
         .map(|url| {
             UnleashClient::from_url_with_backing_client(
@@ -335,7 +323,19 @@ pub async fn build_edge_state(
         .map(|c| c.with_custom_client_headers(edge_args.custom_client_headers.clone()))
         .map(Arc::new)
         .map_err(|_| EdgeError::InvalidServerUrl(edge_args.upstream_url.clone()))?;
-
+    if let Some(token_request) = edge_args.hmac_config.possible_token_request(
+        unleash_client.backing_client.clone(),
+        UnleashUrls::from_str(&edge_args.upstream_url)?.token_request_url,
+    ) {
+        let unleash_granted_tokens =
+            unleash_edge_http_client::token_request::request_tokens(token_request).await?;
+        if !edge_args.tokens.is_empty() {
+            warn!(
+                "Both tokens and hmac_config were configured. Overriding startup tokens with tokens obtained via hmac_config."
+            );
+        }
+        edge_args.tokens = unleash_granted_tokens;
+    }
     let startup_tokens = edge_args.tokens.clone();
 
     let (deferred_validation_tx, deferred_validation_rx) = if *SHOULD_DEFER_VALIDATION {

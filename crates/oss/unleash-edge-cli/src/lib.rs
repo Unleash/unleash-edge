@@ -4,6 +4,7 @@ use axum::http::{HeaderName, HeaderValue, Method};
 use cidr::{Ipv4Cidr, Ipv6Cidr};
 use clap::{ArgGroup, Args, Parser, Subcommand, ValueEnum};
 use ipnet::IpNet;
+use reqwest::Client;
 use std::fmt::{Display, Formatter};
 use std::net::IpAddr;
 use std::path::PathBuf;
@@ -448,12 +449,17 @@ impl HmacConfig {
                 .unwrap_or(false)
     }
 
-    pub fn possible_token_request(&self, issue_token_url: Url) -> Option<RequestTokensArg> {
+    pub fn possible_token_request(
+        &self,
+        client: Client,
+        issue_token_url: Url,
+    ) -> Option<RequestTokensArg> {
         if let (Some(client_secret), Some(envs)) = (
             self.unleash_client_secret.clone(),
             self.desired_environments.clone(),
         ) {
             Some(RequestTokensArg {
+                client,
                 environments: envs,
                 projects: self.desired_projects.clone(),
                 client_id: self.unleash_client_id.clone(),

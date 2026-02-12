@@ -332,6 +332,7 @@ fn clean_hash(hash: &str) -> String {
 }
 
 pub struct RequestTokensArg {
+    pub client: reqwest::Client,
     pub environments: Vec<String>,
     pub projects: Vec<String>,
     pub client_id: String,
