@@ -439,7 +439,8 @@ pub struct HmacConfig {
 impl HmacConfig {
     pub fn is_configurable(&self) -> bool {
         self.unleash_client_secret.is_some()
-            && self.desired_environments
+            && self
+                .desired_environments
                 .as_ref()
                 .is_some_and(|envs| !envs.is_empty())
     }
