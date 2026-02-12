@@ -377,7 +377,7 @@ mod tests {
         feature_cache.insert(map_key.clone(), client_features);
 
         let features = feature_cache.get(&map_key).unwrap();
-        let filter = FeatureFilterSet::from(Box::new(|f| f.name == "feature-one".to_string()));
+        let filter = FeatureFilterSet::from(Box::new(|f| f.name == "feature-one"));
         let filtered_client_features = filter_client_features(&features, &filter);
 
         let sent_segments = filtered_client_features.segments.as_ref().unwrap();
@@ -430,7 +430,7 @@ mod tests {
         feature_cache.insert(map_key.clone(), client_features);
 
         let features = feature_cache.get(&map_key).unwrap();
-        let filter = FeatureFilterSet::from(Box::new(|f| f.name == "feature-one".to_string()));
+        let filter = FeatureFilterSet::from(Box::new(|f| f.name == "feature-one"));
         let filtered_client_features = filter_client_features(&features, &filter);
 
         assert!(filtered_client_features.segments.is_none());
