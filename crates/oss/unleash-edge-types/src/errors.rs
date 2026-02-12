@@ -103,6 +103,7 @@ pub enum EdgeError {
     HealthCheckError(String),
     HeartbeatError(String, StatusCode),
     InvalidBackupFile(String, String),
+    InvalidTokenConfig(String),
     InvalidServerUrl(String),
     InvalidEtag,
     InvalidToken,
@@ -132,6 +133,7 @@ impl Display for EdgeError {
             EdgeError::InvalidBackupFile(path, why_invalid) => {
                 write!(f, "file at path: {path} was invalid due to {why_invalid}")
             }
+            EdgeError::InvalidTokenConfig(msg) => write!(f, "{msg}"),
             EdgeError::TlsError(msg) => write!(f, "Could not configure TLS: {msg}"),
             EdgeError::NoFeaturesFile => write!(f, "No features file located"),
             EdgeError::AuthorizationDenied => write!(f, "Not allowed to access"),
@@ -280,6 +282,7 @@ impl IntoResponse for EdgeError {
                 "status_code": status_code.as_str()
             }).to_string())),
             EdgeError::InvalidBackupFile(_, _) => Response::builder().status(self.status_code()).body(Body::empty()),
+            EdgeError::InvalidTokenConfig(_) => Response::builder().status(self.status_code()).body(Body::empty()),
             EdgeError::InvalidServerUrl(_) => Response::builder().status(self.status_code()).body(Body::empty()),
             EdgeError::JsonParseError(_) => Response::builder().status(self.status_code()).body(Body::empty()),
             EdgeError::NoFeaturesFile => Response::builder().status(self.status_code()).body(Body::empty()),
@@ -316,6 +319,7 @@ impl EdgeError {
     pub fn status_code(&self) -> StatusCode {
         match self {
             EdgeError::InvalidBackupFile(_, _) => StatusCode::INTERNAL_SERVER_ERROR,
+            EdgeError::InvalidTokenConfig(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::TlsError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::NoFeaturesFile => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::AuthorizationDenied => StatusCode::FORBIDDEN,
