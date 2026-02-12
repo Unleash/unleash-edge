@@ -78,6 +78,7 @@ fn build_sse_stream(
     token: &EdgeToken,
     client_meta_information: &ClientMetaInformation,
     custom_headers: &[(String, String)],
+    last_event_id: Option<&str>,
 ) -> anyhow::Result<SseStream> {
     let mut es_client_builder = eventsource_client::ClientBuilder::for_url(streaming_url)
         .context("Failed to create EventSource client for streaming")?
@@ -96,6 +97,12 @@ fn build_sse_stream(
             UNLEASH_CLIENT_SPEC_HEADER,
             unleash_yggdrasil::SUPPORTED_SPEC_VERSION,
         )?;
+
+    if let Some(id) = last_event_id {
+        if !id.is_empty() {
+            es_client_builder = es_client_builder.last_event_id(id.to_string());
+        }
+    }
 
     for (key, value) in custom_headers {
         es_client_builder = es_client_builder.header(key, value)?;
@@ -152,6 +159,7 @@ async fn run_stream_task(
     mut refresh_state_rx: Receiver<RefreshState>,
 ) {
     let mut stream: Option<SseStream> = None;
+    let mut last_event_id: Option<String> = None;
 
     loop {
         let state = *refresh_state_rx.borrow_and_update();
@@ -169,6 +177,7 @@ async fn run_stream_task(
                 &token,
                 &client_meta_information,
                 &custom_headers,
+                last_event_id.as_deref(),
             ) {
                 Ok(s) => s,
                 Err(e) => {
@@ -198,6 +207,11 @@ async fn run_stream_task(
                 next = s.next() => {
                     match next {
                         Some(Ok(sse)) => {
+                            if let eventsource_client::SSE::Event(ref event) = sse {
+                                if let Some(id) = &event.id {
+                                    last_event_id = Some(id.clone());
+                                }
+                            }
                             handle_sse(sse, &delta_refresher, &token).await;
                         }
                         Some(Err(e)) => {
