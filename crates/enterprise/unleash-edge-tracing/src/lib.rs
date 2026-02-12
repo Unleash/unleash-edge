@@ -153,9 +153,9 @@ fn enterprise_tracing(args: &CliArgs, app_id: String) -> EdgeResult<Option<OtelH
     }
 }
 
+#[allow(unused_variables)]
 /// Instantiates exporters for traces, metrics and logs
 /// the exporter will read environment variables as specified in (Otel docs)[https://opentelemetry.io/docs/specs/otel/protocol/exporter/]
-///
 pub fn init_tracing_and_logging(args: &CliArgs, app_id: String) -> EdgeResult<Option<OtelHolder>> {
     #[cfg(feature = "enterprise")]
     {
@@ -269,7 +269,6 @@ mod tests {
         let _ = formatting_layer::<tracing_subscriber::Registry>(&args);
     }
 
-    #[cfg(feature = "enterprise")]
     #[test]
     #[cfg(feature = "enterprise")]
     fn test_resource_creation() {

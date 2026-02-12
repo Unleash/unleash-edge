@@ -409,7 +409,7 @@ mod tests {
 
         delta_cache_manager.update_cache(
             &token.environment.clone().unwrap(),
-            &vec![DeltaEvent::FeatureUpdated {
+            &[DeltaEvent::FeatureUpdated {
                 event_id: 1,
                 feature: ClientFeature {
                     name: "Inigo Montoya".into(),
@@ -462,7 +462,7 @@ mod tests {
         let inject_event = async move || {
             delta_cache_manager.update_cache(
                 &token.environment.clone().unwrap(),
-                &vec![DeltaEvent::FeatureUpdated {
+                &[DeltaEvent::FeatureUpdated {
                     event_id: 2,
                     feature: ClientFeature {
                         name: "Westley".into(),
