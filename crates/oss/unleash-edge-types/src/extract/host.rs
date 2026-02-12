@@ -1,3 +1,4 @@
+#![allow(warnings)]
 use super::rejection::{FailedToResolveHost, HostRejection};
 use axum_core::{
     RequestPartsExt,
