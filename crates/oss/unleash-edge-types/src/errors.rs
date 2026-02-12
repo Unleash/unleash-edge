@@ -241,7 +241,7 @@ impl Display for EdgeError {
             EdgeError::HmacTokenRequestError(msg) => {
                 write!(
                     f,
-                    r#"Something went wrong when requesting tokens from Unleash. Upstream said {msg}"#
+                    r#"Something went wrong when sending a request for tokens to Unleash. Error was: {msg}"#
                 )
             }
             EdgeError::HmacTokenResponseError(msg) => {
