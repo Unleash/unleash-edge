@@ -42,7 +42,6 @@ eventsource-client = { version = "0.16.2" }
 eventsource-stream = { version = "0.2.3" }
 futures = { version = "0.3.31" }
 futures-util = { version = "0.3.31" }
-hex = { version = "0.4.3" }
 hmac = { version = "0.12.1" }
 http = { version = "1.4.0" }
 http-body-util = { version = "0.1.3" }

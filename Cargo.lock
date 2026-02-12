@@ -5626,7 +5626,6 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "etag",
- "hex",
  "hmac",
  "http 1.4.0",
  "lazy_static",

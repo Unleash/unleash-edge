@@ -3,11 +3,9 @@ use base64::prelude::BASE64_URL_SAFE_NO_PAD;
 use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
 use http::StatusCode;
-use prometheus::{IntGaugeVec, Opts, register_int_gauge_vec};
 use rand::{RngCore, rng};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::sync::LazyLock;
 use tracing::warn;
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::tokens::{EdgeToken, RequestTokensArg};
@@ -15,16 +13,7 @@ use unleash_edge_types::{EdgeResult, EdgeTokens, TokenValidationStatus};
 
 type HmacSha256 = Hmac<Sha256>;
 
-static HMAC_TOKEN_REQUEST_FAILURES: LazyLock<IntGaugeVec> = LazyLock::new(|| {
-    register_int_gauge_vec!(
-        Opts::new(
-            "hmac_token_request_failures",
-            "why we failed to validate hmac"
-        ),
-        &["status_code"]
-    )
-    .unwrap()
-});
+const CLIENT_ID: &str = "enterprise-edge";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct TokenRequest {
@@ -42,7 +31,6 @@ pub async fn request_tokens(
         client,
         environments,
         projects,
-        client_id,
         client_secret,
         issue_token_url,
     }: RequestTokensArg,
@@ -61,13 +49,13 @@ pub async fn request_tokens(
     let timestamp = Utc::now();
     let mut nonce = [0u8; 16];
     rng().fill_bytes(&mut nonce);
-    let nonce_as_hex = hex::encode(nonce);
+    let nonce_as_hex = hash_to_string(nonce.iter());
     let content_string = serde_json::to_string(&request_body)
         .map_err(|e| EdgeError::JsonParseError(e.to_string()))?;
     let mut content_hasher = Sha256::new();
     content_hasher.update(&content_string);
     let finalized_hash = content_hasher.finalize();
-    let hash_as_hex = hex::encode(finalized_hash);
+    let hash_as_hex = hash_to_string(finalized_hash.iter());
     let signature = create_canonical_signature(
         &client_secret,
         &timestamp,
@@ -80,7 +68,7 @@ pub async fn request_tokens(
         .post(issue_token_url)
         .header(
             reqwest::header::AUTHORIZATION,
-            format!("HMAC {}:{}", client_id, signature),
+            format!("HMAC {}:{}", CLIENT_ID, signature),
         )
         .header("x-timestamp", timestamp.to_rfc3339())
         .header("x-nonce", nonce_as_hex)
@@ -96,28 +84,17 @@ pub async fn request_tokens(
                 .json::<EdgeTokens>()
                 .await
                 .map_err(|e| EdgeError::HmacTokenResponseError(e.to_string()))?;
-            Ok(token_response
-                .tokens
-                .into_iter()
-                .map(|t| {
-                    let remaining_info =
-                        EdgeToken::try_from(t.token.clone()).unwrap_or_else(|_| t.clone());
-                    EdgeToken {
-                        token: t.token.clone(),
-                        token_type: t.token_type,
-                        environment: t.environment.or(remaining_info.environment),
-                        projects: t.projects,
-                        status: TokenValidationStatus::Validated,
-                    }
-                })
-                .collect())
+            Ok(token_response.tokens)
         }
         s => {
-            HMAC_TOKEN_REQUEST_FAILURES
-                .with_label_values(&[s.as_str()])
-                .inc();
             warn!("Failed to validate HMAC request.");
-            Err(EdgeError::HmacTokenResponseError(s.to_string()))
+            Err(EdgeError::HmacTokenResponseError(
+                response
+                    .text()
+                    .await
+                    .unwrap_or(format!("Failed to validate HMAC request, status code {s}"))
+                    .to_string(),
+            ))
         }
     }
 }
@@ -146,6 +123,13 @@ fn create_canonical_signature(
     Ok(BASE64_URL_SAFE_NO_PAD.encode(signature.finalize().into_bytes()))
 }
 
+fn hash_to_string<'a, I>(vals: I) -> String
+where
+    I: Iterator<Item = &'a u8>,
+{
+    vals.map(|v| format!("{v:02x}")).collect::<String>()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -162,7 +146,7 @@ mod tests {
     fn content_hash(content: &str) -> String {
         let mut hasher = Sha256::new();
         hasher.update(content.as_bytes());
-        hex::encode(hasher.finalize())
+        hash_to_string(hasher.finalize().iter())
     }
 
     impl TokenRequest {
@@ -182,7 +166,7 @@ mod tests {
     fn generate_random(length: usize) -> String {
         let mut bytes = Vec::with_capacity(length);
         rng().fill_bytes(&mut bytes);
-        hex::encode(bytes)
+        hash_to_string(bytes.iter())
     }
     async fn validate_token_request(
         headers: HeaderMap,
@@ -250,7 +234,6 @@ mod tests {
             environments: vec!["development".into(), "production".into()],
             projects: vec!["*".into()],
             issue_token_url: url,
-            client_id: CLIENT_ID.into(),
             client_secret: CLIENT_SECRET.into(),
         })
         .await

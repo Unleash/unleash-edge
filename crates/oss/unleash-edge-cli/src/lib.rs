@@ -426,9 +426,6 @@ pub enum LogFormat {
 
 #[derive(Args, Debug, Clone, Default)]
 pub struct HmacConfig {
-    #[clap(env, long, hide = true, default_value = "enterprise-edge")]
-    pub unleash_client_id: String,
-
     #[clap(env, long, hide = true)]
     pub unleash_client_secret: Option<String>,
 
@@ -460,7 +457,6 @@ impl HmacConfig {
                 client,
                 environments: envs,
                 projects: self.desired_projects.clone(),
-                client_id: self.unleash_client_id.clone(),
                 client_secret,
                 issue_token_url,
             })
