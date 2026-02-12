@@ -291,11 +291,12 @@ fn enforce_single_backend_token_per_env(args: &EdgeArgs) -> EdgeResult<()> {
     }
 
     let mut tokens_by_env: HashMap<String, Vec<EdgeToken>> = HashMap::new();
-    for token_string in &args.tokens {
-        if let Ok(token) = EdgeToken::from_str(token_string) {
-            if let Some(environment) = token.environment.clone() {
-                tokens_by_env.entry(environment).or_default().push(token);
-            }
+    for token in &args.tokens {
+        if let Some(environment) = token.environment.clone() {
+            tokens_by_env
+                .entry(environment)
+                .or_default()
+                .push(token.clone());
         }
     }
 
@@ -933,8 +934,8 @@ mod tests {
         let mut args = EdgeArgs {
             upstream_url: "http://localhost:4242".to_string(),
             tokens: vec![
-                "project-a:development.abc".to_string(),
-                "project-b:development.def".to_string(),
+                EdgeToken::from_str("project-a:development.abc").unwrap(),
+                EdgeToken::from_str("project-b:development.def").unwrap(),
             ],
             ..Default::default()
         };
@@ -950,8 +951,8 @@ mod tests {
         let mut args = EdgeArgs {
             upstream_url: "http://localhost:4242".to_string(),
             tokens: vec![
-                "project-a:development.abc".to_string(),
-                "project-b:production.def".to_string(),
+                EdgeToken::from_str("project-a:development.abc").unwrap(),
+                EdgeToken::from_str("project-b:production.def").unwrap(),
             ],
             ..Default::default()
         };
@@ -967,8 +968,8 @@ mod tests {
         let args = EdgeArgs {
             upstream_url: "http://localhost:4242".to_string(),
             tokens: vec![
-                "project-a:development.abc".to_string(),
-                "project-b:development.def".to_string(),
+                EdgeToken::from_str("project-a:development.abc").unwrap(),
+                EdgeToken::from_str("project-b:development.def").unwrap(),
             ],
             ..Default::default()
         };
