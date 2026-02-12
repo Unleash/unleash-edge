@@ -119,6 +119,9 @@ pub enum EdgeError {
     TokenValidationError(StatusCode),
     SocketBindError(String),
     TracingInitError(String),
+    HmacSignatureError,
+    HmacTokenRequestError(String),
+    HmacTokenResponseError(String),
 }
 
 impl Error for EdgeError {}
@@ -229,6 +232,24 @@ impl Display for EdgeError {
                     or unset it to disable the custom OpenTelemetry endpoint."#
                 )
             }
+            EdgeError::HmacSignatureError => {
+                write!(
+                    f,
+                    "Failed to build HMAC signature. Since HMAC should support any length for client secret, this is quite likely a mistake in Edge."
+                )
+            }
+            EdgeError::HmacTokenRequestError(msg) => {
+                write!(
+                    f,
+                    r#"Something went wrong when sending a request for tokens to Unleash. Error was: {msg}"#
+                )
+            }
+            EdgeError::HmacTokenResponseError(msg) => {
+                write!(
+                    f,
+                    r#"Failed to parse response when parsing to EdgeTokens from request for new tokens. Upstream said {msg}"#
+                )
+            }
         }
     }
 }
@@ -275,7 +296,7 @@ impl IntoResponse for EdgeError {
                 "explanation": format!("Edge could not parse token {}", token.clone())
             }).to_string())),
             EdgeError::TokenValidationError(status_code) => Response::builder().status(self.status_code()).body(Body::from(json!({
-                "explanation": format!("Received a non 200 status code when trying to validate token upstream"),
+                "explanation": "Received a non 200 status code when trying to validate token upstream",
                 "status_code": status_code.as_str()
             }).to_string())),
             EdgeError::InvalidEtag => Response::builder().status(self.status_code()).body(Body::from(json!({
@@ -284,7 +305,10 @@ impl IntoResponse for EdgeError {
             EdgeError::SocketBindError(_) => Response::builder().status(self.status_code()).body(Body::empty()),
             EdgeError::TracingInitError(msg) => Response::builder().status(self.status_code()).body(Body::from(json!({
                 "explanation": format!("Failed to instantiate tracing with error message: {msg}")
-            }).to_string()))
+            }).to_string())),
+            EdgeError::HmacSignatureError => Response::builder().status(self.status_code()).body(Body::empty()),
+            EdgeError::HmacTokenRequestError(_) => Response::builder().status(self.status_code()).body(Body::empty()),
+            EdgeError::HmacTokenResponseError(_) => Response::builder().status(self.status_code()).body(Body::empty())
         }.expect("Failed to build response")
     }
 }
@@ -328,6 +352,9 @@ impl EdgeError {
             &EdgeError::InvalidEtag => StatusCode::BAD_REQUEST,
             EdgeError::SocketBindError(_) => StatusCode::SERVICE_UNAVAILABLE,
             EdgeError::TracingInitError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            EdgeError::HmacSignatureError => StatusCode::INTERNAL_SERVER_ERROR,
+            EdgeError::HmacTokenRequestError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            EdgeError::HmacTokenResponseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }
