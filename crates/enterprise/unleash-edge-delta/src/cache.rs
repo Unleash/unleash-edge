@@ -148,7 +148,7 @@ mod tests {
         let max_length = 2;
         let mut delta_cache = DeltaCache::new(base_event.clone(), max_length);
 
-        let initial_events = &vec![DeltaEvent::FeatureUpdated {
+        let initial_events = &[DeltaEvent::FeatureUpdated {
             event_id: 2,
             feature: ClientFeature {
                 name: "my-feature-flag".to_string(),
@@ -233,7 +233,7 @@ mod tests {
                 ..ClientFeature::default()
             },
         };
-        delta_cache.add_events(&vec![initial_feature_event.clone()]);
+        delta_cache.add_events(std::slice::from_ref(&initial_feature_event));
 
         let updated_feature_event = DeltaEvent::FeatureUpdated {
             event_id: 130,
@@ -251,7 +251,7 @@ mod tests {
                 ..ClientFeature::default()
             },
         };
-        delta_cache.add_events(&vec![updated_feature_event.clone()]);
+        delta_cache.add_events(std::slice::from_ref(&updated_feature_event));
 
         assert_eq!(delta_cache.get_events()[1], initial_feature_event);
         assert_eq!(delta_cache.get_events()[2], updated_feature_event);
