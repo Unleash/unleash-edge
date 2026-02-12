@@ -26,13 +26,13 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout code
+        uses: actions/checkout@v6
 
       - name: Install rust
         run: |
           rustup set auto-self-update disable
           rustup show
-          rustup component add clippy
 
       - uses: Swatinem/rust-cache@v2
 
