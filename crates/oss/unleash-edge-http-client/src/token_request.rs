@@ -9,7 +9,7 @@ use sha2::{Digest, Sha256};
 use tracing::warn;
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::tokens::{EdgeToken, RequestTokensArg};
-use unleash_edge_types::{EdgeResult, EdgeTokens, TokenValidationStatus};
+use unleash_edge_types::{EdgeResult, EdgeTokens};
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -137,8 +137,8 @@ mod tests {
     use axum::{Json, Router};
     use chrono::DateTime;
     use http::HeaderMap;
-    use unleash_edge_types::TokenType;
     use unleash_edge_types::tokens::EdgeToken;
+    use unleash_edge_types::{TokenType, TokenValidationStatus};
 
     const CLIENT_ID: &str = "enterprise-edge";
     const CLIENT_SECRET: &str = "koom8ceiGaeBee9Eivahweideimak4aV";
