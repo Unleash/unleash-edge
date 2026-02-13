@@ -3,6 +3,7 @@ use std::sync::Arc;
 use axum::{
     Router,
     extract::{FromRef, Query, State},
+    http::HeaderMap,
     response::{Sse, sse::Event},
     routing::get,
 };
@@ -48,6 +49,7 @@ async fn setup_streaming(
     State(app_state): State<StreamingState>,
     AuthToken(edge_token): AuthToken,
     Query(filter_query): Query<FeatureFilters>,
+    headers: HeaderMap,
 ) -> EdgeResult<Sse<impl Stream<Item = Result<Event, axum::Error>>>> {
     let Some(delta_cache_manager) = app_state.delta_cache_manager.as_ref() else {
         return Err(EdgeError::SseError(
@@ -55,11 +57,22 @@ async fn setup_streaming(
         ));
     };
 
+    let last_event_id_header = headers
+        .get("last-event-id")
+        .and_then(|value| value.to_str().ok());
+    let last_event_id = last_event_id_header.and_then(|value| value.parse::<u32>().ok());
+    if last_event_id_header.is_some() && last_event_id.is_none() {
+        tracing::debug!("Invalid last-event-id header value");
+    } else if let Some(id) = last_event_id {
+        tracing::debug!("Client provided last-event-id={id}");
+    }
+
     stream_deltas(
         delta_cache_manager.clone(),
         app_state.token_cache.clone(),
         edge_token,
         filter_query,
+        last_event_id,
     )
     .await
 }
