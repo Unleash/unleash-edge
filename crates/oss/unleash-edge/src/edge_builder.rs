@@ -2,6 +2,8 @@ use crate::{CacheContainer, EdgeInfo, OTEL_INIT, SHOULD_DEFER_VALIDATION};
 use chrono::{Duration, Utc};
 use dashmap::DashMap;
 use http::StatusCode;
+#[cfg(feature = "enterprise")]
+use std::collections::{HashMap, HashSet};
 use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -247,6 +249,7 @@ pub async fn build_edge(
         error!("Edge was not able to validate any of the tokens configured at startup");
         return Err(EdgeError::NoTokens("No valid tokens provided on startup. At least one valid token must be specified at startup".into()));
     }
+    enforce_single_backend_token_per_env(args)?;
     for validated_token in token_cache
         .iter()
         .filter(|candidate| candidate.value().token_type == Some(TokenType::Backend))
@@ -279,6 +282,62 @@ pub async fn build_edge(
         hydrator_type,
         persistence,
     ))
+}
+
+#[cfg(feature = "enterprise")]
+fn enforce_single_backend_token_per_env(args: &EdgeArgs) -> EdgeResult<()> {
+    if !(args.delta || args.streaming) {
+        return Ok(());
+    }
+
+    let mut tokens_by_env: HashMap<String, Vec<EdgeToken>> = HashMap::new();
+    for token in &args.tokens {
+        if let Some(environment) = token.environment.clone() {
+            tokens_by_env
+                .entry(environment)
+                .or_default()
+                .push(token.clone());
+        }
+    }
+
+    let mut offenders: Vec<(String, Vec<EdgeToken>)> = tokens_by_env
+        .into_iter()
+        .filter(|(_, tokens)| tokens.len() > 1)
+        .collect();
+    if offenders.is_empty() {
+        return Ok(());
+    }
+
+    offenders.sort_by(|left, right| left.0.cmp(&right.0));
+
+    let mut lines = Vec::new();
+    lines.push("In DELTA/STREAMING mode, only one token per environment is allowed.".to_string());
+    for (environment, tokens) in offenders {
+        let mut projects: HashSet<String> = HashSet::new();
+        for token in tokens {
+            for project in token.projects.iter() {
+                projects.insert(project.clone());
+            }
+        }
+        let mut project_list: Vec<String> = projects.into_iter().collect();
+        project_list.sort();
+        let project_hint = if project_list.is_empty() || project_list.iter().any(|p| p == "*") {
+            "*".to_string()
+        } else {
+            project_list.join(", ")
+        };
+
+        lines.push(format!(
+            "Provide a single merged-scope token for {environment} covering projects: {project_hint} (or * if intended)."
+        ));
+    }
+
+    Err(EdgeError::InvalidTokenConfig(lines.join("\n")))
+}
+
+#[cfg(not(feature = "enterprise"))]
+fn enforce_single_backend_token_per_env(_args: &EdgeArgs) -> EdgeResult<()> {
+    Ok(())
 }
 
 pub async fn build_edge_state(
@@ -867,5 +926,55 @@ mod tests {
             .get(&expected_key)
             .expect("revision id should be present for backed up key");
         assert_eq!(revision_info.revision_id, 80543)
+    }
+
+    #[test]
+    #[cfg(feature = "enterprise")]
+    fn rejects_multiple_tokens_same_env_in_delta() {
+        let mut args = EdgeArgs {
+            upstream_url: "http://localhost:4242".to_string(),
+            tokens: vec![
+                EdgeToken::from_str("project-a:development.abc").unwrap(),
+                EdgeToken::from_str("project-b:development.def").unwrap(),
+            ],
+            ..Default::default()
+        };
+        args.delta = true;
+
+        let result = super::enforce_single_backend_token_per_env(&args);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    #[cfg(feature = "enterprise")]
+    fn allows_multiple_envs_in_delta() {
+        let mut args = EdgeArgs {
+            upstream_url: "http://localhost:4242".to_string(),
+            tokens: vec![
+                EdgeToken::from_str("project-a:development.abc").unwrap(),
+                EdgeToken::from_str("project-b:production.def").unwrap(),
+            ],
+            ..Default::default()
+        };
+        args.delta = true;
+
+        let result = super::enforce_single_backend_token_per_env(&args);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    #[cfg(feature = "enterprise")]
+    fn allows_multiple_tokens_same_env_in_polling() {
+        let args = EdgeArgs {
+            upstream_url: "http://localhost:4242".to_string(),
+            tokens: vec![
+                EdgeToken::from_str("project-a:development.abc").unwrap(),
+                EdgeToken::from_str("project-b:development.def").unwrap(),
+            ],
+            ..Default::default()
+        };
+
+        let result = super::enforce_single_backend_token_per_env(&args);
+        assert!(result.is_ok());
     }
 }
