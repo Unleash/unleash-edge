@@ -6,7 +6,7 @@ use chrono::Duration;
 use futures::{StreamExt, stream};
 use lazy_static::lazy_static;
 use prometheus::{IntGauge, IntGaugeVec, Opts, register_int_gauge, register_int_gauge_vec};
-use rand::{Rng, rng};
+use rand::{RngExt, rng};
 use reqwest::StatusCode;
 use tracing::{debug, error, info, trace, warn};
 use unleash_edge_types::metrics::batching::MetricsBatch;

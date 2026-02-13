@@ -3,7 +3,7 @@ use base64::prelude::BASE64_URL_SAFE_NO_PAD;
 use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
 use http::StatusCode;
-use rand::{RngCore, rng};
+use rand::{RngExt, rng};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tracing::warn;
@@ -47,7 +47,7 @@ pub async fn request_tokens(
 
     let timestamp = Utc::now();
     let mut nonce = [0u8; 16];
-    rng().fill_bytes(&mut nonce);
+    rng().fill(&mut nonce);
     let nonce_as_hex = hash_to_string(nonce.iter());
     let content_string = serde_json::to_string(&request_body)
         .map_err(|e| EdgeError::JsonParseError(e.to_string()))?;
@@ -136,6 +136,7 @@ mod tests {
     use axum::{Json, Router};
     use chrono::DateTime;
     use http::HeaderMap;
+    use rand::{RngExt, rng};
     use unleash_edge_types::tokens::EdgeToken;
     use unleash_edge_types::{TokenType, TokenValidationStatus};
 
@@ -164,7 +165,7 @@ mod tests {
     }
     fn generate_random(length: usize) -> String {
         let mut bytes = Vec::with_capacity(length);
-        rng().fill_bytes(&mut bytes);
+        rng().fill(&mut bytes);
         hash_to_string(bytes.iter())
     }
     async fn validate_token_request(
