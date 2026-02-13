@@ -80,6 +80,11 @@ fn build_sse_stream(
     custom_headers: &[(String, String)],
     last_event_id: Option<&str>,
 ) -> anyhow::Result<SseStream> {
+    debug!(
+        "Building upstream SSE stream (url: {}, last_event_id: {})",
+        streaming_url,
+        last_event_id.unwrap_or("<none>")
+    );
     let mut es_client_builder = eventsource_client::ClientBuilder::for_url(streaming_url)
         .context("Failed to create EventSource client for streaming")?
         .header("Authorization", &token.token)?
@@ -121,6 +126,11 @@ async fn handle_sse(
         eventsource_client::SSE::Event(event)
             if event.event_type == "unleash-connected" || event.event_type == "unleash-updated" =>
         {
+            debug!(
+                "Upstream SSE event received (type: {}, id: {})",
+                event.event_type,
+                event.id.as_deref().unwrap_or("<none>")
+            );
             if event.event_type == "unleash-connected" {
                 debug!("Connected to unleash! Populating flag cache now.");
             } else {
