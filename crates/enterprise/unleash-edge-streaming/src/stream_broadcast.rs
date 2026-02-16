@@ -24,6 +24,7 @@ pub async fn stream_deltas(
     token_cache: Arc<TokenCache>,
     edge_token: EdgeToken,
     filter_query: FeatureFilters,
+    last_event_id: Option<u32>,
 ) -> EdgeResult<Sse<impl Stream<Item = Result<Event, axum::Error>>>> {
     let token_cache = token_cache.clone();
 
@@ -34,8 +35,9 @@ pub async fn stream_deltas(
     let rx = delta_cache_manager.subscribe();
     let streaming_query = StreamingQuery::from((&query, &validated_token));
 
+    let replay_from = last_event_id.unwrap_or_default();
     let initial_features =
-        create_event_list(delta_cache_manager.clone(), 0, &streaming_query).await?;
+        create_event_list(delta_cache_manager.clone(), replay_from, &streaming_query).await?;
 
     let mut initial_event = Event::default().event("unleash-connected");
     if let Some(event_id) = event_list_last_id(&initial_features) {

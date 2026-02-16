@@ -488,6 +488,89 @@ mod tests {
     }
 
     #[tokio::test]
+    pub async fn streaming_resumes_from_last_event_id_when_present() {
+        let token = EdgeToken {
+            token: "*:development.hashhasin".into(),
+            token_type: Some(TokenType::Backend),
+            environment: Some("development".into()),
+            projects: vec!["*".into()],
+            status: TokenValidationStatus::Validated,
+        };
+
+        let token_cache = Arc::new(TokenCache::default());
+        let delta_cache_manager = Arc::new(DeltaCacheManager::new());
+
+        delta_cache_manager.insert_cache(
+            &token.environment.clone().unwrap(),
+            DeltaCache::new(
+                DeltaHydrationEvent {
+                    event_id: 0,
+                    features: vec![ClientFeature {
+                        name: "Inigo Montoya".into(),
+                        project: Some("Princess bride".into()),
+                        strategies: Some(vec![]),
+                        ..ClientFeature::default()
+                    }],
+                    segments: vec![],
+                },
+                10,
+            ),
+        );
+
+        delta_cache_manager.update_cache(
+            &token.environment.clone().unwrap(),
+            &[DeltaEvent::FeatureUpdated {
+                event_id: 1,
+                feature: ClientFeature {
+                    name: "Inigo Montoya".into(),
+                    project: Some("Princess bride".into()),
+                    strategies: Some(vec![]),
+                    ..ClientFeature::default()
+                },
+            }],
+        );
+
+        delta_cache_manager.update_cache(
+            &token.environment.clone().unwrap(),
+            &[DeltaEvent::FeatureUpdated {
+                event_id: 2,
+                feature: ClientFeature {
+                    name: "Westley".into(),
+                    project: Some("Princess bride".into()),
+                    strategies: Some(vec![]),
+                    ..ClientFeature::default()
+                },
+            }],
+        );
+
+        token_cache.insert(token.token.clone(), token.clone());
+
+        let test_server = client_api_test_server(token_cache, delta_cache_manager.clone()).await;
+        let url = test_server.server_url("/").unwrap();
+
+        let mut event_stream = reqwest::Client::new()
+            .get(format!("{url}api/client/streaming"))
+            .header("Authorization", "*:development.hashhasin")
+            .header("Last-Event-ID", "1")
+            .send()
+            .await
+            .unwrap()
+            .bytes_stream()
+            .eventsource();
+
+        let first_event = timeout(Duration::from_secs(5), event_stream.next())
+            .await
+            .expect("Failed to complete")
+            .expect("stream ended unexpectedly")
+            .expect("Error in event stream");
+
+        let delta = serde_json::from_str::<ClientFeaturesDelta>(&first_event.data).unwrap();
+        assert!(!delta.events.is_empty());
+        assert!(!matches!(delta.events[0], DeltaEvent::Hydration { .. }));
+        assert!(delta.events.iter().all(|e| e.get_event_id() > 1));
+    }
+
+    #[tokio::test]
     async fn streaming_is_terminated_if_token_becomes_invalidated() {
         let token = EdgeToken {
             token: "*:development.hashhasin".into(),
