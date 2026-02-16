@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.1.8](https://github.com/Unleash/unleash-edge/compare/unleash-edge-streaming-v20.1.0...unleash-edge-streaming-v20.1.8) - 2026-02-16
+
+### 🚀 Features
+- resume streaming from Last-Event-ID to avoid hydration on reconnect ([#1436](https://github.com/unleash/unleash-edge/issues/1436)) (by @gastonfournier) - #1436
+
+### 🐛 Bug Fixes
+- add SSE envelope ids for Edge streaming events ([#1425](https://github.com/unleash/unleash-edge/issues/1425)) (by @gastonfournier) - #1425
+
+### Contributors
+
+* @gastonfournier
+
 ## [20.1.7](https://github.com/Unleash/unleash-edge/compare/unleash-edge-streaming-v20.1.6...unleash-edge-streaming-v20.1.7) - 2026-01-27
 
 ### ⚙️ Miscellaneous Tasks

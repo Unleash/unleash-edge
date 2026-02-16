@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.1.8](https://github.com/Unleash/unleash-edge/compare/unleash-edge-v20.1.0...unleash-edge-v20.1.8) - 2026-02-16
+
+### 🚀 Features
+- enforce 1 token per env ([#1426](https://github.com/unleash/unleash-edge/issues/1426)) (by @gastonfournier) - #1426
+- hmac client token acquisition ([#1424](https://github.com/unleash/unleash-edge/issues/1424)) (by @chriswk) - #1424
+
+### 💼 Other
+- added client_id to prometheus exporting ([#1397](https://github.com/unleash/unleash-edge/issues/1397)) (by @chriswk) - #1397
+
+### ⚙️ Miscellaneous Tasks
+- copy over Host header extraction from axum-extra ([#1385](https://github.com/unleash/unleash-edge/issues/1385)) (by @chriswk) - #1385
+
+### Contributors
+
+* @gastonfournier
+* @chriswk
+
 ## [20.1.7](https://github.com/Unleash/unleash-edge/compare/unleash-edge-v20.1.0...unleash-edge-v20.1.7) - 2026-01-27
 
 ### 🚀 Features
