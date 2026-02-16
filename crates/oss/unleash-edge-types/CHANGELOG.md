@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.1.8](https://github.com/Unleash/unleash-edge/compare/unleash-edge-types-v20.1.1...unleash-edge-types-v20.1.8) - 2026-02-16
+
+### 🚀 Features
+- enforce 1 token per env ([#1426](https://github.com/unleash/unleash-edge/issues/1426)) (by @gastonfournier) - #1426
+- hmac client token acquisition ([#1424](https://github.com/unleash/unleash-edge/issues/1424)) (by @chriswk) - #1424
+
+### 🐛 Bug Fixes
+- make clippy work again on CI ([#1432](https://github.com/unleash/unleash-edge/issues/1432)) (by @sighphyre) - #1432
+
+### 💼 Other
+- change return code for frontend not hydrated ([#1421](https://github.com/unleash/unleash-edge/issues/1421)) (by @chriswk) - #1421
+
+### ⚙️ Miscellaneous Tasks
+- copy over Host header extraction from axum-extra ([#1385](https://github.com/unleash/unleash-edge/issues/1385)) (by @chriswk) - #1385
+
+### Contributors
+
+* @gastonfournier
+* @chriswk
+* @sighphyre
+
 ## [20.1.7](https://github.com/Unleash/unleash-edge/compare/unleash-edge-types-v20.1.1...unleash-edge-types-v20.1.7) - 2026-01-27
 
 ### 🚀 Features

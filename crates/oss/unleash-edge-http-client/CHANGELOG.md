@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.1.8](https://github.com/Unleash/unleash-edge/compare/unleash-edge-http-client-v20.1.1...unleash-edge-http-client-v20.1.8) - 2026-02-16
+
+### 🚀 Features
+- hmac client token acquisition ([#1424](https://github.com/unleash/unleash-edge/issues/1424)) (by @chriswk) - #1424
+
+### Contributors
+
+* @chriswk
+
 ## [20.1.7](https://github.com/Unleash/unleash-edge/compare/unleash-edge-http-client-v20.1.1...unleash-edge-http-client-v20.1.7) - 2026-01-27
 
 ### 🚀 Features

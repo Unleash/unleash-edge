@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.1.8](https://github.com/Unleash/unleash-edge/compare/unleash-edge-frontend-api-v20.1.0...unleash-edge-frontend-api-v20.1.8) - 2026-02-16
+
+### 💼 Other
+- change return code for frontend not hydrated ([#1421](https://github.com/unleash/unleash-edge/issues/1421)) (by @chriswk) - #1421
+
+### Contributors
+
+* @chriswk
+
 ## [20.1.7](https://github.com/Unleash/unleash-edge/compare/unleash-edge-frontend-api-v20.1.6...unleash-edge-frontend-api-v20.1.7) - 2026-01-27
 
 ### ⚙️ Miscellaneous Tasks
