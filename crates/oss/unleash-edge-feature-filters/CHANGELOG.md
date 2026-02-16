@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.1.8](https://github.com/Unleash/unleash-edge/compare/unleash-edge-feature-filters-v20.1.1...unleash-edge-feature-filters-v20.1.8) - 2026-02-16
+
+### 🐛 Bug Fixes
+- make clippy work again on CI ([#1432](https://github.com/unleash/unleash-edge/issues/1432)) (by @sighphyre) - #1432
+- filter out unnecessary segments when responding to features requests ([#1400](https://github.com/unleash/unleash-edge/issues/1400)) (by @sighphyre) - #1400
+
+### Contributors
+
+* @sighphyre
+
 ## [20.1.7](https://github.com/Unleash/unleash-edge/compare/unleash-edge-feature-filters-v20.1.6...unleash-edge-feature-filters-v20.1.7) - 2026-01-27
 
 ### ⚙️ Miscellaneous Tasks

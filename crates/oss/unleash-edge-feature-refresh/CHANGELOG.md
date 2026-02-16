@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.1.8](https://github.com/Unleash/unleash-edge/compare/unleash-edge-feature-refresh-v20.1.0...unleash-edge-feature-refresh-v20.1.8) - 2026-02-16
+
+### 🚀 Features
+- reconnect to stream using last event id ([#1434](https://github.com/unleash/unleash-edge/issues/1434)) (by @gastonfournier) - #1434
+
+### ⚙️ Miscellaneous Tasks
+- add more debug logs to understand how edge is connecting to Unleash ([#1435](https://github.com/unleash/unleash-edge/issues/1435)) (by @gastonfournier) - #1435
+
+### Contributors
+
+* @gastonfournier
+
 ## [20.1.7](https://github.com/Unleash/unleash-edge/compare/unleash-edge-feature-refresh-v20.1.0...unleash-edge-feature-refresh-v20.1.7) - 2026-01-27
 
 ### 🚀 Features
