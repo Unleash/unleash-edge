@@ -31,13 +31,32 @@ use unleash_edge_types::tokens::{EdgeToken, cache_key, simplify};
 use unleash_edge_types::{
     ClientFeaturesDeltaResponse, ClientFeaturesRequest, EdgeResult, RefreshState, TokenRefresh,
 };
-use unleash_types::client_features::{ClientFeaturesDelta, DeltaEvent};
+use unleash_types::client_features::{ClientFeaturesDelta, DeltaEvent, Meta};
 use unleash_yggdrasil::EngineState;
 
 pub type Environment = String;
 
 const DELTA_CACHE_LIMIT: usize = 100;
 const SDK_TYPE_HEADER: &str = "Unleash-Sdk-Type";
+
+fn query_hash_from_etag(etag: &EntityTag) -> Option<String> {
+    let etag = etag.to_string();
+    let value = etag.trim_start_matches("W/").trim_matches('"');
+    let (query_hash, _revision) = value.split_once(':')?;
+    (!query_hash.is_empty()).then(|| query_hash.to_string())
+}
+
+fn meta_from_delta(etag: Option<&EntityTag>, revision_id: Option<usize>) -> Option<Meta> {
+    if etag.is_none() && revision_id.is_none() {
+        return None;
+    }
+
+    Some(Meta {
+        etag: etag.map(|tag| tag.to_string()),
+        revision_id,
+        query_hash: etag.and_then(query_hash_from_etag),
+    })
+}
 
 static DELTA_REVISION_ID: LazyLock<IntGaugeVec> = LazyLock::new(|| {
     register_int_gauge_vec!(
@@ -336,8 +355,16 @@ impl DeltaRefresher {
             "Got updated client features delta. Updating features with etag {etag:?}, events count {updated_len}"
         );
 
+        let max_event_id = delta
+            .events
+            .iter()
+            .map(|e| e.get_event_id())
+            .max()
+            .map(|e| e as usize);
         let key: String = cache_key(refresh_token);
-        self.features_cache.apply_delta(key.clone(), &delta);
+        let meta = meta_from_delta(etag.as_ref(), max_event_id);
+        self.features_cache
+            .apply_delta_with_meta(key.clone(), &delta, meta);
 
         if let Some(_entry) = self.delta_cache_manager.get(&key) {
             self.delta_cache_manager.update_cache(&key, &delta.events);
@@ -363,12 +390,6 @@ impl DeltaRefresher {
                 "Warning: No hydrationEvent found in delta.events, but cache empty for environment"
             );
         }
-        let max_event_id = delta
-            .events
-            .iter()
-            .map(|e| e.get_event_id())
-            .max()
-            .map(|e| e as usize);
         if let (Some(max), Some(env)) = (max_event_id, refresh_token.environment.as_ref()) {
             DELTA_REVISION_ID
                 .with_label_values(&[env, &refresh_token.projects.join(",")])
