@@ -74,7 +74,7 @@ rustls-pemfile = { version = "2.2.0" }
 semver = { version = "1.0.27" }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = { version = "1.0.149" }
-serde_qs = { version = "0.15.0", features = ["axum"] }
+serde_qs = { version = "1.0.0", features = ["axum"] }
 sha2 = { version = "0.10.9" }
 shadow-rs = { version = "1.7.0" }
 socket2 = { version = "0.6.2" }
