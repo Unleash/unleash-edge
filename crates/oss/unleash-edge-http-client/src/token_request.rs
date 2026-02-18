@@ -164,7 +164,7 @@ mod tests {
         }
     }
     fn generate_random(length: usize) -> String {
-        let mut bytes = Vec::with_capacity(length);
+        let mut bytes = vec![0u8; length];
         rng().fill(&mut bytes);
         hash_to_string(bytes.iter())
     }
