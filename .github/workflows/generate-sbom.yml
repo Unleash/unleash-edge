@@ -52,7 +52,14 @@ jobs:
       - name: Upload file to existing release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_FROM_INPUT: ${{ inputs.tag }}
+          TAG_FROM_EVENT_INPUT: ${{ github.event.inputs.tag }}
+          TAG_FROM_RELEASE: ${{ github.event.release.tag_name }}
         run: |
-          TAG="${{ github.event.inputs.tag }}"
+          TAG="${TAG_FROM_INPUT:-${TAG_FROM_EVENT_INPUT:-${TAG_FROM_RELEASE:-}}}"
+          if [ -z "$TAG" ]; then
+            echo "Could not determine release tag from workflow inputs or release event."
+            exit 1
+          fi
           FILE=downloaded/unleash-edge-cyclone-dx.sbom.json
           gh release upload "$TAG" "$FILE" --clobber
