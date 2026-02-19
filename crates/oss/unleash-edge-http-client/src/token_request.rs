@@ -55,13 +55,8 @@ pub async fn request_tokens(
     content_hasher.update(&content_string);
     let finalized_hash = content_hasher.finalize();
     let hash_as_hex = hash_to_string(finalized_hash.iter());
-    let signature = create_canonical_signature(
-        &client_secret,
-        &timestamp,
-        &nonce_as_hex,
-        issue_token_url.path(),
-        &hash_as_hex,
-    )?;
+    let signature =
+        create_canonical_signature(&client_secret, &timestamp, &nonce_as_hex, &hash_as_hex)?;
 
     let response = client
         .post(issue_token_url)
@@ -72,7 +67,7 @@ pub async fn request_tokens(
         .header("x-timestamp", timestamp.to_rfc3339())
         .header("x-nonce", nonce_as_hex)
         .header("content-sha256", hash_as_hex)
-        .header("Content-Type", "application/json")
+        .header("content-type", "application/json")
         .body(content_string)
         .send()
         .await
@@ -102,13 +97,12 @@ fn create_canonical_signature(
     client_secret: &str,
     timestamp: &DateTime<Utc>,
     nonce: &str,
-    path: &str,
     content_hash: &str,
 ) -> EdgeResult<String> {
     let canonical_request = format!(
         "{}\n{}\n{}\n{}\n{}",
         "POST",
-        path,
+        "/edge/issue-token",
         timestamp.to_rfc3339(),
         nonce,
         content_hash
@@ -195,7 +189,6 @@ mod tests {
             CLIENT_SECRET,
             &timestamp,
             nonce_as_str,
-            "/edge/issue-token",
             &expected_content_hash,
         )
         .expect("Could not create signature");
