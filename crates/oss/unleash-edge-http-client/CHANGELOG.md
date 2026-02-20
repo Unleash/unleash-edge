@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.1.9](https://github.com/Unleash/unleash-edge/compare/unleash-edge-http-client-v20.1.1...unleash-edge-http-client-v20.1.9) - 2026-02-20
+
+### 🐛 Bug Fixes
+- unleash expects path to be /edge/issue-token ([#1445](https://github.com/unleash/unleash-edge/issues/1445)) (by @chriswk) - #1445
+
+### ⚙️ Miscellaneous Tasks
+- updated rand and serde_qs ([#1437](https://github.com/unleash/unleash-edge/issues/1437)) (by @chriswk) - #1437
+
+### Contributors
+
+* @chriswk
+
 ## [20.1.8](https://github.com/Unleash/unleash-edge/compare/unleash-edge-http-client-v20.1.1...unleash-edge-http-client-v20.1.8) - 2026-02-16
 
 ### 🚀 Features
