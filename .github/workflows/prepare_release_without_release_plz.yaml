@@ -1,0 +1,273 @@
+name: Prepare Release PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_pattern:
+        description: "Tag pattern to match (e.g. unleash-edge-v*)"
+        required: false
+        default: "unleash-edge-v*"
+      main_branch:
+        description: "Main branch name"
+        required: false
+        default: "main"
+      dry_run:
+        description: "Dry run (do not create tags or PRs)"
+        required: false
+        default: "false"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    env:
+      TAG_PATTERN: ${{ inputs.tag_pattern }}
+      MAIN_BRANCH: ${{ inputs.main_branch }}
+      DRY_RUN: ${{ inputs.dry_run }}
+
+    steps:
+      - name: Generate token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.UNLEASH_BOT_APP_ID }}
+          private-key: ${{ secrets.UNLEASH_BOT_PRIVATE_KEY }}
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          token: ${{ steps.generate-token.outputs.token }}
+
+      - name: Ensure tags & main are present
+        run: |
+          git fetch --tags --force --prune
+          git fetch origin "${MAIN_BRANCH}:${MAIN_BRANCH}"
+
+      - name: Find newest tag matching pattern
+        id: find_tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          latest_tag="$(git tag --list "${TAG_PATTERN}" --sort=-version:refname | head -n1 || true)"
+          if [[ -z "${latest_tag}" ]]; then
+            echo "No matching tags found for pattern '${TAG_PATTERN}'."
+            echo "latest_tag=" >> "$GITHUB_OUTPUT"
+            echo "base_is_initial=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Found latest tag: ${latest_tag}"
+            echo "latest_tag=${latest_tag}" >> "$GITHUB_OUTPUT"
+            echo "base_is_initial=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ---------- FAST-PATH ----------
+      - name:
+          Fast-path: Tag if only Cargo or Markdown files changed and version bumped
+        id: fasttag
+        if: steps.find_tag.outputs.base_is_initial == 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          base="${{ steps.find_tag.outputs.latest_tag }}"
+          range="${base}..${MAIN_BRANCH}"
+
+          mapfile -t files < <(git diff --name-only "${range}")
+          if [[ ${#files[@]} -eq 0 ]]; then
+            echo "did_tag=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # allow only Cargo.toml, Cargo.lock, and *.md
+          only_meta=true
+          for f in "${files[@]}"; do
+            if [[ ! "$f" =~ (^|.*/)Cargo\.toml$ && \
+                  ! "$f" =~ (^|.*/)Cargo\.lock$ && \
+                  ! "$f" =~ \.md$ ]]; then
+              only_meta=false
+              break
+            fi
+          done
+
+          if [[ "${only_meta}" != "true" ]]; then
+            echo "did_tag=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # extract root version
+          root_ver=""
+          if grep -Eq '^\[package\]' Cargo\.toml; then
+            root_ver="$(awk '
+              BEGIN{p=0}
+              /^\[package\]/{p=1;next}
+              /^\[/{p=0}
+              p==1 && $1=="version"{
+                match($0,/\"([^\"]+)\"/,m); print m[1]; exit
+              }' Cargo.toml)"
+          fi
+          if [[ -z "${root_ver}" ]]; then
+            root_ver="$(awk '
+              BEGIN{p=0}
+              /^\[workspace\.package\]/{p=1;next}
+              /^\[/{p=0}
+              p==1 && $1=="version"{
+                match($0,/\"([^\"]+)\"/,m); print m[1]; exit
+              }' Cargo.toml)"
+          fi
+
+          if [[ -z "${root_ver}" ]]; then
+            echo "No root version found in Cargo.toml; skipping fast-tag."
+            echo "did_tag=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          latest_tag_ver="${base##*v}"
+          top="$(printf '%s\n%s\n' "${latest_tag_ver}" "${root_ver}" | sort -V | tail -n1)"
+
+          if [[ "${top}" == "${root_ver}" && "${root_ver}" != "${latest_tag_ver}" ]]; then
+            new_tag="unleash-edge-v${root_ver}"
+            if [[ "${DRY_RUN}" == "true" ]]; then
+              echo "[DRY RUN] Would create tag ${new_tag}"
+            else
+              echo "Creating tag ${new_tag}..."
+              git config user.name "github-actions[bot]"
+              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+              git tag -a "${new_tag}" -m "Release ${new_tag}"
+              git push origin "${new_tag}"
+            fi
+            echo "did_tag=true" >> "$GITHUB_OUTPUT"
+            echo "created_tag=${new_tag}" >> "$GITHUB_OUTPUT"
+          else
+            echo "Version not strictly newer or not on top; skipping tag."
+            echo "did_tag=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ---------- NORMAL PATH ----------
+      - name: Check diff between latest tag and main
+        id: diffcheck
+        if: steps.fasttag.outputs.did_tag != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ steps.find_tag.outputs.base_is_initial }}" == "true" ]]; then
+            if git rev-parse --verify "${MAIN_BRANCH}" >/dev/null 2>&1 && \
+               [[ -n "$(git rev-list --max-count=1 ${MAIN_BRANCH})" ]]; then
+              echo "has_diff=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "has_diff=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            if git diff --quiet "${{ steps.find_tag.outputs.latest_tag }}".."${MAIN_BRANCH}"; then
+              echo "has_diff=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "has_diff=true" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Decide release level (semver)
+        id: semver
+        if: steps.fasttag.outputs.did_tag != 'true' && steps.diffcheck.outputs.has_diff == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="${{ steps.find_tag.outputs.latest_tag }}"
+          range="${MAIN_BRANCH}"
+          if [[ -n "${base}" ]]; then
+            range="${base}..${MAIN_BRANCH}"
+          fi
+
+          log="$(git log --no-merges --format=%s%n%b ${range} || true)"
+          level="patch"
+          if echo "${log}" | grep -Eiq 'BREAKING CHANGE'; then
+            level="major"
+          elif echo "${log}" | grep -Eq '^[a-z]+(\([^)]+\))?!:'; then
+            level="major"
+          elif echo "${log}" | grep -Eq '^feat(\([^)]+\))?:'; then
+            level="minor"
+          fi
+
+          echo "level=${level}" >> "$GITHUB_OUTPUT"
+          echo "Computed release level: ${level}"
+
+      - name: Compute new version
+        id: version
+        if: steps.fasttag.outputs.did_tag != 'true' && steps.diffcheck.outputs.has_diff == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          level="${{ steps.semver.outputs.level }}"
+          latest="${{ steps.find_tag.outputs.latest_tag }}"
+          if [[ -z "${latest}" ]]; then
+            current="0.1.0"
+          else
+            current="${latest##*v}"
+          fi
+          IFS='.' read -r MAJ MIN PAT <<< "${current}"
+          case "${level}" in
+            major) newver="$((MAJ+1)).0.0" ;;
+            minor) newver="${MAJ}.$((MIN+1)).0" ;;
+            *)     newver="${MAJ}.${MIN}.$((PAT+1))" ;;
+          esac
+          echo "new_version=${newver}" >> "$GITHUB_OUTPUT"
+          echo "new_tag=unleash-edge-v${newver}" >> "$GITHUB_OUTPUT"
+
+      - name: Install Rust tools
+        if: steps.fasttag.outputs.did_tag != 'true' && steps.diffcheck.outputs.has_diff == 'true'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: |
+            cargo-edit
+            git-cliff
+
+      - name: Prepare PR (or dry-run preview)
+        if: steps.fasttag.outputs.did_tag != 'true' && steps.diffcheck.outputs.has_diff == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          branch="chore/prepare-release-${{ steps.version.outputs.new_version }}"
+          if [[ "${DRY_RUN}" == "true" ]]; then
+            echo "[DRY RUN] Would create branch ${branch}"
+          else
+            git checkout -B "${branch}" "${MAIN_BRANCH}"
+          fi
+
+          if [[ "${DRY_RUN}" == "true" ]]; then
+            echo "[DRY RUN] Would bump Cargo versions and run git-cliff"
+            exit 0
+          fi
+
+          cargo set-version --workspace "${{ steps.version.outputs.new_version }}"
+          git add **/Cargo.toml Cargo.toml || true
+
+          base_tag="${{ steps.find_tag.outputs.latest_tag }}"
+          since_flag=()
+          if [[ -n "${base_tag}" ]]; then
+            since_flag=(--since-tag "${base_tag}")
+          fi
+
+          mapfile -t crates < <(git ls-files '**/Cargo.toml' ':!target/**' ':!.github/**')
+          for cargo_toml in "${crates[@]}"; do
+            dir="$(dirname "${cargo_toml}")"
+            ( cd "${dir}" && git-cliff "${since_flag[@]}" --output CHANGELOG.md )
+            git add "${dir}/CHANGELOG.md"
+          done
+
+          git-cliff "${since_flag[@]}" --output CHANGELOG_PR.md
+          git add CHANGELOG_PR.md
+          git commit -m "chore(release): bump to ${{ steps.version.outputs.new_version }} and update changelogs"
+
+      - name: Create or update Pull Request
+        if: steps.fasttag.outputs.did_tag != 'true' && steps.diffcheck.outputs.has_diff == 'true' && inputs.dry_run == 'false'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: chore/prepare-release-${{ steps.version.outputs.new_version }}
+          title: "chore(release): unleash-edge-v${{ steps.version.outputs.new_version }}"
+          body-path: "CHANGELOG_PR.md"
+          commit-message: "chore(release): bump to ${{ steps.version.outputs.new_version }} and update changelogs"
+          labels: release
+          draft: false
+          token: ${{ steps.generate-token.outputs.token }}
