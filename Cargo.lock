@@ -5945,9 +5945,9 @@ dependencies = [
 
 [[package]]
 name = "unleash-types"
-version = "0.15.21"
+version = "0.15.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d614547915ce8248571152cd647bb3b4b943e0d96d91ae832292669002ac2587"
+checksum = "1c949e48abff484786921fd98c6f0daa409b36d5a4e222a1fcf8c5c740cf0b32"
 dependencies = [
  "base64 0.22.1",
  "chrono",
