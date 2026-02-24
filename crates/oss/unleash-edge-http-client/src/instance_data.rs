@@ -4,10 +4,11 @@ use tokio::sync::RwLock;
 
 use crate::{ClientMetaInformation, UnleashClient};
 use tracing::{debug, warn};
-use unleash_edge_cli::{CliArgs, EdgeMode};
+use unleash_edge_cli::AuthHeaders;
 use unleash_edge_types::BackgroundTask;
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
+use unleash_edge_types::tokens::EdgeToken;
 
 #[derive(Debug, Clone)]
 pub struct InstanceDataSender {
@@ -24,44 +25,39 @@ pub enum InstanceDataSending {
 
 impl InstanceDataSending {
     pub fn from_args(
-        args: CliArgs,
+        tokens: Vec<EdgeToken>,
+        auth_headers: AuthHeaders,
+        upstream_url: Url,
         client_meta_information: &ClientMetaInformation,
+        custom_client_headers: Vec<(String, String)>,
+        base_path: String,
         http_client: reqwest::Client,
     ) -> Result<Self, EdgeError> {
-        match args.mode {
-            EdgeMode::Edge(edge_args) => edge_args
-                .tokens
-                .first()
-                .map(|token| {
-                    let unleash_client = Url::parse(&edge_args.upstream_url.clone())
-                        .map(|url| {
-                            UnleashClient::from_url_with_backing_client(
-                                url,
-                                args.auth_headers
-                                    .upstream_auth_header
-                                    .clone()
-                                    .unwrap_or("Authorization".to_string()),
-                                http_client,
-                                client_meta_information.clone(),
-                            )
-                        })
-                        .map(|c| {
-                            c.with_custom_client_headers(edge_args.custom_client_headers.clone())
-                        })
-                        .map(Arc::new)
-                        .map_err(|_| EdgeError::InvalidServerUrl(edge_args.upstream_url.clone()))
-                        .expect("Could not construct UnleashClient");
-                    let instance_data_sender = InstanceDataSender {
-                        unleash_client,
-                        token: token.token.clone(),
-                        base_path: args.http.base_path.clone(),
-                    };
-                    InstanceDataSending::SendInstanceData(instance_data_sender)
-                })
-                .map(Ok)
-                .unwrap_or(Ok(InstanceDataSending::SendNothing)),
-            _ => Ok(InstanceDataSending::SendNothing),
-        }
+        tokens
+            .first()
+            .map(|token| {
+                let unleash_client = Arc::new(
+                    UnleashClient::from_url_with_backing_client(
+                        upstream_url,
+                        auth_headers
+                            .upstream_auth_header
+                            .clone()
+                            .unwrap_or("Authorization".to_string()),
+                        http_client,
+                        client_meta_information.clone(),
+                    )
+                    .with_custom_client_headers(custom_client_headers.clone()),
+                );
+                let instance_data_sender = InstanceDataSender {
+                    unleash_client,
+                    token: token.token.clone(),
+                    base_path,
+                };
+                InstanceDataSending::SendInstanceData(instance_data_sender)
+            })
+            .ok_or(EdgeError::NoTokens(
+                "Edge requires at least one token at startup".to_string(),
+            ))
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::edge_builder::{EdgeStateArgs, build_edge_state};
+use crate::edge_builder::{EdgeStateArgs, PersistenceArgs, build_edge_state};
 use crate::offline_builder::build_offline_app_state;
 use ::tracing::info;
 use axum::Router;
@@ -9,16 +9,17 @@ use unleash_edge_appstate::AppState;
 #[cfg(feature = "enterprise")]
 use unleash_edge_enterprise_api::heartbeat;
 
+use reqwest::Client;
 use std::env;
 use std::sync::{Arc, LazyLock, OnceLock};
 use tokio::sync::RwLock;
 
 use tower::ServiceBuilder;
 use tower_http::compression::CompressionLayer;
+use tracing::warn;
 use ulid::Ulid;
-
 use unleash_edge_auth::token_validator::TokenValidator;
-use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeMode};
+use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeMode, HmacConfig};
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_refresh::HydratorType;
@@ -29,8 +30,12 @@ use unleash_edge_metrics::axum_prometheus_metrics::{
 use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_request_logger::log_request_middleware;
 use unleash_edge_tracing::OtelHolder;
-use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
+use unleash_edge_types::errors::EdgeError;
+use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
+use unleash_edge_types::tokens::EdgeToken;
+use unleash_edge_types::urls::UnleashUrls;
 use unleash_edge_types::{BackgroundTask, EdgeResult, EngineCache, TokenCache};
+use url::Url;
 
 pub mod edge_builder;
 pub mod health_checker;
@@ -60,6 +65,37 @@ pub type EdgeInfo = (
 
 static OTEL_INIT: OnceLock<Arc<Option<OtelHolder>>> = OnceLock::new();
 
+#[cfg(feature = "enterprise")]
+const DEFAULT_HOSTING: Hosting = Hosting::EnterpriseSelfHosted;
+
+#[cfg(not(feature = "enterprise"))]
+const DEFAULT_HOSTING: Hosting = Hosting::SelfHosted;
+
+pub async fn build_tokens(
+    http_client: Client,
+    upstream_url: Url,
+    tokens: Vec<EdgeToken>,
+    hmac_config: HmacConfig,
+) -> EdgeResult<Vec<EdgeToken>> {
+    if let Some(token_request) = hmac_config.possible_token_request(
+        http_client,
+        UnleashUrls::from_base_url(upstream_url).token_request_url,
+    ) {
+        let unleash_granted_tokens =
+            unleash_edge_http_client::token_request::request_tokens(token_request).await;
+        if !tokens.is_empty() {
+            warn!(
+                "Both tokens and hmac_config were configured. Overriding startup tokens with tokens obtained via hmac_config."
+            );
+        }
+        unleash_granted_tokens
+    } else if !tokens.is_empty() {
+        Ok(tokens)
+    } else {
+        Ok(vec![])
+    }
+}
+
 pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<BackgroundTask>)> {
     let app_id: Ulid = Ulid::new();
     let client_meta_information = ClientMetaInformation {
@@ -67,6 +103,7 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
         instance_id: app_id,
         connection_id: app_id,
     };
+    let client_id = args.client_id.clone().unwrap_or("self-hosted".into());
 
     let instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>> =
         Arc::new(RwLock::new(Vec::new()));
@@ -75,6 +112,8 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
 
     let (app_state, background_tasks, shutdown_tasks) = match &args.mode {
         EdgeMode::Edge(edge_args) => {
+            let upstream_url = Url::parse(&edge_args.upstream_url)
+                .map_err(|_e| EdgeError::InvalidServerUrl(edge_args.upstream_url.clone()))?;
             let http_client = new_reqwest_client(HttpClientArgs {
                 skip_ssl_verification: edge_args.skip_ssl_verification,
                 client_identity: edge_args.client_identity.clone(),
@@ -85,15 +124,57 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
                 client_meta_information: client_meta_information.clone(),
             })?;
 
+            let tokens = build_tokens(
+                http_client.clone(),
+                upstream_url.clone(),
+                edge_args.tokens.clone(),
+                edge_args.hmac_config.clone(),
+            )
+            .await?;
+
             let auth_headers = AuthHeaders::from(&args);
 
             build_edge_state(EdgeStateArgs {
-                args: args.clone(),
-                edge_args: edge_args.clone(),
                 client_meta_information,
                 instances_observed_for_app_context: instances_observed_for_app_context.clone(),
                 auth_headers,
                 http_client,
+                hosting_type: args.hosting_type.unwrap_or(DEFAULT_HOSTING),
+                client_id,
+                app_id,
+                otel_endpoint_url: args.otel_config.otel_exporter_otlp_endpoint,
+                otel_protocol: args.otel_config.otel_exporter_otlp_protocol,
+                tokens,
+                base_path: args.http.base_path.clone(),
+                http_deny_list: args.http.deny_list,
+                log_format: args.log_format,
+                upstream_url,
+                custom_client_headers: edge_args.custom_client_headers.clone(),
+                http_allow_list: args.http.allow_list,
+                #[cfg(feature = "enterprise")]
+                streaming: edge_args.streaming,
+                #[cfg(not(feature = "enterprise"))]
+                streaming: false,
+                #[cfg(feature = "enterprise")]
+                delta: edge_args.delta,
+                #[cfg(not(feature = "enterprise"))]
+                delta: false,
+                persistence_args: PersistenceArgs {
+                    s3: edge_args.s3.clone(),
+                    redis: edge_args.redis.clone(),
+                    backup_folder: edge_args.backup_folder.clone(),
+                },
+                pretrusted_tokens: edge_args.pretrusted_tokens.clone(),
+                features_refresh_interval: Duration::seconds(
+                    edge_args.features_refresh_interval_seconds as i64,
+                ),
+
+                metrics_interval_seconds: edge_args.metrics_interval_seconds as i64,
+                token_revalidation_interval_seconds: edge_args.token_revalidation_interval_seconds,
+                prometheus_remote_write_url: edge_args.prometheus_remote_write_url.clone(),
+                prometheus_push_interval: edge_args.prometheus_push_interval,
+                prometheus_username: edge_args.prometheus_username.clone(),
+                prometheus_password: edge_args.prometheus_password.clone(),
             })
             .await?
         }
