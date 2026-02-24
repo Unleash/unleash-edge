@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.1.10](https://github.com/Unleash/unleash-edge/compare/unleash-edge-metrics-v20.1.0...unleash-edge-metrics-v20.1.10) - 2026-02-24
+
+### ⚙️ Miscellaneous Tasks
+- initial work on no longer using CliArgs longer than we need ([#1451](https://github.com/unleash/unleash-edge/issues/1451)) (by @chriswk) - #1451
+
+### Contributors
+
+* @chriswk
+
 ## [20.1.9](https://github.com/Unleash/unleash-edge/compare/unleash-edge-metrics-v20.1.0...unleash-edge-metrics-v20.1.9) - 2026-02-23
 
 ### ⚙️ Miscellaneous Tasks
