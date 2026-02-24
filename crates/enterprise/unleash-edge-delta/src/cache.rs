@@ -95,27 +95,27 @@ impl DeltaCache {
                     .retain(|f| f.name != feature_name.clone());
             }
             DeltaEvent::SegmentUpdated { segment, .. } => {
-                if let Some(existing) = self
+                match self
                     .hydration_event
                     .segments
-                    .iter_mut()
-                    .find(|s| s.id == segment.id)
+                    .binary_search_by_key(&segment.id, |existing_segment| existing_segment.id)
                 {
-                    *existing = segment.clone();
-                } else {
-                    self.hydration_event.segments.push(segment.clone());
+                    Ok(index) => {
+                        self.hydration_event.segments[index] = segment.clone();
+                    }
+                    Err(index) => {
+                        self.hydration_event.segments.insert(index, segment.clone());
+                    }
                 }
-                self.hydration_event
-                    .segments
-                    .sort_by_key(|existing_segment| existing_segment.id);
             }
             DeltaEvent::SegmentRemoved { segment_id, .. } => {
-                self.hydration_event
+                if let Ok(index) = self
+                    .hydration_event
                     .segments
-                    .retain(|s| s.id != *segment_id);
-                self.hydration_event
-                    .segments
-                    .sort_by_key(|existing_segment| existing_segment.id);
+                    .binary_search_by_key(segment_id, |existing_segment| existing_segment.id)
+                {
+                    self.hydration_event.segments.remove(index);
+                }
             }
             DeltaEvent::Hydration { .. } => {
                 // do nothing, as hydration will never end up in update events
