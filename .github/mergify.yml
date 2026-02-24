@@ -24,9 +24,12 @@ pull_request_rules:
 
 queue_rules:
   - name: default
-    conditions:
+    merge_method: squash
+    allow_inplace_checks: false
+    queue_conditions:
       - base=main
       - -draft
       - -conflict
+    merge_conditions:
       - status-success
       - "#approved-reviews-by>=1"
