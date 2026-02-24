@@ -1,4 +1,3 @@
-use crate::tls::build_upstream_certificate;
 use ahash::HashMap;
 use axum::http::{HeaderName, StatusCode};
 use chrono::{Duration, Utc};
@@ -6,19 +5,14 @@ use etag::EntityTag;
 use lazy_static::lazy_static;
 use prometheus::{HistogramVec, IntGaugeVec, Opts, register_histogram_vec, register_int_gauge_vec};
 use reqwest::header::HeaderMap;
-use reqwest::{Client, ClientBuilder, Identity, RequestBuilder, header};
-use serde::{Deserialize, Serialize};
-use std::fs;
-use std::fs::File;
-use std::io::{BufReader, Read};
-use std::path::PathBuf;
+use reqwest::{Client, RequestBuilder, header};
 use std::str::FromStr;
 use tracing::{debug, error, info, instrument, trace, warn};
 use ulid::Ulid;
-use unleash_edge_cli::ClientIdentity;
+use unleash_edge_config::httpclient::{ClientMetaInformation, HttpClientOpts};
 use unleash_edge_types::enterprise::{HeartbeatResponse, LicenseState};
 use unleash_edge_types::errors::EdgeError::EdgeMetricsRequestError;
-use unleash_edge_types::errors::{CertificateError, EdgeError, FeatureError};
+use unleash_edge_types::errors::{EdgeError, FeatureError};
 use unleash_edge_types::headers::{
     UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_CONNECTION_ID_HEADER,
     UNLEASH_INSTANCE_ID_HEADER, UNLEASH_INTERVAL,
@@ -36,7 +30,6 @@ use unleash_types::client_metrics::ClientApplication;
 use url::Url;
 
 pub mod instance_data;
-pub mod tls;
 pub mod token_request;
 
 lazy_static! {
@@ -106,26 +99,6 @@ lazy_static! {
     .unwrap();
 }
 
-#[cfg_attr(test, derive(Default))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ClientMetaInformation {
-    pub app_name: String,
-    pub instance_id: Ulid,
-    pub connection_id: Ulid,
-}
-
-#[cfg_attr(test, derive(Default))]
-#[derive(Clone, Debug)]
-pub struct HttpClientArgs {
-    pub skip_ssl_verification: bool,
-    pub client_identity: Option<ClientIdentity>,
-    pub upstream_certificate_file: Option<PathBuf>,
-    pub connect_timeout: Duration,
-    pub socket_timeout: Duration,
-    pub keep_alive_timeout: Duration,
-    pub client_meta_information: ClientMetaInformation,
-}
-
 #[derive(Clone, Debug)]
 pub struct UnleashClient {
     pub urls: UnleashUrls,
@@ -141,135 +114,33 @@ impl UnleashClient {
     }
 }
 
-fn load_pkcs12(id: &ClientIdentity) -> EdgeResult<Identity> {
-    let p12_file = fs::read(id.pkcs12_identity_file.clone().unwrap()).map_err(|e| {
-        EdgeError::ClientCertificateError(CertificateError::Pkcs12ArchiveNotFound(format!("{e:?}")))
-    })?;
-    let p12_keystore =
-        p12_keystore::KeyStore::from_pkcs12(&p12_file, &id.pkcs12_passphrase.clone().unwrap())
-            .map_err(|e| {
-                EdgeError::ClientCertificateError(CertificateError::Pkcs12ParseError(format!(
-                    "{e:?}"
-                )))
-            })?;
-    let mut pem = vec![];
-    for (alias, entry) in p12_keystore.entries() {
-        debug!("P12 entry: {alias}");
-        match entry {
-            p12_keystore::KeyStoreEntry::Certificate(_) => {
-                info!(
-                    "Direct Certificate, skipping. We want chain because client identity needs the private key"
-                );
-            }
-            p12_keystore::KeyStoreEntry::PrivateKeyChain(chain) => {
-                let key_pem = pkix::pem::der_to_pem(chain.key(), pkix::pem::PEM_PRIVATE_KEY);
-                pem.extend(key_pem.as_bytes());
-                pem.push(0x0a); // Added new line
-                for cert in chain.chain() {
-                    let cert_pem = pkix::pem::der_to_pem(cert.as_der(), pkix::pem::PEM_CERTIFICATE);
-                    pem.extend(cert_pem.as_bytes());
-                    pem.push(0x0a); // Added new line
-                }
-            }
-            p12_keystore::KeyStoreEntry::Secret(_) => {
-                info!(
-                    "Direct secret, skipping. We want chain because client identity needs the private key"
-                )
-            }
-        }
-    }
-
-    Identity::from_pem(&pem).map_err(|e| {
-        EdgeError::ClientCertificateError(CertificateError::Pkcs12X509Error(format!("{e:?}")))
-    })
-}
-
-fn load_pkcs8_identity(id: &ClientIdentity) -> EdgeResult<Vec<u8>> {
-    let cert = File::open(id.pkcs8_client_certificate_file.clone().unwrap()).map_err(|e| {
-        EdgeError::ClientCertificateError(CertificateError::Pem8ClientCertNotFound(format!("{e:}")))
-    })?;
-    let key = File::open(id.pkcs8_client_key_file.clone().unwrap()).map_err(|e| {
-        EdgeError::ClientCertificateError(CertificateError::Pem8ClientKeyNotFound(format!("{e:?}")))
-    })?;
-    let mut cert_reader = BufReader::new(cert);
-    let mut key_reader = BufReader::new(key);
-    let mut pem = vec![];
-    let _ = key_reader.read_to_end(&mut pem);
-    pem.push(0x0a);
-    let _ = cert_reader.read_to_end(&mut pem);
-    Ok(pem)
-}
-
-fn load_pkcs8(id: &ClientIdentity) -> EdgeResult<Identity> {
-    Identity::from_pem(&load_pkcs8_identity(id)?).map_err(|e| {
-        EdgeError::ClientCertificateError(CertificateError::Pem8IdentityGeneration(format!(
-            "{e:?}"
-        )))
-    })
-}
-
-fn load_pem_identity(pem_file: PathBuf) -> EdgeResult<Vec<u8>> {
-    let mut pem = vec![];
-    let mut pem_reader = BufReader::new(File::open(pem_file).expect("No such file"));
-    let _ = pem_reader.read_to_end(&mut pem);
-    Ok(pem)
-}
-
-fn load_pem(id: &ClientIdentity) -> EdgeResult<Identity> {
-    Identity::from_pem(&load_pem_identity(id.pem_cert_file.clone().unwrap())?).map_err(|e| {
-        EdgeError::ClientCertificateError(CertificateError::Pem8IdentityGeneration(format!(
-            "{e:?}"
-        )))
-    })
-}
-
-fn build_identity(tls: Option<ClientIdentity>) -> EdgeResult<ClientBuilder> {
-    tls.map_or_else(
-        || Ok(ClientBuilder::new().use_rustls_tls()),
-        |tls| {
-            let req_identity = if tls.pkcs12_identity_file.is_some() {
-                // We're going to assume that we're using pkcs#12
-                load_pkcs12(&tls)
-            } else if tls.pkcs8_client_certificate_file.is_some() {
-                load_pkcs8(&tls)
-            } else if tls.pem_cert_file.is_some() {
-                load_pem(&tls)
-            } else {
-                Err(EdgeError::ClientCertificateError(
-                    CertificateError::NoCertificateFiles,
-                ))
-            };
-            req_identity.map(|id| ClientBuilder::new().use_rustls_tls().identity(id))
-        },
-    )
-}
-
-pub fn new_reqwest_client(args: HttpClientArgs) -> EdgeResult<Client> {
-    build_identity(args.client_identity)
+pub fn new_reqwest_client(opts: HttpClientOpts) -> EdgeResult<Client> {
+    unleash_edge_config::tls::build_identity(opts.client_identity)
         .and_then(|builder| {
-            build_upstream_certificate(args.upstream_certificate_file).map(|cert| match cert {
-                Some(c) => builder.add_root_certificate(c),
-                None => builder,
-            })
+            unleash_edge_config::tls::build_upstream_certificate(opts.upstream_certificate_file)
+                .map(|cert| match cert {
+                    Some(c) => builder.add_root_certificate(c),
+                    None => builder,
+                })
         })
         .and_then(|client| {
             let mut header_map = HeaderMap::new();
             header_map.insert(
                 UNLEASH_APPNAME_HEADER,
-                header::HeaderValue::from_str(&args.client_meta_information.app_name)
+                header::HeaderValue::from_str(&opts.client_meta_information.app_name)
                     .expect("Could not add app name as a header"),
             );
             header_map.insert(
                 UNLEASH_INSTANCE_ID_HEADER,
                 header::HeaderValue::from_str(
-                    &args.client_meta_information.instance_id.to_string(),
+                    &opts.client_meta_information.instance_id.to_string(),
                 )
                 .unwrap(),
             );
             header_map.insert(
                 UNLEASH_CONNECTION_ID_HEADER,
                 header::HeaderValue::from_str(
-                    &args.client_meta_information.connection_id.to_string(),
+                    &opts.client_meta_information.connection_id.to_string(),
                 )
                 .unwrap(),
             );
@@ -281,10 +152,10 @@ pub fn new_reqwest_client(args: HttpClientArgs) -> EdgeResult<Client> {
             client
                 .user_agent(format!("unleash-edge-{}", build::PKG_VERSION))
                 .default_headers(header_map)
-                .danger_accept_invalid_certs(args.skip_ssl_verification)
-                .timeout(args.socket_timeout.to_std().unwrap())
-                .connect_timeout(args.connect_timeout.to_std().unwrap())
-                .tcp_keepalive(args.keep_alive_timeout.to_std().unwrap())
+                .danger_accept_invalid_certs(opts.skip_ssl_verification)
+                .timeout(opts.socket_timeout)
+                .connect_timeout(opts.connect_timeout)
+                .tcp_keepalive(opts.keep_alive_timeout)
                 .pool_idle_timeout(std::time::Duration::from_secs(60))
                 .pool_max_idle_per_host(2)
                 .build()
@@ -314,14 +185,14 @@ fn redact_token_header(header_map: HeaderMap) -> HashMap<String, String> {
 }
 
 impl UnleashClient {
-    pub fn from_url_with_backing_client(
-        server_url: Url,
+    pub fn from_urls_with_backing_client(
+        urls: UnleashUrls,
         token_header: String,
         backing_client: Client,
         client_meta_information: ClientMetaInformation,
     ) -> Self {
         Self {
-            urls: UnleashUrls::from_base_url(server_url),
+            urls,
             backing_client,
             custom_headers: Default::default(),
             token_header,
@@ -333,10 +204,14 @@ impl UnleashClient {
     pub fn new_insecure(server_url: &str) -> Result<Self, EdgeError> {
         Ok(Self {
             urls: UnleashUrls::from_str(server_url)?,
-            backing_client: new_reqwest_client(HttpClientArgs {
+            backing_client: new_reqwest_client(HttpClientOpts {
                 skip_ssl_verification: true,
+                client_identity: None,
+                upstream_certificate_file: None,
+                connect_timeout: core::time::Duration::from_secs(5),
+                socket_timeout: core::time::Duration::from_secs(10),
+                keep_alive_timeout: core::time::Duration::from_secs(59),
                 client_meta_information: ClientMetaInformation::default(),
-                ..Default::default()
             })?,
             custom_headers: Default::default(),
             token_header: "Authorization".to_string(),

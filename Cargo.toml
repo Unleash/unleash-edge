@@ -96,6 +96,7 @@ unleash-edge-auth = { path = "./crates/oss/unleash-edge-auth" }
 unleash-edge-backstage = { path = "./crates/oss/unleash-edge-backstage" }
 unleash-edge-cli = { path = "./crates/oss/unleash-edge-cli" }
 unleash-edge-client-api = { path = "./crates/oss/unleash-edge-client-api" }
+unleash-edge-config = { path = "./crates/oss/unleash-edge-config" }
 unleash-edge-delta = { path = "./crates/enterprise/unleash-edge-delta" }
 unleash-edge-edge-api = { path = "./crates/oss/unleash-edge-edge-api" }
 unleash-edge-enterprise = { path = "./crates/enterprise/unleash-edge-enterprise" }

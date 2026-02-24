@@ -14,7 +14,7 @@ mod tests {
     use unleash_edge_auth::token_validator::TokenValidator;
     use unleash_edge_edge_api::{EdgeApiState, edge_api_router_for};
     use unleash_edge_http_client::{
-        ClientMetaInformation, HttpClientArgs, UnleashClient, new_reqwest_client,
+        ClientMetaInformation, HttpClientOpts, UnleashClient, new_reqwest_client,
     };
     use unleash_edge_types::tokens::EdgeToken;
     use unleash_edge_types::{TokenCache, TokenType, TokenValidationStatus};
@@ -54,10 +54,10 @@ mod tests {
     }
 
     pub fn build_unleash_client(server_url: Url) -> Arc<UnleashClient> {
-        Arc::new(UnleashClient::from_url_with_backing_client(
+        Arc::new(UnleashClient::from_urls_with_backing_client(
             server_url,
             "Authorization".to_string(),
-            new_reqwest_client(HttpClientArgs {
+            new_reqwest_client(HttpClientOpts {
                 skip_ssl_verification: false,
                 client_identity: None,
                 upstream_certificate_file: None,

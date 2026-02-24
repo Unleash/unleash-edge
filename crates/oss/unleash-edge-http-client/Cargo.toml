@@ -30,7 +30,7 @@ sha2 = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 ulid = { workspace = true }
-unleash-edge-cli = { workspace = true }
+unleash-edge-config = { workspace = true }
 unleash-edge-types = { workspace = true }
 unleash-types = { workspace = true }
 unleash-yggdrasil = { workspace = true }

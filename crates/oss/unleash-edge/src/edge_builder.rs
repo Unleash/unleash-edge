@@ -9,7 +9,6 @@ use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::watch::{Receiver, channel};
 use tracing::{debug, error, info, warn};
 use ulid::Ulid;
@@ -19,9 +18,10 @@ use unleash_edge_auth::token_validator::{
     TokenValidator, create_deferred_validation_task, create_revalidation_of_startup_tokens_task,
     create_revalidation_task,
 };
-use unleash_edge_cli::{
-    AuthHeaders, EdgeArgs, LogFormat, OtelExporterProtocol, RedisArgs, RedisMode, S3Args,
-};
+use unleash_edge_cli::{AuthHeaders, EdgeArgs, LogFormat, OtelExporterProtocol, RedisArgs, S3Args};
+use unleash_edge_config::builder::EdgeBuilderOpts;
+use unleash_edge_config::redis::RedisMode;
+use unleash_edge_config::state::{EdgeStateConfig, PersistenceConfig};
 use unleash_edge_delta::cache_manager::{DeltaCacheManager, create_terminate_sse_connections_task};
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_refresh::delta_refresh::{
@@ -30,10 +30,10 @@ use unleash_edge_feature_refresh::delta_refresh::{
 use unleash_edge_feature_refresh::{
     FeatureRefreshConfig, FeatureRefresher, HydratorType, start_refresh_features_background_task,
 };
+use unleash_edge_http_client::UnleashClient;
 use unleash_edge_http_client::instance_data::{
     InstanceDataSending, create_once_off_send_instance_data, create_send_instance_data_task,
 };
-use unleash_edge_http_client::{ClientMetaInformation, UnleashClient};
 use unleash_edge_metrics::metrics_pusher::{PrometheusWriteTaskArgs, create_prometheus_write_task};
 use unleash_edge_metrics::send_unleash_metrics::{
     create_once_off_send_metrics, create_send_metrics_task,
@@ -45,12 +45,13 @@ use unleash_edge_persistence::s3::s3_persister::S3Persister;
 use unleash_edge_persistence::{
     EdgePersistence, create_once_off_persist, create_persist_data_task,
 };
-use unleash_edge_tracing::{TracingOpts, init_tracing_and_logging, shutdown_logging};
+use unleash_edge_tracing::{init_tracing_and_logging, shutdown_logging};
 use unleash_edge_types::enterprise::{ApplicationLicenseState, LicenseState};
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::MetricsCache;
 use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
 use unleash_edge_types::tokens::{EdgeToken, cache_key};
+use unleash_edge_types::urls::UnleashUrls;
 use unleash_edge_types::{
     BackgroundTask, EdgeResult, EngineCache, RefreshState, TokenCache, TokenType,
     TokenValidationStatus,
@@ -72,71 +73,47 @@ pub fn build_caches() -> CacheContainer {
     )
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct PersistenceArgs {
-    pub s3: Option<S3Args>,
-    pub redis: Option<RedisArgs>,
-    pub backup_folder: Option<PathBuf>,
-}
-
-impl From<&EdgeArgs> for PersistenceArgs {
-    fn from(value: &EdgeArgs) -> Self {
-        Self {
-            s3: value.s3.clone(),
-            redis: value.redis.clone(),
-            backup_folder: value.backup_folder.clone(),
+async fn get_data_source(args: &PersistenceConfig) -> Option<Arc<dyn EdgePersistence>> {
+    match args {
+        PersistenceConfig::S3(s3_args) => {
+            let s3_persister = S3Persister::new_from_env(&s3_args.bucket_name.clone()).await;
+            Some(Arc::new(s3_persister))
         }
-    }
-}
-
-async fn get_data_source(args: &PersistenceArgs) -> Option<Arc<dyn EdgePersistence>> {
-    if let Some(redis_args) = args.redis.clone() {
-        let mut filtered_redis_args = redis_args.clone();
-        if filtered_redis_args.redis_password.is_some() {
-            filtered_redis_args.redis_password = Some("[redacted]".to_string());
-        }
-        debug!("Configuring Redis persistence {filtered_redis_args:?}");
-        let redis_persister = match redis_args.redis_mode {
-            RedisMode::Single => redis_args.to_url().map(|url| {
-                RedisPersister::new(&url, redis_args.read_timeout(), redis_args.write_timeout())
-                    .expect("Failed to connect to redis")
-            }),
-            RedisMode::Cluster => redis_args.redis_url.clone().map(|urls| {
-                RedisPersister::new_with_cluster(
-                    urls,
-                    redis_args.read_timeout(),
-                    redis_args.write_timeout(),
+        PersistenceConfig::Redis(redis_args) => {
+            let mut filtered_redis_args = redis_args.clone();
+            if filtered_redis_args.redis_password.is_some() {
+                filtered_redis_args.redis_password = Some("[redacted]".to_string());
+            }
+            debug!("Configuring Redis persistence {filtered_redis_args:?}");
+            let redis_persister = match redis_args.redis_mode {
+                RedisMode::Single => redis_args.to_url().map(|url| {
+                    RedisPersister::new(&url, redis_args.read_timeout(), redis_args.write_timeout())
+                        .expect("Failed to connect to redis")
+                }),
+                RedisMode::Cluster => redis_args.redis_url.clone().map(|urls| {
+                    RedisPersister::new_with_cluster(
+                        urls,
+                        redis_args.read_timeout(),
+                        redis_args.write_timeout(),
+                    )
+                    .expect("Failed to connect to redis cluster")
+                }),
+            }
+            .unwrap_or_else(|| {
+                panic!(
+                    "Could not build a redis persister from redis_args {:?}",
+                    redis_args
                 )
-                .expect("Failed to connect to redis cluster")
-            }),
+            });
+            Some(Arc::new(redis_persister));
         }
-        .unwrap_or_else(|| {
-            panic!(
-                "Could not build a redis persister from redis_args {:?}",
-                args.redis
-            )
-        });
-        return Some(Arc::new(redis_persister));
+        PersistenceConfig::File(backup_folder) => {
+            debug!("Configuring file persistence {backup_folder:?}");
+            let backup_client = FilePersister::new(&backup_folder);
+            Some(Arc::new(backup_client));
+        }
+        PersistenceConfig::None => None,
     }
-    #[cfg(feature = "s3-persistence")]
-    if let Some(s3_args) = args.s3.clone() {
-        let s3_persister = S3Persister::new_from_env(
-            &s3_args
-                .s3_bucket_name
-                .clone()
-                .expect("Clap is confused, there's no bucket name"),
-        )
-        .await;
-        return Some(Arc::new(s3_persister));
-    }
-
-    if let Some(backup_folder) = args.backup_folder.clone() {
-        debug!("Configuring file persistence {backup_folder:?}");
-        let backup_client = FilePersister::new(&backup_folder);
-        return Some(Arc::new(backup_client));
-    }
-
-    None
 }
 
 async fn hydrate_from_persistent_storage(cache: CacheContainer, storage: Arc<dyn EdgePersistence>) {
@@ -168,38 +145,22 @@ async fn hydrate_from_persistent_storage(cache: CacheContainer, storage: Arc<dyn
     }
 }
 
-pub struct EdgeBuilderArgs {
-    streaming: bool,
-    delta: bool,
-    upstream_url: Url,
-    client_meta_information: ClientMetaInformation,
-    edge_instance_data: Arc<EdgeInstanceData>,
-    auth_headers: AuthHeaders,
-    http_client: reqwest::Client,
-    tokens: Vec<EdgeToken>,
-    custom_client_headers: Vec<(String, String)>,
-    persistence_args: PersistenceArgs,
-    tx: Option<UnboundedSender<String>>,
-    pretrusted_tokens: Option<Vec<(String, EdgeToken)>>,
-    features_refresh_interval: Duration,
-}
-
 pub async fn build_edge(
-    EdgeBuilderArgs {
+    EdgeBuilderOpts {
         streaming,
         delta,
-        upstream_url,
+        unleash_urls,
         client_meta_information,
         edge_instance_data,
-        auth_headers,
+        auth_header_config,
         http_client,
         tokens,
         custom_client_headers,
-        persistence_args,
-        tx,
+        persistence_config,
+        deferred_validation,
         pretrusted_tokens,
         features_refresh_interval,
-    }: EdgeBuilderArgs,
+    }: EdgeBuilderOpts,
 ) -> EdgeResult<EdgeInfo> {
     if tokens.is_empty() {
         return Err(EdgeError::NoTokens(
@@ -207,41 +168,38 @@ pub async fn build_edge(
         ));
     }
     let (token_cache, feature_cache, delta_cache, engine_cache) = build_caches();
-    let persistence = get_data_source(&persistence_args).await;
+    let persistence = get_data_source(&persistence_config).await;
     tokens.iter().for_each(|token| {
         if token.status == TokenValidationStatus::Validated {
             token_cache.insert(token.token.clone(), token.clone());
         }
     });
     let unleash_client = Arc::new(
-        UnleashClient::from_url_with_backing_client(
-            upstream_url,
-            auth_headers
-                .upstream_auth_header
-                .clone()
-                .unwrap_or("Authorization".to_string()),
+        UnleashClient::from_urls_with_backing_client(
+            unleash_urls,
+            auth_header_config.upstream_auth_header,
             http_client,
             client_meta_information.clone(),
         )
         .with_custom_client_headers(custom_client_headers.clone()),
     );
 
-    if let Some(token_pairs) = &pretrusted_tokens {
-        for (token_string, trusted_token) in token_pairs {
-            token_cache.insert(token_string.clone(), trusted_token.clone());
-        }
+    for (token_string, trusted_token) in pretrusted_tokens {
+        token_cache.insert(token_string.clone(), trusted_token.clone());
     }
 
     let token_validator = TokenValidator::new_lazy(
         unleash_client.clone(),
         token_cache.clone(),
         persistence.clone(),
-        tx,
+        deferred_validation,
     );
 
     let delta_cache_manager = Arc::new(DeltaCacheManager::new());
-    let feature_config =
-        FeatureRefreshConfig::new(features_refresh_interval, client_meta_information.clone());
+    let feature_config = FeatureRefreshConfig::new(
+        Duration::from_std(features_refresh_interval).expect("Failed to convert duration"),
+        client_meta_information.clone(),
+    );
 
     let hydrator_type = load_hydrator(LoadHydratorArgs {
         unleash_client: unleash_client.clone(),
@@ -403,42 +361,27 @@ pub struct EdgeStateArgs {
     pub prometheus_password: Option<String>,
 }
 
-impl From<&EdgeStateArgs> for TracingOpts {
-    fn from(value: &EdgeStateArgs) -> Self {
-        Self {
-            otel_exporter_otlp_endpoint: value.otel_endpoint_url.clone(),
-            client_id: value.client_id.clone(),
-            app_id: value.app_id.to_string(),
-            otel_exporter_protocol: value.otel_protocol.clone(),
-            log_format: value.log_format.clone(),
-        }
-    }
-}
-
 pub async fn build_edge_state(
-    args: EdgeStateArgs,
+    config: EdgeStateConfig,
 ) -> EdgeResult<(AppState, Vec<BackgroundTask>, Vec<BackgroundTask>)> {
     let edge_instance_data = Arc::new(EdgeInstanceData::new(
-        &args.client_meta_information.app_name,
-        &args.app_id,
-        Some(args.hosting_type),
+        &config.client_meta_information.app_name,
+        &config.app_id,
+        Some(config.hosting_type),
     ));
 
     OTEL_INIT.get_or_init(|| {
-        Arc::new(init_tracing_and_logging(TracingOpts::from(&args)).unwrap_or_default())
+        Arc::new(init_tracing_and_logging(config.tracing_mode).unwrap_or_default())
     });
 
     let unleash_client = Arc::new(
-        UnleashClient::from_url_with_backing_client(
-            args.upstream_url.clone(),
-            args.auth_headers
-                .upstream_auth_header
-                .clone()
-                .unwrap_or("Authorization".to_string()),
-            args.http_client.clone(),
-            args.client_meta_information.clone(),
+        UnleashClient::from_urls_with_backing_client(
+            config.unleash_urls.clone(),
+            config.auth_header_config.upstream_auth_header,
+            config.http_client.clone(),
+            config.client_meta_information.clone(),
         )
-        .with_custom_client_headers(args.custom_client_headers.clone()),
+        .with_custom_client_headers(config.custom_client_headers.clone()),
     );
 
     let (deferred_validation_tx, deferred_validation_rx) = if *SHOULD_DEFER_VALIDATION {
@@ -453,29 +396,21 @@ pub async fn build_edge_state(
         token_validator,
         hydrator_type,
         persistence,
-    ) = build_edge(EdgeBuilderArgs {
-        streaming: args.streaming,
-        delta: args.delta,
-        upstream_url: args.upstream_url.clone(),
-        client_meta_information: args.client_meta_information.clone(),
-        edge_instance_data: edge_instance_data.clone(),
-        auth_headers: args.auth_headers.clone(),
-        http_client: args.http_client.clone(),
-        tokens: args.tokens.clone(),
-        custom_client_headers: args.custom_client_headers.clone(),
-        persistence_args: args.persistence_args,
-        tx: deferred_validation_tx,
-        pretrusted_tokens: args.pretrusted_tokens,
-        features_refresh_interval: args.features_refresh_interval,
-    })
+    ) = build_edge(
+        EdgeBuilderOpts::from_edge_config_instance_data_and_deferred_validation(
+            &config,
+            edge_instance_data.clone(),
+            deferred_validation_tx,
+        ),
+    )
     .await?;
 
     let license_state = ApplicationLicenseState::new(
         match resolve_license(
             &unleash_client,
             persistence.clone(),
-            &args.tokens,
-            &args.client_meta_information,
+            &config.tokens,
+            &config.client_meta_information,
         )
         .await?
         {

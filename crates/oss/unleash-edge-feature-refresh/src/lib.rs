@@ -12,10 +12,11 @@ use prometheus::{IntGaugeVec, register_int_gauge_vec};
 use reqwest::StatusCode;
 use tokio::sync::watch::Receiver;
 use tracing::{debug, info, instrument, warn};
+use unleash_edge_config::httpclient::ClientMetaInformation;
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_filters::{FeatureFilterSet, filter_client_features};
-use unleash_edge_http_client::{ClientMetaInformation, UnleashClient};
+use unleash_edge_http_client::UnleashClient;
 use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_types::errors::{EdgeError, FeatureError};
 use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
@@ -488,12 +489,9 @@ mod tests {
     use std::path::PathBuf;
     use std::sync::Arc;
     use ulid::Ulid;
-    use unleash_edge_cli::AuthHeaders;
     use unleash_edge_delta::cache_manager::DeltaCacheManager;
     use unleash_edge_feature_cache::FeatureCache;
-    use unleash_edge_http_client::{
-        ClientMetaInformation, HttpClientArgs, UnleashClient, new_reqwest_client,
-    };
+    use unleash_edge_http_client::{UnleashClient, new_reqwest_client};
     use unleash_edge_types::tokens::EdgeToken;
 
     use axum::Router;
@@ -515,7 +513,7 @@ mod tests {
     impl Default for FeatureRefresher {
         fn default() -> Self {
             Self {
-                refresh_interval: chrono::Duration::seconds(15),
+                refresh_interval: Duration::seconds(15),
                 unleash_client: Arc::new(create_test_client(TestClientOptions::default())),
                 tokens_to_refresh: Arc::new(DashMap::default()),
                 features_cache: Arc::new(Default::default()),
@@ -564,10 +562,10 @@ mod tests {
             connection_id: Ulid::new(),
         };
 
-        UnleashClient::from_url_with_backing_client(
+        UnleashClient::from_urls_with_backing_client(
             client_url.unwrap_or_else(|| Url::parse("http://localhost:4242").unwrap()),
             "Authorization".to_string(),
-            new_reqwest_client(HttpClientArgs {
+            new_reqwest_client(HttpClientOpts {
                 skip_ssl_verification: false,
                 client_identity: None,
                 upstream_certificate_file: None,

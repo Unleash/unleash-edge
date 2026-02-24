@@ -207,11 +207,11 @@ pub struct EdgeArgs {
 
     /// Timeout for requests to the upstream server
     #[clap(long, env, default_value_t = 5)]
-    pub upstream_request_timeout: i64,
+    pub upstream_request_timeout: u64,
 
     /// Socket timeout for requests to upstream
     #[clap(long, env, default_value_t = 5)]
-    pub upstream_socket_timeout: i64,
+    pub upstream_socket_timeout: u64,
 
     /// A URL pointing to a running Redis instance. Edge will use this instance to persist feature and token data and read this back after restart. Mutually exclusive with the --backup-folder and --s3-bucket options
     #[clap(flatten)]
@@ -237,7 +237,7 @@ pub struct EdgeArgs {
 
     /// Sets the keep-alive timeout for connections from Edge to upstream
     #[clap(long, env, default_value_t = 15)]
-    pub client_keepalive_timeout: i64,
+    pub client_keepalive_timeout: u64,
 
     /// Sets a remote write url for prometheus metrics, if this is set, prometheus metrics will be written upstream
     #[clap(long, env)]
@@ -485,8 +485,14 @@ pub struct CliArgs {
     pub instance_id: String,
 
     /// Client id. Used for prometheus label.
-    #[clap(long, env, global = true, hide = true)]
-    pub client_id: Option<String>,
+    #[clap(
+        long,
+        env,
+        global = true,
+        hide = true,
+        default_value = "self-hosted-edge"
+    )]
+    pub client_id: String,
 
     /// App name. Used for metrics reporting.
     #[clap(short, long, env, global = true, default_value = "unleash-edge")]

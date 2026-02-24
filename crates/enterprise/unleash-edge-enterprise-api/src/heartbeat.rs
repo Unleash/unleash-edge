@@ -115,7 +115,7 @@ mod tests {
     use tokio::time::Duration as TokioDuration;
     use tokio::{sync::oneshot, time::timeout};
     use unleash_edge_cli::AuthHeaders;
-    use unleash_edge_http_client::{ClientMetaInformation, HttpClientArgs, new_reqwest_client};
+    use unleash_edge_http_client::{ClientMetaInformation, HttpClientOpts, new_reqwest_client};
     use unleash_edge_types::{TokenCache, tokens::EdgeToken};
 
     use super::*;
@@ -155,10 +155,10 @@ mod tests {
             connection_id: Ulid::new(),
         };
 
-        UnleashClient::from_url_with_backing_client(
+        UnleashClient::from_urls_with_backing_client(
             url,
             "Authorization".to_string(),
-            new_reqwest_client(HttpClientArgs {
+            new_reqwest_client(HttpClientOpts {
                 skip_ssl_verification: false,
                 client_identity: None,
                 upstream_certificate_file: None,

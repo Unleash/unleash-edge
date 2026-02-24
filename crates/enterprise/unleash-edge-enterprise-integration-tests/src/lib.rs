@@ -21,7 +21,7 @@ mod tests {
     use unleash_edge_cli::OtelExporterProtocol::Grpc;
     use unleash_edge_cli::{AuthHeaders, EdgeArgs, LogFormat};
     use unleash_edge_http_client::{
-        ClientMetaInformation, HttpClientArgs, UnleashClient, new_reqwest_client,
+        ClientMetaInformation, HttpClientOpts, UnleashClient, new_reqwest_client,
     };
     use unleash_edge_persistence::EdgePersistence;
     use unleash_edge_types::EdgeResult;
@@ -103,7 +103,7 @@ mod tests {
     }
 
     fn build_client(client_meta_information: &ClientMetaInformation) -> Client {
-        new_reqwest_client(HttpClientArgs {
+        new_reqwest_client(HttpClientOpts {
             skip_ssl_verification: false,
             client_identity: None,
             upstream_certificate_file: None,
@@ -270,7 +270,7 @@ mod tests {
             instance_id: Ulid::new(),
         };
 
-        let unleash_client = UnleashClient::from_url_with_backing_client(
+        let unleash_client = UnleashClient::from_urls_with_backing_client(
             Url::parse(
                 "http://this-will-fail-dns-lookup-because-rfc2606-specifies-this-url-as.invalid",
             )
@@ -305,7 +305,7 @@ mod tests {
             instance_id: Ulid::new(),
         };
 
-        let unleash_client = UnleashClient::from_url_with_backing_client(
+        let unleash_client = UnleashClient::from_urls_with_backing_client(
             Url::parse(
                 "http://this-will-fail-dns-lookup-because-rfc2606-specifies-this-url-as.invalid",
             )

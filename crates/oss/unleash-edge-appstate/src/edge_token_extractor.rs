@@ -4,7 +4,7 @@ use axum::http::request::Parts;
 use std::str::FromStr;
 use std::sync::Arc;
 use tracing::trace;
-use unleash_edge_cli::AuthHeaders;
+use unleash_edge_config::auth::AuthHeaderConfig;
 use unleash_edge_types::TokenCache;
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::tokens::EdgeToken;
@@ -13,7 +13,7 @@ pub struct AuthToken(pub EdgeToken);
 
 #[derive(Clone)]
 pub struct AuthState {
-    pub auth_headers: AuthHeaders,
+    pub auth_headers: AuthHeaderConfig,
     pub token_cache: Arc<TokenCache>,
 }
 
@@ -38,7 +38,7 @@ where
 
         if let Some(edge_token) = parts
             .headers
-            .get(state.auth_headers.edge_header_name())
+            .get(state.auth_headers.edge_auth_header)
             .and_then(|h| h.to_str().ok())
             .and_then(|t| EdgeToken::from_str(t).ok())
         {

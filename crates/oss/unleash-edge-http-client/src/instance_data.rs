@@ -4,11 +4,12 @@ use tokio::sync::RwLock;
 
 use crate::{ClientMetaInformation, UnleashClient};
 use tracing::{debug, warn};
-use unleash_edge_cli::AuthHeaders;
+use unleash_edge_config::auth::AuthHeaderConfig;
 use unleash_edge_types::BackgroundTask;
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
 use unleash_edge_types::tokens::EdgeToken;
+use unleash_edge_types::urls::UnleashUrls;
 
 #[derive(Debug, Clone)]
 pub struct InstanceDataSender {
@@ -26,8 +27,8 @@ pub enum InstanceDataSending {
 impl InstanceDataSending {
     pub fn from_args(
         tokens: Vec<EdgeToken>,
-        auth_headers: AuthHeaders,
-        upstream_url: Url,
+        auth_headers: AuthHeaderConfig,
+        unleash_urls: UnleashUrls,
         client_meta_information: &ClientMetaInformation,
         custom_client_headers: Vec<(String, String)>,
         base_path: String,
@@ -37,12 +38,9 @@ impl InstanceDataSending {
             .first()
             .map(|token| {
                 let unleash_client = Arc::new(
-                    UnleashClient::from_url_with_backing_client(
-                        upstream_url,
-                        auth_headers
-                            .upstream_auth_header
-                            .clone()
-                            .unwrap_or("Authorization".to_string()),
+                    UnleashClient::from_urls_with_backing_client(
+                        unleash_urls,
+                        auth_headers.upstream_auth_header,
                         http_client,
                         client_meta_information.clone(),
                     )

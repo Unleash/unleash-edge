@@ -58,6 +58,7 @@ unleash-edge-auth = { workspace = true }
 unleash-edge-backstage = { workspace = true }
 unleash-edge-cli = { workspace = true }
 unleash-edge-client-api = { workspace = true }
+unleash-edge-config = { workspace = true }
 unleash-edge-delta = { workspace = true }
 unleash-edge-edge-api = { workspace = true }
 unleash-edge-enterprise = { workspace = true }
