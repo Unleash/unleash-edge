@@ -16,6 +16,9 @@ pub struct DeltaCache {
 
 impl DeltaCache {
     pub fn new(hydration_event: DeltaHydrationEvent, max_length: usize) -> Self {
+        let mut hydration_event = hydration_event;
+        hydration_event.segments.sort_by_key(|segment| segment.id);
+
         let mut cache = DeltaCache {
             max_length,
             events: Vec::new(),
@@ -102,11 +105,17 @@ impl DeltaCache {
                 } else {
                     self.hydration_event.segments.push(segment.clone());
                 }
+                self.hydration_event
+                    .segments
+                    .sort_by_key(|existing_segment| existing_segment.id);
             }
             DeltaEvent::SegmentRemoved { segment_id, .. } => {
                 self.hydration_event
                     .segments
                     .retain(|s| s.id != *segment_id);
+                self.hydration_event
+                    .segments
+                    .sort_by_key(|existing_segment| existing_segment.id);
             }
             DeltaEvent::Hydration { .. } => {
                 // do nothing, as hydration will never end up in update events
@@ -255,5 +264,57 @@ mod tests {
 
         assert_eq!(delta_cache.get_events()[1], initial_feature_event);
         assert_eq!(delta_cache.get_events()[2], updated_feature_event);
+    }
+
+    #[test]
+    fn keeps_hydration_segments_sorted_by_id_after_segment_changes() {
+        let base_event = DeltaHydrationEvent {
+            event_id: 1,
+            features: vec![ClientFeature {
+                name: "base-flag".to_string(),
+                ..ClientFeature::default()
+            }],
+            segments: vec![
+                Segment {
+                    id: 10,
+                    constraints: vec![],
+                },
+                Segment {
+                    id: 2,
+                    constraints: vec![],
+                },
+            ],
+        };
+        let mut delta_cache = DeltaCache::new(base_event, 10);
+
+        delta_cache.add_events(&[
+            DeltaEvent::SegmentUpdated {
+                event_id: 2,
+                segment: Segment {
+                    id: 7,
+                    constraints: vec![],
+                },
+            },
+            DeltaEvent::SegmentUpdated {
+                event_id: 3,
+                segment: Segment {
+                    id: 1,
+                    constraints: vec![],
+                },
+            },
+            DeltaEvent::SegmentRemoved {
+                event_id: 4,
+                segment_id: 7,
+            },
+        ]);
+
+        let segment_ids: Vec<i32> = delta_cache
+            .get_hydration_event()
+            .segments
+            .iter()
+            .map(|s| s.id)
+            .collect();
+
+        assert_eq!(segment_ids, vec![1, 2, 10]);
     }
 }
