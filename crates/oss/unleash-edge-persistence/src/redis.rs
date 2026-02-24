@@ -10,6 +10,7 @@ use redis::cluster::ClusterClient;
 use redis::{AsyncCommands, AsyncConnectionConfig, Client, Commands, RedisError};
 use tokio::sync::RwLock;
 use tracing::{debug, info};
+use unleash_edge_config::persistence::redis::{RedisMode, RedisOpts};
 use unleash_edge_types::EdgeResult;
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::tokens::EdgeToken;
@@ -31,6 +32,43 @@ pub struct RedisPersister {
     redis_client: Arc<RwLock<RedisClientOptions>>,
 }
 impl RedisPersister {
+    pub fn from_config(redis_opts: &RedisOpts) -> Result<RedisPersister, EdgeError> {
+        match redis_opts.redis_mode.clone() {
+            RedisMode::Single(url) => {
+                if let Err(err) = rustls::crypto::ring::default_provider().install_default() {
+                    info!(
+                        "Failed to install default crypto provider, this is likely because another system has already installed it: {:?}",
+                        err
+                    );
+                };
+                let client = Client::open(url)?;
+                let addr = client.get_connection_info();
+                info!("[REDIS Persister]: Configured single node client {addr:?}");
+
+                Ok(Self {
+                    redis_client: Arc::new(RwLock::new(Single(client))),
+                    read_timeout: redis_opts.read_timeout,
+                    write_timeout: redis_opts.write_timeout,
+                })
+            }
+            RedisMode::Cluster(urls) => {
+                if let Err(err) = rustls::crypto::ring::default_provider().install_default() {
+                    info!(
+                        "Failed to install default crypto provider, this is likely because another system has already installed it: {:?}",
+                        err
+                    );
+                };
+                let client = ClusterClient::builder(urls)
+                    .connection_timeout(redis_opts.read_timeout)
+                    .build()?;
+                Ok(Self {
+                    redis_client: Arc::new(RwLock::new(Cluster(client))),
+                    read_timeout: redis_opts.read_timeout,
+                    write_timeout: redis_opts.write_timeout,
+                })
+            }
+        }
+    }
     pub fn new(
         url: &str,
         read_timeout: Duration,

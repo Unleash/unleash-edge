@@ -1,27 +1,26 @@
-use crate::edge_builder::{EdgeStateArgs, build_edge_state};
+use crate::edge_builder::build_edge_state;
 use crate::offline_builder::build_offline_app_state;
 use ::tracing::info;
 use axum::Router;
 use axum::middleware::{from_fn, from_fn_with_state};
 use axum::routing::get;
-use chrono::Duration;
 use unleash_edge_appstate::AppState;
 #[cfg(feature = "enterprise")]
 use unleash_edge_enterprise_api::heartbeat;
 
 use reqwest::Client;
 use std::env;
-use std::sync::{Arc, LazyLock, OnceLock, RwLock};
-
+use std::sync::{Arc, LazyLock, OnceLock};
+use tokio::sync::RwLock;
 use tower::ServiceBuilder;
 use tower_http::compression::CompressionLayer;
 use tracing::warn;
-use ulid::Ulid;
 use unleash_edge_auth::token_validator::TokenValidator;
-use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeMode, HmacConfig};
+use unleash_edge_cli::{CliArgs, EdgeMode, HmacConfig};
 use unleash_edge_config::auth::AuthHeaderConfig;
 use unleash_edge_config::httpclient::{ClientMetaInformation, HttpClientOpts};
-use unleash_edge_config::state::EdgeStateConfig;
+use unleash_edge_config::otel::TracingMode;
+use unleash_edge_config::state::{EdgeStateConfig, RemoteWriteConfig};
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_refresh::HydratorType;
@@ -98,14 +97,14 @@ pub async fn build_tokens(
 }
 
 pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<BackgroundTask>)> {
-    let client_meta = ClientMetaInformation::from(&args);
+    let client_meta_information = ClientMetaInformation::from(&args);
     let client_id = args.client_id.clone();
 
     let instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>> =
         Arc::new(RwLock::new(Vec::new()));
     let metrics_middleware = PrometheusAxumLayer::new(
         &args.app_name.clone(),
-        &client_meta.instance_id.clone().to_string(),
+        &client_meta_information.instance_id.clone().to_string(),
     );
 
     let (app_state, background_tasks, shutdown_tasks) = match &args.mode {
@@ -113,40 +112,47 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
             let upstream_url = Url::parse(&edge_args.upstream_url)
                 .map_err(|_e| EdgeError::InvalidServerUrl(edge_args.upstream_url.clone()))?;
             let unleash_urls = UnleashUrls::from_base_url(upstream_url);
-            let http_client = new_reqwest_client(
-                HttpClientOpts::from_edge_args_and_meta_information(&edge_args, client_meta),
-            )?;
+            let http_client =
+                new_reqwest_client(HttpClientOpts::from_edge_args_and_meta_information(
+                    edge_args,
+                    client_meta_information.clone(),
+                ))?;
 
             let tokens = build_tokens(
                 http_client.clone(),
-                unleash_urls,
+                unleash_urls.clone(),
                 edge_args.tokens.clone(),
                 edge_args.hmac_config.clone(),
             )
             .await?;
 
-            let auth_headers = AuthHeaders::from(&args);
-
             build_edge_state(EdgeStateConfig {
-                app_id: client_meta.instance_id,
-                auth_header_config: AuthHeaderConfig::from(args.auth_headers),
-                base_path: args.http.base_path,
+                app_id: client_meta_information.instance_id,
+                auth_header_config: AuthHeaderConfig::from(&args.auth_headers),
+                base_path: args.http.base_path.clone(),
                 client_id,
                 client_meta_information,
-                custom_client_headers: edge_args.custom_client_headers,
+                custom_client_headers: edge_args.custom_client_headers.clone(),
+                #[cfg(feature = "enterprise")]
                 delta: edge_args.delta,
+                #[cfg(not(feature = "enterprise"))]
+                delta: false,
                 hosting_type: args.hosting_type.unwrap_or(DEFAULT_HOSTING),
-                http_allow_list: args.http.allow_list.unwrap_or_default(),
+                http_allow_list: args.http.allow_list.clone().unwrap_or_default(),
                 http_client,
-                http_deny_list: args.http.deny_list.unwrap_or_default(),
+                http_deny_list: args.http.deny_list.clone().unwrap_or_default(),
                 instances_observed_for_app_context,
                 log_format: Default::default(),
                 persistence: Default::default(),
-                remote_write_config: RemoteWriteConfig::None,
+                remote_write_config: RemoteWriteConfig::from(edge_args),
                 streaming: false,
                 tokens,
-                tracing_mode: (),
+                tracing_mode: TracingMode::from(&args),
                 unleash_urls,
+                pretrusted_tokens: edge_args.pretrusted_tokens.clone().unwrap_or_default(),
+                features_refresh_interval: Default::default(),
+                metrics_interval_seconds: Default::default(),
+                token_revalidation_interval_seconds: Default::default(),
             })
             .await?
         }

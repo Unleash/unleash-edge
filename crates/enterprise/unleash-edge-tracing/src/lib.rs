@@ -13,7 +13,8 @@ use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, Layer};
 use unleash_edge_config::logging::LogFormat;
-use unleash_edge_config::otel::{OtelExporterProtocol, TracingMode};
+use unleash_edge_config::otel::TracingMode;
+use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::{BackgroundTask, EdgeResult};
 
 #[derive(Debug, Clone)]
@@ -157,7 +158,12 @@ pub fn init_tracing_and_logging(tracing_opts: TracingMode) -> EdgeResult<Option<
     }
     #[cfg(not(feature = "enterprise"))]
     {
-        simple_logging(tracing_opts.log_format)
+        match tracing_opts {
+            TracingMode::Otel(_) => Err(EdgeError::TracingInitError(
+                "Tracing is not supported in opensource mode".into(),
+            )),
+            TracingMode::Simple(log_format) => simple_logging(log_format),
+        }
     }
 }
 

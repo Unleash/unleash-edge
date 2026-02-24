@@ -8,7 +8,8 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use ulid::Ulid;
 use unleash_edge_appstate::AppState;
-use unleash_edge_cli::{AuthHeaders, CliArgs, OfflineArgs};
+use unleash_edge_cli::{CliArgs, OfflineArgs};
+use unleash_edge_config::auth::AuthHeaderConfig;
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_offline::hotload::{
     create_hotload_task, load_bootstrap, load_offline_engine_cache,
@@ -127,7 +128,7 @@ pub async fn build_offline_app_state(
             Some(Hosting::SelfHosted),
         )),
         connected_instances: Arc::new(RwLock::new(vec![])),
-        auth_headers: AuthHeaders::from(&args),
+        auth_headers: AuthHeaderConfig::from(&args.auth_headers),
         connect_via: ConnectVia {
             app_name,
             instance_id: instance_id.to_string(),

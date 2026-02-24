@@ -477,6 +477,8 @@ impl FeatureRefresher {
 #[cfg(test)]
 mod tests {
     use crate::TokenRefreshStatus;
+    use unleash_edge_config::auth::AuthHeaderConfig;
+    use unleash_edge_config::httpclient::HttpClientOpts;
 
     use super::*;
     use axum::extract::FromRef;
@@ -506,6 +508,7 @@ mod tests {
     use unleash_edge_types::TokenValidationStatus::Validated;
     use unleash_edge_types::metrics::instance_data::Hosting;
     use unleash_edge_types::tokens::cache_key;
+    use unleash_edge_types::urls::UnleashUrls;
     use unleash_edge_types::{EngineCache, TokenCache, TokenRefresh, TokenType};
     use unleash_types::client_features::{ClientFeature, ClientFeatures};
     use unleash_yggdrasil::{EngineState, UpdateMessage};
@@ -563,15 +566,17 @@ mod tests {
         };
 
         UnleashClient::from_urls_with_backing_client(
-            client_url.unwrap_or_else(|| Url::parse("http://localhost:4242").unwrap()),
+            UnleashUrls::from_base_url(
+                client_url.unwrap_or(Url::parse("http://localhost:4242").unwrap()),
+            ),
             "Authorization".to_string(),
             new_reqwest_client(HttpClientOpts {
                 skip_ssl_verification: false,
                 client_identity: None,
                 upstream_certificate_file: None,
-                connect_timeout: Duration::seconds(5),
-                socket_timeout: Duration::seconds(5),
-                keep_alive_timeout: Duration::seconds(15),
+                connect_timeout: core::time::Duration::from_secs(5),
+                socket_timeout: core::time::Duration::from_secs(5),
+                keep_alive_timeout: core::time::Duration::from_secs(15),
                 client_meta_information: client_meta_information.clone(),
             })
             .expect("Failed to create client"),
@@ -944,7 +949,7 @@ mod tests {
             upstream_features_cache,
             upstream_token_cache: upstream_token_cache.clone(),
             auth: AuthState {
-                auth_headers: AuthHeaders::default(),
+                auth_headers: AuthHeaderConfig::default(),
                 token_cache: upstream_token_cache,
             },
         };

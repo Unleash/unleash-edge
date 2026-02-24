@@ -5,9 +5,7 @@ pub mod httpclient;
 pub mod logging;
 pub mod metrics;
 pub mod otel;
-pub mod redis;
-#[cfg(feature = "s3-persistence")]
-pub mod s3;
+pub mod persistence;
 pub mod state;
 pub mod tls;
 pub mod tracing;

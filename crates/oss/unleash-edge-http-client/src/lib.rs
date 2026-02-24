@@ -27,7 +27,6 @@ use unleash_edge_types::{
 };
 use unleash_types::client_features::{ClientFeatures, ClientFeaturesDelta};
 use unleash_types::client_metrics::ClientApplication;
-use url::Url;
 
 pub mod instance_data;
 pub mod token_request;

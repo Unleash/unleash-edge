@@ -3,43 +3,36 @@ use crate::httpclient::ClientMetaInformation;
 use crate::logging::LogFormat;
 use crate::metrics::PrometheusConfig;
 use crate::otel::TracingMode;
-use crate::redis::RedisMode;
+pub use crate::persistence::PersistenceConfig;
+use crate::state::RemoteWriteConfig::Prometheus;
 use ipnet::IpNet;
-use std::sync::{Arc, RwLock};
-use std::time::Duration;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 use ulid::Ulid;
+use unleash_edge_cli::EdgeArgs;
 use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
 use unleash_edge_types::tokens::EdgeToken;
 use unleash_edge_types::urls::UnleashUrls;
 
 #[derive(Debug, Clone)]
-pub struct S3Opts {
-    pub bucket_name: String,
-}
-
-#[derive(Debug, Clone)]
-pub struct RedisOpts {
-    pub redis_password: Option<String>,
-    pub redis_mode: RedisMode,
-    pub redis_url: Option<Vec<String>>,
-}
-
-#[derive(Debug, Clone)]
-pub struct FileOpts {}
-
-#[derive(Debug, Clone, Default)]
-pub enum PersistenceConfig {
-    S3(S3Opts),
-    Redis(RedisOpts),
-    File(FileOpts),
-    #[default]
-    None,
-}
-
-#[derive(Debug, Clone)]
 pub enum RemoteWriteConfig {
     Prometheus(PrometheusConfig),
-    None,
+    NoOp,
+}
+
+impl From<&EdgeArgs> for RemoteWriteConfig {
+    fn from(value: &EdgeArgs) -> Self {
+        if let Some(remote_url) = value.prometheus_remote_write_url.as_ref() {
+            Prometheus(PrometheusConfig {
+                remote_write_url: remote_url.clone(),
+                push_interval: value.prometheus_push_interval,
+                username: value.prometheus_username.clone(),
+                password: value.prometheus_password.clone(),
+            })
+        } else {
+            RemoteWriteConfig::NoOp
+        }
+    }
 }
 
 pub type ClientHeader = (String, String);
@@ -66,5 +59,7 @@ pub struct EdgeStateConfig {
     pub tracing_mode: TracingMode,
     pub unleash_urls: UnleashUrls,
     pub pretrusted_tokens: Vec<PreTrustedToken>,
-    pub features_refresh_interval: Duration,
+    pub features_refresh_interval: chrono::Duration,
+    pub metrics_interval_seconds: chrono::Duration,
+    pub token_revalidation_interval_seconds: chrono::Duration,
 }

@@ -21,6 +21,7 @@ s3-persistence = ["aws-sdk-s3", "aws-config"]
 [dependencies]
 aws-config = { workspace = true, optional = true }
 aws-sdk-s3 = { workspace = true, optional = true }
+chrono = { workspace = true }
 ipnet = { workspace = true }
 p12-keystore = { workspace = true }
 pkix = { workspace = true }

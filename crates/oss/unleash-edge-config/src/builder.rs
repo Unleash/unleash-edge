@@ -1,8 +1,8 @@
 use crate::auth::AuthHeaderConfig;
 use crate::httpclient::ClientMetaInformation;
-use crate::state::{EdgeStateConfig, PersistenceConfig, PreTrustedToken};
+use crate::persistence::PersistenceConfig;
+use crate::state::{EdgeStateConfig, PreTrustedToken};
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::mpsc::UnboundedSender;
 use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
 use unleash_edge_types::tokens::EdgeToken;
@@ -21,7 +21,7 @@ pub struct EdgeBuilderOpts {
     pub persistence_config: PersistenceConfig,
     pub deferred_validation: Option<UnboundedSender<String>>,
     pub pretrusted_tokens: Vec<PreTrustedToken>,
-    pub features_refresh_interval: Duration,
+    pub features_refresh_interval: chrono::Duration,
 }
 
 impl EdgeBuilderOpts {
