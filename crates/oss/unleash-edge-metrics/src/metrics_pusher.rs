@@ -9,7 +9,7 @@ pub struct PrometheusWriteTaskArgs {
     pub url: String,
     pub interval: u64,
     pub app_name: String,
-    pub client_id: Option<String>,
+    pub client_id: String,
     pub username: Option<String>,
     pub password: Option<String>,
 }
@@ -60,19 +60,13 @@ fn get_client(username: Option<String>, password: Option<String>) -> Client {
     }
 }
 
-async fn remote_write_prom(
-    url: String,
-    client: Client,
-    app_name: String,
-    client_id: Option<String>,
-) {
+async fn remote_write_prom(url: String, client: Client, app_name: String, client_id: String) {
     let write_request = WriteRequest::from_metric_families(
         gather(),
-        Some(
-            std::iter::once(("app_name".into(), app_name))
-                .chain(client_id.into_iter().map(|c| ("client_id".into(), c)))
-                .collect(),
-        ),
+        Some(vec![
+            ("app_name".into(), app_name),
+            ("client_id".into(), client_id),
+        ]),
     )
     .expect("Could not format write request");
     let http_request = write_request
@@ -133,7 +127,7 @@ mod tests {
             srv.server_url("/prometheus").unwrap().to_string(),
             client,
             "hosted-edge".into(),
-            Some("hosted".into()),
+            "hosted".into(),
         )
         .await;
     }
