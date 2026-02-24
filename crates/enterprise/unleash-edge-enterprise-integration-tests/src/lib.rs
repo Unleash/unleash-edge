@@ -15,9 +15,11 @@ mod tests {
     use std::sync::Arc;
     use tokio::sync::RwLock;
     use ulid::Ulid;
-    use unleash_edge::edge_builder::{EdgeStateArgs, build_edge_state, resolve_license};
+    use unleash_edge::edge_builder::{
+        EdgeStateArgs, PersistenceArgs, build_edge_state, resolve_license,
+    };
     use unleash_edge_cli::OtelExporterProtocol::Grpc;
-    use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeArgs, HttpServerArgs};
+    use unleash_edge_cli::{AuthHeaders, EdgeArgs, LogFormat};
     use unleash_edge_http_client::{
         ClientMetaInformation, HttpClientArgs, UnleashClient, new_reqwest_client,
     };
@@ -68,6 +70,10 @@ mod tests {
             self.server.server_url("/").unwrap().to_string()
         }
 
+        pub fn as_url(&self) -> Url {
+            self.server.server_url("/").unwrap()
+        }
+
         async fn heartbeat(State(s): State<MockState>) -> impl IntoResponse {
             match s.license_result {
                 Ok(license_state) => (
@@ -93,67 +99,6 @@ mod tests {
                     }
                 ]
             }))
-        }
-    }
-
-    fn mock_cli_args() -> CliArgs {
-        CliArgs {
-            http: HttpServerArgs {
-                port: 3063,
-                interface: "127.0.0.1".to_string(),
-                base_path: "".to_string(),
-                tls: unleash_edge_cli::TlsOptions {
-                    tls_enable: false,
-                    tls_server_key: None,
-                    tls_server_cert: None,
-                    tls_server_port: 3043,
-                    redirect_http_to_https: false,
-                },
-                cors: unleash_edge_cli::CorsOptions {
-                    cors_origin: None,
-                    cors_allowed_headers: None,
-                    cors_max_age: 172800,
-                    cors_exposed_headers: None,
-                    cors_methods: None,
-                },
-                allow_list: None,
-                deny_list: None,
-                workers: None,
-            },
-            mode: unleash_edge_cli::EdgeMode::default(),
-            instance_id: "test-instance".to_string(),
-            client_id: Some("test".to_string()),
-            app_name: "unleash-edge-test".to_string(),
-            markdown_help: false,
-            trust_proxy: unleash_edge_cli::TrustProxy {
-                trust_proxy: false,
-                proxy_trusted_servers: vec![],
-            },
-            disable_all_endpoint: false,
-            edge_request_timeout: 5,
-            edge_keepalive_timeout: 5,
-            log_format: unleash_edge_cli::LogFormat::Plain,
-            auth_headers: AuthHeaders::default(),
-            token_header: None,
-            internal_backstage: unleash_edge_cli::InternalBackstageArgs {
-                disable_metrics_batch_endpoint: false,
-                disable_metrics_endpoint: false,
-                disable_features_endpoint: false,
-                disable_tokens_endpoint: false,
-                disable_instance_data_endpoint: false,
-            },
-            sentry_config: unleash_edge_cli::SentryConfig {
-                sentry_dsn: None,
-                sentry_tracing_rate: 0.1,
-                sentry_debug: false,
-                sentry_enable_logs: false,
-            },
-            datadog_config: unleash_edge_cli::DatadogConfig { datadog_url: None },
-            otel_config: unleash_edge_cli::OpenTelemetryConfig {
-                otel_exporter_otlp_endpoint: None,
-                otel_exporter_otlp_protocol: Grpc,
-            },
-            hosting_type: Some(Hosting::EnterpriseSelfHosted),
         }
     }
 
@@ -228,7 +173,6 @@ mod tests {
         let (http_client, client_meta_information, instances_observed_for_app_context) =
             build_edge_state_data();
 
-        let args = mock_cli_args();
         let edge_args = EdgeArgs {
             upstream_url: upstream.url(),
             tokens: vec![EdgeToken::from_str("*:development.hashyhashhash").unwrap()],
@@ -236,12 +180,33 @@ mod tests {
         };
 
         let maybe_edge_state = build_edge_state(EdgeStateArgs {
-            args,
-            edge_args,
             client_meta_information,
             instances_observed_for_app_context,
             auth_headers: AuthHeaders::default(),
             http_client,
+            hosting_type: Hosting::SelfHosted,
+            client_id: "".to_string(),
+            app_id: Default::default(),
+            otel_endpoint_url: None,
+            otel_protocol: Grpc,
+            log_format: LogFormat::Plain,
+            upstream_url: upstream.as_url(),
+            custom_client_headers: vec![],
+            tokens: edge_args.tokens.clone(),
+            base_path: "".to_string(),
+            http_deny_list: None,
+            http_allow_list: None,
+            streaming: false,
+            delta: false,
+            persistence_args: PersistenceArgs::from(&edge_args),
+            pretrusted_tokens: None,
+            features_refresh_interval: Duration::seconds(30),
+            metrics_interval_seconds: 30,
+            token_revalidation_interval_seconds: 30,
+            prometheus_remote_write_url: None,
+            prometheus_push_interval: 0,
+            prometheus_username: None,
+            prometheus_password: None,
         })
         .await;
 
@@ -257,7 +222,6 @@ mod tests {
         let (http_client, client_meta_information, instances_observed_for_app_context) =
             build_edge_state_data();
 
-        let args = mock_cli_args();
         let edge_args = EdgeArgs {
             upstream_url: upstream.url(),
             tokens: vec![EdgeToken::from_str("*:development.hashyhashhash").unwrap()],
@@ -265,12 +229,33 @@ mod tests {
         };
 
         let maybe_edge_state = build_edge_state(EdgeStateArgs {
-            args,
-            edge_args,
             client_meta_information,
             instances_observed_for_app_context,
             auth_headers: AuthHeaders::default(),
             http_client,
+            hosting_type: Hosting::SelfHosted,
+            client_id: "".to_string(),
+            app_id: Default::default(),
+            otel_endpoint_url: None,
+            otel_protocol: Grpc,
+            log_format: LogFormat::Plain,
+            upstream_url: upstream.as_url(),
+            custom_client_headers: vec![],
+            tokens: edge_args.tokens.clone(),
+            base_path: "".to_string(),
+            http_deny_list: None,
+            http_allow_list: None,
+            streaming: false,
+            delta: false,
+            persistence_args: Default::default(),
+            pretrusted_tokens: None,
+            features_refresh_interval: Default::default(),
+            metrics_interval_seconds: 30i64,
+            token_revalidation_interval_seconds: 30,
+            prometheus_remote_write_url: None,
+            prometheus_push_interval: 0,
+            prometheus_username: None,
+            prometheus_password: None,
         })
         .await;
 
