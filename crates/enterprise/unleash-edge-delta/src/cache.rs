@@ -104,10 +104,10 @@ impl DeltaCache {
                     *existing = segment.clone();
                 } else {
                     self.hydration_event.segments.push(segment.clone());
+                    self.hydration_event
+                        .segments
+                        .sort_by_key(|existing_segment| existing_segment.id);
                 }
-                self.hydration_event
-                    .segments
-                    .sort_by_key(|existing_segment| existing_segment.id);
             }
             DeltaEvent::SegmentRemoved { segment_id, .. } => {
                 self.hydration_event
