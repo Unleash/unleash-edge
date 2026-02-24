@@ -113,9 +113,6 @@ impl DeltaCache {
                 self.hydration_event
                     .segments
                     .retain(|s| s.id != *segment_id);
-                self.hydration_event
-                    .segments
-                    .sort_by_key(|existing_segment| existing_segment.id);
             }
             DeltaEvent::Hydration { .. } => {
                 // do nothing, as hydration will never end up in update events
