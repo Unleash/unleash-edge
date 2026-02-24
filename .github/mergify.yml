@@ -1,17 +1,4 @@
 pull_request_rules:
-  - name: Automatic merge for Dependabot pull requests
-    conditions:
-      - author=dependabot[bot]
-    actions:
-      merge:
-        method: squash
-  - name: Automatic update to the main branch for pull requests
-    conditions:
-      - -conflict
-      - -draft
-      - -author=dependabot[bot]
-    actions:
-      update:
   - name: Automatically approve Dependabot PRs bumping minor
     conditions:
       - author=dependabot[bot]
@@ -26,3 +13,20 @@ pull_request_rules:
     actions:
       review:
         type: APPROVE
+  - name: Queue pull requests targeting main
+    conditions:
+      - base=main
+      - -draft
+      - -conflict
+    actions:
+      queue:
+        name: default
+
+queue_rules:
+  - name: default
+    conditions:
+      - base=main
+      - -draft
+      - -conflict
+      - status-success
+      - "#approved-reviews-by>=1"
