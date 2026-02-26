@@ -91,7 +91,8 @@ mod tests {
                     {
                         "token": "*:development.hashyhashhash",
                         "type": "client",
-                        "projects": ["*"]
+                        "projects": ["*"],
+                        "environment": "development"
                     }
                 ]
             }))
