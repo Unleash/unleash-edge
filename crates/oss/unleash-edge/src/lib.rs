@@ -142,9 +142,11 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
                 http_client,
                 http_deny_list: args.http.deny_list.clone().unwrap_or_default(),
                 instances_observed_for_app_context,
-                log_format: Default::default(),
                 persistence: Default::default(),
                 remote_write_config: RemoteWriteConfig::from(edge_args),
+                #[cfg(feature = "enterprise")]
+                streaming: edge_args.streaming,
+                #[cfg(not(feature = "enterprise"))]
                 streaming: false,
                 tokens,
                 tracing_mode: TracingMode::from(&args),

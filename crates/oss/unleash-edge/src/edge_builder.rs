@@ -874,13 +874,17 @@ mod tests {
             http_client: Default::default(),
             http_deny_list: vec![],
             instances_observed_for_app_context: Arc::new(Default::default()),
-            log_format: Default::default(),
             persistence: PersistenceConfig::File(FileOpts {
                 folder: backup_folder.to_path_buf(),
             }),
             remote_write_config: RemoteWriteConfig::NoOp,
             streaming: false,
-            tokens: vec![],
+            tokens: vec![
+                EdgeToken::from_str(
+                    "default:development.f1339a9b0e67fd8dafe0a19a85809fb88262b2e74c213087c6b3b3a9",
+                )
+                .unwrap(),
+            ],
             tracing_mode: TracingMode::Simple(LogFormat::Plain),
             unleash_urls: UnleashUrls::from_str("http://localhost:3063").expect("Failed to unwrap"),
             pretrusted_tokens: vec![],

@@ -5796,6 +5796,7 @@ dependencies = [
  "unleash-edge-auth",
  "unleash-edge-cli",
  "unleash-edge-client-api",
+ "unleash-edge-config",
  "unleash-edge-delta",
  "unleash-edge-edge-api",
  "unleash-edge-feature-cache",

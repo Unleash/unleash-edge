@@ -5,17 +5,15 @@ mod tests {
     use axum::routing::post;
     use axum::{Json, Router};
     use axum_test::TestServer;
-    use chrono::Duration;
     use dashmap::DashMap;
     use reqwest::Url;
     use serde::{Deserialize, Serialize};
     use std::sync::Arc;
     use ulid::Ulid;
     use unleash_edge_auth::token_validator::TokenValidator;
+    use unleash_edge_config::httpclient::{ClientMetaInformation, HttpClientOpts};
     use unleash_edge_edge_api::{EdgeApiState, edge_api_router_for};
-    use unleash_edge_http_client::{
-        ClientMetaInformation, HttpClientOpts, UnleashClient, new_reqwest_client,
-    };
+    use unleash_edge_http_client::{UnleashClient, new_reqwest_client};
     use unleash_edge_types::tokens::EdgeToken;
     use unleash_edge_types::urls::UnleashUrls;
     use unleash_edge_types::{TokenCache, TokenType, TokenValidationStatus};

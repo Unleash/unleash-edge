@@ -1,6 +1,5 @@
 use crate::auth::AuthHeaderConfig;
 use crate::httpclient::ClientMetaInformation;
-use crate::logging::LogFormat;
 use crate::metrics::PrometheusConfig;
 use crate::otel::TracingMode;
 pub use crate::persistence::PersistenceConfig;
@@ -51,7 +50,6 @@ pub struct EdgeStateConfig {
     pub http_client: reqwest::Client,
     pub http_deny_list: Vec<IpNet>,
     pub instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>>,
-    pub log_format: LogFormat,
     pub persistence: PersistenceConfig,
     pub remote_write_config: RemoteWriteConfig,
     pub streaming: bool,

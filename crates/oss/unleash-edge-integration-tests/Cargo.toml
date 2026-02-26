@@ -31,6 +31,7 @@ ulid = { workspace = true }
 unleash-edge-appstate = { workspace = true }
 unleash-edge-auth = { workspace = true }
 unleash-edge-client-api = { workspace = true }
+unleash-edge-config = { workspace = true }
 unleash-edge-delta = { workspace = true }
 unleash-edge-edge-api = { workspace = true }
 unleash-edge-feature-cache = { workspace = true }
