@@ -37,7 +37,7 @@ impl From<&CliArgs> for TracingMode {
             TracingMode::Otel(OtelConfig {
                 app_id: args.instance_id.clone(),
                 client_id: args.client_id.clone(),
-                log_format: LogFormat::Plain,
+                log_format: args.log_format.clone().into(),
                 otel_endpoint_url: endpoint_url.clone(),
                 otel_protocol: args.otel_config.otel_exporter_otlp_protocol.clone().into(),
             })
