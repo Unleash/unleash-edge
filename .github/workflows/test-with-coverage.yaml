@@ -57,3 +57,4 @@ jobs:
         with:
           file: ./test-results.lcov
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          fail-on-error: false
