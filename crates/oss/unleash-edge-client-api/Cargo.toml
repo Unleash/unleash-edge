@@ -20,6 +20,7 @@ tokio-stream = { workspace = true }
 tracing = { workspace = true }
 ulid = { workspace = true }
 unleash-edge-appstate = { workspace = true }
+unleash-edge-config = { workspace = true }
 unleash-edge-delta = { workspace = true }
 unleash-edge-feature-filters = { workspace = true }
 unleash-edge-feature-refresh = { workspace = true }
@@ -37,4 +38,3 @@ axum-test = { workspace = true }
 maplit = { workspace = true }
 reqwest = { workspace = true }
 tracing-test = { workspace = true }
-unleash-edge-cli = { workspace = true }

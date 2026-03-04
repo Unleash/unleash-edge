@@ -12,7 +12,10 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, Layer};
-use unleash_edge_cli::{LogFormat, OtelExporterProtocol};
+use unleash_edge_config::logging::LogFormat;
+#[cfg(feature = "enterprise")]
+use unleash_edge_config::otel::OtelExporterProtocol;
+use unleash_edge_config::otel::TracingMode;
 use unleash_edge_types::{BackgroundTask, EdgeResult};
 
 #[derive(Debug, Clone)]
@@ -88,19 +91,15 @@ fn init_otel(
 
     // --- Metrics ---
     let metric_exporter = match mode {
-        unleash_edge_cli::OtelExporterProtocol::Http => {
-            opentelemetry_otlp::MetricExporter::builder()
-                .with_http()
-                .with_endpoint(endpoint)
-                .with_compression(opentelemetry_otlp::Compression::Gzip)
-                .build()
-        }
-        unleash_edge_cli::OtelExporterProtocol::Grpc => {
-            opentelemetry_otlp::MetricExporter::builder()
-                .with_tonic()
-                .with_endpoint(endpoint)
-                .build()
-        }
+        OtelExporterProtocol::Http => opentelemetry_otlp::MetricExporter::builder()
+            .with_http()
+            .with_endpoint(endpoint)
+            .with_compression(opentelemetry_otlp::Compression::Gzip)
+            .build(),
+        OtelExporterProtocol::Grpc => opentelemetry_otlp::MetricExporter::builder()
+            .with_tonic()
+            .with_endpoint(endpoint)
+            .build(),
     }?;
     let meter_provider = SdkMeterProvider::builder()
         .with_resource(res.clone())
@@ -110,12 +109,12 @@ fn init_otel(
 
     // --- Logs ---
     let log_exporter = match mode {
-        unleash_edge_cli::OtelExporterProtocol::Http => opentelemetry_otlp::LogExporter::builder()
+        OtelExporterProtocol::Http => opentelemetry_otlp::LogExporter::builder()
             .with_http()
             .with_endpoint(endpoint)
             .with_compression(opentelemetry_otlp::Compression::Gzip)
             .build(),
-        unleash_edge_cli::OtelExporterProtocol::Grpc => opentelemetry_otlp::LogExporter::builder()
+        OtelExporterProtocol::Grpc => opentelemetry_otlp::LogExporter::builder()
             .with_tonic()
             .with_endpoint(endpoint)
             .build(),
@@ -128,52 +127,45 @@ fn init_otel(
     Ok((tracer_provider, meter_provider, logger_provider))
 }
 
-pub struct TracingOpts {
-    pub otel_exporter_otlp_endpoint: Option<String>,
-    pub client_id: String,
-    pub app_id: String,
-    pub otel_exporter_protocol: OtelExporterProtocol,
-    pub log_format: LogFormat,
-}
-
 #[cfg(feature = "enterprise")]
-fn enterprise_tracing(
-    TracingOpts {
-        otel_exporter_otlp_endpoint,
-        client_id,
-        app_id,
-        otel_exporter_protocol,
-        log_format,
-    }: TracingOpts,
-) -> EdgeResult<Option<OtelHolder>> {
-    match otel_exporter_otlp_endpoint.as_ref() {
-        Some(endpoint) => {
-            let (tracer_provider, meter_provider, logger_provider) =
-                init_otel(endpoint, &otel_exporter_protocol, app_id, client_id.clone()).map_err(
-                    |e| unleash_edge_types::errors::EdgeError::TracingInitError(e.to_string()),
-                )?;
-            let _ = init_tracing_subscriber(&logger_provider, log_format);
+fn enterprise_tracing(tracing: TracingMode) -> EdgeResult<Option<OtelHolder>> {
+    match tracing {
+        TracingMode::Otel(config) => {
+            let (tracer_provider, meter_provider, logger_provider) = init_otel(
+                &config.otel_endpoint_url,
+                &config.otel_protocol,
+                config.app_id,
+                config.client_id.clone(),
+            )
+            .map_err(|e| unleash_edge_types::errors::EdgeError::TracingInitError(e.to_string()))?;
+            let _ = init_tracing_subscriber(&logger_provider, config.log_format);
             Ok(Some(OtelHolder {
                 tracer_provider,
                 meter_provider,
                 logger_provider,
             }))
         }
-        None => simple_logging(log_format),
+        TracingMode::Simple(log_format) => simple_logging(log_format),
     }
 }
 
 #[allow(unused_variables)]
 /// Instantiates exporters for traces, metrics and logs
 /// the exporter will read environment variables as specified in (Otel docs)[https://opentelemetry.io/docs/specs/otel/protocol/exporter/]
-pub fn init_tracing_and_logging(tracing_opts: TracingOpts) -> EdgeResult<Option<OtelHolder>> {
+pub fn init_tracing_and_logging(tracing_opts: TracingMode) -> EdgeResult<Option<OtelHolder>> {
     #[cfg(feature = "enterprise")]
     {
         enterprise_tracing(tracing_opts)
     }
     #[cfg(not(feature = "enterprise"))]
     {
-        simple_logging(tracing_opts.log_format)
+        use unleash_edge_types::errors::EdgeError;
+        match tracing_opts {
+            TracingMode::Otel(_) => Err(EdgeError::TracingInitError(
+                "Tracing is not supported in opensource mode".into(),
+            )),
+            TracingMode::Simple(log_format) => simple_logging(log_format),
+        }
     }
 }
 
@@ -234,7 +226,7 @@ mod tests {
             "--upstream-url",
             "http://localhost:3000",
         ]);
-        let result = simple_logging(args.log_format);
+        let result = simple_logging(args.log_format.clone().into());
         assert!(result.is_ok());
         let holder = result.unwrap();
         assert!(holder.is_none());
@@ -242,19 +234,7 @@ mod tests {
 
     #[test]
     fn test_init_tracing_and_logging_no_otel() {
-        let args = CliArgs::parse_from([
-            "unleash-edge",
-            "edge",
-            "--upstream-url",
-            "http://localhost:3000",
-        ]);
-        let result = init_tracing_and_logging(TracingOpts {
-            otel_exporter_otlp_endpoint: args.otel_config.otel_exporter_otlp_endpoint,
-            client_id: args.client_id.unwrap_or("self-hosted".into()),
-            app_id: "random_ulid".to_string(),
-            otel_exporter_protocol: args.otel_config.otel_exporter_otlp_protocol,
-            log_format: args.log_format,
-        });
+        let result = init_tracing_and_logging(TracingMode::Simple(LogFormat::Plain));
         match result {
             Ok(r) => {
                 assert!(r.is_none())

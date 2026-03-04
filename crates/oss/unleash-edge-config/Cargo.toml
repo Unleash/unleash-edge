@@ -1,0 +1,41 @@
+[package]
+name = "unleash-edge-config"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+documentation.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[package.metadata.wix]
+upgrade-guid = "ABA6D0AC-79E6-422A-8CC2-68D62D86AEDA"
+path-guid = "92C33CAD-2C77-4B3F-BABC-861926D35EED"
+license = false
+eula = false
+
+[features]
+default = ["s3-persistence"]
+s3-persistence = ["aws-sdk-s3", "aws-config"]
+
+[dependencies]
+aws-config = { workspace = true, optional = true }
+aws-sdk-s3 = { workspace = true, optional = true }
+chrono = { workspace = true }
+ipnet = { workspace = true }
+p12-keystore = { workspace = true }
+pkix = { workspace = true }
+reqwest = { workspace = true }
+rustls = { workspace = true }
+rustls-pemfile = { workspace = true }
+serde = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+unleash-edge-cli = { workspace = true }
+unleash-edge-types = { workspace = true }
+ulid = { workspace = true }
+
+[dev-dependencies]
+axum-test = { workspace = true }
+tracing-test = { workspace = true }
+serde_json = { workspace = true }

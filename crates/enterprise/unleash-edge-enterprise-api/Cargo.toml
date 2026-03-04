@@ -14,6 +14,7 @@ serde = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 unleash-edge-appstate = { workspace = true }
+unleash-edge-config = { workspace = true }
 unleash-edge-http-client = { workspace = true }
 unleash-edge-types = { workspace = true }
 ulid = { workspace = true }
@@ -25,4 +26,3 @@ axum-test = { workspace = true }
 maplit = { workspace = true }
 reqwest = { workspace = true }
 tracing-test = { workspace = true }
-unleash-edge-cli = { workspace = true }

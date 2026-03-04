@@ -112,6 +112,7 @@ pub fn router() -> Router<AppState> {
 
 #[cfg(test)]
 mod tests {
+    use crate::metrics::{MetricsState, metrics_router_for};
     use axum::extract::FromRef;
     use axum::http::StatusCode;
     use axum_test::TestServer;
@@ -122,7 +123,7 @@ mod tests {
     use std::sync::Arc;
     use ulid::Ulid;
     use unleash_edge_appstate::edge_token_extractor::AuthState;
-    use unleash_edge_cli::AuthHeaders;
+    use unleash_edge_config::auth::AuthHeaderConfig;
     use unleash_edge_types::metrics::{ImpactMetricsKey, MetricsCache};
     use unleash_edge_types::tokens::EdgeToken;
     use unleash_edge_types::{BatchMetricsRequestBody, MetricsKey, TokenCache};
@@ -131,8 +132,6 @@ mod tests {
         ClientApplication, ClientMetrics, ClientMetricsEnv, ConnectVia, ImpactMetric, MetricBucket,
         MetricsMetadata, NumericMetricSample, ToggleStats,
     };
-
-    use crate::metrics::{MetricsState, metrics_router_for};
     #[derive(Clone)]
     struct TestState {
         auth: AuthState,
@@ -154,7 +153,7 @@ mod tests {
     async fn build_metrics_server(metrics_cache: Arc<MetricsCache>) -> TestServer {
         let test_state = TestState {
             auth: AuthState {
-                auth_headers: AuthHeaders::default(),
+                auth_headers: AuthHeaderConfig::default(),
                 token_cache: Arc::new(TokenCache::default()),
             },
             metrics: MetricsState {

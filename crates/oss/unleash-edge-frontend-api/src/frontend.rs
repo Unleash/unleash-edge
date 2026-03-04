@@ -266,6 +266,7 @@ pub fn router(disable_all_endpoints: bool) -> Router<AppState> {
 
 #[cfg(test)]
 mod tests {
+    use crate::frontend::FrontendState;
     use axum::extract::FromRef;
     use axum::extract::connect_info::MockConnectInfo;
     use axum::http::StatusCode;
@@ -278,7 +279,7 @@ mod tests {
     use std::str::FromStr;
     use std::sync::Arc;
     use unleash_edge_appstate::edge_token_extractor::AuthState;
-    use unleash_edge_cli::AuthHeaders;
+    use unleash_edge_config::auth::AuthHeaderConfig;
     use unleash_edge_feature_cache::FeatureCache;
     use unleash_edge_types::metrics::MetricsCache;
     use unleash_edge_types::tokens::{EdgeToken, cache_key};
@@ -289,8 +290,6 @@ mod tests {
     use unleash_types::client_metrics::ConnectVia;
     use unleash_types::frontend::FrontendResult;
     use unleash_yggdrasil::{EngineState, UpdateMessage};
-
-    use crate::frontend::FrontendState;
 
     #[derive(Clone)]
     struct TestState {
@@ -325,7 +324,7 @@ mod tests {
                 },
                 auth: AuthState {
                     token_cache: Arc::new(TokenCache::new()),
-                    auth_headers: AuthHeaders::default(),
+                    auth_headers: AuthHeaderConfig::default(),
                 },
             }
         }

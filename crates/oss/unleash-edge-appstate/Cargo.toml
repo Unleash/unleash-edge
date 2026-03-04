@@ -17,7 +17,7 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 ulid = { workspace = true }
 unleash-edge-auth = { workspace = true }
-unleash-edge-cli = { workspace = true }
+unleash-edge-config = { workspace = true }
 unleash-edge-delta = { workspace = true }
 unleash-edge-feature-cache = { workspace = true }
 unleash-edge-feature-refresh = { workspace = true }
