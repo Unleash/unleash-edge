@@ -2,7 +2,6 @@ use crate::{CacheContainer, EdgeInfo, OTEL_INIT, SHOULD_DEFER_VALIDATION};
 use chrono::{Duration, Utc};
 use dashmap::DashMap;
 use http::StatusCode;
-use ipnet::IpNet;
 #[cfg(feature = "enterprise")]
 use std::collections::{HashMap, HashSet};
 use std::pin::Pin;
@@ -10,14 +9,12 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio::sync::watch::{Receiver, channel};
 use tracing::{debug, error, info, warn};
-use ulid::Ulid;
 use unleash_edge_appstate::AppState;
 use unleash_edge_appstate::token_cache_observer::observe_tokens_in_background;
 use unleash_edge_auth::token_validator::{
     TokenValidator, create_deferred_validation_task, create_revalidation_of_startup_tokens_task,
     create_revalidation_task,
 };
-use unleash_edge_cli::{AuthHeaders, LogFormat, OtelExporterProtocol};
 use unleash_edge_config::builder::EdgeBuilderOpts;
 use unleash_edge_config::httpclient::ClientMetaInformation;
 use unleash_edge_config::persistence::PersistenceConfig;
@@ -49,7 +46,7 @@ use unleash_edge_tracing::{init_tracing_and_logging, shutdown_logging};
 use unleash_edge_types::enterprise::{ApplicationLicenseState, LicenseState};
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::MetricsCache;
-use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
+use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
 use unleash_edge_types::tokens::{EdgeToken, cache_key};
 use unleash_edge_types::{
     BackgroundTask, EdgeResult, EngineCache, RefreshState, TokenCache, TokenType,
@@ -57,7 +54,6 @@ use unleash_edge_types::{
 };
 use unleash_types::client_metrics::ConnectVia;
 use unleash_yggdrasil::{EngineState, UpdateMessage};
-use url::Url;
 
 pub fn build_caches() -> CacheContainer {
     let token_cache: TokenCache = DashMap::default();
@@ -308,35 +304,6 @@ fn enforce_single_backend_token_per_env(
     _tokens: Vec<EdgeToken>,
 ) -> EdgeResult<()> {
     Ok(())
-}
-pub struct EdgeStateArgs {
-    pub client_meta_information: ClientMetaInformation,
-    pub instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>>,
-    pub auth_headers: AuthHeaders,
-    pub http_client: reqwest::Client,
-    pub hosting_type: Hosting,
-    pub client_id: String,
-    pub app_id: Ulid,
-    pub otel_endpoint_url: Option<String>,
-    pub otel_protocol: OtelExporterProtocol,
-    pub log_format: LogFormat,
-    pub upstream_url: Url,
-    pub custom_client_headers: Vec<(String, String)>,
-    pub tokens: Vec<EdgeToken>,
-    pub base_path: String,
-    pub http_deny_list: Option<Vec<IpNet>>,
-    pub http_allow_list: Option<Vec<IpNet>>,
-    pub streaming: bool,
-    pub delta: bool,
-    pub persistence: PersistenceConfig,
-    pub pretrusted_tokens: Option<Vec<(String, EdgeToken)>>,
-    pub features_refresh_interval: Duration,
-    pub metrics_interval_seconds: i64,
-    pub token_revalidation_interval_seconds: u64,
-    pub prometheus_remote_write_url: Option<String>,
-    pub prometheus_push_interval: u64,
-    pub prometheus_username: Option<String>,
-    pub prometheus_password: Option<String>,
 }
 
 pub async fn build_edge_state(
