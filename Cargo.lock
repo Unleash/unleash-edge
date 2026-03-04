@@ -805,9 +805,9 @@ dependencies = [
 
 [[package]]
 name = "axum-test"
-version = "18.7.0"
+version = "19.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ce2a8627e8d8851f894696b39f2b67807d6375c177361d376173ace306a21e2"
+checksum = "0acfa1851ca03248dc71ed67f3b6feded5804f133cfc7263ae69bf7baa9cc48d"
 dependencies = [
  "anyhow",
  "axum",
@@ -827,7 +827,6 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_urlencoded",
- "smallvec",
  "tokio",
  "tower",
  "url",
