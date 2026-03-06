@@ -43,7 +43,7 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
         if: github.event_name != 'pull_request'
       - name: Setup docker buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
       - name: Configure image variant
         run: |
           if [ "${{ matrix.variant }}" = "enterprise" ]; then
