@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.1.11](https://github.com/Unleash/unleash-edge/compare/unleash-edge-tracing-v20.1.10...unleash-edge-tracing-v20.1.11) - 2026-03-13
+
+### 🚀 Features
+- add revisionId to things updated by refreshers ([#1378](https://github.com/unleash/unleash-edge/issues/1378)) (by @chriswk) - #1378
+- add Opentelemetry tracing support to enterprise ([#1372](https://github.com/unleash/unleash-edge/issues/1372)) (by @chriswk) - #1372
+
+### 🐛 Bug Fixes
+- make clippy work again on CI ([#1432](https://github.com/unleash/unleash-edge/issues/1432)) (by @sighphyre) - #1432
+- correctly gate tracing test behind enterprise ([#1399](https://github.com/unleash/unleash-edge/issues/1399)) (by @sighphyre) - #1399
+
+### 💼 Other
+- added client_id to prometheus exporting ([#1397](https://github.com/unleash/unleash-edge/issues/1397)) (by @chriswk) - #1397
+
+### ⚙️ Miscellaneous Tasks
+- release v20.1.10 ([#1452](https://github.com/unleash/unleash-edge/issues/1452)) (by @unleash-bot[bot]) - #1452
+- initial work on no longer using CliArgs longer than we need ([#1451](https://github.com/unleash/unleash-edge/issues/1451)) (by @chriswk) - #1451
+- release v20.1.9 ([#1441](https://github.com/unleash/unleash-edge/issues/1441)) (by @unleash-bot[bot]) - #1441
+- release v20.1.8 ([#1415](https://github.com/unleash/unleash-edge/issues/1415)) (by @unleash-bot[bot]) - #1415
+- release v20.1.7 ([#1315](https://github.com/unleash/unleash-edge/issues/1315)) (by @unleash-bot[bot]) - #1315
+
+### Contributors
+
+* @unleash-bot[bot]
+* @chriswk
+* @sighphyre
+
 ## [20.1.10](https://github.com/Unleash/unleash-edge/compare/unleash-edge-tracing-v20.1.9...unleash-edge-tracing-v20.1.10) - 2026-02-24
 
 ### 🚀 Features
