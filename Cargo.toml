@@ -76,7 +76,7 @@ serde = { version = "1.0.228", features = ["derive"] }
 serde_json = { version = "1.0.149" }
 serde_qs = { version = "1.0.0", features = ["axum"] }
 sha2 = { version = "0.10.9" }
-shadow-rs = { version = "1.7.0" }
+shadow-rs = { version = "1.7.1" }
 socket2 = { version = "0.6.2" }
 test-case = { version = "3.3.1" }
 tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread", "tracing", "fs", "signal"] }
