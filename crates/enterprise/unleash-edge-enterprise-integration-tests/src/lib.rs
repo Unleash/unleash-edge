@@ -15,20 +15,20 @@ mod tests {
     use std::sync::Arc;
     use tokio::sync::RwLock;
     use ulid::Ulid;
-    use unleash_edge::edge_builder::{
-        EdgeStateArgs, PersistenceArgs, build_edge_state, resolve_license,
-    };
-    use unleash_edge_cli::OtelExporterProtocol::Grpc;
-    use unleash_edge_cli::{AuthHeaders, EdgeArgs, LogFormat};
-    use unleash_edge_http_client::{
-        ClientMetaInformation, HttpClientArgs, UnleashClient, new_reqwest_client,
-    };
+    use unleash_edge::edge_builder::{build_edge_state, resolve_license};
+    use unleash_edge_cli::EdgeArgs;
+    use unleash_edge_config::httpclient::{ClientMetaInformation, HttpClientOpts};
+    use unleash_edge_config::logging::LogFormat;
+    use unleash_edge_config::otel::TracingMode;
+    use unleash_edge_config::state::{EdgeStateConfig, RemoteWriteConfig};
+    use unleash_edge_http_client::{UnleashClient, new_reqwest_client};
     use unleash_edge_persistence::EdgePersistence;
-    use unleash_edge_types::EdgeResult;
     use unleash_edge_types::enterprise::LicenseState;
     use unleash_edge_types::errors::EdgeError;
     use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
     use unleash_edge_types::tokens::EdgeToken;
+    use unleash_edge_types::urls::UnleashUrls;
+    use unleash_edge_types::{EdgeResult, TokenType, TokenValidationStatus};
     use unleash_types::client_features::ClientFeatures;
 
     #[derive(Clone)]
@@ -70,10 +70,6 @@ mod tests {
             self.server.server_url("/").unwrap().to_string()
         }
 
-        pub fn as_url(&self) -> Url {
-            self.server.server_url("/").unwrap()
-        }
-
         async fn heartbeat(State(s): State<MockState>) -> impl IntoResponse {
             match s.license_result {
                 Ok(license_state) => (
@@ -95,7 +91,8 @@ mod tests {
                     {
                         "token": "*:development.hashyhashhash",
                         "type": "client",
-                        "projects": ["*"]
+                        "projects": ["*"],
+                        "environment": "development"
                     }
                 ]
             }))
@@ -103,13 +100,13 @@ mod tests {
     }
 
     fn build_client(client_meta_information: &ClientMetaInformation) -> Client {
-        new_reqwest_client(HttpClientArgs {
+        new_reqwest_client(HttpClientOpts {
             skip_ssl_verification: false,
             client_identity: None,
             upstream_certificate_file: None,
-            connect_timeout: Duration::seconds(10),
-            socket_timeout: Duration::seconds(10),
-            keep_alive_timeout: Duration::seconds(10),
+            connect_timeout: std::time::Duration::from_secs(10),
+            socket_timeout: std::time::Duration::from_secs(10),
+            keep_alive_timeout: std::time::Duration::from_secs(10),
             client_meta_information: client_meta_information.clone(),
         })
         .unwrap()
@@ -173,40 +170,44 @@ mod tests {
         let (http_client, client_meta_information, instances_observed_for_app_context) =
             build_edge_state_data();
 
+        let valid_token = EdgeToken {
+            token: "*:development.hashyhashhash".to_string(),
+            token_type: Some(TokenType::Backend),
+            environment: Some("environment".to_string()),
+            projects: vec!["*".into()],
+            status: TokenValidationStatus::Validated,
+        };
+
         let edge_args = EdgeArgs {
             upstream_url: upstream.url(),
-            tokens: vec![EdgeToken::from_str("*:development.hashyhashhash").unwrap()],
+            tokens: vec![valid_token],
             ..EdgeArgs::default()
         };
 
-        let maybe_edge_state = build_edge_state(EdgeStateArgs {
+        let maybe_edge_state = build_edge_state(EdgeStateConfig {
             client_meta_information,
             instances_observed_for_app_context,
-            auth_headers: AuthHeaders::default(),
             http_client,
             hosting_type: Hosting::SelfHosted,
             client_id: "".to_string(),
             app_id: Default::default(),
-            otel_endpoint_url: None,
-            otel_protocol: Grpc,
-            log_format: LogFormat::Plain,
-            upstream_url: upstream.as_url(),
+            persistence: Default::default(),
             custom_client_headers: vec![],
             tokens: edge_args.tokens.clone(),
+            tracing_mode: TracingMode::Simple(LogFormat::Plain),
             base_path: "".to_string(),
-            http_deny_list: None,
-            http_allow_list: None,
             streaming: false,
             delta: false,
-            persistence_args: PersistenceArgs::from(&edge_args),
-            pretrusted_tokens: None,
+            pretrusted_tokens: vec![],
             features_refresh_interval: Duration::seconds(30),
-            metrics_interval_seconds: 30,
-            token_revalidation_interval_seconds: 30,
-            prometheus_remote_write_url: None,
-            prometheus_push_interval: 0,
-            prometheus_username: None,
-            prometheus_password: None,
+            metrics_interval_seconds: Duration::seconds(30),
+            token_revalidation_interval_seconds: Duration::seconds(30),
+            auth_header_config: Default::default(),
+            remote_write_config: RemoteWriteConfig::NoOp,
+            unleash_urls: UnleashUrls::from_str(&upstream.url())
+                .expect("Failed to build Unleash Urls"),
+            http_allow_list: vec![],
+            http_deny_list: vec![],
         })
         .await;
 
@@ -218,44 +219,42 @@ mod tests {
 
     #[tokio::test]
     async fn enterprise_edge_state_startup_succeeds_if_license_can_be_verified() {
-        let upstream = UpstreamMock::new(Ok(LicenseState::Valid)).await;
         let (http_client, client_meta_information, instances_observed_for_app_context) =
             build_edge_state_data();
+        let upstream = UpstreamMock::new(Ok(LicenseState::Valid)).await;
 
-        let edge_args = EdgeArgs {
-            upstream_url: upstream.url(),
-            tokens: vec![EdgeToken::from_str("*:development.hashyhashhash").unwrap()],
-            ..EdgeArgs::default()
+        let valid_token = EdgeToken {
+            token: "*:development.hashyhashhash".to_string(),
+            token_type: Some(TokenType::Backend),
+            environment: Some("environment".to_string()),
+            projects: vec!["*".into()],
+            status: TokenValidationStatus::Validated,
         };
-
-        let maybe_edge_state = build_edge_state(EdgeStateArgs {
-            client_meta_information,
-            instances_observed_for_app_context,
-            auth_headers: AuthHeaders::default(),
-            http_client,
-            hosting_type: Hosting::SelfHosted,
-            client_id: "".to_string(),
-            app_id: Default::default(),
-            otel_endpoint_url: None,
-            otel_protocol: Grpc,
-            log_format: LogFormat::Plain,
-            upstream_url: upstream.as_url(),
-            custom_client_headers: vec![],
-            tokens: edge_args.tokens.clone(),
+        let urls =
+            UnleashUrls::from_str(&upstream.url()).expect("Failed to build urls from mock url");
+        let maybe_edge_state = build_edge_state(EdgeStateConfig {
+            app_id: Ulid::new(),
+            auth_header_config: Default::default(),
             base_path: "".to_string(),
-            http_deny_list: None,
-            http_allow_list: None,
-            streaming: false,
+            client_id: "tests".to_string(),
+            client_meta_information,
+            custom_client_headers: vec![],
             delta: false,
-            persistence_args: Default::default(),
-            pretrusted_tokens: None,
-            features_refresh_interval: Default::default(),
-            metrics_interval_seconds: 30i64,
-            token_revalidation_interval_seconds: 30,
-            prometheus_remote_write_url: None,
-            prometheus_push_interval: 0,
-            prometheus_username: None,
-            prometheus_password: None,
+            hosting_type: Hosting::SelfHosted,
+            http_allow_list: vec![],
+            http_client,
+            http_deny_list: vec![],
+            instances_observed_for_app_context,
+            persistence: Default::default(),
+            remote_write_config: RemoteWriteConfig::NoOp,
+            streaming: false,
+            tokens: vec![valid_token],
+            tracing_mode: TracingMode::Simple(LogFormat::Plain),
+            unleash_urls: urls,
+            pretrusted_tokens: vec![],
+            features_refresh_interval: Duration::seconds(30),
+            metrics_interval_seconds: Duration::seconds(30),
+            token_revalidation_interval_seconds: Duration::seconds(30),
         })
         .await;
 
@@ -270,11 +269,11 @@ mod tests {
             instance_id: Ulid::new(),
         };
 
-        let unleash_client = UnleashClient::from_url_with_backing_client(
-            Url::parse(
+        let unleash_client = UnleashClient::from_urls_with_backing_client(
+            UnleashUrls::from_base_url(Url::parse(
                 "http://this-will-fail-dns-lookup-because-rfc2606-specifies-this-url-as.invalid",
             )
-            .unwrap(),
+            .unwrap()),
             "Authorization".to_string(),
             build_client(&client_meta_information),
             client_meta_information.clone(),
@@ -305,11 +304,11 @@ mod tests {
             instance_id: Ulid::new(),
         };
 
-        let unleash_client = UnleashClient::from_url_with_backing_client(
-            Url::parse(
+        let unleash_client = UnleashClient::from_urls_with_backing_client(
+            UnleashUrls::from_base_url(Url::parse(
                 "http://this-will-fail-dns-lookup-because-rfc2606-specifies-this-url-as.invalid",
             )
-            .unwrap(),
+            .unwrap()),
             "Authorization".to_string(),
             build_client(&client_meta_information),
             client_meta_information.clone(),

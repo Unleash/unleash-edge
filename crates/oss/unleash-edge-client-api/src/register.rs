@@ -75,19 +75,18 @@ pub fn router() -> Router<AppState> {
 
 #[cfg(test)]
 mod tests {
+    use crate::register::RegisterState;
     use axum::extract::FromRef;
     use axum::http::{HeaderValue, StatusCode};
     use axum_test::TestServer;
     use std::str::FromStr;
     use std::sync::Arc;
     use unleash_edge_appstate::edge_token_extractor::AuthState;
-    use unleash_edge_cli::AuthHeaders;
+    use unleash_edge_config::auth::AuthHeaderConfig;
     use unleash_edge_types::metrics::{ApplicationKey, MetricsCache};
     use unleash_edge_types::tokens::EdgeToken;
     use unleash_edge_types::{EDGE_VERSION, TokenCache};
     use unleash_types::client_metrics::{ClientApplication, ConnectVia};
-
-    use crate::register::RegisterState;
 
     #[derive(Clone)]
     struct TestState {
@@ -110,7 +109,7 @@ mod tests {
         let app_state = TestState {
             auth: AuthState {
                 token_cache: token_cache.clone(),
-                auth_headers: AuthHeaders::default(),
+                auth_headers: AuthHeaderConfig::default(),
             },
             register: RegisterState {
                 connect_via: ConnectVia {

@@ -109,16 +109,16 @@ pub fn router() -> Router<AppState> {
 mod tests {
     use std::str::FromStr;
 
+    use super::*;
     use axum_test::TestServer;
-    use chrono::Duration;
     use reqwest::Url;
     use tokio::time::Duration as TokioDuration;
     use tokio::{sync::oneshot, time::timeout};
-    use unleash_edge_cli::AuthHeaders;
-    use unleash_edge_http_client::{ClientMetaInformation, HttpClientArgs, new_reqwest_client};
+    use unleash_edge_config::auth::AuthHeaderConfig;
+    use unleash_edge_config::httpclient::{ClientMetaInformation, HttpClientOpts};
+    use unleash_edge_http_client::new_reqwest_client;
+    use unleash_edge_types::urls::UnleashUrls;
     use unleash_edge_types::{TokenCache, tokens::EdgeToken};
-
-    use super::*;
 
     #[derive(Clone)]
     struct TestState {
@@ -142,7 +142,7 @@ mod tests {
                 token_cache.insert(token.token.clone(), token.clone());
             }
             AuthState {
-                auth_headers: AuthHeaders::default(),
+                auth_headers: AuthHeaderConfig::default(),
                 token_cache,
             }
         }
@@ -155,16 +155,16 @@ mod tests {
             connection_id: Ulid::new(),
         };
 
-        UnleashClient::from_url_with_backing_client(
-            url,
+        UnleashClient::from_urls_with_backing_client(
+            UnleashUrls::from_base_url(url),
             "Authorization".to_string(),
-            new_reqwest_client(HttpClientArgs {
+            new_reqwest_client(HttpClientOpts {
                 skip_ssl_verification: false,
                 client_identity: None,
                 upstream_certificate_file: None,
-                connect_timeout: Duration::seconds(5),
-                socket_timeout: Duration::seconds(5),
-                keep_alive_timeout: Duration::seconds(15),
+                connect_timeout: std::time::Duration::from_secs(5),
+                socket_timeout: std::time::Duration::from_secs(5),
+                keep_alive_timeout: std::time::Duration::from_secs(15),
                 client_meta_information: client_meta_information.clone(),
             })
             .expect("Failed to create client"),
@@ -174,7 +174,7 @@ mod tests {
 
     fn build_server(app_state: TestState) -> TestServer {
         let router = Router::new()
-            .nest("/api/client", super::heartbeat_router_for::<TestState>())
+            .nest("/api/client", heartbeat_router_for::<TestState>())
             .with_state(app_state);
 
         TestServer::builder()

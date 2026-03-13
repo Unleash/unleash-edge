@@ -2,7 +2,7 @@ use ipnet::IpNet;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use unleash_edge_auth::token_validator::TokenValidator;
-use unleash_edge_cli::AuthHeaders;
+use unleash_edge_config::auth::AuthHeaderConfig;
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_refresh::HydratorType;
@@ -21,7 +21,7 @@ pub struct AppState {
     pub token_validator: Arc<Option<TokenValidator>>,
     pub metrics_cache: Arc<MetricsCache>,
     pub delta_cache_manager: Option<Arc<DeltaCacheManager>>,
-    pub auth_headers: AuthHeaders,
+    pub auth_headers: AuthHeaderConfig,
     pub connect_via: ConnectVia,
     pub edge_instance_data: Arc<EdgeInstanceData>,
     pub connected_instances: Arc<RwLock<Vec<EdgeInstanceData>>>,

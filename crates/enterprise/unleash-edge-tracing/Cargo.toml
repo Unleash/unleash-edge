@@ -20,9 +20,10 @@ opentelemetry-appender-tracing = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-opentelemetry = { workspace = true }
-unleash-edge-cli = { workspace = true }
+unleash-edge-config = { workspace = true }
 unleash-edge-types = { workspace = true }
 
 
 [dev-dependencies]
 clap = { workspace = true }
+unleash-edge-cli = { workspace = true }

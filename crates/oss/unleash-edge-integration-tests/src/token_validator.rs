@@ -5,18 +5,17 @@ mod tests {
     use axum::routing::post;
     use axum::{Json, Router};
     use axum_test::TestServer;
-    use chrono::Duration;
     use dashmap::DashMap;
     use reqwest::Url;
     use serde::{Deserialize, Serialize};
     use std::sync::Arc;
     use ulid::Ulid;
     use unleash_edge_auth::token_validator::TokenValidator;
+    use unleash_edge_config::httpclient::{ClientMetaInformation, HttpClientOpts};
     use unleash_edge_edge_api::{EdgeApiState, edge_api_router_for};
-    use unleash_edge_http_client::{
-        ClientMetaInformation, HttpClientArgs, UnleashClient, new_reqwest_client,
-    };
+    use unleash_edge_http_client::{UnleashClient, new_reqwest_client};
     use unleash_edge_types::tokens::EdgeToken;
+    use unleash_edge_types::urls::UnleashUrls;
     use unleash_edge_types::{TokenCache, TokenType, TokenValidationStatus};
 
     #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -54,16 +53,16 @@ mod tests {
     }
 
     pub fn build_unleash_client(server_url: Url) -> Arc<UnleashClient> {
-        Arc::new(UnleashClient::from_url_with_backing_client(
-            server_url,
+        Arc::new(UnleashClient::from_urls_with_backing_client(
+            UnleashUrls::from_base_url(server_url),
             "Authorization".to_string(),
-            new_reqwest_client(HttpClientArgs {
+            new_reqwest_client(HttpClientOpts {
                 skip_ssl_verification: false,
                 client_identity: None,
                 upstream_certificate_file: None,
-                connect_timeout: Duration::seconds(10),
-                socket_timeout: Duration::seconds(10),
-                keep_alive_timeout: Duration::seconds(10),
+                connect_timeout: core::time::Duration::from_secs(10),
+                socket_timeout: core::time::Duration::from_secs(10),
+                keep_alive_timeout: core::time::Duration::from_secs(10),
                 client_meta_information: ClientMetaInformation::test_config(),
             })
             .unwrap(),

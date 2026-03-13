@@ -7,21 +7,20 @@ mod tests {
     use tokio::time::timeout;
     use tokio_stream::StreamExt as _;
     use unleash_edge_appstate::edge_token_extractor::AuthState;
-    use unleash_edge_cli::AuthHeaders;
     use unleash_edge_client_api::streaming::{StreamingState, streaming_router_for};
+    use unleash_edge_config::auth::AuthHeaderConfig;
     use unleash_edge_delta::{
         cache::{DeltaCache, DeltaHydrationEvent},
         cache_manager::DeltaCacheManager,
     };
+    use unleash_edge_types::{TokenCache, TokenType, TokenValidationStatus, tokens::EdgeToken};
     use unleash_types::client_features::{
         ClientFeature, ClientFeaturesDelta, DeltaEvent, Strategy,
     };
 
-    use unleash_edge_types::{TokenCache, TokenType, TokenValidationStatus, tokens::EdgeToken};
-
     #[derive(Clone)]
     struct TestState {
-        auth_headers: AuthHeaders,
+        auth_headers: AuthHeaderConfig,
         token_cache: Arc<TokenCache>,
         delta_cache_manager: Option<Arc<DeltaCacheManager>>,
     }
@@ -49,7 +48,7 @@ mod tests {
         upstream_delta_cache_manager: Arc<DeltaCacheManager>,
     ) -> TestServer {
         let app_state = TestState {
-            auth_headers: AuthHeaders::default(),
+            auth_headers: AuthHeaderConfig::default(),
             token_cache: upstream_token_cache,
             delta_cache_manager: Some(upstream_delta_cache_manager),
         };
