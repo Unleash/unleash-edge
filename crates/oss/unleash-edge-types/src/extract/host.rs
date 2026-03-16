@@ -125,7 +125,6 @@ mod tests {
         TestServer::builder()
             .http_transport()
             .build(Router::new().route("/", get(host_as_body)))
-            .expect("Failed to build test server")
     }
 
     #[tokio::test]
