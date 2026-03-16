@@ -54,7 +54,7 @@ jobs:
             echo "CACHE_SCOPE=build-linux-arm64-ecr" >> $GITHUB_ENV
           fi
       - name: Docker meta configuration (set image and tag)
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         id: meta
         with:
           images: |
