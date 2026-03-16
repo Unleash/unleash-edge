@@ -10,6 +10,7 @@ pub struct PrometheusWriteTaskArgs {
     pub interval: u64,
     pub app_name: String,
     pub client_id: String,
+    pub instance_id: String,
     pub username: Option<String>,
     pub password: Option<String>,
 }
@@ -20,6 +21,7 @@ pub fn create_prometheus_write_task(
         interval,
         app_name,
         client_id,
+        instance_id,
         username,
         password,
     }: PrometheusWriteTaskArgs,
@@ -30,7 +32,7 @@ pub fn create_prometheus_write_task(
         loop {
             tokio::select! {
                 _ = tokio::time::sleep(sleep_duration) => {
-                    remote_write_prom(url.clone(), client.clone(), app_name.clone(), client_id.clone()).await;
+                    remote_write_prom(url.clone(), client.clone(), app_name.clone(), client_id.clone(), instance_id.clone()).await;
                 }
             }
         }
@@ -60,12 +62,19 @@ fn get_client(username: Option<String>, password: Option<String>) -> Client {
     }
 }
 
-async fn remote_write_prom(url: String, client: Client, app_name: String, client_id: String) {
+async fn remote_write_prom(
+    url: String,
+    client: Client,
+    app_name: String,
+    client_id: String,
+    instance_id: String,
+) {
     let write_request = WriteRequest::from_metric_families(
         gather(),
         Some(vec![
             ("app_name".into(), app_name),
             ("client_id".into(), client_id),
+            ("instance_id".into(), instance_id),
         ]),
     )
     .expect("Could not format write request");
@@ -125,6 +134,7 @@ mod tests {
             client,
             "hosted-edge".into(),
             "hosted".into(),
+            "hosted_id".into(),
         )
         .await;
     }
