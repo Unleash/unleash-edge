@@ -36,12 +36,6 @@ pub struct DeltaCacheManager {
     update_sender: broadcast::Sender<DeltaCacheUpdate>,
 }
 
-impl Default for DeltaCacheManager {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl DeltaCacheManager {
     pub fn new() -> Self {
         let (tx, _rx) = broadcast::channel::<DeltaCacheUpdate>(16);
@@ -178,7 +172,7 @@ mod tests {
         match rx.try_recv() {
             Ok(DeltaCacheUpdate::Deletion(e)) => assert_eq!(e, env),
             e => panic!("Expected Deletion update, got {:?}", e),
-        }
+        };
         assert!(delta_cache_manager.get(env).is_none());
     }
 }

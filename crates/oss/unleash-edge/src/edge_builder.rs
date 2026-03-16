@@ -239,14 +239,13 @@ pub async fn build_edge(
         tx,
     );
 
-    let delta_cache_manager = Arc::new(DeltaCacheManager::new());
     let feature_config =
         FeatureRefreshConfig::new(features_refresh_interval, client_meta_information.clone());
 
     let hydrator_type = load_hydrator(LoadHydratorArgs {
         unleash_client: unleash_client.clone(),
         feature_cache: feature_cache.clone(),
-        delta_cache_manager: delta_cache_manager.clone(),
+        delta_cache_manager: delta_cache.clone(),
         engine_cache: engine_cache.clone(),
         persistence: persistence.clone(),
         feature_config: &feature_config,
@@ -298,12 +297,7 @@ pub async fn build_edge(
     }
     hydrator_type.hydrate_new_tokens().await;
     Ok((
-        (
-            token_cache,
-            feature_cache,
-            delta_cache_manager,
-            engine_cache,
-        ),
+        (token_cache, feature_cache, delta_cache, engine_cache),
         Arc::new(token_validator),
         hydrator_type,
         persistence,
@@ -710,6 +704,7 @@ fn create_edge_mode_background_tasks(
             interval: prometheus_push_interval,
             app_name,
             client_id,
+            instance_id: client_meta_information.instance_id.to_string(),
             username: prometheus_username.clone(),
             password: prometheus_password.clone(),
         }));
