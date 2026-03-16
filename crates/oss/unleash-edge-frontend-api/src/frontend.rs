@@ -335,10 +335,7 @@ mod tests {
         let router = super::frontend_router_for::<TestState>(disable_all_endpoints)
             .with_state(test_state)
             .into_make_service_with_connect_info::<SocketAddr>();
-        TestServer::builder()
-            .http_transport()
-            .build(router)
-            .expect("Failed to build test server")
+        TestServer::builder().http_transport().build(router)
     }
 
     fn frontend_test_server_with_ip(test_state: TestState, ip_addr: &str) -> TestServer {
@@ -346,10 +343,7 @@ mod tests {
         let router = super::frontend_router_for::<TestState>(false)
             .with_state(test_state)
             .layer(MockConnectInfo(fake_addr));
-        TestServer::builder()
-            .http_transport()
-            .build(router)
-            .expect("Failed to build test server")
+        TestServer::builder().http_transport().build(router)
     }
 
     #[tokio::test]

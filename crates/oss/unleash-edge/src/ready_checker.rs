@@ -124,10 +124,7 @@ mod tests {
         let router = Router::new()
             .route("/internal-backstage/ready", get(ready))
             .with_state(test_state);
-        let srv = TestServer::builder()
-            .http_transport()
-            .build(router)
-            .unwrap();
+        let srv = TestServer::builder().http_transport().build(router);
         let url = srv.server_url("/").unwrap();
         let check_result = check_ready(ReadyCheckArgs {
             ca_certificate_file: None,
@@ -157,10 +154,7 @@ mod tests {
     #[tokio::test]
     pub async fn errors_if_ready_check_returns_different_status_than_200() {
         let router = Router::new().route("/internal-backstage/ready", get(conflict));
-        let srv = TestServer::builder()
-            .http_transport()
-            .build(router)
-            .expect("Failed to build test server");
+        let srv = TestServer::builder().http_transport().build(router);
         let url = srv.server_url("/").expect("Failed to get server url");
         let check_result = check_ready(ReadyCheckArgs {
             ca_certificate_file: None,
