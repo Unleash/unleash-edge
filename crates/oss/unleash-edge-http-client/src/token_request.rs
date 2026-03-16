@@ -218,8 +218,7 @@ mod tests {
 
         let ts = axum_test::TestServer::builder()
             .http_transport()
-            .build(router)
-            .expect("Failed to build test server");
+            .build(router);
         let url = ts.server_url("/edge/issue-token").unwrap();
         let client = reqwest::Client::new();
         let tokens = request_tokens(RequestTokensArg {

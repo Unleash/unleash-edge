@@ -176,10 +176,7 @@ mod tests {
             ))
             .with_state(app_state);
 
-        let server = TestServer::builder()
-            .http_transport()
-            .build(router)
-            .expect("Failed to build test server");
+        let server = TestServer::builder().http_transport().build(router);
 
         let response = server.get("/api/client/features").await;
         assert_eq!(response.status_code(), StatusCode::OK);
@@ -206,10 +203,7 @@ mod tests {
             .layer(from_fn_with_state(app_state.clone(), request_consumption))
             .with_state(app_state);
 
-        let server = TestServer::builder()
-            .http_transport()
-            .build(router)
-            .expect("Failed to build test server");
+        let server = TestServer::builder().http_transport().build(router);
 
         let response = server.get("/api/frontend/features").await;
         assert_eq!(response.status_code(), StatusCode::OK);
@@ -240,10 +234,7 @@ mod tests {
             .layer(from_fn_with_state(app_state.clone(), request_consumption))
             .with_state(app_state);
 
-        let server = TestServer::builder()
-            .http_transport()
-            .build(router)
-            .expect("Failed to build test server");
+        let server = TestServer::builder().http_transport().build(router);
 
         let response = server.get("/api/unknown/path").await;
         assert_eq!(response.status_code(), StatusCode::OK);
@@ -277,10 +268,7 @@ mod tests {
             .layer(from_fn_with_state(app_state.clone(), request_consumption))
             .with_state(app_state);
 
-        let server = TestServer::builder()
-            .http_transport()
-            .build(router)
-            .expect("Failed to build test server");
+        let server = TestServer::builder().http_transport().build(router);
 
         let response = server.get("/api/frontend/client/metrics").await;
         assert_eq!(response.status_code(), StatusCode::OK);
