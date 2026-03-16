@@ -59,7 +59,7 @@ opentelemetry-otlp = { version = "0.31.0", features = ["reqwest", "metrics", "lo
 opentelemetry-prometheus = { version = "0.31.0" }
 opentelemetry-semantic-conventions = { version = "0.31.0" }
 opentelemetry_sdk = { version = "0.31.0", features = ["metrics", "rt-tokio", "spec_unstable_metrics_views"] }
-p12-keystore = { version = "0.2.0" }
+p12-keystore = { version = "0.2.1" }
 pkix = { version = "0.2.5" }
 pretty_assertions = { version = "1.4.1" }
 prometheus = { version = "0.14.0", features = ["process"] }
