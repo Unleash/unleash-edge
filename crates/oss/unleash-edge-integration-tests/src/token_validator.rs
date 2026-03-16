@@ -90,10 +90,7 @@ mod tests {
 
     async fn test_validation_server() -> TestServer {
         let router = Router::new().route("/edge/validate", post(return_validated_tokens));
-        TestServer::builder()
-            .http_transport()
-            .build(router)
-            .unwrap()
+        TestServer::builder().http_transport().build(router)
     }
 
     async fn validation_server_with_valid_tokens(
@@ -113,10 +110,7 @@ mod tests {
         let router = Router::new()
             .nest("/edge", edge_api_router_for::<TestState>())
             .with_state(test_state);
-        TestServer::builder()
-            .http_transport()
-            .build(router)
-            .unwrap()
+        TestServer::builder().http_transport().build(router)
     }
 
     #[tokio::test]

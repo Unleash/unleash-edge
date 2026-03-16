@@ -803,10 +803,7 @@ mod tests {
             .route("/api/client/streaming", get(streaming_handler))
             .with_state(state);
 
-        let server = TestServer::builder()
-            .http_transport()
-            .build(router)
-            .unwrap();
+        let server = TestServer::builder().http_transport().build(router);
 
         (server, last_event_id_rx)
     }
@@ -907,10 +904,7 @@ mod tests {
 
     async fn test_features_server() -> TestServer {
         let router = Router::new().route("/api/client/delta", get(delta_handler));
-        TestServer::builder()
-            .http_transport()
-            .build(router)
-            .unwrap()
+        TestServer::builder().http_transport().build(router)
     }
 
     async fn delta_handler(request: Request) -> impl IntoResponse {

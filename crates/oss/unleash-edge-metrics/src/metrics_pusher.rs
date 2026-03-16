@@ -128,10 +128,7 @@ mod tests {
     pub async fn client_includes_username_and_password_as_base64_header() {
         let client = super::get_client(Some("username".into()), Some("password".into()));
         let router = Router::new().route("/prometheus", post(handle_posted_data));
-        let srv = TestServer::builder()
-            .http_transport()
-            .build(router)
-            .unwrap();
+        let srv = TestServer::builder().http_transport().build(router);
         let _ = super::remote_write_prom(
             srv.server_url("/prometheus").unwrap().to_string(),
             client,

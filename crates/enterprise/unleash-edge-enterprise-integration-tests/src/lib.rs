@@ -58,10 +58,7 @@ mod tests {
                     Router::new().route("/validate", post(Self::validate_all_tokens)),
                 );
 
-            let server = TestServer::builder()
-                .http_transport()
-                .build(app)
-                .expect("failed to build upstream mock");
+            let server = TestServer::builder().http_transport().build(app);
 
             Self { server }
         }
