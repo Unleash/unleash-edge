@@ -46,5 +46,5 @@ axum-test = { workspace = true }
 pretty_assertions = { workspace = true }
 test-case = { workspace = true }
 tracing-test = { workspace = true }
-unleash-edge = { workspace = true }
+unleash-edge = { workspace = true, features = ["enterprise"] }
 unleash-edge-cli = { workspace = true }
