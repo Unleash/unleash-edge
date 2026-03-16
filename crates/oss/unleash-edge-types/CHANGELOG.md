@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.1.11](https://github.com/Unleash/unleash-edge/compare/unleash-edge-types-v20.1.1...unleash-edge-types-v20.1.11) - 2026-03-16
+
+### 🚀 Features
+- Update Yggdrasil adding new constraints (by @chriswk) - #1484
+
+### Contributors
+
+* @chriswk
+
 ## [20.1.10](https://github.com/Unleash/unleash-edge/compare/unleash-edge-types-v20.1.9...unleash-edge-types-v20.1.10) - 2026-02-24
 
 ### ⚙️ Miscellaneous Tasks
