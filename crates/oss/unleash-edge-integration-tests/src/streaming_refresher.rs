@@ -56,10 +56,7 @@ mod tests {
         let router = Router::new()
             .nest("/api/client", streaming_router_for::<TestState>())
             .with_state(app_state);
-        TestServer::builder()
-            .http_transport()
-            .build(router)
-            .expect("Failed to build client api test server")
+        TestServer::builder().http_transport().build(router)
     }
 
     #[tokio::test]

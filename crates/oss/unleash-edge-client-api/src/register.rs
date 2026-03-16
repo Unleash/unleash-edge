@@ -122,10 +122,7 @@ mod tests {
         };
 
         let router = super::register_router_for::<TestState>().with_state(app_state);
-        TestServer::builder()
-            .http_transport()
-            .build(router)
-            .unwrap()
+        TestServer::builder().http_transport().build(router)
     }
 
     #[tokio::test]

@@ -955,10 +955,7 @@ mod tests {
             .nest("/api/client", features_router_for::<TestState>())
             .nest("/edge", edge_api_router_for::<TestState>())
             .with_state(test_state);
-        TestServer::builder()
-            .http_transport()
-            .build(router)
-            .expect("Failed to build client api test server")
+        TestServer::builder().http_transport().build(router)
     }
 
     #[tokio::test]
