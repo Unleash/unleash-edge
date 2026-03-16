@@ -32,7 +32,7 @@ mod tests {
             ))))
             .service(router);
         let make_it_axum_test_compatible = Router::new().fallback_service(svc);
-        let srv = axum_test::TestServer::new(make_it_axum_test_compatible).expect("Fall");
+        let srv = axum_test::TestServer::new(make_it_axum_test_compatible);
 
         srv.get("/api/client/features")
             .add_header("Authorization", "[]:development.secret-token2")
@@ -53,6 +53,6 @@ mod tests {
             .add_header("Authorization", "[]:development.secret-token")
             .add_header("Content-Type", "application/json")
             .await
-            .assert_status(StatusCode::BAD_REQUEST) // Not 404
+            .assert_status(StatusCode::BAD_REQUEST); // Not 404
     }
 }

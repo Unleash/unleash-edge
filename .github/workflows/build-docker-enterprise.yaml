@@ -52,7 +52,7 @@ jobs:
           echo ${{ steps.platforms.outputs.matrix }}
       - name: Docker meta
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: |
             ${{ env.DOCKERHUB_SLUG }}
@@ -70,7 +70,7 @@ jobs:
         run: |
           mv "${{ steps.meta.outputs.bake-file }}" "/tmp/bake-meta.json"
       - name: Upload meta bake definition
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: bake-meta
           path: /tmp/bake-meta.json
@@ -93,24 +93,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
       - name: Download meta bake definition
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: bake-meta
           path: /tmp
       - name: Setup QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Login to docker hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         if: github.event_name != 'pull_request'
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Login to Github Container registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         if: github.event_name != 'pull_request'
         with:
           registry: ghcr.io
@@ -131,7 +131,7 @@ jobs:
           registry-type: public
       - name: Build and bake
         id: bake
-        uses: docker/bake-action@v6
+        uses: docker/bake-action@v7
         with:
           files: |
             ./docker-bake.hcl
@@ -151,7 +151,7 @@ jobs:
           digest="${{ fromJSON(steps.bake.outputs.metadata).image['containerimage.digest'] }}"
           touch "/tmp/digests/${digest#sha256:}"
       - name: Upload digests
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: digests-${{ env.PLATFORM_PAIR }}
           path: /tmp/digests/*
@@ -165,25 +165,25 @@ jobs:
       - build
     steps:
       - name: Download meta bake definition
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: bake-meta
           path: /tmp
       - name: Download digests
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           path: /tmp/digests
           pattern: digests-*
           merge-multiple: true
       - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
       - name: Login to docker hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Login to Github Container registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}

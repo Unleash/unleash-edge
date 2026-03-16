@@ -57,10 +57,7 @@ mod tests {
             "/internal-backstage/health",
             get(unleash_edge_backstage::health),
         );
-        let srv = TestServer::builder()
-            .http_transport()
-            .build(router)
-            .unwrap();
+        let srv = TestServer::builder().http_transport().build(router);
         let url = srv.server_url("/").unwrap();
         let check_result = check_health(HealthCheckArgs {
             ca_certificate_file: None,
@@ -90,10 +87,7 @@ mod tests {
     #[tokio::test]
     pub async fn errors_if_health_check_returns_different_status_than_200() {
         let router = Router::new().route("/health", get(conflict));
-        let srv = TestServer::builder()
-            .http_transport()
-            .build(router)
-            .unwrap();
+        let srv = TestServer::builder().http_transport().build(router);
         let url = srv.server_url("/").unwrap();
         let check_result = check_health(HealthCheckArgs {
             ca_certificate_file: None,

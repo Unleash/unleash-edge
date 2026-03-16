@@ -177,10 +177,7 @@ mod tests {
             .nest("/api/client", super::heartbeat_router_for::<TestState>())
             .with_state(app_state);
 
-        TestServer::builder()
-            .http_transport()
-            .build(router)
-            .unwrap()
+        TestServer::builder().http_transport().build(router)
     }
 
     #[tokio::test]
@@ -212,8 +209,7 @@ mod tests {
                         }
                     }
                 }),
-            ))
-            .unwrap();
+            ));
 
         // build the server that we're actually testing. We expect this to forward responses to upstream
         let app_state = TestState {

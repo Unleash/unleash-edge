@@ -168,10 +168,7 @@ mod tests {
         };
 
         let router = metrics_router_for::<TestState>().with_state(test_state);
-        TestServer::builder()
-            .http_transport()
-            .build(router)
-            .expect("Failed to setup test server")
+        TestServer::builder().http_transport().build(router)
     }
 
     #[tokio::test]
