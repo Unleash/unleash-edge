@@ -122,6 +122,7 @@ Files:
 
 - [`docker-compose.streaming-e2e.yml`](/docker-compose.streaming-e2e.yml)
 - [`scripts/streaming-e2e-cluster-switch.sh`](/scripts/streaming-e2e-cluster-switch.sh)
+- [`scripts/streaming-e2e-project-scope-switch.sh`](/scripts/streaming-e2e-project-scope-switch.sh)
 
 The scenario starts:
 
@@ -146,13 +147,23 @@ Prerequisites:
 The harness uses predictable test-only credentials:
 
 - admin API token: `*:*.unleash-insecure-admin-api-token`
-- client API token: `*:development.unleash-insecure-client-api-token`
+- all-project token: `*:development.unleash-insecure-client-api-token`
+- default-project token: `default:development.unleash-default-project-token`
 
 Run it with:
 
 ```shell
 export UNLEASH_LICENSE='<your-test-license>'
 ./scripts/streaming-e2e-cluster-switch.sh
+```
+
+The project-scoped variant uses the same compose file, but starts `edge-x` with the seeded `default` project token,
+creates a second project through the admin API, and verifies that second-project updates remain visible on `edge-a` and
+`edge-b` while staying hidden from `edge-x` before and after the upstream switch:
+
+```shell
+export UNLEASH_LICENSE='<your-test-license>'
+./scripts/streaming-e2e-project-scope-switch.sh
 ```
 
 Useful environment overrides:

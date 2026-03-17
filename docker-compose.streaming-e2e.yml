@@ -41,7 +41,7 @@ services:
       LOG_LEVEL: warn
       INIT_ADMIN_API_TOKENS: "*:*.unleash-insecure-admin-api-token"
       INIT_FRONTEND_API_TOKENS: "*:development.unleash-insecure-frontend-api-token"
-      INIT_CLIENT_API_TOKENS: "*:development.unleash-insecure-client-api-token"
+      INIT_CLIENT_API_TOKENS: "*:development.unleash-insecure-client-api-token,default:development.unleash-default-project-token"
       UNLEASH_EXPERIMENTAL_DELTA_API: "true"
       UNLEASH_EXPERIMENTAL_STREAMING: "true"
       UNLEASH_EXPERIMENTAL_STREAMING_DENY_STREAMING_FOR_NON_EDGE: "true"
@@ -117,6 +117,7 @@ services:
         condition: service_started
     environment:
       <<: *edge-env
+      TOKENS: ${EDGE_X_TOKENS:-*:development.unleash-insecure-client-api-token}
       UPSTREAM_URL: http://router:3063
     ports:
       - "3067:3063"
