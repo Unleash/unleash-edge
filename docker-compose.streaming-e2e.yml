@@ -1,0 +1,143 @@
+x-edge-env: &edge-env
+  STRICT: "true"
+  TOKENS: "*:development.unleash-insecure-client-api-token"
+  LOG_FORMAT: plain
+  CLIENT_KEEPALIVE_TIMEOUT: "5"
+  UPSTREAM_REQUEST_TIMEOUT: "5"
+  UPSTREAM_SOCKET_TIMEOUT: "5"
+  TOKEN_REVALIDATION_INTERVAL_SECONDS: "30"
+  FEATURES_REFRESH_INTERVAL_SECONDS: "15"
+  METRICS_INTERVAL_SECONDS: "3600"
+  STREAMING: "true"
+  DELTA: "true"
+
+x-edge-common: &edge-common
+  image: ${EDGE_IMAGE:-unleashorg/unleash-edge-enterprise:edge}
+  command: ["edge"]
+
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: db
+      POSTGRES_HOST_AUTH_METHOD: trust
+    healthcheck:
+      test: ["CMD", "pg_isready", "--username=postgres", "--host=127.0.0.1", "--port=5432"]
+      interval: 2s
+      timeout: 1m
+      retries: 10
+      start_period: 5s
+
+  unleash:
+    image: ${UNLEASH_IMAGE:-unleashorg/unleash-enterprise:latest}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "4242:4242"
+    environment:
+      DATABASE_URL: postgres://postgres:unleash@db/db
+      DATABASE_SSL: "false"
+      LOG_LEVEL: warn
+      INIT_ADMIN_API_TOKENS: "*:*.unleash-insecure-admin-api-token"
+      INIT_FRONTEND_API_TOKENS: "*:development.unleash-insecure-frontend-api-token"
+      INIT_CLIENT_API_TOKENS: "*:development.unleash-insecure-client-api-token"
+      UNLEASH_EXPERIMENTAL_DELTA_API: "true"
+      UNLEASH_EXPERIMENTAL_STREAMING: "true"
+      UNLEASH_EXPERIMENTAL_STREAMING_DENY_STREAMING_FOR_NON_EDGE: "true"
+      UNLEASH_LICENSE: ${UNLEASH_LICENSE:?set UNLEASH_LICENSE}
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:4242/health || exit 1
+      interval: 2s
+      timeout: 1m
+      retries: 15
+      start_period: 15s
+
+  edge-a:
+    <<: *edge-common
+    depends_on:
+      unleash:
+        condition: service_healthy
+    environment:
+      <<: *edge-env
+      UPSTREAM_URL: http://unleash:4242
+    ports:
+      - "${EDGE_A_PORT:-3064}:3063"
+    healthcheck:
+      test: ["CMD", "/app/unleash-edge", "health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  edge-b:
+    <<: *edge-common
+    depends_on:
+      unleash:
+        condition: service_healthy
+    environment:
+      <<: *edge-env
+      UPSTREAM_URL: http://unleash:4242
+    ports:
+      - "${EDGE_B_PORT:-3065}:3063"
+    healthcheck:
+      test: ["CMD", "/app/unleash-edge", "health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  router:
+    image: nginx:1.27-alpine
+    depends_on:
+      edge-a:
+        condition: service_started
+    ports:
+      - "${ROUTER_PORT:-3066}:3063"
+    volumes:
+      - ./scripts/streaming-e2e-router/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./scripts/streaming-e2e-router/conf.d:/etc/nginx/conf.d
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://127.0.0.1:3063/internal-backstage/health",
+        ]
+      interval: 3s
+      timeout: 10s
+      retries: 20
+      start_period: 5s
+
+  edge-x:
+    <<: *edge-common
+    depends_on:
+      router:
+        condition: service_started
+    environment:
+      <<: *edge-env
+      UPSTREAM_URL: http://router:3063
+    ports:
+      - "${EDGE_X_PORT:-3067}:3063"
+    healthcheck:
+      test: ["CMD", "/app/unleash-edge", "health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  probe:
+    image: curlimages/curl:8.15.0
+    command: ["sleep", "infinity"]
+    depends_on:
+      unleash:
+        condition: service_healthy
+      edge-a:
+        condition: service_started
+      router:
+        condition: service_started
+      edge-x:
+        condition: service_started
