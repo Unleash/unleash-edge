@@ -4,7 +4,7 @@ resolver = "3"
 members = ["crates/oss/*", "crates/enterprise/*"]
 
 [workspace.package]
-version = "20.1.10"
+version = "20.2.0"
 authors = [
     "Unleash developers <team@getunleash.io>",
     "Christopher Kolstad <chriswk@getunleash.io>",
@@ -26,10 +26,18 @@ anyhow = { version = "1.0.102" }
 async-trait = { version = "0.1.89" }
 aws-config = { version = "1.8.15", features = ["behavior-version-latest"] }
 aws-sdk-s3 = { version = "1.126.0", features = ["behavior-version-latest"] }
-axum = { version = "0.8.8", features = ["macros", "tokio", "json", "query", "tracing"] }
+axum = { version = "0.8.8", features = [
+    "macros",
+    "tokio",
+    "json",
+    "query",
+    "tracing",
+] }
 axum-core = { version = "0.5.6" }
 axum-extra = { version = "0.12.5", features = ["tracing"] }
-axum-server = { version = "0.8.0", default-features = false, features = ["tls-rustls"] }
+axum-server = { version = "0.8.0", default-features = false, features = [
+    "tls-rustls",
+] }
 axum-test = { version = "19.1.1", features = ["pretty-assertions", "reqwest"] }
 base64 = { version = "0.22.1" }
 chrono = { version = "0.4.44", features = ["serde"] }
@@ -55,10 +63,23 @@ maplit = { version = "1.0.2" }
 num_cpus = { version = "1.17.0" }
 opentelemetry = { version = "0.31.0", features = ["trace", "metrics", "logs"] }
 opentelemetry-appender-tracing = { version = "0.31.1" }
-opentelemetry-otlp = { version = "0.31.0", features = ["reqwest", "metrics", "logs", "serde", "serde_json", "serialize", "http-json", "grpc-tonic"] }
+opentelemetry-otlp = { version = "0.31.0", features = [
+    "reqwest",
+    "metrics",
+    "logs",
+    "serde",
+    "serde_json",
+    "serialize",
+    "http-json",
+    "grpc-tonic",
+] }
 opentelemetry-prometheus = { version = "0.31.0" }
 opentelemetry-semantic-conventions = { version = "0.31.0" }
-opentelemetry_sdk = { version = "0.31.0", features = ["metrics", "rt-tokio", "spec_unstable_metrics_views"] }
+opentelemetry_sdk = { version = "0.31.0", features = [
+    "metrics",
+    "rt-tokio",
+    "spec_unstable_metrics_views",
+] }
 p12-keystore = { version = "0.2.1" }
 pkix = { version = "0.2.5" }
 pretty_assertions = { version = "1.4.1" }
@@ -68,7 +89,12 @@ proptest = { version = "1.10.0" }
 rand = "0.10.0"
 redis = { version = "1.0.5", features = ["tokio-rustls-comp", "cluster"] }
 regex = { version = "1.12.3" }
-reqwest = { version = "0.13.2", default-features = false, features = ["rustls", "json", "stream", "query"] }
+reqwest = { version = "0.13.2", default-features = false, features = [
+    "rustls",
+    "json",
+    "stream",
+    "query",
+] }
 rustls = { version = "0.23.37", default-features = false, features = ["ring"] }
 rustls-pemfile = { version = "2.2.0" }
 semver = { version = "1.0.27" }
@@ -79,11 +105,25 @@ sha2 = { version = "0.10.9" }
 shadow-rs = { version = "1.7.1" }
 socket2 = { version = "0.6.3" }
 test-case = { version = "3.3.1" }
-tokio = { version = "1.50.0", features = ["macros", "rt-multi-thread", "tracing", "fs", "signal"] }
+tokio = { version = "1.50.0", features = [
+    "macros",
+    "rt-multi-thread",
+    "tracing",
+    "fs",
+    "signal",
+] }
 tokio-rustls = { version = "0.26.4" }
 tokio-stream = { version = "0.1.18", features = ["sync"] }
 tower = { version = "0.5.3" }
-tower-http = { version = "0.6.8", features = ["cors", "normalize-path", "trace", "compression-gzip", "compression-zstd", "compression-br", "compression-deflate"] }
+tower-http = { version = "0.6.8", features = [
+    "cors",
+    "normalize-path",
+    "trace",
+    "compression-gzip",
+    "compression-zstd",
+    "compression-br",
+    "compression-deflate",
+] }
 tracing = { version = "0.1.44" }
 tracing-opentelemetry = { version = "0.32.1", features = ["metrics"] }
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "json"] }
