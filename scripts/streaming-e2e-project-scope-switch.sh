@@ -20,6 +20,7 @@ SECOND_PROJECT="${SECOND_PROJECT:-streaming-e2e-second-project}"
 ENVIRONMENT="${ENVIRONMENT:-development}"
 DEFAULT_FEATURE_NAME="${DEFAULT_FEATURE_NAME:-streaming-e2e-default-feature}"
 SECOND_PROJECT_FEATURE_NAME="${SECOND_PROJECT_FEATURE_NAME:-streaming-e2e-second-project-feature}"
+EDGE_X_TOKENS="${EDGE_X_TOKENS:-${DEFAULT_PROJECT_TOKEN}}"
 
 WAIT_TIMEOUT_SECONDS="${WAIT_TIMEOUT_SECONDS:-120}"
 POLL_INTERVAL_SECONDS="${POLL_INTERVAL_SECONDS:-2}"
@@ -186,6 +187,7 @@ ensure_prerequisites() {
   require_tool curl
   require_tool jq
   [[ -n "${UNLEASH_LICENSE:-}" ]] || die "UNLEASH_LICENSE must be set"
+  export EDGE_X_TOKENS
 }
 
 start_unleash_base() {
@@ -215,7 +217,7 @@ start_primary_chain() {
   wait_http_ok "${ROUTER_URL}/internal-backstage/health"
 
   info "Starting edge-x with a default-project token"
-  EDGE_X_TOKENS="${DEFAULT_PROJECT_TOKEN}" "${COMPOSE[@]}" up -d edge-x >/dev/null
+  "${COMPOSE[@]}" up -d edge-x >/dev/null
   wait_http_ok "${EDGE_X_URL}/internal-backstage/ready"
 
   wait_edge_feature_visible "${EDGE_A_URL}" "${ALL_PROJECTS_TOKEN}" "${DEFAULT_FEATURE_NAME}"
@@ -259,7 +261,11 @@ assert_project_scoping() {
   edge_x_names="$(fetch_features_json "${EDGE_X_URL}" "${DEFAULT_PROJECT_TOKEN}" | jq -S '[.features[].name]')"
 
   [[ "${edge_a_names}" == "${edge_b_names}" ]] || die "edge-a and edge-b do not expose the same all-project feature names"
-  [[ "${edge_x_names}" == "[\"${DEFAULT_FEATURE_NAME}\"]" ]] || die "edge-x exposed an unexpected feature set for the default-project token"
+  fetch_features_json "${EDGE_X_URL}" "${DEFAULT_PROJECT_TOKEN}" | jq -e --arg expected "${DEFAULT_FEATURE_NAME}" '
+    (.features | length) == 1 and
+    (.features[0].name == $expected) and
+    (.features[0].project == "default")
+  ' >/dev/null || die "edge-x exposed an unexpected feature set for the default-project token"
 
   info "Project-scoped E2E scenario passed"
 }
