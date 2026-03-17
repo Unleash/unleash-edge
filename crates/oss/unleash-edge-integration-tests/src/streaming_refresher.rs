@@ -306,7 +306,7 @@ mod tests {
         Response::builder()
             .status(StatusCode::OK)
             .header(
-                "etag",
+                axum::http::header::ETAG,
                 entity_tag_to_header_value(EntityTag::new(false, &event_id)),
             )
             .body(axum::body::Body::from(serde_json::to_vec(&delta).unwrap()))
