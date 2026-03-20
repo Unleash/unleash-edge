@@ -113,6 +113,75 @@ docker run -v ./examples:/edge/data -p 3063:3063 -e BOOTSTRAP_FILE=/edge/data/fe
 
 Once Edge is up and running, your SDKs should connect to EDGE_URL/api. For example, `http://localhost:3063/api`.
 
+## Streaming Cluster E2E
+
+This repository includes a Docker Compose harness for exercising streaming behavior across multiple Enterprise Edge
+instances with a node switch in the upstream path.
+
+Files:
+
+- [`docker-compose.streaming-e2e.yml`](/docker-compose.streaming-e2e.yml)
+- [`scripts/streaming-e2e-cluster-switch.sh`](/scripts/streaming-e2e-cluster-switch.sh)
+- [`scripts/streaming-e2e-project-scope-switch.sh`](/scripts/streaming-e2e-project-scope-switch.sh)
+
+The scenario starts:
+
+- one Enterprise Unleash instance
+- three Enterprise Edge instances: `edge-a`, `edge-b`, `edge-x`
+- one nginx router in front of `edge-a`/`edge-b`
+
+`edge-x` connects through the router. The script starts `edge-a` first, propagates a real feature update, starts
+`edge-a`, `router`, and `edge-x` only after an initial feature exists, applies a second real feature update while
+`edge-a` and `edge-x` are already running, starts `edge-b` later so it bootstraps from the newer full state rather
+than the same incremental history, switches the nginx router from its `edge-a` config to its `edge-b` config, and
+then validates the final semantic state via `/api/client/features`.
+
+Prerequisites:
+
+- Docker with `docker compose`
+- `curl`
+- `jq`
+- an Enterprise Unleash license exported as `UNLEASH_LICENSE`
+- enough `edgeInstances` in that license for `edge-a`, `edge-b`, and `edge-x`
+
+The harness uses predictable test-only credentials:
+
+- admin API token: `*:*.unleash-insecure-admin-api-token`
+- all-project token: `*:development.unleash-insecure-client-api-token`
+- default-project token: `default:development.unleash-default-project-token`
+
+Run it with:
+
+```shell
+export UNLEASH_LICENSE='<your-test-license>'
+./scripts/streaming-e2e-cluster-switch.sh
+```
+
+The project-scoped variant uses the same compose file, but starts `edge-x` with the seeded `default` project token,
+creates a second project through the admin API, disconnects `edge-x`, applies a second-project update while `edge-x` is
+offline, starts `edge-b` after that out-of-scope update, and then reconnects `edge-x` through `edge-b`. The expected
+result is that `edge-a` and `edge-b` expose both projects while `edge-x` still exposes only the `default` project
+feature after reconnect:
+
+```shell
+export UNLEASH_LICENSE='<your-test-license>'
+./scripts/streaming-e2e-project-scope-switch.sh
+```
+
+Useful environment overrides:
+
+- `KEEP_E2E_STACK=1` leaves the containers running for inspection
+- `FEATURE_NAME=my-feature` changes the feature used in the scenario
+- `SKEW_FEATURE_NAME=my-feature-after-start` changes the second feature used to create history skew
+- `WAIT_TIMEOUT_SECONDS=180` increases readiness and propagation timeouts
+
+When `KEEP_E2E_STACK=1` is set, you can inspect the resulting state directly:
+
+```shell
+curl -H 'Authorization: *:development.unleash-insecure-client-api-token' \
+  http://127.0.0.1:3067/api/client/features | jq
+```
+
 ## Additional resources
 
 - [Edge overview and concepts](https://docs.getunleash.io/unleash-edge)
