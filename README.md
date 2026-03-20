@@ -158,8 +158,10 @@ export UNLEASH_LICENSE='<your-test-license>'
 ```
 
 The project-scoped variant uses the same compose file, but starts `edge-x` with the seeded `default` project token,
-creates a second project through the admin API, and verifies that second-project updates remain visible on `edge-a` and
-`edge-b` while staying hidden from `edge-x` before and after the upstream switch:
+creates a second project through the admin API, disconnects `edge-x`, applies a second-project update while `edge-x` is
+offline, starts `edge-b` after that out-of-scope update, and then reconnects `edge-x` through `edge-b`. The expected
+result is that `edge-a` and `edge-b` expose both projects while `edge-x` still exposes only the `default` project
+feature after reconnect:
 
 ```shell
 export UNLEASH_LICENSE='<your-test-license>'

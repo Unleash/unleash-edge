@@ -7,7 +7,7 @@ COMPOSE=(docker compose -f "$COMPOSE_FILE")
 
 UNLEASH_URL="${UNLEASH_URL:-http://127.0.0.1:4242}"
 EDGE_A_URL="${EDGE_A_URL:-http://127.0.0.1:3064}"
-EDGE_B_URL="${EDGE_B_URL:-http://edge-b:3063}"
+EDGE_B_URL="${EDGE_B_URL:-http://127.0.0.1:3065}"
 EDGE_X_URL="${EDGE_X_URL:-http://127.0.0.1:3067}"
 ROUTER_URL="${ROUTER_URL:-http://127.0.0.1:3066}"
 
@@ -55,17 +55,6 @@ cleanup() {
 
 trap cleanup EXIT
 
-probe_http_ok() {
-  local url="$1"
-  "${COMPOSE[@]}" exec -T probe curl -fsS "$url" >/dev/null
-}
-
-probe_get_features() {
-  local edge_url="$1"
-  local token="$2"
-  "${COMPOSE[@]}" exec -T probe curl -fsS -H "Authorization: ${token}" "${edge_url}/api/client/features"
-}
-
 wait_http_ok() {
   local url="$1"
   local deadline=$((SECONDS + WAIT_TIMEOUT_SECONDS))
@@ -78,30 +67,10 @@ wait_http_ok() {
   done
 }
 
-wait_probe_http_ok() {
-  local url="$1"
-  local deadline=$((SECONDS + WAIT_TIMEOUT_SECONDS))
-
-  until probe_http_ok "$url"; do
-    if (( SECONDS >= deadline )); then
-      die "Timed out waiting for ${url}"
-    fi
-    sleep "$POLL_INTERVAL_SECONDS"
-  done
-}
-
 fetch_features_json() {
   local edge_url="$1"
   local token="$2"
-
-  case "$edge_url" in
-    http://edge-b:3063*)
-      probe_get_features "$edge_url" "$token"
-      ;;
-    *)
-      curl -fsS -H "Authorization: ${token}" "${edge_url}/api/client/features"
-      ;;
-  esac
+  curl -fsS -H "Authorization: ${token}" "${edge_url}/api/client/features"
 }
 
 wait_edge_feature_visible() {
@@ -224,29 +193,33 @@ start_primary_chain() {
   wait_edge_feature_visible "${EDGE_X_URL}" "${DEFAULT_PROJECT_TOKEN}" "${DEFAULT_FEATURE_NAME}"
 }
 
-introduce_second_project_update() {
-  info "Creating and enabling second-project feature ${SECOND_PROJECT_FEATURE_NAME} while edge-a and edge-x are running"
+disconnect_edge_x_before_out_of_scope_update() {
+  info "Stopping edge-x before the out-of-scope second-project update"
+  "${COMPOSE[@]}" stop edge-x >/dev/null
+}
+
+introduce_second_project_update_while_edge_x_is_disconnected() {
+  info "Creating and enabling second-project feature ${SECOND_PROJECT_FEATURE_NAME} while edge-x is disconnected"
   create_feature "${SECOND_PROJECT}" "${SECOND_PROJECT_FEATURE_NAME}"
   enable_feature "${SECOND_PROJECT}" "${SECOND_PROJECT_FEATURE_NAME}"
 
   wait_edge_feature_visible "${EDGE_A_URL}" "${ALL_PROJECTS_TOKEN}" "${SECOND_PROJECT_FEATURE_NAME}"
-  assert_edge_feature_hidden "${EDGE_X_URL}" "${DEFAULT_PROJECT_TOKEN}" "${SECOND_PROJECT_FEATURE_NAME}"
 }
 
-start_secondary_upstream() {
+start_secondary_upstream_after_out_of_scope_update() {
   info "Starting edge-b after the second-project update"
-  "${COMPOSE[@]}" up -d edge-b probe >/dev/null
-  wait_probe_http_ok "${EDGE_B_URL}/internal-backstage/ready"
+  "${COMPOSE[@]}" up -d edge-b >/dev/null
+  wait_http_ok "${EDGE_B_URL}/internal-backstage/ready"
 
   wait_edge_feature_visible "${EDGE_B_URL}" "${ALL_PROJECTS_TOKEN}" "${DEFAULT_FEATURE_NAME}"
   wait_edge_feature_visible "${EDGE_B_URL}" "${ALL_PROJECTS_TOKEN}" "${SECOND_PROJECT_FEATURE_NAME}"
 }
 
-switch_edge_x_upstream() {
+reconnect_edge_x_through_edge_b() {
   switch_router_to_edge_b
 
-  info "Restarting edge-x to reconnect through edge-b"
-  "${COMPOSE[@]}" restart edge-x >/dev/null
+  info "Starting edge-x to reconnect through edge-b"
+  "${COMPOSE[@]}" start edge-x >/dev/null
   wait_http_ok "${EDGE_X_URL}/internal-backstage/ready"
 
   wait_edge_feature_visible "${EDGE_X_URL}" "${DEFAULT_PROJECT_TOKEN}" "${DEFAULT_FEATURE_NAME}"
@@ -275,9 +248,10 @@ main() {
   start_unleash_base
   seed_projects_and_default_state
   start_primary_chain
-  introduce_second_project_update
-  start_secondary_upstream
-  switch_edge_x_upstream
+  disconnect_edge_x_before_out_of_scope_update
+  introduce_second_project_update_while_edge_x_is_disconnected
+  start_secondary_upstream_after_out_of_scope_update
+  reconnect_edge_x_through_edge_b
   assert_project_scoping
 }
 

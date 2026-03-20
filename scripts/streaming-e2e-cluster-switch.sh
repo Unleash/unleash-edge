@@ -7,7 +7,7 @@ COMPOSE=(docker compose -f "$COMPOSE_FILE")
 
 UNLEASH_URL="${UNLEASH_URL:-http://127.0.0.1:4242}"
 EDGE_A_URL="${EDGE_A_URL:-http://127.0.0.1:3064}"
-EDGE_B_URL="${EDGE_B_URL:-http://edge-b:3063}"
+EDGE_B_URL="${EDGE_B_URL:-http://127.0.0.1:3065}"
 EDGE_X_URL="${EDGE_X_URL:-http://127.0.0.1:3067}"
 ROUTER_URL="${ROUTER_URL:-http://127.0.0.1:3066}"
 CLIENT_TOKEN="${CLIENT_TOKEN:-*:development.unleash-insecure-client-api-token}"
@@ -49,17 +49,6 @@ cleanup() {
 
 trap cleanup EXIT
 
-probe_http_ok() {
-  local url="$1"
-  docker compose -f "$COMPOSE_FILE" exec -T probe curl -fsS "$url" >/dev/null
-}
-
-probe_get_features() {
-  local edge_url="$1"
-  docker compose -f "$COMPOSE_FILE" exec -T probe \
-    curl -fsS -H "Authorization: ${CLIENT_TOKEN}" "${edge_url}/api/client/features"
-}
-
 wait_http_ok() {
   local url="$1"
   local deadline=$((SECONDS + WAIT_TIMEOUT_SECONDS))
@@ -85,28 +74,9 @@ wait_edge_features() {
   done
 }
 
-wait_probe_http_ok() {
-  local url="$1"
-  local deadline=$((SECONDS + WAIT_TIMEOUT_SECONDS))
-
-  until probe_http_ok "$url"; do
-    if (( SECONDS >= deadline )); then
-      die "Timed out waiting for ${url}"
-    fi
-    sleep "$POLL_INTERVAL_SECONDS"
-  done
-}
-
 fetch_features_json() {
   local edge_url="$1"
-  case "$edge_url" in
-    http://edge-b:3063*)
-      probe_get_features "$edge_url"
-      ;;
-    *)
-      curl -fsS -H "Authorization: ${CLIENT_TOKEN}" "${edge_url}/api/client/features"
-      ;;
-  esac
+  curl -fsS -H "Authorization: ${CLIENT_TOKEN}" "${edge_url}/api/client/features"
 }
 
 activate_router_target() {
@@ -201,8 +171,8 @@ introduce_history_skew() {
 
 start_secondary_upstream() {
   info "Starting edge-b after edge-a has already ingested the post-start update"
-  "${COMPOSE[@]}" up -d edge-b probe >/dev/null
-  wait_probe_http_ok "${EDGE_B_URL}/internal-backstage/ready"
+  "${COMPOSE[@]}" up -d edge-b >/dev/null
+  wait_http_ok "${EDGE_B_URL}/internal-backstage/ready"
   wait_edge_features "${EDGE_B_URL}" "${FEATURE_NAME}"
   wait_edge_features "${EDGE_B_URL}" "${SKEW_FEATURE_NAME}"
 }

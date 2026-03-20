@@ -78,6 +78,8 @@ services:
     environment:
       <<: *edge-env
       UPSTREAM_URL: http://unleash:4242
+    ports:
+      - "3065:3063"
     healthcheck:
       test: ["CMD", "/app/unleash-edge", "health"]
       interval: 5s
@@ -127,16 +129,3 @@ services:
       timeout: 5s
       retries: 20
       start_period: 10s
-
-  probe:
-    image: curlimages/curl:8.15.0
-    command: ["sleep", "infinity"]
-    depends_on:
-      unleash:
-        condition: service_healthy
-      edge-a:
-        condition: service_started
-      router:
-        condition: service_started
-      edge-x:
-        condition: service_started
