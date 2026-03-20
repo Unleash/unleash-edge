@@ -63,7 +63,7 @@ maplit = { version = "1.0.2" }
 num_cpus = { version = "1.17.0" }
 opentelemetry = { version = "0.31.0", features = ["trace", "metrics", "logs"] }
 opentelemetry-appender-tracing = { version = "0.31.1" }
-opentelemetry-otlp = { version = "0.31.0", features = [
+opentelemetry-otlp = { version = "0.31.1", features = [
     "reqwest",
     "metrics",
     "logs",
