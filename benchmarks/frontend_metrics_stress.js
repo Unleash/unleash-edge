@@ -78,6 +78,8 @@ function buildMetricsPayload(vuId) {
         };
     }
 
+    const impactMetricsAmount = 50
+
     return JSON.stringify({
         appName: `stress-test-app-${vuId % 10}`,
         instanceId: `instance-${vuId}`,
@@ -86,37 +88,38 @@ function buildMetricsPayload(vuId) {
             stop: now.toISOString(),
             toggles: features,
         },
-        impactMetrics: [
-            {
-                name: `stress_counter_${vuId % 5}`,
-                type: 'counter',
-                help: 'A stress test counter',
-                samples: [
-                    {
-                        value: Math.floor(Math.random() * 1000),
-                        labels: { appName: `stress-test-app-${vuId % 10}` },
-                    },
-                ],
-            },
-            {
-                name: `stress_histogram_${vuId % 3}`,
-                type: 'histogram',
-                help: 'A stress test histogram',
-                samples: [
-                    {
-                        labels: { appName: `stress-test-app-${vuId % 10}` },
-                        count: Math.floor(Math.random() * 500) + 10,
-                        sum: Math.random() * 5000,
-                        buckets: [
-                            { le: 1.0,      count: Math.floor(Math.random() * 50) },
-                            { le: 5.0,      count: Math.floor(Math.random() * 200) },
-                            { le: 10.0,     count: Math.floor(Math.random() * 400) },
-                            { le: '+Inf',   count: Math.floor(Math.random() * 500) },
-                        ],
-                    },
-                ],
-            },
-        ],
+        impactMetrics: Array.from({ length: impactMetricsAmount }, (_, i) =>
+            i % 2 === 0
+                ? {
+                      name: `stress_counter_${i}_${vuId % 5}`,
+                      type: 'counter',
+                      help: 'A stress test counter',
+                      samples: [
+                          {
+                              value: Math.floor(Math.random() * 1000),
+                              labels: { appName: `stress-test-app-${vuId % 10}` },
+                          },
+                      ],
+                  }
+                : {
+                      name: `stress_histogram_${i}_${vuId % 3}`,
+                      type: 'histogram',
+                      help: 'A stress test histogram',
+                      samples: [
+                          {
+                              labels: { appName: `stress-test-app-${vuId % 10}` },
+                              count: Math.floor(Math.random() * 500) + 10,
+                              sum: Math.random() * 5000,
+                              buckets: [
+                                  { le: 1.0,      count: Math.floor(Math.random() * 50) },
+                                  { le: 5.0,      count: Math.floor(Math.random() * 200) },
+                                  { le: 10.0,     count: Math.floor(Math.random() * 400) },
+                                  { le: '+Inf',   count: Math.floor(Math.random() * 500) },
+                              ],
+                          },
+                      ],
+                  }
+        ),
     });
 }
 
