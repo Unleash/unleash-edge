@@ -20,7 +20,6 @@ if [[ -n "${token}" ]]; then
 
   if [[ -n "${instance_id}" ]]; then
     export EC2_INSTANCE_ID="${instance_id}"
-    export INSTANCE_ID="${INSTANCE_ID:-${instance_id}}"
   fi
 fi
 
