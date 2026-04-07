@@ -14,12 +14,12 @@ token="$(curl --silent --show-error --fail --max-time 2 -X PUT http://169.254.16
   -H "X-aws-ec2-metadata-token-ttl-seconds: 21600" || true)"
 
 if [[ -n "${token}" ]]; then
-  instance_id="$(curl --silent --show-error --fail --max-time 2 \
+  ec2_instance_id="$(curl --silent --show-error --fail --max-time 2 \
     -H "X-aws-ec2-metadata-token: ${token}" \
     http://169.254.169.254/latest/meta-data/instance-id || true)"
 
-  if [[ -n "${instance_id}" ]]; then
-    export EC2_INSTANCE_ID="${instance_id}"
+  if [[ -n "${ec2_instance_id}" ]]; then
+    export EC2_INSTANCE_ID="${ec2_instance_id}"
   fi
 fi
 
