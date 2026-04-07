@@ -81,7 +81,7 @@ async fn remote_write_prom(
         ("instance_id".into(), instance_id),
     ];
     if let Some(host) = hostname {
-        permanent_labels.push(("hostname".into(), host))
+        permanent_labels.push(("hostname".into(), host));
     }
     if let Some(ec2) = ec2_instance_id {
         permanent_labels.push(("ec2_instance_id".into(), ec2));
