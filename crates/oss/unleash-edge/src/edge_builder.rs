@@ -395,6 +395,8 @@ pub struct EdgeStateArgs {
     pub prometheus_push_interval: u64,
     pub prometheus_username: Option<String>,
     pub prometheus_password: Option<String>,
+    pub hostname: Option<String>,
+    pub ec2_instance_id: Option<String>,
 }
 
 impl From<&EdgeStateArgs> for TracingOpts {
@@ -519,6 +521,8 @@ pub async fn build_edge_state(
         prometheus_username: args.prometheus_username,
         prometheus_password: args.prometheus_password,
         custom_client_headers: args.custom_client_headers,
+        hostname: args.hostname,
+        ec2_instance_id: args.ec2_instance_id,
     });
     let shutdown_args = ShutdownTaskArgs {
         delta_cache_manager: delta_cache_manager.clone(),
@@ -640,6 +644,8 @@ pub(crate) struct BackgroundTaskArgs {
     prometheus_username: Option<String>,
     prometheus_password: Option<String>,
     custom_client_headers: Vec<(String, String)>,
+    hostname: Option<String>,
+    ec2_instance_id: Option<String>,
 }
 fn create_edge_mode_background_tasks(
     BackgroundTaskArgs {
@@ -668,6 +674,8 @@ fn create_edge_mode_background_tasks(
         prometheus_username,
         prometheus_password,
         custom_client_headers,
+        hostname,
+        ec2_instance_id,
     }: BackgroundTaskArgs,
 ) -> Vec<BackgroundTask> {
     #[allow(unused_variables)] // refresh_state_tx used in enterprise feature
@@ -707,6 +715,8 @@ fn create_edge_mode_background_tasks(
             instance_id: client_meta_information.instance_id.to_string(),
             username: prometheus_username.clone(),
             password: prometheus_password.clone(),
+            hostname,
+            ec2_instance_id,
         }));
     }
 
@@ -971,6 +981,8 @@ mod tests {
             prometheus_password: None,
             prometheus_user_id: None,
             hmac_config: HmacConfig::default(),
+            hostname: None,
+            ec2_instance_id: None,
         };
         let client_meta_information = ClientMetaInformation {
             app_name: "test_app".to_string(),

@@ -204,6 +204,8 @@ mod tests {
             prometheus_push_interval: 0,
             prometheus_username: None,
             prometheus_password: None,
+            hostname: None,
+            ec2_instance_id: None,
         })
         .await;
 
@@ -253,6 +255,8 @@ mod tests {
             prometheus_push_interval: 0,
             prometheus_username: None,
             prometheus_password: None,
+            hostname: None,
+            ec2_instance_id: None,
         })
         .await;
 

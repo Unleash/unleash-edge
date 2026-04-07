@@ -11,6 +11,8 @@ pub struct PrometheusWriteTaskArgs {
     pub app_name: String,
     pub client_id: String,
     pub instance_id: String,
+    pub hostname: Option<String>,
+    pub ec2_instance_id: Option<String>,
     pub username: Option<String>,
     pub password: Option<String>,
 }
@@ -22,6 +24,8 @@ pub fn create_prometheus_write_task(
         app_name,
         client_id,
         instance_id,
+        hostname,
+        ec2_instance_id,
         username,
         password,
     }: PrometheusWriteTaskArgs,
@@ -32,7 +36,7 @@ pub fn create_prometheus_write_task(
         loop {
             tokio::select! {
                 _ = tokio::time::sleep(sleep_duration) => {
-                    remote_write_prom(url.clone(), client.clone(), app_name.clone(), client_id.clone(), instance_id.clone()).await;
+                    remote_write_prom(url.clone(), client.clone(), app_name.clone(), client_id.clone(), instance_id.clone(), hostname.clone(), ec2_instance_id.clone()).await;
                 }
             }
         }
@@ -68,16 +72,22 @@ async fn remote_write_prom(
     app_name: String,
     client_id: String,
     instance_id: String,
+    hostname: Option<String>,
+    ec2_instance_id: Option<String>,
 ) {
-    let write_request = WriteRequest::from_metric_families(
-        gather(),
-        Some(vec![
-            ("app_name".into(), app_name),
-            ("client_id".into(), client_id),
-            ("instance_id".into(), instance_id),
-        ]),
-    )
-    .expect("Could not format write request");
+    let mut permanent_labels = vec![
+        ("app_name".into(), app_name),
+        ("client_id".into(), client_id),
+        ("instance_id".into(), instance_id),
+    ];
+    if let Some(host) = hostname {
+        permanent_labels.push(("hostname".into(), host))
+    }
+    if let Some(ec2) = ec2_instance_id {
+        permanent_labels.push(("ec2_instance_id".into(), ec2));
+    }
+    let write_request = WriteRequest::from_metric_families(gather(), Some(permanent_labels))
+        .expect("Could not format write request");
     let http_request = write_request
         .build_http_request(client.clone(), &url, "unleash_edge")
         .expect("Failed to build http request");
@@ -135,6 +145,8 @@ mod tests {
             "hosted-edge".into(),
             "hosted".into(),
             "hosted_id".into(),
+            Some("hostname".into()),
+            None,
         )
         .await;
     }
