@@ -26,7 +26,7 @@ anyhow = { version = "1.0.102" }
 async-trait = { version = "0.1.89" }
 aws-config = { version = "1.8.15", features = ["behavior-version-latest"] }
 aws-sdk-s3 = { version = "1.129.0", features = ["behavior-version-latest"] }
-axum = { version = "0.8.8", features = [
+axum = { version = "0.8.9", features = [
     "macros",
     "tokio",
     "json",
