@@ -95,7 +95,7 @@ reqwest = { version = "0.13.2", default-features = false, features = [
     "stream",
     "query",
 ] }
-rustls = { version = "0.23.38", default-features = false, features = ["ring"] }
+rustls = { version = "0.23.39", default-features = false, features = ["ring"] }
 rustls-pemfile = { version = "2.2.0" }
 semver = { version = "1.0.28" }
 serde = { version = "1.0.228", features = ["derive"] }
