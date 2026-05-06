@@ -115,7 +115,7 @@ tokio = { version = "1.52.2", features = [
 tokio-rustls = { version = "0.26.4" }
 tokio-stream = { version = "0.1.18", features = ["sync"] }
 tower = { version = "0.5.3" }
-tower-http = { version = "0.6.8", features = [
+tower-http = { version = "0.6.9", features = [
     "cors",
     "normalize-path",
     "trace",
