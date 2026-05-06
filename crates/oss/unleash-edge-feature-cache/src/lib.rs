@@ -1,10 +1,9 @@
 use dashmap::DashMap;
 use tokio::sync::broadcast;
 use unleash_edge_types::tokens::EdgeToken;
-use unleash_types::client_features::ClientFeaturesDelta;
 use unleash_types::{
     Deduplicate,
-    client_features::{ClientFeature, ClientFeatures, Segment},
+    client_features::{ClientFeature, ClientFeatures, ClientFeaturesDelta, Meta, Segment},
 };
 
 #[derive(Debug, Clone)]
@@ -68,12 +67,26 @@ impl FeatureCache {
     }
 
     pub fn apply_delta(&self, key: String, delta: &ClientFeaturesDelta) {
+        self.apply_delta_with_meta(key, delta, None);
+    }
+
+    pub fn apply_delta_with_meta(
+        &self,
+        key: String,
+        delta: &ClientFeaturesDelta,
+        meta: Option<Meta>,
+    ) {
         self.features
             .entry(key.clone())
             .and_modify(|existing_features| {
                 existing_features.apply_delta(delta);
+                existing_features.meta = merge_meta(existing_features.meta.clone(), meta.clone());
             })
-            .or_insert(ClientFeatures::create_from_delta(delta));
+            .or_insert_with(|| {
+                let mut features = ClientFeatures::create_from_delta(delta);
+                features.meta = merge_meta(None, meta);
+                features
+            });
         self.send_full_update(key);
     }
 
@@ -146,6 +159,19 @@ fn merge_segments_update(
         }
         (Some(s), None) => Some(s),
         (None, Some(o)) => Some(o),
+        (None, None) => None,
+    }
+}
+
+fn merge_meta(existing: Option<Meta>, update: Option<Meta>) -> Option<Meta> {
+    match (existing, update) {
+        (Some(existing), Some(update)) => Some(Meta {
+            etag: update.etag.or(existing.etag),
+            revision_id: update.revision_id.or(existing.revision_id),
+            query_hash: update.query_hash.or(existing.query_hash),
+        }),
+        (Some(existing), None) => Some(existing),
+        (None, Some(update)) => Some(update),
         (None, None) => None,
     }
 }
