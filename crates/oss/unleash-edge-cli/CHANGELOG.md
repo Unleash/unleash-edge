@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.2.1](https://github.com/Unleash/unleash-edge/compare/unleash-edge-cli-v20.1.1...unleash-edge-cli-v20.2.1) - 2026-05-06
+
+### 🚀 Features
+- added hostname and ec2 instance id ([#1531](https://github.com/unleash/unleash-edge/issues/1531)) (by @chriswk) - #1531
+
+### Contributors
+
+* @chriswk
+
 ## [20.1.10](https://github.com/Unleash/unleash-edge/compare/unleash-edge-cli-v20.1.9...unleash-edge-cli-v20.1.10) - 2026-02-24
 
 ### ⚙️ Miscellaneous Tasks
