@@ -39,6 +39,22 @@ pub type Environment = String;
 const DELTA_CACHE_LIMIT: usize = 100;
 const SDK_TYPE_HEADER: &str = "Unleash-Sdk-Type";
 const SSE_IDLE_TIMEOUT: Duration = Duration::from_secs(90);
+const SSE_IDLE_RECONNECT_DELAY: Duration = Duration::from_secs(5);
+
+#[derive(Clone, Copy)]
+struct SseIdleConfig {
+    timeout: Duration,
+    reconnect_delay: Duration,
+}
+
+impl Default for SseIdleConfig {
+    fn default() -> Self {
+        Self {
+            timeout: SSE_IDLE_TIMEOUT,
+            reconnect_delay: SSE_IDLE_RECONNECT_DELAY,
+        }
+    }
+}
 
 static DELTA_REVISION_ID: LazyLock<IntGaugeVec> = LazyLock::new(|| {
     register_int_gauge_vec!(
@@ -178,7 +194,7 @@ async fn run_stream_task(
         client_meta_information,
         custom_headers,
         refresh_state_rx,
-        SSE_IDLE_TIMEOUT,
+        SseIdleConfig::default(),
     )
     .await;
 }
@@ -190,7 +206,7 @@ async fn run_stream_task_with_idle_timeout(
     client_meta_information: ClientMetaInformation,
     custom_headers: Vec<(String, String)>,
     mut refresh_state_rx: Receiver<RefreshState>,
-    idle_timeout: Duration,
+    idle_config: SseIdleConfig,
 ) {
     let mut stream: Option<SseStream> = None;
     let mut last_event_id: Option<String> = None;
@@ -235,14 +251,20 @@ async fn run_stream_task_with_idle_timeout(
                     if result.is_ok() {
                         continue;
                     } else {
-                        sleep(Duration::from_secs(1)).await;
+                        info!("Refresh state channel closed; stopping SSE stream task");
+                        return;
                     }
                 }
-                next = timeout(idle_timeout, s.next()) => {
+                next = timeout(idle_config.timeout, s.next()) => {
                     match next {
                         Err(_) => {
-                            warn!("SSE stream idle for {idle_timeout:?}; reconnecting immediately");
+                            info!(
+                                "SSE stream idle for {:?}; reconnecting after {:?}",
+                                idle_config.timeout,
+                                idle_config.reconnect_delay
+                            );
                             stream = None;
+                            sleep(idle_config.reconnect_delay).await;
                             continue;
                         }
                         Ok(Some(Ok(sse))) => {
@@ -821,7 +843,10 @@ mod tests {
             ClientMetaInformation::test_config(),
             vec![],
             refresh_state_rx,
-            StdDuration::from_millis(100),
+            super::SseIdleConfig {
+                timeout: StdDuration::from_millis(100),
+                reconnect_delay: StdDuration::ZERO,
+            },
         ));
 
         let last_event_id = tokio::time::timeout(StdDuration::from_secs(5), last_event_id_rx)

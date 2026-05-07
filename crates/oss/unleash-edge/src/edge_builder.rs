@@ -361,9 +361,9 @@ fn enforce_single_backend_token_per_env(
 
 #[cfg(not(feature = "enterprise"))]
 fn enforce_single_backend_token_per_env(
-    streaming: bool,
-    delta: bool,
-    tokens: Vec<EdgeToken>,
+    _streaming: bool,
+    _delta: bool,
+    _tokens: Vec<EdgeToken>,
 ) -> EdgeResult<()> {
     Ok(())
 }
