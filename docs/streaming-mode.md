@@ -11,10 +11,21 @@ Streaming mode changes how Edge receives updates from upstream Unleash:
 - with `STREAMING=true`, Edge bootstraps through `GET /api/client/delta` and then receives updates from upstream
   `GET /api/client/streaming`
 
+This is an additive configuration for SDK traffic. Enabling streaming mode changes Edge's upstream refresh path, but it
+does not disable Edge's existing SDK endpoints. SDKs can continue polling Edge through the normal client API endpoints.
+
 This is primarily about streaming from upstream Unleash to Edge. Edge can also expose `GET /api/client/streaming` to
 SDKs, and reconnecting SDKs may send `Last-Event-ID`; Edge replays from that revision when it still has the local delta
 history, otherwise it falls back to hydration. SDK-to-Edge streaming is beta functionality, is not available in all
 SDKs, and is not recommended for production environments yet.
+
+## What streaming gives you
+
+The main benefit of streaming mode is reduced replication lag between upstream Unleash and Edge. Instead of waiting for
+the next polling interval, Edge receives feature changes over the upstream stream and applies them as they arrive.
+
+Enabling streaming mode also makes it possible to test SDK-to-Edge streaming with SDKs that support it. Treat that as a
+beta SDK capability: useful for validation and feedback, but not yet recommended for production environments.
 
 ## Enable streaming
 
