@@ -44,6 +44,20 @@ When streaming is enabled, make sure upstream Unleash exposes both endpoints to 
 - `GET /api/client/delta` for startup hydration
 - `GET /api/client/streaming` for steady-state updates
 
+## Runtime behavior
+
+Streaming mode does not automatically fall back to polling. If Edge is started with `STREAMING=true`, it uses the delta
+and streaming endpoints described above until streaming is disabled and Edge is restarted or reconfigured.
+
+When the upstream SSE connection ends, errors, or becomes idle, Edge reconnects and resumes from the last upstream event
+id when possible. Temporary network failures should recover without operator action.
+
+If upstream rejects the streaming connection with `401` or `403`, Edge stops that stream task instead of retrying
+forever. Edge continues serving the last state it has already applied, but it will not receive new upstream changes for
+that token scope until the rejection is fixed and Edge is restarted. The usual causes are missing enterprise or
+license support, an invalid token, a revoked token, or a token that no longer has access to the requested environment or
+projects.
+
 ## Health model
 
 The main operational question is whether every Edge instance has observed the same latest feature revision for each
@@ -147,10 +161,26 @@ For multi-node validation, run the same `curl` command against each Edge node or
 - the SSE envelope `id`
 - whether the final feature state is equivalent across nodes
 
+You can also compare regular client API responses and ETags across Edge nodes. Use the same token and query parameters
+for every request:
+
+```shell
+curl -i \
+  -H "Authorization: $TOKEN" \
+  "$EDGE_URL/api/client/features"
+```
+
+For the same token scope and request shape, matching `delta_revision_id` values should normally produce matching
+responses and matching `ETag` headers. If two Edge nodes report the same revision but return different ETags, treat that
+as possible state drift. The revision id says both nodes observed the same latest revision; the ETag compares the actual
+response content. Different ETags can indicate a missed message, inconsistent local state, or another bug that left one
+node with different effective feature data.
+
 ## Failure modes
 
 Streaming introduces a few distinct failure modes. The observed symptom is usually a revision that stops advancing on
-one or more Edge instances.
+one or more Edge instances. In rarer cases, the revision can look healthy while the effective response state differs
+between nodes.
 
 ### Startup cannot hydrate
 
@@ -177,7 +207,8 @@ Upstream can reject streaming in multiple ways. The first thing to verify is tha
 Unleash instance, and that a self-hosted Unleash instance has a license that enables Edge streaming.
 
 If upstream returns `401` or `403` for the streaming connection, Edge stops that stream task. This can also mean the token
-was revoked, changed, or no longer has access to the requested scope.
+was revoked, changed, or no longer has access to the requested scope. Edge does not switch that token scope back to
+polling automatically.
 
 Check:
 
@@ -194,6 +225,21 @@ they can all report the same old revision and the drift alert will not fire. Thi
 
 In this case, use direct debugging instead: check Edge logs, upstream Unleash availability, token validity, and whether a
 controlled feature update advances `delta_revision_id`.
+
+### Same revision but different response state
+
+Revision drift is the easiest stale-data signal to alert on, but it is not a complete proof that every node has identical
+state. A node can theoretically report the latest revision while its cached feature state differs from another node with
+the same revision. This usually points to a missed or incorrectly applied message, or to another state-management bug.
+
+The practical symptom is that two Edge nodes return different `ETag` headers for the same `GET /api/client/features`
+request, even though they report the same `delta_revision_id` for that token scope. When debugging this case, collect:
+
+- the `delta_revision_id` labels and value for each node
+- the request URL, token scope, and query parameters used for comparison
+- the `ETag` header from each node
+- the response body from each node, if it is safe to collect
+- the Edge logs around the revision where state diverged
 
 ### Different nodes have different replay history
 
@@ -227,6 +273,8 @@ When a customer reports stale streaming data:
 5. Use `curl -N` against the affected Edge node to validate whether `/api/client/streaming` emits events.
 6. If only one instance is behind, inspect that instance's logs and upstream network path.
 7. If all instances are behind, make a controlled feature update and check whether `delta_revision_id` advances.
-8. Restart or roll the affected Edge instance only after collecting the stale revision and logs, because restart may
-   rehydrate and hide the original failure mode.
-9. If needed, disable streaming and return to polling while the streaming issue is investigated.
+8. If revisions match but behavior differs, compare `ETag` headers and response bodies for the same
+   `/api/client/features` request against each Edge node.
+9. Restart or roll the affected Edge instance only after collecting the stale revision, ETag, response, and logs, because
+   restart may rehydrate and hide the original failure mode.
+10. If needed, disable streaming and return to polling while the streaming issue is investigated.
