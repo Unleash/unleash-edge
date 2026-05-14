@@ -228,6 +228,7 @@ impl<'de> Deserialize<'de> for RequestConsumptionData {
         D: serde::Deserializer<'de>,
     {
         #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
         struct GroupData {
             metered_group: String,
             requests: u64,
