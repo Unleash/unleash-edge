@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.2.2](https://github.com/Unleash/unleash-edge/compare/unleash-edge-types-v20.1.1...unleash-edge-types-v20.2.2) - 2026-05-14
+
+### 🐛 Bug Fixes
+- unprocessable error on instance data with daisy chaining ([#1594](https://github.com/unleash/unleash-edge/issues/1594)) (by @sighphyre) - #1594
+
+### Contributors
+
+* @sighphyre
+
 ## [20.2.1](https://github.com/Unleash/unleash-edge/compare/unleash-edge-types-v20.1.1...unleash-edge-types-v20.2.1) - 2026-05-11
 
 ### ⚙️ Miscellaneous Tasks
