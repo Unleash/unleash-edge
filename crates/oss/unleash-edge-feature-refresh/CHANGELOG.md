@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.2.1](https://github.com/Unleash/unleash-edge/compare/unleash-edge-feature-refresh-v20.1.0...unleash-edge-feature-refresh-v20.2.1) - 2026-05-11
+
+### 🐛 Bug Fixes
+- idle timeout on half-open stream ([#1583](https://github.com/unleash/unleash-edge/issues/1583)) (by @gastonfournier) - #1583
+
+### Contributors
+
+* @gastonfournier
+
 ## [20.1.10](https://github.com/Unleash/unleash-edge/compare/unleash-edge-feature-refresh-v20.1.9...unleash-edge-feature-refresh-v20.1.10) - 2026-02-24
 
 ### ⚙️ Miscellaneous Tasks

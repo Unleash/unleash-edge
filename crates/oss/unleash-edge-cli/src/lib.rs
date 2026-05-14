@@ -256,6 +256,12 @@ pub struct EdgeArgs {
     #[clap(long, env)]
     pub prometheus_user_id: Option<String>,
 
+    #[clap(long, env, hide = true)]
+    pub hostname: Option<String>,
+
+    #[clap(long, env, hide = true)]
+    pub ec2_instance_id: Option<String>,
+
     #[clap(flatten)]
     pub hmac_config: HmacConfig,
 }

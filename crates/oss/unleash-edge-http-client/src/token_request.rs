@@ -1,7 +1,7 @@
 use base64::Engine as _;
 use base64::prelude::BASE64_URL_SAFE_NO_PAD;
 use chrono::{DateTime, Utc};
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use http::StatusCode;
 use rand::{RngExt, rng};
 use serde::{Deserialize, Serialize};

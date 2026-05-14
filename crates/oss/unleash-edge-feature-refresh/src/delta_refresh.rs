@@ -12,7 +12,7 @@ use std::pin::Pin;
 use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 use tokio::sync::watch::Receiver;
-use tokio::time::sleep;
+use tokio::time::{sleep, timeout};
 use tracing::{debug, error, info, warn};
 use unleash_edge_delta::cache::{DeltaCache, DeltaHydrationEvent};
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
@@ -38,6 +38,23 @@ pub type Environment = String;
 
 const DELTA_CACHE_LIMIT: usize = 100;
 const SDK_TYPE_HEADER: &str = "Unleash-Sdk-Type";
+const SSE_IDLE_TIMEOUT: Duration = Duration::from_secs(90);
+const SSE_IDLE_RECONNECT_DELAY: Duration = Duration::from_secs(5);
+
+#[derive(Clone, Copy)]
+struct SseIdleConfig {
+    timeout: Duration,
+    reconnect_delay: Duration,
+}
+
+impl Default for SseIdleConfig {
+    fn default() -> Self {
+        Self {
+            timeout: SSE_IDLE_TIMEOUT,
+            reconnect_delay: SSE_IDLE_RECONNECT_DELAY,
+        }
+    }
+}
 
 static DELTA_REVISION_ID: LazyLock<IntGaugeVec> = LazyLock::new(|| {
     register_int_gauge_vec!(
@@ -168,7 +185,28 @@ async fn run_stream_task(
     streaming_url: String,
     client_meta_information: ClientMetaInformation,
     custom_headers: Vec<(String, String)>,
+    refresh_state_rx: Receiver<RefreshState>,
+) {
+    run_stream_task_with_idle_timeout(
+        delta_refresher,
+        token,
+        streaming_url,
+        client_meta_information,
+        custom_headers,
+        refresh_state_rx,
+        SseIdleConfig::default(),
+    )
+    .await;
+}
+
+async fn run_stream_task_with_idle_timeout(
+    delta_refresher: Arc<DeltaRefresher>,
+    token: EdgeToken,
+    streaming_url: String,
+    client_meta_information: ClientMetaInformation,
+    custom_headers: Vec<(String, String)>,
     mut refresh_state_rx: Receiver<RefreshState>,
+    idle_config: SseIdleConfig,
 ) {
     let mut stream: Option<SseStream> = None;
     let mut last_event_id: Option<String> = None;
@@ -213,18 +251,30 @@ async fn run_stream_task(
                     if result.is_ok() {
                         continue;
                     } else {
-                        sleep(Duration::from_secs(1)).await;
+                        info!("Refresh state channel closed; stopping SSE stream task");
+                        return;
                     }
                 }
-                next = s.next() => {
+                next = timeout(idle_config.timeout, s.next()) => {
                     match next {
-                        Some(Ok(sse)) => {
-                            if let Some(id) = handle_sse(sse, &delta_refresher, &token).await {
+                        Err(_) => {
+                            info!(
+                                "SSE stream idle for {:?}; reconnecting after {:?}",
+                                idle_config.timeout,
+                                idle_config.reconnect_delay
+                            );
+                            stream = None;
+                            sleep(idle_config.reconnect_delay).await;
+                            continue;
+                        }
+                        Ok(Some(Ok(sse))) => {
+                            if let Some(id) =
+                                handle_sse(sse, &delta_refresher, &token).await
+                            {
                                 last_event_id = Some(id);
                             }
                         }
-                        Some(Err(e)) => {
-
+                        Ok(Some(Err(e))) => {
                             match e {
                                 Error::UnexpectedResponse(response, _) => {
                                     if response.status() == StatusCode::UNAUTHORIZED || response.status() == StatusCode::FORBIDDEN {
@@ -239,7 +289,7 @@ async fn run_stream_task(
                                 }
                             }
                         }
-                        None => {
+                        Ok(None) => {
                             info!("SSE stream ended; reconnecting immediately");
                             stream = None;
                             continue;
@@ -567,8 +617,10 @@ mod tests {
     use chrono::Duration;
     use dashmap::DashMap;
     use etag::EntityTag;
+    use futures::StreamExt as FuturesStreamExt;
     use http::StatusCode;
     use reqwest::Url;
+    use std::convert::Infallible;
     use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::time::Duration as StdDuration;
@@ -767,6 +819,47 @@ mod tests {
         let _ = tokio::time::timeout(StdDuration::from_secs(5), join).await;
     }
 
+    #[tokio::test]
+    async fn streaming_reconnects_when_stream_goes_idle() {
+        let (server, last_event_id_rx) = idle_streaming_test_server().await;
+        let (delta_refresher, tokens_to_refresh) =
+            build_delta_refresher_for_stream_test(server.server_url("/").unwrap());
+
+        let token =
+            EdgeToken::try_from("*:development.abcdefghijklmnopqrstuvwxyz".to_string()).unwrap();
+        tokens_to_refresh.insert(token.token.clone(), TokenRefresh::new(token.clone(), None));
+
+        let streaming_url = server
+            .server_url("/api/client/streaming")
+            .unwrap()
+            .to_string();
+
+        let (refresh_state_tx, refresh_state_rx) = watch::channel(RefreshState::Running);
+
+        let join = tokio::spawn(super::run_stream_task_with_idle_timeout(
+            delta_refresher,
+            token,
+            streaming_url,
+            ClientMetaInformation::test_config(),
+            vec![],
+            refresh_state_rx,
+            super::SseIdleConfig {
+                timeout: StdDuration::from_millis(100),
+                reconnect_delay: StdDuration::ZERO,
+            },
+        ));
+
+        let last_event_id = tokio::time::timeout(StdDuration::from_secs(5), last_event_id_rx)
+            .await
+            .expect("timed out waiting for reconnect after idle stream")
+            .expect("last-event-id channel closed");
+
+        assert_eq!(last_event_id.as_deref(), Some("101"));
+
+        drop(refresh_state_tx);
+        let _ = tokio::time::timeout(StdDuration::from_secs(5), join).await;
+    }
+
     fn build_delta_refresher_for_stream_test(
         server_url: Url,
     ) -> (Arc<DeltaRefresher>, Arc<DashMap<String, TokenRefresh>>) {
@@ -801,6 +894,56 @@ mod tests {
 
         let router = Router::new()
             .route("/api/client/streaming", get(streaming_handler))
+            .with_state(state);
+
+        let server = TestServer::builder().http_transport().build(router);
+
+        (server, last_event_id_rx)
+    }
+
+    async fn idle_streaming_handler(
+        State(state): State<StreamingServerState>,
+        request: Request,
+    ) -> impl IntoResponse {
+        let count = state.request_count.fetch_add(1, Ordering::SeqCst) + 1;
+
+        if count == 1 {
+            let delta_json = serde_json::to_string(&revision(1)).unwrap();
+            let sse_body = format!("id: 101\nevent: unleash-updated\ndata: {delta_json}\n\n");
+            let stream = futures::stream::once(async move { Ok::<_, Infallible>(sse_body) })
+                .chain(futures::stream::pending());
+            return Response::builder()
+                .status(StatusCode::OK)
+                .header(http::header::CONTENT_TYPE, "text/event-stream")
+                .body(Body::from_stream(stream))
+                .unwrap();
+        }
+
+        let last_event_id = request
+            .headers()
+            .get("last-event-id")
+            .and_then(|h| h.to_str().ok())
+            .map(|s| s.to_string());
+
+        if let Some(tx) = state.last_event_id_tx.lock().await.take() {
+            let _ = tx.send(last_event_id);
+        }
+
+        Response::builder()
+            .status(StatusCode::UNAUTHORIZED)
+            .body(Body::empty())
+            .unwrap()
+    }
+
+    async fn idle_streaming_test_server() -> (TestServer, oneshot::Receiver<Option<String>>) {
+        let (last_event_id_tx, last_event_id_rx) = oneshot::channel();
+        let state = StreamingServerState {
+            request_count: Arc::new(AtomicUsize::new(0)),
+            last_event_id_tx: Arc::new(Mutex::new(Some(last_event_id_tx))),
+        };
+
+        let router = Router::new()
+            .route("/api/client/streaming", get(idle_streaming_handler))
             .with_state(state);
 
         let server = TestServer::builder().http_transport().build(router);
