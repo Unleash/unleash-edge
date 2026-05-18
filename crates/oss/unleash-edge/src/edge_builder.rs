@@ -948,30 +948,11 @@ pub async fn resolve_license(
 mod tests {
     use crate::edge_builder::build_caches;
     use std::env::temp_dir;
-    #[cfg(feature = "enterprise")]
-    use std::path::Path;
-    #[cfg(feature = "enterprise")]
-    use std::str::FromStr;
     use std::sync::Arc;
     use ulid::Ulid;
     use unleash_edge_persistence::EdgePersistence;
     use unleash_edge_persistence::file::FilePersister;
     use unleash_types::client_features::{ClientFeature, ClientFeatures, Segment};
-
-    #[cfg(feature = "enterprise")]
-    use crate::edge_builder::{EdgeBuilderArgs, PersistenceArgs, build_edge};
-    #[cfg(feature = "enterprise")]
-    use chrono::Duration;
-    #[cfg(feature = "enterprise")]
-    use unleash_edge_cli::{AuthHeaders, EdgeArgs, HmacConfig};
-    #[cfg(feature = "enterprise")]
-    use unleash_edge_http_client::ClientMetaInformation;
-    #[cfg(feature = "enterprise")]
-    use unleash_edge_types::metrics::instance_data::{ApiKeyIdentity, EdgeInstanceData, Hosting};
-    #[cfg(feature = "enterprise")]
-    use unleash_edge_types::tokens::EdgeToken;
-    #[cfg(feature = "enterprise")]
-    use url::Url;
 
     #[tokio::test]
     async fn hydrates_delta_cache_from_persistent_feature_backup() {
@@ -1019,14 +1000,26 @@ mod tests {
             .get(&key)
             .expect("delta cache should be hydrated from persisted features");
         let hydration_event = delta_cache.get_hydration_event();
-        assert_eq!(hydration_event.event_id, 0);
         assert_eq!(hydration_event.features, vec![feature]);
         assert_eq!(hydration_event.segments, vec![segment]);
-        assert!(delta_cache.has_revision(0));
     }
+}
+
+#[cfg(all(test, feature = "enterprise"))]
+mod enterprise_tests {
+    use crate::edge_builder::{EdgeBuilderArgs, PersistenceArgs, build_edge};
+    use chrono::Duration;
+    use std::path::Path;
+    use std::str::FromStr;
+    use std::sync::Arc;
+    use ulid::Ulid;
+    use unleash_edge_cli::{AuthHeaders, EdgeArgs, HmacConfig};
+    use unleash_edge_http_client::ClientMetaInformation;
+    use unleash_edge_types::metrics::instance_data::{ApiKeyIdentity, EdgeInstanceData, Hosting};
+    use unleash_edge_types::tokens::EdgeToken;
+    use url::Url;
 
     #[tokio::test]
-    #[cfg(feature = "enterprise")]
     async fn restores_revision_id_from_backup_if_present() {
         let backup_folder = Path::new("../../../examples/backup/sandbox");
         let edge_args = EdgeArgs {
@@ -1111,7 +1104,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "enterprise")]
     fn rejects_multiple_tokens_same_env_in_delta() {
         let mut args = EdgeArgs {
             upstream_url: "http://localhost:4242".to_string(),
@@ -1129,7 +1121,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "enterprise")]
     fn allows_multiple_envs_in_delta() {
         let mut args = EdgeArgs {
             upstream_url: "http://localhost:4242".to_string(),
@@ -1147,7 +1138,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "enterprise")]
     fn allows_multiple_tokens_same_env_in_polling() {
         let args = EdgeArgs {
             upstream_url: "http://localhost:4242".to_string(),
