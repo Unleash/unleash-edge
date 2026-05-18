@@ -53,7 +53,7 @@ impl FilePersister {
         license_path
     }
 
-    pub fn last_event_id_path(&self) -> PathBuf {
+    pub fn last_event_ids_path(&self) -> PathBuf {
         let mut last_event_id_path = self.storage_path.clone();
         last_event_id_path.push("unleash_last_event_ids.json");
         last_event_id_path
@@ -200,8 +200,8 @@ impl EdgePersistence for FilePersister {
         .map(|_| ())
     }
 
-    async fn save_last_event_ids(&self, event_id: HashMap<String, u64>) -> EdgeResult<()> {
-        let mut file = tokio::fs::File::create(self.last_event_id_path())
+    async fn save_last_event_ids(&self, event_ids: HashMap<String, u64>) -> EdgeResult<()> {
+        let mut file = tokio::fs::File::create(self.last_event_ids_path())
             .await
             .map_err(|_| {
                 EdgeError::PersistenceError(
@@ -209,7 +209,7 @@ impl EdgePersistence for FilePersister {
                         .to_string(),
                 )
             })?;
-        file.write_all(&serde_json::to_vec(&event_id).map_err(|_| {
+        file.write_all(&serde_json::to_vec(&event_ids).map_err(|_| {
             EdgeError::PersistenceError("Failed to serialize last event id".to_string())
         })?)
         .await
@@ -220,7 +220,7 @@ impl EdgePersistence for FilePersister {
     }
 
     async fn load_last_event_ids(&self) -> EdgeResult<HashMap<String, u64>> {
-        let mut file = tokio::fs::File::open(self.last_event_id_path())
+        let mut file = tokio::fs::File::open(self.last_event_ids_path())
             .await
             .map_err(|_| {
                 EdgeError::PersistenceError(
@@ -351,7 +351,10 @@ mod tests {
         let persister = FilePersister::try_from(get_test_dir().as_str()).unwrap();
         let mut event_ids = HashMap::new();
         event_ids.insert("development".to_string(), 42);
-        persister.save_last_event_ids(event_ids.clone()).await.unwrap();
+        persister
+            .save_last_event_ids(event_ids.clone())
+            .await
+            .unwrap();
         let reloaded = persister.load_last_event_ids().await;
         assert_eq!(reloaded.unwrap(), event_ids);
     }

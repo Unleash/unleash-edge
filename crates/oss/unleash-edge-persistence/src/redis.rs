@@ -212,10 +212,10 @@ impl EdgePersistence for RedisPersister {
         Ok(())
     }
 
-    async fn save_last_event_ids(&self, event_id: HashMap<String, u64>) -> EdgeResult<()> {
-        debug!("Saving last event id to persistence: {event_id:#?}");
+    async fn save_last_event_ids(&self, event_ids: HashMap<String, u64>) -> EdgeResult<()> {
+        debug!("Saving last event ids to persistence: {event_ids:#?}");
         let mut client = self.redis_client.write().await;
-        let raw_event_ids = serde_json::to_string(&event_id)?;
+        let raw_event_ids = serde_json::to_string(&event_ids)?;
         match &mut *client {
             Single(c) => {
                 let mut conn = c
@@ -233,9 +233,9 @@ impl EdgePersistence for RedisPersister {
     }
 
     async fn load_last_event_ids(&self) -> EdgeResult<HashMap<String, u64>> {
-        debug!("Loading last event id from persistence");
+        debug!("Loading last event ids from persistence");
         let mut client = self.redis_client.write().await;
-        let raw_event_id: HashMap<String, u64> = match &mut *client {
+        let raw_event_ids: String = match &mut *client {
             Single(client) => {
                 let mut conn = client
                     .get_multiplexed_async_connection_with_config(&self.async_read_config())
@@ -247,7 +247,7 @@ impl EdgePersistence for RedisPersister {
                 conn.get(LAST_EVENT_IDS_KEY)?
             }
         };
-        Ok(raw_event_id)
+        serde_json::from_str::<HashMap<String, u64>>(&raw_event_ids).map_err(EdgeError::from)
     }
 }
 
@@ -357,7 +357,10 @@ mod tests {
         let redis_persister = RedisPersister::new(&url, TEST_TIMEOUT, TEST_TIMEOUT).unwrap();
         let mut event_ids = HashMap::new();
         event_ids.insert("development".to_string(), 42);
-        redis_persister.save_last_event_ids(event_ids.clone()).await.unwrap();
+        redis_persister
+            .save_last_event_ids(event_ids.clone())
+            .await
+            .unwrap();
         let loaded_event_ids = redis_persister.load_last_event_ids().await.unwrap();
         assert_eq!(loaded_event_ids, event_ids);
     }

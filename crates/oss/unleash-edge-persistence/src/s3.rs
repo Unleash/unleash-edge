@@ -179,9 +179,9 @@ pub mod s3_persister {
             }
         }
 
-        async fn save_last_event_ids(&self, event_id: HashMap<String, u64>) -> EdgeResult<()> {
-            let body_data = serde_json::to_vec(&event_id).map_err(|e| {
-                EdgeError::PersistenceError(format!("Failed to serialize last event id: {}", e))
+        async fn save_last_event_ids(&self, event_ids: HashMap<String, u64>) -> EdgeResult<()> {
+            let body_data = serde_json::to_vec(&event_ids).map_err(|e| {
+                EdgeError::PersistenceError(format!("Failed to serialize last event ids: {}", e))
             })?;
             let byte_stream = ByteStream::new(SdkBody::from(body_data));
             match self
@@ -361,7 +361,10 @@ mod tests {
             let (_localstack, persister) = setup_s3_persister().await;
             let mut event_ids = HashMap::new();
             event_ids.insert("development".to_string(), 42);
-            persister.save_last_event_ids(event_ids.clone()).await.unwrap();
+            persister
+                .save_last_event_ids(event_ids.clone())
+                .await
+                .unwrap();
             let loaded_event_ids = persister.load_last_event_ids().await.unwrap();
             assert_eq!(loaded_event_ids, event_ids);
         }
