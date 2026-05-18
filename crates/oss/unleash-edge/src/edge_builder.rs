@@ -172,7 +172,7 @@ async fn hydrate_from_persistent_storage(cache: CacheContainer, storage: Arc<dyn
                 DeltaHydrationEvent {
                     event_id: 0,
                     features: features.features.clone(),
-                    segments: features.segments.unwrap_or_else(|| vec![]).clone(),
+                    segments: features.segments.unwrap_or_else(std::vec::Vec::new).clone(),
                 },
                 DELTA_CACHE_LIMIT,
             ),
