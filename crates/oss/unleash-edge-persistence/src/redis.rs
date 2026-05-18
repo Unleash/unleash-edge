@@ -18,7 +18,7 @@ use unleash_types::client_features::ClientFeatures;
 pub const FEATURES_KEY: &str = "unleash-features";
 pub const TOKENS_KEY: &str = "unleash-tokens";
 pub const LICENSE_STATE_KEY: &str = "unleash-license-state";
-pub const LAST_EVENT_ID_KEY: &str = "unleash-last-event-id";
+pub const LAST_EVENT_IDS_KEY: &str = "unleash-last-event-ids";
 
 enum RedisClientOptions {
     Single(Client),
@@ -212,38 +212,39 @@ impl EdgePersistence for RedisPersister {
         Ok(())
     }
 
-    async fn save_last_event_id(&self, event_id: u64) -> EdgeResult<()> {
-        debug!("Saving last event id to persistence: {event_id}");
+    async fn save_last_event_ids(&self, event_id: HashMap<String, u64>) -> EdgeResult<()> {
+        debug!("Saving last event id to persistence: {event_id:#?}");
         let mut client = self.redis_client.write().await;
+        let raw_event_ids = serde_json::to_string(&event_id)?;
         match &mut *client {
             Single(c) => {
                 let mut conn = c
                     .get_multiplexed_async_connection_with_config(&self.async_write_config())
                     .await?;
-                let res: Result<(), RedisError> = conn.set(LAST_EVENT_ID_KEY, event_id).await;
+                let res: Result<(), RedisError> = conn.set(LAST_EVENT_IDS_KEY, raw_event_ids).await;
                 res?;
             }
             Cluster(c) => {
                 let mut conn = c.get_connection()?;
-                conn.set(LAST_EVENT_ID_KEY, event_id)?
+                conn.set(LAST_EVENT_IDS_KEY, raw_event_ids)?
             }
         };
         Ok(())
     }
 
-    async fn load_last_event_id(&self) -> EdgeResult<u64> {
+    async fn load_last_event_ids(&self) -> EdgeResult<HashMap<String, u64>> {
         debug!("Loading last event id from persistence");
         let mut client = self.redis_client.write().await;
-        let raw_event_id: u64 = match &mut *client {
+        let raw_event_id: HashMap<String, u64> = match &mut *client {
             Single(client) => {
                 let mut conn = client
                     .get_multiplexed_async_connection_with_config(&self.async_read_config())
                     .await?;
-                conn.get(LAST_EVENT_ID_KEY).await?
+                conn.get(LAST_EVENT_IDS_KEY).await?
             }
             Cluster(client) => {
                 let mut conn = client.get_connection()?;
-                conn.get(LAST_EVENT_ID_KEY)?
+                conn.get(LAST_EVENT_IDS_KEY)?
             }
         };
         Ok(raw_event_id)
@@ -253,6 +254,7 @@ impl EdgePersistence for RedisPersister {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ahash::HashMapExt;
     use redis::Client;
     use std::{str::FromStr, time::Duration};
     use testcontainers_modules::redis::RedisStack;
@@ -353,9 +355,10 @@ mod tests {
     async fn redis_saves_and_loads_last_event_id_correctly() {
         let (_client, url, _node) = setup_redis().await;
         let redis_persister = RedisPersister::new(&url, TEST_TIMEOUT, TEST_TIMEOUT).unwrap();
-        let event_id = 42;
-        redis_persister.save_last_event_id(event_id).await.unwrap();
-        let loaded_event_id = redis_persister.load_last_event_id().await.unwrap();
-        assert_eq!(loaded_event_id, event_id);
+        let mut event_ids = HashMap::new();
+        event_ids.insert("development".to_string(), 42);
+        redis_persister.save_last_event_ids(event_ids.clone()).await.unwrap();
+        let loaded_event_ids = redis_persister.load_last_event_ids().await.unwrap();
+        assert_eq!(loaded_event_ids, event_ids);
     }
 }

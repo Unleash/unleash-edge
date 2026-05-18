@@ -55,7 +55,7 @@ impl FilePersister {
 
     pub fn last_event_id_path(&self) -> PathBuf {
         let mut last_event_id_path = self.storage_path.clone();
-        last_event_id_path.push("unleash_last_event_id.json");
+        last_event_id_path.push("unleash_last_event_ids.json");
         last_event_id_path
     }
 
@@ -200,7 +200,7 @@ impl EdgePersistence for FilePersister {
         .map(|_| ())
     }
 
-    async fn save_last_event_id(&self, event_id: u64) -> EdgeResult<()> {
+    async fn save_last_event_ids(&self, event_id: HashMap<String, u64>) -> EdgeResult<()> {
         let mut file = tokio::fs::File::create(self.last_event_id_path())
             .await
             .map_err(|_| {
@@ -219,7 +219,7 @@ impl EdgePersistence for FilePersister {
         .map(|_| ())
     }
 
-    async fn load_last_event_id(&self) -> EdgeResult<u64> {
+    async fn load_last_event_ids(&self) -> EdgeResult<HashMap<String, u64>> {
         let mut file = tokio::fs::File::open(self.last_event_id_path())
             .await
             .map_err(|_| {
@@ -236,7 +236,7 @@ impl EdgePersistence for FilePersister {
             )
         })?;
 
-        let contents: u64 = serde_json::from_slice(&contents).map_err(|_| {
+        let contents: HashMap<String, u64> = serde_json::from_slice(&contents).map_err(|_| {
             EdgeError::PersistenceError(
                 "Cannot load last event id from backup, parsing backup file failed".to_string(),
             )
@@ -252,6 +252,7 @@ mod tests {
 
     use crate::EdgePersistence;
     use crate::file::FilePersister;
+    use ahash::{HashMap, HashMapExt};
     use ulid::Ulid;
     use unleash_edge_types::errors::EdgeError;
     use unleash_edge_types::tokens::EdgeToken;
@@ -348,9 +349,10 @@ mod tests {
     #[tokio::test]
     async fn file_persister_can_save_and_load_last_event_id() {
         let persister = FilePersister::try_from(get_test_dir().as_str()).unwrap();
-        let event_id = 42;
-        persister.save_last_event_id(event_id).await.unwrap();
-        let reloaded = persister.load_last_event_id().await;
-        assert_eq!(reloaded.unwrap(), event_id);
+        let mut event_ids = HashMap::new();
+        event_ids.insert("development".to_string(), 42);
+        persister.save_last_event_ids(event_ids.clone()).await.unwrap();
+        let reloaded = persister.load_last_event_ids().await;
+        assert_eq!(reloaded.unwrap(), event_ids);
     }
 }

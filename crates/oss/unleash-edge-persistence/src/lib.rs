@@ -23,8 +23,8 @@ pub trait EdgePersistence: Send + Sync {
     async fn save_features(&self, features: Vec<(String, ClientFeatures)>) -> EdgeResult<()>;
     async fn load_license_state(&self) -> EdgeResult<LicenseState>;
     async fn save_license_state(&self, license: &LicenseState) -> EdgeResult<()>;
-    async fn save_last_event_id(&self, event_id: u64) -> EdgeResult<()>;
-    async fn load_last_event_id(&self) -> EdgeResult<u64>;
+    async fn save_last_event_ids(&self, event_id: HashMap<String, u64>) -> EdgeResult<()>;
+    async fn load_last_event_ids(&self) -> EdgeResult<HashMap<String, u64>>;
 }
 
 async fn persist(
@@ -145,11 +145,11 @@ pub mod tests {
             panic!("Not expected to be called");
         }
 
-        async fn save_last_event_id(&self, _: u64) -> EdgeResult<()> {
+        async fn save_last_event_ids(&self, _: HashMap<String, u64>) -> EdgeResult<()> {
             panic!("Not expected to be called");
         }
 
-        async fn load_last_event_id(&self) -> EdgeResult<u64> {
+        async fn load_last_event_ids(&self) -> EdgeResult<HashMap<String, u64>> {
             panic!("Not expected to be called");
         }
     }

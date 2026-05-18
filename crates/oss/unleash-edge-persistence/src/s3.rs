@@ -18,7 +18,7 @@ pub mod s3_persister {
     pub const FEATURES_KEY: &str = "/unleash-features.json";
     pub const TOKENS_KEY: &str = "/unleash-tokens.json";
     pub const LICENSE_STATE_KEY: &str = "/unleash-license-state.json";
-    pub const LAST_EVENT_ID_KEY: &str = "/unleash-last-event-id.json";
+    pub const LAST_EVENT_IDS_KEY: &str = "/unleash-last-event-ids.json";
 
     pub struct S3Persister {
         client: s3::Client,
@@ -179,7 +179,7 @@ pub mod s3_persister {
             }
         }
 
-        async fn save_last_event_id(&self, event_id: u64) -> EdgeResult<()> {
+        async fn save_last_event_ids(&self, event_id: HashMap<String, u64>) -> EdgeResult<()> {
             let body_data = serde_json::to_vec(&event_id).map_err(|e| {
                 EdgeError::PersistenceError(format!("Failed to serialize last event id: {}", e))
             })?;
@@ -188,25 +188,25 @@ pub mod s3_persister {
                 .client
                 .put_object()
                 .bucket(self.bucket.clone())
-                .key(LAST_EVENT_ID_KEY)
+                .key(LAST_EVENT_IDS_KEY)
                 .body(byte_stream)
                 .send()
                 .await
             {
                 Ok(_) => Ok(()),
                 Err(s3_err) => Err(EdgeError::PersistenceError(format!(
-                    "Failed to save last event id: {}",
+                    "Failed to save last event ids: {}",
                     s3_err.into_service_error()
                 ))),
             }
         }
 
-        async fn load_last_event_id(&self) -> EdgeResult<u64> {
+        async fn load_last_event_ids(&self) -> EdgeResult<HashMap<String, u64>> {
             let response = self
                 .client
                 .get_object()
                 .bucket(self.bucket.clone())
-                .key(LAST_EVENT_ID_KEY)
+                .key(LAST_EVENT_IDS_KEY)
                 .response_content_type("application/json")
                 .send()
                 .await
@@ -230,6 +230,7 @@ mod tests {
         use crate::s3::s3_persister::S3Persister;
 
         use ahash::HashMap;
+        use ahash::HashMapExt;
         use aws_config::Region;
         use aws_sdk_s3 as s3;
         use aws_sdk_s3::config::Credentials;
@@ -358,10 +359,11 @@ mod tests {
         #[tokio::test]
         async fn test_s3_persister_saves_and_loads_last_event_id_correctly() {
             let (_localstack, persister) = setup_s3_persister().await;
-            let event_id = 42;
-            persister.save_last_event_id(event_id).await.unwrap();
-            let loaded_event_id = persister.load_last_event_id().await.unwrap();
-            assert_eq!(loaded_event_id, event_id);
+            let mut event_ids = HashMap::new();
+            event_ids.insert("development".to_string(), 42);
+            persister.save_last_event_ids(event_ids.clone()).await.unwrap();
+            let loaded_event_ids = persister.load_last_event_ids().await.unwrap();
+            assert_eq!(loaded_event_ids, event_ids);
         }
     }
 }

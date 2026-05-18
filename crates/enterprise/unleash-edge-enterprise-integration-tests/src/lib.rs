@@ -163,11 +163,11 @@ mod tests {
             unimplemented!()
         }
 
-        async fn save_last_event_id(&self, _event_id: u64) -> EdgeResult<()> {
+        async fn save_last_event_ids(&self, _event_id: HashMap<String, u64>) -> EdgeResult<()> {
             unimplemented!()
         }
 
-        async fn load_last_event_id(&self) -> EdgeResult<u64> {
+        async fn load_last_event_ids(&self) -> EdgeResult<HashMap<String, u64>> {
             unimplemented!()
         }
     }
