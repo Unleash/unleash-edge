@@ -36,7 +36,7 @@ use unleash_yggdrasil::EngineState;
 
 pub type Environment = String;
 
-const DELTA_CACHE_LIMIT: usize = 100;
+pub const DELTA_CACHE_LIMIT: usize = 100;
 const SDK_TYPE_HEADER: &str = "Unleash-Sdk-Type";
 const SSE_IDLE_TIMEOUT: Duration = Duration::from_secs(90);
 const SSE_IDLE_RECONNECT_DELAY: Duration = Duration::from_secs(5);
