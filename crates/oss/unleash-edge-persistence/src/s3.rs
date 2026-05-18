@@ -201,7 +201,6 @@ pub mod s3_persister {
             }
         }
 
-
         async fn load_last_event_id(&self) -> EdgeResult<u64> {
             let response = self
                 .client

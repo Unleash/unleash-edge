@@ -220,8 +220,7 @@ impl EdgePersistence for RedisPersister {
                 let mut conn = c
                     .get_multiplexed_async_connection_with_config(&self.async_write_config())
                     .await?;
-                let res: Result<(), RedisError> =
-                    conn.set(LAST_EVENT_ID_KEY, event_id).await;
+                let res: Result<(), RedisError> = conn.set(LAST_EVENT_ID_KEY, event_id).await;
                 res?;
             }
             Cluster(c) => {
