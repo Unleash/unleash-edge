@@ -22,10 +22,11 @@ use unleash_edge_auth::token_validator::{
 use unleash_edge_cli::{
     AuthHeaders, EdgeArgs, LogFormat, OtelExporterProtocol, RedisArgs, RedisMode, S3Args,
 };
+use unleash_edge_delta::cache::{DeltaCache, DeltaHydrationEvent};
 use unleash_edge_delta::cache_manager::{DeltaCacheManager, create_terminate_sse_connections_task};
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_refresh::delta_refresh::{
-    DeltaRefresher, start_streaming_delta_background_task,
+    DELTA_CACHE_LIMIT, DeltaRefresher, start_streaming_delta_background_task,
 };
 use unleash_edge_feature_refresh::{
     FeatureRefreshConfig, FeatureRefresher, HydratorType, start_refresh_features_background_task,
@@ -140,8 +141,7 @@ async fn get_data_source(args: &PersistenceArgs) -> Option<Arc<dyn EdgePersisten
 }
 
 async fn hydrate_from_persistent_storage(cache: CacheContainer, storage: Arc<dyn EdgePersistence>) {
-    let (token_cache, features_cache, _delta_cache, engine_cache) = cache;
-    // TODO: do we need to hydrate from persistent storage for delta?
+    let (token_cache, features_cache, delta_cache, engine_cache) = cache;
     let tokens = storage.load_tokens().await.unwrap_or_else(|error| {
         warn!("Failed to load tokens from cache {error:?}");
         vec![]
@@ -160,11 +160,23 @@ async fn hydrate_from_persistent_storage(cache: CacheContainer, storage: Arc<dyn
         features_cache.insert(key.clone(), features.clone());
         let mut engine_state = EngineState::default();
 
-        let warnings = engine_state.take_state(UpdateMessage::FullResponse(features));
+        let warnings = engine_state.take_state(UpdateMessage::FullResponse(features.clone()));
         if let Some(warnings) = warnings {
             warn!("Failed to hydrate features for {key:?}: {warnings:?}");
         }
         engine_cache.insert(key.clone(), engine_state);
+
+        delta_cache.insert_cache(
+            key.as_str(),
+            DeltaCache::new(
+                DeltaHydrationEvent {
+                    event_id: 0,
+                    features: features.features.clone(),
+                    segments: features.segments.unwrap_or_else(|| vec![]).clone(),
+                },
+                DELTA_CACHE_LIMIT,
+            ),
+        );
     }
 }
 
@@ -934,17 +946,84 @@ pub async fn resolve_license(
 
 #[cfg(test)]
 mod tests {
-    use crate::edge_builder::{EdgeBuilderArgs, PersistenceArgs, build_edge};
-    use chrono::Duration;
+    use crate::edge_builder::build_caches;
+    use std::env::temp_dir;
+    #[cfg(feature = "enterprise")]
     use std::path::Path;
+    #[cfg(feature = "enterprise")]
     use std::str::FromStr;
     use std::sync::Arc;
     use ulid::Ulid;
+    use unleash_edge_persistence::EdgePersistence;
+    use unleash_edge_persistence::file::FilePersister;
+    use unleash_types::client_features::{ClientFeature, ClientFeatures, Segment};
+
+    #[cfg(feature = "enterprise")]
+    use crate::edge_builder::{EdgeBuilderArgs, PersistenceArgs, build_edge};
+    #[cfg(feature = "enterprise")]
+    use chrono::Duration;
+    #[cfg(feature = "enterprise")]
     use unleash_edge_cli::{AuthHeaders, EdgeArgs, HmacConfig};
+    #[cfg(feature = "enterprise")]
     use unleash_edge_http_client::ClientMetaInformation;
+    #[cfg(feature = "enterprise")]
     use unleash_edge_types::metrics::instance_data::{ApiKeyIdentity, EdgeInstanceData, Hosting};
+    #[cfg(feature = "enterprise")]
     use unleash_edge_types::tokens::EdgeToken;
+    #[cfg(feature = "enterprise")]
     use url::Url;
+
+    #[tokio::test]
+    async fn hydrates_delta_cache_from_persistent_feature_backup() {
+        let key = "development".to_string();
+        let feature = ClientFeature {
+            name: "test-flag".to_string(),
+            enabled: true,
+            ..Default::default()
+        };
+        let segment = Segment {
+            id: 7,
+            constraints: vec![],
+        };
+        let features = ClientFeatures {
+            features: vec![feature.clone()],
+            version: 2,
+            segments: Some(vec![segment.clone()]),
+            query: None,
+            meta: None,
+        };
+
+        let backup_folder = temp_dir().join(Ulid::new().to_string());
+        let persister = FilePersister::new(&backup_folder);
+        persister
+            .save_features(vec![(key.clone(), features.clone())])
+            .await
+            .unwrap();
+
+        let (token_cache, features_cache, delta_cache, engine_cache) = build_caches();
+        super::hydrate_from_persistent_storage(
+            (
+                token_cache,
+                features_cache.clone(),
+                delta_cache.clone(),
+                engine_cache.clone(),
+            ),
+            Arc::new(persister),
+        )
+        .await;
+
+        assert!(features_cache.get(&key).is_some());
+        assert!(engine_cache.get(&key).is_some());
+
+        let delta_cache = delta_cache
+            .get(&key)
+            .expect("delta cache should be hydrated from persisted features");
+        let hydration_event = delta_cache.get_hydration_event();
+        assert_eq!(hydration_event.event_id, 0);
+        assert_eq!(hydration_event.features, vec![feature]);
+        assert_eq!(hydration_event.segments, vec![segment]);
+        assert!(delta_cache.has_revision(0));
+    }
 
     #[tokio::test]
     #[cfg(feature = "enterprise")]
