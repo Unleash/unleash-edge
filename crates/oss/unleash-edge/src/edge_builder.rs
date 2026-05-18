@@ -166,17 +166,23 @@ async fn hydrate_from_persistent_storage(cache: CacheContainer, storage: Arc<dyn
         }
         engine_cache.insert(key.clone(), engine_state);
 
-        delta_cache.insert_cache(
-            key.as_str(),
-            DeltaCache::new(
-                DeltaHydrationEvent {
-                    event_id: 0,
-                    features: features.features.clone(),
-                    segments: features.segments.unwrap_or_else(std::vec::Vec::new).clone(),
-                },
-                DELTA_CACHE_LIMIT,
-            ),
-        );
+        if !features.features.is_empty() {
+            delta_cache.insert_cache(
+                key.as_str(),
+                DeltaCache::new(
+                    DeltaHydrationEvent {
+                        event_id: 0,
+                        features: features.features.clone(),
+                        segments: features.segments.unwrap_or_default(),
+                    },
+                    DELTA_CACHE_LIMIT,
+                ),
+            );
+        } else {
+            debug!(
+                "Skipping delta cache hydration for {key:?} because persisted feature set is empty"
+            );
+        }
     }
 }
 
