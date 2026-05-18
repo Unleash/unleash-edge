@@ -179,7 +179,9 @@ async fn hydrate_from_persistent_storage(cache: CacheContainer, storage: Arc<dyn
                 ),
             );
         } else {
-            debug!("Skipping delta cache hydration for {key:?} because persisted feature set is empty");
+            debug!(
+                "Skipping delta cache hydration for {key:?} because persisted feature set is empty"
+            );
         }
     }
 }
