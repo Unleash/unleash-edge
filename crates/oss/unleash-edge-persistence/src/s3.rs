@@ -18,6 +18,7 @@ pub mod s3_persister {
     pub const FEATURES_KEY: &str = "/unleash-features.json";
     pub const TOKENS_KEY: &str = "/unleash-tokens.json";
     pub const LICENSE_STATE_KEY: &str = "/unleash-license-state.json";
+    pub const LAST_EVENT_ID_KEY: &str = "/unleash-last-event-id.json";
 
     pub struct S3Persister {
         client: s3::Client,
@@ -177,6 +178,47 @@ pub mod s3_persister {
                 ))),
             }
         }
+
+        async fn save_last_event_id(&self, event_id: u64) -> EdgeResult<()> {
+            let body_data = serde_json::to_vec(&event_id).map_err(|e| {
+                EdgeError::PersistenceError(format!("Failed to serialize last event id: {}", e))
+            })?;
+            let byte_stream = ByteStream::new(SdkBody::from(body_data));
+            match self
+                .client
+                .put_object()
+                .bucket(self.bucket.clone())
+                .key(LAST_EVENT_ID_KEY)
+                .body(byte_stream)
+                .send()
+                .await
+            {
+                Ok(_) => Ok(()),
+                Err(s3_err) => Err(EdgeError::PersistenceError(format!(
+                    "Failed to save last event id: {}",
+                    s3_err.into_service_error()
+                ))),
+            }
+        }
+
+
+        async fn load_last_event_id(&self) -> EdgeResult<u64> {
+            let response = self
+                .client
+                .get_object()
+                .bucket(self.bucket.clone())
+                .key(LAST_EVENT_ID_KEY)
+                .response_content_type("application/json")
+                .send()
+                .await
+                .map_err(|_| {
+                    EdgeError::PersistenceError("Failed to load last event id".to_string())
+                })?;
+            let data = response.body.collect().await.map_err(|_| {
+                EdgeError::PersistenceError("Failed to read last event id data".to_string())
+            })?;
+            serde_json::from_slice(&data.to_vec()).map_err(EdgeError::from)
+        }
     }
 }
 
@@ -312,6 +354,15 @@ mod tests {
                 loaded_license_state,
                 Err(EdgeError::PersistenceError(_))
             ));
+        }
+
+        #[tokio::test]
+        async fn test_s3_persister_saves_and_loads_last_event_id_correctly() {
+            let (_localstack, persister) = setup_s3_persister().await;
+            let event_id = 42;
+            persister.save_last_event_id(event_id).await.unwrap();
+            let loaded_event_id = persister.load_last_event_id().await.unwrap();
+            assert_eq!(loaded_event_id, event_id);
         }
     }
 }

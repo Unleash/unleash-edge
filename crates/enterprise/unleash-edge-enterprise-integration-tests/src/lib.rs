@@ -162,6 +162,14 @@ mod tests {
         async fn save_features(&self, _features: Vec<(String, ClientFeatures)>) -> EdgeResult<()> {
             unimplemented!()
         }
+
+        async fn save_last_event_id(&self, _event_id: u64) -> EdgeResult<()> {
+            unimplemented!()
+        }
+
+        async fn load_last_event_id(&self) -> EdgeResult<u64> {
+            unimplemented!()
+        }
     }
 
     #[tokio::test]

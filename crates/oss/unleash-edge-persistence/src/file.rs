@@ -53,6 +53,12 @@ impl FilePersister {
         license_path
     }
 
+    pub fn last_event_id_path(&self) -> PathBuf {
+        let mut last_event_id_path = self.storage_path.clone();
+        last_event_id_path.push("unleash_last_event_id.json");
+        last_event_id_path
+    }
+
     pub fn new(storage_path: &Path) -> Self {
         let _ = std::fs::create_dir_all(storage_path);
         FilePersister {
@@ -193,6 +199,51 @@ impl EdgePersistence for FilePersister {
         })
         .map(|_| ())
     }
+
+    async fn save_last_event_id(&self, event_id: u64) -> EdgeResult<()> {
+        let mut file = tokio::fs::File::create(self.last_event_id_path())
+            .await
+            .map_err(|_| {
+                EdgeError::PersistenceError(
+                    "Cannot write last event id to backup. Opening backup file for writing failed"
+                        .to_string(),
+                )
+            })?;
+        file.write_all(&serde_json::to_vec(&event_id).map_err(|_| {
+            EdgeError::PersistenceError("Failed to serialize last event id".to_string())
+        })?)
+        .await
+        .map_err(|_| {
+            EdgeError::PersistenceError("Could not serialize last event id to disc".to_string())
+        })
+        .map(|_| ())
+    }
+
+    async fn load_last_event_id(&self) -> EdgeResult<u64> {
+        let mut file = tokio::fs::File::open(self.last_event_id_path())
+            .await
+            .map_err(|_| {
+                EdgeError::PersistenceError(
+                    "Cannot load last event id from backup, opening backup file failed".to_string(),
+                )
+            })?;
+
+        let mut contents = vec![];
+
+        file.read_to_end(&mut contents).await.map_err(|_| {
+            EdgeError::PersistenceError(
+                "Cannot load last event id from backup, reading backup file failed".to_string(),
+            )
+        })?;
+
+        let contents: u64 = serde_json::from_slice(&contents).map_err(|_| {
+            EdgeError::PersistenceError(
+                "Cannot load last event id from backup, parsing backup file failed".to_string(),
+            )
+        })?;
+
+        Ok(contents)
+    }
 }
 
 #[cfg(test)]
@@ -292,5 +343,14 @@ mod tests {
         let persister = FilePersister::try_from(get_test_dir().as_str()).unwrap();
         let reloaded = persister.load_license_state().await;
         assert!(matches!(reloaded, Err(EdgeError::PersistenceError(_))));
+    }
+
+    #[tokio::test]
+    async fn file_persister_can_save_and_load_last_event_id() {
+        let persister = FilePersister::try_from(get_test_dir().as_str()).unwrap();
+        let event_id = 42;
+        persister.save_last_event_id(event_id).await.unwrap();
+        let reloaded = persister.load_last_event_id().await;
+        assert_eq!(reloaded.unwrap(), event_id);
     }
 }

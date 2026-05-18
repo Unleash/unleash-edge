@@ -18,6 +18,7 @@ use unleash_types::client_features::ClientFeatures;
 pub const FEATURES_KEY: &str = "unleash-features";
 pub const TOKENS_KEY: &str = "unleash-tokens";
 pub const LICENSE_STATE_KEY: &str = "unleash-license-state";
+pub const LAST_EVENT_ID_KEY: &str = "unleash-last-event-id";
 
 enum RedisClientOptions {
     Single(Client),
@@ -210,6 +211,44 @@ impl EdgePersistence for RedisPersister {
         };
         Ok(())
     }
+
+    async fn save_last_event_id(&self, event_id: u64) -> EdgeResult<()> {
+        debug!("Saving last event id to persistence: {event_id}");
+        let mut client = self.redis_client.write().await;
+        match &mut *client {
+            Single(c) => {
+                let mut conn = c
+                    .get_multiplexed_async_connection_with_config(&self.async_write_config())
+                    .await?;
+                let res: Result<(), RedisError> =
+                    conn.set(LAST_EVENT_ID_KEY, event_id).await;
+                res?;
+            }
+            Cluster(c) => {
+                let mut conn = c.get_connection()?;
+                conn.set(LAST_EVENT_ID_KEY, event_id)?
+            }
+        };
+        Ok(())
+    }
+
+    async fn load_last_event_id(&self) -> EdgeResult<u64> {
+        debug!("Loading last event id from persistence");
+        let mut client = self.redis_client.write().await;
+        let raw_event_id: u64 = match &mut *client {
+            Single(client) => {
+                let mut conn = client
+                    .get_multiplexed_async_connection_with_config(&self.async_read_config())
+                    .await?;
+                conn.get(LAST_EVENT_ID_KEY).await?
+            }
+            Cluster(client) => {
+                let mut conn = client.get_connection()?;
+                conn.get(LAST_EVENT_ID_KEY)?
+            }
+        };
+        Ok(raw_event_id)
+    }
 }
 
 #[cfg(test)]
@@ -309,5 +348,15 @@ mod tests {
         _node.stop().await.expect("Failed to stop redis");
         let loaded_state = redis_persister.load_license_state().await;
         assert!(loaded_state.is_err());
+    }
+
+    #[tokio::test]
+    async fn redis_saves_and_loads_last_event_id_correctly() {
+        let (_client, url, _node) = setup_redis().await;
+        let redis_persister = RedisPersister::new(&url, TEST_TIMEOUT, TEST_TIMEOUT).unwrap();
+        let event_id = 42;
+        redis_persister.save_last_event_id(event_id).await.unwrap();
+        let loaded_event_id = redis_persister.load_last_event_id().await.unwrap();
+        assert_eq!(loaded_event_id, event_id);
     }
 }
