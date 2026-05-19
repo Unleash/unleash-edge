@@ -961,7 +961,7 @@ pub async fn resolve_license(
 #[cfg(test)]
 mod tests {
     use crate::edge_builder::build_caches;
-    use ahash::HashMap;
+    use ahash::{HashMap, HashMapExt};
     use std::env::temp_dir;
     use std::sync::Arc;
     use ulid::Ulid;
