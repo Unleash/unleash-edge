@@ -171,14 +171,12 @@ async fn hydrate_from_persistent_storage(cache: CacheContainer, storage: Arc<dyn
         }
         engine_cache.insert(key.clone(), engine_state);
 
-        if !features.features.is_empty()
-            && let Some(last_event_id) = last_event_ids.get(&key)
-        {
+        if !features.features.is_empty() {
             delta_cache.insert_cache(
                 key.as_str(),
                 DeltaCache::new(
                     DeltaHydrationEvent {
-                        event_id: *last_event_id,
+                        event_id: *last_event_ids.get(&key).unwrap_or(&0),
                         features: features.features.clone(),
                         segments: features.segments.unwrap_or_default(),
                     },
