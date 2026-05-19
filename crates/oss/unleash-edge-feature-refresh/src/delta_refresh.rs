@@ -387,9 +387,7 @@ impl DeltaRefresher {
         let key: String = cache_key(refresh_token);
         self.features_cache.apply_delta(key.clone(), &delta);
 
-        if let Some(_entry) = self.delta_cache_manager.get(&key) {
-            self.delta_cache_manager.update_cache(&key, &delta.events);
-        } else if let Some(DeltaEvent::Hydration {
+        if let Some(DeltaEvent::Hydration {
             event_id,
             features,
             segments,
@@ -406,6 +404,8 @@ impl DeltaRefresher {
                     DELTA_CACHE_LIMIT,
                 ),
             );
+        } else if let Some(_entry) = self.delta_cache_manager.get(&key) {
+            self.delta_cache_manager.update_cache(&key, &delta.events);
         } else {
             warn!(
                 "Warning: No hydrationEvent found in delta.events, but cache empty for environment"
@@ -624,6 +624,7 @@ mod tests {
     use std::time::Duration as StdDuration;
     use tokio::sync::{Mutex, oneshot, watch};
     use ulid::Ulid;
+    use unleash_edge_delta::cache::{DeltaCache, DeltaHydrationEvent};
     use unleash_edge_delta::cache_manager::DeltaCacheManager;
     use unleash_edge_feature_cache::FeatureCache;
     use unleash_edge_http_client::{
@@ -739,6 +740,57 @@ mod tests {
             .clone();
         delta_features.apply_delta(&revision(2));
         assert_eq!(refreshed_features, delta_features);
+    }
+
+    #[tokio::test]
+    async fn hydration_replaces_existing_delta_cache() {
+        let (delta_refresher, tokens_to_refresh) =
+            build_delta_refresher_for_stream_test(Url::parse("http://localhost").unwrap());
+        let token =
+            EdgeToken::try_from("*:development.abcdefghijklmnopqrstuvwxyz".to_string()).unwrap();
+        tokens_to_refresh.insert(token.token.clone(), TokenRefresh::new(token.clone(), None));
+
+        let key = cache_key(&token);
+        delta_refresher.delta_cache_manager.insert_cache(
+            &key,
+            DeltaCache::new(
+                DeltaHydrationEvent {
+                    event_id: 42,
+                    features: vec![ClientFeature {
+                        name: "stale-feature".into(),
+                        ..Default::default()
+                    }],
+                    segments: vec![],
+                },
+                super::DELTA_CACHE_LIMIT,
+            ),
+        );
+
+        delta_refresher
+            .handle_client_features_delta_updated(
+                &token,
+                ClientFeaturesDelta {
+                    events: vec![DeltaEvent::Hydration {
+                        event_id: 43,
+                        features: vec![ClientFeature {
+                            name: "fresh-feature".into(),
+                            ..Default::default()
+                        }],
+                        segments: vec![],
+                    }],
+                },
+                None,
+            )
+            .await;
+
+        let cache = delta_refresher
+            .delta_cache_manager
+            .get(&key)
+            .expect("delta cache should exist");
+        let hydration = cache.get_hydration_event();
+        assert_eq!(hydration.event_id, 43);
+        assert_eq!(hydration.features.len(), 1);
+        assert_eq!(hydration.features[0].name, "fresh-feature");
     }
 
     #[derive(Clone)]
