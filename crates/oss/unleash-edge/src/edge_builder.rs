@@ -526,6 +526,7 @@ pub async fn build_edge_state(
         deferred_validation_rx,
         edge_instance_data: edge_instance_data.clone(),
         feature_cache: features_cache.clone(),
+        delta_cache_manager: delta_cache_manager.clone(),
         instance_data_sender: instance_data_sender.clone(),
         instances_observed_for_app_context: args.instances_observed_for_app_context.clone(),
         metrics_cache_clone: metrics_cache.clone(),
@@ -618,6 +619,7 @@ fn create_shutdown_tasks(
             persistence,
             token_cache.clone(),
             feature_cache,
+            delta_cache_manager.clone(),
         ));
     }
 
@@ -650,6 +652,7 @@ pub(crate) struct BackgroundTaskArgs {
     deferred_validation_rx: Option<tokio::sync::mpsc::UnboundedReceiver<String>>,
     edge_instance_data: Arc<EdgeInstanceData>,
     feature_cache: Arc<FeatureCache>,
+    delta_cache_manager: Arc<DeltaCacheManager>,
     instance_data_sender: Arc<InstanceDataSending>,
     instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>>,
     metrics_cache_clone: Arc<MetricsCache>,
@@ -679,6 +682,7 @@ fn create_edge_mode_background_tasks(
         deferred_validation_rx,
         edge_instance_data,
         feature_cache,
+        delta_cache_manager,
         instance_data_sender,
         instances_observed_for_app_context,
         metrics_cache_clone,
@@ -758,13 +762,6 @@ fn create_edge_mode_background_tasks(
     tasks.push(hydration_task);
 
     if let Some(persistence) = persistence.clone() {
-        let delta_cache_manager = match &refresher {
-            HydratorType::Streaming(delta_refresher) => {
-                Some(delta_refresher.delta_cache_manager.clone())
-            }
-            HydratorType::Polling(_) => None,
-        };
-
         tasks.push(create_persist_data_task(
             persistence.clone(),
             token_cache.clone(),
