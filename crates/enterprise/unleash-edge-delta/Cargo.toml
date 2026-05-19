@@ -9,6 +9,7 @@ publish = true
 license-file = "../../../LICENSE-ENTERPRISE.md"
 
 [dependencies]
+ahash = { workspace = true }
 dashmap = { workspace = true }
 prometheus = { workspace = true }
 tokio = { workspace = true }

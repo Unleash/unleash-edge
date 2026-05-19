@@ -5,6 +5,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{debug, warn};
+use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_types::enterprise::LicenseState;
 use unleash_edge_types::tokens::EdgeToken;
@@ -23,8 +24,8 @@ pub trait EdgePersistence: Send + Sync {
     async fn save_features(&self, features: Vec<(String, ClientFeatures)>) -> EdgeResult<()>;
     async fn load_license_state(&self) -> EdgeResult<LicenseState>;
     async fn save_license_state(&self, license: &LicenseState) -> EdgeResult<()>;
-    async fn save_last_event_ids(&self, event_id: HashMap<String, u64>) -> EdgeResult<()>;
-    async fn load_last_event_ids(&self) -> EdgeResult<HashMap<String, u64>>;
+    async fn save_last_event_ids(&self, event_id: HashMap<String, u32>) -> EdgeResult<()>;
+    async fn load_last_event_ids(&self) -> EdgeResult<HashMap<String, u32>>;
 }
 
 async fn persist(
@@ -40,6 +41,7 @@ pub fn create_persist_data_task(
     persistence: Arc<dyn EdgePersistence>,
     token_cache: Arc<DashMap<String, EdgeToken>>,
     features_cache: Arc<FeatureCache>,
+    delta_cache_manager: Option<Arc<DeltaCacheManager>>,
 ) -> Pin<Box<dyn Future<Output = ()> + Send>> {
     Box::pin(async move {
         loop {
@@ -50,6 +52,11 @@ pub fn create_persist_data_task(
                         token_cache.clone(),
                         features_cache.clone()
                     ).await;
+
+                    if let Some(delta_cache_manager) = delta_cache_manager.as_ref()
+                        && let Err(e) = persistence.save_last_event_ids(delta_cache_manager.get_last_event_ids()).await {
+                            warn!("Could not persist last event ids: {e:?}");
+                        }
                 }
             }
         }
@@ -145,11 +152,11 @@ pub mod tests {
             panic!("Not expected to be called");
         }
 
-        async fn save_last_event_ids(&self, _: HashMap<String, u64>) -> EdgeResult<()> {
+        async fn save_last_event_ids(&self, _: HashMap<String, u32>) -> EdgeResult<()> {
             panic!("Not expected to be called");
         }
 
-        async fn load_last_event_ids(&self) -> EdgeResult<HashMap<String, u64>> {
+        async fn load_last_event_ids(&self) -> EdgeResult<HashMap<String, u32>> {
             panic!("Not expected to be called");
         }
     }

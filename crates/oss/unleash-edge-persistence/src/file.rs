@@ -200,7 +200,7 @@ impl EdgePersistence for FilePersister {
         .map(|_| ())
     }
 
-    async fn save_last_event_ids(&self, event_ids: HashMap<String, u64>) -> EdgeResult<()> {
+    async fn save_last_event_ids(&self, event_ids: HashMap<String, u32>) -> EdgeResult<()> {
         let mut file = tokio::fs::File::create(self.last_event_ids_path())
             .await
             .map_err(|_| {
@@ -219,7 +219,7 @@ impl EdgePersistence for FilePersister {
         .map(|_| ())
     }
 
-    async fn load_last_event_ids(&self) -> EdgeResult<HashMap<String, u64>> {
+    async fn load_last_event_ids(&self) -> EdgeResult<HashMap<String, u32>> {
         let mut file = tokio::fs::File::open(self.last_event_ids_path())
             .await
             .map_err(|_| {
@@ -236,7 +236,7 @@ impl EdgePersistence for FilePersister {
             )
         })?;
 
-        let contents: HashMap<String, u64> = serde_json::from_slice(&contents).map_err(|_| {
+        let contents: HashMap<String, u32> = serde_json::from_slice(&contents).map_err(|_| {
             EdgeError::PersistenceError(
                 "Cannot load last event id from backup, parsing backup file failed".to_string(),
             )

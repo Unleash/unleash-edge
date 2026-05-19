@@ -179,7 +179,7 @@ pub mod s3_persister {
             }
         }
 
-        async fn save_last_event_ids(&self, event_ids: HashMap<String, u64>) -> EdgeResult<()> {
+        async fn save_last_event_ids(&self, event_ids: HashMap<String, u32>) -> EdgeResult<()> {
             let body_data = serde_json::to_vec(&event_ids).map_err(|e| {
                 EdgeError::PersistenceError(format!("Failed to serialize last event ids: {}", e))
             })?;
@@ -201,7 +201,7 @@ pub mod s3_persister {
             }
         }
 
-        async fn load_last_event_ids(&self) -> EdgeResult<HashMap<String, u64>> {
+        async fn load_last_event_ids(&self) -> EdgeResult<HashMap<String, u32>> {
             let response = self
                 .client
                 .get_object()
@@ -211,10 +211,10 @@ pub mod s3_persister {
                 .send()
                 .await
                 .map_err(|_| {
-                    EdgeError::PersistenceError("Failed to load last event id".to_string())
+                    EdgeError::PersistenceError("Failed to load last event ids".to_string())
                 })?;
             let data = response.body.collect().await.map_err(|_| {
-                EdgeError::PersistenceError("Failed to read last event id data".to_string())
+                EdgeError::PersistenceError("Failed to read last event ids data".to_string())
             })?;
             serde_json::from_slice(&data.to_vec()).map_err(EdgeError::from)
         }

@@ -155,6 +155,11 @@ async fn hydrate_from_persistent_storage(cache: CacheContainer, storage: Arc<dyn
         token_cache.insert(token.token.clone(), token);
     }
 
+    let last_event_ids = storage.load_last_event_ids().await.unwrap_or_else(|error| {
+        warn!("Failed to load last event ids from cache {error:?}");
+        Default::default()
+    });
+
     for (key, features) in features {
         debug!("Hydrating features for {key:?}");
         features_cache.insert(key.clone(), features.clone());
@@ -166,12 +171,14 @@ async fn hydrate_from_persistent_storage(cache: CacheContainer, storage: Arc<dyn
         }
         engine_cache.insert(key.clone(), engine_state);
 
-        if !features.features.is_empty() {
+        if !features.features.is_empty()
+            && let Some(last_event_id) = last_event_ids.get(&key)
+        {
             delta_cache.insert_cache(
                 key.as_str(),
                 DeltaCache::new(
                     DeltaHydrationEvent {
-                        event_id: 0,
+                        event_id: *last_event_id,
                         features: features.features.clone(),
                         segments: features.segments.unwrap_or_default(),
                     },
@@ -180,7 +187,7 @@ async fn hydrate_from_persistent_storage(cache: CacheContainer, storage: Arc<dyn
             );
         } else {
             debug!(
-                "Skipping delta cache hydration for {key:?} because persisted feature set is empty"
+                "Skipping delta cache hydration for {key:?} because persisted feature set is empty or missing a last event id"
             );
         }
     }
@@ -265,7 +272,6 @@ pub async fn build_edge(
         feature_cache: feature_cache.clone(),
         delta_cache_manager: delta_cache.clone(),
         engine_cache: engine_cache.clone(),
-        persistence: persistence.clone(),
         feature_config: &feature_config,
         client_meta_information: &client_meta_information,
         edge_instance_data: edge_instance_data.clone(),
@@ -752,10 +758,18 @@ fn create_edge_mode_background_tasks(
     tasks.push(hydration_task);
 
     if let Some(persistence) = persistence.clone() {
+        let delta_cache_manager = match &refresher {
+            HydratorType::Streaming(delta_refresher) => {
+                Some(delta_refresher.delta_cache_manager.clone())
+            }
+            HydratorType::Polling(_) => None,
+        };
+
         tasks.push(create_persist_data_task(
             persistence.clone(),
             token_cache.clone(),
             feature_cache.clone(),
+            delta_cache_manager,
         ));
     } else {
         info!("No persistence configured, skipping persistence");
@@ -819,7 +833,6 @@ struct LoadHydratorArgs<'a> {
     feature_cache: Arc<FeatureCache>,
     delta_cache_manager: Arc<DeltaCacheManager>,
     engine_cache: Arc<EngineCache>,
-    persistence: Option<Arc<dyn EdgePersistence>>,
     feature_config: &'a FeatureRefreshConfig,
     client_meta_information: &'a ClientMetaInformation,
     edge_instance_data: Arc<EdgeInstanceData>,
@@ -834,7 +847,6 @@ fn load_hydrator(
         feature_cache,
         delta_cache_manager,
         engine_cache,
-        persistence,
         feature_config,
         client_meta_information,
         edge_instance_data,
@@ -849,7 +861,6 @@ fn load_hydrator(
             features_cache: feature_cache.clone(),
             engine_cache: engine_cache.clone(),
             refresh_interval: features_refresh_interval,
-            persistence: persistence.clone(),
             streaming: true,
             client_meta_information: client_meta_information.clone(),
             edge_instance_data: edge_instance_data.clone(),
@@ -862,7 +873,6 @@ fn load_hydrator(
             feature_cache.clone(),
             delta_cache_manager.clone(),
             engine_cache.clone(),
-            persistence.clone(),
             feature_config.clone(),
             edge_instance_data.clone(),
         ));
@@ -878,7 +888,6 @@ fn load_hydrator(
         feature_cache,
         delta_cache_manager,
         engine_cache,
-        persistence,
         feature_config,
         client_meta_information,
         edge_instance_data,
@@ -891,7 +900,6 @@ fn load_hydrator(
         feature_cache.clone(),
         delta_cache_manager.clone(),
         engine_cache.clone(),
-        persistence.clone(),
         feature_config.clone(),
         edge_instance_data.clone(),
     ));
@@ -953,6 +961,7 @@ pub async fn resolve_license(
 #[cfg(test)]
 mod tests {
     use crate::edge_builder::build_caches;
+    use ahash::HashMap;
     use std::env::temp_dir;
     use std::sync::Arc;
     use ulid::Ulid;
@@ -986,6 +995,9 @@ mod tests {
             .save_features(vec![(key.clone(), features.clone())])
             .await
             .unwrap();
+        let mut last_event_ids = HashMap::new();
+        last_event_ids.insert(key.clone(), 42);
+        persister.save_last_event_ids(last_event_ids).await.unwrap();
 
         let (token_cache, features_cache, delta_cache, engine_cache) = build_caches();
         super::hydrate_from_persistent_storage(
@@ -1006,6 +1018,7 @@ mod tests {
             .get(&key)
             .expect("delta cache should be hydrated from persisted features");
         let hydration_event = delta_cache.get_hydration_event();
+        assert_eq!(hydration_event.event_id, 42);
         assert_eq!(hydration_event.features, vec![feature]);
         assert_eq!(hydration_event.segments, vec![segment]);
     }

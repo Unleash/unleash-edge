@@ -16,7 +16,6 @@ use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_filters::{FeatureFilterSet, filter_client_features};
 use unleash_edge_http_client::{ClientMetaInformation, UnleashClient};
-use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_types::errors::{EdgeError, FeatureError};
 use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
 use unleash_edge_types::tokens::{EdgeToken, cache_key, simplify};
@@ -173,7 +172,6 @@ pub struct FeatureRefresher {
     pub delta_cache_manager: Arc<DeltaCacheManager>,
     pub engine_cache: Arc<DashMap<String, EngineState>>,
     pub refresh_interval: chrono::Duration,
-    pub persistence: Option<Arc<dyn EdgePersistence>>,
     pub client_meta_information: ClientMetaInformation,
     pub edge_instance_data: Arc<EdgeInstanceData>,
 }
@@ -271,7 +269,6 @@ impl FeatureRefresher {
         features_cache: Arc<FeatureCache>,
         delta_cache_manager: Arc<DeltaCacheManager>,
         engines: Arc<DashMap<String, EngineState>>,
-        persistence: Option<Arc<dyn EdgePersistence>>,
         config: FeatureRefreshConfig,
         edge_instance_data: Arc<EdgeInstanceData>,
     ) -> Self {
@@ -282,7 +279,6 @@ impl FeatureRefresher {
             delta_cache_manager,
             engine_cache: engines,
             refresh_interval: config.features_refresh_interval,
-            persistence,
             client_meta_information: config.client_meta_information,
             edge_instance_data,
         }
@@ -521,7 +517,6 @@ mod tests {
                 features_cache: Arc::new(Default::default()),
                 delta_cache_manager: Arc::new(DeltaCacheManager::new()),
                 engine_cache: Default::default(),
-                persistence: None,
                 client_meta_information: ClientMetaInformation {
                     app_name: "test-application".to_string(),
                     instance_id: Ulid::new(),
