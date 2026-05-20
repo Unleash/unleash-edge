@@ -98,19 +98,13 @@ pub async fn build_tokens(
 
 pub(crate) fn trusted_proxy_servers_to_ipnets(
     proxy_trusted_servers: Vec<NetworkAddr>,
-) -> Vec<ipnet::IpNet> {
+) -> Result<Vec<ipnet::IpNet>, ipnet::AddrParseError> {
     proxy_trusted_servers
         .into_iter()
         .map(|addr| match addr {
-            NetworkAddr::Ip(ip) => ipnet::IpNet::from(ip),
-            NetworkAddr::CidrIpv4(cidr) => cidr
-                .to_string()
-                .parse()
-                .expect("CLI accepted invalid IPv4 proxy CIDR"),
-            NetworkAddr::CidrIpv6(cidr) => cidr
-                .to_string()
-                .parse()
-                .expect("CLI accepted invalid IPv6 proxy CIDR"),
+            NetworkAddr::Ip(ip) => Ok(ipnet::IpNet::from(ip)),
+            NetworkAddr::CidrIpv4(cidr) => cidr.to_string().parse(),
+            NetworkAddr::CidrIpv6(cidr) => cidr.to_string().parse(),
         })
         .collect()
 }
