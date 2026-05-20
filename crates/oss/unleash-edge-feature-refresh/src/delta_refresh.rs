@@ -387,13 +387,13 @@ impl DeltaRefresher {
         let key: String = cache_key(refresh_token);
         self.features_cache.apply_delta(key.clone(), &delta);
 
-        if self.delta_cache_manager.get(&key).is_none()
+        if !self.delta_cache_manager.contains(&key)
             && let Some(delta_cache) = DeltaCache::from_events(&delta.events, DELTA_CACHE_LIMIT)
         {
             self.delta_cache_manager.insert_cache(&key, delta_cache);
         }
 
-        if self.delta_cache_manager.get(&key).is_some() {
+        if self.delta_cache_manager.contains(&key) {
             self.delta_cache_manager.update_cache(&key, &delta.events);
         } else {
             warn!(
