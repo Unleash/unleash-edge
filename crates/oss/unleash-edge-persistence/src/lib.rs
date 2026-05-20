@@ -5,6 +5,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{debug, warn};
+use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_types::enterprise::LicenseState;
 use unleash_edge_types::tokens::EdgeToken;
@@ -23,23 +24,26 @@ pub trait EdgePersistence: Send + Sync {
     async fn save_features(&self, features: Vec<(String, ClientFeatures)>) -> EdgeResult<()>;
     async fn load_license_state(&self) -> EdgeResult<LicenseState>;
     async fn save_license_state(&self, license: &LicenseState) -> EdgeResult<()>;
-    async fn save_last_event_ids(&self, event_id: HashMap<String, u64>) -> EdgeResult<()>;
-    async fn load_last_event_ids(&self) -> EdgeResult<HashMap<String, u64>>;
+    async fn save_last_event_ids(&self, event_id: HashMap<String, u32>) -> EdgeResult<()>;
+    async fn load_last_event_ids(&self) -> EdgeResult<HashMap<String, u32>>;
 }
 
 async fn persist(
     persistence: Arc<dyn EdgePersistence>,
     token_cache: Arc<DashMap<String, EdgeToken>>,
     features_cache: Arc<FeatureCache>,
+    delta_cache_manager: Arc<DeltaCacheManager>,
 ) {
     save_known_tokens(&token_cache, &persistence).await;
     save_features(&features_cache, &persistence).await;
+    save_last_event_ids(&delta_cache_manager, &persistence).await;
 }
 
 pub fn create_persist_data_task(
     persistence: Arc<dyn EdgePersistence>,
     token_cache: Arc<DashMap<String, EdgeToken>>,
     features_cache: Arc<FeatureCache>,
+    delta_cache_manager: Arc<DeltaCacheManager>,
 ) -> Pin<Box<dyn Future<Output = ()> + Send>> {
     Box::pin(async move {
         loop {
@@ -48,7 +52,8 @@ pub fn create_persist_data_task(
                     persist(
                         persistence.clone(),
                         token_cache.clone(),
-                        features_cache.clone()
+                        features_cache.clone(),
+                        delta_cache_manager.clone(),
                     ).await;
                 }
             }
@@ -60,11 +65,20 @@ pub fn create_once_off_persist(
     persistence: Arc<dyn EdgePersistence>,
     token_cache: Arc<DashMap<String, EdgeToken>>,
     features_cache: Arc<FeatureCache>,
+    delta_cache_manager: Arc<DeltaCacheManager>,
 ) -> Pin<Box<dyn Future<Output = ()> + Send>> {
     let token_cache = token_cache.clone();
     let features_cache = features_cache.clone();
     let persistence = persistence.clone();
-    Box::pin(async move { persist(persistence, token_cache, features_cache).await })
+    Box::pin(async move {
+        persist(
+            persistence,
+            token_cache,
+            features_cache,
+            delta_cache_manager,
+        )
+        .await
+    })
 }
 
 async fn save_known_tokens(
@@ -109,6 +123,18 @@ async fn save_features(features_cache: &FeatureCache, persister: &Arc<dyn EdgePe
     }
 }
 
+async fn save_last_event_ids(
+    delta_cache_manager: &Arc<DeltaCacheManager>,
+    persister: &Arc<dyn EdgePersistence>,
+) {
+    if let Err(save_error) = persister
+        .save_last_event_ids(delta_cache_manager.get_last_event_ids())
+        .await
+    {
+        warn!("Could not persist last event ids: {save_error:?}");
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
     use super::*;
@@ -145,11 +171,11 @@ pub mod tests {
             panic!("Not expected to be called");
         }
 
-        async fn save_last_event_ids(&self, _: HashMap<String, u64>) -> EdgeResult<()> {
+        async fn save_last_event_ids(&self, _: HashMap<String, u32>) -> EdgeResult<()> {
             panic!("Not expected to be called");
         }
 
-        async fn load_last_event_ids(&self) -> EdgeResult<HashMap<String, u64>> {
+        async fn load_last_event_ids(&self) -> EdgeResult<HashMap<String, u32>> {
             panic!("Not expected to be called");
         }
     }

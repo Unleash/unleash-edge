@@ -5531,6 +5531,7 @@ checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
 name = "unleash-edge"
 version = "20.2.2"
 dependencies = [
+ "ahash",
  "anyhow",
  "aws-config",
  "aws-sdk-s3",
@@ -5715,6 +5716,7 @@ dependencies = [
 name = "unleash-edge-delta"
 version = "20.2.2"
 dependencies = [
+ "ahash",
  "dashmap",
  "prometheus",
  "tokio",
@@ -5865,7 +5867,6 @@ dependencies = [
  "unleash-edge-feature-filters",
  "unleash-edge-feature-refresh",
  "unleash-edge-http-client",
- "unleash-edge-persistence",
  "unleash-edge-types",
  "unleash-types",
  "unleash-yggdrasil",
@@ -6049,6 +6050,7 @@ dependencies = [
  "tokio",
  "tracing",
  "ulid",
+ "unleash-edge-delta",
  "unleash-edge-feature-cache",
  "unleash-edge-types",
  "unleash-types",

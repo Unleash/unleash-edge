@@ -47,6 +47,13 @@ impl DeltaCache {
             .any(|e| e.get_event_id() == revision)
     }
 
+    pub fn latest_revision(&self) -> u32 {
+        self.get_events()
+            .last()
+            .map(|e| e.get_event_id())
+            .unwrap_or(self.hydration_event.event_id)
+    }
+
     pub fn add_events(&mut self, events: &[DeltaEvent]) {
         for event in events.iter() {
             self.events.push(event.clone());
