@@ -1,16 +1,14 @@
+use crate::client_ip::ClientIp;
 use crate::querystring_extractor::QsQueryCfg;
 use crate::{all_features, enabled_features};
 use axum::body::Body;
-use axum::extract::{ConnectInfo, FromRef, FromRequestParts, Path, State};
-use axum::http::header::{FORWARDED, HeaderMap};
-use axum::http::request::Parts;
+use axum::extract::{FromRef, Path, State};
 use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use ipnet::IpNet;
-use std::net::{IpAddr, SocketAddr};
-use std::str::FromStr;
+use std::net::IpAddr;
 use std::sync::Arc;
 use tracing::instrument;
 use unleash_edge_appstate::AppState;
@@ -224,116 +222,6 @@ impl FromRef<AppState> for FrontendState {
     }
 }
 
-pub struct ClientIp(Option<IpAddr>);
-
-impl<S> FromRequestParts<S> for ClientIp
-where
-    S: Send + Sync,
-    FrontendState: FromRef<S>,
-{
-    type Rejection = EdgeError;
-
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let frontend_state = FrontendState::from_ref(state);
-        let peer_ip = ConnectInfo::<SocketAddr>::from_request_parts(parts, state)
-            .await
-            .ok()
-            .map(|ConnectInfo(peer_addr)| peer_addr.ip());
-
-        if frontend_state.trust_proxy && can_trust_proxy(peer_ip, &frontend_state) {
-            Ok(ClientIp(
-                forwarded_ip(&parts.headers)
-                    .or_else(|| x_forwarded_for_ip(&parts.headers, peer_ip, &frontend_state))
-                    .or(peer_ip),
-            ))
-        } else {
-            Ok(ClientIp(peer_ip))
-        }
-    }
-}
-
-fn can_trust_proxy(peer_ip: Option<IpAddr>, frontend_state: &FrontendState) -> bool {
-    if frontend_state.proxy_trusted_servers.is_empty() {
-        return true;
-    }
-    peer_ip.is_some_and(|ip| {
-        frontend_state
-            .proxy_trusted_servers
-            .iter()
-            .any(|trusted| trusted.contains(&ip))
-    })
-}
-
-fn forwarded_ip(headers: &HeaderMap) -> Option<IpAddr> {
-    headers
-        .get(FORWARDED)
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| {
-            value.split(',').find_map(|forwarded_element| {
-                forwarded_element.split(';').find_map(|part| {
-                    let (name, value) = part.trim().split_once('=')?;
-                    if name.eq_ignore_ascii_case("for") {
-                        parse_forwarded_ip(value)
-                    } else {
-                        None
-                    }
-                })
-            })
-        })
-}
-
-fn x_forwarded_for_ips(headers: &HeaderMap) -> Vec<IpAddr> {
-    headers
-        .get("x-forwarded-for")
-        .and_then(|value| value.to_str().ok())
-        .map(|value| value.split(',').filter_map(parse_forwarded_ip).collect())
-        .unwrap_or_default()
-}
-
-fn x_forwarded_for_ip(
-    headers: &HeaderMap,
-    peer_ip: Option<IpAddr>,
-    frontend_state: &FrontendState,
-) -> Option<IpAddr> {
-    if !can_trust_proxy(peer_ip, frontend_state) {
-        return None;
-    }
-
-    let mut chain = x_forwarded_for_ips(headers);
-    if let Some(peer_ip) = peer_ip {
-        chain.push(peer_ip);
-    }
-
-    while let Some(ip) = chain.last().copied() {
-        let is_trusted_proxy = frontend_state
-            .proxy_trusted_servers
-            .iter()
-            .any(|trusted| trusted.contains(&ip));
-
-        if is_trusted_proxy {
-            chain.pop();
-        } else {
-            break;
-        }
-    }
-
-    chain.pop()
-}
-
-fn parse_forwarded_ip(value: &str) -> Option<IpAddr> {
-    let value = value.trim().trim_matches('"');
-    if let Ok(ip) = IpAddr::from_str(value) {
-        return Some(ip);
-    }
-    if let Ok(addr) = SocketAddr::from_str(value) {
-        return Some(addr.ip());
-    }
-    value
-        .strip_prefix('[')
-        .and_then(|rest| rest.split_once(']'))
-        .and_then(|(ip, _)| IpAddr::from_str(ip).ok())
-}
-
 pub(crate) fn frontend_router_for<S>(disable_all_endpoints: bool) -> Router<S>
 where
     S: Clone + Send + Sync + 'static,
@@ -386,7 +274,6 @@ pub fn router(disable_all_endpoints: bool) -> Router<AppState> {
 mod tests {
     use axum::extract::FromRef;
     use axum::extract::connect_info::MockConnectInfo;
-    use axum::http::HeaderMap;
     use axum::http::StatusCode;
     use axum_test::TestServer;
     use ipnet::IpNet;
@@ -1024,17 +911,6 @@ mod tests {
         assert_eq!(res.status_code(), StatusCode::OK);
         let frontend_result = res.json::<FrontendResult>();
         assert!(frontend_result.toggles.is_empty());
-    }
-
-    #[test]
-    fn parses_forwarded_ipv6_with_port() {
-        let mut headers = HeaderMap::new();
-        headers.insert("Forwarded", r#"for="[2001:db8::1]:1234""#.parse().unwrap());
-
-        assert_eq!(
-            super::forwarded_ip(&headers),
-            Some("2001:db8::1".parse().unwrap())
-        );
     }
 
     fn client_features_with_one_enabled_toggle_and_one_disabled_toggle() -> ClientFeatures {

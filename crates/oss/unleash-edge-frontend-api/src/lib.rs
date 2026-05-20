@@ -31,6 +31,7 @@ where
         Ok(UnleashSdkHeader(ver))
     }
 }
+pub(crate) mod client_ip;
 pub mod frontend;
 pub mod querystring_extractor;
 
