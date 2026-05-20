@@ -124,7 +124,7 @@ pub async fn build_offline_app_state(
         trust_proxy: args.trust_proxy.trust_proxy,
         proxy_trusted_servers: trusted_proxy_servers_to_ipnets(
             args.trust_proxy.proxy_trusted_servers.clone(),
-        ),
+        ).expect("Failed to parse proxy trusted servers. Please check the format of the provided addresses."),
         delta_cache_manager: None,
         edge_instance_data: Arc::new(EdgeInstanceData::new(
             &app_name,

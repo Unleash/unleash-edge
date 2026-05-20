@@ -106,7 +106,7 @@ pub(crate) fn trusted_proxy_servers_to_ipnets(
             NetworkAddr::CidrIpv4(cidr) => cidr.to_string().parse(),
             NetworkAddr::CidrIpv6(cidr) => cidr.to_string().parse(),
         })
-        .collect()
+        .collect::<Result<Vec<ipnet::IpNet>, ipnet::AddrParseError>>()
 }
 
 pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<BackgroundTask>)> {
@@ -167,7 +167,8 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
                 trust_proxy: args.trust_proxy.trust_proxy,
                 proxy_trusted_servers: trusted_proxy_servers_to_ipnets(
                     args.trust_proxy.proxy_trusted_servers.clone(),
-                ),
+                )
+                .expect("Failed to parse proxy trusted servers. Please check the format of the provided addresses."),
                 #[cfg(feature = "enterprise")]
                 streaming: edge_args.streaming,
                 #[cfg(not(feature = "enterprise"))]

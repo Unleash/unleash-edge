@@ -243,7 +243,7 @@ where
         if frontend_state.trust_proxy && can_trust_proxy(peer_ip, &frontend_state) {
             Ok(ClientIp(
                 forwarded_ip(&parts.headers)
-                    .or_else(|| x_forwarded_for_ip(&parts.headers))
+                    .or_else(|| x_forwarded_for_ip(&parts.headers, peer_ip, &frontend_state))
                     .or(peer_ip),
             ))
         } else {
