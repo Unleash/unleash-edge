@@ -8,6 +8,7 @@ use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use ipnet::IpNet;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 use std::sync::Arc;
@@ -156,12 +157,12 @@ fn evaluate_feature(
     edge_token: &EdgeToken,
     feature_name: String,
     incoming_context: Context,
-    ip: IpAddr,
+    ip: Option<IpAddr>,
 ) -> EdgeResult<EvaluatedToggle> {
     let context: Context = incoming_context.clone();
     let context_with_ip = if context.remote_address.is_none() {
         Context {
-            remote_address: Some(ip.to_string()),
+            remote_address: ip.map(|ip| ip.to_string()),
             ..context
         }
     } else {
@@ -206,6 +207,7 @@ pub struct FrontendState {
     pub metrics_cache: Arc<MetricsCache>,
     pub connect_via: ConnectVia,
     pub trust_proxy: bool,
+    pub proxy_trusted_servers: Vec<IpNet>,
 }
 
 impl FromRef<AppState> for FrontendState {
@@ -217,11 +219,12 @@ impl FromRef<AppState> for FrontendState {
             metrics_cache: app.metrics_cache.clone(),
             connect_via: app.connect_via.clone(),
             trust_proxy: app.trust_proxy,
+            proxy_trusted_servers: app.proxy_trusted_servers.clone(),
         }
     }
 }
 
-pub struct ClientIp(IpAddr);
+pub struct ClientIp(Option<IpAddr>);
 
 impl<S> FromRequestParts<S> for ClientIp
 where
@@ -232,16 +235,16 @@ where
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
         let frontend_state = FrontendState::from_ref(state);
-        let ConnectInfo(peer_addr) = ConnectInfo::<SocketAddr>::from_request_parts(parts, state)
+        let peer_ip = ConnectInfo::<SocketAddr>::from_request_parts(parts, state)
             .await
-            .map_err(|_| EdgeError::ContextParseError)?;
-        let peer_ip = peer_addr.ip();
+            .ok()
+            .map(|ConnectInfo(peer_addr)| peer_addr.ip());
 
-        if frontend_state.trust_proxy {
+        if frontend_state.trust_proxy && can_trust_proxy(peer_ip, &frontend_state) {
             Ok(ClientIp(
                 forwarded_ip(&parts.headers)
                     .or_else(|| x_forwarded_for_ip(&parts.headers))
-                    .unwrap_or(peer_ip),
+                    .or(peer_ip),
             ))
         } else {
             Ok(ClientIp(peer_ip))
@@ -249,18 +252,32 @@ where
     }
 }
 
+fn can_trust_proxy(peer_ip: Option<IpAddr>, frontend_state: &FrontendState) -> bool {
+    if frontend_state.proxy_trusted_servers.is_empty() {
+        return true;
+    }
+    peer_ip.is_some_and(|ip| {
+        frontend_state
+            .proxy_trusted_servers
+            .iter()
+            .any(|trusted| trusted.contains(&ip))
+    })
+}
+
 fn forwarded_ip(headers: &HeaderMap) -> Option<IpAddr> {
     headers
         .get(FORWARDED)
         .and_then(|value| value.to_str().ok())
         .and_then(|value| {
-            value.split(';').find_map(|part| {
-                let (name, value) = part.trim().split_once('=')?;
-                if name.eq_ignore_ascii_case("for") {
-                    parse_forwarded_ip(value)
-                } else {
-                    None
-                }
+            value.split(',').find_map(|forwarded_element| {
+                forwarded_element.split(';').find_map(|part| {
+                    let (name, value) = part.trim().split_once('=')?;
+                    if name.eq_ignore_ascii_case("for") {
+                        parse_forwarded_ip(value)
+                    } else {
+                        None
+                    }
+                })
             })
         })
 }
@@ -339,8 +356,10 @@ pub fn router(disable_all_endpoints: bool) -> Router<AppState> {
 mod tests {
     use axum::extract::FromRef;
     use axum::extract::connect_info::MockConnectInfo;
+    use axum::http::HeaderMap;
     use axum::http::StatusCode;
     use axum_test::TestServer;
+    use ipnet::IpNet;
     use serde_json::json;
     use std::fs;
     use std::io::BufReader;
@@ -394,6 +413,7 @@ mod tests {
                         instance_id: "unleash-edge-test-server".into(),
                     },
                     trust_proxy: false,
+                    proxy_trusted_servers: vec![],
                 },
                 auth: AuthState {
                     token_cache: Arc::new(TokenCache::new()),
@@ -410,6 +430,16 @@ mod tests {
             state.frontend.trust_proxy = true;
             state
         }
+
+        fn from_caches_with_trusted_proxy_server(
+            token_cache: Arc<TokenCache>,
+            engine_cache: Arc<EngineCache>,
+            trusted_proxy: IpNet,
+        ) -> Self {
+            let mut state = Self::from_caches_with_trust_proxy(token_cache, engine_cache);
+            state.frontend.proxy_trusted_servers = vec![trusted_proxy];
+            state
+        }
     }
 
     fn frontend_test_server(test_state: TestState, disable_all_endpoints: bool) -> TestServer {
@@ -424,6 +454,11 @@ mod tests {
         let router = super::frontend_router_for::<TestState>(false)
             .with_state(test_state)
             .layer(MockConnectInfo(fake_addr));
+        TestServer::builder().http_transport().build(router)
+    }
+
+    fn frontend_test_server_without_connect_info(test_state: TestState) -> TestServer {
+        let router = super::frontend_router_for::<TestState>(false).with_state(test_state);
         TestServer::builder().http_transport().build(router)
     }
 
@@ -805,6 +840,171 @@ mod tests {
         let frontend_result = res.json::<FrontendResult>();
         assert_eq!(frontend_result.toggles.len(), 1);
         assert_eq!(frontend_result.toggles[0].name, "ip_addr");
+    }
+
+    #[tokio::test]
+    async fn trusts_forwarded_header_with_for_after_by_parameter() {
+        let token_cache = Arc::new(TokenCache::new());
+        let mut frontend_token =
+            EdgeToken::from_str("*:development.abc123").expect("Failed to parse frontend token");
+        frontend_token.token_type = Some(TokenType::Frontend);
+        frontend_token.status = TokenValidationStatus::Validated;
+        token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
+        let mut engine_state = EngineState::default();
+        engine_state.take_state(UpdateMessage::FullResponse(features_from_disk(
+            "../../../examples/ip_address_feature.json",
+        )));
+        let engine_cache = Arc::new(EngineCache::new());
+        engine_cache.insert(cache_key(&frontend_token), engine_state);
+        let test_state = TestState::from_caches_with_trust_proxy(token_cache, engine_cache);
+        let server = frontend_test_server_with_ip(test_state, "10.0.0.1:80");
+
+        let res = server
+            .get("/frontend")
+            .add_header("Content-Type", "application/json")
+            .add_header("Authorization", frontend_token.token.clone())
+            .add_header("Forwarded", "by=10.0.0.1;for=192.168.0.1")
+            .await;
+
+        assert_eq!(res.status_code(), StatusCode::OK);
+        let frontend_result = res.json::<FrontendResult>();
+        assert_eq!(frontend_result.toggles.len(), 1);
+        assert_eq!(frontend_result.toggles[0].name, "ip_addr");
+    }
+
+    #[tokio::test]
+    async fn trusts_first_forwarded_element() {
+        let token_cache = Arc::new(TokenCache::new());
+        let mut frontend_token =
+            EdgeToken::from_str("*:development.abc123").expect("Failed to parse frontend token");
+        frontend_token.token_type = Some(TokenType::Frontend);
+        frontend_token.status = TokenValidationStatus::Validated;
+        token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
+        let mut engine_state = EngineState::default();
+        engine_state.take_state(UpdateMessage::FullResponse(features_from_disk(
+            "../../../examples/ip_address_feature.json",
+        )));
+        let engine_cache = Arc::new(EngineCache::new());
+        engine_cache.insert(cache_key(&frontend_token), engine_state);
+        let test_state = TestState::from_caches_with_trust_proxy(token_cache, engine_cache);
+        let server = frontend_test_server_with_ip(test_state, "10.0.0.1:80");
+
+        let res = server
+            .get("/frontend")
+            .add_header("Content-Type", "application/json")
+            .add_header("Authorization", frontend_token.token.clone())
+            .add_header("Forwarded", "for=192.168.0.1;proto=https, for=10.0.0.1")
+            .await;
+
+        assert_eq!(res.status_code(), StatusCode::OK);
+        let frontend_result = res.json::<FrontendResult>();
+        assert_eq!(frontend_result.toggles.len(), 1);
+        assert_eq!(frontend_result.toggles[0].name, "ip_addr");
+    }
+
+    #[tokio::test]
+    async fn handles_missing_connect_info_without_failing_request() {
+        let token_cache = Arc::new(TokenCache::new());
+        let mut frontend_token =
+            EdgeToken::from_str("*:development.abc123").expect("Failed to parse frontend token");
+        frontend_token.token_type = Some(TokenType::Frontend);
+        frontend_token.status = TokenValidationStatus::Validated;
+        token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
+        let mut engine_state = EngineState::default();
+        engine_state.take_state(UpdateMessage::FullResponse(features_from_disk(
+            "../../../examples/ip_address_feature.json",
+        )));
+        let engine_cache = Arc::new(EngineCache::new());
+        engine_cache.insert(cache_key(&frontend_token), engine_state);
+        let test_state = TestState::from_caches(token_cache, engine_cache);
+        let server = frontend_test_server_without_connect_info(test_state);
+
+        let res = server
+            .get("/frontend")
+            .add_header("Content-Type", "application/json")
+            .add_header("Authorization", frontend_token.token.clone())
+            .await;
+
+        assert_eq!(res.status_code(), StatusCode::OK);
+        let frontend_result = res.json::<FrontendResult>();
+        assert!(frontend_result.toggles.is_empty());
+    }
+
+    #[tokio::test]
+    async fn only_trusts_forwarded_headers_from_configured_proxy_servers() {
+        let token_cache = Arc::new(TokenCache::new());
+        let mut frontend_token =
+            EdgeToken::from_str("*:development.abc123").expect("Failed to parse frontend token");
+        frontend_token.token_type = Some(TokenType::Frontend);
+        frontend_token.status = TokenValidationStatus::Validated;
+        token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
+        let mut engine_state = EngineState::default();
+        engine_state.take_state(UpdateMessage::FullResponse(features_from_disk(
+            "../../../examples/ip_address_feature.json",
+        )));
+        let engine_cache = Arc::new(EngineCache::new());
+        engine_cache.insert(cache_key(&frontend_token), engine_state);
+        let test_state = TestState::from_caches_with_trusted_proxy_server(
+            token_cache,
+            engine_cache,
+            "10.0.0.0/24".parse().unwrap(),
+        );
+        let server = frontend_test_server_with_ip(test_state, "10.0.0.1:80");
+
+        let res = server
+            .get("/frontend")
+            .add_header("Content-Type", "application/json")
+            .add_header("Authorization", frontend_token.token.clone())
+            .add_header("X-Forwarded-For", "192.168.0.1")
+            .await;
+
+        assert_eq!(res.status_code(), StatusCode::OK);
+        let frontend_result = res.json::<FrontendResult>();
+        assert_eq!(frontend_result.toggles.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn ignores_forwarded_headers_from_untrusted_proxy_servers() {
+        let token_cache = Arc::new(TokenCache::new());
+        let mut frontend_token =
+            EdgeToken::from_str("*:development.abc123").expect("Failed to parse frontend token");
+        frontend_token.token_type = Some(TokenType::Frontend);
+        frontend_token.status = TokenValidationStatus::Validated;
+        token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
+        let mut engine_state = EngineState::default();
+        engine_state.take_state(UpdateMessage::FullResponse(features_from_disk(
+            "../../../examples/ip_address_feature.json",
+        )));
+        let engine_cache = Arc::new(EngineCache::new());
+        engine_cache.insert(cache_key(&frontend_token), engine_state);
+        let test_state = TestState::from_caches_with_trusted_proxy_server(
+            token_cache,
+            engine_cache,
+            "127.0.0.1/32".parse().unwrap(),
+        );
+        let server = frontend_test_server_with_ip(test_state, "10.0.0.1:80");
+
+        let res = server
+            .get("/frontend")
+            .add_header("Content-Type", "application/json")
+            .add_header("Authorization", frontend_token.token.clone())
+            .add_header("X-Forwarded-For", "192.168.0.1")
+            .await;
+
+        assert_eq!(res.status_code(), StatusCode::OK);
+        let frontend_result = res.json::<FrontendResult>();
+        assert!(frontend_result.toggles.is_empty());
+    }
+
+    #[test]
+    fn parses_forwarded_ipv6_with_port() {
+        let mut headers = HeaderMap::new();
+        headers.insert("Forwarded", r#"for="[2001:db8::1]:1234""#.parse().unwrap());
+
+        assert_eq!(
+            super::forwarded_ip(&headers),
+            Some("2001:db8::1".parse().unwrap())
+        );
     }
 
     fn client_features_with_one_enabled_toggle_and_one_disabled_toggle() -> ClientFeatures {

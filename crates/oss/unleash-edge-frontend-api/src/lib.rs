@@ -43,11 +43,11 @@ pub fn enabled_features(
     app_state: FrontendState,
     edge_token: EdgeToken,
     context: &Context,
-    client_ip: IpAddr,
+    client_ip: Option<IpAddr>,
 ) -> EdgeJsonResult<FrontendResult> {
     let context_with_ip = if context.remote_address.is_none() {
         &Context {
-            remote_address: Some(client_ip.to_string()),
+            remote_address: client_ip.map(|ip| ip.to_string()),
             ..context.clone()
         }
     } else {
@@ -77,11 +77,11 @@ pub fn all_features(
     app_state: FrontendState,
     edge_token: EdgeToken,
     context: &Context,
-    client_ip: IpAddr,
+    client_ip: Option<IpAddr>,
 ) -> EdgeJsonResult<FrontendResult> {
     let context_with_ip = if context.remote_address.is_none() {
         &Context {
-            remote_address: Some(client_ip.to_string()),
+            remote_address: client_ip.map(|ip| ip.to_string()),
             ..context.clone()
         }
     } else {

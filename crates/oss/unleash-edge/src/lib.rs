@@ -19,7 +19,7 @@ use tower_http::compression::CompressionLayer;
 use tracing::warn;
 use ulid::Ulid;
 use unleash_edge_auth::token_validator::TokenValidator;
-use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeMode, HmacConfig};
+use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeMode, HmacConfig, NetworkAddr};
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_refresh::HydratorType;
@@ -96,6 +96,25 @@ pub async fn build_tokens(
     }
 }
 
+pub(crate) fn trusted_proxy_servers_to_ipnets(
+    proxy_trusted_servers: Vec<NetworkAddr>,
+) -> Vec<ipnet::IpNet> {
+    proxy_trusted_servers
+        .into_iter()
+        .map(|addr| match addr {
+            NetworkAddr::Ip(ip) => ipnet::IpNet::from(ip),
+            NetworkAddr::CidrIpv4(cidr) => cidr
+                .to_string()
+                .parse()
+                .expect("CLI accepted invalid IPv4 proxy CIDR"),
+            NetworkAddr::CidrIpv6(cidr) => cidr
+                .to_string()
+                .parse()
+                .expect("CLI accepted invalid IPv6 proxy CIDR"),
+        })
+        .collect()
+}
+
 pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<BackgroundTask>)> {
     let app_id: Ulid = Ulid::new();
     let client_meta_information = ClientMetaInformation {
@@ -152,6 +171,9 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
                 custom_client_headers: edge_args.custom_client_headers.clone(),
                 http_allow_list: args.http.allow_list,
                 trust_proxy: args.trust_proxy.trust_proxy,
+                proxy_trusted_servers: trusted_proxy_servers_to_ipnets(
+                    args.trust_proxy.proxy_trusted_servers.clone(),
+                ),
                 #[cfg(feature = "enterprise")]
                 streaming: edge_args.streaming,
                 #[cfg(not(feature = "enterprise"))]

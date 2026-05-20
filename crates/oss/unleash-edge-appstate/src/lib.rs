@@ -28,6 +28,7 @@ pub struct AppState {
     pub deny_list: Vec<IpNet>,
     pub allow_list: Vec<IpNet>,
     pub trust_proxy: bool,
+    pub proxy_trusted_servers: Vec<IpNet>,
     pub license_state: ApplicationLicenseState,
 }
 

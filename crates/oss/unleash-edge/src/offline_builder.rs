@@ -1,5 +1,6 @@
 use crate::CacheContainer;
 use crate::edge_builder::build_caches;
+use crate::trusted_proxy_servers_to_ipnets;
 use dashmap::DashMap;
 use std::fs::File;
 use std::io::{BufReader, Read};
@@ -121,6 +122,9 @@ pub async fn build_offline_app_state(
         deny_list: args.http.deny_list.clone().unwrap_or_default(),
         allow_list: args.http.allow_list.clone().unwrap_or_default(),
         trust_proxy: args.trust_proxy.trust_proxy,
+        proxy_trusted_servers: trusted_proxy_servers_to_ipnets(
+            args.trust_proxy.proxy_trusted_servers.clone(),
+        ),
         delta_cache_manager: None,
         edge_instance_data: Arc::new(EdgeInstanceData::new(
             &app_name,
