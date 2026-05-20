@@ -282,12 +282,42 @@ fn forwarded_ip(headers: &HeaderMap) -> Option<IpAddr> {
         })
 }
 
-fn x_forwarded_for_ip(headers: &HeaderMap) -> Option<IpAddr> {
+fn x_forwarded_for_ips(headers: &HeaderMap) -> Vec<IpAddr> {
     headers
         .get("x-forwarded-for")
         .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.split(',').next())
-        .and_then(parse_forwarded_ip)
+        .map(|value| value.split(',').filter_map(parse_forwarded_ip).collect())
+        .unwrap_or_default()
+}
+
+fn x_forwarded_for_ip(
+    headers: &HeaderMap,
+    peer_ip: Option<IpAddr>,
+    frontend_state: &FrontendState,
+) -> Option<IpAddr> {
+    if !can_trust_proxy(peer_ip, frontend_state) {
+        return None;
+    }
+
+    let mut chain = x_forwarded_for_ips(headers);
+    if let Some(peer_ip) = peer_ip {
+        chain.push(peer_ip);
+    }
+
+    while let Some(ip) = chain.last().copied() {
+        let is_trusted_proxy = frontend_state
+            .proxy_trusted_servers
+            .iter()
+            .any(|trusted| trusted.contains(&ip));
+
+        if is_trusted_proxy {
+            chain.pop();
+        } else {
+            break;
+        }
+    }
+
+    chain.pop()
 }
 
 fn parse_forwarded_ip(value: &str) -> Option<IpAddr> {
