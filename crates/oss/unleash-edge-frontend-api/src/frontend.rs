@@ -1,12 +1,15 @@
 use crate::querystring_extractor::QsQueryCfg;
 use crate::{all_features, enabled_features};
 use axum::body::Body;
-use axum::extract::{ConnectInfo, FromRef, Path, State};
+use axum::extract::{ConnectInfo, FromRef, FromRequestParts, Path, State};
+use axum::http::header::{FORWARDED, HeaderMap};
+use axum::http::request::Parts;
 use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use std::net::{IpAddr, SocketAddr};
+use std::str::FromStr;
 use std::sync::Arc;
 use tracing::instrument;
 use unleash_edge_appstate::AppState;
@@ -37,40 +40,40 @@ use unleash_types::frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult}
 pub async fn frontend_get_all_features(
     State(app_state): State<FrontendState>,
     AuthToken(edge_token): AuthToken,
-    client_ip: ConnectInfo<SocketAddr>,
+    ClientIp(client_ip): ClientIp,
     QsQueryCfg(context): QsQueryCfg<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    all_features(app_state, edge_token, &context, client_ip.ip())
+    all_features(app_state, edge_token, &context, client_ip)
 }
 
 #[instrument(skip(app_state, edge_token, client_ip, context))]
 pub async fn frontend_post_all_features(
     State(app_state): State<FrontendState>,
     AuthToken(edge_token): AuthToken,
-    client_ip: ConnectInfo<SocketAddr>,
+    ClientIp(client_ip): ClientIp,
     Json(context): Json<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    all_features(app_state, edge_token, &context, client_ip.ip())
+    all_features(app_state, edge_token, &context, client_ip)
 }
 
 #[instrument(skip(app_state, edge_token, client_ip, context))]
 pub async fn frontend_get_enabled_features(
     State(app_state): State<FrontendState>,
     AuthToken(edge_token): AuthToken,
-    client_ip: ConnectInfo<SocketAddr>,
+    ClientIp(client_ip): ClientIp,
     QsQueryCfg(context): QsQueryCfg<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    enabled_features(app_state, edge_token, &context, client_ip.ip())
+    enabled_features(app_state, edge_token, &context, client_ip)
 }
 
 #[instrument(skip(app_state, edge_token, client_ip, context))]
 pub async fn frontend_post_enabled_features(
     State(app_state): State<FrontendState>,
     AuthToken(edge_token): AuthToken,
-    client_ip: ConnectInfo<SocketAddr>,
+    ClientIp(client_ip): ClientIp,
     Json(context): Json<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    enabled_features(app_state, edge_token, &context, client_ip.ip())
+    enabled_features(app_state, edge_token, &context, client_ip)
 }
 
 #[instrument(skip(app_state, edge_token, metrics))]
@@ -108,13 +111,13 @@ pub async fn frontend_register_client(
         .unwrap()
 }
 
-#[instrument(skip(app_state, edge_token, feature_name, context, connect_info))]
+#[instrument(skip(app_state, edge_token, feature_name, context, client_ip))]
 pub async fn frontend_get_feature(
     State(app_state): State<FrontendState>,
     AuthToken(edge_token): AuthToken,
     Path(feature_name): Path<String>,
     QsQueryCfg(context): QsQueryCfg<Context>,
-    ConnectInfo(connect_info): ConnectInfo<SocketAddr>,
+    ClientIp(client_ip): ClientIp,
 ) -> EdgeJsonResult<EvaluatedToggle> {
     evaluate_feature(
         &app_state.token_cache,
@@ -122,17 +125,17 @@ pub async fn frontend_get_feature(
         &edge_token,
         feature_name,
         context,
-        connect_info.ip(),
+        client_ip,
     )
     .map(Json)
 }
 
-#[instrument(skip(app_state, edge_token, feature_name, context, connect_info))]
+#[instrument(skip(app_state, edge_token, feature_name, context, client_ip))]
 pub async fn frontend_post_feature(
     State(app_state): State<FrontendState>,
     AuthToken(edge_token): AuthToken,
     Path(feature_name): Path<String>,
-    ConnectInfo(connect_info): ConnectInfo<SocketAddr>,
+    ClientIp(client_ip): ClientIp,
     Json(context): Json<Context>,
 ) -> EdgeJsonResult<EvaluatedToggle> {
     evaluate_feature(
@@ -141,7 +144,7 @@ pub async fn frontend_post_feature(
         &edge_token,
         feature_name,
         context,
-        connect_info.ip(),
+        client_ip,
     )
     .map(Json)
 }
@@ -202,6 +205,7 @@ pub struct FrontendState {
     pub engine_cache: Arc<EngineCache>,
     pub metrics_cache: Arc<MetricsCache>,
     pub connect_via: ConnectVia,
+    pub trust_proxy: bool,
 }
 
 impl FromRef<AppState> for FrontendState {
@@ -212,8 +216,75 @@ impl FromRef<AppState> for FrontendState {
             engine_cache: app.engine_cache.clone(),
             metrics_cache: app.metrics_cache.clone(),
             connect_via: app.connect_via.clone(),
+            trust_proxy: app.trust_proxy,
         }
     }
+}
+
+pub struct ClientIp(IpAddr);
+
+impl<S> FromRequestParts<S> for ClientIp
+where
+    S: Send + Sync,
+    FrontendState: FromRef<S>,
+{
+    type Rejection = EdgeError;
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let frontend_state = FrontendState::from_ref(state);
+        let ConnectInfo(peer_addr) = ConnectInfo::<SocketAddr>::from_request_parts(parts, state)
+            .await
+            .map_err(|_| EdgeError::ContextParseError)?;
+        let peer_ip = peer_addr.ip();
+
+        if frontend_state.trust_proxy {
+            Ok(ClientIp(
+                forwarded_ip(&parts.headers)
+                    .or_else(|| x_forwarded_for_ip(&parts.headers))
+                    .unwrap_or(peer_ip),
+            ))
+        } else {
+            Ok(ClientIp(peer_ip))
+        }
+    }
+}
+
+fn forwarded_ip(headers: &HeaderMap) -> Option<IpAddr> {
+    headers
+        .get(FORWARDED)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| {
+            value.split(';').find_map(|part| {
+                let (name, value) = part.trim().split_once('=')?;
+                if name.eq_ignore_ascii_case("for") {
+                    parse_forwarded_ip(value)
+                } else {
+                    None
+                }
+            })
+        })
+}
+
+fn x_forwarded_for_ip(headers: &HeaderMap) -> Option<IpAddr> {
+    headers
+        .get("x-forwarded-for")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.split(',').next())
+        .and_then(parse_forwarded_ip)
+}
+
+fn parse_forwarded_ip(value: &str) -> Option<IpAddr> {
+    let value = value.trim().trim_matches('"');
+    if let Ok(ip) = IpAddr::from_str(value) {
+        return Some(ip);
+    }
+    if let Ok(addr) = SocketAddr::from_str(value) {
+        return Some(addr.ip());
+    }
+    value
+        .strip_prefix('[')
+        .and_then(|rest| rest.split_once(']'))
+        .and_then(|(ip, _)| IpAddr::from_str(ip).ok())
 }
 
 pub(crate) fn frontend_router_for<S>(disable_all_endpoints: bool) -> Router<S>
@@ -322,12 +393,22 @@ mod tests {
                         app_name: "unleash-edge".into(),
                         instance_id: "unleash-edge-test-server".into(),
                     },
+                    trust_proxy: false,
                 },
                 auth: AuthState {
                     token_cache: Arc::new(TokenCache::new()),
                     auth_headers: AuthHeaders::default(),
                 },
             }
+        }
+
+        fn from_caches_with_trust_proxy(
+            token_cache: Arc<TokenCache>,
+            engine_cache: Arc<EngineCache>,
+        ) -> Self {
+            let mut state = Self::from_caches(token_cache, engine_cache);
+            state.frontend.trust_proxy = true;
+            state
         }
     }
 
@@ -631,6 +712,95 @@ mod tests {
             .add_header("Content-Type", "application/json")
             .add_header("Authorization", frontend_token.token.clone())
             .await;
+        assert_eq!(res.status_code(), StatusCode::OK);
+        let frontend_result = res.json::<FrontendResult>();
+        assert_eq!(frontend_result.toggles.len(), 1);
+        assert_eq!(frontend_result.toggles[0].name, "ip_addr");
+    }
+
+    #[tokio::test]
+    async fn trusts_x_forwarded_for_when_trust_proxy_is_enabled() {
+        let token_cache = Arc::new(TokenCache::new());
+        let mut frontend_token =
+            EdgeToken::from_str("*:development.abc123").expect("Failed to parse frontend token");
+        frontend_token.token_type = Some(TokenType::Frontend);
+        frontend_token.status = TokenValidationStatus::Validated;
+        token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
+        let mut engine_state = EngineState::default();
+        engine_state.take_state(UpdateMessage::FullResponse(features_from_disk(
+            "../../../examples/ip_address_feature.json",
+        )));
+        let engine_cache = Arc::new(EngineCache::new());
+        engine_cache.insert(cache_key(&frontend_token), engine_state);
+        let test_state = TestState::from_caches_with_trust_proxy(token_cache, engine_cache);
+        let server = frontend_test_server_with_ip(test_state, "10.0.0.1:80");
+
+        let res = server
+            .get("/frontend")
+            .add_header("Content-Type", "application/json")
+            .add_header("Authorization", frontend_token.token.clone())
+            .add_header("X-Forwarded-For", "192.168.0.1, 217.0.0.1")
+            .await;
+
+        assert_eq!(res.status_code(), StatusCode::OK);
+        let frontend_result = res.json::<FrontendResult>();
+        assert_eq!(frontend_result.toggles.len(), 1);
+        assert_eq!(frontend_result.toggles[0].name, "ip_addr");
+    }
+
+    #[tokio::test]
+    async fn ignores_x_forwarded_for_when_trust_proxy_is_disabled() {
+        let token_cache = Arc::new(TokenCache::new());
+        let mut frontend_token =
+            EdgeToken::from_str("*:development.abc123").expect("Failed to parse frontend token");
+        frontend_token.token_type = Some(TokenType::Frontend);
+        frontend_token.status = TokenValidationStatus::Validated;
+        token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
+        let mut engine_state = EngineState::default();
+        engine_state.take_state(UpdateMessage::FullResponse(features_from_disk(
+            "../../../examples/ip_address_feature.json",
+        )));
+        let engine_cache = Arc::new(EngineCache::new());
+        engine_cache.insert(cache_key(&frontend_token), engine_state);
+        let test_state = TestState::from_caches(token_cache, engine_cache);
+        let server = frontend_test_server_with_ip(test_state, "10.0.0.1:80");
+
+        let res = server
+            .get("/frontend")
+            .add_header("Content-Type", "application/json")
+            .add_header("Authorization", frontend_token.token.clone())
+            .add_header("X-Forwarded-For", "192.168.0.1, 217.0.0.1")
+            .await;
+
+        assert_eq!(res.status_code(), StatusCode::OK);
+        let frontend_result = res.json::<FrontendResult>();
+        assert!(frontend_result.toggles.is_empty());
+    }
+
+    #[tokio::test]
+    async fn trusts_forwarded_header_when_trust_proxy_is_enabled() {
+        let token_cache = Arc::new(TokenCache::new());
+        let mut frontend_token =
+            EdgeToken::from_str("*:development.abc123").expect("Failed to parse frontend token");
+        frontend_token.token_type = Some(TokenType::Frontend);
+        frontend_token.status = TokenValidationStatus::Validated;
+        token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
+        let mut engine_state = EngineState::default();
+        engine_state.take_state(UpdateMessage::FullResponse(features_from_disk(
+            "../../../examples/ip_address_feature.json",
+        )));
+        let engine_cache = Arc::new(EngineCache::new());
+        engine_cache.insert(cache_key(&frontend_token), engine_state);
+        let test_state = TestState::from_caches_with_trust_proxy(token_cache, engine_cache);
+        let server = frontend_test_server_with_ip(test_state, "10.0.0.1:80");
+
+        let res = server
+            .get("/frontend")
+            .add_header("Content-Type", "application/json")
+            .add_header("Authorization", frontend_token.token.clone())
+            .add_header("Forwarded", "For=192.168.0.1")
+            .await;
+
         assert_eq!(res.status_code(), StatusCode::OK);
         let frontend_result = res.json::<FrontendResult>();
         assert_eq!(frontend_result.toggles.len(), 1);

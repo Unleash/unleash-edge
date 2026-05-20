@@ -402,6 +402,7 @@ pub struct EdgeStateArgs {
     pub base_path: String,
     pub http_deny_list: Option<Vec<IpNet>>,
     pub http_allow_list: Option<Vec<IpNet>>,
+    pub trust_proxy: bool,
     pub streaming: bool,
     pub delta: bool,
     pub persistence_args: PersistenceArgs,
@@ -568,6 +569,7 @@ pub async fn build_edge_state(
         connected_instances: args.instances_observed_for_app_context.clone(),
         deny_list: args.http_deny_list.unwrap_or_default(),
         allow_list: args.http_allow_list.unwrap_or_default(),
+        trust_proxy: args.trust_proxy,
         auth_headers: args.auth_headers.clone(),
         connect_via: ConnectVia {
             app_name: args.client_meta_information.app_name.clone(),

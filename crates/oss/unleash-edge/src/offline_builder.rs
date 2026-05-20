@@ -120,6 +120,7 @@ pub async fn build_offline_app_state(
         metrics_cache,
         deny_list: args.http.deny_list.clone().unwrap_or_default(),
         allow_list: args.http.allow_list.clone().unwrap_or_default(),
+        trust_proxy: args.trust_proxy.trust_proxy,
         delta_cache_manager: None,
         edge_instance_data: Arc::new(EdgeInstanceData::new(
             &app_name,

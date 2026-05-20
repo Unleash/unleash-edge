@@ -151,6 +151,7 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
                 upstream_url,
                 custom_client_headers: edge_args.custom_client_headers.clone(),
                 http_allow_list: args.http.allow_list,
+                trust_proxy: args.trust_proxy.trust_proxy,
                 #[cfg(feature = "enterprise")]
                 streaming: edge_args.streaming,
                 #[cfg(not(feature = "enterprise"))]
