@@ -28,7 +28,6 @@ unleash-edge-delta = { workspace = true }
 unleash-edge-feature-cache = { workspace = true }
 unleash-edge-feature-filters = { workspace = true }
 unleash-edge-http-client = { workspace = true }
-unleash-edge-persistence = { workspace = true }
 unleash-edge-types = { workspace = true }
 unleash-yggdrasil = { workspace = true }
 

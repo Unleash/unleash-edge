@@ -27,6 +27,7 @@ tracing = { workspace = true }
 ulid = { workspace = true }
 unleash-edge-feature-cache = { workspace = true }
 unleash-edge-types = { workspace = true }
+unleash-edge-delta = { workspace = true }
 unleash-types = { workspace = true }
 rustls = { workspace = true }
 

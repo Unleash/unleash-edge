@@ -20,7 +20,6 @@ use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_filters::FeatureFilterSet;
 use unleash_edge_feature_filters::delta_filters::{DeltaFilterSet, filter_delta_events};
 use unleash_edge_http_client::{ClientMetaInformation, UnleashClient};
-use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_types::errors::{EdgeError, FeatureError};
 use unleash_edge_types::headers::{
     UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_CONNECTION_ID_HEADER,
@@ -352,7 +351,6 @@ pub struct DeltaRefresher {
     pub delta_cache_manager: Arc<DeltaCacheManager>,
     pub engine_cache: Arc<DashMap<String, EngineState>>,
     pub refresh_interval: chrono::Duration,
-    pub persistence: Option<Arc<dyn EdgePersistence>>,
     pub streaming: bool,
     pub client_meta_information: ClientMetaInformation,
     pub edge_instance_data: Arc<EdgeInstanceData>,
@@ -710,7 +708,6 @@ mod tests {
             features_cache: features_cache.clone(),
             engine_cache: engine_cache.clone(),
             refresh_interval: Duration::seconds(6000),
-            persistence: None,
             streaming: false,
             client_meta_information: ClientMetaInformation::test_config(),
             edge_instance_data: Arc::new(edge_instance_data_for_delta_refresher_test()),
@@ -876,7 +873,6 @@ mod tests {
             features_cache,
             engine_cache,
             refresh_interval: Duration::seconds(6000),
-            persistence: None,
             streaming: true,
             client_meta_information: ClientMetaInformation::test_config(),
             edge_instance_data: Arc::new(edge_instance_data_for_delta_refresher_test()),

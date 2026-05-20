@@ -212,7 +212,7 @@ impl EdgePersistence for RedisPersister {
         Ok(())
     }
 
-    async fn save_last_event_ids(&self, event_ids: HashMap<String, u64>) -> EdgeResult<()> {
+    async fn save_last_event_ids(&self, event_ids: HashMap<String, u32>) -> EdgeResult<()> {
         debug!("Saving last event ids to persistence: {event_ids:#?}");
         let mut client = self.redis_client.write().await;
         let raw_event_ids = serde_json::to_string(&event_ids)?;
@@ -232,7 +232,7 @@ impl EdgePersistence for RedisPersister {
         Ok(())
     }
 
-    async fn load_last_event_ids(&self) -> EdgeResult<HashMap<String, u64>> {
+    async fn load_last_event_ids(&self) -> EdgeResult<HashMap<String, u32>> {
         debug!("Loading last event ids from persistence");
         let mut client = self.redis_client.write().await;
         let raw_event_ids: String = match &mut *client {
@@ -247,7 +247,7 @@ impl EdgePersistence for RedisPersister {
                 conn.get(LAST_EVENT_IDS_KEY)?
             }
         };
-        serde_json::from_str::<HashMap<String, u64>>(&raw_event_ids).map_err(EdgeError::from)
+        serde_json::from_str::<HashMap<String, u32>>(&raw_event_ids).map_err(EdgeError::from)
     }
 }
 
