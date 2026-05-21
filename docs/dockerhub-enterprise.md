@@ -4,8 +4,7 @@ Unleash Enterprise Edge is a high-performance proxy layer between Unleash and yo
 applications, keeps feature flag data cached, and helps large installations scale client and server SDK traffic without
 increasing load on the Unleash server.
 
-This image is the enterprise build of Unleash Edge and requires a valid license. Learn more about [Unleash Enterprise Edge](docs.getunleash.io/unleash-edge).
-customers using the enterprise-only Edge capabilities documented at
+This image is the enterprise build of Unleash Edge and requires a valid license. Learn more about [Unleash Enterprise Edge](https://docs.getunleash.io/unleash-edge).
 
 ## Quickstart
 
