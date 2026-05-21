@@ -27,6 +27,8 @@ pub struct AppState {
     pub connected_instances: Arc<RwLock<Vec<EdgeInstanceData>>>,
     pub deny_list: Vec<IpNet>,
     pub allow_list: Vec<IpNet>,
+    pub trust_proxy: bool,
+    pub proxy_trusted_servers: Vec<IpNet>,
     pub license_state: ApplicationLicenseState,
 }
 
