@@ -214,3 +214,20 @@ jobs:
           docker buildx imagetools inspect ${{ env.DOCKERHUB_SLUG }}:${tag}
           docker buildx imagetools inspect ${{ env.GHCR_SLUG }}:${tag}
           docker buildx imagetools inspect ${{ steps.login-ecr-public.outputs.registry }}/unleashorg/unleash-edge-enterprise:${tag}
+
+  update-dockerhub-description:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    needs:
+      - merge
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Update Docker Hub description
+        uses: peter-evans/dockerhub-description@v5
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ env.DOCKERHUB_SLUG }}
+          short-description: Enterprise Edge, a high-performance proxy for scaling Unleash SDK connections
+          readme-filepath: ./docs/dockerhub-enterprise.md
