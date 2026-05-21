@@ -63,6 +63,10 @@ impl DeltaCacheManager {
         self.caches.get(env).map(|entry| entry.value().clone())
     }
 
+    pub fn contains(&self, env: &str) -> bool {
+        self.caches.contains_key(env)
+    }
+
     pub fn insert_cache(&self, env: &str, cache: DeltaCache) {
         self.caches.insert(env.to_string(), cache);
         let _ = self
