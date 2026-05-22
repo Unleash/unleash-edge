@@ -5585,7 +5585,7 @@ dependencies = [
  "unleash-edge-request-logger",
  "unleash-edge-tracing",
  "unleash-edge-types",
- "unleash-types",
+ "unleash-types 0.16.1",
  "unleash-yggdrasil",
  "url",
 ]
@@ -5610,7 +5610,7 @@ dependencies = [
  "unleash-edge-persistence",
  "unleash-edge-streaming",
  "unleash-edge-types",
- "unleash-types",
+ "unleash-types 0.16.1",
 ]
 
 [[package]]
@@ -5631,7 +5631,7 @@ dependencies = [
  "unleash-edge-http-client",
  "unleash-edge-persistence",
  "unleash-edge-types",
- "unleash-types",
+ "unleash-types 0.16.1",
 ]
 
 [[package]]
@@ -5654,7 +5654,7 @@ dependencies = [
  "unleash-edge-http-client",
  "unleash-edge-persistence",
  "unleash-edge-types",
- "unleash-types",
+ "unleash-types 0.16.1",
 ]
 
 [[package]]
@@ -5705,7 +5705,7 @@ dependencies = [
  "unleash-edge-metrics",
  "unleash-edge-streaming",
  "unleash-edge-types",
- "unleash-types",
+ "unleash-types 0.16.1",
  "unleash-yggdrasil",
  "utoipa",
 ]
@@ -5720,7 +5720,7 @@ dependencies = [
  "tokio",
  "tracing",
  "unleash-edge-types",
- "unleash-types",
+ "unleash-types 0.16.1",
  "unleash-yggdrasil",
 ]
 
@@ -5807,7 +5807,7 @@ dependencies = [
  "unleash-edge-http-client",
  "unleash-edge-persistence",
  "unleash-edge-types",
- "unleash-types",
+ "unleash-types 0.16.1",
  "unleash-yggdrasil",
 ]
 
@@ -5818,7 +5818,7 @@ dependencies = [
  "dashmap",
  "tokio",
  "unleash-edge-types",
- "unleash-types",
+ "unleash-types 0.16.1",
 ]
 
 [[package]]
@@ -5829,7 +5829,7 @@ dependencies = [
  "tracing",
  "unleash-edge-delta",
  "unleash-edge-types",
- "unleash-types",
+ "unleash-types 0.16.1",
  "unleash-yggdrasil",
 ]
 
@@ -5866,7 +5866,7 @@ dependencies = [
  "unleash-edge-feature-refresh",
  "unleash-edge-http-client",
  "unleash-edge-types",
- "unleash-types",
+ "unleash-types 0.16.1",
  "unleash-yggdrasil",
 ]
 
@@ -5892,7 +5892,7 @@ dependencies = [
  "unleash-edge-feature-refresh",
  "unleash-edge-metrics",
  "unleash-edge-types",
- "unleash-types",
+ "unleash-types 0.16.1",
  "unleash-yggdrasil",
  "utoipa",
 ]
@@ -5925,7 +5925,7 @@ dependencies = [
  "ulid",
  "unleash-edge-cli",
  "unleash-edge-types",
- "unleash-types",
+ "unleash-types 0.16.1",
  "unleash-yggdrasil",
  "url",
 ]
@@ -5969,7 +5969,7 @@ dependencies = [
  "unleash-edge-feature-refresh",
  "unleash-edge-http-client",
  "unleash-edge-types",
- "unleash-types",
+ "unleash-types 0.16.1",
  "unleash-yggdrasil",
 ]
 
@@ -6001,7 +6001,7 @@ dependencies = [
  "ulid",
  "unleash-edge-http-client",
  "unleash-edge-types",
- "unleash-types",
+ "unleash-types 0.16.1",
 ]
 
 [[package]]
@@ -6023,7 +6023,7 @@ dependencies = [
  "unleash-edge-http-client",
  "unleash-edge-persistence",
  "unleash-edge-types",
- "unleash-types",
+ "unleash-types 0.16.1",
  "unleash-yggdrasil",
 ]
 
@@ -6051,7 +6051,7 @@ dependencies = [
  "unleash-edge-delta",
  "unleash-edge-feature-cache",
  "unleash-edge-types",
- "unleash-types",
+ "unleash-types 0.16.1",
 ]
 
 [[package]]
@@ -6088,7 +6088,7 @@ dependencies = [
  "unleash-edge-http-client",
  "unleash-edge-persistence",
  "unleash-edge-types",
- "unleash-types",
+ "unleash-types 0.16.1",
  "unleash-yggdrasil",
 ]
 
@@ -6132,7 +6132,7 @@ dependencies = [
  "tokio",
  "tracing",
  "ulid",
- "unleash-types",
+ "unleash-types 0.16.1",
  "unleash-yggdrasil",
  "utoipa",
 ]
@@ -6142,6 +6142,18 @@ name = "unleash-types"
 version = "0.15.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f353106eed861507cc196874f307f466cdd5339c18d1d5542ca96ac9b1625696"
+dependencies = [
+ "chrono",
+ "derive_builder",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "unleash-types"
+version = "0.16.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75aa5b25bab4826d8d9ec316332f0fa07326cf969d56589a2992ba04aa39793d"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -6174,7 +6186,7 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
- "unleash-types",
+ "unleash-types 0.15.23",
 ]
 
 [[package]]
