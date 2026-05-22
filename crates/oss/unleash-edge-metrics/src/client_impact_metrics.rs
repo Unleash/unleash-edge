@@ -288,10 +288,7 @@ mod test {
             ],
         )];
 
-        sink_impact_metrics(
-            &cache,
-            convert_to_impact_metrics_env(counter, app, env),
-        );
+        sink_impact_metrics(&cache, convert_to_impact_metrics_env(counter, app, env));
 
         let key = ImpactMetricsKey {
             app_name: app.into(),
@@ -319,10 +316,7 @@ mod test {
             ],
         )];
 
-        sink_impact_metrics(
-            &cache,
-            convert_to_impact_metrics_env(gauge, app, env),
-        );
+        sink_impact_metrics(&cache, convert_to_impact_metrics_env(gauge, app, env));
 
         let key = ImpactMetricsKey {
             app_name: app.into(),
@@ -349,10 +343,7 @@ mod test {
             ],
         )];
 
-        sink_impact_metrics(
-            &cache,
-            convert_to_impact_metrics_env(histogram, app, env),
-        );
+        sink_impact_metrics(&cache, convert_to_impact_metrics_env(histogram, app, env));
 
         let key = ImpactMetricsKey {
             app_name: app.into(),
@@ -472,10 +463,7 @@ mod test {
             vec![create_sample(1.0, labels)],
         )];
 
-        sink_impact_metrics(
-            &cache,
-            convert_to_impact_metrics_env(metrics, app, env),
-        );
+        sink_impact_metrics(&cache, convert_to_impact_metrics_env(metrics, app, env));
 
         let key = ImpactMetricsKey {
             app_name: app.into(),
