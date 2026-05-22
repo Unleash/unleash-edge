@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.2.3](https://github.com/Unleash/unleash-edge/compare/unleash-edge-delta-v20.1.1...unleash-edge-delta-v20.2.3) - 2026-05-22
+
+### 🚀 Features
+- allow backup to persist and restore streaming ids ([#1603](https://github.com/unleash/unleash-edge/issues/1603)) (by @sighphyre) - #1603
+
+### 🐛 Bug Fixes
+- allow streaming to survive mid stream hydrations ([#1609](https://github.com/unleash/unleash-edge/issues/1609)) (by @sighphyre) - #1609
+
+### Contributors
+
+* @sighphyre
+
 ## [20.2.2](https://github.com/Unleash/unleash-edge/compare/unleash-edge-delta-v20.2.1...unleash-edge-delta-v20.2.2) - 2026-05-14
 
 ### ⚙️ Miscellaneous Tasks
