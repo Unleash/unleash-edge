@@ -99,7 +99,7 @@ rustls = { version = "0.23.40", default-features = false, features = ["ring"] }
 rustls-pemfile = { version = "2.2.0" }
 semver = { version = "1.0.28" }
 serde = { version = "1.0.228", features = ["derive"] }
-serde_json = { version = "1.0.149" }
+serde_json = { version = "1.0.150" }
 serde_qs = { version = "1.1.2", features = ["axum"] }
 sha2 = { version = "0.11.0" }
 shadow-rs = { version = "1.7.1" }
@@ -152,8 +152,8 @@ unleash-edge-request-logger = { path = "./crates/oss/unleash-edge-request-logger
 unleash-edge-streaming = { path = "./crates/enterprise/unleash-edge-streaming" }
 unleash-edge-tracing = { path = "./crates/enterprise/unleash-edge-tracing" }
 unleash-edge-types = { path = "./crates/oss/unleash-edge-types" }
-unleash-types = { version = "0.15.23", features = ["hashes", "openapi"] }
-unleash-yggdrasil = { version = "0.21.1" }
+unleash-types = { version = "0.16.1", features = ["hashes", "openapi"] }
+unleash-yggdrasil = { version = "0.21.2" }
 url = { version = "2.5.8" }
 utoipa = { version = "5.5.0", features = ["chrono", "axum_extras"] }
 utoipauto = { version = "0.3.0-alpha.2" }

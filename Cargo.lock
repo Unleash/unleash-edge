@@ -1348,9 +1348,9 @@ dependencies = [
 
 [[package]]
 name = "convert_case"
-version = "0.8.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "baaaa0ecca5b51987b9423ccdc971514dd8b0bb7b4060b983d3664dad3f1f89f"
+checksum = "affbf0190ed2caf063e3def54ff444b449371d55c58e513a95ab98eca50adb49"
 dependencies = [
  "unicode-segmentation",
 ]
@@ -2297,6 +2297,11 @@ name = "hashbrown"
 version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
+dependencies = [
+ "allocator-api2",
+ "equivalent",
+ "foldhash 0.2.0",
+]
 
 [[package]]
 name = "heck"
@@ -4563,9 +4568,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.149"
+version = "1.0.150"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83fc039473c5595ace860d8c4fafa220ff474b3fc6bfdb4293327f1a37e94d86"
+checksum = "e8014e44b4736ed0538adeecded0fce2a272f22dc9578a7eb6b2d9993c74cfb9"
 dependencies = [
  "itoa",
  "memchr",
@@ -6137,9 +6142,9 @@ dependencies = [
 
 [[package]]
 name = "unleash-types"
-version = "0.15.23"
+version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f353106eed861507cc196874f307f466cdd5339c18d1d5542ca96ac9b1625696"
+checksum = "75aa5b25bab4826d8d9ec316332f0fa07326cf969d56589a2992ba04aa39793d"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -6152,15 +6157,15 @@ dependencies = [
 
 [[package]]
 name = "unleash-yggdrasil"
-version = "0.21.1"
+version = "0.21.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec37de350a43b5c6fdc836fe204eadb5da55b312e4cda5d543f21e24b6201117"
+checksum = "dc388a0e337e1e6aeab4508d3a49751ea7367938b5572ce19da55541d67e820e"
 dependencies = [
  "ahash",
  "chrono",
  "convert_case",
  "dashmap",
- "hashbrown 0.16.1",
+ "hashbrown 0.17.1",
  "ipnet",
  "ipnetwork",
  "lazy_static",
