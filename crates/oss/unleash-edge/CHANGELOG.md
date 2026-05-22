@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.2.3](https://github.com/Unleash/unleash-edge/compare/unleash-edge-v20.1.0...unleash-edge-v20.2.3) - 2026-05-22
+
+### 🚀 Features
+- allow backup to persist and restore streaming ids ([#1603](https://github.com/unleash/unleash-edge/issues/1603)) (by @sighphyre) - #1603
+
+### 🐛 Bug Fixes
+- restore trust proxy functionallity ([#1608](https://github.com/unleash/unleash-edge/issues/1608)) (by @sighphyre) - #1608
+- allow backups to correctly hydrate in streaming mode ([#1601](https://github.com/unleash/unleash-edge/issues/1601)) (by @sighphyre) - #1601
+
+### Contributors
+
+* @sighphyre
+
 ## [20.2.2](https://github.com/Unleash/unleash-edge/compare/unleash-edge-v20.2.1...unleash-edge-v20.2.2) - 2026-05-14
 
 ### ⚙️ Miscellaneous Tasks

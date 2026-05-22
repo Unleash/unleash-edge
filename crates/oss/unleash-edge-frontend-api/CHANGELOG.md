@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.2.3](https://github.com/Unleash/unleash-edge/compare/unleash-edge-frontend-api-v20.1.0...unleash-edge-frontend-api-v20.2.3) - 2026-05-22
+
+### 🐛 Bug Fixes
+- restore trust proxy functionallity ([#1608](https://github.com/unleash/unleash-edge/issues/1608)) (by @sighphyre) - #1608
+
+### Contributors
+
+* @sighphyre
+
 ## [20.2.2](https://github.com/Unleash/unleash-edge/compare/unleash-edge-frontend-api-v20.2.1...unleash-edge-frontend-api-v20.2.2) - 2026-05-14
 
 ### ⚙️ Miscellaneous Tasks

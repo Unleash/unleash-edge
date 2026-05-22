@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.2.3](https://github.com/Unleash/unleash-edge/compare/unleash-edge-metrics-v20.1.0...unleash-edge-metrics-v20.2.3) - 2026-05-22
+
+### 🐛 Bug Fixes
+- allow metrics buckets to be missing to support ([#1618](https://github.com/unleash/unleash-edge/issues/1618)) (by @sighphyre) - #1618
+
+### Contributors
+
+* @sighphyre
+
 ## [20.2.2](https://github.com/Unleash/unleash-edge/compare/unleash-edge-metrics-v20.2.1...unleash-edge-metrics-v20.2.2) - 2026-05-14
 
 ### ⚙️ Miscellaneous Tasks

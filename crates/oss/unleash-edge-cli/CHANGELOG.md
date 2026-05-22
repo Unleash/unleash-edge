@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.2.3](https://github.com/Unleash/unleash-edge/compare/unleash-edge-cli-v20.2.2...unleash-edge-cli-v20.2.3) - 2026-05-22
+
+### ⚙️ Miscellaneous Tasks
+- update Cargo.toml dependencies
+
 ## [20.2.2](https://github.com/Unleash/unleash-edge/compare/unleash-edge-cli-v20.2.1...unleash-edge-cli-v20.2.2) - 2026-05-14
 
 ### ⚙️ Miscellaneous Tasks
