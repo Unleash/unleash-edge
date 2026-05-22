@@ -6,12 +6,12 @@ use unleash_types::client_metrics::{ImpactMetric, ImpactMetricEnv};
 
 pub fn convert_to_impact_metrics_env(
     metrics: Vec<ImpactMetric>,
-    app_name: String,
-    environment: String,
+    app_name: &str,
+    environment: &str,
 ) -> Vec<ImpactMetricEnv> {
     metrics
         .into_iter()
-        .map(|metric| ImpactMetricEnv::new(metric, app_name.clone(), environment.clone()))
+        .map(|metric| ImpactMetricEnv::new(metric, app_name.to_string(), environment.to_string()))
         .collect()
 }
 
@@ -365,7 +365,7 @@ mod test {
                 assert_eq!(samples[0].count, 10);
                 assert_eq!(samples[0].sum, 20.0);
                 assert_eq!(samples[0].buckets[0].count, 1 + 2); // 3/3 + 7/3
-                assert_eq!(samples[0].buckets[1].count, 2 + 4); // 3*2/3 + 7*2/3  
+                assert_eq!(samples[0].buckets[1].count, 2 + 4); // 3*2/3 + 7*2/3
                 assert_eq!(samples[0].buckets[2].count, 3 + 7); // total counts
             }
             _ => panic!("Expected histogram metric"),
