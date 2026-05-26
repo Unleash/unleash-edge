@@ -859,7 +859,7 @@ dependencies = [
  "hyper-util",
  "mime",
  "pretty_assertions",
- "reqwest 0.13.3",
+ "reqwest 0.13.4",
  "reserve-port",
  "rust-multipart-rfc7578_2",
  "serde",
@@ -3691,7 +3691,7 @@ checksum = "441b28c02014ba0e458838548d5fe770fd0238f024d250f5512cf8540ab48b7a"
 dependencies = [
  "prometheus",
  "prost",
- "reqwest 0.13.3",
+ "reqwest 0.13.4",
  "snap",
 ]
 
@@ -4089,9 +4089,9 @@ dependencies = [
 
 [[package]]
 name = "reqwest"
-version = "0.13.3"
+version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62e0021ea2c22aed41653bc7e1419abb2c97e038ff2c33d0e1309e49a97deec0"
+checksum = "219c5811de6525e5416c7d5d53bb656d3afdbc6c5af816e0802bcfa42dbdc1c3"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -5539,7 +5539,7 @@ dependencies = [
  "opentelemetry_sdk",
  "prometheus",
  "regex",
- "reqwest 0.13.3",
+ "reqwest 0.13.4",
  "rustls 0.23.40",
  "rustls-pemfile 2.2.0",
  "serde_json",
@@ -5652,7 +5652,7 @@ dependencies = [
  "clap",
  "ipnet",
  "num_cpus",
- "reqwest 0.13.3",
+ "reqwest 0.13.4",
  "serde",
  "tower",
  "tower-http",
@@ -5673,7 +5673,7 @@ dependencies = [
  "dashmap",
  "futures-util",
  "maplit",
- "reqwest 0.13.3",
+ "reqwest 0.13.4",
  "serde",
  "serde_json",
  "tokio",
@@ -5743,7 +5743,7 @@ dependencies = [
  "axum-test",
  "chrono",
  "maplit",
- "reqwest 0.13.3",
+ "reqwest 0.13.4",
  "serde",
  "tokio",
  "tracing",
@@ -5770,7 +5770,7 @@ dependencies = [
  "eventsource-stream",
  "futures",
  "pretty_assertions",
- "reqwest 0.13.3",
+ "reqwest 0.13.4",
  "serde",
  "serde_json",
  "test-case",
@@ -5835,7 +5835,7 @@ dependencies = [
  "json-structural-diff",
  "pretty_assertions",
  "prometheus",
- "reqwest 0.13.3",
+ "reqwest 0.13.4",
  "serde_json",
  "test-case",
  "tokio",
@@ -5900,7 +5900,7 @@ dependencies = [
  "pkix",
  "prometheus",
  "rand 0.10.1",
- "reqwest 0.13.3",
+ "reqwest 0.13.4",
  "rustls 0.23.40",
  "rustls-pemfile 2.2.0",
  "serde",
@@ -5932,7 +5932,7 @@ dependencies = [
  "hyper 1.9.0",
  "hyper-util",
  "pretty_assertions",
- "reqwest 0.13.3",
+ "reqwest 0.13.4",
  "serde",
  "serde_json",
  "test-case",
@@ -5975,7 +5975,7 @@ dependencies = [
  "prometheus-reqwest-remote-write",
  "proptest",
  "rand 0.10.1",
- "reqwest 0.13.3",
+ "reqwest 0.13.4",
  "semver",
  "serde",
  "serde_json",
@@ -6110,7 +6110,7 @@ dependencies = [
  "pretty_assertions",
  "prometheus",
  "redis",
- "reqwest 0.13.3",
+ "reqwest 0.13.4",
  "serde",
  "serde_json",
  "shadow-rs",
