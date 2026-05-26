@@ -75,7 +75,7 @@ opentelemetry-otlp = { version = "0.31.1", features = [
 ] }
 opentelemetry-prometheus = { version = "0.31.0" }
 opentelemetry-semantic-conventions = { version = "0.31.0" }
-opentelemetry_sdk = { version = "0.31.0", features = [
+opentelemetry_sdk = { version = "0.32.0", features = [
     "metrics",
     "rt-tokio",
     "spec_unstable_metrics_views",
