@@ -129,7 +129,12 @@ fn build_sse_stream(
         es_client_builder = es_client_builder.header(key, value)?;
     }
 
-    let client = es_client_builder.reconnect(reconnect_opts()).build();
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let transport = launchdarkly_sdk_transport::HyperTransport::new_https()
+        .context("Failed to create EventSource HTTPS transport")?;
+    let client = es_client_builder
+        .reconnect(reconnect_opts())
+        .build_with_transport(transport);
     Ok(client.stream())
 }
 
