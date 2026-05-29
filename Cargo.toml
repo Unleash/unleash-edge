@@ -25,7 +25,13 @@ ahash = { version = "0.8.12" }
 anyhow = { version = "1.0.102" }
 async-trait = { version = "0.1.89" }
 aws-config = { version = "1.8.17", features = ["behavior-version-latest"] }
-aws-sdk-s3 = { version = "1.134.0", default-features = false, features = ["behavior-version-latest"] }
+aws-sdk-s3 = { version = "1.134.0", default-features = false, features = [
+    "behavior-version-latest",
+    "sigv4a",
+    "http-1x",
+    "default-https-client",
+    "rt-tokio",
+] }
 axum = { version = "0.8.9", features = [
     "macros",
     "tokio",
