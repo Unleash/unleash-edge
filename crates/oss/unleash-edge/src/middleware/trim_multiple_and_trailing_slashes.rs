@@ -41,6 +41,10 @@ where
 }
 
 fn trim_trailing_and_double_slashes(uri: &mut Uri) {
+    if should_skip_normalization(uri.path()) {
+        return;
+    }
+
     if !uri.path().ends_with('/') && !uri.path().contains("//") {
         return;
     }
@@ -65,6 +69,13 @@ fn trim_trailing_and_double_slashes(uri: &mut Uri) {
     if let Ok(new_uri) = Uri::from_parts(parts) {
         *uri = new_uri
     }
+}
+
+fn should_skip_normalization(path: &str) -> bool {
+    // Swagger UI relies on a trailing slash route (`/docs/openapi/`) and redirects
+    // from `/docs/openapi` to `/docs/openapi/`. Normalizing `/docs/openapi/` would
+    // remove the trailing slash and cause a redirect loop.
+    path.ends_with("/docs/openapi/")
 }
 
 #[cfg(test)]
@@ -186,5 +197,12 @@ mod tests {
         let mut uri = "///foo".parse::<Uri>().unwrap();
         trim_trailing_and_double_slashes(&mut uri);
         assert_eq!(uri, "/foo");
+    }
+
+    #[test]
+    fn does_not_normalize_swagger_ui_index_path() {
+        let mut uri = "/docs/openapi/".parse::<Uri>().unwrap();
+        trim_trailing_and_double_slashes(&mut uri);
+        assert_eq!(uri, "/docs/openapi/");
     }
 }

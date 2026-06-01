@@ -164,7 +164,7 @@ unleash-yggdrasil = { version = "0.21.2" }
 url = { version = "2.5.8" }
 utoipa = { version = "5.5.0", features = ["chrono", "axum_extras"] }
 utoipauto = { version = "0.3.0-alpha.2" }
-utoipa-swagger-ui = { version = "9.0.2", features = ["axum"] }
+utoipa-swagger-ui = { version = "9.0.2", features = ["axum", "vendored"] }
 
 # The profile that 'dist' will build with
 [profile.dist]

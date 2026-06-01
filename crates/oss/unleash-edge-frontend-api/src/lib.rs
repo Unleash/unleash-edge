@@ -12,6 +12,8 @@ use unleash_edge_types::tokens::{EdgeToken, cache_key};
 use unleash_types::client_features::Context;
 use unleash_types::frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult};
 use unleash_yggdrasil::ResolvedToggle;
+use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
+use utoipa::{Modify, OpenApi};
 
 use crate::frontend::FrontendState;
 
@@ -34,6 +36,73 @@ where
 pub(crate) mod client_ip;
 pub mod frontend;
 pub mod querystring_extractor;
+
+#[derive(OpenApi)]
+#[openapi(
+    paths(
+        crate::frontend::frontend_get_enabled_features,
+        crate::frontend::frontend_post_enabled_features,
+        crate::frontend::frontend_get_all_features,
+        crate::frontend::frontend_post_all_features,
+        crate::frontend::frontend_get_feature,
+        crate::frontend::frontend_post_feature,
+        crate::frontend::frontend_post_metrics,
+        crate::frontend::frontend_register_client
+    ),
+    tags(
+        (name = "Frontend API", description = "Unleash Edge frontend endpoints")
+    ),
+    modifiers(&FrontendSecurityAddon)
+)]
+pub struct FrontendApiDoc;
+
+struct FrontendSecurityAddon;
+
+impl Modify for FrontendSecurityAddon {
+    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+        let components = openapi
+            .components
+            .get_or_insert_with(utoipa::openapi::Components::new);
+
+        components.add_security_scheme(
+            "Authorization",
+            SecurityScheme::ApiKey(ApiKey::Header(ApiKeyValue::new("Authorization"))),
+        );
+
+        // muck with the pathing a little, this gives us a nice user friendly display name,
+        // and allows us to stop the library tagging on the crate name which is just annoying noise
+        for path_item in openapi.paths.paths.values_mut() {
+            if let Some(operation) = path_item.get.as_mut() {
+                operation.tags = Some(vec!["Frontend API".to_string()]);
+            }
+            if let Some(operation) = path_item.post.as_mut() {
+                operation.tags = Some(vec!["Frontend API".to_string()]);
+            }
+            if let Some(operation) = path_item.put.as_mut() {
+                operation.tags = Some(vec!["Frontend API".to_string()]);
+            }
+            if let Some(operation) = path_item.delete.as_mut() {
+                operation.tags = Some(vec!["Frontend API".to_string()]);
+            }
+            if let Some(operation) = path_item.patch.as_mut() {
+                operation.tags = Some(vec!["Frontend API".to_string()]);
+            }
+            if let Some(operation) = path_item.options.as_mut() {
+                operation.tags = Some(vec!["Frontend API".to_string()]);
+            }
+            if let Some(operation) = path_item.head.as_mut() {
+                operation.tags = Some(vec!["Frontend API".to_string()]);
+            }
+            if let Some(operation) = path_item.trace.as_mut() {
+                operation.tags = Some(vec!["Frontend API".to_string()]);
+            }
+        }
+    }
+}
+
+pub fn openapi() -> utoipa::openapi::OpenApi {
+    FrontendApiDoc::openapi()
+}
 
 pub fn router(disable_all_endpoints: bool) -> Router<AppState> {
     Router::new().merge(frontend::frontend_router_for(disable_all_endpoints))

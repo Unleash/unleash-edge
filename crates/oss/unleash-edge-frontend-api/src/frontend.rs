@@ -24,8 +24,8 @@ use unleash_types::frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult}
 
 #[utoipa::path(
     get,
-    path = "/all",
-    context_path = "/api/frontend",
+    path = "/frontend/all",
+    context_path = "/api",
     responses(
 (status = 200, description = "Return all known feature toggles for this token in evaluated (true|false) state", body = FrontendResult),
 (status = 403, description = "Was not allowed to access features")
@@ -45,6 +45,19 @@ pub async fn frontend_get_all_features(
     all_features(app_state, edge_token, &context, client_ip)
 }
 
+#[utoipa::path(
+    post,
+    path = "/frontend/all",
+    context_path = "/api",
+    responses(
+        (status = 200, description = "Return all known feature toggles for this token in evaluated (true|false) state", body = FrontendResult),
+        (status = 403, description = "Was not allowed to access features")
+    ),
+    request_body = Context,
+    security(
+        ("Authorization" = [])
+    )
+)]
 #[instrument(skip(app_state, edge_token, client_ip, context))]
 pub async fn frontend_post_all_features(
     State(app_state): State<FrontendState>,
@@ -55,6 +68,19 @@ pub async fn frontend_post_all_features(
     all_features(app_state, edge_token, &context, client_ip)
 }
 
+#[utoipa::path(
+    get,
+    path = "/frontend",
+    context_path = "/api",
+    responses(
+        (status = 200, description = "Return enabled feature toggles for this token in evaluated state", body = FrontendResult),
+        (status = 403, description = "Was not allowed to access features")
+    ),
+    params(Context),
+    security(
+        ("Authorization" = [])
+    )
+)]
 #[instrument(skip(app_state, edge_token, client_ip, context))]
 pub async fn frontend_get_enabled_features(
     State(app_state): State<FrontendState>,
@@ -65,6 +91,19 @@ pub async fn frontend_get_enabled_features(
     enabled_features(app_state, edge_token, &context, client_ip)
 }
 
+#[utoipa::path(
+    post,
+    path = "/frontend",
+    context_path = "/api",
+    responses(
+        (status = 200, description = "Return enabled feature toggles for this token in evaluated state", body = FrontendResult),
+        (status = 403, description = "Was not allowed to access features")
+    ),
+    request_body = Context,
+    security(
+        ("Authorization" = [])
+    )
+)]
 #[instrument(skip(app_state, edge_token, client_ip, context))]
 pub async fn frontend_post_enabled_features(
     State(app_state): State<FrontendState>,
@@ -75,6 +114,19 @@ pub async fn frontend_post_enabled_features(
     enabled_features(app_state, edge_token, &context, client_ip)
 }
 
+#[utoipa::path(
+    post,
+    path = "/frontend/client/metrics",
+    context_path = "/api",
+    responses(
+        (status = 202, description = "Accepted frontend client metrics"),
+        (status = 403, description = "Was not allowed to post metrics")
+    ),
+    request_body = ClientMetrics,
+    security(
+        ("Authorization" = [])
+    )
+)]
 #[instrument(skip(app_state, edge_token, metrics))]
 pub async fn frontend_post_metrics(
     app_state: State<FrontendState>,
@@ -92,6 +144,19 @@ pub async fn frontend_post_metrics(
         .unwrap()
 }
 
+#[utoipa::path(
+    post,
+    path = "/frontend/client/register",
+    context_path = "/api",
+    responses(
+        (status = 202, description = "Accepted frontend client application registration"),
+        (status = 403, description = "Was not allowed to register client application")
+    ),
+    request_body = ClientApplication,
+    security(
+        ("Authorization" = [])
+    )
+)]
 #[instrument(skip(app_state, edge_token, client_application))]
 pub async fn frontend_register_client(
     State(app_state): State<FrontendState>,
@@ -110,6 +175,23 @@ pub async fn frontend_register_client(
         .unwrap()
 }
 
+#[utoipa::path(
+    get,
+    path = "/frontend/features/{feature_name}",
+    context_path = "/api",
+    params(
+        ("feature_name" = String, Path, description = "The name of the feature"),
+        Context
+    ),
+    responses(
+        (status = 200, description = "Return evaluated state for a single feature", body = EvaluatedToggle),
+        (status = 403, description = "Was not allowed to access features"),
+        (status = 404, description = "The feature was not found")
+    ),
+    security(
+        ("Authorization" = [])
+    )
+)]
 #[instrument(skip(app_state, edge_token, feature_name, context, client_ip))]
 pub async fn frontend_get_feature(
     State(app_state): State<FrontendState>,
@@ -129,6 +211,23 @@ pub async fn frontend_get_feature(
     .map(Json)
 }
 
+#[utoipa::path(
+    post,
+    path = "/frontend/features/{feature_name}",
+    context_path = "/api",
+    params(
+        ("feature_name" = String, Path, description = "The name of the feature")
+    ),
+    responses(
+        (status = 200, description = "Return evaluated state for a single feature", body = EvaluatedToggle),
+        (status = 403, description = "Was not allowed to access features"),
+        (status = 404, description = "The feature was not found")
+    ),
+    request_body = Context,
+    security(
+        ("Authorization" = [])
+    )
+)]
 #[instrument(skip(app_state, edge_token, feature_name, context, client_ip))]
 pub async fn frontend_post_feature(
     State(app_state): State<FrontendState>,

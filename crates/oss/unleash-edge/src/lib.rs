@@ -36,6 +36,8 @@ use unleash_edge_types::tokens::EdgeToken;
 use unleash_edge_types::urls::UnleashUrls;
 use unleash_edge_types::{BackgroundTask, EdgeResult, EngineCache, TokenCache};
 use url::Url;
+use utoipa::openapi::server::Server;
+use utoipa_swagger_ui::{Config, SwaggerUi};
 
 pub mod edge_builder;
 pub mod health_checker;
@@ -238,7 +240,31 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
         unleash_edge_backstage::router(args.internal_backstage.clone())
     };
 
+    let normalized_base_path = {
+        let base_path = args.http.base_path.trim().trim_matches('/');
+        if base_path.is_empty() {
+            String::new()
+        } else {
+            format!("/{base_path}")
+        }
+    };
+
     let top_router: Router = Router::new()
+        .merge(
+            SwaggerUi::new("/docs/openapi")
+                .url("/docs/openapi.json", {
+                    let mut openapi = unleash_edge_client_api::openapi();
+                    openapi.merge(unleash_edge_frontend_api::openapi());
+                    openapi.info.title = "Unleash Edge".to_string();
+                    openapi.info.contact = None;
+                    openapi.info.license = None;
+                    if !normalized_base_path.is_empty() {
+                        openapi.servers = Some(vec![Server::new(normalized_base_path.clone())]);
+                    }
+                    openapi
+                })
+                .config(Config::default().use_base_layout()),
+        )
         .nest("/api", api_router)
         .nest("/edge", unleash_edge_edge_api::router())
         .nest("/internal-backstage", backstage_router)
@@ -263,14 +289,9 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
         )
         .with_state(app_state);
 
-    let router_to_host = if args.http.base_path.len() > 1 {
+    let router_to_host = if !normalized_base_path.is_empty() {
         info!("Had a path different from root. Setting up a nested router");
-        let path = if !args.http.base_path.starts_with("/") {
-            format!("/{}", args.http.base_path)
-        } else {
-            args.http.base_path.clone()
-        };
-        Router::new().nest(&path, top_router)
+        Router::new().nest(&normalized_base_path, top_router)
     } else {
         top_router
     };
