@@ -241,13 +241,12 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
     };
 
     let normalized_base_path = {
-        let base_path = args.http.base_path.trim();
-        if base_path.is_empty() || base_path == "/" {
+        let base_path = args.http.base_path.trim().trim_matches('/');
+        if base_path.is_empty() {
             String::new()
-        } else {
+            String::new()
+            format!("/{base_path}")
             format!("/{}", base_path.trim_matches('/'))
-        }
-    };
 
     let openapi_json_url = if normalized_base_path.is_empty() {
         "/docs/openapi.json".to_string()
