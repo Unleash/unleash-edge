@@ -84,20 +84,16 @@ pub async fn get_feature(
     AuthToken(edge_token): AuthToken,
     Path(feature_name): Path<String>,
 ) -> EdgeJsonResult<ClientFeature> {
+    let filters = FeatureFilters { name_prefix: None };
 
-    let cache_entry = app_state
-        .features_cache
-        .get(&cache_key(&edge_token))
-        .ok_or(EdgeError::ClientCacheError)?;
-
-    let feature = cache_entry
+    let Json(features) = resolve_features(&app_state, edge_token, filters).await?;
+    let feature = features
         .features
-        .iter()
-        .find(|f| f.name == feature_name)
-        .cloned()
+        .into_iter()
+        .find(|feature| feature.name == feature_name)
         .ok_or(EdgeError::FeatureNotFound(feature_name))?;
 
-    Ok(Json(feature.clone()))
+    Ok(Json(feature))
 }
 
 #[instrument(skip(app_state, edge_token, filter_query))]
