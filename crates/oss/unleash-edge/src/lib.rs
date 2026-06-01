@@ -18,6 +18,7 @@ use tower::ServiceBuilder;
 use tower_http::compression::CompressionLayer;
 use tracing::warn;
 use ulid::Ulid;
+use utoipa_swagger_ui::{Config, SwaggerUi};
 use unleash_edge_auth::token_validator::TokenValidator;
 use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeMode, HmacConfig, NetworkAddr};
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
@@ -239,6 +240,18 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
     };
 
     let top_router: Router = Router::new()
+        .merge(SwaggerUi::new("/docs/openapi").url(
+            "/docs/openapi.json",
+            {
+                let mut openapi = unleash_edge_client_api::openapi();
+                openapi.merge(unleash_edge_frontend_api::openapi());
+                openapi.info.title = "Unleash Edge".to_string();
+                openapi.info.contact = None;
+                openapi.info.license = None;
+                openapi
+            },
+        )
+        .config(Config::default().use_base_layout()))
         .nest("/api", api_router)
         .nest("/edge", unleash_edge_edge_api::router())
         .nest("/internal-backstage", backstage_router)

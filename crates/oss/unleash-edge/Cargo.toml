@@ -53,6 +53,7 @@ tower-http = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 ulid = { workspace = true }
+utoipa-swagger-ui = { workspace = true }
 unleash-edge-appstate = { workspace = true }
 unleash-edge-auth = { workspace = true }
 unleash-edge-backstage = { workspace = true }
