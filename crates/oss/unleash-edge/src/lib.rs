@@ -240,14 +240,13 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
         unleash_edge_backstage::router(args.internal_backstage.clone())
     };
 
-    let normalized_base_path = if args.http.base_path.len() > 1 {
-        if !args.http.base_path.starts_with('/') {
-            format!("/{}", args.http.base_path)
+    let normalized_base_path = {
+        let base_path = args.http.base_path.trim();
+        if base_path.is_empty() || base_path == "/" {
+            String::new()
         } else {
-            args.http.base_path.clone()
+            format!("/{}", base_path.trim_matches('/'))
         }
-    } else {
-        String::new()
     };
 
     let openapi_json_url = if normalized_base_path.is_empty() {
