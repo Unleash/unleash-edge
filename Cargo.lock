@@ -5539,6 +5539,7 @@ dependencies = [
  "unleash-types",
  "unleash-yggdrasil",
  "url",
+ "utoipa",
  "utoipa-swagger-ui",
 ]
 

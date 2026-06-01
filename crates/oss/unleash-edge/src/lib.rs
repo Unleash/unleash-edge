@@ -18,6 +18,7 @@ use tower::ServiceBuilder;
 use tower_http::compression::CompressionLayer;
 use tracing::warn;
 use ulid::Ulid;
+use utoipa::openapi::server::Server;
 use unleash_edge_auth::token_validator::TokenValidator;
 use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeMode, HmacConfig, NetworkAddr};
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
@@ -239,15 +240,34 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
         unleash_edge_backstage::router(args.internal_backstage.clone())
     };
 
+    let normalized_base_path = if args.http.base_path.len() > 1 {
+        if !args.http.base_path.starts_with('/') {
+            format!("/{}", args.http.base_path)
+        } else {
+            args.http.base_path.clone()
+        }
+    } else {
+        String::new()
+    };
+
+    let openapi_json_url = if normalized_base_path.is_empty() {
+        "/docs/openapi.json".to_string()
+    } else {
+        format!("{}/docs/openapi.json", normalized_base_path)
+    };
+
     let top_router: Router = Router::new()
         .merge(
             SwaggerUi::new("/docs/openapi")
-                .url("/docs/openapi.json", {
+                .url(openapi_json_url, {
                     let mut openapi = unleash_edge_client_api::openapi();
                     openapi.merge(unleash_edge_frontend_api::openapi());
                     openapi.info.title = "Unleash Edge".to_string();
                     openapi.info.contact = None;
                     openapi.info.license = None;
+                    if !normalized_base_path.is_empty() {
+                        openapi.servers = Some(vec![Server::new(normalized_base_path.clone())]);
+                    }
                     openapi
                 })
                 .config(Config::default().use_base_layout()),
@@ -276,14 +296,9 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
         )
         .with_state(app_state);
 
-    let router_to_host = if args.http.base_path.len() > 1 {
+    let router_to_host = if !normalized_base_path.is_empty() {
         info!("Had a path different from root. Setting up a nested router");
-        let path = if !args.http.base_path.starts_with("/") {
-            format!("/{}", args.http.base_path)
-        } else {
-            args.http.base_path.clone()
-        };
-        Router::new().nest(&path, top_router)
+        Router::new().nest(&normalized_base_path, top_router)
     } else {
         top_router
     };
