@@ -244,20 +244,15 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
         let base_path = args.http.base_path.trim().trim_matches('/');
         if base_path.is_empty() {
             String::new()
-            String::new()
+        } else {
             format!("/{base_path}")
-            format!("/{}", base_path.trim_matches('/'))
-
-    let openapi_json_url = if normalized_base_path.is_empty() {
-        "/docs/openapi.json".to_string()
-    } else {
-        format!("{}/docs/openapi.json", normalized_base_path)
+        }
     };
 
     let top_router: Router = Router::new()
         .merge(
             SwaggerUi::new("/docs/openapi")
-                .url(openapi_json_url, {
+                .url("/docs/openapi.json", {
                     let mut openapi = unleash_edge_client_api::openapi();
                     openapi.merge(unleash_edge_frontend_api::openapi());
                     openapi.info.title = "Unleash Edge".to_string();
