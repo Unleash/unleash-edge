@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.2.4](https://github.com/Unleash/unleash-edge/compare/unleash-edge-feature-refresh-v20.1.0...unleash-edge-feature-refresh-v20.2.4) - 2026-06-01
+
+### ⚙️ Miscellaneous Tasks
+- upgrade rustls-webpki ([#1634](https://github.com/unleash/unleash-edge/issues/1634)) (by @sighphyre) - #1634
+
+### Contributors
+
+* @sighphyre
+
 ## [20.2.3](https://github.com/Unleash/unleash-edge/compare/unleash-edge-feature-refresh-v20.1.0...unleash-edge-feature-refresh-v20.2.3) - 2026-05-22
 
 ### 🚀 Features

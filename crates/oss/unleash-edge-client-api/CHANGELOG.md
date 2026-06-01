@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.2.4](https://github.com/Unleash/unleash-edge/compare/unleash-edge-client-api-v20.1.0...unleash-edge-client-api-v20.2.4) - 2026-06-01
+
+### 🚀 Features
+- add single client feature endpoint ([#1639](https://github.com/unleash/unleash-edge/issues/1639)) (by @sighphyre) - #1639
+
+### 📚 Documentation
+- openapi docs ([#1640](https://github.com/unleash/unleash-edge/issues/1640)) (by @sighphyre) - #1640
+
+### Contributors
+
+* @sighphyre
+
 ## [20.2.3](https://github.com/Unleash/unleash-edge/compare/unleash-edge-client-api-v20.1.0...unleash-edge-client-api-v20.2.3) - 2026-05-22
 
 ### 🐛 Bug Fixes
