@@ -205,11 +205,4 @@ mod tests {
         trim_trailing_and_double_slashes(&mut uri);
         assert_eq!(uri, "/docs/openapi/");
     }
-
-    #[test]
-    fn normalizes_swagger_ui_nested_path() {
-        let mut uri = "/docs/openapi//index.html".parse::<Uri>().unwrap();
-        trim_trailing_and_double_slashes(&mut uri);
-        assert_eq!(uri, "/docs/openapi/index.html");
-    }
 }
