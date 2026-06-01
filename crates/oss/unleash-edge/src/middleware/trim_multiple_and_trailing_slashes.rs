@@ -207,9 +207,9 @@ mod tests {
     }
 
     #[test]
-    fn does_not_normalize_swagger_ui_nested_path() {
+    fn normalizes_swagger_ui_nested_path() {
         let mut uri = "/docs/openapi//index.html".parse::<Uri>().unwrap();
         trim_trailing_and_double_slashes(&mut uri);
-        assert_eq!(uri, "/docs/openapi//index.html");
+        assert_eq!(uri, "/docs/openapi/index.html");
     }
 }
