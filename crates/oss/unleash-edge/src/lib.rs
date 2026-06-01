@@ -18,7 +18,6 @@ use tower::ServiceBuilder;
 use tower_http::compression::CompressionLayer;
 use tracing::warn;
 use ulid::Ulid;
-use utoipa::openapi::server::Server;
 use unleash_edge_auth::token_validator::TokenValidator;
 use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeMode, HmacConfig, NetworkAddr};
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
@@ -37,6 +36,7 @@ use unleash_edge_types::tokens::EdgeToken;
 use unleash_edge_types::urls::UnleashUrls;
 use unleash_edge_types::{BackgroundTask, EdgeResult, EngineCache, TokenCache};
 use url::Url;
+use utoipa::openapi::server::Server;
 use utoipa_swagger_ui::{Config, SwaggerUi};
 
 pub mod edge_builder;
