@@ -25,7 +25,13 @@ ahash = { version = "0.8.12" }
 anyhow = { version = "1.0.102" }
 async-trait = { version = "0.1.89" }
 aws-config = { version = "1.8.17", features = ["behavior-version-latest"] }
-aws-sdk-s3 = { version = "1.134.0", features = ["behavior-version-latest"] }
+aws-sdk-s3 = { version = "1.134.0", default-features = false, features = [
+    "behavior-version-latest",
+    "sigv4a",
+    "http-1x",
+    "default-https-client",
+    "rt-tokio",
+] }
 axum = { version = "0.8.9", features = [
     "macros",
     "tokio",
@@ -46,7 +52,7 @@ clap = { version = "4.6.1", features = ["derive", "env"] }
 clap-markdown = { version = "0.1.5" }
 dashmap = { version = "6.2.1", features = ["serde"] }
 etag = { version = "4.0.0" }
-eventsource-client = { version = "0.16.2" }
+eventsource-client = { version = "0.17.4", features = ["hyper-rustls-native-roots"] }
 eventsource-stream = { version = "0.2.3" }
 futures = { version = "0.3.32" }
 futures-util = { version = "0.3.32" }
@@ -59,6 +65,7 @@ ipnet = { version = "2.12.0" }
 itertools = { version = "0.14.0" }
 json-structural-diff = { version = "0.2.0" }
 lazy_static = { version = "1.5.0" }
+launchdarkly-sdk-transport = { version = "0.1.2", features = ["hyper-rustls-native-roots"] }
 maplit = { version = "1.0.2" }
 num_cpus = { version = "1.17.0" }
 opentelemetry = { version = "0.31.0", features = ["trace", "metrics", "logs"] }
