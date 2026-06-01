@@ -45,8 +45,8 @@ impl Modify for SecurityAddon {
             SecurityScheme::ApiKey(ApiKey::Header(ApiKeyValue::new("Authorization"))),
         );
 
-	// muck with the pathing a little, this gives us a nice user friendly display name,
-	// and allows us to stop the library tagging on the crate name which is just annoying noise
+        // muck with the pathing a little, this gives us a nice user friendly display name,
+        // and allows us to stop the library tagging on the crate name which is just annoying noise
         for path_item in openapi.paths.paths.values_mut() {
             if let Some(operation) = path_item.get.as_mut() {
                 operation.tags = Some(vec!["Client API".to_string()]);
