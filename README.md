@@ -60,13 +60,13 @@ container environment variables.
 To run Edge in Docker:
 
 ```shell
-docker run -it -p 3063:3063 -e UPSTREAM_URL=<your_unleash_instance> -e TOKENS=<your_client_token> unleashorg/unleash-edge:<version> edge
+docker run -it -p 3063:3063 -e UPSTREAM_URL=<your_unleash_instance> -e TOKENS=<your_client_token> unleashorg/unleash-edge-enterprise:<version> edge
 ```
 
 For example:
 
 ```shell
-docker run -it -p 3063:3063 -e UPSTREAM_URL=https://app.unleash-hosted.com/testclient -e TOKENS='*:development.4a798ad11cde8c0e637ff19f3287683ebc21d23d607c641f2dd79daa54' unleashorg/unleash-edge:<version> edge
+docker run -it -p 3063:3063 -e UPSTREAM_URL=https://app.unleash-hosted.com/testclient -e TOKENS='*:development.4a798ad11cde8c0e637ff19f3287683ebc21d23d607c641f2dd79daa54' unleashorg/unleash-edge-enterprise:<version> edge
 ```
 
 ## Versioning and availability
@@ -88,9 +88,9 @@ Unleash Edge is distributed as a binary and as a Docker image.
     - If you have the [Rust toolchain](https://rustup.rs) installed, you can build a binary for the platform you're
       running by cloning this repository and running `cargo build --release`. The binary will be located in
       `./target/release`.
-- **Docker**: The Docker image is available on:
-    - Docker Hub: `unleashorg/unleash-edge:<version>`.
-    - GitHub Packages: `ghcr.io/unleash/unleash-edge:<version>`.
+- **Docker**: The Enterprise Edge Docker image is available on:
+    - Docker Hub: `unleashorg/unleash-edge-enterprise:<version>`.
+    - GitHub Packages: `ghcr.io/unleash/unleash-edge-enterprise:<version>`.
 
 ## Running Unleash Edge
 
@@ -99,14 +99,14 @@ The `docker run` command supports the same [CLI arguments](/docs/CLI.md) that ar
 To run Edge in **edge** mode, use the command `edge`. This is built from `HEAD` on each commit.
 
 ```shell
-docker run -p 3063:3063 -e UPSTREAM_URL=<your_unleash_instance> -e TOKENS=<your_client_token> unleashorg/unleash-edge:<version> edge
+docker run -p 3063:3063 -e UPSTREAM_URL=<your_unleash_instance> -e TOKENS=<your_client_token> unleashorg/unleash-edge-enterprise:<version> edge
 ```
 
 To run Edge in **offline** mode, use the command `offline` and provide a volume with your feature toggles file. An
 example is available inside the examples folder.
 
 ```shell
-docker run -v ./examples:/edge/data -p 3063:3063 -e BOOTSTRAP_FILE=/edge/data/features.json -e CLIENT_TOKENS=<your_client_token_1,your_client_token_2> unleashorg/unleash-edge:<version> offline
+docker run -v ./examples:/edge/data -p 3063:3063 -e BOOTSTRAP_FILE=/edge/data/features.json -e CLIENT_TOKENS=<your_client_token_1,your_client_token_2> unleashorg/unleash-edge-enterprise:<version> offline
 ```
 
 ### Connecting SDKs
