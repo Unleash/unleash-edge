@@ -46,7 +46,7 @@ axum-server = { version = "0.8.0", default-features = false, features = [
 ] }
 axum-test = { version = "20.1.0", features = ["pretty-assertions", "reqwest"] }
 base64 = { version = "0.22.1" }
-chrono = { version = "0.4.44", features = ["serde"] }
+chrono = { version = "0.4.45", features = ["serde"] }
 cidr = { version = "0.3.2" }
 clap = { version = "4.6.1", features = ["derive", "env"] }
 clap-markdown = { version = "0.1.5" }
