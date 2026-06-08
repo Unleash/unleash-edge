@@ -33,9 +33,12 @@ pub mod s3_persister {
                 bucket: bucket_name.to_string(),
             }
         }
-        pub async fn new_from_env(bucket_name: &str) -> Self {
+        pub async fn new_from_env(bucket_name: &str, force_path_style: bool) -> Self {
             let shared_config = aws_config::load_from_env().await;
-            let client = s3::Client::new(&shared_config);
+            let config = s3::config::Builder::from(&shared_config)
+                .force_path_style(force_path_style)
+                .build();
+            let client = s3::Client::from_conf(config);
             Self {
                 client,
                 bucket: bucket_name.to_string(),

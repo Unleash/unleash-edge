@@ -64,6 +64,9 @@ pub struct S3Args {
     /// Bucket name to use for storing feature and token data
     #[clap(long, env)]
     pub s3_bucket_name: Option<String>,
+    /// Force path-style addressing when using S3 persistence
+    #[clap(long, env, default_value_t = false, requires = "s3_bucket_name")]
+    pub s3_force_path_style: bool,
 }
 
 #[derive(Copy, Debug, Clone, Eq, PartialEq, PartialOrd, Ord, ValueEnum)]

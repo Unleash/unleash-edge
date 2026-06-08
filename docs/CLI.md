@@ -203,6 +203,9 @@ Run in edge mode
 
   Default value: `2000`
 * `--s3-bucket-name <S3_BUCKET_NAME>` — Bucket name to use for storing feature and token data
+* `--s3-force-path-style` — Force path-style addressing when using S3 persistence
+
+  Default value: `false`
 * `--client-keepalive-timeout <CLIENT_KEEPALIVE_TIMEOUT>` — Sets the keep-alive timeout for connections from Edge to
   upstream
 
@@ -269,4 +272,3 @@ Perform a ready check against a running edge instance
 This document was generated automatically by
 <a href="https://crates.io/crates/clap-markdown"><code>clap-markdown</code></a>.
 </i></small>
-
