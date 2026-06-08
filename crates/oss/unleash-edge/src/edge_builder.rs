@@ -126,6 +126,7 @@ async fn get_data_source(args: &PersistenceArgs) -> Option<Arc<dyn EdgePersisten
                 .s3_bucket_name
                 .clone()
                 .expect("Clap is confused, there's no bucket name"),
+            s3_args.s3_force_path_style,
         )
         .await;
         return Some(Arc::new(s3_persister));
