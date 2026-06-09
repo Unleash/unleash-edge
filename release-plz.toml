@@ -18,6 +18,8 @@ semver_check = false
 
 publish = false
 
+git_only = true
+
 
 [changelog]
 
