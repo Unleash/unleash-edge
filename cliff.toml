@@ -25,8 +25,6 @@ commit_parsers = [
 ]
 
 commit_preprocessors = [
-    # Replace `foo` with `bar`
-    { pattern = "foo", replace = "bar" },
     # Replace `<REPO>` in the template body with the repository URL
     { pattern = '<REPO>', replace = "https://github.com/unleash/unleash-edge" },
     # Replace multiple spaces with a single space.
@@ -49,11 +47,11 @@ commit_preprocessors = [
 
 body = """
 
-## [{{ version }}]\
+## [{{ version | trim_start_matches(pat="v") }}]\
     {%- if release_link -%}\
         ({{ release_link }})\
     {% endif %} \
-    - {{ timestamp }}
+    - {{ timestamp | date(format="%Y-%m-%d") }}
 {% for group, commits in commits | group_by(attribute="group") %}
 ### {{ group | striptags | trim | upper_first }}
     {% for commit in commits %}
@@ -68,18 +66,6 @@ body = """
         {% endif -%}
     {% endfor -%}
 {% endfor %}
-- {{ statistics.commit_count }} commit(s) contributed to the release.
-- {{ statistics.commits_timespan | default(value=0) }} day(s) passed between the first and last commit.
-- {{ statistics.conventional_commit_count }} commit(s) parsed as conventional.
-- {{ statistics.links | length }} linked issue(s) detected in commits.
-{%- if statistics.links | length > 0 %}
-	{%- for link in statistics.links %}
-        {{ "  " }}- [{{ link.text }}]({{ link.href }}) (referenced {{ link.count }} time(s))
-	{%- endfor %}
-{%- endif %}
-{%- if statistics.days_passed_since_last_release %}
-	- {{ statistics.days_passed_since_last_release }} day(s) passed between releases.
-{%- endif %}
 {%- if remote.contributors %}
 ### Contributors
 {% for contributor in remote.contributors %}
@@ -92,5 +78,4 @@ body = """
 {%- macro pr(commit) -%}
     {% if commit.remote.pr_number %} - #{{ commit.remote.pr_number }}{% endif -%}
 {% endmacro -%}
-
 """

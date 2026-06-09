@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag_pattern:
-        description: "Tag pattern to match"
+        description: "Tag pattern used to find the latest existing release tag"
         required: false
         default: "unleash-edge-v*"
       main_branch:
@@ -159,18 +159,25 @@ jobs:
           set -euo pipefail
 
           latest_tag="${{ steps.latest.outputs.latest_tag }}"
-          range="origin/${MAIN_BRANCH}"
           if [[ -n "${latest_tag}" ]]; then
             range="${latest_tag}..origin/${MAIN_BRANCH}"
+            if git diff --quiet "${range}"; then
+              echo "level=none" >> "$GITHUB_OUTPUT"
+              echo "No changes since latest tag."
+              exit 0
+            fi
+
+            log="$(git log --no-merges --format=%s%n%b "${range}" || true)"
+          else
+            if ! git rev-list --max-count=1 "origin/${MAIN_BRANCH}" >/dev/null; then
+              echo "level=none" >> "$GITHUB_OUTPUT"
+              echo "No commits found on origin/${MAIN_BRANCH}."
+              exit 0
+            fi
+
+            log="$(git log --no-merges --format=%s%n%b "origin/${MAIN_BRANCH}" || true)"
           fi
 
-          if git diff --quiet ${range}; then
-            echo "level=none" >> "$GITHUB_OUTPUT"
-            echo "No changes since latest tag."
-            exit 0
-          fi
-
-          log="$(git log --no-merges --format=%s%n%b ${range} || true)"
           level="none"
 
           if echo "${log}" | grep -Eiq 'BREAKING[ -]CHANGE'; then
