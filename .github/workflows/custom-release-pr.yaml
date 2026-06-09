@@ -77,7 +77,11 @@ jobs:
             /^\[workspace\.package\]/{p=1;next}
             /^\[/{p=0}
             p==1 && $1=="version"{
-              match($0,/\"([^\"]+)\"/,m); print m[1]; exit
+              version=$0
+              sub(/^[^"]*"/, "", version)
+              sub(/".*$/, "", version)
+              print version
+              exit
             }' Cargo.toml)"
 
           if [[ -z "${current_version}" ]]; then
