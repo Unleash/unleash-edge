@@ -1,3 +1,11 @@
+
+## [unleash-edge-v20.3.0] - 2026-06-09
+
+### 🚀 Features
+- expose s3 force path style argument on CLI (#1652) (by @sighphyre) - #1652
+
+### ⚙️ Miscellaneous Tasks
+- dep upgrades and release flow (#1655) (by @chriswk) - #1655
 # Changelog
 
 All notable changes to this project will be documented in this file.
