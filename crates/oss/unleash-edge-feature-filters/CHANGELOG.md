@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.2.5](https://github.com/Unleash/unleash-edge/compare/unleash-edge-feature-filters-v20.2.4...unleash-edge-feature-filters-v20.2.5) - 2026-06-09
+
+### ⚙️ Miscellaneous Tasks
+- update Cargo.toml dependencies
+
 ## [20.2.4](https://github.com/Unleash/unleash-edge/compare/unleash-edge-feature-filters-v20.2.3...unleash-edge-feature-filters-v20.2.4) - 2026-06-01
 
 ### ⚙️ Miscellaneous Tasks

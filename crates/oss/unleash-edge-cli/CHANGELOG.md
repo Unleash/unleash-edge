@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [20.2.5](https://github.com/Unleash/unleash-edge/compare/unleash-edge-cli-v20.1.1...unleash-edge-cli-v20.2.5) - 2026-06-09
+
+### 🚀 Features
+- expose s3 force path style argument on CLI ([#1652](https://github.com/unleash/unleash-edge/issues/1652)) (by @sighphyre) - #1652
+
+### Contributors
+
+* @sighphyre
+
 ## [20.2.4](https://github.com/Unleash/unleash-edge/compare/unleash-edge-cli-v20.2.3...unleash-edge-cli-v20.2.4) - 2026-06-01
 
 ### ⚙️ Miscellaneous Tasks
