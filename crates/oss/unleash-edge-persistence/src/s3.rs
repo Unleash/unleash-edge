@@ -11,9 +11,23 @@ pub mod s3_persister {
         self as s3,
         primitives::{ByteStream, SdkBody},
     };
+    use tracing::debug;
     use unleash_edge_types::errors::EdgeError;
     use unleash_edge_types::tokens::EdgeToken;
     use unleash_edge_types::{EdgeResult, enterprise::LicenseState};
+
+    fn debug_s3_error(context: &str, err: &dyn std::error::Error) {
+        if !tracing::enabled!(tracing::Level::DEBUG) {
+            return;
+        }
+        let mut parts = vec![err.to_string()];
+        let mut source = err.source();
+        while let Some(e) = source {
+            parts.push(e.to_string());
+            source = e.source();
+        }
+        debug!("{context}: {}", parts.join(": "));
+    }
 
     pub const FEATURES_KEY: &str = "/unleash-features.json";
     pub const TOKENS_KEY: &str = "/unleash-tokens.json";
@@ -57,7 +71,10 @@ pub mod s3_persister {
                 .response_content_type("application/json")
                 .send()
                 .await
-                .map_err(|_| EdgeError::PersistenceError("Failed to GET tokens".to_string()))?;
+                .map_err(|e| {
+                    debug_s3_error("Failed to GET tokens", &e);
+                    EdgeError::PersistenceError("Failed to GET tokens".to_string())
+                })?;
             let data = response.body.collect().await.expect("Failed data");
             serde_json::from_slice(&data.to_vec()).map_err(|e| {
                 EdgeError::PersistenceError(format!("Failed to deserialize tokens: {}", e))
@@ -80,6 +97,7 @@ pub mod s3_persister {
                 .await
                 .map(|_| ())
                 .map_err(|err| {
+                    debug_s3_error("Failed to save tokens", &err);
                     EdgeError::PersistenceError(format!(
                         "Failed to save tokens: {}",
                         err.into_service_error()
@@ -100,6 +118,7 @@ pub mod s3_persister {
                     if err.to_string().contains("NoSuchKey") {
                         return EdgeError::PersistenceError("No features found".to_string());
                     }
+                    debug_s3_error("Failed to load features", &err);
                     EdgeError::PersistenceError("Failed to load features".to_string())
                 });
             match query {
@@ -135,10 +154,13 @@ pub mod s3_persister {
                 .await
             {
                 Ok(_) => Ok(()),
-                Err(s3_err) => Err(EdgeError::PersistenceError(format!(
-                    "Failed to save features: {}",
-                    s3_err.into_service_error()
-                ))),
+                Err(s3_err) => {
+                    debug_s3_error("Failed to save features", &s3_err);
+                    Err(EdgeError::PersistenceError(format!(
+                        "Failed to save features: {}",
+                        s3_err.into_service_error()
+                    )))
+                }
             }
         }
 
@@ -151,7 +173,8 @@ pub mod s3_persister {
                 .response_content_type("application/json")
                 .send()
                 .await
-                .map_err(|_| {
+                .map_err(|e| {
+                    debug_s3_error("Failed to load license state", &e);
                     EdgeError::PersistenceError("Failed to load license state".to_string())
                 })?;
             let data = response.body.collect().await.map_err(|_| {
@@ -175,10 +198,13 @@ pub mod s3_persister {
                 .await
             {
                 Ok(_) => Ok(()),
-                Err(s3_err) => Err(EdgeError::PersistenceError(format!(
-                    "Failed to save license state: {}",
-                    s3_err.into_service_error()
-                ))),
+                Err(s3_err) => {
+                    debug_s3_error("Failed to save license state", &s3_err);
+                    Err(EdgeError::PersistenceError(format!(
+                        "Failed to save license state: {}",
+                        s3_err.into_service_error()
+                    )))
+                }
             }
         }
 
@@ -197,10 +223,13 @@ pub mod s3_persister {
                 .await
             {
                 Ok(_) => Ok(()),
-                Err(s3_err) => Err(EdgeError::PersistenceError(format!(
-                    "Failed to save last event ids: {}",
-                    s3_err.into_service_error()
-                ))),
+                Err(s3_err) => {
+                    debug_s3_error("Failed to save last event ids", &s3_err);
+                    Err(EdgeError::PersistenceError(format!(
+                        "Failed to save last event ids: {}",
+                        s3_err.into_service_error()
+                    )))
+                }
             }
         }
 
@@ -213,7 +242,8 @@ pub mod s3_persister {
                 .response_content_type("application/json")
                 .send()
                 .await
-                .map_err(|_| {
+                .map_err(|e| {
+                    debug_s3_error("Failed to load last event ids", &e);
                     EdgeError::PersistenceError("Failed to load last event ids".to_string())
                 })?;
             let data = response.body.collect().await.map_err(|_| {
