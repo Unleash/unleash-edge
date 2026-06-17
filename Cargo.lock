@@ -2784,6 +2784,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b4baf93f58d4425749ca49a51c50ebab072c5df6994d08fed93541c331481dc"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3824,7 +3833,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "27c6023962132f4b30eb4c172c91ce92d933da334c59c23cddee82358ddafb0b"
 dependencies = [
  "anyhow",
- "itertools",
+ "itertools 0.14.0",
  "proc-macro2",
  "quote",
  "syn",
@@ -5010,7 +5019,7 @@ dependencies = [
  "ferroid",
  "futures",
  "http 1.4.2",
- "itertools",
+ "itertools 0.14.0",
  "log",
  "memchr",
  "parse-display",
@@ -5652,7 +5661,7 @@ version = "20.3.0"
 dependencies = [
  "axum",
  "dashmap",
- "itertools",
+ "itertools 0.15.0",
  "lazy_static",
  "serde",
  "serde_json",
@@ -5892,7 +5901,7 @@ dependencies = [
  "axum-test",
  "dashmap",
  "ipnet",
- "itertools",
+ "itertools 0.15.0",
  "serde",
  "serde_json",
  "serde_qs",
@@ -5997,7 +6006,7 @@ dependencies = [
  "chrono",
  "dashmap",
  "futures",
- "itertools",
+ "itertools 0.15.0",
  "lazy_static",
  "prometheus",
  "prometheus-reqwest-remote-write",
