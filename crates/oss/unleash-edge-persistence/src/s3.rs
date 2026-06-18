@@ -57,7 +57,7 @@ pub mod s3_persister {
                 .response_content_type("application/json")
                 .send()
                 .await
-                .map_err(|_| EdgeError::PersistenceError("Failed to GET tokens".to_string()))?;
+                .map_err(|e| EdgeError::PersistenceError(format!("Failed to GET tokens: {e:?}")))?;
             let data = response.body.collect().await.expect("Failed data");
             serde_json::from_slice(&data.to_vec()).map_err(|e| {
                 EdgeError::PersistenceError(format!("Failed to deserialize tokens: {}", e))
@@ -80,10 +80,7 @@ pub mod s3_persister {
                 .await
                 .map(|_| ())
                 .map_err(|err| {
-                    EdgeError::PersistenceError(format!(
-                        "Failed to save tokens: {}",
-                        err.into_service_error()
-                    ))
+                    EdgeError::PersistenceError(format!("Failed to save tokens: {err:?}"))
                 })
         }
 
@@ -100,7 +97,7 @@ pub mod s3_persister {
                     if err.to_string().contains("NoSuchKey") {
                         return EdgeError::PersistenceError("No features found".to_string());
                     }
-                    EdgeError::PersistenceError("Failed to load features".to_string())
+                    EdgeError::PersistenceError(format!("Failed to load features: {err:?}"))
                 });
             match query {
                 Ok(response) => {
@@ -136,8 +133,7 @@ pub mod s3_persister {
             {
                 Ok(_) => Ok(()),
                 Err(s3_err) => Err(EdgeError::PersistenceError(format!(
-                    "Failed to save features: {}",
-                    s3_err.into_service_error()
+                    "Failed to save features: {s3_err:?}"
                 ))),
             }
         }
@@ -151,11 +147,11 @@ pub mod s3_persister {
                 .response_content_type("application/json")
                 .send()
                 .await
-                .map_err(|_| {
-                    EdgeError::PersistenceError("Failed to load license state".to_string())
+                .map_err(|e| {
+                    EdgeError::PersistenceError(format!("Failed to load license state: {e:?}"))
                 })?;
-            let data = response.body.collect().await.map_err(|_| {
-                EdgeError::PersistenceError("Failed to read license state data".to_string())
+            let data = response.body.collect().await.map_err(|e| {
+                EdgeError::PersistenceError(format!("Failed to read license state data: {e:?}"))
             })?;
             serde_json::from_slice(&data.to_vec()).map_err(EdgeError::from)
         }
@@ -176,8 +172,7 @@ pub mod s3_persister {
             {
                 Ok(_) => Ok(()),
                 Err(s3_err) => Err(EdgeError::PersistenceError(format!(
-                    "Failed to save license state: {}",
-                    s3_err.into_service_error()
+                    "Failed to save license state: {s3_err:?}"
                 ))),
             }
         }
@@ -198,8 +193,7 @@ pub mod s3_persister {
             {
                 Ok(_) => Ok(()),
                 Err(s3_err) => Err(EdgeError::PersistenceError(format!(
-                    "Failed to save last event ids: {}",
-                    s3_err.into_service_error()
+                    "Failed to save last event ids: {s3_err:?}"
                 ))),
             }
         }
@@ -213,11 +207,11 @@ pub mod s3_persister {
                 .response_content_type("application/json")
                 .send()
                 .await
-                .map_err(|_| {
-                    EdgeError::PersistenceError("Failed to load last event ids".to_string())
+                .map_err(|e| {
+                    EdgeError::PersistenceError(format!("Failed to load last event ids: {e:?}"))
                 })?;
-            let data = response.body.collect().await.map_err(|_| {
-                EdgeError::PersistenceError("Failed to read last event ids data".to_string())
+            let data = response.body.collect().await.map_err(|e| {
+                EdgeError::PersistenceError(format!("Failed to read last event ids data: {e:?}"))
             })?;
             serde_json::from_slice(&data.to_vec()).map_err(EdgeError::from)
         }
