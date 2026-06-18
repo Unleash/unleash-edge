@@ -1,19 +1,14 @@
 
-## [unleash-edge-v20.3.0] - 2026-06-09
-
-### 🚀 Features
-- expose s3 force path style argument on CLI (#1652) (by @sighphyre) - #1652
+## [unleash-edge-v20.3.1] - 2026-06-18
 
 ### 💼 Other
-- bump aws-config from 1.8.17 to 1.8.18 (#1642) (by @dependabot[bot]) - #1642
-- bump aws-sdk-s3 from 1.134.0 to 1.135.0 (#1643) (by @dependabot[bot]) - #1643
-- bump chrono from 0.4.44 to 0.4.45 (#1647) (by @dependabot[bot]) - #1647
-- bump pkix from 0.2.5 to 0.2.6 (#1649) (by @dependabot[bot]) - #1649
-- bump http from 1.4.1 to 1.4.2 (#1653) (by @dependabot[bot]) - #1653
-- workflow to replace release plz (#1276) (by @chriswk) - #1276
-
-### 📚 Documentation
-- change readme to reference enterprise edge (#1646) (by @gastonfournier) - #1646
+- bump regex from 1.12.3 to 1.12.4 (#1657) (by @dependabot[bot]) - #1657
+- bump redis from 1.2.2 to 1.2.3 (#1659) (by @dependabot[bot]) - #1659
+- bump toshimaru/auto-author-assign from 3.0.2 to 3.0.3 (#1660) (by @dependabot[bot]) - #1660
+- bump aws-sdk-s3 from 1.135.0 to 1.136.0 (#1661) (by @dependabot[bot]) - #1661
+- bump tower-http from 0.6.11 to 0.7.0 (#1666) (by @dependabot[bot]) - #1666
+- bump aws-sdk-s3 from 1.136.0 to 1.137.0 (#1668) (by @dependabot[bot]) - #1668
+- bump itertools from 0.14.0 to 0.15.0 (#1669) (by @dependabot[bot]) - #1669
 
 ### ⚙️ Miscellaneous Tasks
-- dep upgrades and release flow (#1655) (by @chriswk) - #1655
+- Add more debug logging (#1672) (by @krzychukula) - #1672
