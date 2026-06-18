@@ -1,4 +1,9 @@
 
+## [unleash-edge-v20.3.1] - 2026-06-18
+
+### ⚙️ Miscellaneous Tasks
+- Add more debug logging (#1672) (by @krzychukula) - #1672
+
 ## [unleash-edge-v20.3.0] - 2026-06-09
 
 ### 🚀 Features
