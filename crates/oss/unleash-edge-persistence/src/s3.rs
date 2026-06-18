@@ -144,8 +144,8 @@ pub mod s3_persister {
                 .send()
                 .await
                 .map_err(|e| EdgeError::PersistenceError(format!("Failed to load license state: {e:?}")))?;
-            let data = response.body.collect().await.map_err(|_| {
-                EdgeError::PersistenceError("Failed to read license state data".to_string())
+            let data = response.body.collect().await.map_err(|e| {
+                EdgeError::PersistenceError(format!("Failed to read license state data: {e:?}"))
             })?;
             serde_json::from_slice(&data.to_vec()).map_err(EdgeError::from)
         }
@@ -198,8 +198,8 @@ pub mod s3_persister {
                 .send()
                 .await
                 .map_err(|e| EdgeError::PersistenceError(format!("Failed to load last event ids: {e:?}")))?;
-            let data = response.body.collect().await.map_err(|_| {
-                EdgeError::PersistenceError("Failed to read last event ids data".to_string())
+            let data = response.body.collect().await.map_err(|e| {
+                EdgeError::PersistenceError(format!("Failed to read last event ids data: {e:?}"))
             })?;
             serde_json::from_slice(&data.to_vec()).map_err(EdgeError::from)
         }
