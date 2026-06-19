@@ -94,7 +94,7 @@ pub mod s3_persister {
                 .send()
                 .await
                 .map_err(|err| {
-                    if err.to_string().contains("NoSuchKey") {
+                    if err.as_service_error().map(|e| e.is_no_such_key()).unwrap_or(false) {
                         return EdgeError::PersistenceError("No features found".to_string());
                     }
                     EdgeError::PersistenceError(format!("Failed to load features: {err:?}"))
@@ -208,7 +208,7 @@ pub mod s3_persister {
                 .send()
                 .await
                 .map_err(|e| {
-                    if e.to_string().contains("NoSuchKey") {
+                    if e.as_service_error().map(|e| e.is_no_such_key()).unwrap_or(false) {
                         return EdgeError::PersistenceError(
                             "No last event ids found in S3. This is expected on first run. \
                              If this persists, check that Edge has write permissions to your S3 bucket."
@@ -247,6 +247,32 @@ mod tests {
         use unleash_edge_types::tokens::EdgeToken;
         use unleash_types::client_features::ClientFeature;
         use unleash_types::client_features::ClientFeatures;
+
+        async fn setup_s3_persister_with_missing_bucket() -> (ContainerAsync<LocalStack>, S3Persister) {
+            let localstack = LocalStack::default()
+                .with_env_var("SERVICES", "s3")
+                .start()
+                .await
+                .expect("Failed to start localstack");
+
+            let local_stack_ip = localstack.get_host().await.expect("Could not get host");
+            let local_stack_port = localstack
+                .get_host_port_ipv4(4566)
+                .await
+                .expect("Could not get port");
+
+            let config = s3::config::Config::builder()
+                .region(Region::new("us-east-1"))
+                .endpoint_url(format!("http://{}:{}", local_stack_ip, local_stack_port))
+                .credentials_provider(SharedCredentialsProvider::new(Credentials::for_tests()))
+                .force_path_style(true)
+                .build();
+
+            (
+                localstack,
+                S3Persister::new_with_config("nonexistent-bucket", config),
+            )
+        }
 
         async fn setup_s3_persister() -> (ContainerAsync<LocalStack>, S3Persister) {
             let localstack = LocalStack::default()
@@ -371,6 +397,44 @@ mod tests {
                 .unwrap();
             let loaded_event_ids = persister.load_last_event_ids().await.unwrap();
             assert_eq!(loaded_event_ids, event_ids);
+        }
+
+        #[tokio::test]
+        async fn test_s3_persister_load_features_returns_empty_map_on_other_s3_error() {
+            let (_localstack, persister) = setup_s3_persister_with_missing_bucket().await;
+
+            let result = persister.load_features().await;
+
+            assert_eq!(result.unwrap(), HashMap::default());
+        }
+
+        #[tokio::test]
+        async fn test_s3_persister_load_last_event_ids_returns_persistence_error_on_other_s3_error()
+        {
+            let (_localstack, persister) = setup_s3_persister_with_missing_bucket().await;
+
+            let result = persister.load_last_event_ids().await;
+
+            let Err(EdgeError::PersistenceError(msg)) = result else {
+                panic!("expected PersistenceError, got {:?}", result);
+            };
+            assert!(
+                !msg.contains("expected on first run"),
+                "unexpected friendly message for non-NoSuchKey error: {msg}"
+            );
+            assert!(
+                msg.contains("Failed to load last event ids"),
+                "unexpected error message: {msg}"
+            );
+        }
+
+        #[tokio::test]
+        async fn test_s3_persister_load_features_returns_empty_map_when_no_key_exists() {
+            let (_localstack, persister) = setup_s3_persister().await;
+
+            let result = persister.load_features().await;
+
+            assert_eq!(result.unwrap(), HashMap::default());
         }
 
         #[tokio::test]
