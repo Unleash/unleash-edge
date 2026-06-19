@@ -372,5 +372,20 @@ mod tests {
             let loaded_event_ids = persister.load_last_event_ids().await.unwrap();
             assert_eq!(loaded_event_ids, event_ids);
         }
+
+        #[tokio::test]
+        async fn test_s3_persister_load_last_event_ids_returns_friendly_error_on_first_run() {
+            let (_localstack, persister) = setup_s3_persister().await;
+
+            let result = persister.load_last_event_ids().await;
+
+            let Err(EdgeError::PersistenceError(msg)) = result else {
+                panic!("expected PersistenceError, got {:?}", result);
+            };
+            assert!(
+                msg.contains("expected on first run"),
+                "unexpected error message: {msg}"
+            );
+        }
     }
 }
