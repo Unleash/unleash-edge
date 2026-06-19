@@ -94,7 +94,11 @@ pub mod s3_persister {
                 .send()
                 .await
                 .map_err(|err| {
-                    if err.as_service_error().map(|e| e.is_no_such_key()).unwrap_or(false) {
+                    if err
+                        .as_service_error()
+                        .map(|e| e.is_no_such_key())
+                        .unwrap_or(false)
+                    {
                         return EdgeError::PersistenceError("No features found".to_string());
                     }
                     EdgeError::PersistenceError(format!("Failed to load features: {err:?}"))
@@ -248,7 +252,8 @@ mod tests {
         use unleash_types::client_features::ClientFeature;
         use unleash_types::client_features::ClientFeatures;
 
-        async fn setup_s3_persister_with_missing_bucket() -> (ContainerAsync<LocalStack>, S3Persister) {
+        async fn setup_s3_persister_with_missing_bucket()
+        -> (ContainerAsync<LocalStack>, S3Persister) {
             let localstack = LocalStack::default()
                 .with_env_var("SERVICES", "s3")
                 .start()
