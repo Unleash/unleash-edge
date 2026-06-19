@@ -208,6 +208,13 @@ pub mod s3_persister {
                 .send()
                 .await
                 .map_err(|e| {
+                    if e.to_string().contains("NoSuchKey") {
+                        return EdgeError::PersistenceError(
+                            "No last event ids found in S3. This is expected on first run. \
+                             If this persists, check that Edge has write permissions to your S3 bucket."
+                                .to_string(),
+                        );
+                    }
                     EdgeError::PersistenceError(format!("Failed to load last event ids: {e:?}"))
                 })?;
             let data = response.body.collect().await.map_err(|e| {
