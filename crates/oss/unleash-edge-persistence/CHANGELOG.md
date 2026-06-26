@@ -1,4 +1,6 @@
 
+## [unleash-edge-v20.3.2] - 2026-06-26
+
 ## [unleash-edge-v20.3.1] - 2026-06-18
 
 ### ⚙️ Miscellaneous Tasks
