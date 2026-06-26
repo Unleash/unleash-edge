@@ -12,15 +12,14 @@ use std::pin::Pin;
 use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 use tokio::sync::watch::Receiver;
-use tokio::time::sleep;
+use tokio::time::{sleep, timeout};
 use tracing::{debug, error, info, warn};
-use unleash_edge_delta::cache::{DeltaCache, DeltaHydrationEvent};
+use unleash_edge_delta::cache::DeltaCache;
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_filters::FeatureFilterSet;
 use unleash_edge_feature_filters::delta_filters::{DeltaFilterSet, filter_delta_events};
 use unleash_edge_http_client::{ClientMetaInformation, UnleashClient};
-use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_types::errors::{EdgeError, FeatureError};
 use unleash_edge_types::headers::{
     UNLEASH_APPNAME_HEADER, UNLEASH_CLIENT_SPEC_HEADER, UNLEASH_CONNECTION_ID_HEADER,
@@ -31,13 +30,30 @@ use unleash_edge_types::tokens::{EdgeToken, cache_key, simplify};
 use unleash_edge_types::{
     ClientFeaturesDeltaResponse, ClientFeaturesRequest, EdgeResult, RefreshState, TokenRefresh,
 };
-use unleash_types::client_features::{ClientFeaturesDelta, DeltaEvent};
+use unleash_types::client_features::ClientFeaturesDelta;
 use unleash_yggdrasil::EngineState;
 
 pub type Environment = String;
 
-const DELTA_CACHE_LIMIT: usize = 100;
+pub const DELTA_CACHE_LIMIT: usize = 100;
 const SDK_TYPE_HEADER: &str = "Unleash-Sdk-Type";
+const SSE_IDLE_TIMEOUT: Duration = Duration::from_secs(90);
+const SSE_IDLE_RECONNECT_DELAY: Duration = Duration::from_secs(5);
+
+#[derive(Clone, Copy)]
+struct SseIdleConfig {
+    timeout: Duration,
+    reconnect_delay: Duration,
+}
+
+impl Default for SseIdleConfig {
+    fn default() -> Self {
+        Self {
+            timeout: SSE_IDLE_TIMEOUT,
+            reconnect_delay: SSE_IDLE_RECONNECT_DELAY,
+        }
+    }
+}
 
 static DELTA_REVISION_ID: LazyLock<IntGaugeVec> = LazyLock::new(|| {
     register_int_gauge_vec!(
@@ -113,7 +129,12 @@ fn build_sse_stream(
         es_client_builder = es_client_builder.header(key, value)?;
     }
 
-    let client = es_client_builder.reconnect(reconnect_opts()).build();
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let transport = launchdarkly_sdk_transport::HyperTransport::new_https()
+        .context("Failed to create EventSource HTTPS transport")?;
+    let client = es_client_builder
+        .reconnect(reconnect_opts())
+        .build_with_transport(transport);
     Ok(client.stream())
 }
 
@@ -168,7 +189,28 @@ async fn run_stream_task(
     streaming_url: String,
     client_meta_information: ClientMetaInformation,
     custom_headers: Vec<(String, String)>,
+    refresh_state_rx: Receiver<RefreshState>,
+) {
+    run_stream_task_with_idle_timeout(
+        delta_refresher,
+        token,
+        streaming_url,
+        client_meta_information,
+        custom_headers,
+        refresh_state_rx,
+        SseIdleConfig::default(),
+    )
+    .await;
+}
+
+async fn run_stream_task_with_idle_timeout(
+    delta_refresher: Arc<DeltaRefresher>,
+    token: EdgeToken,
+    streaming_url: String,
+    client_meta_information: ClientMetaInformation,
+    custom_headers: Vec<(String, String)>,
     mut refresh_state_rx: Receiver<RefreshState>,
+    idle_config: SseIdleConfig,
 ) {
     let mut stream: Option<SseStream> = None;
     let mut last_event_id: Option<String> = None;
@@ -213,18 +255,30 @@ async fn run_stream_task(
                     if result.is_ok() {
                         continue;
                     } else {
-                        sleep(Duration::from_secs(1)).await;
+                        info!("Refresh state channel closed; stopping SSE stream task");
+                        return;
                     }
                 }
-                next = s.next() => {
+                next = timeout(idle_config.timeout, s.next()) => {
                     match next {
-                        Some(Ok(sse)) => {
-                            if let Some(id) = handle_sse(sse, &delta_refresher, &token).await {
+                        Err(_) => {
+                            info!(
+                                "SSE stream idle for {:?}; reconnecting after {:?}",
+                                idle_config.timeout,
+                                idle_config.reconnect_delay
+                            );
+                            stream = None;
+                            sleep(idle_config.reconnect_delay).await;
+                            continue;
+                        }
+                        Ok(Some(Ok(sse))) => {
+                            if let Some(id) =
+                                handle_sse(sse, &delta_refresher, &token).await
+                            {
                                 last_event_id = Some(id);
                             }
                         }
-                        Some(Err(e)) => {
-
+                        Ok(Some(Err(e))) => {
                             match e {
                                 Error::UnexpectedResponse(response, _) => {
                                     if response.status() == StatusCode::UNAUTHORIZED || response.status() == StatusCode::FORBIDDEN {
@@ -239,7 +293,7 @@ async fn run_stream_task(
                                 }
                             }
                         }
-                        None => {
+                        Ok(None) => {
                             info!("SSE stream ended; reconnecting immediately");
                             stream = None;
                             continue;
@@ -302,7 +356,6 @@ pub struct DeltaRefresher {
     pub delta_cache_manager: Arc<DeltaCacheManager>,
     pub engine_cache: Arc<DashMap<String, EngineState>>,
     pub refresh_interval: chrono::Duration,
-    pub persistence: Option<Arc<dyn EdgePersistence>>,
     pub streaming: bool,
     pub client_meta_information: ClientMetaInformation,
     pub edge_instance_data: Arc<EdgeInstanceData>,
@@ -339,25 +392,14 @@ impl DeltaRefresher {
         let key: String = cache_key(refresh_token);
         self.features_cache.apply_delta(key.clone(), &delta);
 
-        if let Some(_entry) = self.delta_cache_manager.get(&key) {
-            self.delta_cache_manager.update_cache(&key, &delta.events);
-        } else if let Some(DeltaEvent::Hydration {
-            event_id,
-            features,
-            segments,
-        }) = delta.events.clone().into_iter().next()
+        if !self.delta_cache_manager.contains(&key)
+            && let Some(delta_cache) = DeltaCache::from_events(&delta.events, DELTA_CACHE_LIMIT)
         {
-            self.delta_cache_manager.insert_cache(
-                &key,
-                DeltaCache::new(
-                    DeltaHydrationEvent {
-                        event_id,
-                        features,
-                        segments,
-                    },
-                    DELTA_CACHE_LIMIT,
-                ),
-            );
+            self.delta_cache_manager.insert_cache(&key, delta_cache);
+        }
+
+        if self.delta_cache_manager.contains(&key) {
+            self.delta_cache_manager.update_cache(&key, &delta.events);
         } else {
             warn!(
                 "Warning: No hydrationEvent found in delta.events, but cache empty for environment"
@@ -567,8 +609,10 @@ mod tests {
     use chrono::Duration;
     use dashmap::DashMap;
     use etag::EntityTag;
+    use futures::StreamExt as FuturesStreamExt;
     use http::StatusCode;
     use reqwest::Url;
+    use std::convert::Infallible;
     use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::time::Duration as StdDuration;
@@ -658,7 +702,6 @@ mod tests {
             features_cache: features_cache.clone(),
             engine_cache: engine_cache.clone(),
             refresh_interval: Duration::seconds(6000),
-            persistence: None,
             streaming: false,
             client_meta_information: ClientMetaInformation::test_config(),
             edge_instance_data: Arc::new(edge_instance_data_for_delta_refresher_test()),
@@ -690,6 +733,55 @@ mod tests {
             .clone();
         delta_features.apply_delta(&revision(2));
         assert_eq!(refreshed_features, delta_features);
+    }
+
+    #[tokio::test]
+    async fn upstream_hydration_replaces_existing_delta_cache_snapshot() {
+        let (delta_refresher, tokens_to_refresh) =
+            build_delta_refresher_for_stream_test(Url::parse("http://localhost").unwrap());
+        let token =
+            EdgeToken::try_from("*:development.abcdefghijklmnopqrstuvwxyz".to_string()).unwrap();
+        tokens_to_refresh.insert(token.token.clone(), TokenRefresh::new(token.clone(), None));
+        let key = cache_key(&token);
+
+        delta_refresher
+            .handle_client_features_delta_updated(&token, hydration_delta(1, &["initial"]), None)
+            .await;
+        delta_refresher
+            .handle_client_features_delta_updated(
+                &token,
+                ClientFeaturesDelta {
+                    events: vec![feature_updated_event(2, "stale-only")],
+                },
+                None,
+            )
+            .await;
+        delta_refresher
+            .handle_client_features_delta_updated(&token, hydration_delta(9, &["rolled-up"]), None)
+            .await;
+        delta_refresher
+            .handle_client_features_delta_updated(
+                &token,
+                ClientFeaturesDelta {
+                    events: vec![feature_updated_event(10, "post-hydration")],
+                },
+                None,
+            )
+            .await;
+
+        let cache = delta_refresher
+            .delta_cache_manager
+            .get(&key)
+            .expect("delta cache should exist");
+        let hydration_event = cache.get_hydration_event();
+        let feature_names = hydration_event
+            .features
+            .iter()
+            .map(|feature| feature.name.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(hydration_event.event_id, 10);
+        assert_eq!(feature_names, vec!["rolled-up", "post-hydration"]);
     }
 
     #[derive(Clone)]
@@ -767,6 +859,47 @@ mod tests {
         let _ = tokio::time::timeout(StdDuration::from_secs(5), join).await;
     }
 
+    #[tokio::test]
+    async fn streaming_reconnects_when_stream_goes_idle() {
+        let (server, last_event_id_rx) = idle_streaming_test_server().await;
+        let (delta_refresher, tokens_to_refresh) =
+            build_delta_refresher_for_stream_test(server.server_url("/").unwrap());
+
+        let token =
+            EdgeToken::try_from("*:development.abcdefghijklmnopqrstuvwxyz".to_string()).unwrap();
+        tokens_to_refresh.insert(token.token.clone(), TokenRefresh::new(token.clone(), None));
+
+        let streaming_url = server
+            .server_url("/api/client/streaming")
+            .unwrap()
+            .to_string();
+
+        let (refresh_state_tx, refresh_state_rx) = watch::channel(RefreshState::Running);
+
+        let join = tokio::spawn(super::run_stream_task_with_idle_timeout(
+            delta_refresher,
+            token,
+            streaming_url,
+            ClientMetaInformation::test_config(),
+            vec![],
+            refresh_state_rx,
+            super::SseIdleConfig {
+                timeout: StdDuration::from_millis(100),
+                reconnect_delay: StdDuration::ZERO,
+            },
+        ));
+
+        let last_event_id = tokio::time::timeout(StdDuration::from_secs(5), last_event_id_rx)
+            .await
+            .expect("timed out waiting for reconnect after idle stream")
+            .expect("last-event-id channel closed");
+
+        assert_eq!(last_event_id.as_deref(), Some("101"));
+
+        drop(refresh_state_tx);
+        let _ = tokio::time::timeout(StdDuration::from_secs(5), join).await;
+    }
+
     fn build_delta_refresher_for_stream_test(
         server_url: Url,
     ) -> (Arc<DeltaRefresher>, Arc<DashMap<String, TokenRefresh>>) {
@@ -783,7 +916,6 @@ mod tests {
             features_cache,
             engine_cache,
             refresh_interval: Duration::seconds(6000),
-            persistence: None,
             streaming: true,
             client_meta_information: ClientMetaInformation::test_config(),
             edge_instance_data: Arc::new(edge_instance_data_for_delta_refresher_test()),
@@ -808,11 +940,86 @@ mod tests {
         (server, last_event_id_rx)
     }
 
+    async fn idle_streaming_handler(
+        State(state): State<StreamingServerState>,
+        request: Request,
+    ) -> impl IntoResponse {
+        let count = state.request_count.fetch_add(1, Ordering::SeqCst) + 1;
+
+        if count == 1 {
+            let delta_json = serde_json::to_string(&revision(1)).unwrap();
+            let sse_body = format!("id: 101\nevent: unleash-updated\ndata: {delta_json}\n\n");
+            let stream = futures::stream::once(async move { Ok::<_, Infallible>(sse_body) })
+                .chain(futures::stream::pending());
+            return Response::builder()
+                .status(StatusCode::OK)
+                .header(http::header::CONTENT_TYPE, "text/event-stream")
+                .body(Body::from_stream(stream))
+                .unwrap();
+        }
+
+        let last_event_id = request
+            .headers()
+            .get("last-event-id")
+            .and_then(|h| h.to_str().ok())
+            .map(|s| s.to_string());
+
+        if let Some(tx) = state.last_event_id_tx.lock().await.take() {
+            let _ = tx.send(last_event_id);
+        }
+
+        Response::builder()
+            .status(StatusCode::UNAUTHORIZED)
+            .body(Body::empty())
+            .unwrap()
+    }
+
+    async fn idle_streaming_test_server() -> (TestServer, oneshot::Receiver<Option<String>>) {
+        let (last_event_id_tx, last_event_id_rx) = oneshot::channel();
+        let state = StreamingServerState {
+            request_count: Arc::new(AtomicUsize::new(0)),
+            last_event_id_tx: Arc::new(Mutex::new(Some(last_event_id_tx))),
+        };
+
+        let router = Router::new()
+            .route("/api/client/streaming", get(idle_streaming_handler))
+            .with_state(state);
+
+        let server = TestServer::builder().http_transport().build(router);
+
+        (server, last_event_id_rx)
+    }
+
     fn cache_key(token: &EdgeToken) -> String {
         token
             .environment
             .clone()
             .unwrap_or_else(|| token.token.clone())
+    }
+
+    fn hydration_delta(event_id: u32, feature_names: &[&str]) -> ClientFeaturesDelta {
+        ClientFeaturesDelta {
+            events: vec![DeltaEvent::Hydration {
+                event_id,
+                features: feature_names.iter().map(|name| feature(name)).collect(),
+                segments: vec![],
+            }],
+        }
+    }
+
+    fn feature_updated_event(event_id: u32, feature_name: &str) -> DeltaEvent {
+        DeltaEvent::FeatureUpdated {
+            event_id,
+            feature: feature(feature_name),
+        }
+    }
+
+    fn feature(name: &str) -> ClientFeature {
+        ClientFeature {
+            name: name.into(),
+            feature_type: Some("release".into()),
+            ..Default::default()
+        }
     }
 
     fn revision(revision_id: u32) -> ClientFeaturesDelta {

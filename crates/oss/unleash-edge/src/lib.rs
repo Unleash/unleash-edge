@@ -19,7 +19,7 @@ use tower_http::compression::CompressionLayer;
 use tracing::warn;
 use ulid::Ulid;
 use unleash_edge_auth::token_validator::TokenValidator;
-use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeMode, HmacConfig};
+use unleash_edge_cli::{AuthHeaders, CliArgs, EdgeMode, HmacConfig, NetworkAddr};
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_refresh::HydratorType;
@@ -36,6 +36,8 @@ use unleash_edge_types::tokens::EdgeToken;
 use unleash_edge_types::urls::UnleashUrls;
 use unleash_edge_types::{BackgroundTask, EdgeResult, EngineCache, TokenCache};
 use url::Url;
+use utoipa::openapi::server::Server;
+use utoipa_swagger_ui::{Config, SwaggerUi};
 
 pub mod edge_builder;
 pub mod health_checker;
@@ -96,6 +98,19 @@ pub async fn build_tokens(
     }
 }
 
+pub(crate) fn trusted_proxy_servers_to_ipnets(
+    proxy_trusted_servers: Vec<NetworkAddr>,
+) -> Result<Vec<ipnet::IpNet>, ipnet::AddrParseError> {
+    proxy_trusted_servers
+        .into_iter()
+        .map(|addr| match addr {
+            NetworkAddr::Ip(ip) => Ok(ipnet::IpNet::from(ip)),
+            NetworkAddr::CidrIpv4(cidr) => cidr.to_string().parse(),
+            NetworkAddr::CidrIpv6(cidr) => cidr.to_string().parse(),
+        })
+        .collect::<Result<Vec<ipnet::IpNet>, ipnet::AddrParseError>>()
+}
+
 pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<BackgroundTask>)> {
     let app_id: Ulid = Ulid::new();
     let client_meta_information = ClientMetaInformation {
@@ -151,6 +166,11 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
                 upstream_url,
                 custom_client_headers: edge_args.custom_client_headers.clone(),
                 http_allow_list: args.http.allow_list,
+                trust_proxy: args.trust_proxy.trust_proxy,
+                proxy_trusted_servers: trusted_proxy_servers_to_ipnets(
+                    args.trust_proxy.proxy_trusted_servers.clone(),
+                )
+                .expect("Failed to parse proxy trusted servers. Please check the format of the provided addresses."),
                 #[cfg(feature = "enterprise")]
                 streaming: edge_args.streaming,
                 #[cfg(not(feature = "enterprise"))]
@@ -175,6 +195,8 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
                 prometheus_push_interval: edge_args.prometheus_push_interval,
                 prometheus_username: edge_args.prometheus_username.clone(),
                 prometheus_password: edge_args.prometheus_password.clone(),
+                hostname: edge_args.hostname.clone(),
+                ec2_instance_id: edge_args.ec2_instance_id.clone(),
             })
             .await?
         }
@@ -218,7 +240,31 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
         unleash_edge_backstage::router(args.internal_backstage.clone())
     };
 
+    let normalized_base_path = {
+        let base_path = args.http.base_path.trim().trim_matches('/');
+        if base_path.is_empty() {
+            String::new()
+        } else {
+            format!("/{base_path}")
+        }
+    };
+
     let top_router: Router = Router::new()
+        .merge(
+            SwaggerUi::new("/docs/openapi")
+                .url("/docs/openapi.json", {
+                    let mut openapi = unleash_edge_client_api::openapi();
+                    openapi.merge(unleash_edge_frontend_api::openapi());
+                    openapi.info.title = "Unleash Edge".to_string();
+                    openapi.info.contact = None;
+                    openapi.info.license = None;
+                    if !normalized_base_path.is_empty() {
+                        openapi.servers = Some(vec![Server::new(normalized_base_path.clone())]);
+                    }
+                    openapi
+                })
+                .config(Config::default().use_base_layout()),
+        )
         .nest("/api", api_router)
         .nest("/edge", unleash_edge_edge_api::router())
         .nest("/internal-backstage", backstage_router)
@@ -243,14 +289,9 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
         )
         .with_state(app_state);
 
-    let router_to_host = if args.http.base_path.len() > 1 {
+    let router_to_host = if !normalized_base_path.is_empty() {
         info!("Had a path different from root. Setting up a nested router");
-        let path = if !args.http.base_path.starts_with("/") {
-            format!("/{}", args.http.base_path)
-        } else {
-            args.http.base_path.clone()
-        };
-        Router::new().nest(&path, top_router)
+        Router::new().nest(&normalized_base_path, top_router)
     } else {
         top_router
     };

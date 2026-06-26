@@ -13,11 +13,24 @@ pull_request_rules:
     actions:
       review:
         type: APPROVE
-  - name: Queue pull requests targeting main
+  - name: Queue Dependabot/Renovate pull requests targeting main
     conditions:
       - base=main
       - -draft
       - -conflict
+      - or:
+          - author=dependabot[bot]
+          - author=renovate[bot]
+    actions:
+      queue:
+        name: default
+
+  - name: Queue human PRs only when explicitly requested
+    conditions:
+      - base=main
+      - -draft
+      - -conflict
+      - label=automerge
     actions:
       queue:
         name: default

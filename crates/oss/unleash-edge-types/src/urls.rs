@@ -105,7 +105,7 @@ impl UnleashUrls {
         let mut edge_instance_data_url = client_metrics_url.clone();
         edge_instance_data_url
             .path_segments_mut()
-            .expect("Could not create /api/client/metrics/instance-data")
+            .expect("Could not create /api/client/metrics/edge")
             .push("edge");
 
         let mut heartbeat_url = client_api_url.clone();

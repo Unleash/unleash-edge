@@ -6,12 +6,12 @@ use unleash_types::client_metrics::{ImpactMetric, ImpactMetricEnv};
 
 pub fn convert_to_impact_metrics_env(
     metrics: Vec<ImpactMetric>,
-    app_name: String,
-    environment: String,
+    app_name: &str,
+    environment: &str,
 ) -> Vec<ImpactMetricEnv> {
     metrics
         .into_iter()
-        .map(|metric| ImpactMetricEnv::new(metric, app_name.clone(), environment.clone()))
+        .map(|metric| ImpactMetricEnv::new(metric, app_name.to_string(), environment.to_string()))
         .collect()
 }
 
@@ -288,10 +288,7 @@ mod test {
             ],
         )];
 
-        sink_impact_metrics(
-            &cache,
-            convert_to_impact_metrics_env(counter, app.into(), env.into()),
-        );
+        sink_impact_metrics(&cache, convert_to_impact_metrics_env(counter, app, env));
 
         let key = ImpactMetricsKey {
             app_name: app.into(),
@@ -319,10 +316,7 @@ mod test {
             ],
         )];
 
-        sink_impact_metrics(
-            &cache,
-            convert_to_impact_metrics_env(gauge, app.into(), env.into()),
-        );
+        sink_impact_metrics(&cache, convert_to_impact_metrics_env(gauge, app, env));
 
         let key = ImpactMetricsKey {
             app_name: app.into(),
@@ -349,10 +343,7 @@ mod test {
             ],
         )];
 
-        sink_impact_metrics(
-            &cache,
-            convert_to_impact_metrics_env(histogram, app.into(), env.into()),
-        );
+        sink_impact_metrics(&cache, convert_to_impact_metrics_env(histogram, app, env));
 
         let key = ImpactMetricsKey {
             app_name: app.into(),
@@ -365,7 +356,7 @@ mod test {
                 assert_eq!(samples[0].count, 10);
                 assert_eq!(samples[0].sum, 20.0);
                 assert_eq!(samples[0].buckets[0].count, 1 + 2); // 3/3 + 7/3
-                assert_eq!(samples[0].buckets[1].count, 2 + 4); // 3*2/3 + 7*2/3  
+                assert_eq!(samples[0].buckets[1].count, 2 + 4); // 3*2/3 + 7*2/3
                 assert_eq!(samples[0].buckets[2].count, 3 + 7); // total counts
             }
             _ => panic!("Expected histogram metric"),
@@ -393,14 +384,14 @@ mod test {
                 app_name: "app1".into(),
                 environment: "test".into(),
             },
-            convert_to_impact_metrics_env(app1_metrics, "app1".into(), "test".into()),
+            convert_to_impact_metrics_env(app1_metrics, "app1", "test"),
         );
         cache.impact_metrics.insert(
             ImpactMetricsKey {
                 app_name: "app2".into(),
                 environment: "test".into(),
             },
-            convert_to_impact_metrics_env(app2_metrics, "app2".into(), "test".into()),
+            convert_to_impact_metrics_env(app2_metrics, "app2", "test"),
         );
 
         let all_metrics: Vec<_> = cache
@@ -472,10 +463,7 @@ mod test {
             vec![create_sample(1.0, labels)],
         )];
 
-        sink_impact_metrics(
-            &cache,
-            convert_to_impact_metrics_env(metrics, app.into(), env.into()),
-        );
+        sink_impact_metrics(&cache, convert_to_impact_metrics_env(metrics, app, env));
 
         let key = ImpactMetricsKey {
             app_name: app.into(),

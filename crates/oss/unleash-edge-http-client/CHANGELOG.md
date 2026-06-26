@@ -1,3 +1,10 @@
+
+## [unleash-edge-v20.3.1] - 2026-06-18
+
+## [unleash-edge-v20.3.0] - 2026-06-09
+
+### ⚙️ Miscellaneous Tasks
+- dep upgrades and release flow (#1655) (by @chriswk) - #1655
 # Changelog
 
 All notable changes to this project will be documented in this file.
@@ -6,6 +13,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [20.2.4](https://github.com/Unleash/unleash-edge/compare/unleash-edge-http-client-v20.2.3...unleash-edge-http-client-v20.2.4) - 2026-06-01
+
+### ⚙️ Miscellaneous Tasks
+- update Cargo.toml dependencies
+
+## [20.2.3](https://github.com/Unleash/unleash-edge/compare/unleash-edge-http-client-v20.2.2...unleash-edge-http-client-v20.2.3) - 2026-05-22
+
+### ⚙️ Miscellaneous Tasks
+- update Cargo.toml dependencies
+
+## [20.2.2](https://github.com/Unleash/unleash-edge/compare/unleash-edge-http-client-v20.2.1...unleash-edge-http-client-v20.2.2) - 2026-05-14
+
+### ⚙️ Miscellaneous Tasks
+- update Cargo.toml dependencies
+
+## [20.2.1](https://github.com/Unleash/unleash-edge/compare/unleash-edge-http-client-v20.1.1...unleash-edge-http-client-v20.2.1) - 2026-05-11
+
+### 🚀 Features
+- added hostname and ec2 instance id ([#1531](https://github.com/unleash/unleash-edge/issues/1531)) (by @chriswk) - #1531
+
+### Contributors
+
+* @chriswk
 
 ## [20.1.10](https://github.com/Unleash/unleash-edge/compare/unleash-edge-http-client-v20.1.1...unleash-edge-http-client-v20.1.10) - 2026-02-24
 

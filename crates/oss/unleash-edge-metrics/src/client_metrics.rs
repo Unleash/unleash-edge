@@ -295,20 +295,22 @@ pub fn register_client_metrics(
         .clone()
         .unwrap_or_else(|| "development".into());
 
-    let client_metrics_env = unleash_types::client_metrics::from_bucket_app_name_and_env(
-        metrics.bucket,
-        metrics.app_name.clone(),
-        environment.clone(),
-        metrics.metadata.clone(),
-    );
-
     if let Some(impact_metrics) = metrics.impact_metrics {
         let impact_metrics_env =
-            convert_to_impact_metrics_env(impact_metrics, metrics.app_name.clone(), environment);
+            convert_to_impact_metrics_env(impact_metrics, &metrics.app_name, &environment);
         sink_impact_metrics(&metrics_cache, impact_metrics_env);
     }
 
-    sink_metrics(&metrics_cache, &client_metrics_env);
+    if let Some(bucket) = metrics.bucket {
+        let client_metrics_env = unleash_types::client_metrics::from_bucket_app_name_and_env(
+            bucket,
+            metrics.app_name.clone(),
+            environment.clone(),
+            metrics.metadata.clone(),
+        );
+
+        sink_metrics(&metrics_cache, &client_metrics_env);
+    }
 }
 
 pub fn register_bulk_metrics(

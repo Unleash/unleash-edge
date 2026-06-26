@@ -1,4 +1,5 @@
 use crate::cache::DeltaCache;
+use ahash::HashMap;
 use dashmap::DashMap;
 use prometheus::{IntCounter, IntGauge, register_int_counter, register_int_gauge};
 use std::sync::{Arc, LazyLock};
@@ -62,6 +63,10 @@ impl DeltaCacheManager {
         self.caches.get(env).map(|entry| entry.value().clone())
     }
 
+    pub fn contains(&self, env: &str) -> bool {
+        self.caches.contains_key(env)
+    }
+
     pub fn insert_cache(&self, env: &str, cache: DeltaCache) {
         self.caches.insert(env.to_string(), cache);
         let _ = self
@@ -87,6 +92,13 @@ impl DeltaCacheManager {
         let _ = self
             .update_sender
             .send(DeltaCacheUpdate::Deletion(env.to_string()));
+    }
+
+    pub fn get_last_event_ids(&self) -> HashMap<String, u32> {
+        self.caches
+            .iter()
+            .map(|entry| (entry.key().clone(), entry.value().latest_revision()))
+            .collect()
     }
 }
 

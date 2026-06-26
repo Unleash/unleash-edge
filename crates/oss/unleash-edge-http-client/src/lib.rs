@@ -4,6 +4,7 @@ use axum::http::{HeaderName, StatusCode};
 use chrono::{Duration, Utc};
 use etag::EntityTag;
 use lazy_static::lazy_static;
+use p12_keystore::Pkcs12ImportPolicy;
 use prometheus::{HistogramVec, IntGaugeVec, Opts, register_histogram_vec, register_int_gauge_vec};
 use reqwest::header::HeaderMap;
 use reqwest::{Client, ClientBuilder, Identity, RequestBuilder, header};
@@ -142,17 +143,20 @@ impl UnleashClient {
 }
 
 fn load_pkcs12(id: &ClientIdentity) -> EdgeResult<Identity> {
+    let policy = Pkcs12ImportPolicy::Strict;
     let p12_file = fs::read(id.pkcs12_identity_file.clone().unwrap()).map_err(|e| {
         EdgeError::ClientCertificateError(CertificateError::Pkcs12ArchiveNotFound(format!("{e:?}")))
     })?;
-    let p12_keystore =
-        p12_keystore::KeyStore::from_pkcs12(&p12_file, &id.pkcs12_passphrase.clone().unwrap())
-            .map_err(|e| {
-                EdgeError::ClientCertificateError(CertificateError::Pkcs12ParseError(format!(
-                    "{e:?}"
-                )))
-            })?;
+    let p12_keystore = p12_keystore::KeyStore::from_pkcs12(
+        &p12_file,
+        &id.pkcs12_passphrase.clone().unwrap(),
+        policy,
+    )
+    .map_err(|e| {
+        EdgeError::ClientCertificateError(CertificateError::Pkcs12ParseError(format!("{e:?}")))
+    })?;
     let mut pem = vec![];
+
     for (alias, entry) in p12_keystore.entries() {
         debug!("P12 entry: {alias}");
         match entry {
@@ -162,10 +166,11 @@ fn load_pkcs12(id: &ClientIdentity) -> EdgeResult<Identity> {
                 );
             }
             p12_keystore::KeyStoreEntry::PrivateKeyChain(chain) => {
-                let key_pem = pkix::pem::der_to_pem(chain.key(), pkix::pem::PEM_PRIVATE_KEY);
+                let key_pem =
+                    pkix::pem::der_to_pem(chain.key().as_der(), pkix::pem::PEM_PRIVATE_KEY);
                 pem.extend(key_pem.as_bytes());
                 pem.push(0x0a); // Added new line
-                for cert in chain.chain() {
+                for cert in chain.certs() {
                     let cert_pem = pkix::pem::der_to_pem(cert.as_der(), pkix::pem::PEM_CERTIFICATE);
                     pem.extend(cert_pem.as_bytes());
                     pem.push(0x0a); // Added new line

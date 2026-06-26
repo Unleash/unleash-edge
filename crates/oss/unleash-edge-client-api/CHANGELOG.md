@@ -1,3 +1,10 @@
+
+## [unleash-edge-v20.3.1] - 2026-06-18
+
+## [unleash-edge-v20.3.0] - 2026-06-09
+
+### ⚙️ Miscellaneous Tasks
+- dep upgrades and release flow (#1655) (by @chriswk) - #1655
 # Changelog
 
 All notable changes to this project will be documented in this file.
@@ -6,6 +13,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [20.2.4](https://github.com/Unleash/unleash-edge/compare/unleash-edge-client-api-v20.1.0...unleash-edge-client-api-v20.2.4) - 2026-06-01
+
+### 🚀 Features
+- add single client feature endpoint ([#1639](https://github.com/unleash/unleash-edge/issues/1639)) (by @sighphyre) - #1639
+
+### 📚 Documentation
+- openapi docs ([#1640](https://github.com/unleash/unleash-edge/issues/1640)) (by @sighphyre) - #1640
+
+### Contributors
+
+* @sighphyre
+
+## [20.2.3](https://github.com/Unleash/unleash-edge/compare/unleash-edge-client-api-v20.1.0...unleash-edge-client-api-v20.2.3) - 2026-05-22
+
+### 🐛 Bug Fixes
+- allow metrics buckets to be missing to support ([#1618](https://github.com/unleash/unleash-edge/issues/1618)) (by @sighphyre) - #1618
+
+### Contributors
+
+* @sighphyre
+
+## [20.2.2](https://github.com/Unleash/unleash-edge/compare/unleash-edge-client-api-v20.2.1...unleash-edge-client-api-v20.2.2) - 2026-05-14
+
+### ⚙️ Miscellaneous Tasks
+- update Cargo.toml dependencies
+
+## [20.2.1](https://github.com/Unleash/unleash-edge/compare/unleash-edge-client-api-v20.2.0...unleash-edge-client-api-v20.2.1) - 2026-05-11
+
+### ⚙️ Miscellaneous Tasks
+- update Cargo.toml dependencies
 
 ## [20.1.10](https://github.com/Unleash/unleash-edge/compare/unleash-edge-client-api-v20.1.9...unleash-edge-client-api-v20.1.10) - 2026-02-24
 

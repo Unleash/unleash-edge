@@ -228,6 +228,7 @@ impl<'de> Deserialize<'de> for RequestConsumptionData {
         D: serde::Deserializer<'de>,
     {
         #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
         struct GroupData {
             metered_group: String,
             requests: u64,
@@ -344,4 +345,28 @@ pub struct MetricsCache {
     pub applications: DashMap<ApplicationKey, ClientApplication>,
     pub metrics: DashMap<MetricsKey, ClientMetricsEnv>,
     pub impact_metrics: DashMap<ImpactMetricsKey, Vec<ImpactMetricEnv>>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn request_consumption_data_has_symmetrical_serialization() {
+        let request_data = RequestConsumptionData::default();
+        request_data.increment_requests("default");
+        request_data.increment_requests("default");
+        request_data.increment_requests("premium");
+
+        let serialized = serde_json::to_value(&request_data).expect("Failed to serialize");
+
+        let deserialized: Result<RequestConsumptionData, _> =
+            serde_json::from_value(serialized.clone());
+
+        assert!(
+            deserialized.is_ok(),
+            "Deserialization failed: {:?}",
+            deserialized.err()
+        );
+    }
 }

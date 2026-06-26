@@ -1,3 +1,10 @@
+
+## [unleash-edge-v20.3.1] - 2026-06-18
+
+## [unleash-edge-v20.3.0] - 2026-06-09
+
+### ⚙️ Miscellaneous Tasks
+- dep upgrades and release flow (#1655) (by @chriswk) - #1655
 # Changelog
 
 All notable changes to this project will be documented in this file.
@@ -6,6 +13,116 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [20.2.4](https://github.com/Unleash/unleash-edge/compare/unleash-edge-tracing-v20.2.3...unleash-edge-tracing-v20.2.4) - 2026-06-01
+
+### 🚀 Features
+- add revisionId to things updated by refreshers ([#1378](https://github.com/unleash/unleash-edge/issues/1378)) (by @chriswk) - #1378
+- add Opentelemetry tracing support to enterprise ([#1372](https://github.com/unleash/unleash-edge/issues/1372)) (by @chriswk) - #1372
+
+### 🐛 Bug Fixes
+- make clippy work again on CI ([#1432](https://github.com/unleash/unleash-edge/issues/1432)) (by @sighphyre) - #1432
+- correctly gate tracing test behind enterprise ([#1399](https://github.com/unleash/unleash-edge/issues/1399)) (by @sighphyre) - #1399
+
+### 💼 Other
+- added client_id to prometheus exporting ([#1397](https://github.com/unleash/unleash-edge/issues/1397)) (by @chriswk) - #1397
+
+### ⚙️ Miscellaneous Tasks
+- release v20.2.3 ([#1600](https://github.com/unleash/unleash-edge/issues/1600)) (by @unleash-bot[bot]) - #1600
+- release v20.2.2 ([#1593](https://github.com/unleash/unleash-edge/issues/1593)) (by @unleash-bot[bot]) - #1593
+- release v20.2.1 ([#1492](https://github.com/unleash/unleash-edge/issues/1492)) (by @unleash-bot[bot]) - #1492
+- release v20.1.10 ([#1452](https://github.com/unleash/unleash-edge/issues/1452)) (by @unleash-bot[bot]) - #1452
+- initial work on no longer using CliArgs longer than we need ([#1451](https://github.com/unleash/unleash-edge/issues/1451)) (by @chriswk) - #1451
+- release v20.1.9 ([#1441](https://github.com/unleash/unleash-edge/issues/1441)) (by @unleash-bot[bot]) - #1441
+- release v20.1.8 ([#1415](https://github.com/unleash/unleash-edge/issues/1415)) (by @unleash-bot[bot]) - #1415
+- release v20.1.7 ([#1315](https://github.com/unleash/unleash-edge/issues/1315)) (by @unleash-bot[bot]) - #1315
+
+### Contributors
+
+* @unleash-bot[bot]
+* @chriswk
+* @sighphyre
+
+## [20.2.3](https://github.com/Unleash/unleash-edge/compare/unleash-edge-tracing-v20.2.2...unleash-edge-tracing-v20.2.3) - 2026-05-22
+
+### 🚀 Features
+- add revisionId to things updated by refreshers ([#1378](https://github.com/unleash/unleash-edge/issues/1378)) (by @chriswk) - #1378
+- add Opentelemetry tracing support to enterprise ([#1372](https://github.com/unleash/unleash-edge/issues/1372)) (by @chriswk) - #1372
+
+### 🐛 Bug Fixes
+- make clippy work again on CI ([#1432](https://github.com/unleash/unleash-edge/issues/1432)) (by @sighphyre) - #1432
+- correctly gate tracing test behind enterprise ([#1399](https://github.com/unleash/unleash-edge/issues/1399)) (by @sighphyre) - #1399
+
+### 💼 Other
+- added client_id to prometheus exporting ([#1397](https://github.com/unleash/unleash-edge/issues/1397)) (by @chriswk) - #1397
+
+### ⚙️ Miscellaneous Tasks
+- release v20.2.2 ([#1593](https://github.com/unleash/unleash-edge/issues/1593)) (by @unleash-bot[bot]) - #1593
+- release v20.2.1 ([#1492](https://github.com/unleash/unleash-edge/issues/1492)) (by @unleash-bot[bot]) - #1492
+- release v20.1.10 ([#1452](https://github.com/unleash/unleash-edge/issues/1452)) (by @unleash-bot[bot]) - #1452
+- initial work on no longer using CliArgs longer than we need ([#1451](https://github.com/unleash/unleash-edge/issues/1451)) (by @chriswk) - #1451
+- release v20.1.9 ([#1441](https://github.com/unleash/unleash-edge/issues/1441)) (by @unleash-bot[bot]) - #1441
+- release v20.1.8 ([#1415](https://github.com/unleash/unleash-edge/issues/1415)) (by @unleash-bot[bot]) - #1415
+- release v20.1.7 ([#1315](https://github.com/unleash/unleash-edge/issues/1315)) (by @unleash-bot[bot]) - #1315
+
+### Contributors
+
+* @unleash-bot[bot]
+* @chriswk
+* @sighphyre
+
+## [20.2.2](https://github.com/Unleash/unleash-edge/compare/unleash-edge-tracing-v20.2.1...unleash-edge-tracing-v20.2.2) - 2026-05-14
+
+### 🚀 Features
+- add revisionId to things updated by refreshers ([#1378](https://github.com/unleash/unleash-edge/issues/1378)) (by @chriswk) - #1378
+- add Opentelemetry tracing support to enterprise ([#1372](https://github.com/unleash/unleash-edge/issues/1372)) (by @chriswk) - #1372
+
+### 🐛 Bug Fixes
+- make clippy work again on CI ([#1432](https://github.com/unleash/unleash-edge/issues/1432)) (by @sighphyre) - #1432
+- correctly gate tracing test behind enterprise ([#1399](https://github.com/unleash/unleash-edge/issues/1399)) (by @sighphyre) - #1399
+
+### 💼 Other
+- added client_id to prometheus exporting ([#1397](https://github.com/unleash/unleash-edge/issues/1397)) (by @chriswk) - #1397
+
+### ⚙️ Miscellaneous Tasks
+- release v20.2.1 ([#1492](https://github.com/unleash/unleash-edge/issues/1492)) (by @unleash-bot[bot]) - #1492
+- release v20.1.10 ([#1452](https://github.com/unleash/unleash-edge/issues/1452)) (by @unleash-bot[bot]) - #1452
+- initial work on no longer using CliArgs longer than we need ([#1451](https://github.com/unleash/unleash-edge/issues/1451)) (by @chriswk) - #1451
+- release v20.1.9 ([#1441](https://github.com/unleash/unleash-edge/issues/1441)) (by @unleash-bot[bot]) - #1441
+- release v20.1.8 ([#1415](https://github.com/unleash/unleash-edge/issues/1415)) (by @unleash-bot[bot]) - #1415
+- release v20.1.7 ([#1315](https://github.com/unleash/unleash-edge/issues/1315)) (by @unleash-bot[bot]) - #1315
+
+### Contributors
+
+* @unleash-bot[bot]
+* @chriswk
+* @sighphyre
+
+## [20.2.1](https://github.com/Unleash/unleash-edge/compare/unleash-edge-tracing-v20.2.0...unleash-edge-tracing-v20.2.1) - 2026-05-11
+
+### 🚀 Features
+- add revisionId to things updated by refreshers ([#1378](https://github.com/unleash/unleash-edge/issues/1378)) (by @chriswk) - #1378
+- add Opentelemetry tracing support to enterprise ([#1372](https://github.com/unleash/unleash-edge/issues/1372)) (by @chriswk) - #1372
+
+### 🐛 Bug Fixes
+- make clippy work again on CI ([#1432](https://github.com/unleash/unleash-edge/issues/1432)) (by @sighphyre) - #1432
+- correctly gate tracing test behind enterprise ([#1399](https://github.com/unleash/unleash-edge/issues/1399)) (by @sighphyre) - #1399
+
+### 💼 Other
+- added client_id to prometheus exporting ([#1397](https://github.com/unleash/unleash-edge/issues/1397)) (by @chriswk) - #1397
+
+### ⚙️ Miscellaneous Tasks
+- release v20.1.10 ([#1452](https://github.com/unleash/unleash-edge/issues/1452)) (by @unleash-bot[bot]) - #1452
+- initial work on no longer using CliArgs longer than we need ([#1451](https://github.com/unleash/unleash-edge/issues/1451)) (by @chriswk) - #1451
+- release v20.1.9 ([#1441](https://github.com/unleash/unleash-edge/issues/1441)) (by @unleash-bot[bot]) - #1441
+- release v20.1.8 ([#1415](https://github.com/unleash/unleash-edge/issues/1415)) (by @unleash-bot[bot]) - #1415
+- release v20.1.7 ([#1315](https://github.com/unleash/unleash-edge/issues/1315)) (by @unleash-bot[bot]) - #1315
+
+### Contributors
+
+* @unleash-bot[bot]
+* @chriswk
+* @sighphyre
 
 ## [20.1.10](https://github.com/Unleash/unleash-edge/compare/unleash-edge-tracing-v20.1.9...unleash-edge-tracing-v20.1.10) - 2026-02-24
 

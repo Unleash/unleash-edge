@@ -1,0 +1,272 @@
+name: Custom Release PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_pattern:
+        description: "Tag pattern used to find the latest existing release tag"
+        required: false
+        default: "unleash-edge-v*"
+      main_branch:
+        description: "Main branch name"
+        required: false
+        default: "main"
+      dry_run:
+        description: "Dry run (do not push tags or create/update PRs)"
+        required: false
+        default: "false"
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  TAG_PATTERN: ${{ inputs.tag_pattern || 'unleash-edge-v*' }}
+  MAIN_BRANCH: ${{ inputs.main_branch || 'main' }}
+  DRY_RUN: ${{ inputs.dry_run || 'false' }}
+
+jobs:
+  tag-release:
+    name: Tag merged release PR
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    outputs:
+      did_tag: ${{ steps.tag.outputs.did_tag }}
+      release_version: ${{ steps.tag.outputs.release_version }}
+      release_tag: ${{ steps.tag.outputs.release_tag }}
+    steps:
+      - name: Generate token
+        id: generate-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.UNLEASH_BOT_APP_ID }}
+          private-key: ${{ secrets.UNLEASH_BOT_PRIVATE_KEY }}
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ steps.generate-token.outputs.token }}
+
+      - name: Fetch tags
+        run: git fetch --tags --force --prune
+
+      - name: Create release tag when a release PR is merged
+        id: tag
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "did_tag=false" >> "$GITHUB_OUTPUT"
+
+          subject="$(git log -1 --format=%s)"
+          if [[ ! "${subject}" =~ ^chore\(release\): ]]; then
+            echo "Latest commit is not a release commit: ${subject}"
+            exit 0
+          fi
+
+          current_version="$(awk '
+            BEGIN{p=0}
+            /^\[workspace\.package\]/{p=1;next}
+            /^\[/{p=0}
+            p==1 && $1=="version"{
+              match($0,/\"([^\"]+)\"/,m); print m[1]; exit
+            }' Cargo.toml)"
+
+          if [[ -z "${current_version}" ]]; then
+            echo "Could not find workspace.package.version in Cargo.toml"
+            exit 1
+          fi
+
+          release_tag="unleash-edge-v${current_version}"
+          if git rev-parse -q --verify "refs/tags/${release_tag}" >/dev/null; then
+            echo "Tag ${release_tag} already exists."
+            exit 0
+          fi
+
+          latest_tag="$(git tag --list "${TAG_PATTERN}" --sort=-version:refname | head -n1 || true)"
+          if [[ -n "${latest_tag}" ]]; then
+            latest_version="${latest_tag##*v}"
+            newest="$(printf '%s\n%s\n' "${latest_version}" "${current_version}" | sort -V | tail -n1)"
+            if [[ "${newest}" != "${current_version}" || "${current_version}" == "${latest_version}" ]]; then
+              echo "Workspace version ${current_version} is not newer than latest tag ${latest_tag}."
+              exit 0
+            fi
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${release_tag}" -m "Release ${release_tag}"
+          git push origin "${release_tag}"
+
+          echo "did_tag=true" >> "$GITHUB_OUTPUT"
+          echo "release_version=${current_version}" >> "$GITHUB_OUTPUT"
+          echo "release_tag=${release_tag}" >> "$GITHUB_OUTPUT"
+
+  prepare-release-pr:
+    name: Prepare release PR
+    needs:
+      - tag-release
+    if: always() && needs.tag-release.outputs.did_tag != 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Generate token
+        id: generate-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.UNLEASH_BOT_APP_ID }}
+          private-key: ${{ secrets.UNLEASH_BOT_PRIVATE_KEY }}
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ steps.generate-token.outputs.token }}
+
+      - name: Ensure tags and main are present
+        run: |
+          git fetch --tags --force --prune
+          git fetch origin "${MAIN_BRANCH}:refs/remotes/origin/${MAIN_BRANCH}"
+
+      - name: Find latest release tag
+        id: latest
+        shell: bash
+        run: |
+          set -euo pipefail
+          latest_tag="$(git tag --list "${TAG_PATTERN}" --sort=-version:refname | head -n1 || true)"
+          if [[ -z "${latest_tag}" ]]; then
+            echo "No matching tags found for ${TAG_PATTERN}."
+            echo "latest_tag=" >> "$GITHUB_OUTPUT"
+            echo "latest_version=0.1.0" >> "$GITHUB_OUTPUT"
+          else
+            latest_version="${latest_tag##*v}"
+            echo "Latest tag: ${latest_tag}"
+            echo "latest_tag=${latest_tag}" >> "$GITHUB_OUTPUT"
+            echo "latest_version=${latest_version}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Decide semantic release level
+        id: semver
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          latest_tag="${{ steps.latest.outputs.latest_tag }}"
+          if [[ -n "${latest_tag}" ]]; then
+            range="${latest_tag}..origin/${MAIN_BRANCH}"
+            if git diff --quiet "${range}"; then
+              echo "level=none" >> "$GITHUB_OUTPUT"
+              echo "No changes since latest tag."
+              exit 0
+            fi
+
+            log="$(git log --no-merges --format=%s%n%b "${range}" || true)"
+          else
+            if ! git rev-list --max-count=1 "origin/${MAIN_BRANCH}" >/dev/null; then
+              echo "level=none" >> "$GITHUB_OUTPUT"
+              echo "No commits found on origin/${MAIN_BRANCH}."
+              exit 0
+            fi
+
+            log="$(git log --no-merges --format=%s%n%b "origin/${MAIN_BRANCH}" || true)"
+          fi
+
+          level="none"
+
+          if echo "${log}" | grep -Eiq 'BREAKING[ -]CHANGE'; then
+            level="major"
+          elif echo "${log}" | grep -Eq '^[a-z]+(\([^)]+\))?!:'; then
+            level="major"
+          elif echo "${log}" | grep -Eq '^feat(\([^)]+\))?:'; then
+            level="minor"
+          elif echo "${log}" | grep -Eq '^(fix|perf|refactor|dep-update)(\([^)]+\))?:|^build\(deps[^)]*\):'; then
+            level="patch"
+          fi
+
+          echo "level=${level}" >> "$GITHUB_OUTPUT"
+          echo "Computed release level: ${level}"
+
+      - name: Compute next version
+        id: version
+        if: steps.semver.outputs.level != 'none'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          current="${{ steps.latest.outputs.latest_version }}"
+          IFS='.' read -r major minor patch <<< "${current}"
+
+          case "${{ steps.semver.outputs.level }}" in
+            major) next="$((major + 1)).0.0" ;;
+            minor) next="${major}.$((minor + 1)).0" ;;
+            patch) next="${major}.${minor}.$((patch + 1))" ;;
+            *) echo "Unsupported release level: ${{ steps.semver.outputs.level }}"; exit 1 ;;
+          esac
+
+          echo "previous_version=${current}" >> "$GITHUB_OUTPUT"
+          echo "next_version=${next}" >> "$GITHUB_OUTPUT"
+          echo "next_tag=unleash-edge-v${next}" >> "$GITHUB_OUTPUT"
+
+      - name: Install release tools
+        if: steps.semver.outputs.level != 'none' && env.DRY_RUN != 'true'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-edit,git-cliff
+
+      - name: Prepare release changes
+        if: steps.semver.outputs.level != 'none'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          previous_version="${{ steps.version.outputs.previous_version }}"
+          next_version="${{ steps.version.outputs.next_version }}"
+          next_tag="${{ steps.version.outputs.next_tag }}"
+
+          if [[ "${DRY_RUN}" == "true" ]]; then
+            echo "[DRY RUN] Would bump workspace from ${previous_version} to ${next_version}."
+            echo "[DRY RUN] Would generate changelogs for ${next_tag}."
+            exit 0
+          fi
+
+          cargo set-version --workspace "${next_version}"
+
+          mapfile -t manifests < <(git ls-files 'Cargo.toml' '**/Cargo.toml')
+          for manifest in "${manifests[@]}"; do
+            perl -0pi -e "s/version = \"\Q${previous_version}\E\"/version = \"${next_version}\"/g" "${manifest}"
+          done
+
+          cargo update --workspace --offline
+
+          range_arg=()
+          if [[ -n "${{ steps.latest.outputs.latest_tag }}" ]]; then
+            range_arg=("${{ steps.latest.outputs.latest_tag }}..HEAD")
+          fi
+
+          mapfile -t changelogs < <(git ls-files '**/CHANGELOG.md' ':!target/**')
+          for changelog in "${changelogs[@]}"; do
+            dir="$(dirname "${changelog}")"
+            include_path="${dir}/**/*"
+            git-cliff "${range_arg[@]}" --tag "${next_tag}" --include-path "${include_path}" --prepend "${changelog}"
+          done
+
+          git-cliff "${range_arg[@]}" --tag "${next_tag}" --output CHANGELOG_PR.md
+
+      - name: Create or update release PR
+        if: steps.semver.outputs.level != 'none' && env.DRY_RUN != 'true'
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ steps.generate-token.outputs.token }}
+          branch: release/${{ steps.version.outputs.next_tag }}
+          delete-branch: true
+          title: "chore(release): ${{ steps.version.outputs.next_tag }}"
+          body-path: CHANGELOG_PR.md
+          commit-message: "chore(release): ${{ steps.version.outputs.next_tag }}"
+          labels: release

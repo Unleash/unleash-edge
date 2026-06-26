@@ -1,25 +1,6 @@
-[workspace]
-
-changelog_update = true
-
-dependencies_update = true
-
-git_tag_enable = true
-
-git_release_enable = false
-
-pr_labels = ["release"]
-
-allow_dirty = false
-
-publish_allow_dirty = false
-
-semver_check = false
-
-publish = false
-
-git_only = true
-
+[remote.github]
+owner = "Unleash"
+repo = "unleash-edge"
 
 [changelog]
 
@@ -44,8 +25,6 @@ commit_parsers = [
 ]
 
 commit_preprocessors = [
-    # Replace `foo` with `bar`
-    { pattern = "foo", replace = "bar" },
     # Replace `<REPO>` in the template body with the repository URL
     { pattern = '<REPO>', replace = "https://github.com/unleash/unleash-edge" },
     # Replace multiple spaces with a single space.

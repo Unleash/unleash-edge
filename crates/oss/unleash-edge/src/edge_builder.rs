@@ -22,10 +22,11 @@ use unleash_edge_auth::token_validator::{
 use unleash_edge_cli::{
     AuthHeaders, EdgeArgs, LogFormat, OtelExporterProtocol, RedisArgs, RedisMode, S3Args,
 };
+use unleash_edge_delta::cache::{DeltaCache, DeltaHydrationEvent};
 use unleash_edge_delta::cache_manager::{DeltaCacheManager, create_terminate_sse_connections_task};
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_refresh::delta_refresh::{
-    DeltaRefresher, start_streaming_delta_background_task,
+    DELTA_CACHE_LIMIT, DeltaRefresher, start_streaming_delta_background_task,
 };
 use unleash_edge_feature_refresh::{
     FeatureRefreshConfig, FeatureRefresher, HydratorType, start_refresh_features_background_task,
@@ -125,6 +126,7 @@ async fn get_data_source(args: &PersistenceArgs) -> Option<Arc<dyn EdgePersisten
                 .s3_bucket_name
                 .clone()
                 .expect("Clap is confused, there's no bucket name"),
+            s3_args.s3_force_path_style,
         )
         .await;
         return Some(Arc::new(s3_persister));
@@ -140,8 +142,7 @@ async fn get_data_source(args: &PersistenceArgs) -> Option<Arc<dyn EdgePersisten
 }
 
 async fn hydrate_from_persistent_storage(cache: CacheContainer, storage: Arc<dyn EdgePersistence>) {
-    let (token_cache, features_cache, _delta_cache, engine_cache) = cache;
-    // TODO: do we need to hydrate from persistent storage for delta?
+    let (token_cache, features_cache, delta_cache, engine_cache) = cache;
     let tokens = storage.load_tokens().await.unwrap_or_else(|error| {
         warn!("Failed to load tokens from cache {error:?}");
         vec![]
@@ -155,16 +156,39 @@ async fn hydrate_from_persistent_storage(cache: CacheContainer, storage: Arc<dyn
         token_cache.insert(token.token.clone(), token);
     }
 
+    let last_event_ids = storage.load_last_event_ids().await.unwrap_or_else(|error| {
+        warn!("Failed to load last event ids from cache {error:?}");
+        Default::default()
+    });
+
     for (key, features) in features {
         debug!("Hydrating features for {key:?}");
         features_cache.insert(key.clone(), features.clone());
         let mut engine_state = EngineState::default();
 
-        let warnings = engine_state.take_state(UpdateMessage::FullResponse(features));
+        let warnings = engine_state.take_state(UpdateMessage::FullResponse(features.clone()));
         if let Some(warnings) = warnings {
             warn!("Failed to hydrate features for {key:?}: {warnings:?}");
         }
         engine_cache.insert(key.clone(), engine_state);
+
+        if !features.features.is_empty() {
+            delta_cache.insert_cache(
+                key.as_str(),
+                DeltaCache::new(
+                    DeltaHydrationEvent {
+                        event_id: *last_event_ids.get(&key).unwrap_or(&0),
+                        features: features.features.clone(),
+                        segments: features.segments.unwrap_or_default(),
+                    },
+                    DELTA_CACHE_LIMIT,
+                ),
+            );
+        } else {
+            debug!(
+                "Skipping delta cache hydration for {key:?} because persisted feature set is empty or missing a last event id"
+            );
+        }
     }
 }
 
@@ -247,7 +271,6 @@ pub async fn build_edge(
         feature_cache: feature_cache.clone(),
         delta_cache_manager: delta_cache.clone(),
         engine_cache: engine_cache.clone(),
-        persistence: persistence.clone(),
         feature_config: &feature_config,
         client_meta_information: &client_meta_information,
         edge_instance_data: edge_instance_data.clone(),
@@ -361,9 +384,9 @@ fn enforce_single_backend_token_per_env(
 
 #[cfg(not(feature = "enterprise"))]
 fn enforce_single_backend_token_per_env(
-    streaming: bool,
-    delta: bool,
-    tokens: Vec<EdgeToken>,
+    _streaming: bool,
+    _delta: bool,
+    _tokens: Vec<EdgeToken>,
 ) -> EdgeResult<()> {
     Ok(())
 }
@@ -384,6 +407,8 @@ pub struct EdgeStateArgs {
     pub base_path: String,
     pub http_deny_list: Option<Vec<IpNet>>,
     pub http_allow_list: Option<Vec<IpNet>>,
+    pub trust_proxy: bool,
+    pub proxy_trusted_servers: Vec<IpNet>,
     pub streaming: bool,
     pub delta: bool,
     pub persistence_args: PersistenceArgs,
@@ -395,6 +420,8 @@ pub struct EdgeStateArgs {
     pub prometheus_push_interval: u64,
     pub prometheus_username: Option<String>,
     pub prometheus_password: Option<String>,
+    pub hostname: Option<String>,
+    pub ec2_instance_id: Option<String>,
 }
 
 impl From<&EdgeStateArgs> for TracingOpts {
@@ -500,6 +527,7 @@ pub async fn build_edge_state(
         deferred_validation_rx,
         edge_instance_data: edge_instance_data.clone(),
         feature_cache: features_cache.clone(),
+        delta_cache_manager: delta_cache_manager.clone(),
         instance_data_sender: instance_data_sender.clone(),
         instances_observed_for_app_context: args.instances_observed_for_app_context.clone(),
         metrics_cache_clone: metrics_cache.clone(),
@@ -519,6 +547,8 @@ pub async fn build_edge_state(
         prometheus_username: args.prometheus_username,
         prometheus_password: args.prometheus_password,
         custom_client_headers: args.custom_client_headers,
+        hostname: args.hostname,
+        ec2_instance_id: args.ec2_instance_id,
     });
     let shutdown_args = ShutdownTaskArgs {
         delta_cache_manager: delta_cache_manager.clone(),
@@ -546,6 +576,8 @@ pub async fn build_edge_state(
         connected_instances: args.instances_observed_for_app_context.clone(),
         deny_list: args.http_deny_list.unwrap_or_default(),
         allow_list: args.http_allow_list.unwrap_or_default(),
+        trust_proxy: args.trust_proxy,
+        proxy_trusted_servers: args.proxy_trusted_servers,
         auth_headers: args.auth_headers.clone(),
         connect_via: ConnectVia {
             app_name: args.client_meta_information.app_name.clone(),
@@ -590,6 +622,7 @@ fn create_shutdown_tasks(
             persistence,
             token_cache.clone(),
             feature_cache,
+            delta_cache_manager.clone(),
         ));
     }
 
@@ -622,6 +655,7 @@ pub(crate) struct BackgroundTaskArgs {
     deferred_validation_rx: Option<tokio::sync::mpsc::UnboundedReceiver<String>>,
     edge_instance_data: Arc<EdgeInstanceData>,
     feature_cache: Arc<FeatureCache>,
+    delta_cache_manager: Arc<DeltaCacheManager>,
     instance_data_sender: Arc<InstanceDataSending>,
     instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>>,
     metrics_cache_clone: Arc<MetricsCache>,
@@ -640,6 +674,8 @@ pub(crate) struct BackgroundTaskArgs {
     prometheus_username: Option<String>,
     prometheus_password: Option<String>,
     custom_client_headers: Vec<(String, String)>,
+    hostname: Option<String>,
+    ec2_instance_id: Option<String>,
 }
 fn create_edge_mode_background_tasks(
     BackgroundTaskArgs {
@@ -649,6 +685,7 @@ fn create_edge_mode_background_tasks(
         deferred_validation_rx,
         edge_instance_data,
         feature_cache,
+        delta_cache_manager,
         instance_data_sender,
         instances_observed_for_app_context,
         metrics_cache_clone,
@@ -668,6 +705,8 @@ fn create_edge_mode_background_tasks(
         prometheus_username,
         prometheus_password,
         custom_client_headers,
+        hostname,
+        ec2_instance_id,
     }: BackgroundTaskArgs,
 ) -> Vec<BackgroundTask> {
     #[allow(unused_variables)] // refresh_state_tx used in enterprise feature
@@ -707,6 +746,8 @@ fn create_edge_mode_background_tasks(
             instance_id: client_meta_information.instance_id.to_string(),
             username: prometheus_username.clone(),
             password: prometheus_password.clone(),
+            hostname,
+            ec2_instance_id,
         }));
     }
 
@@ -728,6 +769,7 @@ fn create_edge_mode_background_tasks(
             persistence.clone(),
             token_cache.clone(),
             feature_cache.clone(),
+            delta_cache_manager,
         ));
     } else {
         info!("No persistence configured, skipping persistence");
@@ -791,7 +833,6 @@ struct LoadHydratorArgs<'a> {
     feature_cache: Arc<FeatureCache>,
     delta_cache_manager: Arc<DeltaCacheManager>,
     engine_cache: Arc<EngineCache>,
-    persistence: Option<Arc<dyn EdgePersistence>>,
     feature_config: &'a FeatureRefreshConfig,
     client_meta_information: &'a ClientMetaInformation,
     edge_instance_data: Arc<EdgeInstanceData>,
@@ -806,7 +847,6 @@ fn load_hydrator(
         feature_cache,
         delta_cache_manager,
         engine_cache,
-        persistence,
         feature_config,
         client_meta_information,
         edge_instance_data,
@@ -821,7 +861,6 @@ fn load_hydrator(
             features_cache: feature_cache.clone(),
             engine_cache: engine_cache.clone(),
             refresh_interval: features_refresh_interval,
-            persistence: persistence.clone(),
             streaming: true,
             client_meta_information: client_meta_information.clone(),
             edge_instance_data: edge_instance_data.clone(),
@@ -834,7 +873,6 @@ fn load_hydrator(
             feature_cache.clone(),
             delta_cache_manager.clone(),
             engine_cache.clone(),
-            persistence.clone(),
             feature_config.clone(),
             edge_instance_data.clone(),
         ));
@@ -850,7 +888,6 @@ fn load_hydrator(
         feature_cache,
         delta_cache_manager,
         engine_cache,
-        persistence,
         feature_config,
         client_meta_information,
         edge_instance_data,
@@ -863,7 +900,6 @@ fn load_hydrator(
         feature_cache.clone(),
         delta_cache_manager.clone(),
         engine_cache.clone(),
-        persistence.clone(),
         feature_config.clone(),
         edge_instance_data.clone(),
     ));
@@ -924,6 +960,72 @@ pub async fn resolve_license(
 
 #[cfg(test)]
 mod tests {
+    use crate::edge_builder::build_caches;
+    use ahash::{HashMap, HashMapExt};
+    use std::env::temp_dir;
+    use std::sync::Arc;
+    use ulid::Ulid;
+    use unleash_edge_persistence::EdgePersistence;
+    use unleash_edge_persistence::file::FilePersister;
+    use unleash_types::client_features::{ClientFeature, ClientFeatures, Segment};
+
+    #[tokio::test]
+    async fn hydrates_delta_cache_from_persistent_feature_backup() {
+        let key = "development".to_string();
+        let feature = ClientFeature {
+            name: "test-flag".to_string(),
+            enabled: true,
+            ..Default::default()
+        };
+        let segment = Segment {
+            id: 7,
+            constraints: vec![],
+        };
+        let features = ClientFeatures {
+            features: vec![feature.clone()],
+            version: 2,
+            segments: Some(vec![segment.clone()]),
+            query: None,
+            meta: None,
+        };
+
+        let backup_folder = temp_dir().join(Ulid::new().to_string());
+        let persister = FilePersister::new(&backup_folder);
+        persister
+            .save_features(vec![(key.clone(), features.clone())])
+            .await
+            .unwrap();
+        let mut last_event_ids = HashMap::new();
+        last_event_ids.insert(key.clone(), 42);
+        persister.save_last_event_ids(last_event_ids).await.unwrap();
+
+        let (token_cache, features_cache, delta_cache, engine_cache) = build_caches();
+        super::hydrate_from_persistent_storage(
+            (
+                token_cache,
+                features_cache.clone(),
+                delta_cache.clone(),
+                engine_cache.clone(),
+            ),
+            Arc::new(persister),
+        )
+        .await;
+
+        assert!(features_cache.get(&key).is_some());
+        assert!(engine_cache.get(&key).is_some());
+
+        let delta_cache = delta_cache
+            .get(&key)
+            .expect("delta cache should be hydrated from persisted features");
+        let hydration_event = delta_cache.get_hydration_event();
+        assert_eq!(hydration_event.event_id, 42);
+        assert_eq!(hydration_event.features, vec![feature]);
+        assert_eq!(hydration_event.segments, vec![segment]);
+    }
+}
+
+#[cfg(all(test, feature = "enterprise"))]
+mod enterprise_tests {
     use crate::edge_builder::{EdgeBuilderArgs, PersistenceArgs, build_edge};
     use chrono::Duration;
     use std::path::Path;
@@ -937,7 +1039,6 @@ mod tests {
     use url::Url;
 
     #[tokio::test]
-    #[cfg(feature = "enterprise")]
     async fn restores_revision_id_from_backup_if_present() {
         let backup_folder = Path::new("../../../examples/backup/sandbox");
         let edge_args = EdgeArgs {
@@ -971,6 +1072,8 @@ mod tests {
             prometheus_password: None,
             prometheus_user_id: None,
             hmac_config: HmacConfig::default(),
+            hostname: None,
+            ec2_instance_id: None,
         };
         let client_meta_information = ClientMetaInformation {
             app_name: "test_app".to_string(),
@@ -1020,7 +1123,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "enterprise")]
     fn rejects_multiple_tokens_same_env_in_delta() {
         let mut args = EdgeArgs {
             upstream_url: "http://localhost:4242".to_string(),
@@ -1038,7 +1140,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "enterprise")]
     fn allows_multiple_envs_in_delta() {
         let mut args = EdgeArgs {
             upstream_url: "http://localhost:4242".to_string(),
@@ -1056,7 +1157,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "enterprise")]
     fn allows_multiple_tokens_same_env_in_polling() {
         let args = EdgeArgs {
             upstream_url: "http://localhost:4242".to_string(),

@@ -256,6 +256,18 @@ mod tests {
     }
 
     #[tokio::test]
+    pub async fn metrics_endpoint_accepts_payload_without_bucket() {
+        let metrics_cache = Arc::new(MetricsCache::default());
+        let token =
+            EdgeToken::from_str("*:development.abc123def").expect("Failed to build edge token");
+
+        let server = build_metrics_server(metrics_cache.clone()).await;
+        make_metrics_post_request_without_bucket(server, &token.token).await;
+
+        assert!(metrics_cache.metrics.is_empty());
+    }
+
+    #[tokio::test]
     pub async fn bulk_metrics_endpoint_correctly_refuses_metrics_without_auth_header() {
         let metrics_cache = Arc::new(MetricsCache::default());
         let server = build_metrics_server(metrics_cache.clone()).await;
@@ -278,7 +290,7 @@ mod tests {
             app_name: "some-app".into(),
             instance_id: Some("some-instance".into()),
             connection_id: Some("some-connection".into()),
-            bucket: MetricBucket {
+            bucket: Some(MetricBucket {
                 start: Utc.with_ymd_and_hms(1867, 11, 7, 12, 0, 0).unwrap(),
                 stop: Utc.with_ymd_and_hms(1934, 11, 7, 12, 0, 0).unwrap(),
                 toggles: hashmap! {
@@ -288,7 +300,7 @@ mod tests {
                         variants: hashmap! {}
                     }
                 },
-            },
+            }),
             environment: Some("development".into()),
             impact_metrics: Some(vec![ImpactMetric::Counter {
                 name: "test_counter".into(),
@@ -316,6 +328,29 @@ mod tests {
             .await;
         assert_eq!(r.status_code(), StatusCode::ACCEPTED);
     }
+
+    async fn make_metrics_post_request_without_bucket(server: TestServer, authorization: &str) {
+        let payload = serde_json::json!({
+            "appName": "some-app",
+            "instanceId": "some-instance",
+            "connectionId": "some-connection",
+            "environment": "development",
+            "metadata": {
+                "platformName": "test",
+                "platformVersion": "1.0",
+                "sdkVersion": "1.0",
+                "sdkType": "backend"
+            }
+        });
+
+        let r = server
+            .post("/metrics")
+            .add_header("Authorization", authorization)
+            .json(&payload)
+            .await;
+        assert_eq!(r.status_code(), StatusCode::ACCEPTED);
+    }
+
     async fn make_bulk_metrics_post_request(server: TestServer, authorization: &str) {
         let r = server
             .post("/metrics/bulk")

@@ -64,6 +64,9 @@ pub struct S3Args {
     /// Bucket name to use for storing feature and token data
     #[clap(long, env)]
     pub s3_bucket_name: Option<String>,
+    /// Force path-style addressing when using S3 persistence
+    #[clap(long, env, default_value_t = false, requires = "s3_bucket_name")]
+    pub s3_force_path_style: bool,
 }
 
 #[derive(Copy, Debug, Clone, Eq, PartialEq, PartialOrd, Ord, ValueEnum)]
@@ -255,6 +258,12 @@ pub struct EdgeArgs {
 
     #[clap(long, env)]
     pub prometheus_user_id: Option<String>,
+
+    #[clap(long, env, hide = true)]
+    pub hostname: Option<String>,
+
+    #[clap(long, env, hide = true)]
+    pub ec2_instance_id: Option<String>,
 
     #[clap(flatten)]
     pub hmac_config: HmacConfig,

@@ -1,3 +1,16 @@
+
+## [unleash-edge-v20.3.1] - 2026-06-18
+
+### ⚙️ Miscellaneous Tasks
+- Add more debug logging (#1672) (by @krzychukula) - #1672
+
+## [unleash-edge-v20.3.0] - 2026-06-09
+
+### 🚀 Features
+- expose s3 force path style argument on CLI (#1652) (by @sighphyre) - #1652
+
+### ⚙️ Miscellaneous Tasks
+- dep upgrades and release flow (#1655) (by @chriswk) - #1655
 # Changelog
 
 All notable changes to this project will be documented in this file.
@@ -6,6 +19,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [20.2.4](https://github.com/Unleash/unleash-edge/compare/unleash-edge-persistence-v20.2.3...unleash-edge-persistence-v20.2.4) - 2026-06-01
+
+### ⚙️ Miscellaneous Tasks
+- update Cargo.toml dependencies
+
+## [20.2.3](https://github.com/Unleash/unleash-edge/compare/unleash-edge-persistence-v20.1.1...unleash-edge-persistence-v20.2.3) - 2026-05-22
+
+### 🚀 Features
+- allow backup to persist and restore streaming ids ([#1603](https://github.com/unleash/unleash-edge/issues/1603)) (by @sighphyre) - #1603
+- add event id backup ([#1602](https://github.com/unleash/unleash-edge/issues/1602)) (by @sighphyre) - #1602
+
+### ⚙️ Miscellaneous Tasks
+- bump test containers ([#1619](https://github.com/unleash/unleash-edge/issues/1619)) (by @sighphyre) - #1619
+
+### Contributors
+
+* @sighphyre
+
+## [20.2.2](https://github.com/Unleash/unleash-edge/compare/unleash-edge-persistence-v20.2.1...unleash-edge-persistence-v20.2.2) - 2026-05-14
+
+### ⚙️ Miscellaneous Tasks
+- update Cargo.toml dependencies
+
+## [20.2.1](https://github.com/Unleash/unleash-edge/compare/unleash-edge-persistence-v20.2.0...unleash-edge-persistence-v20.2.1) - 2026-05-11
+
+### ⚙️ Miscellaneous Tasks
+- update Cargo.toml dependencies
 
 ## [20.1.10](https://github.com/Unleash/unleash-edge/compare/unleash-edge-persistence-v20.1.9...unleash-edge-persistence-v20.1.10) - 2026-02-24
 

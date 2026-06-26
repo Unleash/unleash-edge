@@ -162,6 +162,14 @@ mod tests {
         async fn save_features(&self, _features: Vec<(String, ClientFeatures)>) -> EdgeResult<()> {
             unimplemented!()
         }
+
+        async fn save_last_event_ids(&self, _event_id: HashMap<String, u32>) -> EdgeResult<()> {
+            unimplemented!()
+        }
+
+        async fn load_last_event_ids(&self) -> EdgeResult<HashMap<String, u32>> {
+            unimplemented!()
+        }
     }
 
     #[tokio::test]
@@ -193,6 +201,8 @@ mod tests {
             base_path: "".to_string(),
             http_deny_list: None,
             http_allow_list: None,
+            trust_proxy: false,
+            proxy_trusted_servers: vec![],
             streaming: false,
             delta: false,
             persistence_args: PersistenceArgs::from(&edge_args),
@@ -204,6 +214,8 @@ mod tests {
             prometheus_push_interval: 0,
             prometheus_username: None,
             prometheus_password: None,
+            hostname: None,
+            ec2_instance_id: None,
         })
         .await;
 
@@ -242,6 +254,8 @@ mod tests {
             base_path: "".to_string(),
             http_deny_list: None,
             http_allow_list: None,
+            trust_proxy: false,
+            proxy_trusted_servers: vec![],
             streaming: false,
             delta: false,
             persistence_args: Default::default(),
@@ -253,6 +267,8 @@ mod tests {
             prometheus_push_interval: 0,
             prometheus_username: None,
             prometheus_password: None,
+            hostname: None,
+            ec2_instance_id: None,
         })
         .await;
 
