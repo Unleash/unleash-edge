@@ -11,4 +11,12 @@ pub struct MetricsBatch {
         rename = "impactMetrics"
     )]
     pub impact_metrics: Vec<ImpactMetricEnv>,
+    #[serde(skip)]
+    pub seen_tokens: Vec<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "Vec::is_empty",
+        rename = "seenTokenHashes"
+    )]
+    pub seen_token_hashes: Vec<String>,
 }

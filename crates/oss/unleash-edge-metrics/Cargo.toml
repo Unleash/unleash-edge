@@ -14,6 +14,7 @@ base64 = { workspace = true }
 chrono = { workspace = true }
 dashmap = { workspace = true }
 futures = { workspace = true }
+hmac = { workspace = true }
 itertools = { workspace = true }
 lazy_static = { workspace = true }
 prometheus = { workspace = true }
@@ -23,6 +24,7 @@ reqwest = { workspace = true }
 semver = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+sha2 = { workspace = true }
 tokio = { workspace = true }
 tower = { workspace = true }
 tracing = { workspace = true }

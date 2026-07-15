@@ -345,6 +345,7 @@ pub struct MetricsCache {
     pub applications: DashMap<ApplicationKey, ClientApplication>,
     pub metrics: DashMap<MetricsKey, ClientMetricsEnv>,
     pub impact_metrics: DashMap<ImpactMetricsKey, Vec<ImpactMetricEnv>>,
+    pub seen_tokens: DashMap<String, String>,
 }
 
 #[cfg(test)]
