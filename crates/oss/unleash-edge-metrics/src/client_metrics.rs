@@ -2,11 +2,10 @@ use crate::client_impact_metrics::{
     convert_to_impact_metrics_env, merge_impact_metrics, sink_impact_metrics,
 };
 use crate::metric_batching::{cut_into_sendable_batches, sendable, size_of_batch};
-use hmac::{Hmac, KeyInit, Mac};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use prometheus::{Histogram, IntCounterVec, register_histogram, register_int_counter_vec};
-use sha2::Sha256;
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::debug;
@@ -104,9 +103,8 @@ pub fn get_metrics_by_environment(cache: &MetricsCache) -> HashMap<String, Metri
 pub fn get_appropriately_sized_env_batches(
     cache: &MetricsCache,
     batch: &MetricsBatch,
-    hmac_key: &str,
 ) -> Vec<MetricsBatch> {
-    let batch = batch.clone().with_seen_token_hashes(hmac_key);
+    let batch = batch.clone().with_seen_token_hashes();
 
     for app in batch.applications.clone() {
         cache
@@ -189,7 +187,7 @@ pub fn get_appropriately_sized_batches(cache: &MetricsCache) -> Vec<MetricsBatch
         cache.metrics.remove(&MetricsKey::from(metric.clone()));
     }
     METRICS_SIZE_HISTOGRAM.observe(size_of_batch(&batch) as f64);
-    let batch = batch.with_seen_token_hashes("");
+    let batch = batch.with_seen_token_hashes();
     if sendable(&batch) {
         vec![batch]
     } else {
@@ -264,24 +262,23 @@ fn sink_seen_tokens(cache: &MetricsCache, tokens: Vec<String>) {
     }
 }
 
-pub fn hash_seen_token(token: &str, hmac_key: &str) -> String {
-    let mut mac =
-        Hmac::<Sha256>::new_from_slice(hmac_key.as_bytes()).expect("HMAC accepts any key length");
-    mac.update(token.as_bytes());
-    let bytes = mac.finalize().into_bytes();
+pub fn hash_seen_token(token: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(token.as_bytes());
+    let bytes = hasher.finalize();
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
 trait SeenTokenHashing {
-    fn with_seen_token_hashes(self, hmac_key: &str) -> Self;
+    fn with_seen_token_hashes(self) -> Self;
 }
 
 impl SeenTokenHashing for MetricsBatch {
-    fn with_seen_token_hashes(mut self, hmac_key: &str) -> Self {
+    fn with_seen_token_hashes(mut self) -> Self {
         self.seen_token_hashes = self
             .seen_tokens
             .iter()
-            .map(|token| hash_seen_token(token, hmac_key))
+            .map(|token| hash_seen_token(token))
             .collect();
         self
     }
@@ -861,12 +858,12 @@ mod test {
         let batch = get_metrics_by_environment(&cache)
             .remove("development")
             .expect("development batch");
-        let slices = get_appropriately_sized_env_batches(&cache, &batch, "upstream-token");
+        let slices = get_appropriately_sized_env_batches(&cache, &batch);
 
         assert_eq!(slices.len(), 1);
         assert_eq!(
             slices[0].seen_token_hashes,
-            vec![hash_seen_token(&token.token, "upstream-token")]
+            vec![hash_seen_token(&token.token)]
         );
         let serialized = serde_json::to_string(&slices[0]).expect("batch should serialize");
         assert!(!serialized.contains(&token.token));

@@ -170,7 +170,7 @@ async fn send_metrics(
             .find(|t| t.environment.as_ref() == Some(&env))
             .map(|t| t.token.as_str())
             .expect("Unable to determine token to use for metrics sending");
-        let slices = get_appropriately_sized_env_batches(&metrics_cache, &batch, tok);
+        let slices = get_appropriately_sized_env_batches(&metrics_cache, &batch);
 
         tracing::trace!("Posting {} batches for {}", slices.len(), env);
 

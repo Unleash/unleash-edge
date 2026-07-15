@@ -5980,7 +5980,6 @@ dependencies = [
  "chrono",
  "dashmap",
  "futures",
- "hmac 0.13.0",
  "itertools 0.15.0",
  "lazy_static",
  "prometheus",
