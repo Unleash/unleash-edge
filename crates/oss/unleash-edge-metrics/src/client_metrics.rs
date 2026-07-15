@@ -7,6 +7,7 @@ use lazy_static::lazy_static;
 use prometheus::{Histogram, IntCounterVec, register_histogram, register_int_counter_vec};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
+use std::fmt::Write;
 use std::sync::Arc;
 use tracing::debug;
 use unleash_edge_types::metrics::batching::MetricsBatch;
@@ -209,7 +210,13 @@ pub fn reinsert_batch(cache: &MetricsCache, batch: MetricsBatch, environment: &s
 
     sink_metrics(cache, &batch.metrics);
 
-    sink_seen_token_hashes(cache, batch.seen_tokens, environment);
+    let seen_token_hashes = batch
+        .seen_tokens
+        .into_iter()
+        .chain(batch.seen_token_hashes)
+        .unique()
+        .collect();
+    sink_seen_token_hashes(cache, seen_token_hashes, environment);
 }
 
 pub fn sink_bulk_metrics(
@@ -228,13 +235,12 @@ pub fn sink_bulk_metrics(
     // TODO: sink impact metrics
 
     sink_metrics(cache, &metrics.metrics);
-    if let Some(environment) = environment {
-        sink_seen_token_hashes(
-            cache,
-            metrics.seen_token_hashes.unwrap_or_default(),
-            environment,
-        );
-    }
+    let environment = environment.unwrap_or("development");
+    sink_seen_token_hashes(
+        cache,
+        metrics.seen_token_hashes.unwrap_or_default(),
+        environment,
+    );
 }
 
 pub fn reset_metrics(cache: &MetricsCache) {
@@ -272,7 +278,11 @@ pub fn hash_seen_token(token: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(token.as_bytes());
     let bytes = hasher.finalize();
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    let mut hash = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        write!(&mut hash, "{byte:02x}").expect("writing to String cannot fail");
+    }
+    hash
 }
 
 trait SeenTokenHashing {
@@ -900,6 +910,33 @@ mod test {
     }
 
     #[test]
+    pub fn reinsert_preserves_payload_only_seen_token_hashes() {
+        let cache = MetricsCache::default();
+        let seen_token_hash = hash_seen_token("*:development.payload-only");
+
+        reinsert_batch(
+            &cache,
+            MetricsBatch {
+                applications: vec![],
+                metrics: vec![],
+                impact_metrics: vec![],
+                seen_tokens: vec![],
+                seen_token_hashes: vec![seen_token_hash.clone()],
+            },
+            "development",
+        );
+
+        assert_eq!(
+            cache
+                .seen_tokens
+                .get(&seen_token_hash)
+                .expect("payload-only hash was reinserted")
+                .value(),
+            "development"
+        );
+    }
+
+    #[test]
     pub fn downstream_seen_token_hashes_are_forwarded_by_environment() {
         let cache = MetricsCache::default();
         let connect_via = ConnectVia {
@@ -907,6 +944,35 @@ mod test {
             instance_id: "edge-1".into(),
         };
         let edge_token = EdgeToken::from_str("*:development.edgetoken").expect("valid edge token");
+        let seen_token_hash = hash_seen_token("*:development.sdktoken");
+
+        register_bulk_metrics(
+            &cache,
+            &connect_via,
+            &edge_token,
+            BatchMetricsRequestBody {
+                applications: vec![],
+                metrics: vec![],
+                impact_metrics: None,
+                seen_token_hashes: Some(vec![seen_token_hash.clone()]),
+            },
+        );
+
+        let batch = get_metrics_by_environment(&cache)
+            .remove("development")
+            .expect("development batch");
+
+        assert_eq!(batch.seen_tokens, vec![seen_token_hash]);
+    }
+
+    #[test]
+    pub fn downstream_seen_token_hashes_use_development_when_token_has_no_environment() {
+        let cache = MetricsCache::default();
+        let connect_via = ConnectVia {
+            app_name: "edge".into(),
+            instance_id: "edge-1".into(),
+        };
+        let edge_token = EdgeToken::no_project_or_environment("edgetoken");
         let seen_token_hash = hash_seen_token("*:development.sdktoken");
 
         register_bulk_metrics(
