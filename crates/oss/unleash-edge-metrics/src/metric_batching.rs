@@ -103,10 +103,10 @@ fn partition_batch(mut batch: MetricsBatch, max_batch_size: usize) -> Vec<Metric
                     EitherOrBoth::Both(token, token_hash) => {
                         SizedItemKind::SeenToken { token, token_hash }
                     }
-                    EitherOrBoth::Left(token) => {
-                        let token_hash = crate::client_metrics::hash_seen_token(&token);
-                        SizedItemKind::SeenToken { token, token_hash }
-                    }
+                    EitherOrBoth::Left(token_hash) => SizedItemKind::SeenToken {
+                        token: token_hash.clone(),
+                        token_hash,
+                    },
                     EitherOrBoth::Right(token_hash) => SizedItemKind::SeenTokenHash { token_hash },
                 };
                 SizedItem::new(item)
@@ -384,25 +384,20 @@ mod tests {
     }
 
     #[test]
-    fn partition_hashes_seen_tokens_missing_hashes() {
+    fn partition_preserves_seen_token_hashes_without_payload_pair() {
         let batch = MetricsBatch {
             applications: vec![],
             metrics: vec![],
             impact_metrics: vec![],
-            seen_tokens: vec!["*:development.token".into()],
+            seen_tokens: vec!["hash-from-cache".into()],
             seen_token_hashes: vec![],
         };
 
         let batches = partition_batch(batch, 600);
 
         assert_eq!(batches.len(), 1);
-        assert_eq!(batches[0].seen_tokens, vec!["*:development.token"]);
-        assert_eq!(
-            batches[0].seen_token_hashes,
-            vec![crate::client_metrics::hash_seen_token(
-                "*:development.token"
-            )]
-        );
+        assert_eq!(batches[0].seen_tokens, vec!["hash-from-cache"]);
+        assert_eq!(batches[0].seen_token_hashes, vec!["hash-from-cache"]);
     }
 
     #[test]

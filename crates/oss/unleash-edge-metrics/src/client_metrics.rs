@@ -81,7 +81,7 @@ pub fn get_metrics_by_environment(cache: &MetricsCache) -> HashMap<String, Metri
             }
         }
 
-        let seen_tokens = cache
+        let seen_token_hashes = cache
             .seen_tokens
             .iter()
             .filter(|entry| *entry.value() == environment)
@@ -92,7 +92,7 @@ pub fn get_metrics_by_environment(cache: &MetricsCache) -> HashMap<String, Metri
             applications: applications.clone(),
             metrics,
             impact_metrics: all_impact_metrics,
-            seen_tokens,
+            seen_tokens: seen_token_hashes,
             seen_token_hashes: vec![],
         };
         batches_by_environment.insert(environment, batch);
@@ -186,8 +186,8 @@ pub fn get_appropriately_sized_batches(cache: &MetricsCache) -> Vec<MetricsBatch
     for metric in batch.metrics.clone() {
         cache.metrics.remove(&MetricsKey::from(metric.clone()));
     }
-    METRICS_SIZE_HISTOGRAM.observe(size_of_batch(&batch) as f64);
     let batch = batch.with_seen_token_hashes();
+    METRICS_SIZE_HISTOGRAM.observe(size_of_batch(&batch) as f64);
     if sendable(&batch) {
         vec![batch]
     } else {
@@ -200,7 +200,7 @@ pub fn get_appropriately_sized_batches(cache: &MetricsCache) -> Vec<MetricsBatch
     }
 }
 
-pub fn reinsert_batch(cache: &MetricsCache, batch: MetricsBatch) {
+pub fn reinsert_batch(cache: &MetricsCache, batch: MetricsBatch, environment: &str) {
     for application in batch.applications {
         register_application(cache, application);
     }
@@ -209,13 +209,14 @@ pub fn reinsert_batch(cache: &MetricsCache, batch: MetricsBatch) {
 
     sink_metrics(cache, &batch.metrics);
 
-    sink_seen_tokens(cache, batch.seen_tokens);
+    sink_seen_token_hashes(cache, batch.seen_tokens, environment);
 }
 
 pub fn sink_bulk_metrics(
     cache: &MetricsCache,
     metrics: BatchMetricsRequestBody,
     connect_via: &ConnectVia,
+    environment: Option<&str>,
 ) {
     for application in metrics.applications {
         register_application(
@@ -227,6 +228,13 @@ pub fn sink_bulk_metrics(
     // TODO: sink impact metrics
 
     sink_metrics(cache, &metrics.metrics);
+    if let Some(environment) = environment {
+        sink_seen_token_hashes(
+            cache,
+            metrics.seen_token_hashes.unwrap_or_default(),
+            environment,
+        );
+    }
 }
 
 pub fn reset_metrics(cache: &MetricsCache) {
@@ -249,16 +257,14 @@ pub fn register_seen_token(cache: &MetricsCache, edge_token: &EdgeToken) {
         .unwrap_or_else(|| "development".into());
     cache
         .seen_tokens
-        .insert(edge_token.token.clone(), environment);
+        .insert(hash_seen_token(&edge_token.token), environment);
 }
 
-fn sink_seen_tokens(cache: &MetricsCache, tokens: Vec<String>) {
-    for token in tokens {
-        let environment = EdgeToken::try_from(token.clone())
-            .ok()
-            .and_then(|edge_token| edge_token.environment)
-            .unwrap_or_else(|| "development".into());
-        cache.seen_tokens.insert(token, environment);
+fn sink_seen_token_hashes(cache: &MetricsCache, token_hashes: Vec<String>, environment: &str) {
+    for token_hash in token_hashes {
+        cache
+            .seen_tokens
+            .insert(token_hash, environment.to_string());
     }
 }
 
@@ -275,11 +281,7 @@ trait SeenTokenHashing {
 
 impl SeenTokenHashing for MetricsBatch {
     fn with_seen_token_hashes(mut self) -> Self {
-        self.seen_token_hashes = self
-            .seen_tokens
-            .iter()
-            .map(|token| hash_seen_token(token))
-            .collect();
+        self.seen_token_hashes = self.seen_tokens.clone();
         self
     }
 }
@@ -408,7 +410,12 @@ pub fn register_bulk_metrics(
         impact_metrics: metrics.impact_metrics.clone(),
         seen_token_hashes: metrics.seen_token_hashes.clone(),
     };
-    sink_bulk_metrics(metrics_cache, updated, connect_via);
+    sink_bulk_metrics(
+        metrics_cache,
+        updated,
+        connect_via,
+        edge_token.environment.as_deref(),
+    );
 }
 
 #[cfg(test)]
@@ -838,14 +845,14 @@ mod test {
                 .get("development")
                 .expect("development batch")
                 .seen_tokens,
-            vec![development_token.token]
+            vec![hash_seen_token(&development_token.token)]
         );
         assert_eq!(
             metrics_by_env_map
                 .get("production")
                 .expect("production batch")
                 .seen_tokens,
-            vec![production_token.token]
+            vec![hash_seen_token(&production_token.token)]
         );
     }
 
@@ -876,18 +883,48 @@ mod test {
                 applications: vec![],
                 metrics: vec![],
                 impact_metrics: vec![],
-                seen_tokens: vec![token.token.clone()],
+                seen_tokens: vec![hash_seen_token(&token.token)],
                 seen_token_hashes: vec![],
             },
+            "development",
         );
 
         assert_eq!(
             cache
                 .seen_tokens
-                .get(&token.token)
+                .get(&hash_seen_token(&token.token))
                 .expect("token was reinserted")
                 .value(),
             "development"
         );
+    }
+
+    #[test]
+    pub fn downstream_seen_token_hashes_are_forwarded_by_environment() {
+        let cache = MetricsCache::default();
+        let connect_via = ConnectVia {
+            app_name: "edge".into(),
+            instance_id: "edge-1".into(),
+        };
+        let edge_token = EdgeToken::from_str("*:development.edgetoken").expect("valid edge token");
+        let seen_token_hash = hash_seen_token("*:development.sdktoken");
+
+        register_bulk_metrics(
+            &cache,
+            &connect_via,
+            &edge_token,
+            BatchMetricsRequestBody {
+                applications: vec![],
+                metrics: vec![],
+                impact_metrics: None,
+                seen_token_hashes: Some(vec![seen_token_hash.clone()]),
+            },
+        );
+
+        let batch = get_metrics_by_environment(&cache)
+            .remove("development")
+            .expect("development batch");
+
+        assert_eq!(batch.seen_tokens, vec![seen_token_hash]);
     }
 }

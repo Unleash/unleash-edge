@@ -11,6 +11,7 @@ pub struct MetricsBatch {
         rename = "impactMetrics"
     )]
     pub impact_metrics: Vec<ImpactMetricEnv>,
+    /// Internal retry bookkeeping for seen token SHA-256 hashes. This is not serialized.
     #[serde(skip)]
     pub seen_tokens: Vec<String>,
     #[serde(
