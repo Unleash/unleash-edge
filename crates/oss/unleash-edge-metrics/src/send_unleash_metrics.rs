@@ -165,11 +165,26 @@ async fn send_metrics(
     let mut results = Vec::new();
 
     for (env, batch) in envs {
-        let tok = startup_tokens
+        let Some(tok) = startup_tokens
             .iter()
             .find(|t| t.environment.as_ref() == Some(&env))
             .map(|t| t.token.as_str())
-            .expect("Unable to determine token to use for metrics sending");
+        else {
+            let slices = get_appropriately_sized_env_batches(&metrics_cache, &batch);
+            if slices.is_empty() {
+                results.push(Err(MetricsSendError::NoBackoff(format!(
+                    "No upstream token configured for environment {env}. Dropping empty metrics batch"
+                ))));
+            } else {
+                results.extend(slices.into_iter().map(|slice| {
+                    Err(MetricsSendError::NoBackoff(format!(
+                        "No upstream token configured for environment {env}. Dropping metrics batch of {} bytes",
+                        size_of_batch(&slice)
+                    )))
+                }));
+            }
+            continue;
+        };
         let slices = get_appropriately_sized_env_batches(&metrics_cache, &batch);
 
         tracing::trace!("Posting {} batches for {}", slices.len(), env);

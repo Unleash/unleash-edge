@@ -1,3 +1,4 @@
+use itertools::{EitherOrBoth, Itertools};
 use std::io::{self, Write};
 use tracing::instrument;
 use unleash_edge_types::metrics::batching::MetricsBatch;
@@ -31,6 +32,7 @@ enum SizedItemKind {
     Metric(ClientMetricsEnv),
     Impact(ImpactMetricEnv),
     SeenToken { token: String, token_hash: String },
+    SeenTokenHash { token_hash: String },
 }
 
 impl SizedItemKind {
@@ -40,6 +42,7 @@ impl SizedItemKind {
             SizedItemKind::Metric(metric) => size_of_batch(metric),
             SizedItemKind::Impact(impact) => size_of_batch(impact),
             SizedItemKind::SeenToken { token_hash, .. } => size_of_batch(token_hash),
+            SizedItemKind::SeenTokenHash { token_hash } => size_of_batch(token_hash),
         }
     }
 }
@@ -94,9 +97,19 @@ fn partition_batch(mut batch: MetricsBatch, max_batch_size: usize) -> Vec<Metric
         batch
             .seen_tokens
             .drain(..)
-            .zip(batch.seen_token_hashes.drain(..))
-            .map(|(token, token_hash)| {
-                SizedItem::new(SizedItemKind::SeenToken { token, token_hash })
+            .zip_longest(batch.seen_token_hashes.drain(..))
+            .map(|token_data| {
+                let item = match token_data {
+                    EitherOrBoth::Both(token, token_hash) => {
+                        SizedItemKind::SeenToken { token, token_hash }
+                    }
+                    EitherOrBoth::Left(token) => {
+                        let token_hash = crate::client_metrics::hash_seen_token(&token);
+                        SizedItemKind::SeenToken { token, token_hash }
+                    }
+                    EitherOrBoth::Right(token_hash) => SizedItemKind::SeenTokenHash { token_hash },
+                };
+                SizedItem::new(item)
             }),
     );
 
@@ -126,6 +139,9 @@ fn partition_batch(mut batch: MetricsBatch, max_batch_size: usize) -> Vec<Metric
             SizedItemKind::Impact(impact) => current_batch.impact_metrics.push(impact),
             SizedItemKind::SeenToken { token, token_hash } => {
                 current_batch.seen_tokens.push(token);
+                current_batch.seen_token_hashes.push(token_hash);
+            }
+            SizedItemKind::SeenTokenHash { token_hash } => {
                 current_batch.seen_token_hashes.push(token_hash);
             }
         }
@@ -365,5 +381,44 @@ mod tests {
                 .sum::<usize>(),
             100
         );
+    }
+
+    #[test]
+    fn partition_hashes_seen_tokens_missing_hashes() {
+        let batch = MetricsBatch {
+            applications: vec![],
+            metrics: vec![],
+            impact_metrics: vec![],
+            seen_tokens: vec!["*:development.token".into()],
+            seen_token_hashes: vec![],
+        };
+
+        let batches = partition_batch(batch, 600);
+
+        assert_eq!(batches.len(), 1);
+        assert_eq!(batches[0].seen_tokens, vec!["*:development.token"]);
+        assert_eq!(
+            batches[0].seen_token_hashes,
+            vec![crate::client_metrics::hash_seen_token(
+                "*:development.token"
+            )]
+        );
+    }
+
+    #[test]
+    fn partition_preserves_extra_seen_token_hashes() {
+        let batch = MetricsBatch {
+            applications: vec![],
+            metrics: vec![],
+            impact_metrics: vec![],
+            seen_tokens: vec![],
+            seen_token_hashes: vec!["hash-without-token".into()],
+        };
+
+        let batches = partition_batch(batch, 600);
+
+        assert_eq!(batches.len(), 1);
+        assert!(batches[0].seen_tokens.is_empty());
+        assert_eq!(batches[0].seen_token_hashes, vec!["hash-without-token"]);
     }
 }
