@@ -345,7 +345,6 @@ pub struct MetricsCache {
     pub applications: DashMap<ApplicationKey, ClientApplication>,
     pub metrics: DashMap<MetricsKey, ClientMetricsEnv>,
     pub impact_metrics: DashMap<ImpactMetricsKey, Vec<ImpactMetricEnv>>,
-    /// SHA-256 token hash -> environment. Raw API tokens are not retained here.
     pub seen_tokens: DashMap<String, String>,
 }
 

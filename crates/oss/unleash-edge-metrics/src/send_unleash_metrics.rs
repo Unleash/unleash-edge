@@ -82,7 +82,6 @@ async fn send_one_with_retry(
             && batch.metrics.is_empty()
             && batch.impact_metrics.is_empty()
             && batch.seen_tokens.is_empty()
-            && batch.seen_token_hashes.is_empty()
         {
             return Ok(());
         }

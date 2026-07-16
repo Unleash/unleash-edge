@@ -387,9 +387,9 @@ pub struct BatchMetricsRequestBody {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        rename = "seenTokenHashes"
+        rename = "seenTokens"
     )]
-    pub seen_token_hashes: Option<Vec<String>>,
+    pub seen_tokens: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
