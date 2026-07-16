@@ -20,7 +20,7 @@ variable "build_region" {
 }
 
 variable "replicate_regions" {
-  type = list(string)
+  type        = list(string)
   description = "AWS regions to replicate the AMI to"
 }
 
@@ -42,10 +42,11 @@ source "amazon-ebs" "unleash-edge-enterprise" {
   ami_virtualization_type     = "hvm"
   associate_public_ip_address = true
   ami_regions                 = var.replicate_regions
+  encrypt_boot                = true
 
   source_ami_filter {
     most_recent = true
-    owners = ["099720109477"]
+    owners      = ["099720109477"]
     filters = {
       name                = "ubuntu-minimal/images/hvm-ssd-gp3/ubuntu-noble-24.04-arm64-minimal-*"
       architecture        = "arm64"
@@ -56,28 +57,28 @@ source "amazon-ebs" "unleash-edge-enterprise" {
   }
 
   tags = {
-    Name        = "Unleash Edge Enterprise ARM64 AMI ${ var.edge_version }"
+    Name        = "Unleash Edge Enterprise ARM64 AMI ${var.edge_version}"
     EdgeVersion = var.edge_version
   }
 }
 
 build {
-  name = "build-edge-enterprise-arm64"
+  name    = "build-edge-enterprise-arm64"
   sources = ["source.amazon-ebs.unleash-edge-enterprise"]
   provisioner "shell" {
     script            = "${path.root}/provisioners/00-base.sh"
     execute_command   = "sudo -E bash '{{.Path}}'"
     expect_disconnect = true
+    valid_exit_codes  = [0]
+  }
+
+  provisioner "shell" {
+    script           = "${path.root}/provisioners/05-rust.sh"
     valid_exit_codes = [0]
   }
 
   provisioner "shell" {
-    script = "${path.root}/provisioners/05-rust.sh"
-    valid_exit_codes = [0]
-  }
-
-  provisioner "shell" {
-    script = "${path.root}/provisioners/10-clone-and-build.sh"
+    script           = "${path.root}/provisioners/10-clone-and-build.sh"
     environment_vars = ["EDGE_VERSION=${var.edge_version}"]
     valid_exit_codes = [0]
   }
@@ -86,16 +87,16 @@ build {
     script            = "${path.root}/provisioners/15-hardening.sh"
     execute_command   = "sudo -E bash '{{.Path}}'"
     expect_disconnect = true
-    valid_exit_codes = [0]
+    valid_exit_codes  = [0]
   }
 
   provisioner "shell" {
-    script          = "${path.root}/provisioners/20-unleash-edge-service-unit.sh"
-    execute_command = "sudo -E bash '{{.Path}}'"
+    script           = "${path.root}/provisioners/20-unleash-edge-service-unit.sh"
+    execute_command  = "sudo -E bash '{{.Path}}'"
     valid_exit_codes = [0]
   }
   provisioner "shell" {
-    script = "${path.root}/provisioners/25-clean-build-tools.sh"
+    script           = "${path.root}/provisioners/25-clean-build-tools.sh"
     valid_exit_codes = [0]
   }
   provisioner "shell" {
