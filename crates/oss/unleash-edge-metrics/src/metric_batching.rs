@@ -145,7 +145,9 @@ pub(crate) fn cut_into_sendable_batches(batch: MetricsBatch) -> Vec<MetricsBatch
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::client_metrics::{get_appropriately_sized_batches, sink_metrics};
+    use crate::client_metrics::{
+        get_appropriately_sized_env_batches, get_metrics_by_environment, sink_metrics,
+    };
     use chrono::{DateTime, Utc};
     use proptest::prelude::*;
     use std::collections::HashMap;
@@ -245,7 +247,10 @@ mod tests {
             );
         }
         sink_metrics(&cache, &toggles);
-        let batches = get_appropriately_sized_batches(&cache);
+        let batch = get_metrics_by_environment(&cache)
+            .remove("development")
+            .expect("development batch");
+        let batches = get_appropriately_sized_env_batches(&cache, &batch);
 
         assert_eq!(batches.len(), batch_count);
         assert!(batches.iter().all(sendable));
@@ -262,6 +267,7 @@ mod tests {
         apps: Vec<String>,
         metrics: Vec<String>,
         impacts: Vec<String>,
+        seen_tokens: Vec<String>,
         batch_size: usize,
     ) {
         let apps = apps.into_iter().map(make_client_app).collect();
@@ -272,7 +278,7 @@ mod tests {
             applications: apps,
             metrics,
             impact_metrics: impacts,
-            seen_tokens: vec![],
+            seen_tokens,
         };
 
         let total_apps = batch.applications.len();
@@ -313,9 +319,10 @@ mod tests {
         fn prop_batches_obey_size_and_correctness(
             apps in proptest::collection::vec(any::<String>(), 1..100),
             metrics in proptest::collection::vec(any::<String>(), 1..100),
-            impacts in proptest::collection::vec(any::<String>(), 1..100)
+            impacts in proptest::collection::vec(any::<String>(), 1..100),
+            seen_tokens in proptest::collection::vec(any::<String>(), 1..100)
         ) {
-            execute_test(apps, metrics, impacts, 2000);
+            execute_test(apps, metrics, impacts, seen_tokens, 2000);
         }
     }
 
@@ -332,7 +339,14 @@ mod tests {
         .into_iter()
         .map(|x| x.to_string())
         .collect();
-        execute_test(apps, metrics, impacts, 600);
+        let seen_tokens = vec![
+            "project:development.𐐀AAa",
+            "another-project:production.🌀token",
+        ]
+        .into_iter()
+        .map(|x| x.to_string())
+        .collect();
+        execute_test(apps, metrics, impacts, seen_tokens, 600);
     }
 
     #[test]

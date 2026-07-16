@@ -73,7 +73,6 @@ async fn send_one_with_retry(
     token: &str,
     batch: MetricsBatch,
     metrics_cache: &MetricsCache,
-    environment: &str,
 ) -> Result<(), MetricsSendError> {
     let mut attempt = 0usize;
 
@@ -117,7 +116,7 @@ async fn send_one_with_retry(
                     | StatusCode::BAD_GATEWAY
                     | StatusCode::SERVICE_UNAVAILABLE
                     | StatusCode::GATEWAY_TIMEOUT => {
-                        reinsert_batch(metrics_cache, batch, environment);
+                        reinsert_batch(metrics_cache, batch);
                         Err(MetricsSendError::Backoff(format!(
 	                    "Upstream said it is struggling. It returned Http status {}",
                             status
@@ -125,7 +124,7 @@ async fn send_one_with_retry(
                     }
 
                     _ => {
-                        reinsert_batch(metrics_cache, batch, environment);
+                        reinsert_batch(metrics_cache, batch);
                         Err(MetricsSendError::Unknown(format!(
                             "Upstream returned an unexpected status code: {}",
                             status
@@ -140,7 +139,7 @@ async fn send_one_with_retry(
                 // queue, since we have MAX_INFLIGHT_PER_ENV requests in flight at once. If all MAX_INFLIGHT_PER_ENV are sleeping,
                 // then we do actually need to chill out a little more to avoid thrashing anyway.
                 if attempt >= MAX_RETRIES {
-                    reinsert_batch(metrics_cache, batch, environment);
+                    reinsert_batch(metrics_cache, batch);
                     return Err(MetricsSendError::Unknown(format!(
                         "Network failure after {} retries: {other:?}; reinserted",
                         attempt
@@ -186,8 +185,7 @@ async fn send_metrics(
         let stream = stream::iter(slices.into_iter().map(|slice| {
             let client = unleash_client.clone();
             let cache = metrics_cache.clone();
-            let environment = env.clone();
-            async move { send_one_with_retry(&client, tok, slice, &cache, &environment).await }
+            async move { send_one_with_retry(&client, tok, slice, &cache).await }
         }));
 
         let mut buffered = stream.buffered(MAX_INFLIGHT_PER_ENV);

@@ -1,6 +1,6 @@
 use crate::MetricsKey;
 use ahash::HashMap;
-use dashmap::DashMap;
+use dashmap::{DashMap, DashSet};
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU64, Ordering};
 use unleash_types::client_metrics::{ClientApplication, ClientMetricsEnv, ImpactMetricEnv};
@@ -345,8 +345,7 @@ pub struct MetricsCache {
     pub applications: DashMap<ApplicationKey, ClientApplication>,
     pub metrics: DashMap<MetricsKey, ClientMetricsEnv>,
     pub impact_metrics: DashMap<ImpactMetricsKey, Vec<ImpactMetricEnv>>,
-    /// Raw token secret to environment. These are forwarded upstream in metrics payloads so Unleash can update token last-seen timestamps.
-    pub seen_tokens: DashMap<String, String>,
+    pub seen_tokens: DashSet<String>,
 }
 
 #[cfg(test)]
