@@ -171,18 +171,12 @@ async fn send_metrics(
             .map(|t| t.token.as_str())
         else {
             let slices = get_appropriately_sized_env_batches(&metrics_cache, &batch);
-            if slices.is_empty() {
-                results.push(Err(MetricsSendError::NoBackoff(format!(
-                    "No upstream token configured for environment {env}. Dropping empty metrics batch"
-                ))));
-            } else {
-                results.extend(slices.into_iter().map(|slice| {
-                    Err(MetricsSendError::NoBackoff(format!(
-                        "No upstream token configured for environment {env}. Dropping metrics batch of {} bytes",
-                        size_of_batch(&slice)
-                    )))
-                }));
-            }
+            results.extend(slices.into_iter().map(|slice| {
+                Err(MetricsSendError::NoBackoff(format!(
+                    "No upstream token configured for environment {env}. Dropping metrics batch of {} bytes",
+                    size_of_batch(&slice)
+                )))
+            }));
             continue;
         };
         let slices = get_appropriately_sized_env_batches(&metrics_cache, &batch);

@@ -53,9 +53,12 @@ pub fn get_metrics_by_environment(cache: &MetricsCache) -> HashMap<String, Metri
         all_environments.insert(entry.key().environment.clone());
     }
 
-    for entry in cache.seen_tokens.iter() {
-        all_environments.insert(entry.value().clone());
-    }
+    let seen_tokens_by_env: HashMap<String, Vec<String>> = cache
+        .seen_tokens
+        .iter()
+        .map(|entry| (entry.value().clone(), entry.key().clone()))
+        .into_group_map();
+    all_environments.extend(seen_tokens_by_env.keys().cloned());
 
     let data = cache
         .metrics
@@ -80,12 +83,10 @@ pub fn get_metrics_by_environment(cache: &MetricsCache) -> HashMap<String, Metri
             }
         }
 
-        let seen_tokens = cache
-            .seen_tokens
-            .iter()
-            .filter(|entry| *entry.value() == environment)
-            .map(|entry| entry.key().clone())
-            .collect();
+        let seen_tokens = seen_tokens_by_env
+            .get(&environment)
+            .cloned()
+            .unwrap_or_default();
 
         let batch = MetricsBatch {
             applications: applications.clone(),
