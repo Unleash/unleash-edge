@@ -56,7 +56,11 @@ pub fn get_metrics_by_environment(cache: &MetricsCache) -> HashMap<String, Metri
     let seen_tokens_by_env: HashMap<String, Vec<String>> = cache
         .seen_tokens
         .iter()
-        .map(|entry| (entry.value().clone(), entry.key().clone()))
+        .map(|entry| {
+            let token_secret = entry.key().clone();
+            let environment = entry.value().clone();
+            (environment, token_secret)
+        })
         .into_group_map();
     all_environments.extend(seen_tokens_by_env.keys().cloned());
 

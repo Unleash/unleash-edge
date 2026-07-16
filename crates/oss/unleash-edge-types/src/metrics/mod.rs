@@ -345,6 +345,7 @@ pub struct MetricsCache {
     pub applications: DashMap<ApplicationKey, ClientApplication>,
     pub metrics: DashMap<MetricsKey, ClientMetricsEnv>,
     pub impact_metrics: DashMap<ImpactMetricsKey, Vec<ImpactMetricEnv>>,
+    /// Raw token secret to environment. These are forwarded upstream in metrics payloads so Unleash can update token last-seen timestamps.
     pub seen_tokens: DashMap<String, String>,
 }
 
