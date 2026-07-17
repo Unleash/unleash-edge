@@ -80,6 +80,7 @@ async fn send_one_with_retry(
         if batch.applications.is_empty()
             && batch.metrics.is_empty()
             && batch.impact_metrics.is_empty()
+            && batch.seen_tokens.is_empty()
         {
             return Ok(());
         }
@@ -163,6 +164,20 @@ async fn send_metrics(
     let mut results = Vec::new();
 
     for (env, batch) in envs {
+        let Some(tok) = startup_tokens
+            .iter()
+            .find(|t| t.environment.as_ref() == Some(&env))
+            .map(|t| t.token.as_str())
+        else {
+            let slices = get_appropriately_sized_env_batches(&metrics_cache, &batch);
+            results.extend(slices.into_iter().map(|slice| {
+                Err(MetricsSendError::NoBackoff(format!(
+                    "No upstream token configured for environment {env}. Dropping metrics batch of {} bytes",
+                    size_of_batch(&slice)
+                )))
+            }));
+            continue;
+        };
         let slices = get_appropriately_sized_env_batches(&metrics_cache, &batch);
 
         tracing::trace!("Posting {} batches for {}", slices.len(), env);
@@ -170,11 +185,6 @@ async fn send_metrics(
         let stream = stream::iter(slices.into_iter().map(|slice| {
             let client = unleash_client.clone();
             let cache = metrics_cache.clone();
-            let tok = startup_tokens
-                .iter()
-                .find(|t| t.environment.as_ref() == Some(&env))
-                .map(|t| t.token.as_str())
-                .expect("Unable to determine token to use for metrics sending");
             async move { send_one_with_retry(&client, tok, slice, &cache).await }
         }));
 
