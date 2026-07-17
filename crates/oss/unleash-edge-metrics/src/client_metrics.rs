@@ -1,11 +1,10 @@
-use crate::client_impact_metrics::{
-    convert_to_impact_metrics_env, merge_impact_metrics, sink_impact_metrics,
-};
+use crate::client_impact_metrics::{convert_to_impact_metrics_env, sink_impact_metrics};
 use crate::metric_batching::{cut_into_sendable_batches, sendable, size_of_batch};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use prometheus::{Histogram, IntCounterVec, register_histogram, register_int_counter_vec};
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::sync::Arc;
 use tracing::debug;
 use unleash_edge_types::metrics::batching::MetricsBatch;
@@ -53,10 +52,17 @@ pub fn get_metrics_by_environment(cache: &MetricsCache) -> HashMap<String, Metri
         all_environments.insert(entry.key().environment.clone());
     }
 
+    for entry in cache.seen_tokens.iter() {
+        if let Some(environment) = &entry.environment {
+            all_environments.insert(environment.clone());
+        }
+    }
+
     let data = cache
         .metrics
         .iter()
         .map(|e| e.value().clone())
+        .filter(|m| m.yes > 0 || m.no > 0)
         .collect::<Vec<ClientMetricsEnv>>();
     let metrics_by_env: HashMap<String, Vec<ClientMetricsEnv>> = data
         .into_iter()
@@ -76,10 +82,23 @@ pub fn get_metrics_by_environment(cache: &MetricsCache) -> HashMap<String, Metri
             }
         }
 
+        let seen_tokens = cache
+            .seen_tokens
+            .iter()
+            .filter_map(|entry| {
+                if entry.environment.as_ref() == Some(&environment) {
+                    Some(entry.token.clone())
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
         let batch = MetricsBatch {
             applications: applications.clone(),
             metrics,
             impact_metrics: all_impact_metrics,
+            seen_tokens,
         };
         batches_by_environment.insert(environment, batch);
     }
@@ -90,6 +109,8 @@ pub fn get_appropriately_sized_env_batches(
     cache: &MetricsCache,
     batch: &MetricsBatch,
 ) -> Vec<MetricsBatch> {
+    let batch = batch.clone();
+
     for app in batch.applications.clone() {
         cache
             .applications
@@ -102,59 +123,10 @@ pub fn get_appropriately_sized_env_batches(
             .remove(&ImpactMetricsKey::from(&impact_metric));
     }
 
-    for metric in batch.metrics.clone() {
-        cache.metrics.remove(&MetricsKey::from(metric.clone()));
-    }
-    METRICS_SIZE_HISTOGRAM.observe(size_of_batch(batch) as f64);
-    if sendable(batch) {
-        vec![batch.clone()]
-    } else {
-        debug!(
-            "We have {} applications and {} metrics",
-            batch.applications.len(),
-            batch.metrics.len()
-        );
-        cut_into_sendable_batches(batch.clone())
-    }
-}
-/// This is a destructive call. We'll remove all metrics that is due for posting
-/// Called from [crate::send_unleash_metrics::create_send_metrics_task] which will reinsert on 5xx server failures, but leave 413 and 400 failures on the floor
-pub fn get_appropriately_sized_batches(cache: &MetricsCache) -> Vec<MetricsBatch> {
-    let impact_keys: Vec<ImpactMetricsKey> = cache
-        .impact_metrics
-        .iter()
-        .map(|e| e.key().clone())
-        .collect();
-
-    let mut all_impact_metrics = Vec::new();
-    for entry in cache.impact_metrics.iter() {
-        all_impact_metrics.extend(entry.value().clone());
-    }
-
-    let merged_impact_metrics = merge_impact_metrics(all_impact_metrics);
-
-    let batch = MetricsBatch {
-        applications: cache
-            .applications
-            .iter()
-            .map(|e| e.value().clone())
-            .collect(),
-        metrics: cache
-            .metrics
-            .iter()
-            .map(|e| e.value().clone())
-            .filter(|m| m.yes > 0 || m.no > 0) // Makes sure that we only return buckets that have values. We should have a test for this :P
-            .collect(),
-        impact_metrics: merged_impact_metrics,
-    };
-    for app in batch.applications.clone() {
-        cache
-            .applications
-            .remove(&ApplicationKey::from(app.clone()));
-    }
-
-    for key in &impact_keys {
-        cache.impact_metrics.remove(key);
+    for token in &batch.seen_tokens {
+        if let Ok(edge_token) = EdgeToken::from_str(token) {
+            cache.seen_tokens.remove(&edge_token);
+        }
     }
 
     for metric in batch.metrics.clone() {
@@ -169,10 +141,9 @@ pub fn get_appropriately_sized_batches(cache: &MetricsCache) -> Vec<MetricsBatch
             batch.applications.len(),
             batch.metrics.len()
         );
-        cut_into_sendable_batches(batch)
+        cut_into_sendable_batches(batch.clone())
     }
 }
-
 pub fn reinsert_batch(cache: &MetricsCache, batch: MetricsBatch) {
     for application in batch.applications {
         register_application(cache, application);
@@ -181,6 +152,8 @@ pub fn reinsert_batch(cache: &MetricsCache, batch: MetricsBatch) {
     sink_impact_metrics(cache, batch.impact_metrics.clone());
 
     sink_metrics(cache, &batch.metrics);
+
+    sink_seen_tokens(cache, parse_seen_tokens(batch.seen_tokens));
 }
 
 pub fn sink_bulk_metrics(
@@ -197,19 +170,55 @@ pub fn sink_bulk_metrics(
 
     // TODO: sink impact metrics
 
-    sink_metrics(cache, &metrics.metrics)
+    sink_metrics(cache, &metrics.metrics);
+    sink_seen_tokens(
+        cache,
+        parse_seen_tokens(metrics.seen_tokens.unwrap_or_default()),
+    );
 }
 
 pub fn reset_metrics(cache: &MetricsCache) {
     cache.applications.clear();
     cache.metrics.clear();
     cache.impact_metrics.clear();
+    cache.seen_tokens.clear();
 }
 
 pub fn register_application(cache: &MetricsCache, application: ClientApplication) {
     cache
         .applications
         .insert(ApplicationKey::from(application.clone()), application);
+}
+
+pub fn register_seen_token(cache: &MetricsCache, token: &EdgeToken) {
+    insert_seen_token(cache, token.clone());
+}
+
+fn insert_seen_token(cache: &MetricsCache, token: EdgeToken) {
+    if token.environment.is_some() {
+        cache.seen_tokens.insert(token);
+    } else {
+        tracing::warn!("Ignoring seen token without a parseable environment");
+    }
+}
+
+fn sink_seen_tokens(cache: &MetricsCache, tokens: Vec<EdgeToken>) {
+    for token in tokens {
+        insert_seen_token(cache, token);
+    }
+}
+
+fn parse_seen_tokens(tokens: Vec<String>) -> Vec<EdgeToken> {
+    tokens
+        .into_iter()
+        .filter_map(|token| match EdgeToken::from_str(&token) {
+            Ok(token) => Some(token),
+            Err(_) => {
+                tracing::warn!("Ignoring seen token without a parseable environment");
+                None
+            }
+        })
+        .collect()
 }
 
 pub fn sink_metrics(cache: &MetricsCache, metrics: &[ClientMetricsEnv]) {
@@ -334,6 +343,7 @@ pub fn register_bulk_metrics(
             .cloned()
             .collect(),
         impact_metrics: metrics.impact_metrics.clone(),
+        seen_tokens: metrics.seen_tokens.clone(),
     };
     sink_bulk_metrics(metrics_cache, updated, connect_via);
 }
@@ -637,7 +647,10 @@ mod test {
         ];
 
         sink_metrics(&cache, &metrics);
-        let metrics_batch = get_appropriately_sized_batches(&cache);
+        let batch = get_metrics_by_environment(&cache)
+            .remove("development")
+            .expect("development batch");
+        let metrics_batch = get_appropriately_sized_env_batches(&cache, &batch);
         assert_eq!(metrics_batch.len(), 1);
         assert!(metrics_batch.first().unwrap().metrics.is_empty());
     }
@@ -691,6 +704,7 @@ mod test {
                 },
             ],
             impact_metrics: None,
+            seen_tokens: None,
         };
         register_bulk_metrics(
             &metrics_cache,
@@ -743,5 +757,188 @@ mod test {
         assert_eq!(metrics_by_env_map.len(), 2);
         assert!(metrics_by_env_map.contains_key("development"));
         assert!(metrics_by_env_map.contains_key("production"));
+    }
+
+    #[test]
+    pub fn seen_tokens_are_deduplicated_and_grouped_by_environment() {
+        let cache = MetricsCache::default();
+        let development_token =
+            EdgeToken::from_str("*:development.devtoken").expect("valid development token");
+        let production_token =
+            EdgeToken::from_str("*:production.prodtoken").expect("valid production token");
+
+        register_seen_token(&cache, &development_token);
+        register_seen_token(&cache, &development_token);
+        register_seen_token(&cache, &production_token);
+
+        let metrics_by_env_map = get_metrics_by_environment(&cache);
+        assert_eq!(cache.seen_tokens.len(), 2);
+        assert_eq!(
+            metrics_by_env_map
+                .get("development")
+                .expect("development batch")
+                .seen_tokens,
+            vec![development_token.token]
+        );
+        assert_eq!(
+            metrics_by_env_map
+                .get("production")
+                .expect("production batch")
+                .seen_tokens,
+            vec![production_token.token]
+        );
+    }
+
+    #[test]
+    pub fn sent_seen_tokens_are_removed_from_cache() {
+        let cache = MetricsCache::default();
+        let token = EdgeToken::from_str("*:development.devtoken").expect("valid token");
+        register_seen_token(&cache, &token);
+
+        let batch = get_metrics_by_environment(&cache)
+            .remove("development")
+            .expect("development batch");
+        let slices = get_appropriately_sized_env_batches(&cache, &batch);
+
+        assert_eq!(slices.len(), 1);
+        assert_eq!(slices[0].seen_tokens, vec![token.token.clone()]);
+        let serialized = serde_json::to_string(&slices[0]).expect("batch should serialize");
+        assert!(serialized.contains(&token.token));
+        assert!(serialized.contains("seenTokens"));
+        assert!(cache.seen_tokens.is_empty());
+    }
+
+    #[test]
+    pub fn reinsert_preserves_seen_tokens() {
+        let cache = MetricsCache::default();
+        let seen_token = "*:development.payload-only".to_string();
+
+        reinsert_batch(
+            &cache,
+            MetricsBatch {
+                applications: vec![],
+                metrics: vec![],
+                impact_metrics: vec![],
+                seen_tokens: vec![seen_token.clone()],
+            },
+        );
+
+        assert!(
+            cache
+                .seen_tokens
+                .contains(&EdgeToken::from_str(&seen_token).expect("valid token"))
+        );
+    }
+
+    #[test]
+    pub fn downstream_seen_tokens_are_forwarded_by_environment() {
+        let cache = MetricsCache::default();
+        let connect_via = ConnectVia {
+            app_name: "edge".into(),
+            instance_id: "edge-1".into(),
+        };
+        let edge_token = EdgeToken::from_str("*:development.edgetoken").expect("valid edge token");
+        let seen_token = "*:development.sdktoken".to_string();
+
+        register_bulk_metrics(
+            &cache,
+            &connect_via,
+            &edge_token,
+            BatchMetricsRequestBody {
+                applications: vec![],
+                metrics: vec![],
+                impact_metrics: None,
+                seen_tokens: Some(vec![seen_token.clone()]),
+            },
+        );
+
+        let batch = get_metrics_by_environment(&cache)
+            .remove("development")
+            .expect("development batch");
+
+        assert_eq!(batch.seen_tokens, vec![seen_token]);
+    }
+
+    #[test]
+    pub fn downstream_seen_tokens_use_their_own_environment_when_present() {
+        let cache = MetricsCache::default();
+        let connect_via = ConnectVia {
+            app_name: "edge".into(),
+            instance_id: "edge-1".into(),
+        };
+        let edge_token = EdgeToken::from_str("*:development.edgetoken").expect("valid edge token");
+        let seen_token = "*:production.sdktoken".to_string();
+
+        register_bulk_metrics(
+            &cache,
+            &connect_via,
+            &edge_token,
+            BatchMetricsRequestBody {
+                applications: vec![],
+                metrics: vec![],
+                impact_metrics: None,
+                seen_tokens: Some(vec![seen_token.clone()]),
+            },
+        );
+
+        let batch = get_metrics_by_environment(&cache)
+            .remove("production")
+            .expect("production batch");
+
+        assert_eq!(batch.seen_tokens, vec![seen_token]);
+    }
+
+    #[test]
+    pub fn downstream_seen_tokens_use_their_own_environment_when_edge_token_has_none() {
+        let cache = MetricsCache::default();
+        let connect_via = ConnectVia {
+            app_name: "edge".into(),
+            instance_id: "edge-1".into(),
+        };
+        let edge_token = EdgeToken::no_project_or_environment("edgetoken");
+        let seen_token = "*:development.sdktoken".to_string();
+
+        register_bulk_metrics(
+            &cache,
+            &connect_via,
+            &edge_token,
+            BatchMetricsRequestBody {
+                applications: vec![],
+                metrics: vec![],
+                impact_metrics: None,
+                seen_tokens: Some(vec![seen_token.clone()]),
+            },
+        );
+
+        let batch = get_metrics_by_environment(&cache)
+            .remove("development")
+            .expect("development batch");
+
+        assert_eq!(batch.seen_tokens, vec![seen_token]);
+    }
+
+    #[test]
+    pub fn downstream_seen_tokens_without_environment_are_ignored() {
+        let cache = MetricsCache::default();
+        let connect_via = ConnectVia {
+            app_name: "edge".into(),
+            instance_id: "edge-1".into(),
+        };
+        let edge_token = EdgeToken::from_str("*:development.edgetoken").expect("valid edge token");
+
+        register_bulk_metrics(
+            &cache,
+            &connect_via,
+            &edge_token,
+            BatchMetricsRequestBody {
+                applications: vec![],
+                metrics: vec![],
+                impact_metrics: None,
+                seen_tokens: Some(vec!["not-a-token-secret".into()]),
+            },
+        );
+
+        assert!(cache.seen_tokens.is_empty());
+        assert!(get_metrics_by_environment(&cache).is_empty());
     }
 }

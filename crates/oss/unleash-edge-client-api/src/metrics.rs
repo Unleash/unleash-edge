@@ -278,6 +278,7 @@ mod tests {
                     applications: vec![],
                     metrics: vec![],
                     impact_metrics: None,
+                    seen_tokens: None,
                 })
                 .expect("Failed to parse Batch metrics request body"),
             )
@@ -402,6 +403,7 @@ mod tests {
                             ])),
                         }],
                     }]),
+                    seen_tokens: None,
                 })
                 .expect("Failed to convert to Json"),
             )

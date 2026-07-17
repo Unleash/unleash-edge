@@ -384,6 +384,12 @@ pub struct BatchMetricsRequestBody {
         rename = "impactMetrics"
     )]
     pub impact_metrics: Option<Vec<ImpactMetric>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "seenTokens"
+    )]
+    pub seen_tokens: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

@@ -19,7 +19,7 @@ pub(crate) fn size_of_batch<T: serde::Serialize>(value: &T) -> usize {
 // This is the number of bytes that are not part of the actual items in the batch.
 // It includes the opening and closing brackets, commas between items, and the JSON structure overhead.
 // If you patch the MetricsBatch struct, you may need to adjust this value. Prop tests will catch it.
-const EMPTY_BATCH_JSON_OVERHEAD: usize = 51;
+const EMPTY_BATCH_JSON_OVERHEAD: usize = 67;
 
 struct SizedItem {
     size: usize,
@@ -30,6 +30,7 @@ enum SizedItemKind {
     App(ClientApplication),
     Metric(ClientMetricsEnv),
     Impact(ImpactMetricEnv),
+    SeenToken(String),
 }
 
 impl SizedItemKind {
@@ -38,6 +39,7 @@ impl SizedItemKind {
             SizedItemKind::App(app) => size_of_batch(app),
             SizedItemKind::Metric(metric) => size_of_batch(metric),
             SizedItemKind::Impact(impact) => size_of_batch(impact),
+            SizedItemKind::SeenToken(token) => size_of_batch(token),
         }
     }
 }
@@ -88,6 +90,12 @@ fn partition_batch(mut batch: MetricsBatch, max_batch_size: usize) -> Vec<Metric
             .drain(..)
             .map(|impact| SizedItem::new(SizedItemKind::Impact(impact))),
     );
+    sized_items.extend(
+        batch
+            .seen_tokens
+            .drain(..)
+            .map(|token| SizedItem::new(SizedItemKind::SeenToken(token))),
+    );
 
     let mut batches = Vec::new();
     let mut current_batch = MetricsBatch::default();
@@ -100,6 +108,7 @@ fn partition_batch(mut batch: MetricsBatch, max_batch_size: usize) -> Vec<Metric
             if !current_batch.applications.is_empty()
                 || !current_batch.metrics.is_empty()
                 || !current_batch.impact_metrics.is_empty()
+                || !current_batch.seen_tokens.is_empty()
             {
                 batches.push(current_batch);
             }
@@ -111,6 +120,7 @@ fn partition_batch(mut batch: MetricsBatch, max_batch_size: usize) -> Vec<Metric
             SizedItemKind::App(app) => current_batch.applications.push(app),
             SizedItemKind::Metric(metric) => current_batch.metrics.push(metric),
             SizedItemKind::Impact(impact) => current_batch.impact_metrics.push(impact),
+            SizedItemKind::SeenToken(token) => current_batch.seen_tokens.push(token),
         }
 
         current_size += item.size + 1; // for commas separating items
@@ -119,6 +129,7 @@ fn partition_batch(mut batch: MetricsBatch, max_batch_size: usize) -> Vec<Metric
     if !current_batch.applications.is_empty()
         || !current_batch.metrics.is_empty()
         || !current_batch.impact_metrics.is_empty()
+        || !current_batch.seen_tokens.is_empty()
     {
         batches.push(current_batch);
     }
@@ -134,7 +145,9 @@ pub(crate) fn cut_into_sendable_batches(batch: MetricsBatch) -> Vec<MetricsBatch
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::client_metrics::{get_appropriately_sized_batches, sink_metrics};
+    use crate::client_metrics::{
+        get_appropriately_sized_env_batches, get_metrics_by_environment, sink_metrics,
+    };
     use chrono::{DateTime, Utc};
     use proptest::prelude::*;
     use std::collections::HashMap;
@@ -234,7 +247,10 @@ mod tests {
             );
         }
         sink_metrics(&cache, &toggles);
-        let batches = get_appropriately_sized_batches(&cache);
+        let batch = get_metrics_by_environment(&cache)
+            .remove("development")
+            .expect("development batch");
+        let batches = get_appropriately_sized_env_batches(&cache, &batch);
 
         assert_eq!(batches.len(), batch_count);
         assert!(batches.iter().all(sendable));
@@ -251,6 +267,7 @@ mod tests {
         apps: Vec<String>,
         metrics: Vec<String>,
         impacts: Vec<String>,
+        seen_tokens: Vec<String>,
         batch_size: usize,
     ) {
         let apps = apps.into_iter().map(make_client_app).collect();
@@ -261,11 +278,13 @@ mod tests {
             applications: apps,
             metrics,
             impact_metrics: impacts,
+            seen_tokens,
         };
 
         let total_apps = batch.applications.len();
         let total_metrics = batch.metrics.len();
         let total_impacts = batch.impact_metrics.len();
+        let total_seen_tokens = batch.seen_tokens.len();
 
         let batches = partition_batch(batch, batch_size);
 
@@ -276,10 +295,12 @@ mod tests {
             .iter()
             .map(|b| b.impact_metrics.len())
             .sum::<usize>();
+        let output_seen_tokens = batches.iter().map(|b| b.seen_tokens.len()).sum::<usize>();
 
         assert_eq!(total_apps, output_apps);
         assert_eq!(total_metrics, output_metrics);
         assert_eq!(total_impacts, output_impacts);
+        assert_eq!(total_seen_tokens, output_seen_tokens);
 
         for b in batches {
             let mut counter = ByteCounter { count: 0 };
@@ -298,14 +319,15 @@ mod tests {
         fn prop_batches_obey_size_and_correctness(
             apps in proptest::collection::vec(any::<String>(), 1..100),
             metrics in proptest::collection::vec(any::<String>(), 1..100),
-            impacts in proptest::collection::vec(any::<String>(), 1..100)
+            impacts in proptest::collection::vec(any::<String>(), 1..100),
+            seen_tokens in proptest::collection::vec(any::<String>(), 1..100)
         ) {
-            execute_test(apps, metrics, impacts, 2000);
+            execute_test(apps, metrics, impacts, seen_tokens, 2000);
         }
     }
 
     #[test]
-    fn invalid_when_container_size_is_2_not_51() {
+    fn invalid_when_container_size_is_2_not_67() {
         let apps = vec![""].into_iter().map(|x| x.to_string()).collect();
         let metrics = vec!["", ""].into_iter().map(|x| x.to_string()).collect();
         let impacts = vec![
@@ -317,6 +339,35 @@ mod tests {
         .into_iter()
         .map(|x| x.to_string())
         .collect();
-        execute_test(apps, metrics, impacts, 600);
+        let seen_tokens = vec![
+            "project:development.𐐀AAa",
+            "another-project:production.🌀token",
+        ]
+        .into_iter()
+        .map(|x| x.to_string())
+        .collect();
+        execute_test(apps, metrics, impacts, seen_tokens, 600);
+    }
+
+    #[test]
+    fn splits_seen_tokens_into_sendable_chunks() {
+        let batch = MetricsBatch {
+            applications: vec![],
+            metrics: vec![],
+            impact_metrics: vec![],
+            seen_tokens: (0..100)
+                .map(|i| format!("project:development.{}", "x".repeat(100 + i)))
+                .collect(),
+        };
+
+        let batches = partition_batch(batch, 600);
+        assert!(batches.len() > 1);
+        assert_eq!(
+            batches
+                .iter()
+                .map(|batch| batch.seen_tokens.len())
+                .sum::<usize>(),
+            100
+        );
     }
 }
