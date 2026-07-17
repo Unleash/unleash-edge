@@ -1,4 +1,5 @@
 use crate::MetricsKey;
+use crate::tokens::EdgeToken;
 use ahash::HashMap;
 use dashmap::{DashMap, DashSet};
 use serde::{Deserialize, Serialize};
@@ -345,7 +346,7 @@ pub struct MetricsCache {
     pub applications: DashMap<ApplicationKey, ClientApplication>,
     pub metrics: DashMap<MetricsKey, ClientMetricsEnv>,
     pub impact_metrics: DashMap<ImpactMetricsKey, Vec<ImpactMetricEnv>>,
-    pub seen_tokens: DashSet<String>,
+    pub seen_tokens: DashSet<EdgeToken>,
 }
 
 #[cfg(test)]

@@ -26,7 +26,7 @@ pub async fn validate_token(
     };
     match validation_status {
         Ok(_) => {
-            register_seen_token(&app_state.metrics_cache, &edge_token.token);
+            register_seen_token(&app_state.metrics_cache, &edge_token);
             next.run(req).await
         }
         Err(err) => match err {
