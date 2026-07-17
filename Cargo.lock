@@ -5520,7 +5520,7 @@ checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
 
 [[package]]
 name = "unleash-edge"
-version = "20.3.1"
+version = "20.4.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -5587,7 +5587,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-appstate"
-version = "20.3.1"
+version = "20.4.0"
 dependencies = [
  "axum",
  "dashmap",
@@ -5610,7 +5610,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-auth"
-version = "20.3.1"
+version = "20.4.0"
 dependencies = [
  "axum",
  "axum-test",
@@ -5631,7 +5631,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-backstage"
-version = "20.3.1"
+version = "20.4.0"
 dependencies = [
  "axum",
  "dashmap",
@@ -5654,7 +5654,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-cli"
-version = "20.3.1"
+version = "20.4.0"
 dependencies = [
  "axum",
  "cidr",
@@ -5674,7 +5674,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-client-api"
-version = "20.3.1"
+version = "20.4.0"
 dependencies = [
  "axum",
  "axum-test",
@@ -5707,7 +5707,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-delta"
-version = "20.3.1"
+version = "20.4.0"
 dependencies = [
  "ahash",
  "dashmap",
@@ -5721,7 +5721,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-edge-api"
-version = "20.3.1"
+version = "20.4.0"
 dependencies = [
  "axum",
  "tokio",
@@ -5734,7 +5734,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-enterprise"
-version = "20.3.1"
+version = "20.4.0"
 dependencies = [
  "tokio",
  "tracing",
@@ -5746,7 +5746,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-enterprise-api"
-version = "20.3.1"
+version = "20.4.0"
 dependencies = [
  "axum",
  "axum-test",
@@ -5767,7 +5767,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-enterprise-integration-tests"
-version = "20.3.1"
+version = "20.4.0"
 dependencies = [
  "ahash",
  "async-trait",
@@ -5808,7 +5808,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-feature-cache"
-version = "20.3.1"
+version = "20.4.0"
 dependencies = [
  "dashmap",
  "tokio",
@@ -5818,7 +5818,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-feature-filters"
-version = "20.3.1"
+version = "20.4.0"
 dependencies = [
  "dashmap",
  "tracing",
@@ -5830,7 +5830,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-feature-refresh"
-version = "20.3.1"
+version = "20.4.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -5869,7 +5869,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-frontend-api"
-version = "20.3.1"
+version = "20.4.0"
 dependencies = [
  "axum",
  "axum-test",
@@ -5896,7 +5896,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-http-client"
-version = "20.3.1"
+version = "20.4.0"
 dependencies = [
  "ahash",
  "axum",
@@ -5929,7 +5929,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-integration-tests"
-version = "20.3.1"
+version = "20.4.0"
 dependencies = [
  "axum",
  "axum-test",
@@ -5972,7 +5972,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-metrics"
-version = "20.3.1"
+version = "20.4.0"
 dependencies = [
  "axum",
  "axum-test",
@@ -6003,7 +6003,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-offline"
-version = "20.3.1"
+version = "20.4.0"
 dependencies = [
  "axum",
  "axum-test",
@@ -6026,7 +6026,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-persistence"
-version = "20.3.1"
+version = "20.4.0"
 dependencies = [
  "ahash",
  "async-trait",
@@ -6053,7 +6053,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-request-logger"
-version = "20.3.1"
+version = "20.4.0"
 dependencies = [
  "axum",
  "http 1.4.2",
@@ -6062,7 +6062,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-streaming"
-version = "20.3.1"
+version = "20.4.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -6091,7 +6091,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-tracing"
-version = "20.3.1"
+version = "20.4.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -6108,7 +6108,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-types"
-version = "20.3.1"
+version = "20.4.0"
 dependencies = [
  "ahash",
  "axum",

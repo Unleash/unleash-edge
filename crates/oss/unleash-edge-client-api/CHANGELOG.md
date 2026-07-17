@@ -1,4 +1,9 @@
 
+## [unleash-edge-v20.4.0] - 2026-07-17
+
+### 🚀 Features
+- send token usage downstream (#1709) (by @gastonfournier) - #1709
+
 ## [unleash-edge-v20.3.1] - 2026-06-18
 
 ## [unleash-edge-v20.3.0] - 2026-06-09
