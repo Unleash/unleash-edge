@@ -45,7 +45,7 @@ axum-server = { version = "0.8.0", default-features = false, features = [
     "tls-rustls",
 ] }
 axum-test = { version = "20.1.0", features = ["pretty-assertions", "reqwest"] }
-base64 = { version = "0.22.1" }
+base64 = { version = "0.23.0" }
 chrono = { version = "0.4.45", features = ["serde"] }
 cidr = { version = "0.3.2" }
 clap = { version = "4.6.1", features = ["derive", "env"] }
