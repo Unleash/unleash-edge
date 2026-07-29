@@ -95,6 +95,13 @@ build {
     execute_command  = "sudo -E bash '{{.Path}}'"
     valid_exit_codes = [0]
   }
+
+  provisioner "shell" {
+    script           = "${path.root}/provisioners/21-filebeat-service-unit.sh"
+    execute_command  = "sudo -E bash '{{.Path}}'"
+    valid_exit_codes = [0]
+  }
+
   provisioner "shell" {
     script           = "${path.root}/provisioners/25-clean-build-tools.sh"
     valid_exit_codes = [0]
