@@ -85,9 +85,8 @@ cat > /etc/filebeat/filebeat.yml <<'EOF'
 filebeat.inputs:
   - type: journald
     id: unleash-edge
-    include_matches:
-      _SYSTEMD_UNIT:
-        - unleash-edge.service
+    include_matches.match:
+      - "_SYSTEMD_UNIT=unleash-edge.service"
 
 processors:
   - add_host_metadata:
@@ -96,20 +95,24 @@ processors:
       target: service
       fields:
         name: unleash-edge
+  - add_fields:
+      target: labels
+      fields:
+        aws_region: "${AWS_REGION}"
+        client_id: "${CLIENT_ID}"
 
 output.elasticsearch:
   hosts: ["${ELASTIC_HOST}"]
   api_key: "${ELASTIC_API_KEY}"
+  index: "unleash-edge-logs"
 
-# Filebeat 8+ uses data streams by default; logs land in logs-filebeat-default.
-# To use a custom data stream, set output.elasticsearch.index and the
-# corresponding setup.template.* options instead.
-#
-# setup.template and setup.ilm are disabled because Elastic Cloud manages
-# index templates and ILM policies centrally — enabling them would conflict
-# with cluster-side settings.
-setup.template.enabled: false
-setup.ilm.enabled: false
+# The following setup fields are used for one-time initial setup of the index
+# template and ILM policy in Elasticsearch. Enable them temporarily on first
+# deployment with a privileged API key, then disable again.
+#setup.template.name: "unleash-edge-logs"
+#setup.template.pattern: "unleash-edge-logs*"
+#setup.template.enabled: true
+#setup.ilm.enabled: true
 
 logging.level: warning
 logging.to_files: false
@@ -132,6 +135,9 @@ echo "${TAG} Filebeat configuration written."
 echo "${TAG} Patching filebeat systemd unit to load /etc/filebeat.env..."
 mkdir -p /etc/systemd/system/filebeat.service.d
 cat > /etc/systemd/system/filebeat.service.d/env.conf <<'UNIT'
+[Unit]
+After=cloud-final.service
+
 [Service]
 EnvironmentFile=/etc/filebeat.env
 UNIT
@@ -145,4 +151,6 @@ echo "${TAG} Filebeat provisioning complete."
 echo "${TAG} At launch, provide /etc/filebeat.env with:"
 echo "${TAG}   ELASTIC_HOST=https://<your-cluster>:443"
 echo "${TAG}   ELASTIC_API_KEY=<id>:<api_key>"
+echo "${TAG}   AWS_REGION=<region>"
+echo "${TAG}   CLIENT_ID=<client-id>"
 echo "${TAG} ====================================================="
