@@ -73,7 +73,7 @@ echo "${TAG} Filebeat installed."
 # /etc/filebeat.env (or via the instance's user-data / secrets manager):
 #
 #   ELASTIC_HOST    — e.g. https://my-cluster.es.us-east-1.aws.elastic.cloud:443
-#   ELASTIC_API_KEY — base64-encoded id:api_key pair issued by Elasticsearch
+#   ELASTIC_API_KEY — id:api_key pair issued by Elasticsearch (format: "<id>:<api_key>")
 #
 # Filebeat natively substitutes ${VAR} references in its config file.
 # ------------------------------------------------------------------------------
@@ -144,5 +144,5 @@ echo "${TAG} ====================================================="
 echo "${TAG} Filebeat provisioning complete."
 echo "${TAG} At launch, provide /etc/filebeat.env with:"
 echo "${TAG}   ELASTIC_HOST=https://<your-cluster>:443"
-echo "${TAG}   ELASTIC_API_KEY=<base64-id:key>"
+echo "${TAG}   ELASTIC_API_KEY=<id>:<api_key>"
 echo "${TAG} ====================================================="
