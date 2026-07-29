@@ -96,23 +96,23 @@ processors:
       fields:
         name: unleash-edge
   - add_fields:
-      target: labels
+      target: client
       fields:
         aws_region: "${AWS_REGION}"
-        client_id: "${CLIENT_ID}"
+        id: "${CLIENT_ID}"
 
 output.elasticsearch:
   hosts: ["${ELASTIC_HOST}"]
   api_key: "${ELASTIC_API_KEY}"
   index: "unleash-edge-logs"
 
-# The following setup fields are used for one-time initial setup of the index
-# template and ILM policy in Elasticsearch. Enable them temporarily on first
-# deployment with a privileged API key, then disable again.
-#setup.template.name: "unleash-edge-logs"
-#setup.template.pattern: "unleash-edge-logs*"
-#setup.template.enabled: true
-#setup.ilm.enabled: true
+
+setup.template.name: "unleash-edge-logs"
+setup.template.pattern: "unleash-edge-logs*"
+
+#set the following 2 to true for the first-time elastic setup.
+setup.template.enabled: false
+setup.ilm.enabled: false
 
 logging.level: warning
 logging.to_files: false
