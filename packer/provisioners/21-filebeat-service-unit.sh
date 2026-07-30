@@ -126,7 +126,7 @@ echo "${TAG} Filebeat configuration written."
 #
 # /etc/filebeat.env is created at instance launch via user-data. Filebeat will
 # fail on its first start attempt if the file isn't written yet, but
-# Restart=always with RestartSec=10s will keep retrying until it succeeds.
+# Restart=always with RestartSec=10s will retry up to 10 times (110 s total).
 # We intentionally omit After=cloud-final.service: on Ubuntu, cloud-final has
 # After=multi-user.target which creates an ordering cycle that causes systemd
 # to silently drop filebeat from the boot transaction entirely.
@@ -135,8 +135,10 @@ echo "${TAG} Patching filebeat systemd unit to load /etc/filebeat.env..."
 mkdir -p /etc/systemd/system/filebeat.service.d
 cat > /etc/systemd/system/filebeat.service.d/env.conf <<'UNIT'
 [Unit]
-# Never stop retrying – filebeat must eventually start once credentials arrive.
-StartLimitIntervalSec=0
+# Allow up to 10 restart attempts within a 180-second window.
+# If /etc/filebeat.env is still missing after that, the unit enters a failed state.
+StartLimitIntervalSec=180
+StartLimitBurst=10
 
 [Service]
 EnvironmentFile=/etc/filebeat.env
