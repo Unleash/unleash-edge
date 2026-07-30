@@ -124,22 +124,24 @@ echo "${TAG} Filebeat configuration written."
 # ------------------------------------------------------------------------------
 # Wire runtime env vars into the Filebeat systemd unit
 #
-# /etc/filebeat.env is created at instance launch (e.g. via cloud-init /
-# user-data). If the file is absent Filebeat will fail to start, which is
-# intentional – logs won't be shipped but Edge itself will keep running.
-#
-# Note: EnvironmentFile without the leading '-' causes systemd to treat a
-# missing file as a hard error, so Filebeat will not start until the file
-# exists. This matches the stated intent above.
+# /etc/filebeat.env is created at instance launch via user-data. Filebeat will
+# fail on its first start attempt if the file isn't written yet, but
+# Restart=always with RestartSec=10s will keep retrying until it succeeds.
+# We intentionally omit After=cloud-final.service: on Ubuntu, cloud-final has
+# After=multi-user.target which creates an ordering cycle that causes systemd
+# to silently drop filebeat from the boot transaction entirely.
 # ------------------------------------------------------------------------------
 echo "${TAG} Patching filebeat systemd unit to load /etc/filebeat.env..."
 mkdir -p /etc/systemd/system/filebeat.service.d
 cat > /etc/systemd/system/filebeat.service.d/env.conf <<'UNIT'
 [Unit]
-After=cloud-final.service
+# Never stop retrying – filebeat must eventually start once credentials arrive.
+StartLimitIntervalSec=0
 
 [Service]
 EnvironmentFile=/etc/filebeat.env
+Restart=always
+RestartSec=10s
 UNIT
 
 systemctl daemon-reload
