@@ -184,7 +184,7 @@ mod tests {
                 sdk_type: Some(Backend),
                 yggdrasil_version: None,
                 sdk_flavor: None,
-                sdk_flavor_version: None,    
+                sdk_flavor_version: None,
             },
         }
     }
@@ -210,7 +210,7 @@ mod tests {
                 sdk_type: None,
                 yggdrasil_version: None,
                 sdk_flavor: None,
-                sdk_flavor_version: None,    
+                sdk_flavor_version: None,
             },
         }
     }
