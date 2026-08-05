@@ -5893,6 +5893,8 @@ dependencies = [
  "dashmap",
  "ipnet",
  "itertools 0.15.0",
+ "prometheus",
+ "reqwest",
  "serde",
  "serde_json",
  "serde_qs",
