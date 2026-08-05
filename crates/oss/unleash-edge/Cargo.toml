@@ -19,6 +19,8 @@ eula = false
 default = ["s3-persistence"]
 s3-persistence = ["aws-sdk-s3", "aws-config"]
 enterprise = ["unleash-edge-cli/enterprise"]
+# Experimental hot-path context enrichment (self-hosted POC), off by default.
+context-enrichment = ["unleash-edge-frontend-api/context-enrichment"]
 
 [dependencies]
 anyhow = { workspace = true }

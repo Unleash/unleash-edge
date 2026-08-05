@@ -30,6 +30,12 @@ unleash-types = { workspace = true }
 unleash-yggdrasil = { workspace = true }
 utoipa = { workspace = true }
 
+[features]
+# Experimental hot-path context enrichment (self-hosted POC). Off by default:
+# when disabled, the enrichment code, HTTP client, and metric are not compiled
+# in at all, and `enrich_context` is a zero-cost identity.
+context-enrichment = ["dep:prometheus", "dep:reqwest"]
+
 [dev-dependencies]
 axum-test = { workspace = true }
 tower = { workspace = true }
