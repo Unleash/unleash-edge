@@ -34,6 +34,7 @@ where
     }
 }
 pub(crate) mod client_ip;
+pub mod enrichment;
 pub mod frontend;
 pub mod querystring_extractor;
 

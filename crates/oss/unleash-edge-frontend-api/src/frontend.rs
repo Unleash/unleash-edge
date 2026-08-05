@@ -1,4 +1,5 @@
 use crate::client_ip::ClientIp;
+use crate::enrichment::enrich_context;
 use crate::querystring_extractor::QsQueryCfg;
 use crate::{all_features, enabled_features};
 use axum::body::Body;
@@ -42,6 +43,7 @@ pub async fn frontend_get_all_features(
     ClientIp(client_ip): ClientIp,
     QsQueryCfg(context): QsQueryCfg<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
+    let context = enrich_context(context).await;
     all_features(app_state, edge_token, &context, client_ip)
 }
 
@@ -65,6 +67,7 @@ pub async fn frontend_post_all_features(
     ClientIp(client_ip): ClientIp,
     Json(context): Json<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
+    let context = enrich_context(context).await;
     all_features(app_state, edge_token, &context, client_ip)
 }
 
@@ -88,6 +91,7 @@ pub async fn frontend_get_enabled_features(
     ClientIp(client_ip): ClientIp,
     QsQueryCfg(context): QsQueryCfg<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
+    let context = enrich_context(context).await;
     enabled_features(app_state, edge_token, &context, client_ip)
 }
 
@@ -111,6 +115,7 @@ pub async fn frontend_post_enabled_features(
     ClientIp(client_ip): ClientIp,
     Json(context): Json<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
+    let context = enrich_context(context).await;
     enabled_features(app_state, edge_token, &context, client_ip)
 }
 
@@ -200,6 +205,7 @@ pub async fn frontend_get_feature(
     QsQueryCfg(context): QsQueryCfg<Context>,
     ClientIp(client_ip): ClientIp,
 ) -> EdgeJsonResult<EvaluatedToggle> {
+    let context = enrich_context(context).await;
     evaluate_feature(
         &app_state.token_cache,
         &app_state.engine_cache,
@@ -236,6 +242,7 @@ pub async fn frontend_post_feature(
     ClientIp(client_ip): ClientIp,
     Json(context): Json<Context>,
 ) -> EdgeJsonResult<EvaluatedToggle> {
+    let context = enrich_context(context).await;
     evaluate_feature(
         &app_state.token_cache,
         &app_state.engine_cache,
