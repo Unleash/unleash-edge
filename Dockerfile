@@ -72,7 +72,6 @@ RUN dpkg --add-architecture arm64 \
     protobuf-compiler \
     g++-aarch64-linux-gnu \
     libc6-dev-arm64-cross \
-    libzip-dev:arm64 \
     ca-certificates \
     && rustup target add aarch64-unknown-linux-gnu \
     && rustup toolchain install stable-aarch64-unknown-linux-gnu --force-non-host \

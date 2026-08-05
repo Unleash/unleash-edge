@@ -183,6 +183,8 @@ mod tests {
                 sdk_version: Some("some-test-sdk".into()),
                 sdk_type: Some(Backend),
                 yggdrasil_version: None,
+                sdk_flavor: None,
+                sdk_flavor_version: None,
             },
         }
     }
@@ -207,6 +209,8 @@ mod tests {
                 sdk_version: None,
                 sdk_type: None,
                 yggdrasil_version: None,
+                sdk_flavor: None,
+                sdk_flavor_version: None,
             },
         }
     }
