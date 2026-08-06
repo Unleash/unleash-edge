@@ -18,7 +18,8 @@ reqwest = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_qs = { workspace = true }
-tokio = { workspace = true }
+# `sync` adds tokio::sync::Semaphore, used by the context-enrichment bulkhead.
+tokio = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }
 unleash-edge-appstate = { workspace = true }
 unleash-edge-feature-cache = { workspace = true }

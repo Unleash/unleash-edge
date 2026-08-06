@@ -52,22 +52,38 @@ pub async fn enrich_context(
 #[cfg(feature = "context-enrichment")]
 mod enabled {
     use std::collections::HashMap;
+    use std::sync::Arc;
     use std::sync::LazyLock;
     use std::time::{Duration, Instant};
 
-    use prometheus::{HistogramVec, register_histogram_vec};
+    use dashmap::DashMap;
+    use prometheus::{
+        HistogramVec, IntCounterVec, register_histogram_vec, register_int_counter_vec,
+    };
     use reqwest::Client;
+    use tokio::sync::Semaphore;
     use unleash_types::client_features::Context;
 
     const ENRICHER_URL_ENV: &str = "EDGE_CONTEXT_ENRICHER_URL";
     const ENRICHER_TIMEOUT_MS_ENV: &str = "EDGE_CONTEXT_ENRICHER_TIMEOUT_MS";
+    const ENRICHER_CACHE_TTL_MS_ENV: &str = "EDGE_CONTEXT_ENRICHER_CACHE_TTL_MS";
+    const ENRICHER_MAX_CONCURRENCY_ENV: &str = "EDGE_CONTEXT_ENRICHER_MAX_CONCURRENCY";
     const DEFAULT_TIMEOUT_MS: u64 = 100;
 
     static ENRICHMENT_DURATION: LazyLock<HistogramVec> = LazyLock::new(|| {
         register_histogram_vec!(
             "context_enrichment_duration_seconds",
-            "Time spent enriching the evaluation context via the configured HTTP enricher. \
+            "Time spent calling the configured HTTP enricher (fetches only). \
             Kept separate from flag-evaluation latency so it does not skew Edge's SLA metrics.",
+            &["outcome"]
+        )
+        .unwrap()
+    });
+
+    static ENRICHMENT_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
+        register_int_counter_vec!(
+            "context_enrichment_total",
+            "Count of context enrichment attempts by outcome.",
             &["outcome"]
         )
         .unwrap()
@@ -75,10 +91,39 @@ mod enabled {
 
     static ENRICHER: LazyLock<Option<ContextEnricher>> = LazyLock::new(ContextEnricher::from_env);
 
+    fn read_u64(name: &str) -> Option<u64> {
+        std::env::var(name).ok().and_then(|value| value.parse().ok())
+    }
+
+    fn record(outcome: &str) {
+        ENRICHMENT_TOTAL.with_label_values(&[outcome]).inc();
+    }
+
+    struct PropertyCache {
+        ttl: Duration,
+        entries: DashMap<String, (Instant, HashMap<String, String>)>,
+    }
+
+    impl PropertyCache {
+        fn get(&self, key: &str) -> Option<HashMap<String, String>> {
+            let entry = self.entries.get(key)?;
+            let (stored_at, properties) = entry.value();
+            (stored_at.elapsed() <= self.ttl).then(|| properties.clone())
+        }
+
+        fn insert(&self, key: String, properties: HashMap<String, String>) {
+            self.entries.insert(key, (Instant::now(), properties));
+        }
+    }
+
     struct ContextEnricher {
         url: String,
         timeout: Duration,
         client: Client,
+        /// `Some` when `EDGE_CONTEXT_ENRICHER_CACHE_TTL_MS` > 0.
+        cache: Option<PropertyCache>,
+        /// `Some` when `EDGE_CONTEXT_ENRICHER_MAX_CONCURRENCY` > 0.
+        semaphore: Option<Arc<Semaphore>>,
     }
 
     impl ContextEnricher {
@@ -86,19 +131,29 @@ mod enabled {
             let url = std::env::var(ENRICHER_URL_ENV)
                 .ok()
                 .filter(|url| !url.is_empty())?;
-            let timeout_ms = std::env::var(ENRICHER_TIMEOUT_MS_ENV)
-                .ok()
-                .and_then(|value| value.parse::<u64>().ok())
-                .unwrap_or(DEFAULT_TIMEOUT_MS);
+            let timeout_ms = read_u64(ENRICHER_TIMEOUT_MS_ENV).unwrap_or(DEFAULT_TIMEOUT_MS);
+            let cache = read_u64(ENRICHER_CACHE_TTL_MS_ENV)
+                .filter(|ttl| *ttl > 0)
+                .map(|ttl| PropertyCache {
+                    ttl: Duration::from_millis(ttl),
+                    entries: DashMap::new(),
+                });
+            let semaphore = read_u64(ENRICHER_MAX_CONCURRENCY_ENV)
+                .filter(|limit| *limit > 0)
+                .map(|limit| Arc::new(Semaphore::new(limit as usize)));
             tracing::info!(
                 url = %url,
                 timeout_ms,
+                cache_ttl_ms = cache.as_ref().map(|cache| cache.ttl.as_millis()),
+                max_concurrency = semaphore.as_ref().map(|semaphore| semaphore.available_permits()),
                 "Context enrichment enabled (hot-path POC)"
             );
             Some(Self {
                 url,
                 timeout: Duration::from_millis(timeout_ms),
                 client: Client::new(),
+                cache,
+                semaphore,
             })
         }
 
@@ -128,22 +183,54 @@ mod enabled {
     }
 
     /// Enriches the context when an enricher is configured, otherwise returns it
-    /// unchanged. Always fail-open: any error/timeout evaluates on the original
-    /// context. Records enrichment latency in a dedicated metric.
+    /// unchanged. Always fail-open. Order: cache → bulkhead → fetch. Records the
+    /// outcome (always) and fetch latency (fetches only).
     pub async fn enrich_context(context: Context) -> Context {
         let Some(enricher) = ENRICHER.as_ref() else {
             return context;
         };
 
+        let cache_key = context.user_id.clone();
+
+        // 1. Cache: repeated identity within the TTL skips the network hop entirely.
+        if let (Some(cache), Some(key)) = (enricher.cache.as_ref(), cache_key.as_ref()) {
+            if let Some(properties) = cache.get(key) {
+                record("cache_hit");
+                return merge_properties(context, properties);
+            }
+        }
+
+        // 2. Bulkhead: if the enricher is saturated, fail open immediately instead
+        //    of piling up in-flight requests on Edge's hottest path. The permit is
+        //    held for the duration of the fetch below.
+        let _permit = match enricher.semaphore.as_ref() {
+            Some(semaphore) => match semaphore.clone().try_acquire_owned() {
+                Ok(permit) => Some(permit),
+                Err(_) => {
+                    record("rejected");
+                    tracing::warn!("Context enrichment bulkhead full; using un-enriched context");
+                    return context;
+                }
+            },
+            None => None,
+        };
+
+        // 3. Fetch (timed).
         let start = Instant::now();
         let result = enricher.fetch(&context).await;
         let outcome = if result.is_ok() { "ok" } else { "error" };
         ENRICHMENT_DURATION
             .with_label_values(&[outcome])
             .observe(start.elapsed().as_secs_f64());
+        record(outcome);
 
         match result {
-            Ok(extra) => merge_properties(context, extra),
+            Ok(extra) => {
+                if let (Some(cache), Some(key)) = (enricher.cache.as_ref(), cache_key) {
+                    cache.insert(key, extra.clone());
+                }
+                merge_properties(context, extra)
+            }
             Err(error) => {
                 tracing::warn!(%error, "Context enrichment failed; using un-enriched context");
                 context
@@ -202,6 +289,25 @@ mod enabled {
                 merge_properties(context, HashMap::from([("tier".into(), "gold".into())]));
 
             assert_eq!(enriched.properties.unwrap().get("tier").unwrap(), "gold");
+        }
+
+        #[test]
+        fn cache_serves_fresh_entries_and_drops_stale_ones() {
+            let fresh = PropertyCache {
+                ttl: Duration::from_secs(60),
+                entries: DashMap::new(),
+            };
+            fresh.insert("u1".into(), HashMap::from([("tier".into(), "gold".into())]));
+            assert_eq!(fresh.get("u1").unwrap().get("tier").unwrap(), "gold");
+            assert!(fresh.get("absent").is_none());
+
+            // A zero TTL means any elapsed time is already stale -> treated as a miss.
+            let stale = PropertyCache {
+                ttl: Duration::from_millis(0),
+                entries: DashMap::new(),
+            };
+            stale.insert("u1".into(), HashMap::from([("tier".into(), "gold".into())]));
+            assert!(stale.get("u1").is_none());
         }
     }
 }
