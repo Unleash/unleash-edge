@@ -85,12 +85,20 @@ impl NodeWorker {
         let (command_tx, command_rx) = mpsc::channel(64);
         let next_request_id = Arc::new(AtomicU64::new(1));
         let pid = Arc::new(AtomicU32::new(0));
+        let node_executable = resolve_node_executable();
 
-        let running = spawn_child(worker_id, &worker_script, &customer_script).await?;
+        let running = spawn_child(
+            worker_id,
+            &node_executable,
+            &worker_script,
+            &customer_script,
+        )
+        .await?;
         pid.store(running.child.id().unwrap_or(0), Ordering::SeqCst);
 
         tokio::spawn(driver_loop(
             worker_id,
+            node_executable,
             worker_script,
             customer_script,
             command_rx,
@@ -164,6 +172,7 @@ pub fn default_worker_script_path() -> PathBuf {
 
 async fn driver_loop(
     worker_id: usize,
+    node_executable: PathBuf,
     worker_script: PathBuf,
     customer_script: PathBuf,
     mut command_rx: mpsc::Receiver<WorkerCommand>,
@@ -181,6 +190,7 @@ async fn driver_loop(
                             let _ = respond_to.send(Err(error));
                             restart_after_failure(
                                 worker_id,
+                                &node_executable,
                                 &worker_script,
                                 &customer_script,
                                 &pid,
@@ -196,6 +206,7 @@ async fn driver_loop(
                         eprintln!("[node-worker {worker_id} pid={}] restarting: {reason}", pid.load(Ordering::SeqCst));
                         restart_after_failure(
                             worker_id,
+                            &node_executable,
                             &worker_script,
                             &customer_script,
                             &pid,
@@ -222,6 +233,7 @@ async fn driver_loop(
                     Some(WorkerEvent::StdoutClosed) | None => {
                         restart_after_failure(
                             worker_id,
+                            &node_executable,
                             &worker_script,
                             &customer_script,
                             &pid,
@@ -239,6 +251,7 @@ async fn driver_loop(
                 };
                 restart_after_failure(
                     worker_id,
+                    &node_executable,
                     &worker_script,
                     &customer_script,
                     &pid,
@@ -292,6 +305,7 @@ fn resolve_response(
 
 async fn restart_after_failure(
     worker_id: usize,
+    node_executable: &Path,
     worker_script: &Path,
     customer_script: &Path,
     pid: &AtomicU32,
@@ -302,7 +316,7 @@ async fn restart_after_failure(
     terminate_child(&mut running.child).await;
     fail_pending(pending, EnrichmentError::WorkerRestarted);
 
-    match spawn_child(worker_id, worker_script, customer_script).await {
+    match spawn_child(worker_id, node_executable, worker_script, customer_script).await {
         Ok(replacement) => {
             let new_pid = replacement.child.id().unwrap_or(0);
             eprintln!("[node-worker {worker_id} pid={new_pid}] ready after restart: {reason}");
@@ -343,10 +357,11 @@ async fn terminate_child(child: &mut Child) {
 
 async fn spawn_child(
     worker_id: usize,
+    node_executable: &Path,
     worker_script: &Path,
     customer_script: &Path,
 ) -> Result<RunningChild, EnrichmentError> {
-    let mut command = Command::new("node");
+    let mut command = Command::new(node_executable);
     command
         .arg("--max-old-space-size=128")
         .arg(worker_script)
@@ -401,6 +416,18 @@ async fn spawn_child(
         stdin,
         event_rx,
     })
+}
+
+fn resolve_node_executable() -> PathBuf {
+    let node = PathBuf::from("node");
+    let Some(path) = std::env::var_os("PATH") else {
+        return node;
+    };
+
+    std::env::split_paths(&path)
+        .map(|path| path.join("node"))
+        .find(|path| path.is_file())
+        .unwrap_or(node)
 }
 
 async fn wait_for_ready(
