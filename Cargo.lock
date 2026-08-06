@@ -5725,6 +5725,12 @@ dependencies = [
 [[package]]
 name = "unleash-edge-context-enrichers"
 version = "20.4.1"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+]
 
 [[package]]
 name = "unleash-edge-delta"
