@@ -114,7 +114,9 @@ mod enabled {
     static ENRICHER: LazyLock<Option<ContextEnricher>> = LazyLock::new(ContextEnricher::from_env);
 
     fn read_u64(name: &str) -> Option<u64> {
-        std::env::var(name).ok().and_then(|value| value.parse().ok())
+        std::env::var(name)
+            .ok()
+            .and_then(|value| value.parse().ok())
     }
 
     fn record(outcome: &str) {
@@ -280,7 +282,10 @@ mod enabled {
                 merge_properties(context, extra)
             }
             Err(error) => {
-                tracing::warn!(?error, "Context enrichment failed; using un-enriched context");
+                tracing::warn!(
+                    ?error,
+                    "Context enrichment failed; using un-enriched context"
+                );
                 context
             }
         }
