@@ -23,12 +23,19 @@
 //!   contaminate Edge's core evaluation SLA / dashboards. This is the whole
 //!   reason we can offer hot-path without lying about Edge's latency story.
 //!
+//! Handled (runtime-configurable, all off by default so the naive path is measurable):
+//! - Caching: identity-keyed TTL cache (`EDGE_CONTEXT_ENRICHER_CACHE_TTL_MS`).
+//! - Bulkhead: reject-and-fail-open past `EDGE_CONTEXT_ENRICHER_MAX_CONCURRENCY`.
+//! - Response size cap: `EDGE_CONTEXT_ENRICHER_MAX_RESPONSE_BYTES` (default 64 KiB).
+//! - Skip: requests without a userId never call the enricher.
+//! - Outcome counter `context_enrichment_total{outcome}` = the fail-open signal.
+//!
 //! Edge cases to revisit before this is production (intentionally NOT solved here):
-//! - No caching: every request hits the enricher — this *is* the hot-path cost.
 //! - No circuit breaker / auto-disable when the dependency keeps missing its SLA.
-//! - No response schema validation, size cap, or type coercion — a huge/hostile
-//!   response is merged as-is.
-//! - Determinism: a non-deterministic enricher can flip gradual-rollout stickiness.
+//! - No response *schema* validation or type coercion beyond the byte cap.
+//! - Cache is keyed on userId only; enrichers keying on another field are out of scope.
+//! - Determinism: a non-deterministic enricher can flip gradual-rollout stickiness
+//!   across the cache TTL boundary.
 //! - Leak boundary: enriched (possibly secret) properties feed evaluation only —
 //!   confirm they never escape to the client response, metrics, or impression data.
 //! - SSRF is limited (operator-configured URL, not client-controlled), but the
@@ -68,7 +75,18 @@ mod enabled {
     const ENRICHER_TIMEOUT_MS_ENV: &str = "EDGE_CONTEXT_ENRICHER_TIMEOUT_MS";
     const ENRICHER_CACHE_TTL_MS_ENV: &str = "EDGE_CONTEXT_ENRICHER_CACHE_TTL_MS";
     const ENRICHER_MAX_CONCURRENCY_ENV: &str = "EDGE_CONTEXT_ENRICHER_MAX_CONCURRENCY";
+    const ENRICHER_MAX_RESPONSE_BYTES_ENV: &str = "EDGE_CONTEXT_ENRICHER_MAX_RESPONSE_BYTES";
     const DEFAULT_TIMEOUT_MS: u64 = 100;
+    const DEFAULT_MAX_RESPONSE_BYTES: usize = 64 * 1024;
+
+    /// Why a fetch failed. All variants fail open; the distinction is for logs.
+    #[derive(Debug)]
+    enum EnrichError {
+        Http(reqwest::Error),
+        /// Response exceeded `EDGE_CONTEXT_ENRICHER_MAX_RESPONSE_BYTES`.
+        TooLarge(usize),
+        Decode(serde_json::Error),
+    }
 
     static ENRICHMENT_DURATION: LazyLock<HistogramVec> = LazyLock::new(|| {
         register_histogram_vec!(
@@ -80,6 +98,10 @@ mod enabled {
         .unwrap()
     });
 
+    /// Every enrichment attempt, by outcome: `ok`, `error` (fail-open after a
+    /// failed fetch), `cache_hit`, or `rejected` (bulkhead full → fail-open).
+    /// This is the signal you page on — it says how often a flag decision was
+    /// made on degraded (un-enriched) data.
     static ENRICHMENT_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
         register_int_counter_vec!(
             "context_enrichment_total",
@@ -99,6 +121,9 @@ mod enabled {
         ENRICHMENT_TOTAL.with_label_values(&[outcome]).inc();
     }
 
+    /// Identity-keyed TTL cache of enricher responses. Trades a bounded amount of
+    /// freshness for load relief: repeated lookups of the same subject within the
+    /// TTL skip the network hop and also stabilise gradual-rollout stickiness.
     struct PropertyCache {
         ttl: Duration,
         entries: DashMap<String, (Instant, HashMap<String, String>)>,
@@ -124,6 +149,9 @@ mod enabled {
         cache: Option<PropertyCache>,
         /// `Some` when `EDGE_CONTEXT_ENRICHER_MAX_CONCURRENCY` > 0.
         semaphore: Option<Arc<Semaphore>>,
+        /// Hard cap on the enricher response body; a hostile/buggy enricher
+        /// cannot make Edge buffer or merge an unbounded map.
+        max_response_bytes: usize,
     }
 
     impl ContextEnricher {
@@ -141,11 +169,15 @@ mod enabled {
             let semaphore = read_u64(ENRICHER_MAX_CONCURRENCY_ENV)
                 .filter(|limit| *limit > 0)
                 .map(|limit| Arc::new(Semaphore::new(limit as usize)));
+            let max_response_bytes = read_u64(ENRICHER_MAX_RESPONSE_BYTES_ENV)
+                .map(|bytes| bytes as usize)
+                .unwrap_or(DEFAULT_MAX_RESPONSE_BYTES);
             tracing::info!(
                 url = %url,
                 timeout_ms,
                 cache_ttl_ms = cache.as_ref().map(|cache| cache.ttl.as_millis()),
                 max_concurrency = semaphore.as_ref().map(|semaphore| semaphore.available_permits()),
+                max_response_bytes,
                 "Context enrichment enabled (hot-path POC)"
             );
             Some(Self {
@@ -154,19 +186,28 @@ mod enabled {
                 client: Client::new(),
                 cache,
                 semaphore,
+                max_response_bytes,
             })
         }
 
-        async fn fetch(&self, context: &Context) -> reqwest::Result<HashMap<String, String>> {
-            self.client
+        async fn fetch(&self, context: &Context) -> Result<HashMap<String, String>, EnrichError> {
+            let bytes = self
+                .client
                 .post(&self.url)
                 .timeout(self.timeout)
                 .json(context)
                 .send()
-                .await?
-                .error_for_status()?
-                .json()
                 .await
+                .map_err(EnrichError::Http)?
+                .error_for_status()
+                .map_err(EnrichError::Http)?
+                .bytes()
+                .await
+                .map_err(EnrichError::Http)?;
+            if bytes.len() > self.max_response_bytes {
+                return Err(EnrichError::TooLarge(bytes.len()));
+            }
+            serde_json::from_slice(&bytes).map_err(EnrichError::Decode)
         }
     }
 
@@ -190,11 +231,18 @@ mod enabled {
             return context;
         };
 
-        let cache_key = context.user_id.clone();
+        // Enrichment is keyed on the user identity (like the cold-path POC). With
+        // no userId there is nothing to look up, so skip the network hop entirely
+        // rather than pay a round-trip for a guaranteed-empty answer. Enrichers
+        // that key on a different field are out of scope for this POC.
+        let Some(cache_key) = context.user_id.clone() else {
+            record("skipped");
+            return context;
+        };
 
         // 1. Cache: repeated identity within the TTL skips the network hop entirely.
-        if let (Some(cache), Some(key)) = (enricher.cache.as_ref(), cache_key.as_ref()) {
-            if let Some(properties) = cache.get(key) {
+        if let Some(cache) = enricher.cache.as_ref() {
+            if let Some(properties) = cache.get(&cache_key) {
                 record("cache_hit");
                 return merge_properties(context, properties);
             }
@@ -226,13 +274,13 @@ mod enabled {
 
         match result {
             Ok(extra) => {
-                if let (Some(cache), Some(key)) = (enricher.cache.as_ref(), cache_key) {
-                    cache.insert(key, extra.clone());
+                if let Some(cache) = enricher.cache.as_ref() {
+                    cache.insert(cache_key, extra.clone());
                 }
                 merge_properties(context, extra)
             }
             Err(error) => {
-                tracing::warn!(%error, "Context enrichment failed; using un-enriched context");
+                tracing::warn!(?error, "Context enrichment failed; using un-enriched context");
                 context
             }
         }
