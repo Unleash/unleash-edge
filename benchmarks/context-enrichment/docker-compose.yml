@@ -1,0 +1,70 @@
+# Hot-path context enrichment benchmark harness.
+#
+# Edge runs in OFFLINE mode (bootstrap features file, no upstream Unleash/DB) so
+# the only thing between the load client and the flag result is Edge eval + the
+# per-request enricher call. That isolates enrichment cost — the number we care
+# about — instead of measuring an upstream.
+#
+# edge-hot      : built WITH the `context-enrichment` feature, pointed at the enricher.
+# edge-baseline : built WITHOUT the feature — the honest "no enrichment" reference.
+# enricher      : mock HTTP enricher answering from the same SQLite dataset.
+#
+# Generate the dataset first (uncompressed dataset-1.sqlite is what the enricher opens):
+#   node scripts/generate-context-dataset.mjs --rows 1000000 --revision 1 \
+#     --profile high-entropy --output ./context-datasets
+
+services:
+  enricher:
+    build:
+      context: ./enricher
+    ports: ["8080:8080"]
+    environment:
+      DATASET_FILE: /datasets/dataset-1.sqlite
+      INJECT_LATENCY_MS: "${INJECT_LATENCY_MS:-0}"
+      ERROR_RATE: "${ERROR_RATE:-0}"
+    volumes:
+      - ./context-datasets:/datasets:ro
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+  edge-hot:
+    build:
+      context: ../..
+      args:
+        CARGO_FEATURES: context-enrichment
+    ports: ["3063:3063"]
+    environment:
+      EDGE_CONTEXT_ENRICHER_URL: http://enricher:8080/enrich
+      EDGE_CONTEXT_ENRICHER_TIMEOUT_MS: "${EDGE_CONTEXT_ENRICHER_TIMEOUT_MS:-100}"
+      # Tuned path: 0 = off (naive). Flip these to switch naive<->tuned, no rebuild.
+      EDGE_CONTEXT_ENRICHER_CACHE_TTL_MS: "${EDGE_CONTEXT_ENRICHER_CACHE_TTL_MS:-0}"
+      EDGE_CONTEXT_ENRICHER_MAX_CONCURRENCY: "${EDGE_CONTEXT_ENRICHER_MAX_CONCURRENCY:-0}"
+    command:
+      - offline
+      - --bootstrap-file
+      - /bootstrap/features.json
+      - --frontend-tokens
+      - "*:development.unleash-insecure-frontend-api-token"
+    volumes:
+      - ./edge/features.json:/bootstrap/features.json:ro
+    depends_on:
+      enricher:
+        condition: service_healthy
+
+  edge-baseline:
+    build:
+      context: ../..
+      args:
+        CARGO_FEATURES: ""
+    ports: ["3062:3063"]
+    command:
+      - offline
+      - --bootstrap-file
+      - /bootstrap/features.json
+      - --frontend-tokens
+      - "*:development.unleash-insecure-frontend-api-token"
+    volumes:
+      - ./edge/features.json:/bootstrap/features.json:ro

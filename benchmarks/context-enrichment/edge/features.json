@@ -1,0 +1,56 @@
+{
+  "version": 2,
+  "features": [
+    {
+      "name": "enriched-country",
+      "type": "release",
+      "enabled": true,
+      "project": "default",
+      "stale": false,
+      "impressionData": false,
+      "strategies": [
+        {
+          "name": "flexibleRollout",
+          "parameters": { "groupId": "enriched-country", "rollout": "100", "stickiness": "userId" },
+          "constraints": [
+            {
+              "contextName": "country",
+              "operator": "IN",
+              "values": ["ES", "NO"],
+              "inverted": false,
+              "caseInsensitive": false
+            }
+          ]
+        }
+      ],
+      "variants": []
+    },
+    {
+      "name": "cohort-rollout",
+      "type": "experiment",
+      "enabled": true,
+      "project": "default",
+      "stale": false,
+      "impressionData": false,
+      "strategies": [
+        {
+          "name": "flexibleRollout",
+          "parameters": { "groupId": "cohort-rollout", "rollout": "50", "stickiness": "userId" },
+          "constraints": []
+        }
+      ],
+      "variants": []
+    },
+    {
+      "name": "always-on",
+      "type": "release",
+      "enabled": true,
+      "project": "default",
+      "stale": false,
+      "impressionData": false,
+      "strategies": [{ "name": "default", "parameters": {}, "constraints": [] }],
+      "variants": []
+    }
+  ],
+  "query": { "environment": "default", "inlineSegmentConstraints": true }
+}
