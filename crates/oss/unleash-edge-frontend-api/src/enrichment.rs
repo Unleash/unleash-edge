@@ -4,51 +4,16 @@
 //! attributes by calling a user-configured HTTP endpoint **per request**, right
 //! before flag evaluation.
 //!
-//! behind the `context-enrichment` feature glag (off by default). When
-//! the feature is disabled, none of the enrichment machinery — HTTP client,
-//! Prometheus metric, per-request call — is compiled in; `enrich_context` is a
-//! zero-cost identity. When the feature is enabled, enrichment still only
-//! activates at runtime if `EDGE_CONTEXT_ENRICHER_URL` is set. Two switches:
-//! compile-time (ship it or not) and runtime (turn it on or not).
+//! behind the `context-enrichment` feature flag (off by default). 
+//! When the feature is enabled, enrichment still only activates at runtime 
+//! if `EDGE_CONTEXT_ENRICHER_URL` is set.  
 //!
-//! Contract (POC): Edge POSTs the (camelCase) `Context` JSON to the endpoint and
-//! expects back a flat `{ "key": "value" }` object of properties to inject. The
-//! enricher is trusted, so its values override anything the client sent.
-//!
-//! POC decisions:
-//! - Config is read from ENV (self-hosted only) — no Unleash-served config yet.
-//! - **Fail-open**: any error/timeout evaluates on the un-enriched context.
-//! - Enrichment latency is recorded in a **separate** metric
-//!   (`context_enrichment_duration_seconds`) so hot-enricher time does not
-//!   contaminate Edge's core evaluation SLA / dashboards. This is the whole
-//!   reason we can offer hot-path without lying about Edge's latency story.
-//!
-//! Handled (runtime-configurable, all off by default so the naive path is measurable):
-//! - Caching: identity-keyed TTL cache (`EDGE_CONTEXT_ENRICHER_CACHE_TTL_MS`).
-//! - Bulkhead: reject-and-fail-open past `EDGE_CONTEXT_ENRICHER_MAX_CONCURRENCY`.
-//! - Response size cap: `EDGE_CONTEXT_ENRICHER_MAX_RESPONSE_BYTES` (default 64 KiB).
-//! - Skip: requests without a userId never call the enricher.
-//! - Outcome counter `context_enrichment_total{outcome}` = the fail-open signal.
-//!
-//! Edge cases to revisit before this is production (intentionally NOT solved here):
-//! - No circuit breaker / auto-disable when the dependency keeps missing its SLA.
-//! - No response *schema* validation or type coercion beyond the byte cap.
-//! - Cache is keyed on userId only; enrichers keying on another field are out of scope.
-//! - Determinism: a non-deterministic enricher can flip gradual-rollout stickiness
-//!   across the cache TTL boundary.
-//! - Leak boundary: enriched (possibly secret) properties feed evaluation only —
-//!   confirm they never escape to the client response, metrics, or impression data.
-//! - SSRF is limited (operator-configured URL, not client-controlled), but the
-//!   request body echoes the client context to that endpoint.
-//! - Only `properties` are merged; overriding top-level fields (userId, etc.),
-//!   per-request auth to the enricher, and multi-key joins are out of scope.
 
 #[cfg(feature = "context-enrichment")]
 pub use enabled::enrich_context;
 
-/// Identity fallback compiled when the `context-enrichment` feature is off.
-/// No HTTP client, no metric, no dependency pulled in — the call sites keep the
-/// same `enrich_context(context).await` shape and this optimizes away.
+/// If no`context-enrichment` feature the call sites keep the
+/// `enrich_context(context).await` and this optimizes away.
 #[cfg(not(feature = "context-enrichment"))]
 pub async fn enrich_context(
     context: unleash_types::client_features::Context,
@@ -79,7 +44,7 @@ mod enabled {
     const DEFAULT_TIMEOUT_MS: u64 = 100;
     const DEFAULT_MAX_RESPONSE_BYTES: usize = 64 * 1024;
 
-    /// Why a fetch failed. All variants fail open; the distinction is for logs.
+    /// Why a fetch failed. All variants fail open; distinction only for logs.
     #[derive(Debug)]
     enum EnrichError {
         Http(reqwest::Error),
@@ -98,10 +63,10 @@ mod enabled {
         .unwrap()
     });
 
-    /// Every enrichment attempt, by outcome: `ok`, `error` (fail-open after a
-    /// failed fetch), `cache_hit`, or `rejected` (bulkhead full → fail-open).
-    /// This is the signal you page on — it says how often a flag decision was
-    /// made on degraded (un-enriched) data.
+    /// Every enrichment attempt, by outcome: 
+    /// `ok`, `error` (fail-open after a failed fetch), 
+    /// `cache_hit`, or `rejected` (bulkhead full → fail-open).
+    /// it says how often a flag decision was made on degraded (un-enriched) data.
     static ENRICHMENT_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
         register_int_counter_vec!(
             "context_enrichment_total",
@@ -123,9 +88,6 @@ mod enabled {
         ENRICHMENT_TOTAL.with_label_values(&[outcome]).inc();
     }
 
-    /// Identity-keyed TTL cache of enricher responses. Trades a bounded amount of
-    /// freshness for load relief: repeated lookups of the same subject within the
-    /// TTL skip the network hop and also stabilise gradual-rollout stickiness.
     struct PropertyCache {
         ttl: Duration,
         entries: DashMap<String, (Instant, HashMap<String, String>)>,
@@ -151,8 +113,7 @@ mod enabled {
         cache: Option<PropertyCache>,
         /// `Some` when `EDGE_CONTEXT_ENRICHER_MAX_CONCURRENCY` > 0.
         semaphore: Option<Arc<Semaphore>>,
-        /// Hard cap on the enricher response body; a hostile/buggy enricher
-        /// cannot make Edge buffer or merge an unbounded map.
+        /// Hard cap on the enricher response body, a hostile/buggy enricher
         max_response_bytes: usize,
     }
 
@@ -213,8 +174,6 @@ mod enabled {
         }
     }
 
-    /// Overlays enricher-provided properties onto the context. The enricher is
-    /// trusted, so its values win over anything the (untrusted) client sent.
     fn merge_properties(mut context: Context, extra: HashMap<String, String>) -> Context {
         if extra.is_empty() {
             return context;
@@ -225,24 +184,23 @@ mod enabled {
         context
     }
 
-    /// Enriches the context when an enricher is configured, otherwise returns it
-    /// unchanged. Always fail-open. Order: cache → bulkhead → fetch. Records the
-    /// outcome (always) and fetch latency (fetches only).
+    /// Enriches the context when an enricher is configured, otherwise no change.
+    /// Always fail-open. cache → bulkhead → fetch. 
+    /// Records the outcome (always) and fetch latency (fetches only).
     pub async fn enrich_context(context: Context) -> Context {
         let Some(enricher) = ENRICHER.as_ref() else {
             return context;
         };
 
-        // Enrichment is keyed on the user identity (like the cold-path POC). With
-        // no userId there is nothing to look up, so skip the network hop entirely
-        // rather than pay a round-trip for a guaranteed-empty answer. Enrichers
-        // that key on a different field are out of scope for this POC.
+        // Enrichment is keyed on the user_id. 
+        // If no userId, nothing to look up, so skip.
+        // Enrichers that key on a different field are out of scope for this POC ;)
         let Some(cache_key) = context.user_id.clone() else {
             record("skipped");
             return context;
         };
 
-        // 1. Cache: repeated identity within the TTL skips the network hop entirely.
+        // 1. Cache: repeated identity within the TTL skips it
         if let Some(cache) = enricher.cache.as_ref() {
             if let Some(properties) = cache.get(&cache_key) {
                 record("cache_hit");
@@ -250,9 +208,7 @@ mod enabled {
             }
         }
 
-        // 2. Bulkhead: if the enricher is saturated, fail open immediately instead
-        //    of piling up in-flight requests on Edge's hottest path. The permit is
-        //    held for the duration of the fetch below.
+        // 2. Bulkhead: if the enricher is saturated, fail open immediately
         let _permit = match enricher.semaphore.as_ref() {
             Some(semaphore) => match semaphore.clone().try_acquire_owned() {
                 Ok(permit) => Some(permit),
@@ -265,7 +221,7 @@ mod enabled {
             None => None,
         };
 
-        // 3. Fetch (timed).
+        // 3. Fetch - under a timer
         let start = Instant::now();
         let result = enricher.fetch(&context).await;
         let outcome = if result.is_ok() { "ok" } else { "error" };

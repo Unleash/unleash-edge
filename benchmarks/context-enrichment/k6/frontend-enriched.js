@@ -1,5 +1,5 @@
-import http from 'k6/http';
-import { check } from 'k6';
+import { check } from "k6";
+import http from "k6/http";
 
 // Hot-path frontend evaluation benchmark.
 //
@@ -7,8 +7,8 @@ import { check } from 'k6';
 // this POSTs a body carrying a rotating `userId`, so Edge's context enrichment
 // actually fires and hits the enricher once per request.
 //
-// Env vars:
-//   URL       base URL WITH trailing slash   (default http://localhost:3063/)
+// ENV VARS:
+//   URL       base URL                       (default http://localhost:3063/)
 //   TOKEN     Authorization header value     (frontend token)
 //   SUBJECTS  size of the userId key space   (default 1000000)
 //   SUBJECT   pin every request to one id    (optional; for cache-hit runs)
@@ -17,27 +17,28 @@ import { check } from 'k6';
 //   DURATION  test duration                  (default 30s)
 //   MAX_P95_MS failed-threshold ceiling      (default 50; hot path is a net hop)
 
-const url = __ENV.URL ?? 'http://localhost:3063/';
-const token = __ENV.TOKEN ?? '*:development.unleash-insecure-frontend-api-token';
+const url = __ENV.URL ?? "http://localhost:3063/";
+const token =
+	__ENV.TOKEN ?? "*:development.unleash-insecure-frontend-api-token";
 const subjects = Number(__ENV.SUBJECTS ?? 1000000);
 const pinned = __ENV.SUBJECT;
 const skew = Number(__ENV.SKEW ?? 1);
 
 export const options = {
-    vus: Number(__ENV.VUS ?? 50),
-    duration: __ENV.DURATION ?? '30s',
-    thresholds: {
-        http_req_failed: ['rate<0.01'],
-        http_req_duration: [`p(95)<${Number(__ENV.MAX_P95_MS ?? 50)}`],
-    },
+	vus: Number(__ENV.VUS ?? 50),
+	duration: __ENV.DURATION ?? "30s",
+	thresholds: {
+		http_req_failed: ["rate<0.01"],
+		http_req_duration: [`p(95)<${Number(__ENV.MAX_P95_MS ?? 50)}`],
+	},
 };
 
 export default function () {
-    // Random draw so cache reuse reflects an access distribution rather than a
-    const index = Math.floor(subjects * Math.pow(Math.random(), skew));
-    const userId = pinned ?? `subject-${String(index).padStart(12, '0')}`;
-    const response = http.post(`${url}api/frontend`, JSON.stringify({ userId }), {
-        headers: { Authorization: token, 'Content-Type': 'application/json' },
-    });
-    check(response, { 'status is 200': (r) => r.status === 200 });
+	// Random draw so cache reuse reflects an access distribution rather than a
+	const index = Math.floor(subjects * Math.random() ** skew);
+	const userId = pinned ?? `subject-${String(index).padStart(12, "0")}`;
+	const response = http.post(`${url}api/frontend`, JSON.stringify({ userId }), {
+		headers: { Authorization: token, "Content-Type": "application/json" },
+	});
+	check(response, { "status is 200": (r) => r.status === 200 });
 }
