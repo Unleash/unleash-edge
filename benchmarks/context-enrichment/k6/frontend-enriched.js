@@ -12,6 +12,7 @@ import { check } from 'k6';
 //   TOKEN     Authorization header value     (frontend token)
 //   SUBJECTS  size of the userId key space   (default 1000000)
 //   SUBJECT   pin every request to one id    (optional; for cache-hit runs)
+//   SKEW      access skew, 1 = uniform       (default 1; >1 biases to hot users)
 //   VUS       virtual users                  (default 50)
 //   DURATION  test duration                  (default 30s)
 //   MAX_P95_MS failed-threshold ceiling      (default 50; hot path is a net hop)
@@ -20,6 +21,7 @@ const url = __ENV.URL ?? 'http://localhost:3063/';
 const token = __ENV.TOKEN ?? '*:development.unleash-insecure-frontend-api-token';
 const subjects = Number(__ENV.SUBJECTS ?? 1000000);
 const pinned = __ENV.SUBJECT;
+const skew = Number(__ENV.SKEW ?? 1);
 
 export const options = {
     vus: Number(__ENV.VUS ?? 50),
@@ -31,7 +33,8 @@ export const options = {
 };
 
 export default function () {
-    const index = (Number(__VU) * 100000 + Number(__ITER)) % subjects;
+    // Random draw so cache reuse reflects an access distribution rather than a
+    const index = Math.floor(subjects * Math.pow(Math.random(), skew));
     const userId = pinned ?? `subject-${String(index).padStart(12, '0')}`;
     const response = http.post(`${url}api/frontend`, JSON.stringify({ userId }), {
         headers: { Authorization: token, 'Content-Type': 'application/json' },

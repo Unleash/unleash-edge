@@ -46,6 +46,10 @@ services:
       - offline
       - --bootstrap-file
       - /bootstrap/features.json
+      # Offline mode requires at least one client token to start; the frontend
+      # token is what the k6 load client authenticates with.
+      - --client-tokens
+      - "*:development.unleash-insecure-client-api-token"
       - --frontend-tokens
       - "*:development.unleash-insecure-frontend-api-token"
     volumes:
@@ -64,6 +68,10 @@ services:
       - offline
       - --bootstrap-file
       - /bootstrap/features.json
+      # Offline mode requires at least one client token to start; the frontend
+      # token is what the k6 load client authenticates with.
+      - --client-tokens
+      - "*:development.unleash-insecure-client-api-token"
       - --frontend-tokens
       - "*:development.unleash-insecure-frontend-api-token"
     volumes:
