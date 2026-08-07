@@ -10,6 +10,7 @@ use std::time::Duration;
 use tracing::warn;
 use unleash_edge_cli::OfflineArgs;
 use unleash_edge_feature_cache::FeatureCache;
+use unleash_edge_feature_refresh::feature_state::{OFFLINE_SOURCE, observe_feature_state_warnings};
 use unleash_edge_types::EngineCache;
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::tokens::{EdgeToken, cache_key};
@@ -69,6 +70,11 @@ pub fn load_offline_engine_cache(
     let warnings = engine.take_state(UpdateMessage::FullResponse(client_features));
     engine_cache.insert(cache_key(edge_token), engine);
     if let Some(warnings) = warnings {
+        observe_feature_state_warnings(
+            &edge_token.environment.clone().unwrap_or("*".to_string()),
+            OFFLINE_SOURCE,
+            warnings.len(),
+        );
         warn!("The following toggle failed to compile and will be defaulted to off: {warnings:?}");
     }
 }

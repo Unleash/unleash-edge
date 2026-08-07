@@ -3,8 +3,12 @@ use std::sync::LazyLock;
 use std::{sync::Arc, time::Duration};
 
 pub mod delta_refresh;
+pub mod feature_state;
 
 use crate::delta_refresh::DeltaRefresher;
+use crate::feature_state::{
+    FULL_SOURCE, observe_feature_state_warnings, observe_last_applied_revision_id,
+};
 use chrono::{TimeDelta, Utc};
 use dashmap::DashMap;
 use etag::EntityTag;
@@ -347,6 +351,7 @@ impl FeatureRefresher {
             POLLING_REVISION_ID
                 .with_label_values(&[env, &refresh_token.projects.join(",")])
                 .set(revision_id as i64);
+            observe_last_applied_revision_id(env, revision_id);
             self.edge_instance_data.observe_api_key_refresh(
                 env.clone(),
                 refresh_token.projects.clone(),
@@ -376,6 +381,11 @@ impl FeatureRefresher {
                     let mut new_state = EngineState::default();
                     let warnings = new_state.take_state(UpdateMessage::FullResponse(f.clone()));
                     if let Some(warnings) = warnings {
+                        observe_feature_state_warnings(
+                            &refresh_token.environment.clone().unwrap_or("*".to_string()),
+                            FULL_SOURCE,
+                            warnings.len(),
+                        );
                         warn!("The following toggle failed to compile and will be defaulted to off: {warnings:?}");
                     };
                     *engine = new_state;
@@ -386,6 +396,11 @@ impl FeatureRefresher {
 
                 let warnings = new_state.take_state(UpdateMessage::FullResponse(features));
                 if let Some(warnings) = warnings {
+                    observe_feature_state_warnings(
+                        &refresh_token.environment.clone().unwrap_or("*".to_string()),
+                        FULL_SOURCE,
+                        warnings.len(),
+                    );
                     warn!("The following toggle failed to compile and will be defaulted to off: {warnings:?}");
                 };
                 new_state
