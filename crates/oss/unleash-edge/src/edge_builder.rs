@@ -20,8 +20,10 @@ use unleash_edge_auth::token_validator::{
     create_revalidation_task,
 };
 use unleash_edge_cli::{
-    AuthHeaders, EdgeArgs, LogFormat, OtelExporterProtocol, RedisArgs, RedisMode, S3Args,
+    AuthHeaders, ContextEnricherArgs, EdgeArgs, LogFormat, OtelExporterProtocol, RedisArgs,
+    RedisMode, S3Args,
 };
+use unleash_edge_context_enrichers::WorkerPool;
 use unleash_edge_delta::cache::{DeltaCache, DeltaHydrationEvent};
 use unleash_edge_delta::cache_manager::{DeltaCacheManager, create_terminate_sse_connections_task};
 use unleash_edge_feature_cache::FeatureCache;
@@ -422,6 +424,7 @@ pub struct EdgeStateArgs {
     pub prometheus_password: Option<String>,
     pub hostname: Option<String>,
     pub ec2_instance_id: Option<String>,
+    pub context_enricher: ContextEnricherArgs,
 }
 
 impl From<&EdgeStateArgs> for TracingOpts {
@@ -563,6 +566,8 @@ pub async fn build_edge_state(
         unleash_client: unleash_client.clone(),
     };
     let shutdown_tasks = create_shutdown_tasks(shutdown_args);
+    let (context_enricher, context_enricher_timeout) =
+        start_context_enricher(&args.context_enricher).await?;
 
     let app_state = AppState {
         token_cache,
@@ -584,9 +589,32 @@ pub async fn build_edge_state(
             instance_id: args.client_meta_information.instance_id.clone().to_string(),
         },
         license_state: license_state.clone(),
+        context_enricher,
+        context_enricher_timeout,
     };
 
     Ok((app_state, background_tasks, shutdown_tasks))
+}
+
+pub(crate) async fn start_context_enricher(
+    args: &ContextEnricherArgs,
+) -> EdgeResult<(Option<Arc<WorkerPool>>, std::time::Duration)> {
+    let timeout = std::time::Duration::from_millis(args.context_enricher_timeout_milliseconds);
+    let Some(script_path) = args.context_enricher_script.clone() else {
+        return Ok((None, timeout));
+    };
+
+    let pool = WorkerPool::start(
+        args.context_enricher_workers,
+        args.context_enricher_max_in_flight_per_worker,
+        script_path,
+    )
+    .await
+    .map_err(|error| {
+        EdgeError::ClientBuildError(format!("Failed to start context enricher: {error}"))
+    })?;
+
+    Ok((Some(Arc::new(pool)), timeout))
 }
 
 pub(crate) struct ShutdownTaskArgs {

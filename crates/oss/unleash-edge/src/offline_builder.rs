@@ -1,5 +1,6 @@
 use crate::CacheContainer;
 use crate::edge_builder::build_caches;
+use crate::edge_builder::start_context_enricher;
 use crate::trusted_proxy_servers_to_ipnets;
 use dashmap::DashMap;
 use std::fs::File;
@@ -108,6 +109,8 @@ pub async fn build_offline_app_state(
 ) -> EdgeResult<(AppState, Vec<BackgroundTask>, Vec<BackgroundTask>)> {
     let (token_cache, features_cache, _, engine_cache) = build_offline(offline_args.clone())?;
     let metrics_cache = Arc::new(MetricsCache::default());
+    let (context_enricher, context_enricher_timeout) =
+        start_context_enricher(&args.context_enricher).await?;
 
     let app_name = args.app_name.clone();
     let instance_id = Ulid::new();
@@ -138,6 +141,8 @@ pub async fn build_offline_app_state(
             instance_id: instance_id.to_string(),
         },
         license_state: ApplicationLicenseState::new(LicenseState::Valid),
+        context_enricher,
+        context_enricher_timeout,
     };
 
     let background_tasks =

@@ -1,8 +1,10 @@
 use ipnet::IpNet;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::RwLock;
 use unleash_edge_auth::token_validator::TokenValidator;
 use unleash_edge_cli::AuthHeaders;
+use unleash_edge_context_enrichers::WorkerPool;
 use unleash_edge_delta::cache_manager::DeltaCacheManager;
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_refresh::HydratorType;
@@ -30,6 +32,8 @@ pub struct AppState {
     pub trust_proxy: bool,
     pub proxy_trusted_servers: Vec<IpNet>,
     pub license_state: ApplicationLicenseState,
+    pub context_enricher: Option<Arc<WorkerPool>>,
+    pub context_enricher_timeout: Duration,
 }
 
 pub mod edge_token_extractor;

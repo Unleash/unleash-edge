@@ -116,6 +116,7 @@ sha2 = { version = "0.11.0" }
 shadow-rs = { version = "2.0.0" }
 socket2 = { version = "0.6.4" }
 test-case = { version = "3.3.1" }
+thiserror = { version = "2.0.17" }
 tokio = { version = "1.52.3", features = [
     "macros",
     "rt-multi-thread",
@@ -147,6 +148,7 @@ unleash-edge-auth = { path = "./crates/oss/unleash-edge-auth" }
 unleash-edge-backstage = { path = "./crates/oss/unleash-edge-backstage" }
 unleash-edge-cli = { path = "./crates/oss/unleash-edge-cli" }
 unleash-edge-client-api = { path = "./crates/oss/unleash-edge-client-api" }
+unleash-edge-context-enrichers = { path = "./crates/oss/unleash-edge-context-enrichers" }
 unleash-edge-delta = { path = "./crates/enterprise/unleash-edge-delta" }
 unleash-edge-edge-api = { path = "./crates/oss/unleash-edge-edge-api" }
 unleash-edge-enterprise = { path = "./crates/enterprise/unleash-edge-enterprise" }

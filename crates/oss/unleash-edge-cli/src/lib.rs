@@ -538,6 +538,9 @@ pub struct CliArgs {
     pub sentry_config: SentryConfig,
 
     #[clap(flatten)]
+    pub context_enricher: ContextEnricherArgs,
+
+    #[clap(flatten)]
     pub datadog_config: DatadogConfig,
 
     #[clap(flatten)]
@@ -546,6 +549,25 @@ pub struct CliArgs {
     // Internal usage only. Do not set this
     #[clap(env = "EDGE_HOSTING", value_parser = hosting_type, hide = true)]
     pub hosting_type: Option<Hosting>,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct ContextEnricherArgs {
+    /// Path to a CommonJS module that enriches frontend contexts before evaluation
+    #[clap(long, env, global = true)]
+    pub context_enricher_script: Option<PathBuf>,
+
+    /// Number of persistent Node.js context enricher workers to start
+    #[clap(long, env, global = true, default_value_t = 2)]
+    pub context_enricher_workers: usize,
+
+    /// Maximum number of concurrent enrichment jobs allowed per worker
+    #[clap(long, env, global = true, default_value_t = 16)]
+    pub context_enricher_max_in_flight_per_worker: usize,
+
+    /// Timeout in milliseconds for each context enrichment job
+    #[clap(long, env, global = true, default_value_t = 2000)]
+    pub context_enricher_timeout_milliseconds: u64,
 }
 
 pub fn hosting_type(value: &str) -> Result<Hosting, String> {
