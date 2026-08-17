@@ -314,16 +314,23 @@ pub fn anonymize_token(edge_token: &EdgeToken) -> EdgeToken {
     let maybe_hash = iterator.next();
     match (project_and_environment, maybe_hash) {
         (Some(p_and_e), Some(hash)) => {
-            let safe_hash = clean_hash(hash);
+            let safe_secret = redact_secret(hash);
             EdgeToken {
-                token: format!("{}.{}", p_and_e, safe_hash),
+                token: format!("{}.{}", p_and_e, safe_secret),
                 ..edge_token.clone()
             }
         }
         _ => edge_token.clone(),
     }
 }
-fn clean_hash(hash: &str) -> String {
+
+fn redact_secret(hash: &str) -> String {
+    if hash.starts_with("v2_") && hash.contains('_') {
+        let parts: Vec<&str> = hash.split('_').collect();
+        if parts.len() == 3 {
+            return format!("{}_{}_****", parts[1], &parts[2]);
+        }
+    }
     format!(
         "{}****{}",
         &hash[..6].to_string(),
