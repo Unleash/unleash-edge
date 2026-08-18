@@ -309,33 +309,26 @@ fn filter_unique_tokens(tokens: &[TokenRefresh]) -> Vec<TokenRefresh> {
 }
 
 pub fn anonymize_token(edge_token: &EdgeToken) -> EdgeToken {
-    let mut iterator = edge_token.token.split('.');
-    let project_and_environment = iterator.next();
-    let maybe_hash = iterator.next();
-    match (project_and_environment, maybe_hash) {
-        (Some(p_and_e), Some(hash)) => {
-            let safe_secret = redact_secret(hash);
-            EdgeToken {
-                token: format!("{}.{}", p_and_e, safe_secret),
-                ..edge_token.clone()
-            }
-        }
-        _ => edge_token.clone(),
-    }
-}
+    let parts: Vec<&str> = edge_token.token.split([':', '.', '_']).collect();
 
-fn redact_secret(hash: &str) -> String {
-    if hash.starts_with("v2_") && hash.contains('_') {
-        let parts: Vec<&str> = hash.split('_').collect();
-        if parts.len() == 3 {
-            return format!("{}_{}_****", parts[1], &parts[2]);
+    let secret = match parts.as_slice() {
+        [environment, projects, hash] => {
+            format!(
+                "{environment}:{projects}.{}****{}",
+                &hash[..6],
+                &hash[hash.len() - 6..]
+            )
         }
+        [environment, projects, version, selector, _secret] => {
+            format!("{environment}:{projects}.{version}_{selector}")
+        }
+        _ => edge_token.token.to_string(),
+    };
+
+    EdgeToken {
+        token: secret,
+        ..edge_token.clone()
     }
-    format!(
-        "{}****{}",
-        &hash[..6].to_string(),
-        &hash[hash.len() - 6..].to_string()
-    )
 }
 
 pub struct RequestTokensArg {
