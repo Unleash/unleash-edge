@@ -340,7 +340,8 @@ pub struct RequestTokensArg {
 
 #[cfg(test)]
 mod tests {
-    use crate::{EdgeTokens, TokenValidationStatus};
+    use super::*;
+    use crate::EdgeTokens;
     use serde_json::json;
 
     #[test]
@@ -362,5 +363,28 @@ mod tests {
             edge_tokens.tokens.first().unwrap().status,
             TokenValidationStatus::Validated
         );
+    }
+
+    #[test]
+    fn anonymize_token_strips_legacy_token_secret() {
+        let token = crate::EdgeToken {
+            token: "*:development.abcdefghijklmnopqrstuvwxyz123456".to_string(),
+            ..Default::default()
+        };
+        let anonymized = anonymize_token(&token);
+        assert_eq!(
+            anonymized.token,
+            "*:development.abcdef****123456".to_string()
+        );
+    }
+
+    #[test]
+    fn anonymize_token_strips_new_token_secret() {
+        let token = crate::EdgeToken {
+            token: "*:development.v2_selector_abcdefghijklmnopqrstuvwxyz123456".to_string(),
+            ..Default::default()
+        };
+        let anonymized = anonymize_token(&token);
+        assert_eq!(anonymized.token, "*:development.v2_selector".to_string());
     }
 }
