@@ -5733,6 +5733,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "unleash-edge-context-enrichers"
+version = "20.4.1"
+dependencies = [
+ "serde",
+ "serde_json",
+ "unleash-types",
+]
+
+[[package]]
 name = "unleash-edge-delta"
 version = "20.4.1"
 dependencies = [
