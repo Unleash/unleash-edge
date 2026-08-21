@@ -2,6 +2,7 @@ use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 use unleash_types::client_features::Context;
 
+#[expect(dead_code)]
 pub(crate) struct EnrichmentRequest {
     pub(crate) id: i64,
     pub(crate) context: Context,
@@ -9,14 +10,16 @@ pub(crate) struct EnrichmentRequest {
 }
 
 pub(crate) struct EnrichmentResponse {
+    #[expect(dead_code)]
     pub(crate) id: i64,
+    #[expect(dead_code)]
     pub(crate) outcome: Result<Context, String>,
 }
 
-pub(crate) enum StateMessage {
-    Ready,
-    Error(String),
-    Closing,
+#[derive(Deserialize)]
+pub(crate) struct ReadyMessage {
+    #[serde(rename = "messageType")]
+    pub _message_type: String,
 }
 
 #[derive(Deserialize)]
