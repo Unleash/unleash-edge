@@ -1,4 +1,8 @@
-use std::{path::PathBuf, process::Stdio, time::Duration};
+use std::{
+    path::{Path, PathBuf},
+    process::Stdio,
+    time::Duration,
+};
 use tokio::{
     io::{AsyncBufReadExt, BufReader, Lines},
     process::{Child, ChildStderr, ChildStdin, ChildStdout, Command},
@@ -27,14 +31,14 @@ pub enum EnricherError {
     IOError(String),
 }
 
-#[expect(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 enum WorkerEvent {
     Response(EnrichmentResponse),
     BrokenPipe(String),
     ProtocolError(String),
 }
 
-#[expect(dead_code)]
+#[cfg_attr(not(test), expect(dead_code))]
 struct RunningNodeChild {
     child: Child,
     child_input: ChildStdin,
@@ -49,26 +53,42 @@ pub struct NodeWorkerController {
 
 impl NodeWorkerController {
     #[expect(dead_code)]
-    pub async fn start(worker_id: u32) -> Result<Self, EnricherError> {
-        let child = spawn_node_child_process(worker_id).await?;
+    pub async fn start(worker_id: u32, enricher_script: &Path) -> Result<Self, EnricherError> {
+        let child = spawn_node_child_process(worker_id, enricher_script).await?;
 
         Ok(NodeWorkerController { worker_id, child })
     }
 }
 
-async fn spawn_node_child_process(worker_id: u32) -> Result<RunningNodeChild, EnricherError> {
-    let mut command = Command::new(resolve_node_path());
-    let (event_tx, event_rx) = tokio::sync::mpsc::channel(MAX_IN_FLIGHT_MESSAGES);
+async fn spawn_node_child_process(
+    worker_id: u32,
+    enricher_script: &Path,
+) -> Result<RunningNodeChild, EnricherError> {
+    spawn_configured_child(worker_id, node_worker_command(enricher_script)).await
+}
 
+fn node_worker_command(enricher_script: &Path) -> Command {
+    let mut command = Command::new(resolve_node_path());
     command
         .arg(format!("--max-old-space-size={}", CHILD_MEMORY_CEILING_MB))
         .arg("--eval")
         .arg(WORKER_SCRIPT)
+        .arg("--")
+        .arg("--enricher-script")
+        .arg(enricher_script)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .env_clear()
         .kill_on_drop(true);
+    command
+}
+
+async fn spawn_configured_child(
+    worker_id: u32,
+    mut command: Command,
+) -> Result<RunningNodeChild, EnricherError> {
+    let (event_tx, event_rx) = tokio::sync::mpsc::channel(MAX_IN_FLIGHT_MESSAGES);
 
     let mut child = command.spawn().map_err(|e| {
         EnricherError::StartupFailure(format!("Failed to spawn child process: {}", e))
@@ -218,13 +238,9 @@ fn resolve_node_path() -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{
-        fs,
-        io::{BufRead, BufReader as StdBufReader, Read, Write},
-        path::Path,
-        process::{Child as StdChild, Command as StdCommand},
-    };
+    use std::{fs, process::Command as StdCommand};
     use tempfile::{NamedTempFile, TempPath};
+    use tokio::io::AsyncWriteExt;
 
     fn node_is_available() -> bool {
         // very stupid hack - right now CI doesn't have a Node runtime
@@ -250,27 +266,86 @@ mod tests {
         path
     }
 
-    fn spawn_worker_script(enricher_script: &Path) -> StdChild {
-        StdCommand::new(resolve_node_path())
-            .arg("--eval")
-            .arg(WORKER_SCRIPT)
-            .arg("--")
-            .arg("--enricher-script")
-            .arg(enricher_script)
+    fn fake_child_command(script: &str) -> Command {
+        let mut command = Command::new("sh");
+        command
+            .arg("-c")
+            .arg(script)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .spawn()
-            .expect("failed to spawn worker script")
+            .kill_on_drop(true);
+        command
     }
 
-    fn stop_child(mut child: StdChild) {
-        let _ = child.kill();
-        let _ = child.wait();
+    #[tokio::test]
+    async fn worker_sends_and_reads_happy_path_messages_to_child() {
+        let command = fake_child_command(
+            r#"printf '%s\n' '{"messageType":"ready"}'
+               while IFS= read -r _line; do
+                   printf '%s\n' '{"id":42,"context":{"userId":"fake-user"}}'
+               done"#,
+        );
+
+        let mut child = spawn_configured_child(1, command)
+            .await
+            .expect("failed to spawn fake child");
+
+        child
+            .child_input
+            .write_all(br#"{"id":42,"context":{}}"#)
+            .await
+            .expect("failed to write fake request");
+        child
+            .child_input
+            .write_all(b"\n")
+            .await
+            .expect("failed to terminate fake request");
+
+        let event = time::timeout(Duration::from_secs(1), child.child_output.recv())
+            .await
+            .expect("timed out waiting for fake child event")
+            .expect("fake child event stream closed");
+
+        match event {
+            WorkerEvent::Response(response) => {
+                assert_eq!(response.id, 42);
+                assert_eq!(
+                    response.outcome.unwrap().user_id.as_deref(),
+                    Some("fake-user")
+                );
+            }
+            WorkerEvent::BrokenPipe(error) | WorkerEvent::ProtocolError(error) => {
+                panic!("unexpected fake child event: {error}");
+            }
+        }
     }
 
-    #[test]
-    fn worker_script_reports_ready_and_returns_enriched_context() {
+    #[tokio::test]
+    async fn protocol_errors_from_child_are_received_in_parent() {
+        let command = fake_child_command(
+            r#"printf '%s\n' '{"messageType":"ready"}'
+               printf '%s\n' 'not-json'"#,
+        );
+
+        let mut child = spawn_configured_child(1, command)
+            .await
+            .expect("failed to spawn fake child");
+
+        let event = time::timeout(Duration::from_secs(1), child.child_output.recv())
+            .await
+            .expect("timed out waiting for fake child event")
+            .expect("fake child event stream closed");
+
+        match event {
+            WorkerEvent::ProtocolError(line) => assert_eq!(line, "not-json"),
+            WorkerEvent::Response(_) => panic!("unexpected enrichment response"),
+            WorkerEvent::BrokenPipe(error) => panic!("unexpected broken pipe: {error}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn worker_happy_path_messages_work_end_to_end() {
         if !node_is_available() {
             return;
         }
@@ -279,94 +354,102 @@ mod tests {
             r#"
             module.exports = async (context) => ({
                 ...context,
-                userId: "enriched-user",
+                userId: "real-worker-user",
             });
             "#,
         );
-        let mut child = spawn_worker_script(&enricher_script);
-        let mut stdin = child.stdin.take().expect("worker stdin is not piped");
-        let stdout = child.stdout.take().expect("worker stdout is not piped");
-        let mut stdout = StdBufReader::new(stdout);
+        let mut child = spawn_node_child_process(1, &enricher_script)
+            .await
+            .expect("failed to spawn node child process");
 
-        let mut ready = String::new();
-        stdout
-            .read_line(&mut ready)
-            .expect("failed to read worker ready message");
-        let ready: ReadyMessage =
-            serde_json::from_str(&ready).expect("worker ready message was not JSON");
-        assert_eq!(ready._message_type, "ready");
+        child
+            .child_input
+            .write_all(br#"{"id":9,"context":{"userId":"original-user"}}"#)
+            .await
+            .expect("failed to write enrichment request");
+        child
+            .child_input
+            .write_all(b"\n")
+            .await
+            .expect("failed to terminate enrichment request");
 
-        writeln!(
-            stdin,
-            r#"{{"id":7,"context":{{"userId":"original-user"}}}}"#
-        )
-        .expect("failed to write enrichment request");
-        stdin.flush().expect("failed to flush enrichment request");
+        let event = time::timeout(Duration::from_secs(1), child.child_output.recv())
+            .await
+            .expect("timed out waiting for worker event")
+            .expect("worker event stream closed");
 
-        let mut response = String::new();
-        stdout
-            .read_line(&mut response)
-            .expect("failed to read enrichment response");
-        let response: EnrichmentResponse =
-            serde_json::from_str(&response).expect("worker response was not valid JSON");
-
-        assert_eq!(response.id, 7);
-        assert_eq!(
-            response.outcome.unwrap().user_id.as_deref(),
-            Some("enriched-user")
-        );
-
-        stop_child(child);
-    }
-
-    #[test]
-    fn worker_script_redirects_console_output_and_returns_script_errors() {
-        if !node_is_available() {
-            return;
+        match event {
+            WorkerEvent::Response(response) => {
+                assert_eq!(response.id, 9);
+                assert_eq!(
+                    response.outcome.unwrap().user_id.as_deref(),
+                    Some("real-worker-user")
+                );
+            }
+            WorkerEvent::BrokenPipe(error) | WorkerEvent::ProtocolError(error) => {
+                panic!("unexpected worker event: {error}");
+            }
         }
 
-        let enricher_script = write_temp_enricher(
-            r#"
-            module.exports = async () => {
-                console.log("hello from enricher", { ok: true });
-                throw new Error("script blew up");
-            };
-            "#,
-        );
-        let mut child = spawn_worker_script(&enricher_script);
-        let mut stdin = child.stdin.take().expect("worker stdin is not piped");
-        let stdout = child.stdout.take().expect("worker stdout is not piped");
-        let mut stdout = StdBufReader::new(stdout);
+        let _ = child.child.start_kill();
+    }
 
-        let mut ready = String::new();
-        stdout
-            .read_line(&mut ready)
-            .expect("failed to read worker ready message");
+    #[tokio::test]
+    #[tracing_test::traced_test]
+    async fn worker_traps_console_messages_and_pipes_them_to_logs() {
+        let mut child = spawn_configured_child(
+            1,
+            fake_child_command(
+                r#"printf '%s\n' '{"messageType":"ready"}'
+                   printf '%s\n' '[console.log] hello from enricher {"ok":true}' >&2
+                   while IFS= read -r _line; do
+                       printf '%s\n' '{"id":8,"error":"script blew up"}'
+                   done"#,
+            ),
+        )
+        .await
+        .expect("failed to spawn fake child");
 
-        writeln!(stdin, r#"{{"id":8,"context":{{}}}}"#)
-            .expect("failed to write enrichment request");
-        stdin.flush().expect("failed to flush enrichment request");
+        child
+            .child_input
+            .write_all(br#"{"id":8,"context":{}}"#)
+            .await
+            .expect("failed to write fake request");
+        child
+            .child_input
+            .write_all(b"\n")
+            .await
+            .expect("failed to terminate fake request");
 
-        let mut response = String::new();
-        stdout
-            .read_line(&mut response)
-            .expect("failed to read enrichment response");
-        let response: EnrichmentResponse =
-            serde_json::from_str(&response).expect("worker response was not valid JSON");
+        let event = time::timeout(Duration::from_secs(1), child.child_output.recv())
+            .await
+            .expect("timed out waiting for fake child event")
+            .expect("fake child event stream closed");
 
-        assert_eq!(response.id, 8);
-        assert_eq!(response.outcome.unwrap_err(), "script blew up");
+        match event {
+            WorkerEvent::Response(response) => {
+                assert_eq!(response.id, 8);
+                assert_eq!(response.outcome.unwrap_err(), "script blew up");
+            }
+            WorkerEvent::BrokenPipe(error) | WorkerEvent::ProtocolError(error) => {
+                panic!("unexpected fake child event: {error}");
+            }
+        }
 
-        let mut stderr_pipe = child.stderr.take().expect("worker stderr is not piped");
+        time::timeout(Duration::from_secs(1), async {
+            loop {
+                if logs_contain("[node-worker 1 pid=")
+                    && logs_contain("[console.log] hello from enricher {\"ok\":true}")
+                {
+                    break;
+                }
 
-        let _ = child.kill();
-        let _ = child.wait();
+                time::sleep(Duration::from_millis(1)).await;
+            }
+        })
+        .await
+        .expect("timed out waiting for drained stderr log");
 
-        let mut stderr = String::new();
-        stderr_pipe
-            .read_to_string(&mut stderr)
-            .expect("failed to read worker stderr");
-
-        assert!(stderr.contains("[console.log] hello from enricher {\"ok\":true}"));
+        let _ = child.child.start_kill();
     }
 }
