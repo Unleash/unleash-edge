@@ -40,7 +40,7 @@ function captureConsole() {
 async function handle(message, enrich) {
     try {
         const result = await enrich(message.context);
-        send({ id: message.id, result });
+        send({ id: message.id, context: result });
     } catch (error) {
         send({
             id: message.id,
