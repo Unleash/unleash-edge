@@ -89,6 +89,9 @@ function main() {
     try {
         captureConsole();
         const enricherScript = loadEnricherScript(process.argv);
+        if (typeof enricherScript !== "function") {
+            throw new Error("enricher script must export a function");
+        }
         setupMessageHandler(enricherScript);
         send({ messageType: "ready" });
 
