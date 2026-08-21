@@ -40,7 +40,7 @@ function captureConsole() {
 async function handle(message, enrich) {
     try {
         const result = await enrich(message.context);
-        send({ id: message.id, result });
+        send({ id: message.id, context: result });
     } catch (error) {
         send({
             id: message.id,
@@ -78,8 +78,7 @@ function setupMessageHandler(enricherScript) {
             void handle(message, enricherScript);
         } catch (error) {
             console.error(
-                `invalid JSON request: ${error instanceof Error ? error.message : String(error)
-                }`,
+                `invalid JSON request: ${error instanceof Error ? error.message : String(error)}`,
             );
         }
     });
@@ -89,6 +88,9 @@ function main() {
     try {
         captureConsole();
         const enricherScript = loadEnricherScript(process.argv);
+        if (typeof enricherScript !== "function") {
+            throw new Error("enricher script must export a function");
+        }
         setupMessageHandler(enricherScript);
         send({ messageType: "ready" });
 
