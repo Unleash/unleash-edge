@@ -78,8 +78,7 @@ function setupMessageHandler(enricherScript) {
             void handle(message, enricherScript);
         } catch (error) {
             console.error(
-                `invalid JSON request: ${error instanceof Error ? error.message : String(error)
-                }`,
+                `invalid JSON request: ${error instanceof Error ? error.message : String(error)}`,
             );
         }
     });
