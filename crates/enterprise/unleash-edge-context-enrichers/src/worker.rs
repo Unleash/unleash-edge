@@ -214,3 +214,149 @@ fn resolve_node_path() -> PathBuf {
         .find(|path| path.is_file())
         .unwrap_or(node)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{
+        fs,
+        io::{BufRead, BufReader as StdBufReader, Read, Write},
+        path::Path,
+        process::{Child as StdChild, Command as StdCommand},
+    };
+    use tempfile::{NamedTempFile, TempPath};
+
+    fn node_is_available() -> bool {
+        StdCommand::new(resolve_node_path())
+            .arg("--version")
+            .output()
+            .is_ok_and(|output| output.status.success())
+    }
+
+    fn write_temp_enricher(source: &str) -> TempPath {
+        let file = NamedTempFile::with_suffix(".cjs").expect("failed to create temp enricher file");
+        let path = file.into_temp_path();
+        fs::write(&path, source).expect("failed to write temp enricher script");
+        path
+    }
+
+    fn spawn_worker_script(enricher_script: &Path) -> StdChild {
+        StdCommand::new(resolve_node_path())
+            .arg("--eval")
+            .arg(WORKER_SCRIPT)
+            .arg("--")
+            .arg("--enricher-script")
+            .arg(enricher_script)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("failed to spawn worker script")
+    }
+
+    fn stop_child(mut child: StdChild) {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+
+    #[test]
+    fn worker_script_reports_ready_and_returns_enriched_context() {
+        if !node_is_available() {
+            return;
+        }
+
+        let enricher_script = write_temp_enricher(
+            r#"
+            module.exports = async (context) => ({
+                ...context,
+                userId: "enriched-user",
+            });
+            "#,
+        );
+        let mut child = spawn_worker_script(&enricher_script);
+        let mut stdin = child.stdin.take().expect("worker stdin is not piped");
+        let stdout = child.stdout.take().expect("worker stdout is not piped");
+        let mut stdout = StdBufReader::new(stdout);
+
+        let mut ready = String::new();
+        stdout
+            .read_line(&mut ready)
+            .expect("failed to read worker ready message");
+        let ready: ReadyMessage =
+            serde_json::from_str(&ready).expect("worker ready message was not JSON");
+        assert_eq!(ready._message_type, "ready");
+
+        writeln!(
+            stdin,
+            r#"{{"id":7,"context":{{"userId":"original-user"}}}}"#
+        )
+        .expect("failed to write enrichment request");
+        stdin.flush().expect("failed to flush enrichment request");
+
+        let mut response = String::new();
+        stdout
+            .read_line(&mut response)
+            .expect("failed to read enrichment response");
+        let response: EnrichmentResponse =
+            serde_json::from_str(&response).expect("worker response was not valid JSON");
+
+        assert_eq!(response.id, 7);
+        assert_eq!(
+            response.outcome.unwrap().user_id.as_deref(),
+            Some("enriched-user")
+        );
+
+        stop_child(child);
+    }
+
+    #[test]
+    fn worker_script_redirects_console_output_and_returns_script_errors() {
+        if !node_is_available() {
+            return;
+        }
+
+        let enricher_script = write_temp_enricher(
+            r#"
+            module.exports = async () => {
+                console.log("hello from enricher", { ok: true });
+                throw new Error("script blew up");
+            };
+            "#,
+        );
+        let mut child = spawn_worker_script(&enricher_script);
+        let mut stdin = child.stdin.take().expect("worker stdin is not piped");
+        let stdout = child.stdout.take().expect("worker stdout is not piped");
+        let mut stdout = StdBufReader::new(stdout);
+
+        let mut ready = String::new();
+        stdout
+            .read_line(&mut ready)
+            .expect("failed to read worker ready message");
+
+        writeln!(stdin, r#"{{"id":8,"context":{{}}}}"#)
+            .expect("failed to write enrichment request");
+        stdin.flush().expect("failed to flush enrichment request");
+
+        let mut response = String::new();
+        stdout
+            .read_line(&mut response)
+            .expect("failed to read enrichment response");
+        let response: EnrichmentResponse =
+            serde_json::from_str(&response).expect("worker response was not valid JSON");
+
+        assert_eq!(response.id, 8);
+        assert_eq!(response.outcome.unwrap_err(), "script blew up");
+
+        let mut stderr_pipe = child.stderr.take().expect("worker stderr is not piped");
+
+        let _ = child.kill();
+        let _ = child.wait();
+
+        let mut stderr = String::new();
+        stderr_pipe
+            .read_to_string(&mut stderr)
+            .expect("failed to read worker stderr");
+
+        assert!(stderr.contains("[console.log] hello from enricher {\"ok\":true}"));
+    }
+}

@@ -99,4 +99,19 @@ mod tests {
         assert!(both_fields_set_response.is_err());
         assert!(neither_field_set_response.is_err());
     }
+
+    #[test]
+    fn malformed_enrichment_response_errors() {
+        let response: Result<EnrichmentResponse, _> = serde_json::from_str("not-json");
+
+        assert!(response.is_err());
+    }
+
+    #[test]
+    fn ready_message_deserializes() {
+        let ready: ReadyMessage = serde_json::from_str(r#"{"messageType":"ready"}"#)
+            .expect("Failed to deserialize ready message");
+
+        assert_eq!(ready._message_type, "ready");
+    }
 }
