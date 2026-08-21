@@ -5741,6 +5741,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tracing",
+ "tracing-test",
  "unleash-types",
 ]
 
