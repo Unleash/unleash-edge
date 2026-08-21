@@ -10,9 +10,9 @@ pub(crate) struct EnrichmentRequest {
 }
 
 pub(crate) struct EnrichmentResponse {
-    #[expect(dead_code)]
+    #[cfg_attr(not(test), expect(dead_code))]
     pub(crate) id: i64,
-    #[expect(dead_code)]
+    #[cfg_attr(not(test), expect(dead_code))]
     pub(crate) outcome: Result<Context, String>,
 }
 
