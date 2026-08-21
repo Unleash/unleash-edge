@@ -5591,6 +5591,7 @@ dependencies = [
  "unleash-edge-backstage",
  "unleash-edge-cli",
  "unleash-edge-client-api",
+ "unleash-edge-context-enrichers",
  "unleash-edge-delta",
  "unleash-edge-edge-api",
  "unleash-edge-enterprise",
@@ -5625,6 +5626,7 @@ dependencies = [
  "ulid",
  "unleash-edge-auth",
  "unleash-edge-cli",
+ "unleash-edge-context-enrichers",
  "unleash-edge-delta",
  "unleash-edge-feature-cache",
  "unleash-edge-feature-refresh",
@@ -5730,6 +5732,16 @@ dependencies = [
  "unleash-types",
  "unleash-yggdrasil",
  "utoipa",
+]
+
+[[package]]
+name = "unleash-edge-context-enrichers"
+version = "20.4.1"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
 ]
 
 [[package]]
@@ -5911,6 +5923,7 @@ dependencies = [
  "tracing",
  "unleash-edge-appstate",
  "unleash-edge-cli",
+ "unleash-edge-context-enrichers",
  "unleash-edge-feature-cache",
  "unleash-edge-feature-filters",
  "unleash-edge-feature-refresh",
