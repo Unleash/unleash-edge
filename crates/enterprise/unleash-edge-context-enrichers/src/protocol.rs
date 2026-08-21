@@ -46,7 +46,7 @@ impl<'de> Deserialize<'de> for EnrichmentResponse {
                 outcome: Ok(context),
             }),
             (None, Some(error)) => {
-                // errors here are happy path - user defined script is having a moment, but imporatntly, nothing is wrong with our system
+                // errors here are happy path - user defined script is having a moment, but importantly, nothing is wrong with our system
                 Ok(EnrichmentResponse {
                     id: protocol_response.id,
                     outcome: Err(error),
