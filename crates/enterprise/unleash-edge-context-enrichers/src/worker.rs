@@ -168,7 +168,7 @@ async fn read_child_messages(
                         event_tx.send(WorkerEvent::ProtocolError(line)).await
                     };
 
-                // this happens if the child manages to flush one last message to it's std out but the Rust side receiver
+                // this happens if the child manages to flush one last message to its stdout but the Rust side receiver
                 // has already been dropped. This should basically not happen if everything else is working right
                 // but it's also not harmful if it does
                 if message_result.is_err() {
