@@ -117,10 +117,16 @@ async fn wait_for_ready(lines: &mut Lines<BufReader<ChildStdout>>) -> Result<(),
         "worker failed to report readiness state".into(),
     ))?;
 
-    serde_json::from_str::<ReadyMessage>(&line).map_err(|_| {
-        EnricherError::StartupFailure("worker readiness failed: unparsable reponse".into())
+    let ready = serde_json::from_str::<ReadyMessage>(&line).map_err(|_| {
+        EnricherError::StartupFailure("worker readiness failed: unparsable response".into())
     })?;
 
+    if ready._message_type != "ready" {
+        return Err(EnricherError::StartupFailure(format!(
+            "worker readiness failed: unexpected messageType '{}'",
+            ready._message_type
+        )));
+    }
     // Message is just marker so we don't really care about it, only that it was received
     // so we chuck it in the bin and let the caller know we're good to go
     Ok(())
