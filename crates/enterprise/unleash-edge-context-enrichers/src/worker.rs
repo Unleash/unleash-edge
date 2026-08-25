@@ -1,21 +1,28 @@
 use std::{
+    collections::HashMap,
+    fmt::Display,
     path::{Path, PathBuf},
     process::Stdio,
     time::Duration,
 };
 use tokio::{
-    io::{AsyncBufReadExt, BufReader, Lines},
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader, Lines},
     process::{Child, ChildStderr, ChildStdin, ChildStdout, Command},
-    sync::mpsc::{Receiver, Sender},
+    sync::{
+        mpsc::{Receiver, Sender, channel},
+        oneshot::{self, Sender as OneShotSender},
+    },
     time,
 };
 use tracing::{debug, error, info};
+use unleash_types::client_features::Context;
 
-use crate::protocol::{EnrichmentResponse, ReadyMessage};
+use crate::protocol::{EnrichmentRequest, EnrichmentResponse, ReadyMessage};
 
 const CHILD_MEMORY_CEILING_MB: u64 = 128;
 const CHILD_READY_TIMEOUT_IN_SECONDS: u64 = 2;
 const MAX_IN_FLIGHT_MESSAGES: usize = 32;
+const MAX_SCHEDULED_JOBS: usize = 32;
 // This is the message handling script that executes the messenger protocol on the Node side
 // This is absolutely critical for the whole thing to hang together, so relying on a filepath to read this
 // feels super fragile. Luckily, we don't have to do that - we can just bake the whole thing
@@ -23,40 +30,152 @@ const MAX_IN_FLIGHT_MESSAGES: usize = 32;
 const WORKER_SCRIPT: &str = include_str!("../worker_script.js");
 
 #[derive(Debug)]
-#[expect(dead_code)]
 pub enum EnricherError {
     StartupFailure(String),
-    UnexpectedShutdown(String),
+    UnexpectedShutdown(
+        String,
+        HashMap<u64, OneShotSender<Result<Context, EnricherError>>>,
+    ),
     ProtocolError(String),
     IOError(String),
 }
 
-#[cfg_attr(not(test), expect(dead_code))]
-enum WorkerEvent {
-    Response(EnrichmentResponse),
-    BrokenPipe(String),
-    ProtocolError(String),
+impl Display for EnricherError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            EnricherError::StartupFailure(msg) => write!(f, "Startup failure: {msg}"),
+            EnricherError::UnexpectedShutdown(msg, pending) => write!(
+                f,
+                "Unexpected shutdown: {msg}. Pending requests: {:?}",
+                pending.keys()
+            ),
+            EnricherError::ProtocolError(msg) => write!(f, "Protocol error: {msg}"),
+            EnricherError::IOError(msg) => write!(f, "IO error: {msg}"),
+        }
+    }
 }
 
-#[cfg_attr(not(test), expect(dead_code))]
+enum WorkerEvent {
+    Response(EnrichmentResponse),
+    WorkerError(String),
+}
+
 struct RunningNodeChild {
     child: Child,
+    pid: u32,
     child_input: ChildStdin,
     child_output: Receiver<WorkerEvent>,
 }
 
-#[expect(dead_code)]
+impl RunningNodeChild {
+    async fn terminate(&mut self) -> Result<(), EnricherError> {
+        self.child.kill().await.map_err(|e| {
+            EnricherError::UnexpectedShutdown(
+                format!("Failed to terminate child process: {}", e),
+                HashMap::new(),
+            )
+        })
+    }
+}
+
 pub struct NodeWorkerController {
+    #[expect(dead_code)]
     worker_id: u32,
-    child: RunningNodeChild,
+    command_tx: Sender<WorkerCommand>,
+}
+
+enum WorkerCommand {
+    Execute {
+        id: u64,
+        context: Context,
+        headers: HashMap<String, String>,
+        respond_to: OneShotSender<Result<Context, EnricherError>>,
+    },
+    Shutdown,
 }
 
 impl NodeWorkerController {
     #[expect(dead_code)]
     pub async fn start(worker_id: u32, enricher_script: &Path) -> Result<Self, EnricherError> {
-        let child = spawn_node_child_process(worker_id, enricher_script).await?;
+        let mut child = spawn_node_child_process(worker_id, &enricher_script.to_path_buf()).await?;
 
-        Ok(NodeWorkerController { worker_id, child })
+        let (command_tx, mut command_rx) = channel(MAX_SCHEDULED_JOBS);
+
+        let enricher_script = enricher_script.to_path_buf();
+
+        tokio::spawn(async move {
+            loop {
+                match driver_loop(worker_id, &mut command_rx, &mut child).await {
+                    Ok(()) => {
+                        break;
+                    }
+                    Err(error) => {
+                        error!("[node-worker {worker_id}] driver failed; restarting: {error}");
+                    }
+                }
+
+                // Small sleep to prevent a broken setup from going psycho on re-spawning processes
+                // This is pretty bad. Edge under load is going to drop a bunch of enricher requests here
+                // the alternative is a hot re-spawn loop but that's going to melt Edge in a different way
+                // This isn't normal failure - something is broken and needs to be logged and raised anyway
+                tokio::time::sleep(Duration::from_millis(10)).await;
+                child = match spawn_node_child_process(worker_id, &enricher_script).await {
+                    Ok(child) => child,
+                    Err(error) => {
+                        error!("[node-worker {worker_id}] failed to restart child: {error}");
+                        continue;
+                    }
+                };
+            }
+        });
+
+        Ok(NodeWorkerController {
+            worker_id,
+            command_tx,
+        })
+    }
+
+    #[expect(dead_code)]
+    pub async fn request_enrichment(
+        &self,
+        id: u64,
+        context: Context,
+        headers: HashMap<String, String>,
+        job_timeout: Duration,
+    ) -> Result<Context, EnricherError> {
+        let (respond_to, read_response) = oneshot::channel();
+
+        self.command_tx
+            .send(WorkerCommand::Execute {
+                id,
+                context,
+                headers,
+                respond_to,
+            })
+            .await
+            .map_err(|e| {
+                EnricherError::IOError(format!("Failed to send command to worker: {}", e))
+            })?;
+
+        match time::timeout(job_timeout, read_response).await {
+            Ok(Ok(result)) => result,
+            Ok(Err(_)) => Err(EnricherError::IOError(
+                "Worker response channel closed unexpectedly".to_string(),
+            )),
+            Err(_) => Err(EnricherError::IOError(
+                "Worker response timed out".to_string(),
+            )),
+        }
+    }
+
+    #[expect(dead_code)]
+    pub async fn shutdown(&self) -> Result<(), EnricherError> {
+        self.command_tx
+            .send(WorkerCommand::Shutdown)
+            .await
+            .map_err(|e| {
+                EnricherError::IOError(format!("Failed to send shutdown command to worker: {}", e))
+            })
     }
 }
 
@@ -64,7 +183,7 @@ async fn spawn_node_child_process(
     worker_id: u32,
     enricher_script: &Path,
 ) -> Result<RunningNodeChild, EnricherError> {
-    spawn_configured_child(worker_id, node_worker_command(enricher_script)).await
+    spawn_child(worker_id, node_worker_command(enricher_script)).await
 }
 
 fn node_worker_command(enricher_script: &Path) -> Command {
@@ -84,11 +203,11 @@ fn node_worker_command(enricher_script: &Path) -> Command {
     command
 }
 
-async fn spawn_configured_child(
+async fn spawn_child(
     worker_id: u32,
     mut command: Command,
 ) -> Result<RunningNodeChild, EnricherError> {
-    let (event_tx, event_rx) = tokio::sync::mpsc::channel(MAX_IN_FLIGHT_MESSAGES);
+    let (event_tx, event_rx) = channel(MAX_IN_FLIGHT_MESSAGES);
 
     let mut child = command.spawn().map_err(|e| {
         EnricherError::StartupFailure(format!("Failed to spawn child process: {}", e))
@@ -119,6 +238,7 @@ async fn spawn_configured_child(
 
     Ok(RunningNodeChild {
         child,
+        pid: child_pid,
         child_input: std_in,
         child_output: event_rx,
     })
@@ -165,7 +285,7 @@ async fn read_child_messages(
                     if let Ok(event) = serde_json::from_str::<EnrichmentResponse>(&line) {
                         event_tx.send(WorkerEvent::Response(event)).await
                     } else {
-                        event_tx.send(WorkerEvent::ProtocolError(line)).await
+                        event_tx.send(WorkerEvent::WorkerError(line)).await
                     };
 
                 // this happens if the child manages to flush one last message to its stdout but the Rust side receiver
@@ -180,7 +300,7 @@ async fn read_child_messages(
             }
             Err(error) => {
                 let _ = event_tx
-                    .send(WorkerEvent::BrokenPipe(format!(
+                    .send(WorkerEvent::WorkerError(format!(
                         "child stdout read failed: {error}"
                     )))
                     .await;
@@ -189,6 +309,90 @@ async fn read_child_messages(
             Ok(None) => break,
         }
     }
+}
+
+async fn driver_loop(
+    worker_id: u32,
+    command_rx: &mut Receiver<WorkerCommand>,
+    child: &mut RunningNodeChild,
+) -> Result<(), EnricherError> {
+    let mut pending_responses = HashMap::new();
+    loop {
+        tokio::select! {
+            command = command_rx.recv() => {
+                match command {
+                    Some(WorkerCommand::Execute { id, context, headers, respond_to }) => {
+                        send_request(&mut child.child_input, id, context, headers).await?;
+                        pending_responses.insert(id, respond_to);
+                    }
+                    Some(WorkerCommand::Shutdown) | None => {
+                        return child.terminate().await;
+                    }
+                }
+            }
+            message = child.child_output.recv() => {
+                match message {
+                    Some(WorkerEvent::Response(response)) => {
+                        if let Some(respond_to) = pending_responses.remove(&response.id) {
+                            let _ = respond_to.send(response.outcome.map_err(|e| EnricherError::ProtocolError(e)));
+                        } else {
+                            error!(
+                                "[node-worker {worker_id} pid={}] received response for unknown request id {}",
+                                child.pid,
+                                response.id
+                            );
+                        }
+                    }
+                    Some(WorkerEvent::WorkerError(line)) => {
+                        return Err(EnricherError::ProtocolError(format!("child process sent unparsable message: {line}")));
+                    }
+                    None => {
+                        return Err(EnricherError::UnexpectedShutdown("child process stdout closed".to_string(), pending_responses));
+                    }
+                }
+            }
+            status = child.child.wait() => {
+                let message = match status {
+                    Ok(status) => {
+                        format!("child process exited with status: {status}")
+                    }
+                    Err(error) => {
+                        format!("child process wait failed: {error}")
+                    }
+                };
+
+                return Err(EnricherError::UnexpectedShutdown(message, pending_responses));
+            }
+        }
+    }
+}
+
+async fn send_request(
+    stdin: &mut ChildStdin,
+    id: u64,
+    context: Context,
+    headers: HashMap<String, String>,
+) -> Result<(), EnricherError> {
+    let request = EnrichmentRequest {
+        id,
+        context,
+        headers,
+    };
+    // This isn't possible in the sense that it requires that we have a fallible serialize implementation
+    // We don't have that, there's no reason to have that and it's a bunch of work to do so for no reason.
+    let mut line = serde_json::to_vec(&request).map_err(|e| {
+        EnricherError::ProtocolError(format!("Could not serialize message to enricher: {e}"))
+    })?;
+    line.push(b'\n');
+    stdin
+        .write_all(&line)
+        .await
+        .map_err(|e| EnricherError::IOError(format!("Could not send message to enricher: {e}")))?;
+    stdin
+        .flush()
+        .await
+        .map_err(|e| EnricherError::IOError(format!("Could not flush message to enricher: {e}")))?;
+    Ok(())
 }
 
 // The intent is to pipe user script's std out and std err to the process std err. That way when someone leaves a bunch
@@ -277,7 +481,7 @@ mod tests {
                done"#,
         );
 
-        let mut child = spawn_configured_child(1, command)
+        let mut child = spawn_child(1, command)
             .await
             .expect("failed to spawn fake child");
 
@@ -305,7 +509,7 @@ mod tests {
                     Some("fake-user")
                 );
             }
-            WorkerEvent::BrokenPipe(error) | WorkerEvent::ProtocolError(error) => {
+            WorkerEvent::WorkerError(error) => {
                 panic!("unexpected fake child event: {error}");
             }
         }
@@ -318,7 +522,7 @@ mod tests {
                printf '%s\n' 'not-json'"#,
         );
 
-        let mut child = spawn_configured_child(1, command)
+        let mut child = spawn_child(1, command)
             .await
             .expect("failed to spawn fake child");
 
@@ -328,9 +532,8 @@ mod tests {
             .expect("fake child event stream closed");
 
         match event {
-            WorkerEvent::ProtocolError(line) => assert_eq!(line, "not-json"),
+            WorkerEvent::WorkerError(line) => assert_eq!(line, "not-json"),
             WorkerEvent::Response(_) => panic!("unexpected enrichment response"),
-            WorkerEvent::BrokenPipe(error) => panic!("unexpected broken pipe: {error}"),
         }
     }
 
@@ -376,7 +579,7 @@ mod tests {
                     Some("real-worker-user")
                 );
             }
-            WorkerEvent::BrokenPipe(error) | WorkerEvent::ProtocolError(error) => {
+            WorkerEvent::WorkerError(error) => {
                 panic!("unexpected worker event: {error}");
             }
         }
@@ -387,7 +590,7 @@ mod tests {
     #[tokio::test]
     #[tracing_test::traced_test]
     async fn worker_traps_console_messages_and_pipes_them_to_logs() {
-        let mut child = spawn_configured_child(
+        let mut child = spawn_child(
             1,
             fake_child_command(
                 r#"printf '%s\n' '{"messageType":"ready"}'
@@ -421,7 +624,7 @@ mod tests {
                 assert_eq!(response.id, 8);
                 assert_eq!(response.outcome.unwrap_err(), "script blew up");
             }
-            WorkerEvent::BrokenPipe(error) | WorkerEvent::ProtocolError(error) => {
+            WorkerEvent::WorkerError(error) => {
                 panic!("unexpected fake child event: {error}");
             }
         }
