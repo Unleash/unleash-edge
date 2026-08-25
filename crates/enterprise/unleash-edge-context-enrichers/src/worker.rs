@@ -3,6 +3,7 @@ use std::{
     fmt::Display,
     path::{Path, PathBuf},
     process::Stdio,
+    sync::atomic::{AtomicU64, Ordering},
     time::Duration,
 };
 use tokio::{
@@ -81,6 +82,7 @@ impl RunningNodeChild {
 pub struct NodeWorkerController {
     #[expect(dead_code)]
     worker_id: u32,
+    next_request_id: AtomicU64,
     command_tx: Sender<WorkerCommand>,
 }
 
@@ -131,6 +133,7 @@ impl NodeWorkerController {
 
         Ok(NodeWorkerController {
             worker_id,
+            next_request_id: AtomicU64::new(0),
             command_tx,
         })
     }
@@ -138,7 +141,6 @@ impl NodeWorkerController {
     #[expect(dead_code)]
     pub async fn request_enrichment(
         &self,
-        id: u64,
         context: Context,
         headers: HashMap<String, String>,
         job_timeout: Duration,
@@ -147,7 +149,7 @@ impl NodeWorkerController {
 
         self.command_tx
             .send(WorkerCommand::Execute {
-                id,
+                id: self.next_request_id.fetch_add(1, Ordering::SeqCst),
                 context,
                 headers,
                 respond_to,
