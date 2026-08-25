@@ -6178,9 +6178,9 @@ dependencies = [
 
 [[package]]
 name = "unleash-yggdrasil"
-version = "0.21.4"
+version = "0.21.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56172b5dc8824e8477a010cc471a344e5e3de8ec8dedf122e3cd7cb095f45a6c"
+checksum = "8df5e1811890a75dc6ad7cd9348d630353df2cdb8d38c6b2d58e4599f3d9486b"
 dependencies = [
  "ahash",
  "chrono",
