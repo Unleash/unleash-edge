@@ -34,10 +34,7 @@ const WORKER_SCRIPT: &str = include_str!("../worker_script.js");
 #[derive(Debug)]
 pub enum EnricherError {
     StartupFailure(String),
-    UnexpectedShutdown(
-        String,
-        HashMap<u64, OneShotSender<Result<Context, EnricherError>>>,
-    ),
+    UnexpectedShutdown(String),
     ProtocolError(String),
     IOError(String),
 }
@@ -46,11 +43,7 @@ impl Display for EnricherError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             EnricherError::StartupFailure(msg) => write!(f, "Startup failure: {msg}"),
-            EnricherError::UnexpectedShutdown(msg, pending) => write!(
-                f,
-                "Unexpected shutdown: {msg}. Pending requests: {:?}",
-                pending.keys()
-            ),
+            EnricherError::UnexpectedShutdown(msg) => write!(f, "Unexpected shutdown: {msg}"),
             EnricherError::ProtocolError(msg) => write!(f, "Protocol error: {msg}"),
             EnricherError::IOError(msg) => write!(f, "IO error: {msg}"),
         }
@@ -72,10 +65,7 @@ struct RunningNodeChild {
 impl RunningNodeChild {
     async fn terminate(&mut self) -> Result<(), EnricherError> {
         self.child.kill().await.map_err(|e| {
-            EnricherError::UnexpectedShutdown(
-                format!("Failed to terminate child process: {}", e),
-                HashMap::new(),
-            )
+            EnricherError::UnexpectedShutdown(format!("Failed to terminate child process: {}", e))
         })
     }
 }
@@ -376,7 +366,6 @@ async fn driver_loop(
                     None => {
                         return Err(EnricherError::UnexpectedShutdown(
                             "child process stdout closed".to_string(),
-                            into_pending_senders(pending_responses),
                         ));
                     }
                 }
@@ -391,10 +380,12 @@ async fn driver_loop(
                     }
                 };
 
-                return Err(EnricherError::UnexpectedShutdown(
-                    message,
-                    into_pending_senders(pending_responses),
-                ));
+                for (_id, pending_response) in pending_responses.drain() {
+                    let _ = pending_response.respond_to.send(Err(EnricherError::IOError(
+                        "Worker is shutting down, this job will not be served".to_string(),
+                    )));
+                }
+                return Err(EnricherError::UnexpectedShutdown(message));
             }
             _ = pending_expiry.tick(), if !pending_responses.is_empty() => {
                 expire_pending_responses(&mut pending_responses);
@@ -417,15 +408,6 @@ fn expire_pending_responses(pending_responses: &mut HashMap<u64, PendingResponse
             )));
         }
     }
-}
-
-fn into_pending_senders(
-    pending_responses: HashMap<u64, PendingResponse>,
-) -> HashMap<u64, OneShotSender<Result<Context, EnricherError>>> {
-    pending_responses
-        .into_iter()
-        .map(|(id, pending_response)| (id, pending_response.respond_to))
-        .collect()
 }
 
 async fn send_request(
