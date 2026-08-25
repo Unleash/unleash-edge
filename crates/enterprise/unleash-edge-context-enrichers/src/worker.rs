@@ -143,7 +143,7 @@ impl NodeWorkerController {
         })
     }
 
-    #[expect(dead_code)]
+    #[cfg_attr(not(test), expect(dead_code))]
     pub async fn request_enrichment(
         &self,
         context: Context,
@@ -151,16 +151,19 @@ impl NodeWorkerController {
         job_timeout: Duration,
     ) -> Result<Context, EnricherError> {
         let (respond_to, read_response) = oneshot::channel();
+        let deadline = Instant::now() + job_timeout;
 
-        self.command_tx
-            .send(WorkerCommand::Execute {
-                id: self.next_request_id.fetch_add(1, Ordering::SeqCst),
-                context,
-                headers,
-                deadline: Instant::now() + job_timeout,
-                respond_to,
-            })
+        let command = WorkerCommand::Execute {
+            id: self.next_request_id.fetch_add(1, Ordering::SeqCst),
+            context,
+            headers,
+            deadline,
+            respond_to,
+        };
+
+        time::timeout_at(deadline, self.command_tx.send(command))
             .await
+            .map_err(|_| EnricherError::IOError("Worker response timed out".to_string()))?
             .map_err(|e| {
                 EnricherError::IOError(format!("Failed to send command to worker: {}", e))
             })?;
@@ -647,6 +650,34 @@ mod tests {
             .await
             .expect("failed to send shutdown command");
         let _ = driver.await.expect("driver task panicked");
+    }
+
+    #[tokio::test]
+    async fn request_enrichment_times_out_when_scheduler_queue_is_full() {
+        let (command_tx, _command_rx) = channel(1);
+        command_tx
+            .send(WorkerCommand::Shutdown)
+            .await
+            .expect("failed to fill scheduler queue");
+        let worker = NodeWorkerController {
+            worker_id: 1,
+            next_request_id: AtomicU64::new(0),
+            command_tx,
+        };
+
+        let error = worker
+            .request_enrichment(
+                Context::default(),
+                HashMap::new(),
+                Duration::from_millis(20),
+            )
+            .await
+            .expect_err("request should time out waiting for scheduler queue capacity");
+
+        match error {
+            EnricherError::IOError(message) => assert_eq!(message, "Worker response timed out"),
+            other => panic!("unexpected error: {other:?}"),
+        }
     }
 
     #[tokio::test]
