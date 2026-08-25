@@ -87,10 +87,16 @@ pub struct NodeWorkerController {
     command_tx: Sender<WorkerCommand>,
 }
 
+// Clippy is telling us that we're paying the cost of the large size of the Execute command
+// in the Shutdown command as well. Which is fair. But the execution is 99.99% of the commands
+// that we will send. We're not optimizing for the shutdown path. Typically the solution here is to
+// Box the fields that are causing the large size - Context in this case. But that means
+// every request pays the cost of a heap allocation and a pointer indirection. Which is just silly
+#[allow(clippy::large_enum_variant)]
 enum WorkerCommand {
     Execute {
         id: u64,
-        context: Box<Context>,
+        context: Context,
         headers: HashMap<String, String>,
         deadline: Instant,
         respond_to: OneShotSender<Result<Context, EnricherError>>,
@@ -157,7 +163,7 @@ impl NodeWorkerController {
         self.command_tx
             .send(WorkerCommand::Execute {
                 id: self.next_request_id.fetch_add(1, Ordering::SeqCst),
-                context: Box::new(context),
+                context,
                 headers,
                 deadline: Instant::now() + job_timeout,
                 respond_to,
@@ -340,7 +346,7 @@ async fn driver_loop(
                             continue;
                         }
 
-                        send_request(&mut child.child_input, id, *context, headers).await?;
+                        send_request(&mut child.child_input, id, context, headers).await?;
                         pending_responses.insert(id, PendingResponse {
                             deadline,
                             respond_to,
@@ -592,7 +598,7 @@ mod tests {
         command_tx
             .send(WorkerCommand::Execute {
                 id: 0,
-                context: Box::new(Context::default()),
+                context: Context::default(),
                 headers: HashMap::new(),
                 deadline: Instant::now() + Duration::from_secs(1),
                 respond_to,
@@ -633,7 +639,7 @@ mod tests {
         command_tx
             .send(WorkerCommand::Execute {
                 id: 0,
-                context: Box::new(Context::default()),
+                context: Context::default(),
                 headers: HashMap::new(),
                 deadline: Instant::now() + Duration::from_millis(20),
                 respond_to,
