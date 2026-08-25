@@ -13,7 +13,7 @@ use tokio::{
         mpsc::{Receiver, Sender, channel},
         oneshot::{self, Sender as OneShotSender},
     },
-    time,
+    time::{self, Instant},
 };
 use tracing::{debug, error, info};
 use unleash_types::client_features::Context;
@@ -24,6 +24,7 @@ const CHILD_MEMORY_CEILING_MB: u64 = 128;
 const CHILD_READY_TIMEOUT_IN_SECONDS: u64 = 2;
 const MAX_IN_FLIGHT_MESSAGES: usize = 32;
 const MAX_SCHEDULED_JOBS: usize = 32;
+const PENDING_RESPONSE_EXPIRY_INTERVAL: Duration = Duration::from_millis(10);
 // This is the message handling script that executes the messenger protocol on the Node side
 // This is absolutely critical for the whole thing to hang together, so relying on a filepath to read this
 // feels super fragile. Luckily, we don't have to do that - we can just bake the whole thing
@@ -89,17 +90,23 @@ pub struct NodeWorkerController {
 enum WorkerCommand {
     Execute {
         id: u64,
-        context: Context,
+        context: Box<Context>,
         headers: HashMap<String, String>,
+        deadline: Instant,
         respond_to: OneShotSender<Result<Context, EnricherError>>,
     },
     Shutdown,
 }
 
+struct PendingResponse {
+    deadline: Instant,
+    respond_to: OneShotSender<Result<Context, EnricherError>>,
+}
+
 impl NodeWorkerController {
     #[expect(dead_code)]
     pub async fn start(worker_id: u32, enricher_script: &Path) -> Result<Self, EnricherError> {
-        let mut child = spawn_node_child_process(worker_id, &enricher_script.to_path_buf()).await?;
+        let mut child = spawn_node_child_process(worker_id, enricher_script).await?;
 
         let (command_tx, mut command_rx) = channel(MAX_SCHEDULED_JOBS);
 
@@ -150,8 +157,9 @@ impl NodeWorkerController {
         self.command_tx
             .send(WorkerCommand::Execute {
                 id: self.next_request_id.fetch_add(1, Ordering::SeqCst),
-                context,
+                context: Box::new(context),
                 headers,
+                deadline: Instant::now() + job_timeout,
                 respond_to,
             })
             .await
@@ -159,13 +167,10 @@ impl NodeWorkerController {
                 EnricherError::IOError(format!("Failed to send command to worker: {}", e))
             })?;
 
-        match time::timeout(job_timeout, read_response).await {
-            Ok(Ok(result)) => result,
-            Ok(Err(_)) => Err(EnricherError::IOError(
-                "Worker response channel closed unexpectedly".to_string(),
-            )),
+        match read_response.await {
+            Ok(result) => result,
             Err(_) => Err(EnricherError::IOError(
-                "Worker response timed out".to_string(),
+                "Worker response channel closed unexpectedly".to_string(),
             )),
         }
     }
@@ -319,13 +324,27 @@ async fn driver_loop(
     child: &mut RunningNodeChild,
 ) -> Result<(), EnricherError> {
     let mut pending_responses = HashMap::new();
+    let mut pending_expiry = time::interval(PENDING_RESPONSE_EXPIRY_INTERVAL);
+
     loop {
         tokio::select! {
             command = command_rx.recv() => {
                 match command {
-                    Some(WorkerCommand::Execute { id, context, headers, respond_to }) => {
-                        send_request(&mut child.child_input, id, context, headers).await?;
-                        pending_responses.insert(id, respond_to);
+                    Some(WorkerCommand::Execute { id, context, headers, deadline, respond_to }) => {
+                        // Our queue is backed up. Badly. And trying to add a job to the queue is
+                        // exceeding out timeout. Soooo... no point in sending then because we no longer care
+                        if deadline <= Instant::now() {
+                            let _ = respond_to.send(Err(EnricherError::IOError(
+                                "Worker response timed out".to_string(),
+                            )));
+                            continue;
+                        }
+
+                        send_request(&mut child.child_input, id, *context, headers).await?;
+                        pending_responses.insert(id, PendingResponse {
+                            deadline,
+                            respond_to,
+                        });
                     }
                     Some(WorkerCommand::Shutdown) | None => {
                         return child.terminate().await;
@@ -335,8 +354,8 @@ async fn driver_loop(
             message = child.child_output.recv() => {
                 match message {
                     Some(WorkerEvent::Response(response)) => {
-                        if let Some(respond_to) = pending_responses.remove(&response.id) {
-                            let _ = respond_to.send(response.outcome.map_err(|e| EnricherError::ProtocolError(e)));
+                        if let Some(pending_response) = pending_responses.remove(&response.id) {
+                            let _ = pending_response.respond_to.send(response.outcome.map_err(EnricherError::ProtocolError));
                         } else {
                             error!(
                                 "[node-worker {worker_id} pid={}] received response for unknown request id {}",
@@ -349,7 +368,10 @@ async fn driver_loop(
                         return Err(EnricherError::ProtocolError(format!("child process sent unparsable message: {line}")));
                     }
                     None => {
-                        return Err(EnricherError::UnexpectedShutdown("child process stdout closed".to_string(), pending_responses));
+                        return Err(EnricherError::UnexpectedShutdown(
+                            "child process stdout closed".to_string(),
+                            into_pending_senders(pending_responses),
+                        ));
                     }
                 }
             }
@@ -363,10 +385,41 @@ async fn driver_loop(
                     }
                 };
 
-                return Err(EnricherError::UnexpectedShutdown(message, pending_responses));
+                return Err(EnricherError::UnexpectedShutdown(
+                    message,
+                    into_pending_senders(pending_responses),
+                ));
+            }
+            _ = pending_expiry.tick(), if !pending_responses.is_empty() => {
+                expire_pending_responses(&mut pending_responses);
             }
         }
     }
+}
+
+fn expire_pending_responses(pending_responses: &mut HashMap<u64, PendingResponse>) {
+    let now = Instant::now();
+    let expired_ids = pending_responses
+        .iter()
+        .filter_map(|(id, pending_response)| (pending_response.deadline <= now).then_some(*id))
+        .collect::<Vec<_>>();
+
+    for id in expired_ids {
+        if let Some(pending_response) = pending_responses.remove(&id) {
+            let _ = pending_response.respond_to.send(Err(EnricherError::IOError(
+                "Worker response timed out".to_string(),
+            )));
+        }
+    }
+}
+
+fn into_pending_senders(
+    pending_responses: HashMap<u64, PendingResponse>,
+) -> HashMap<u64, OneShotSender<Result<Context, EnricherError>>> {
+    pending_responses
+        .into_iter()
+        .map(|(id, pending_response)| (id, pending_response.respond_to))
+        .collect()
 }
 
 async fn send_request(
@@ -516,6 +569,95 @@ mod tests {
                 panic!("unexpected fake child event: {error}");
             }
         }
+    }
+
+    #[tokio::test]
+    async fn scheduled_worker_command_returns_matching_response() {
+        let command = fake_child_command(
+            r#"printf '%s\n' '{"messageType":"ready"}'
+               while IFS= read -r line; do
+                   case "$line" in
+                       *'"id":0'*)
+                           printf '%s\n' '{"id":0,"context":{"userId":"scheduled-user"}}'
+                           ;;
+                   esac
+               done"#,
+        );
+        let mut child = spawn_child(1, command)
+            .await
+            .expect("failed to spawn fake child");
+        let (command_tx, mut command_rx) = channel(MAX_SCHEDULED_JOBS);
+        let driver = tokio::spawn(async move { driver_loop(1, &mut command_rx, &mut child).await });
+        let (respond_to, read_response) = oneshot::channel();
+
+        command_tx
+            .send(WorkerCommand::Execute {
+                id: 0,
+                context: Box::new(Context::default()),
+                headers: HashMap::new(),
+                deadline: Instant::now() + Duration::from_secs(1),
+                respond_to,
+            })
+            .await
+            .expect("failed to schedule worker command");
+
+        let response = time::timeout(Duration::from_secs(1), read_response)
+            .await
+            .expect("timed out waiting for scheduled response")
+            .expect("scheduled response channel closed")
+            .expect("scheduled request failed");
+
+        assert_eq!(response.user_id.as_deref(), Some("scheduled-user"));
+
+        command_tx
+            .send(WorkerCommand::Shutdown)
+            .await
+            .expect("failed to send shutdown command");
+        let _ = driver.await.expect("driver task panicked");
+    }
+
+    #[tokio::test]
+    async fn scheduled_worker_command_times_out_from_driver() {
+        let command = fake_child_command(
+            r#"printf '%s\n' '{"messageType":"ready"}'
+               while IFS= read -r _line; do
+                   sleep 1
+               done"#,
+        );
+        let mut child = spawn_child(1, command)
+            .await
+            .expect("failed to spawn fake child");
+        let (command_tx, mut command_rx) = channel(MAX_SCHEDULED_JOBS);
+        let driver = tokio::spawn(async move { driver_loop(1, &mut command_rx, &mut child).await });
+        let (respond_to, read_response) = oneshot::channel();
+
+        command_tx
+            .send(WorkerCommand::Execute {
+                id: 0,
+                context: Box::new(Context::default()),
+                headers: HashMap::new(),
+                deadline: Instant::now() + Duration::from_millis(20),
+                respond_to,
+            })
+            .await
+            .expect("failed to schedule worker command");
+
+        let error = time::timeout(Duration::from_secs(1), read_response)
+            .await
+            .expect("timed out waiting for scheduled timeout")
+            .expect("scheduled response channel closed")
+            .expect_err("scheduled request should time out");
+
+        match error {
+            EnricherError::IOError(message) => assert_eq!(message, "Worker response timed out"),
+            other => panic!("unexpected error: {other:?}"),
+        }
+
+        command_tx
+            .send(WorkerCommand::Shutdown)
+            .await
+            .expect("failed to send shutdown command");
+        let _ = driver.await.expect("driver task panicked");
     }
 
     #[tokio::test]
