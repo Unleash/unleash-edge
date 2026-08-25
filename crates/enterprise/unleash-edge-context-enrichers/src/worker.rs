@@ -36,6 +36,7 @@ pub enum EnricherError {
     StartupFailure(String),
     UnexpectedShutdown(String),
     ProtocolError(String),
+    ScriptError(String),
     IOError(String),
 }
 
@@ -46,6 +47,7 @@ impl Display for EnricherError {
             EnricherError::UnexpectedShutdown(msg) => write!(f, "Unexpected shutdown: {msg}"),
             EnricherError::ProtocolError(msg) => write!(f, "Protocol error: {msg}"),
             EnricherError::IOError(msg) => write!(f, "IO error: {msg}"),
+            EnricherError::ScriptError(msg) => write!(f, "Script error: {msg}"),
         }
     }
 }
@@ -351,7 +353,7 @@ async fn driver_loop(
                 match message {
                     Some(WorkerEvent::Response(response)) => {
                         if let Some(pending_response) = pending_responses.remove(&response.id) {
-                            let _ = pending_response.respond_to.send(response.outcome.map_err(EnricherError::ProtocolError));
+                            let _ = pending_response.respond_to.send(response.outcome.map_err(EnricherError::ScriptError));
                         } else {
                             error!(
                                 "[node-worker {worker_id} pid={}] received response for unknown request id {}",
