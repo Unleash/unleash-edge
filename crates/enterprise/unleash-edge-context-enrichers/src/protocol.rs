@@ -1,18 +1,16 @@
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
 use unleash_types::client_features::Context;
 
-#[expect(dead_code)]
+#[derive(Serialize)]
 pub(crate) struct EnrichmentRequest {
-    pub(crate) id: i64,
+    pub(crate) id: u64,
     pub(crate) context: Context,
     pub(crate) headers: HashMap<String, String>,
 }
 
 pub(crate) struct EnrichmentResponse {
-    #[cfg_attr(not(test), expect(dead_code))]
-    pub(crate) id: i64,
-    #[cfg_attr(not(test), expect(dead_code))]
+    pub(crate) id: u64,
     pub(crate) outcome: Result<Context, String>,
 }
 
@@ -24,7 +22,7 @@ pub(crate) struct ReadyMessage {
 
 #[derive(Deserialize)]
 struct ProtocolEnrichmentResponse {
-    pub(crate) id: i64,
+    pub(crate) id: u64,
     pub(crate) context: Option<Context>,
     pub(crate) error: Option<String>,
 }
