@@ -160,8 +160,8 @@ async fn wait_for_ready(lines: &mut Lines<BufReader<ChildStdout>>) -> Result<(),
         "worker failed to report readiness state".into(),
     ))?;
 
-    let ready = serde_json::from_str::<ReadyMessage>(&line).map_err(|_| {
-        EnricherError::StartupFailure("worker readiness failed: unparsable response".into())
+    let ready = serde_json::from_str::<ReadyMessage>(&line).map_err(|e| {
+        EnricherError::StartupFailure(format!("worker readiness failed: unparsable response: {e}"))
     })?;
 
     if ready._message_type != "ready" {
