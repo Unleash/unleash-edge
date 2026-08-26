@@ -243,16 +243,6 @@ mod tests {
     use tokio::io::AsyncWriteExt;
 
     fn node_is_available() -> bool {
-        // very stupid hack - right now CI doesn't have a Node runtime
-        // available and I don't want to add it. So we'll skip these on CI
-        // but I'm a banana who forgets things so I'm putting a time-bomb on this
-        // if this check is still here Aug 26 we fail so someone (me) needs to fix it
-
-        assert!(
-            std::time::SystemTime::now()
-                < std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1787695200)
-        );
-
         StdCommand::new(resolve_node_path())
             .arg("--version")
             .output()
