@@ -154,7 +154,7 @@ async fn wait_for_ready(lines: &mut Lines<BufReader<ChildStdout>>) -> Result<(),
     )
     .await
     .map_err(|_| EnricherError::StartupFailure("worker readiness timed out".into()))?
-    .map_err(|_| EnricherError::StartupFailure("worker readiness read failed".into()))?;
+    .map_err(|e| EnricherError::StartupFailure(format!("worker readiness read failed: {e}")))?;
 
     let line = line.ok_or(EnricherError::StartupFailure(
         "worker failed to report readiness state".into(),
