@@ -80,7 +80,13 @@ pub(crate) async fn driver_loop(
                         }
                     }
                     Some(WorkerEvent::WorkerError(line)) => {
-                        let error = EnricherError::ProtocolError(format!("child process sent unparsable message: {line}"));
+                        let error = if line.starts_with("child stdout read failed:") {
+                            EnricherError::IOError(line)
+                        } else {
+                            EnricherError::ProtocolError(format!(
+                                "child process sent unparsable message: {line}"
+                            ))
+                        };
                         fail_pending_responses(&mut pending_responses, error.clone());
                         return Err(error);
                     }
