@@ -15,6 +15,7 @@ use crate::{
 };
 
 const PENDING_RESPONSE_EXPIRY_INTERVAL: Duration = Duration::from_millis(10);
+const MAX_IN_FLIGHT_REQUESTS: usize = 32;
 
 pub(crate) struct PendingResponse {
     deadline: Instant,
@@ -31,7 +32,7 @@ pub(crate) async fn driver_loop(
     pending_expiry.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
     loop {
         tokio::select! {
-            command = command_rx.recv() => {
+            command = command_rx.recv(), if pending_responses.len() < MAX_IN_FLIGHT_REQUESTS => {
                 match command {
                     Some(WorkerCommand::Execute { id, context, headers, deadline, respond_to }) => {
                         // Our queue is backed up. Badly. And trying to add a job to the queue is
@@ -284,6 +285,53 @@ mod tests {
             .await
             .expect("failed to send shutdown command");
         let _ = driver.await.expect("driver task panicked");
+    }
+
+    #[tokio::test]
+    async fn driver_stops_draining_commands_when_in_flight_limit_is_reached() {
+        let command = fake_child_command(
+            r#"printf '%s\n' '{"messageType":"ready"}'
+               while IFS= read -r _line; do
+                   :
+               done"#,
+        );
+        let mut child = spawn_child(1, command)
+            .await
+            .expect("failed to spawn fake child");
+        let (command_tx, mut command_rx) = channel(MAX_SCHEDULED_JOBS);
+        let driver = tokio::spawn(async move { driver_loop(1, &mut command_rx, &mut child).await });
+
+        for id in 0..(MAX_IN_FLIGHT_REQUESTS + MAX_SCHEDULED_JOBS) {
+            let (respond_to, _read_response) = oneshot::channel();
+            command_tx
+                .send(WorkerCommand::Execute {
+                    id: id as u64,
+                    context: Context::default(),
+                    headers: HashMap::new(),
+                    deadline: Instant::now() + Duration::from_secs(60),
+                    respond_to,
+                })
+                .await
+                .expect("failed to schedule worker command");
+        }
+
+        let (respond_to, _read_response) = oneshot::channel();
+        let send_result = time::timeout(
+            Duration::from_millis(50),
+            command_tx.send(WorkerCommand::Execute {
+                id: 100,
+                context: Context::default(),
+                headers: HashMap::new(),
+                deadline: Instant::now() + Duration::from_secs(60),
+                respond_to,
+            }),
+        )
+        .await;
+
+        assert!(send_result.is_err());
+
+        driver.abort();
+        let _ = driver.await;
     }
 
     #[tokio::test]
