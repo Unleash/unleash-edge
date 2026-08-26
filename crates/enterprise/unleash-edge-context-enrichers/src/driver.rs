@@ -28,7 +28,7 @@ pub(crate) async fn driver_loop(
 ) -> Result<(), EnricherError> {
     let mut pending_responses = HashMap::new();
     let mut pending_expiry = time::interval(PENDING_RESPONSE_EXPIRY_INTERVAL);
-
+    pending_expiry.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
     loop {
         tokio::select! {
             command = command_rx.recv() => {
