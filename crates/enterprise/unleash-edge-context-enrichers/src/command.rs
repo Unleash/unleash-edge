@@ -27,7 +27,7 @@ impl Display for EnricherError {
 
 pub(crate) enum WorkerEvent {
     Response(EnrichmentResponse),
-    WorkerError(String),
+    WorkerError(EnricherError),
 }
 
 // Clippy is telling us that we're paying the cost of the large size of the Execute command
