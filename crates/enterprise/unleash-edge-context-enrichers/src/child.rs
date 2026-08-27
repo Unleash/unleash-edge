@@ -121,7 +121,11 @@ async fn read_child_messages(
                     if let Ok(event) = serde_json::from_str::<EnrichmentResponse>(&line) {
                         event_tx.send(WorkerEvent::Response(event)).await
                     } else {
-                        event_tx.send(WorkerEvent::WorkerError(line)).await
+                        event_tx
+                            .send(WorkerEvent::WorkerError(EnricherError::ProtocolError(
+                                format!("child process sent unparsable message: {line}"),
+                            )))
+                            .await
                     };
 
                 // this happens if the child manages to flush one last message to its stdout but the Rust side receiver
@@ -136,9 +140,9 @@ async fn read_child_messages(
             }
             Err(error) => {
                 let _ = event_tx
-                    .send(WorkerEvent::WorkerError(format!(
+                    .send(WorkerEvent::WorkerError(EnricherError::IOError(format!(
                         "child stdout read failed: {error}"
-                    )))
+                    ))))
                     .await;
                 break;
             }
@@ -311,7 +315,10 @@ mod tests {
             .expect("fake child event stream closed");
 
         match event {
-            WorkerEvent::WorkerError(line) => assert_eq!(line, "not-json"),
+            WorkerEvent::WorkerError(error) => assert_eq!(
+                error.to_string(),
+                "Protocol error: child process sent unparsable message: not-json"
+            ),
             WorkerEvent::Response(_) => panic!("unexpected enrichment response"),
         }
     }
