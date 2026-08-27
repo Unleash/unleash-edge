@@ -73,10 +73,8 @@ impl WorkerPool {
 
         let _permit = timeout_at(deadline, self.inner.job_slots.acquire())
             .await
-            .map_err(|_| EnricherError::IOError("Worker response timed out".to_string()))?
-            .map_err(|_| {
-                EnricherError::UnexpectedShutdown("Worker pool is shutting down".to_string())
-            })?;
+            .map_err(|_| EnricherError::Timeout("Worker response timed out".to_string()))?
+            .map_err(|_| EnricherError::Timeout("Worker pool is shutting down".to_string()))?;
         let worker_index = self.select_next_worker().await?;
 
         let _load_guard = LoadGuard {
@@ -138,7 +136,7 @@ impl WorkerPool {
 
             Ok(selected_worker_index)
         } else {
-            Err(EnricherError::IOError("All workers are busy".to_string()))
+            Err(EnricherError::Timeout("All workers are busy".to_string()))
         }
     }
 }
@@ -292,7 +290,7 @@ mod tests {
             .expect_err("request should time out waiting for pool capacity");
 
         match error {
-            EnricherError::IOError(message) => assert_eq!(message, "Worker response timed out"),
+            EnricherError::Timeout(message) => assert_eq!(message, "Worker response timed out"),
             other => panic!("unexpected error: {other:?}"),
         }
     }

@@ -97,7 +97,7 @@ impl NodeWorkerController {
 
         time::timeout_at(deadline, self.command_tx.send(command))
             .await
-            .map_err(|_| EnricherError::IOError("Worker response timed out".to_string()))?
+            .map_err(|_| EnricherError::Timeout("Worker response timed out".to_string()))?
             .map_err(|e| {
                 EnricherError::IOError(format!("Failed to send command to worker: {}", e))
             })?;
@@ -144,7 +144,7 @@ mod tests {
             .expect_err("request should time out waiting for scheduler queue capacity");
 
         match error {
-            EnricherError::IOError(message) => assert_eq!(message, "Worker response timed out"),
+            EnricherError::Timeout(message) => assert_eq!(message, "Worker response timed out"),
             other => panic!("unexpected error: {other:?}"),
         }
     }
