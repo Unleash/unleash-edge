@@ -15,12 +15,8 @@ use tracing::error;
 use unleash_types::client_features::Context;
 
 use crate::{
-    child::spawn_node_child_process,
-    command::{EnricherError, WorkerCommand},
-    driver::driver_loop,
+    MAX_SCHEDULED_JOBS, child::spawn_node_child_process, command::{EnricherError, WorkerCommand}, driver::driver_loop
 };
-
-const MAX_SCHEDULED_JOBS: usize = 32;
 
 pub struct NodeWorkerController {
     #[expect(dead_code)]
@@ -30,7 +26,6 @@ pub struct NodeWorkerController {
 }
 
 impl NodeWorkerController {
-    #[expect(dead_code)]
     pub async fn start(worker_id: u32, enricher_script: &Path) -> Result<Self, EnricherError> {
         let mut child = spawn_node_child_process(worker_id, enricher_script).await?;
 
@@ -71,7 +66,6 @@ impl NodeWorkerController {
         })
     }
 
-    #[cfg_attr(not(test), expect(dead_code))]
     pub async fn request_enrichment(
         &self,
         context: Context,
