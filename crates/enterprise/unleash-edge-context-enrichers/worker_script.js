@@ -1,5 +1,6 @@
 const path = require("path");
 const readline = require("readline");
+const protocolWrite = process.stdout.write.bind(process.stdout);
 
 function formatConsolePart(part) {
     if (typeof part === "string") {
@@ -23,7 +24,7 @@ function toStdErr(method, parts) {
 }
 
 function send(message) {
-    process.stdout.write(`${JSON.stringify(message)}\n`);
+    protocolWrite(`${JSON.stringify(message)}\n`);
 }
 
 // We use stdout for communication with the parent process, so anything that touches that will
@@ -35,6 +36,14 @@ function captureConsole() {
     console.warn = (...parts) => toStdErr("warn", parts);
     console.error = (...parts) => toStdErr("error", parts);
     console.debug = (...parts) => toStdErr("debug", parts);
+}
+
+function captureProcessStdout() {
+    process.stdout.write = (...parts) => {
+        const message = parts.map(formatConsolePart).join(" ");
+        process.stderr.write(`[process.stdout.write] ${message}\n`);
+        return true;
+    };
 }
 
 async function handle(message, enrich) {
@@ -87,6 +96,7 @@ function setupMessageHandler(enricherScript) {
 function main() {
     try {
         captureConsole();
+        captureProcessStdout();
         const enricherScript = loadEnricherScript(process.argv);
         if (typeof enricherScript !== "function") {
             throw new Error("enricher script must export a function");

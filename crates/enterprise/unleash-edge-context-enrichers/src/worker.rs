@@ -387,6 +387,75 @@ mod tests {
 
     #[tokio::test]
     #[tracing_test::traced_test]
+    async fn worker_redirects_process_stdout_write_without_corrupting_protocol() {
+        if !node_is_available() {
+            return;
+        }
+
+        let enricher_script = write_temp_enricher(
+            r#"
+            process.stdout.write("top-level stdout");
+            module.exports = async (context) => {
+                process.stdout.write("request stdout");
+                return {
+                    ...context,
+                    userId: "stdout-safe-user",
+                };
+            };
+            "#,
+        );
+        let mut child = spawn_node_child_process(1, &enricher_script)
+            .await
+            .expect("failed to spawn node child process");
+
+        child
+            .child_input
+            .write_all(br#"{"id":10,"context":{"userId":"original-user"}}"#)
+            .await
+            .expect("failed to write enrichment request");
+        child
+            .child_input
+            .write_all(b"\n")
+            .await
+            .expect("failed to terminate enrichment request");
+
+        let event = time::timeout(Duration::from_secs(1), child.child_output.recv())
+            .await
+            .expect("timed out waiting for worker event")
+            .expect("worker event stream closed");
+
+        match event {
+            WorkerEvent::Response(response) => {
+                assert_eq!(response.id, 10);
+                assert_eq!(
+                    response.outcome.unwrap().user_id.as_deref(),
+                    Some("stdout-safe-user")
+                );
+            }
+            WorkerEvent::BrokenPipe(error) | WorkerEvent::ProtocolError(error) => {
+                panic!("unexpected worker event: {error}");
+            }
+        }
+
+        time::timeout(Duration::from_secs(1), async {
+            loop {
+                if logs_contain("[process.stdout.write] top-level stdout")
+                    && logs_contain("[process.stdout.write] request stdout")
+                {
+                    break;
+                }
+
+                time::sleep(Duration::from_millis(1)).await;
+            }
+        })
+        .await
+        .expect("timed out waiting for redirected stdout logs");
+
+        let _ = child.child.start_kill();
+    }
+
+    #[tokio::test]
+    #[tracing_test::traced_test]
     async fn worker_traps_console_messages_and_pipes_them_to_logs() {
         let mut child = spawn_configured_child(
             1,
