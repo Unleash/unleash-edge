@@ -142,7 +142,7 @@ impl WorkerPool {
     }
 }
 
-fn as_absolute_path(path: &PathBuf) -> Result<PathBuf, EnricherError> {
+fn as_absolute_path(path: &std::path::Path) -> Result<PathBuf, EnricherError> {
     if path.is_absolute() {
         Ok(path.to_path_buf())
     } else {
