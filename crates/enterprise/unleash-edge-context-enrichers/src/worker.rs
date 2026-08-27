@@ -268,6 +268,7 @@ mod tests {
         command
     }
 
+    #[cfg(unix)]
     #[tokio::test]
     async fn worker_sends_and_reads_happy_path_messages_to_child() {
         let command = fake_child_command(
