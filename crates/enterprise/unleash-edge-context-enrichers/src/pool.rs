@@ -139,6 +139,7 @@ impl WorkerPool {
             Ok(selected_worker_index)
         } else {
             Err(EnricherError::IOError("All workers are busy".to_string()))
+        }
     }
 }
 
