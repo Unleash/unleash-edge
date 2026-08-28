@@ -41,10 +41,10 @@ impl WorkerPool {
     #[expect(dead_code)]
     async fn start(worker_count: NonZeroU32, script_path: PathBuf) -> Result<Self, EnricherError> {
         let mut workers = vec![];
+        let path = as_absolute_path(&script_path)?;
 
         for worker_id in 0..worker_count.get() {
-            let worker =
-                NodeWorkerController::start(worker_id, &as_absolute_path(&script_path)?).await?;
+            let worker = NodeWorkerController::start(worker_id, &path).await?;
             workers.push(WorkerSlot {
                 jobs_inflight: AtomicUsize::new(0),
                 worker,
