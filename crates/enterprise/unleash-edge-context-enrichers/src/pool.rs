@@ -101,7 +101,7 @@ impl WorkerPool {
         let total_workers = self.inner.worker_slots.len();
 
         let start = *next_worker_index;
-        let mut idle_worker = None;
+        let mut least_busy_worker = None;
 
         for index in 0..total_workers {
             let worker_index = (start + index) % total_workers;
@@ -116,10 +116,10 @@ impl WorkerPool {
                 continue;
             }
 
-            match idle_worker {
-                None => idle_worker = Some((worker_index, worker_load)),
+            match least_busy_worker {
+                None => least_busy_worker = Some((worker_index, worker_load)),
                 Some((_, best_load)) if worker_load < best_load => {
-                    idle_worker = Some((worker_index, worker_load))
+                    least_busy_worker = Some((worker_index, worker_load))
                 }
                 _ => {
                     // Oops, even busier than the last guy, don't consider me please
@@ -127,7 +127,7 @@ impl WorkerPool {
             }
         }
 
-        if let Some((selected_worker_index, _)) = idle_worker {
+        if let Some((selected_worker_index, _)) = least_busy_worker {
             self.inner.worker_slots[selected_worker_index]
                 .jobs_inflight
                 .fetch_add(1, Ordering::SeqCst);
