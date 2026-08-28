@@ -15,12 +15,11 @@ use tracing::error;
 use unleash_types::client_features::Context;
 
 use crate::{
+    MAX_SCHEDULED_JOBS,
     child::spawn_node_child_process,
     command::{EnricherError, WorkerCommand},
     driver::driver_loop,
 };
-
-const MAX_SCHEDULED_JOBS: usize = 32;
 
 pub struct NodeWorkerController {
     #[expect(dead_code)]
@@ -30,7 +29,15 @@ pub struct NodeWorkerController {
 }
 
 impl NodeWorkerController {
-    #[expect(dead_code)]
+    #[cfg(test)]
+    pub(crate) fn from_command_tx(worker_id: u32, command_tx: Sender<WorkerCommand>) -> Self {
+        NodeWorkerController {
+            worker_id,
+            next_request_id: AtomicU64::new(0),
+            command_tx,
+        }
+    }
+
     pub async fn start(worker_id: u32, enricher_script: &Path) -> Result<Self, EnricherError> {
         let mut child = spawn_node_child_process(worker_id, enricher_script).await?;
 
@@ -71,7 +78,6 @@ impl NodeWorkerController {
         })
     }
 
-    #[cfg_attr(not(test), expect(dead_code))]
     pub async fn request_enrichment(
         &self,
         context: Context,
@@ -91,7 +97,7 @@ impl NodeWorkerController {
 
         time::timeout_at(deadline, self.command_tx.send(command))
             .await
-            .map_err(|_| EnricherError::IOError("Worker response timed out".to_string()))?
+            .map_err(|_| EnricherError::Timeout("Worker response timed out".to_string()))?
             .map_err(|e| {
                 EnricherError::IOError(format!("Failed to send command to worker: {}", e))
             })?;
@@ -126,11 +132,7 @@ mod tests {
             .send(WorkerCommand::Shutdown)
             .await
             .expect("failed to fill scheduler queue");
-        let worker = NodeWorkerController {
-            worker_id: 1,
-            next_request_id: AtomicU64::new(0),
-            command_tx,
-        };
+        let worker = NodeWorkerController::from_command_tx(1, command_tx);
 
         let error = worker
             .request_enrichment(
@@ -142,7 +144,7 @@ mod tests {
             .expect_err("request should time out waiting for scheduler queue capacity");
 
         match error {
-            EnricherError::IOError(message) => assert_eq!(message, "Worker response timed out"),
+            EnricherError::Timeout(message) => assert_eq!(message, "Worker response timed out"),
             other => panic!("unexpected error: {other:?}"),
         }
     }

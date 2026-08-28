@@ -11,6 +11,7 @@ pub(crate) enum EnricherError {
     ProtocolError(String),
     ScriptError(String),
     IOError(String),
+    Timeout(String),
 }
 
 impl Display for EnricherError {
@@ -21,6 +22,7 @@ impl Display for EnricherError {
             EnricherError::ProtocolError(msg) => write!(f, "Protocol error: {msg}"),
             EnricherError::IOError(msg) => write!(f, "IO error: {msg}"),
             EnricherError::ScriptError(msg) => write!(f, "Script error: {msg}"),
+            EnricherError::Timeout(msg) => write!(f, "Timeout error: {msg}"),
         }
     }
 }
