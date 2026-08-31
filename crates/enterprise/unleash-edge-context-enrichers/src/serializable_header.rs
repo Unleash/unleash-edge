@@ -11,10 +11,12 @@ impl Serialize for SerializableHeaders<'_> {
     where
         S: Serializer,
     {
-        let mut map = serializer.serialize_map(Some(self.0.len()))?;
+        let mut map = serializer.serialize_map(None)?;
 
         for (name, value) in self.0 {
-            let value = value.to_str().map_err(S::Error::custom)?;
+            let Ok(value) = value.to_str() else {
+                continue;
+            };
 
             map.serialize_entry(name.as_str(), value)?;
         }
