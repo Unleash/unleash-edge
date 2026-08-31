@@ -4,14 +4,14 @@ use unleash_types::client_features::Context;
 
 use crate::{EnricherError, WorkerPool};
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct ContextEnricher {
     worker_pool: Option<Arc<WorkerPool>>,
 }
 
 impl ContextEnricher {
     pub fn disabled() -> Self {
-        Self::default()
+        Self { worker_pool: None }
     }
 
     pub async fn start(
