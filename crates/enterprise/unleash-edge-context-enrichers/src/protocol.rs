@@ -1,12 +1,31 @@
 use serde::{Deserialize, Deserializer, Serialize};
-use std::collections::HashMap;
 use unleash_types::client_features::Context;
 
+use crate::serializable_header::SerializableHeaders;
+
 #[derive(Serialize)]
-pub(crate) struct EnrichmentRequest {
+pub(crate) struct EnrichmentRequest<'a> {
     pub(crate) id: u64,
     pub(crate) context: Context,
-    pub(crate) headers: HashMap<String, String>,
+    pub(crate) headers: SerializableHeaders<'a>,
+}
+
+pub(crate) struct SerializedEnrichmentRequest(Vec<u8>);
+
+impl SerializedEnrichmentRequest {
+    pub(crate) fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl TryFrom<EnrichmentRequest<'_>> for SerializedEnrichmentRequest {
+    type Error = serde_json::Error;
+
+    fn try_from(request: EnrichmentRequest<'_>) -> Result<Self, Self::Error> {
+        let mut serialized = serde_json::to_vec(&request)?;
+        serialized.push(b'\n');
+        Ok(Self(serialized))
+    }
 }
 
 pub(crate) struct EnrichmentResponse {

@@ -8,7 +8,6 @@ use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use ipnet::IpNet;
-use std::collections::HashMap;
 use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -266,24 +265,8 @@ pub async fn frontend_post_feature(
 async fn try_enrich(app_state: &FrontendState, context: Context, headers: &HeaderMap) -> Context {
     app_state
         .context_enricher
-        .try_enrich(
-            context,
-            headers_for_context_enricher(headers),
-            CONTEXT_ENRICHER_TIMEOUT,
-        )
+        .try_enrich(context, headers, CONTEXT_ENRICHER_TIMEOUT)
         .await
-}
-
-fn headers_for_context_enricher(headers: &HeaderMap) -> HashMap<String, String> {
-    headers
-        .iter()
-        .filter_map(|(name, value)| {
-            value
-                .to_str()
-                .ok()
-                .map(|value| (name.as_str().to_string(), value.to_string()))
-        })
-        .collect()
 }
 
 #[instrument(skip(token_cache, engine_cache, edge_token, feature_name, incoming_context))]
