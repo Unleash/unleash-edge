@@ -8,7 +8,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use ulid::Ulid;
-use unleash_edge_appstate::AppState;
+use unleash_edge_appstate::{AppState, ContextEnricher};
 use unleash_edge_cli::{AuthHeaders, CliArgs, OfflineArgs};
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_offline::hotload::{
@@ -125,7 +125,7 @@ pub async fn build_offline_app_state(
         proxy_trusted_servers: trusted_proxy_servers_to_ipnets(
             args.trust_proxy.proxy_trusted_servers.clone(),
         ).expect("Failed to parse proxy trusted servers. Please check the format of the provided addresses."),
-        context_enricher: unleash_edge_appstate::ContextEnricher::disabled(),
+        context_enricher: ContextEnricher::disabled(),
         delta_cache_manager: None,
         edge_instance_data: Arc::new(EdgeInstanceData::new(
             &app_name,

@@ -13,7 +13,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::watch::{Receiver, channel};
 use tracing::{debug, error, info, warn};
 use ulid::Ulid;
-use unleash_edge_appstate::AppState;
+use unleash_edge_appstate::{AppState, ContextEnricher};
 use unleash_edge_appstate::token_cache_observer::observe_tokens_in_background;
 use unleash_edge_auth::token_validator::{
     TokenValidator, create_deferred_validation_task, create_revalidation_of_startup_tokens_task,
@@ -578,7 +578,7 @@ pub async fn build_edge_state(
         allow_list: args.http_allow_list.unwrap_or_default(),
         trust_proxy: args.trust_proxy,
         proxy_trusted_servers: args.proxy_trusted_servers,
-        context_enricher: unleash_edge_appstate::ContextEnricher::disabled(),
+        context_enricher: ContextEnricher::disabled(),
         auth_headers: args.auth_headers.clone(),
         connect_via: ConnectVia {
             app_name: args.client_meta_information.app_name.clone(),
