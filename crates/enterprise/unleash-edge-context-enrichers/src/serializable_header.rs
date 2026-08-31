@@ -1,8 +1,5 @@
 use http::HeaderMap;
-use serde::{
-    Serialize, Serializer,
-    ser::SerializeMap,
-};
+use serde::{Serialize, Serializer, ser::SerializeMap};
 
 pub(crate) struct SerializableHeaders<'a>(pub(crate) &'a HeaderMap);
 
