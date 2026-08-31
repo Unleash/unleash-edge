@@ -38,8 +38,10 @@ impl Drop for LoadGuard<'_> {
 }
 
 impl WorkerPool {
-    #[expect(dead_code)]
-    async fn start(worker_count: NonZeroU32, script_path: PathBuf) -> Result<Self, EnricherError> {
+    pub async fn start(
+        worker_count: NonZeroU32,
+        script_path: PathBuf,
+    ) -> Result<Self, EnricherError> {
         let mut workers = vec![];
         let path = as_absolute_path(&script_path)?;
 
@@ -62,8 +64,7 @@ impl WorkerPool {
         })
     }
 
-    #[cfg_attr(not(test), expect(dead_code))]
-    async fn request_enrichment(
+    pub async fn request_enrichment(
         &self,
         context: Context,
         headers: HashMap<String, String>,

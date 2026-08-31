@@ -5,7 +5,7 @@ use unleash_types::client_features::Context;
 use crate::protocol::EnrichmentResponse;
 
 #[derive(Debug, Clone)]
-pub(crate) enum EnricherError {
+pub enum EnricherError {
     StartupFailure(String),
     UnexpectedShutdown(String),
     ProtocolError(String),
