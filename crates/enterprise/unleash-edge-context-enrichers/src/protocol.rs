@@ -6,7 +6,7 @@ use crate::serializable_header::SerializableHeaders;
 #[derive(Serialize)]
 pub(crate) struct EnrichmentRequest<'a> {
     pub(crate) id: u64,
-    pub(crate) context: Context,
+    pub(crate) context: &'a Context,
     pub(crate) headers: SerializableHeaders<'a>,
 }
 

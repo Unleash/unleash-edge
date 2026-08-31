@@ -46,7 +46,9 @@ pub async fn frontend_get_all_features(
     headers: HeaderMap,
     QsQueryCfg(context): QsQueryCfg<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let context = try_enrich(&app_state, context, &headers).await;
+    let context = try_enrich(&app_state, &context, &headers)
+        .await
+        .unwrap_or(context);
     all_features(app_state, edge_token, &context, client_ip)
 }
 
@@ -71,7 +73,9 @@ pub async fn frontend_post_all_features(
     headers: HeaderMap,
     Json(context): Json<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let context = try_enrich(&app_state, context, &headers).await;
+    let context = try_enrich(&app_state, &context, &headers)
+        .await
+        .unwrap_or(context);
     all_features(app_state, edge_token, &context, client_ip)
 }
 
@@ -96,7 +100,10 @@ pub async fn frontend_get_enabled_features(
     headers: HeaderMap,
     QsQueryCfg(context): QsQueryCfg<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let context = try_enrich(&app_state, context, &headers).await;
+    let context = try_enrich(&app_state, &context, &headers)
+        .await
+        .unwrap_or(context);
+
     enabled_features(app_state, edge_token, &context, client_ip)
 }
 
@@ -121,7 +128,9 @@ pub async fn frontend_post_enabled_features(
     headers: HeaderMap,
     Json(context): Json<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let context = try_enrich(&app_state, context, &headers).await;
+    let context = try_enrich(&app_state, &context, &headers)
+        .await
+        .unwrap_or(context);
     enabled_features(app_state, edge_token, &context, client_ip)
 }
 
@@ -212,7 +221,9 @@ pub async fn frontend_get_feature(
     ClientIp(client_ip): ClientIp,
     headers: HeaderMap,
 ) -> EdgeJsonResult<EvaluatedToggle> {
-    let context = try_enrich(&app_state, context, &headers).await;
+    let context = try_enrich(&app_state, &context, &headers)
+        .await
+        .unwrap_or(context);
     evaluate_feature(
         &app_state.token_cache,
         &app_state.engine_cache,
@@ -250,7 +261,9 @@ pub async fn frontend_post_feature(
     headers: HeaderMap,
     Json(context): Json<Context>,
 ) -> EdgeJsonResult<EvaluatedToggle> {
-    let context = try_enrich(&app_state, context, &headers).await;
+    let context = try_enrich(&app_state, &context, &headers)
+        .await
+        .unwrap_or(context);
     evaluate_feature(
         &app_state.token_cache,
         &app_state.engine_cache,
@@ -262,7 +275,11 @@ pub async fn frontend_post_feature(
     .map(Json)
 }
 
-async fn try_enrich(app_state: &FrontendState, context: Context, headers: &HeaderMap) -> Context {
+async fn try_enrich(
+    app_state: &FrontendState,
+    context: &Context,
+    headers: &HeaderMap,
+) -> Option<Context> {
     app_state
         .context_enricher
         .try_enrich(context, headers, CONTEXT_ENRICHER_TIMEOUT)

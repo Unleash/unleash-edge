@@ -68,7 +68,7 @@ impl WorkerPool {
 
     pub(crate) async fn request_enrichment(
         &self,
-        context: Context,
+        context: &Context,
         headers: SerializableHeaders<'_>,
         timeout: Duration,
     ) -> Result<Context, EnricherError> {
@@ -251,7 +251,7 @@ mod tests {
             async move {
                 let headers = header_map(&[("x-test", "true")]);
                 pool.request_enrichment(
-                    Context::default(),
+                    &Context::default(),
                     SerializableHeaders(&headers),
                     Duration::from_secs(1),
                 )
@@ -304,7 +304,7 @@ mod tests {
 
         let error = pool
             .request_enrichment(
-                Context::default(),
+                &Context::default(),
                 SerializableHeaders(&headers),
                 Duration::from_millis(20),
             )
@@ -335,7 +335,7 @@ mod tests {
             async move {
                 let headers = empty_headers();
                 pool.request_enrichment(
-                    Context::default(),
+                    &Context::default(),
                     SerializableHeaders(&headers),
                     Duration::from_millis(50),
                 )
@@ -390,7 +390,7 @@ mod tests {
             async move {
                 let headers = empty_headers();
                 pool.request_enrichment(
-                    Context::default(),
+                    &Context::default(),
                     SerializableHeaders(&headers),
                     Duration::from_secs(1),
                 )

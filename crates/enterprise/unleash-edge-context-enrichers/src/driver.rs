@@ -183,7 +183,7 @@ mod tests {
         let headers = HeaderMap::new();
         SerializedEnrichmentRequest::try_from(EnrichmentRequest {
             id,
-            context: Context::default(),
+            context: &Context::default(),
             headers: SerializableHeaders(&headers),
         })
         .expect("request should serialize")

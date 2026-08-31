@@ -81,7 +81,7 @@ impl NodeWorkerController {
 
     pub async fn request_enrichment(
         &self,
-        context: Context,
+        context: &Context,
         headers: SerializableHeaders<'_>,
         job_timeout: Duration,
     ) -> Result<Context, EnricherError> {
@@ -148,7 +148,7 @@ mod tests {
 
         let error = worker
             .request_enrichment(
-                Context::default(),
+                &Context::default(),
                 SerializableHeaders(&headers),
                 Duration::from_millis(20),
             )

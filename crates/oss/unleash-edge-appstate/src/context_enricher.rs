@@ -15,8 +15,13 @@ mod disabled {
             Self
         }
 
-        pub async fn try_enrich(&self, context: Context, _: &HeaderMap, _: Duration) -> Context {
-            context
+        pub async fn try_enrich(
+            &self,
+            _context: &Context,
+            _: &HeaderMap,
+            _: Duration,
+        ) -> Option<Context> {
+            None
         }
     }
 }
