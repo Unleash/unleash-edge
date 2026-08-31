@@ -1,6 +1,8 @@
-use crate::{MAX_SCHEDULED_JOBS, command::EnricherError, worker::NodeWorkerController};
+use crate::{
+    MAX_SCHEDULED_JOBS, command::EnricherError, serializable_header::SerializableHeaders,
+    worker::NodeWorkerController,
+};
 use std::{
-    collections::HashMap,
     num::NonZeroU32,
     path::PathBuf,
     sync::{
@@ -64,10 +66,10 @@ impl WorkerPool {
         })
     }
 
-    pub async fn request_enrichment(
+    pub(crate) async fn request_enrichment(
         &self,
         context: Context,
-        headers: HashMap<String, String>,
+        headers: SerializableHeaders<'_>,
         timeout: Duration,
     ) -> Result<Context, EnricherError> {
         let deadline = Instant::now() + timeout;
@@ -158,6 +160,7 @@ fn as_absolute_path(path: &std::path::Path) -> Result<PathBuf, EnricherError> {
 mod tests {
     use super::*;
     use crate::command::WorkerCommand;
+    use http::{HeaderMap, HeaderValue};
     use tokio::sync::mpsc::{Receiver, channel};
     use tokio::time;
 
@@ -187,6 +190,20 @@ mod tests {
             .await
             .expect("timed out waiting for worker command")
             .expect("worker command channel closed")
+    }
+
+    fn empty_headers() -> HeaderMap {
+        HeaderMap::new()
+    }
+
+    fn header_map(entries: &[(&'static str, &'static str)]) -> HeaderMap {
+        let mut headers = HeaderMap::new();
+
+        for (name, value) in entries {
+            headers.insert(*name, HeaderValue::from_static(value));
+        }
+
+        headers
     }
 
     #[tokio::test]
@@ -232,9 +249,10 @@ mod tests {
                 inner: Arc::clone(&pool.inner),
             };
             async move {
+                let headers = header_map(&[("x-test", "true")]);
                 pool.request_enrichment(
                     Context::default(),
-                    HashMap::from([("x-test".to_string(), "true".to_string())]),
+                    SerializableHeaders(&headers),
                     Duration::from_secs(1),
                 )
                 .await
@@ -244,12 +262,14 @@ mod tests {
         match next_command(&mut command_rx).await {
             WorkerCommand::Execute {
                 id,
-                headers,
+                request,
                 respond_to,
                 ..
             } => {
                 assert_eq!(id, 0);
-                assert_eq!(headers.get("x-test").map(String::as_str), Some("true"));
+                let request =
+                    String::from_utf8(request.as_bytes().to_vec()).expect("request was not utf8");
+                assert!(request.contains(r#""x-test":"true""#));
                 let context = Context {
                     user_id: Some("pooled-user".to_string()),
                     ..Default::default()
@@ -280,11 +300,12 @@ mod tests {
     async fn request_enrichment_times_out_when_pool_capacity_is_exhausted() {
         let (worker, _command_rx) = worker_slot(0);
         let pool = pool_with_slots(vec![worker], 0);
+        let headers = empty_headers();
 
         let error = pool
             .request_enrichment(
                 Context::default(),
-                HashMap::new(),
+                SerializableHeaders(&headers),
                 Duration::from_millis(20),
             )
             .await
@@ -312,9 +333,10 @@ mod tests {
                 inner: Arc::clone(&pool.inner),
             };
             async move {
+                let headers = empty_headers();
                 pool.request_enrichment(
                     Context::default(),
-                    HashMap::new(),
+                    SerializableHeaders(&headers),
                     Duration::from_millis(50),
                 )
                 .await
@@ -366,8 +388,13 @@ mod tests {
                 inner: Arc::clone(&pool.inner),
             };
             async move {
-                pool.request_enrichment(Context::default(), HashMap::new(), Duration::from_secs(1))
-                    .await
+                let headers = empty_headers();
+                pool.request_enrichment(
+                    Context::default(),
+                    SerializableHeaders(&headers),
+                    Duration::from_secs(1),
+                )
+                .await
             }
         });
 

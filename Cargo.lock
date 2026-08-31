@@ -5737,6 +5737,7 @@ dependencies = [
 name = "unleash-edge-context-enrichers"
 version = "20.5.0"
 dependencies = [
+ "http 1.5.0",
  "serde",
  "serde_json",
  "tempfile",

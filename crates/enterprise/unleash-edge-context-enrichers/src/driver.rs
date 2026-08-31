@@ -11,7 +11,7 @@ use unleash_types::client_features::Context;
 use crate::{
     child::RunningNodeChild,
     command::{EnricherError, WorkerCommand, WorkerEvent},
-    protocol::EnrichmentRequest,
+    protocol::SerializedEnrichmentRequest,
 };
 
 const PENDING_RESPONSE_EXPIRY_INTERVAL: Duration = Duration::from_millis(10);
@@ -34,7 +34,7 @@ pub(crate) async fn driver_loop(
         tokio::select! {
             command = command_rx.recv(), if pending_responses.len() < MAX_IN_FLIGHT_REQUESTS => {
                 match command {
-                    Some(WorkerCommand::Execute { id, context, headers, deadline, respond_to }) => {
+                    Some(WorkerCommand::Execute { id, request, deadline, respond_to }) => {
                         // Our queue is backed up. Badly. And trying to add a job to the queue is
                         // exceeding out timeout. Soooo... no point in sending then because we no longer care
                         if deadline <= Instant::now() {
@@ -44,9 +44,7 @@ pub(crate) async fn driver_loop(
                             continue;
                         }
 
-                        if let Err(error) =
-                            send_request(&mut child.child_input, id, context, headers).await
-                        {
+                        if let Err(error) = send_request(&mut child.child_input, &request).await {
                             let _ = respond_to.send(Err(error.clone()));
                             fail_pending_responses(&mut pending_responses, error.clone());
                             return Err(error);
@@ -141,23 +139,10 @@ fn expire_pending_responses(pending_responses: &mut HashMap<u64, PendingResponse
 
 async fn send_request(
     stdin: &mut ChildStdin,
-    id: u64,
-    context: Context,
-    headers: HashMap<String, String>,
+    request: &SerializedEnrichmentRequest,
 ) -> Result<(), EnricherError> {
-    let request = EnrichmentRequest {
-        id,
-        context,
-        headers,
-    };
-    // This isn't possible in the sense that it requires that we have a fallible serialize implementation
-    // We don't have that, there's no reason to have that and it's a bunch of work to do so for no reason.
-    let mut line = serde_json::to_vec(&request).map_err(|e| {
-        EnricherError::ProtocolError(format!("Could not serialize message to enricher: {e}"))
-    })?;
-    line.push(b'\n');
     stdin
-        .write_all(&line)
+        .write_all(request.as_bytes())
         .await
         .map_err(|e| EnricherError::IOError(format!("Could not send message to enricher: {e}")))?;
     stdin
@@ -171,6 +156,9 @@ async fn send_request(
 mod tests {
     use super::*;
     use crate::child::spawn_child;
+    use crate::protocol::EnrichmentRequest;
+    use crate::serializable_header::SerializableHeaders;
+    use http::HeaderMap;
     use std::process::Stdio;
     use tokio::{
         process::Command,
@@ -189,6 +177,16 @@ mod tests {
             .stderr(Stdio::piped())
             .kill_on_drop(true);
         command
+    }
+
+    fn serialized_request(id: u64) -> SerializedEnrichmentRequest {
+        let headers = HeaderMap::new();
+        SerializedEnrichmentRequest::try_from(EnrichmentRequest {
+            id,
+            context: Context::default(),
+            headers: SerializableHeaders(&headers),
+        })
+        .expect("request should serialize")
     }
 
     #[tokio::test]
@@ -213,8 +211,7 @@ mod tests {
         command_tx
             .send(WorkerCommand::Execute {
                 id: 0,
-                context: Context::default(),
-                headers: HashMap::new(),
+                request: serialized_request(0),
                 deadline: Instant::now() + Duration::from_secs(1),
                 respond_to,
             })
@@ -254,8 +251,7 @@ mod tests {
         command_tx
             .send(WorkerCommand::Execute {
                 id: 0,
-                context: Context::default(),
-                headers: HashMap::new(),
+                request: serialized_request(0),
                 deadline: Instant::now() + Duration::from_millis(20),
                 respond_to,
             })
@@ -299,8 +295,7 @@ mod tests {
             command_tx
                 .send(WorkerCommand::Execute {
                     id: id as u64,
-                    context: Context::default(),
-                    headers: HashMap::new(),
+                    request: serialized_request(id as u64),
                     deadline: Instant::now() + Duration::from_secs(60),
                     respond_to,
                 })
@@ -313,8 +308,7 @@ mod tests {
             Duration::from_millis(50),
             command_tx.send(WorkerCommand::Execute {
                 id: 100,
-                context: Context::default(),
-                headers: HashMap::new(),
+                request: serialized_request(100),
                 deadline: Instant::now() + Duration::from_secs(60),
                 respond_to,
             }),
@@ -344,8 +338,7 @@ mod tests {
         command_tx
             .send(WorkerCommand::Execute {
                 id: 0,
-                context: Context::default(),
-                headers: HashMap::new(),
+                request: serialized_request(0),
                 deadline: Instant::now() + Duration::from_secs(1),
                 respond_to,
             })
@@ -393,8 +386,7 @@ mod tests {
         command_tx
             .send(WorkerCommand::Execute {
                 id: 0,
-                context: Context::default(),
-                headers: HashMap::new(),
+                request: serialized_request(0),
                 deadline: Instant::now() + Duration::from_secs(1),
                 respond_to,
             })
@@ -438,8 +430,7 @@ mod tests {
         command_tx
             .send(WorkerCommand::Execute {
                 id: 0,
-                context: Context::default(),
-                headers: HashMap::new(),
+                request: serialized_request(0),
                 deadline: Instant::now() + Duration::from_secs(1),
                 respond_to,
             })
@@ -491,8 +482,7 @@ mod tests {
         command_tx
             .send(WorkerCommand::Execute {
                 id: 0,
-                context: Context::default(),
-                headers: HashMap::new(),
+                request: serialized_request(0),
                 deadline: Instant::now() + Duration::from_millis(20),
                 respond_to,
             })

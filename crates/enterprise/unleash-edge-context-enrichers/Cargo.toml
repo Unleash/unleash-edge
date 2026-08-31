@@ -9,6 +9,7 @@ publish = false
 license-file = "../../../LICENSE-ENTERPRISE.md"
 
 [dependencies]
+http = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "process", "sync", "time"] }

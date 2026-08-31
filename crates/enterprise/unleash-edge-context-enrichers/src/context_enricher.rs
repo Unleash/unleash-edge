@@ -1,8 +1,9 @@
-use std::{collections::HashMap, num::NonZeroU32, path::PathBuf, sync::Arc, time::Duration};
+use http::HeaderMap;
+use std::{num::NonZeroU32, path::PathBuf, sync::Arc, time::Duration};
 use tracing::{info, warn};
 use unleash_types::client_features::Context;
 
-use crate::{EnricherError, WorkerPool};
+use crate::{EnricherError, WorkerPool, serializable_header::SerializableHeaders};
 
 #[derive(Clone)]
 pub struct ContextEnricher {
@@ -28,7 +29,7 @@ impl ContextEnricher {
     pub async fn try_enrich(
         &self,
         context: Context,
-        headers: HashMap<String, String>,
+        headers: &HeaderMap,
         timeout: Duration,
     ) -> Context {
         let Some(worker_pool) = self.worker_pool.as_ref() else {
@@ -36,7 +37,7 @@ impl ContextEnricher {
         };
 
         match worker_pool
-            .request_enrichment(context.clone(), headers, timeout)
+            .request_enrichment(context.clone(), SerializableHeaders(headers), timeout)
             .await
         {
             Ok(enriched_context) => enriched_context,

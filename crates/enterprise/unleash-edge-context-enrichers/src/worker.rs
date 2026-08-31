@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     path::Path,
     sync::atomic::{AtomicU64, Ordering},
     time::Duration,
@@ -19,6 +18,8 @@ use crate::{
     child::spawn_node_child_process,
     command::{EnricherError, WorkerCommand},
     driver::driver_loop,
+    protocol::{EnrichmentRequest, SerializedEnrichmentRequest},
+    serializable_header::SerializableHeaders,
 };
 
 pub struct NodeWorkerController {
@@ -81,16 +82,24 @@ impl NodeWorkerController {
     pub async fn request_enrichment(
         &self,
         context: Context,
-        headers: HashMap<String, String>,
+        headers: SerializableHeaders<'_>,
         job_timeout: Duration,
     ) -> Result<Context, EnricherError> {
         let (respond_to, read_response) = oneshot::channel();
         let deadline = Instant::now() + job_timeout;
-
-        let command = WorkerCommand::Execute {
-            id: self.next_request_id.fetch_add(1, Ordering::SeqCst),
+        let id = self.next_request_id.fetch_add(1, Ordering::SeqCst);
+        let request = SerializedEnrichmentRequest::try_from(EnrichmentRequest {
+            id,
             context,
             headers,
+        })
+        .map_err(|e| {
+            EnricherError::ProtocolError(format!("Could not serialize message to enricher: {e}"))
+        })?;
+
+        let command = WorkerCommand::Execute {
+            id,
+            request,
             deadline,
             respond_to,
         };
@@ -125,6 +134,8 @@ impl NodeWorkerController {
 mod tests {
     use super::*;
 
+    use http::HeaderMap;
+
     #[tokio::test]
     async fn request_enrichment_times_out_when_scheduler_queue_is_full() {
         let (command_tx, _command_rx) = channel(1);
@@ -133,11 +144,12 @@ mod tests {
             .await
             .expect("failed to fill scheduler queue");
         let worker = NodeWorkerController::from_command_tx(1, command_tx);
+        let headers = HeaderMap::new();
 
         let error = worker
             .request_enrichment(
                 Context::default(),
-                HashMap::new(),
+                SerializableHeaders(&headers),
                 Duration::from_millis(20),
             )
             .await
