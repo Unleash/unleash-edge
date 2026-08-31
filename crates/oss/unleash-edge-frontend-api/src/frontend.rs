@@ -425,15 +425,9 @@ mod tests {
     use std::fs;
     use std::io::BufReader;
     use std::net::SocketAddr;
-    #[cfg(feature = "enterprise")]
-    use std::num::NonZeroU32;
     use std::path::PathBuf;
-    #[cfg(feature = "enterprise")]
-    use std::process::Command;
     use std::str::FromStr;
     use std::sync::Arc;
-    #[cfg(feature = "enterprise")]
-    use tempfile::{NamedTempFile, TempPath};
     use unleash_edge_appstate::ContextEnricher;
     use unleash_edge_appstate::edge_token_extractor::AuthState;
     use unleash_edge_cli::AuthHeaders;
@@ -509,33 +503,6 @@ mod tests {
             state.frontend.proxy_trusted_servers = vec![trusted_proxy];
             state
         }
-    }
-
-    #[cfg(feature = "enterprise")]
-    fn node_is_available() -> bool {
-        Command::new("node")
-            .arg("--version")
-            .output()
-            .is_ok_and(|output| output.status.success())
-    }
-
-    #[cfg(feature = "enterprise")]
-    fn write_temp_enricher(source: &str) -> TempPath {
-        let file = NamedTempFile::with_suffix(".cjs").expect("failed to create temp enricher file");
-        let path = file.into_temp_path();
-        fs::write(&path, source).expect("failed to write temp enricher script");
-        path
-    }
-
-    #[cfg(feature = "enterprise")]
-    async fn context_enricher_for(source: &str) -> ContextEnricher {
-        let script = write_temp_enricher(source);
-        ContextEnricher::start(
-            NonZeroU32::new(1).expect("worker count should be non-zero"),
-            script.to_path_buf(),
-        )
-        .await
-        .expect("failed to start context enricher")
     }
 
     fn frontend_test_server(test_state: TestState, disable_all_endpoints: bool) -> TestServer {
@@ -639,88 +606,6 @@ mod tests {
         assert_eq!(wrong_user_response.status_code(), StatusCode::OK);
         let wrong_user_result = wrong_user_response.json::<FrontendResult>();
         assert!(wrong_user_result.toggles.is_empty());
-    }
-
-    #[cfg(feature = "enterprise")]
-    #[tokio::test]
-    async fn frontend_requests_use_enriched_context_when_worker_pool_is_configured() {
-        if !node_is_available() {
-            return;
-        }
-
-        let token_cache = Arc::new(TokenCache::new());
-        let mut frontend_token =
-            EdgeToken::from_str("*:development.abc123").expect("Failed to parse frontend token");
-        frontend_token.token_type = Some(TokenType::Frontend);
-        frontend_token.status = TokenValidationStatus::Validated;
-        let mut engine_state = EngineState::default();
-        engine_state.take_state(UpdateMessage::FullResponse(
-            client_features_with_constraint_requiring_user_id_of_seven(),
-        ));
-        let engine_cache = Arc::new(EngineCache::new());
-        engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let mut test_state = TestState::from_caches(token_cache, engine_cache);
-        test_state.frontend.context_enricher = context_enricher_for(
-            r#"
-                module.exports = async (context, headers) => ({
-                    ...context,
-                    userId: headers["x-enricher-user"],
-                });
-                "#,
-        )
-        .await;
-        let server = frontend_test_server(test_state, true);
-
-        let res = server
-            .get("/frontend")
-            .add_header("Authorization", frontend_token.token)
-            .add_header("x-enricher-user", "7")
-            .await;
-
-        assert_eq!(res.status_code(), StatusCode::OK);
-        let result = res.json::<FrontendResult>();
-        assert_eq!(result.toggles.len(), 1);
-        assert_eq!(result.toggles[0].name, "test");
-    }
-
-    #[cfg(feature = "enterprise")]
-    #[tokio::test]
-    async fn frontend_requests_fall_back_to_original_context_when_enrichment_fails() {
-        if !node_is_available() {
-            return;
-        }
-
-        let token_cache = Arc::new(TokenCache::new());
-        let mut frontend_token =
-            EdgeToken::from_str("*:development.abc123").expect("Failed to parse frontend token");
-        frontend_token.token_type = Some(TokenType::Frontend);
-        frontend_token.status = TokenValidationStatus::Validated;
-        let mut engine_state = EngineState::default();
-        engine_state.take_state(UpdateMessage::FullResponse(
-            client_features_with_constraint_requiring_user_id_of_seven(),
-        ));
-        let engine_cache = Arc::new(EngineCache::new());
-        engine_cache.insert(cache_key(&frontend_token), engine_state);
-        let mut test_state = TestState::from_caches(token_cache, engine_cache);
-        test_state.frontend.context_enricher = context_enricher_for(
-            r#"
-                module.exports = async () => {
-                    throw new Error("enrichment failed");
-                };
-                "#,
-        )
-        .await;
-        let server = frontend_test_server(test_state, true);
-
-        let res = server
-            .get("/frontend?userId=7")
-            .add_header("Authorization", frontend_token.token)
-            .await;
-
-        assert_eq!(res.status_code(), StatusCode::OK);
-        let result = res.json::<FrontendResult>();
-        assert_eq!(result.toggles.len(), 1);
-        assert_eq!(result.toggles[0].name, "test");
     }
 
     #[tokio::test]
@@ -1257,5 +1142,118 @@ mod tests {
         let file = fs::File::open(path).unwrap();
         let reader = BufReader::new(file);
         serde_json::from_reader(reader).unwrap()
+    }
+
+    #[cfg(feature = "enterprise")]
+    mod context_enricher_tests {
+        use super::*;
+        use std::num::NonZeroU32;
+        use std::process::Command;
+        use tempfile::{NamedTempFile, TempPath};
+
+        fn node_is_available() -> bool {
+            Command::new("node")
+                .arg("--version")
+                .output()
+                .is_ok_and(|output| output.status.success())
+        }
+
+        fn write_temp_enricher(source: &str) -> TempPath {
+            let file =
+                NamedTempFile::with_suffix(".cjs").expect("failed to create temp enricher file");
+            let path = file.into_temp_path();
+            fs::write(&path, source).expect("failed to write temp enricher script");
+            path
+        }
+
+        async fn context_enricher_for(source: &str) -> ContextEnricher {
+            let script = write_temp_enricher(source);
+            ContextEnricher::start(
+                NonZeroU32::new(1).expect("worker count should be non-zero"),
+                script.to_path_buf(),
+            )
+            .await
+            .expect("failed to start context enricher")
+        }
+
+        #[tokio::test]
+        async fn frontend_requests_use_enriched_context_when_worker_pool_is_configured() {
+            if !node_is_available() {
+                return;
+            }
+
+            let token_cache = Arc::new(TokenCache::new());
+            let mut frontend_token = EdgeToken::from_str("*:development.abc123")
+                .expect("Failed to parse frontend token");
+            frontend_token.token_type = Some(TokenType::Frontend);
+            frontend_token.status = TokenValidationStatus::Validated;
+            let mut engine_state = EngineState::default();
+            engine_state.take_state(UpdateMessage::FullResponse(
+                client_features_with_constraint_requiring_user_id_of_seven(),
+            ));
+            let engine_cache = Arc::new(EngineCache::new());
+            engine_cache.insert(cache_key(&frontend_token), engine_state);
+            let mut test_state = TestState::from_caches(token_cache, engine_cache);
+            test_state.frontend.context_enricher = context_enricher_for(
+                r#"
+                module.exports = async (context, headers) => ({
+                    ...context,
+                    userId: headers["x-enricher-user"],
+                });
+                "#,
+            )
+            .await;
+            let server = frontend_test_server(test_state, true);
+
+            let res = server
+                .get("/frontend")
+                .add_header("Authorization", frontend_token.token)
+                .add_header("x-enricher-user", "7")
+                .await;
+
+            assert_eq!(res.status_code(), StatusCode::OK);
+            let result = res.json::<FrontendResult>();
+            assert_eq!(result.toggles.len(), 1);
+            assert_eq!(result.toggles[0].name, "test");
+        }
+
+        #[tokio::test]
+        async fn frontend_requests_fall_back_to_original_context_when_enrichment_fails() {
+            if !node_is_available() {
+                return;
+            }
+
+            let token_cache = Arc::new(TokenCache::new());
+            let mut frontend_token = EdgeToken::from_str("*:development.abc123")
+                .expect("Failed to parse frontend token");
+            frontend_token.token_type = Some(TokenType::Frontend);
+            frontend_token.status = TokenValidationStatus::Validated;
+            let mut engine_state = EngineState::default();
+            engine_state.take_state(UpdateMessage::FullResponse(
+                client_features_with_constraint_requiring_user_id_of_seven(),
+            ));
+            let engine_cache = Arc::new(EngineCache::new());
+            engine_cache.insert(cache_key(&frontend_token), engine_state);
+            let mut test_state = TestState::from_caches(token_cache, engine_cache);
+            test_state.frontend.context_enricher = context_enricher_for(
+                r#"
+                module.exports = async () => {
+                    throw new Error("enrichment failed");
+                };
+                "#,
+            )
+            .await;
+            let server = frontend_test_server(test_state, true);
+
+            let res = server
+                .get("/frontend?userId=7")
+                .add_header("Authorization", frontend_token.token)
+                .await;
+
+            assert_eq!(res.status_code(), StatusCode::OK);
+            let result = res.json::<FrontendResult>();
+            assert_eq!(result.toggles.len(), 1);
+            assert_eq!(result.toggles[0].name, "test");
+        }
     }
 }
