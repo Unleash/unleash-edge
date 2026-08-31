@@ -14,7 +14,7 @@ mod disabled {
             Self
         }
 
-        pub async fn enrich_or_original(
+        pub async fn try_enrich(
             &self,
             context: Context,
             _: HashMap<String, String>,

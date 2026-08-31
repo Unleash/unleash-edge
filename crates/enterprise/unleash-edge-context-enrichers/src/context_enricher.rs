@@ -25,7 +25,7 @@ impl ContextEnricher {
         })
     }
 
-    pub async fn enrich_or_original(
+    pub async fn try_enrich(
         &self,
         context: Context,
         headers: HashMap<String, String>,
