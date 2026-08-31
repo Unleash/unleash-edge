@@ -3,16 +3,18 @@ use crate::querystring_extractor::QsQueryCfg;
 use crate::{all_features, enabled_features};
 use axum::body::Body;
 use axum::extract::{FromRef, Path, State};
-use axum::http::{Response, StatusCode};
+use axum::http::{HeaderMap, Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use ipnet::IpNet;
+use std::collections::HashMap;
 use std::net::IpAddr;
 use std::sync::Arc;
+use std::time::Duration;
 use tracing::instrument;
-use unleash_edge_appstate::AppState;
 use unleash_edge_appstate::edge_token_extractor::{AuthState, AuthToken};
+use unleash_edge_appstate::{AppState, ContextEnricher};
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::MetricsCache;
@@ -21,6 +23,8 @@ use unleash_edge_types::{EdgeJsonResult, EdgeResult, EngineCache, TokenCache};
 use unleash_types::client_features::Context;
 use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ConnectVia};
 use unleash_types::frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult};
+
+const CONTEXT_ENRICHER_TIMEOUT: Duration = Duration::from_millis(100);
 
 #[utoipa::path(
     get,
@@ -35,13 +39,15 @@ use unleash_types::frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult}
 ("Authorization" = [])
     )
 )]
-#[instrument(skip(app_state, edge_token, client_ip, context))]
+#[instrument(skip(app_state, edge_token, client_ip, headers, context))]
 pub async fn frontend_get_all_features(
     State(app_state): State<FrontendState>,
     AuthToken(edge_token): AuthToken,
     ClientIp(client_ip): ClientIp,
+    headers: HeaderMap,
     QsQueryCfg(context): QsQueryCfg<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
+    let context = enrich_context_if_configured(&app_state, context, &headers).await;
     all_features(app_state, edge_token, &context, client_ip)
 }
 
@@ -58,13 +64,15 @@ pub async fn frontend_get_all_features(
         ("Authorization" = [])
     )
 )]
-#[instrument(skip(app_state, edge_token, client_ip, context))]
+#[instrument(skip(app_state, edge_token, client_ip, headers, context))]
 pub async fn frontend_post_all_features(
     State(app_state): State<FrontendState>,
     AuthToken(edge_token): AuthToken,
     ClientIp(client_ip): ClientIp,
+    headers: HeaderMap,
     Json(context): Json<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
+    let context = enrich_context_if_configured(&app_state, context, &headers).await;
     all_features(app_state, edge_token, &context, client_ip)
 }
 
@@ -81,13 +89,15 @@ pub async fn frontend_post_all_features(
         ("Authorization" = [])
     )
 )]
-#[instrument(skip(app_state, edge_token, client_ip, context))]
+#[instrument(skip(app_state, edge_token, client_ip, headers, context))]
 pub async fn frontend_get_enabled_features(
     State(app_state): State<FrontendState>,
     AuthToken(edge_token): AuthToken,
     ClientIp(client_ip): ClientIp,
+    headers: HeaderMap,
     QsQueryCfg(context): QsQueryCfg<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
+    let context = enrich_context_if_configured(&app_state, context, &headers).await;
     enabled_features(app_state, edge_token, &context, client_ip)
 }
 
@@ -104,13 +114,15 @@ pub async fn frontend_get_enabled_features(
         ("Authorization" = [])
     )
 )]
-#[instrument(skip(app_state, edge_token, client_ip, context))]
+#[instrument(skip(app_state, edge_token, client_ip, headers, context))]
 pub async fn frontend_post_enabled_features(
     State(app_state): State<FrontendState>,
     AuthToken(edge_token): AuthToken,
     ClientIp(client_ip): ClientIp,
+    headers: HeaderMap,
     Json(context): Json<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
+    let context = enrich_context_if_configured(&app_state, context, &headers).await;
     enabled_features(app_state, edge_token, &context, client_ip)
 }
 
@@ -192,14 +204,16 @@ pub async fn frontend_register_client(
         ("Authorization" = [])
     )
 )]
-#[instrument(skip(app_state, edge_token, feature_name, context, client_ip))]
+#[instrument(skip(app_state, edge_token, feature_name, context, client_ip, headers))]
 pub async fn frontend_get_feature(
     State(app_state): State<FrontendState>,
     AuthToken(edge_token): AuthToken,
     Path(feature_name): Path<String>,
     QsQueryCfg(context): QsQueryCfg<Context>,
     ClientIp(client_ip): ClientIp,
+    headers: HeaderMap,
 ) -> EdgeJsonResult<EvaluatedToggle> {
+    let context = enrich_context_if_configured(&app_state, context, &headers).await;
     evaluate_feature(
         &app_state.token_cache,
         &app_state.engine_cache,
@@ -228,14 +242,16 @@ pub async fn frontend_get_feature(
         ("Authorization" = [])
     )
 )]
-#[instrument(skip(app_state, edge_token, feature_name, context, client_ip))]
+#[instrument(skip(app_state, edge_token, feature_name, context, client_ip, headers))]
 pub async fn frontend_post_feature(
     State(app_state): State<FrontendState>,
     AuthToken(edge_token): AuthToken,
     Path(feature_name): Path<String>,
     ClientIp(client_ip): ClientIp,
+    headers: HeaderMap,
     Json(context): Json<Context>,
 ) -> EdgeJsonResult<EvaluatedToggle> {
+    let context = enrich_context_if_configured(&app_state, context, &headers).await;
     evaluate_feature(
         &app_state.token_cache,
         &app_state.engine_cache,
@@ -245,6 +261,33 @@ pub async fn frontend_post_feature(
         client_ip,
     )
     .map(Json)
+}
+
+async fn enrich_context_if_configured(
+    app_state: &FrontendState,
+    context: Context,
+    headers: &HeaderMap,
+) -> Context {
+    app_state
+        .context_enricher
+        .enrich_or_original(
+            context,
+            headers_for_context_enricher(headers),
+            CONTEXT_ENRICHER_TIMEOUT,
+        )
+        .await
+}
+
+fn headers_for_context_enricher(headers: &HeaderMap) -> HashMap<String, String> {
+    headers
+        .iter()
+        .filter_map(|(name, value)| {
+            value
+                .to_str()
+                .ok()
+                .map(|value| (name.as_str().to_string(), value.to_string()))
+        })
+        .collect()
 }
 
 #[instrument(skip(token_cache, engine_cache, edge_token, feature_name, incoming_context))]
@@ -305,6 +348,7 @@ pub struct FrontendState {
     pub connect_via: ConnectVia,
     pub trust_proxy: bool,
     pub proxy_trusted_servers: Vec<IpNet>,
+    pub context_enricher: ContextEnricher,
 }
 
 impl FromRef<AppState> for FrontendState {
@@ -317,6 +361,7 @@ impl FromRef<AppState> for FrontendState {
             connect_via: app.connect_via.clone(),
             trust_proxy: app.trust_proxy,
             proxy_trusted_servers: app.proxy_trusted_servers.clone(),
+            context_enricher: app.context_enricher.clone(),
         }
     }
 }
@@ -380,9 +425,16 @@ mod tests {
     use std::fs;
     use std::io::BufReader;
     use std::net::SocketAddr;
+    #[cfg(feature = "enterprise")]
+    use std::num::NonZeroU32;
     use std::path::PathBuf;
+    #[cfg(feature = "enterprise")]
+    use std::process::Command;
     use std::str::FromStr;
     use std::sync::Arc;
+    #[cfg(feature = "enterprise")]
+    use tempfile::{NamedTempFile, TempPath};
+    use unleash_edge_appstate::ContextEnricher;
     use unleash_edge_appstate::edge_token_extractor::AuthState;
     use unleash_edge_cli::AuthHeaders;
     use unleash_edge_feature_cache::FeatureCache;
@@ -430,6 +482,7 @@ mod tests {
                     },
                     trust_proxy: false,
                     proxy_trusted_servers: vec![],
+                    context_enricher: ContextEnricher::disabled(),
                 },
                 auth: AuthState {
                     token_cache: Arc::new(TokenCache::new()),
@@ -456,6 +509,33 @@ mod tests {
             state.frontend.proxy_trusted_servers = vec![trusted_proxy];
             state
         }
+    }
+
+    #[cfg(feature = "enterprise")]
+    fn node_is_available() -> bool {
+        Command::new("node")
+            .arg("--version")
+            .output()
+            .is_ok_and(|output| output.status.success())
+    }
+
+    #[cfg(feature = "enterprise")]
+    fn write_temp_enricher(source: &str) -> TempPath {
+        let file = NamedTempFile::with_suffix(".cjs").expect("failed to create temp enricher file");
+        let path = file.into_temp_path();
+        fs::write(&path, source).expect("failed to write temp enricher script");
+        path
+    }
+
+    #[cfg(feature = "enterprise")]
+    async fn context_enricher_for(source: &str) -> ContextEnricher {
+        let script = write_temp_enricher(source);
+        ContextEnricher::start(
+            NonZeroU32::new(1).expect("worker count should be non-zero"),
+            script.to_path_buf(),
+        )
+        .await
+        .expect("failed to start context enricher")
     }
 
     fn frontend_test_server(test_state: TestState, disable_all_endpoints: bool) -> TestServer {
@@ -559,6 +639,88 @@ mod tests {
         assert_eq!(wrong_user_response.status_code(), StatusCode::OK);
         let wrong_user_result = wrong_user_response.json::<FrontendResult>();
         assert!(wrong_user_result.toggles.is_empty());
+    }
+
+    #[cfg(feature = "enterprise")]
+    #[tokio::test]
+    async fn frontend_requests_use_enriched_context_when_worker_pool_is_configured() {
+        if !node_is_available() {
+            return;
+        }
+
+        let token_cache = Arc::new(TokenCache::new());
+        let mut frontend_token =
+            EdgeToken::from_str("*:development.abc123").expect("Failed to parse frontend token");
+        frontend_token.token_type = Some(TokenType::Frontend);
+        frontend_token.status = TokenValidationStatus::Validated;
+        let mut engine_state = EngineState::default();
+        engine_state.take_state(UpdateMessage::FullResponse(
+            client_features_with_constraint_requiring_user_id_of_seven(),
+        ));
+        let engine_cache = Arc::new(EngineCache::new());
+        engine_cache.insert(cache_key(&frontend_token), engine_state);
+        let mut test_state = TestState::from_caches(token_cache, engine_cache);
+        test_state.frontend.context_enricher = context_enricher_for(
+            r#"
+                module.exports = async (context, headers) => ({
+                    ...context,
+                    userId: headers["x-enricher-user"],
+                });
+                "#,
+        )
+        .await;
+        let server = frontend_test_server(test_state, true);
+
+        let res = server
+            .get("/frontend")
+            .add_header("Authorization", frontend_token.token)
+            .add_header("x-enricher-user", "7")
+            .await;
+
+        assert_eq!(res.status_code(), StatusCode::OK);
+        let result = res.json::<FrontendResult>();
+        assert_eq!(result.toggles.len(), 1);
+        assert_eq!(result.toggles[0].name, "test");
+    }
+
+    #[cfg(feature = "enterprise")]
+    #[tokio::test]
+    async fn frontend_requests_fall_back_to_original_context_when_enrichment_fails() {
+        if !node_is_available() {
+            return;
+        }
+
+        let token_cache = Arc::new(TokenCache::new());
+        let mut frontend_token =
+            EdgeToken::from_str("*:development.abc123").expect("Failed to parse frontend token");
+        frontend_token.token_type = Some(TokenType::Frontend);
+        frontend_token.status = TokenValidationStatus::Validated;
+        let mut engine_state = EngineState::default();
+        engine_state.take_state(UpdateMessage::FullResponse(
+            client_features_with_constraint_requiring_user_id_of_seven(),
+        ));
+        let engine_cache = Arc::new(EngineCache::new());
+        engine_cache.insert(cache_key(&frontend_token), engine_state);
+        let mut test_state = TestState::from_caches(token_cache, engine_cache);
+        test_state.frontend.context_enricher = context_enricher_for(
+            r#"
+                module.exports = async () => {
+                    throw new Error("enrichment failed");
+                };
+                "#,
+        )
+        .await;
+        let server = frontend_test_server(test_state, true);
+
+        let res = server
+            .get("/frontend?userId=7")
+            .add_header("Authorization", frontend_token.token)
+            .await;
+
+        assert_eq!(res.status_code(), StatusCode::OK);
+        let result = res.json::<FrontendResult>();
+        assert_eq!(result.toggles.len(), 1);
+        assert_eq!(result.toggles[0].name, "test");
     }
 
     #[tokio::test]

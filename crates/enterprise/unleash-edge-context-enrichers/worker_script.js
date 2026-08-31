@@ -48,7 +48,7 @@ function captureProcessStdout() {
 
 async function handle(message, enrich) {
     try {
-        const result = await enrich(message.context);
+        const result = await enrich(message.context, message.headers || {});
         send({ id: message.id, context: result });
     } catch (error) {
         send({
