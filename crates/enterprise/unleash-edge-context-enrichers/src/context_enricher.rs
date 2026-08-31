@@ -1,5 +1,5 @@
 use std::{collections::HashMap, num::NonZeroU32, path::PathBuf, sync::Arc, time::Duration};
-use tracing::warn;
+use tracing::{info, warn};
 use unleash_types::client_features::Context;
 
 use crate::{EnricherError, WorkerPool};
@@ -41,9 +41,18 @@ impl ContextEnricher {
         {
             Ok(enriched_context) => enriched_context,
             Err(error) => {
-                warn!(
-                    "Failed to enrich frontend context, falling back to original context: {error}"
-                );
+                match error {
+                    EnricherError::Timeout(message) => {
+                        info!(
+                            "Context enrichment timed out, falling back to original context: {message}"
+                        );
+                    }
+                    _ => {
+                        warn!(
+                            "Failed to enrich frontend context, falling back to original context: {error}"
+                        );
+                    }
+                }
                 context
             }
         }
