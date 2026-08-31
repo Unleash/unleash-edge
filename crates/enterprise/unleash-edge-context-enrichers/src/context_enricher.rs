@@ -28,19 +28,17 @@ impl ContextEnricher {
 
     pub async fn try_enrich(
         &self,
-        context: Context,
+        context: &Context,
         headers: &HeaderMap,
         timeout: Duration,
-    ) -> Context {
-        let Some(worker_pool) = self.worker_pool.as_ref() else {
-            return context;
-        };
+    ) -> Option<Context> {
+        let worker_pool = self.worker_pool.as_ref()?;
 
         match worker_pool
-            .request_enrichment(context.clone(), SerializableHeaders(headers), timeout)
+            .request_enrichment(context, SerializableHeaders(headers), timeout)
             .await
         {
-            Ok(enriched_context) => enriched_context,
+            Ok(enriched_context) => Some(enriched_context),
             Err(error) => {
                 match error {
                     EnricherError::Timeout(message) => {
@@ -54,7 +52,7 @@ impl ContextEnricher {
                         );
                     }
                 }
-                context
+                None
             }
         }
     }
