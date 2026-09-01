@@ -92,6 +92,7 @@ pub enum EdgeError {
     ClientFeaturesFetchError(FeatureError),
     ClientFeaturesParseError(String),
     ClientHydrationFailed(String),
+    ContextEnricherError(String),
     ClientRegisterError,
     ContextParseError,
     EdgeMetricsError(String),
@@ -211,6 +212,9 @@ impl Display for EdgeError {
                     "Client hydration failed. Somehow we said [{message}] when it did"
                 )
             }
+            EdgeError::ContextEnricherError(message) => {
+                write!(f, "Failed to start context enricher: {message}")
+            }
             EdgeError::ClientCacheError => {
                 write!(f, "Fetching client features from cache failed")
             }
@@ -269,6 +273,7 @@ impl IntoResponse for EdgeError {
             EdgeError::ClientFeaturesFetchError(_) => Response::builder().status(self.status_code()).body(Body::empty()),
             EdgeError::ClientFeaturesParseError(_) => Response::builder().status(self.status_code()).body(Body::empty()),
             EdgeError::ClientHydrationFailed(_) => Response::builder().status(self.status_code()).body(Body::empty()),
+            EdgeError::ContextEnricherError(_) => Response::builder().status(self.status_code()).body(Body::empty()),
             EdgeError::ClientRegisterError => Response::builder().status(self.status_code()).body(Body::empty()),
             EdgeError::ContextParseError => Response::builder().status(self.status_code()).body(Body::empty()),
             EdgeError::EdgeMetricsError(_) => Response::builder().status(self.status_code()).body(Body::empty()),
@@ -348,6 +353,7 @@ impl EdgeError {
             EdgeError::HeartbeatError(_, status_code) => *status_code,
             EdgeError::ReadyCheckError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::ClientHydrationFailed(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            EdgeError::ContextEnricherError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::ClientCacheError => StatusCode::INTERNAL_SERVER_ERROR,
             EdgeError::NotReady => StatusCode::SERVICE_UNAVAILABLE,
             EdgeError::InvalidToken => StatusCode::FORBIDDEN,

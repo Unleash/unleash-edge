@@ -16,7 +16,7 @@ mod tests {
     use tokio::sync::RwLock;
     use ulid::Ulid;
     use unleash_edge::edge_builder::{
-        EdgeStateArgs, PersistenceArgs, build_edge_state, resolve_license,
+        ContextEnricherConfig, EdgeStateArgs, PersistenceArgs, build_edge_state, resolve_license,
     };
     use unleash_edge_cli::OtelExporterProtocol::Grpc;
     use unleash_edge_cli::{AuthHeaders, EdgeArgs, LogFormat};
@@ -216,6 +216,7 @@ mod tests {
             prometheus_password: None,
             hostname: None,
             ec2_instance_id: None,
+            context_enricher: ContextEnricherConfig::Disabled,
         })
         .await;
 
@@ -269,6 +270,7 @@ mod tests {
             prometheus_password: None,
             hostname: None,
             ec2_instance_id: None,
+            context_enricher: ContextEnricherConfig::Disabled,
         })
         .await;
 
