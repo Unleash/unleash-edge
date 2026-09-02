@@ -1,8 +1,8 @@
 services:
   edge:
     build:
-      context: ../..
-      dockerfile: examples/context-enrichers/Dockerfile
+      context: ../../..
+      dockerfile: examples/context-enrichers/simple/Dockerfile
     environment:
       STRICT: true
       UPSTREAM_URL: ${UPSTREAM_URL:?Set UPSTREAM_URL to your local or hosted Unleash URL}
