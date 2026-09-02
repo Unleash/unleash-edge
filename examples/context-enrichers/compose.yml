@@ -1,0 +1,29 @@
+services:
+  edge:
+    build:
+      context: ../..
+      dockerfile: examples/context-enrichers/Dockerfile
+    environment:
+      STRICT: true
+      UPSTREAM_URL: ${UPSTREAM_URL:?Set UPSTREAM_URL to your local or hosted Unleash URL}
+      TOKENS: ${TOKENS:?Set TOKENS to a client API token from your Unleash instance}
+      REDIS_URL: redis://redis:6379
+      CONTEXT_ENRICHER_SCRIPT: /app/context-enrichers/simple-enricher.js
+      CONTEXT_ENRICHER_WORKERS: ${CONTEXT_ENRICHER_WORKERS:-1}
+    ports:
+      - "3063:3063"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./simple-enricher.js:/app/context-enrichers/simple-enricher.js:ro
+    command: ["edge"]
+    healthcheck:
+      test: ["CMD", "/app/unleash-edge", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  redis:
+    image: redis:8-alpine
+    command: ["redis-server", "--appendonly", "yes"]
