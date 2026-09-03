@@ -1,30 +1,41 @@
 
-## [unleash-edge-v20.4.0] - 2026-07-17
+## [unleash-edge-v20.5.0] - 2026-08-27
 
 ### 🚀 Features
-- send token usage downstream (#1709) (by @gastonfournier) - #1709
+- Ship Unleash Edge logs to Elasticsearch via Filebeat (#1754) (by @sastromskis) - #1754
+- add SDK flavor to Edge's frontend client metadata (#1763) (by @irstavr) - #1763
 
 ### 💼 Other
-- bump redis from 1.2.3 to 1.2.4 (#1675) (by @dependabot[bot]) - #1675
-- bump p12-keystore from 0.3.0 to 0.3.1 (#1676) (by @dependabot[bot]) - #1676
-- bump rustls from 0.23.40 to 0.23.41 (#1680) (by @dependabot[bot]) - #1680
-- bump launchdarkly-sdk-transport from 0.1.3 to 0.1.4 (#1683) (by @dependabot[bot]) - #1683
-- bump unleash-yggdrasil from 0.21.2 to 0.21.3 (#1684) (by @dependabot[bot]) - #1684
-- bump anyhow from 1.0.102 to 1.0.103 (#1688) (by @dependabot[bot]) - #1688
-- bump redis from 1.2.4 to 1.3.0 (#1690) (by @dependabot[bot]) - #1690
-- bump rand from 0.10.1 to 0.10.2 (#1692) (by @dependabot[bot]) - #1692
-- bump aws-config from 1.8.18 to 1.9.0 (#1694) (by @dependabot[bot]) - #1694
-- bump regex from 1.12.4 to 1.13.0 (#1697) (by @dependabot[bot]) - #1697
-- bump aws-sdk-s3 from 1.137.0 to 1.138.0 (#1696) (by @dependabot[bot]) - #1696
-- bump http-body-util from 0.1.3 to 0.1.4 (#1701) (by @dependabot[bot]) - #1701
-- bump rustls from 0.23.41 to 0.23.42 (#1702) (by @dependabot[bot]) - #1702
-- bump socket2 from 0.6.4 to 0.6.5 (#1703) (by @dependabot[bot]) - #1703
-- bump redis from 1.3.0 to 1.4.0 (#1707) (by @dependabot[bot]) - #1707
-- bump regex from 1.13.0 to 1.13.1 (#1711) (by @dependabot[bot]) - #1711
-- bump clap from 4.6.1 to 4.6.2 (#1713) (by @dependabot[bot]) - #1713
-- bump tokio from 1.52.3 to 1.52.4 (#1719) (by @dependabot[bot]) - #1719
-- bump aws-sdk-s3 from 1.138.0 to 1.138.1 (#1718) (by @dependabot[bot]) - #1718
-- bump serde_with from 3.20.0 to 3.21.0 (#1710) (by @dependabot[bot]) - #1710
+- bump http from 1.4.2 to 1.5.0 (#1756) (by @dependabot[bot]) - #1756
+- bump redis from 1.4.1 to 1.5.0 (#1757) (by @dependabot[bot]) - #1757
+- bump rustls from 0.23.42 to 0.23.43 (#1758) (by @dependabot[bot]) - #1758
+- bump taiki-e/install-action from 2 to 2.85.3 (#1765) (by @dependabot[bot]) - #1765
+- bump docker/login-action from 4 to 4.5.2 (#1766) (by @dependabot[bot]) - #1766
+- bump docker/login-action from 4.5.2 to 4.6.0 (#1769) (by @dependabot[bot]) - #1769
+- bump taiki-e/install-action from 2.85.3 to 2.85.5 (#1770) (by @dependabot[bot]) - #1770
+- bump taiki-e/install-action from 2.85.5 to 2.85.6 (#1773) (by @dependabot[bot]) - #1773
+- bump taiki-e/install-action from 2.85.6 to 2.85.7 (#1775) (by @dependabot[bot]) - #1775
+- bump ipnet from 2.12.0 to 2.12.1 (#1777) (by @dependabot[bot]) - #1777
+- bump taiki-e/install-action from 2.85.7 to 2.85.8 (#1780) (by @dependabot[bot]) - #1780
+- bump base64 from 0.23.0 to 0.23.1 (#1782) (by @dependabot[bot]) - #1782
+- bump taiki-e/install-action from 2.85.8 to 2.85.10 (#1783) (by @dependabot[bot]) - #1783
+- bump serde_qs from 1.1.2 to 1.1.3 (#1786) (by @dependabot[bot]) - #1786
+- bump taiki-e/install-action from 2.85.10 to 2.85.11 (#1788) (by @dependabot[bot]) - #1788
+- bump async-trait from 0.1.91 to 0.1.92 (#1789) (by @dependabot[bot]) - #1789
+- bump eventsource-client from 0.17.5 to 0.18.0 (#1792) (by @dependabot[bot]) - #1792
+- bump futures from 0.3.33 to 0.3.34 (#1794) (by @dependabot[bot]) - #1794
+- bump taiki-e/install-action from 2.85.11 to 2.85.13 (#1796) (by @dependabot[bot]) - #1796
+- bump toshimaru/auto-author-assign from 3.0.3 to 3.1.0 (#1797) (by @dependabot[bot]) - #1797
+- bump http-body-util from 0.1.4 to 0.1.5 (#1795) (by @dependabot[bot]) - #1795
+- bump redis from 1.5.0 to 1.6.0 (#1804) (by @dependabot[bot]) - #1804
+- bump taiki-e/install-action from 2.85.13 to 2.86.2 (#1806) (by @dependabot[bot]) - #1806
+- bump taiki-e/install-action from 2.86.2 to 2.86.3 (#1808) (by @dependabot[bot]) - #1808
+- bump taiki-e/install-action from 2.86.3 to 2.86.5 (#1813) (by @dependabot[bot]) - #1813
+- bump taiki-e/install-action from 2.86.5 to 2.86.6 (#1816) (by @dependabot[bot]) - #1816
+- bump taiki-e/install-action from 2.86.6 to 2.86.7 (#1820) (by @dependabot[bot]) - #1820
 
 ### ⚙️ Miscellaneous Tasks
-- encrypt Edge AMI backing snapshots (#1716) (by @paulaguijarro) - #1716
+- different redacted format for v2 tokens (#1803) (by @sighphyre) - #1803
+- bump yggdrasil to 0.21.5 to fix semver metadata compliance (#1815) (by @daveleek) - #1815
+- core node worker enricher (#1810) (by @sighphyre) - #1810
+- context enricher job scheduling (#1818) (by @sighphyre) - #1818

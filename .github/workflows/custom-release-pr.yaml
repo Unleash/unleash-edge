@@ -216,7 +216,7 @@ jobs:
 
       - name: Install release tools
         if: steps.semver.outputs.level != 'none' && env.DRY_RUN != 'true'
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@v2.87.2
         with:
           tool: cargo-edit,git-cliff
 

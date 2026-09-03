@@ -379,6 +379,8 @@ mod test {
                 sdk_version: None,
                 sdk_type: None,
                 yggdrasil_version: None,
+                sdk_flavor: None,
+                sdk_flavor_version: None,
             },
         };
 
@@ -419,6 +421,8 @@ mod test {
                 sdk_version: None,
                 sdk_type: None,
                 yggdrasil_version: None,
+                sdk_flavor: None,
+                sdk_flavor_version: None,
             },
         };
 
@@ -452,6 +456,8 @@ mod test {
                 sdk_version: None,
                 sdk_type: None,
                 yggdrasil_version: None,
+                sdk_flavor: None,
+                sdk_flavor_version: None,
             },
         };
 
@@ -492,6 +498,8 @@ mod test {
                 sdk_version: None,
                 sdk_type: None,
                 yggdrasil_version: None,
+                sdk_flavor: None,
+                sdk_flavor_version: None,
             },
         };
 
@@ -519,6 +527,8 @@ mod test {
                 sdk_version: None,
                 sdk_type: None,
                 yggdrasil_version: None,
+                sdk_flavor: None,
+                sdk_flavor_version: None,
             },
         };
 
@@ -556,6 +566,8 @@ mod test {
                 sdk_version: None,
                 sdk_type: None,
                 yggdrasil_version: None,
+                sdk_flavor: None,
+                sdk_flavor_version: None,
             },
         };
 
@@ -590,6 +602,8 @@ mod test {
                 sdk_version: None,
                 sdk_type: None,
                 yggdrasil_version: None,
+                sdk_flavor: None,
+                sdk_flavor_version: None,
             },
         };
         let connected_via_test_instance = client_application.connect_via("test", "instance");
@@ -636,6 +650,8 @@ mod test {
                 sdk_version: None,
                 sdk_type: None,
                 yggdrasil_version: None,
+                sdk_flavor: None,
+                sdk_flavor_version: None,
             },
         };
 
@@ -684,6 +700,8 @@ mod test {
                         sdk_version: None,
                         sdk_type: None,
                         yggdrasil_version: None,
+                        sdk_flavor: None,
+                        sdk_flavor_version: None,
                     },
                 },
                 ClientMetricsEnv {
@@ -700,6 +718,8 @@ mod test {
                         sdk_version: None,
                         sdk_type: None,
                         yggdrasil_version: None,
+                        sdk_flavor: None,
+                        sdk_flavor_version: None,
                     },
                 },
             ],
@@ -732,6 +752,8 @@ mod test {
                     sdk_version: None,
                     sdk_type: None,
                     yggdrasil_version: None,
+                    sdk_flavor: None,
+                    sdk_flavor_version: None,
                 },
             },
             ClientMetricsEnv {
@@ -748,6 +770,8 @@ mod test {
                     sdk_version: None,
                     sdk_type: None,
                     yggdrasil_version: None,
+                    sdk_flavor: None,
+                    sdk_flavor_version: None,
                 },
             },
         ];

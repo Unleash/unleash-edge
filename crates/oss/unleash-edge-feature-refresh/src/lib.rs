@@ -197,6 +197,8 @@ fn client_application_from_token_and_name(
             sdk_version: Some(format!("unleash-edge:{}", build::PKG_VERSION)),
             sdk_type: Some(SdkType::Backend),
             yggdrasil_version: None,
+            sdk_flavor: None,
+            sdk_flavor_version: None,
         },
     }
 }

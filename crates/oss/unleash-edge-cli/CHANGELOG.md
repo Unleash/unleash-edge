@@ -1,4 +1,8 @@
 
+## [unleash-edge-v20.5.0] - 2026-08-27
+
+## [unleash-edge-v20.4.1] - 2026-07-28
+
 ## [unleash-edge-v20.4.0] - 2026-07-17
 
 ## [unleash-edge-v20.3.1] - 2026-06-18

@@ -1,0 +1,21 @@
+[package]
+name = "unleash-edge-context-enrichers"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+documentation.workspace = true
+edition.workspace = true
+publish = false
+license-file = "../../../LICENSE-ENTERPRISE.md"
+
+[dependencies]
+http = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["io-util", "process", "sync", "time"] }
+tracing = { workspace = true }
+unleash-types = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3.23.0"
+tracing-test = { workspace = true }

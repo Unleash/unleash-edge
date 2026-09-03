@@ -211,6 +211,8 @@ mod tests {
                 sdk_version: None,
                 sdk_type: None,
                 yggdrasil_version: None,
+                sdk_flavor: None,
+                sdk_flavor_version: None,
             },
         };
 
@@ -320,6 +322,8 @@ mod tests {
                 sdk_version: Some("1.0".into()),
                 sdk_type: Some(Backend),
                 yggdrasil_version: None,
+                sdk_flavor: None,
+                sdk_flavor_version: None,
             },
         };
         let r = server
@@ -374,6 +378,8 @@ mod tests {
                             sdk_version: None,
                             sdk_type: None,
                             yggdrasil_version: None,
+                            sdk_flavor: None,
+                            sdk_flavor_version: None,
                         },
                     }],
                     metrics: vec![ClientMetricsEnv {
@@ -390,6 +396,8 @@ mod tests {
                             sdk_version: None,
                             sdk_type: None,
                             yggdrasil_version: None,
+                            sdk_flavor: None,
+                            sdk_flavor_version: None,
                         },
                     }],
                     impact_metrics: Some(vec![ImpactMetric::Counter {

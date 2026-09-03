@@ -5,6 +5,8 @@ use http::StatusCode;
 use ipnet::IpNet;
 #[cfg(feature = "enterprise")]
 use std::collections::{HashMap, HashSet};
+#[cfg(feature = "enterprise")]
+use std::num::NonZeroU32;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -13,8 +15,8 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::watch::{Receiver, channel};
 use tracing::{debug, error, info, warn};
 use ulid::Ulid;
-use unleash_edge_appstate::AppState;
 use unleash_edge_appstate::token_cache_observer::observe_tokens_in_background;
+use unleash_edge_appstate::{AppState, ContextEnricher};
 use unleash_edge_auth::token_validator::{
     TokenValidator, create_deferred_validation_task, create_revalidation_of_startup_tokens_task,
     create_revalidation_task,
@@ -422,6 +424,39 @@ pub struct EdgeStateArgs {
     pub prometheus_password: Option<String>,
     pub hostname: Option<String>,
     pub ec2_instance_id: Option<String>,
+    pub context_enricher: ContextEnricherConfig,
+}
+
+#[derive(Debug, Clone, Default)]
+pub enum ContextEnricherConfig {
+    #[default]
+    Disabled,
+    #[cfg(feature = "enterprise")]
+    Enabled {
+        script_path: PathBuf,
+        worker_count: NonZeroU32,
+    },
+}
+
+impl From<&EdgeArgs> for ContextEnricherConfig {
+    fn from(edge_args: &EdgeArgs) -> Self {
+        #[cfg(feature = "enterprise")]
+        {
+            if let Some(script_path) = edge_args.context_enricher.context_enricher_script.clone() {
+                return Self::Enabled {
+                    script_path,
+                    worker_count: edge_args
+                        .context_enricher
+                        .context_enricher_workers
+                        .unwrap_or_else(|| NonZeroU32::new(1).unwrap()),
+                };
+            }
+        }
+
+        #[cfg(not(feature = "enterprise"))]
+        let _ = edge_args;
+        Self::Disabled
+    }
 }
 
 impl From<&EdgeStateArgs> for TracingOpts {
@@ -519,6 +554,7 @@ pub async fn build_edge_state(
         args.http_client,
     )?);
     let metrics_cache = Arc::new(MetricsCache::default());
+    let context_enricher = build_context_enricher(args.context_enricher).await?;
 
     let background_tasks = create_edge_mode_background_tasks(BackgroundTaskArgs {
         app_name: args.client_meta_information.app_name.clone(),
@@ -578,6 +614,7 @@ pub async fn build_edge_state(
         allow_list: args.http_allow_list.unwrap_or_default(),
         trust_proxy: args.trust_proxy,
         proxy_trusted_servers: args.proxy_trusted_servers,
+        context_enricher,
         auth_headers: args.auth_headers.clone(),
         connect_via: ConnectVia {
             app_name: args.client_meta_information.app_name.clone(),
@@ -587,6 +624,21 @@ pub async fn build_edge_state(
     };
 
     Ok((app_state, background_tasks, shutdown_tasks))
+}
+
+async fn build_context_enricher(
+    config: ContextEnricherConfig,
+) -> Result<ContextEnricher, EdgeError> {
+    match config {
+        ContextEnricherConfig::Disabled => Ok(ContextEnricher::disabled()),
+        #[cfg(feature = "enterprise")]
+        ContextEnricherConfig::Enabled {
+            script_path,
+            worker_count,
+        } => ContextEnricher::start(worker_count, script_path)
+            .await
+            .map_err(|error| EdgeError::ContextEnricherError(error.to_string())),
+    }
 }
 
 pub(crate) struct ShutdownTaskArgs {
@@ -601,6 +653,7 @@ pub(crate) struct ShutdownTaskArgs {
     edge_instance_data: Arc<EdgeInstanceData>,
     instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>>,
 }
+
 fn create_shutdown_tasks(
     ShutdownTaskArgs {
         persistence,
@@ -1074,6 +1127,7 @@ mod enterprise_tests {
             hmac_config: HmacConfig::default(),
             hostname: None,
             ec2_instance_id: None,
+            context_enricher: Default::default(),
         };
         let client_meta_information = ClientMetaInformation {
             app_name: "test_app".to_string(),
