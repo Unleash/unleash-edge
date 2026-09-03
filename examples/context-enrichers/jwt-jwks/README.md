@@ -4,6 +4,17 @@ This example runs Edge with a JavaScript context enricher that reads a bearer
 token from the `X-Context-JWT` header, validates it against a JWKS endpoint, and
 sets `context.userId` from a JWT claim.
 
+This is an advanced example. Use this pattern when Edge needs request-time
+context that cannot be sent directly by the client. The enricher does lazy
+loading by fetching the JWKS from an API and caching it in the worker process.
+That is a reasonable fit for Edge because Edge is designed to run as a
+distributed service, and JWKS data is normally cacheable.
+
+For state that changes often or needs coordinated invalidation, prefer
+delegating that cache to shared infrastructure such as Redis. Do not rely on
+each worker in each Edge node independently holding complex state that must stay
+in sync.
+
 The compose file also starts a small JWKS mock server. The mock server generates
 an RSA key at startup, serves the public key from `/.well-known/jwks.json`, and
 issues test tokens from `/token`.
@@ -36,6 +47,10 @@ docker compose -f examples/context-enrichers/jwt-jwks/compose.yml up --build
 
 ## Try It
 
+To validate this against Unleash, create a feature toggle with a constraint that
+requires `userId` to equal `jwks-user`. When the request below is evaluated,
+the enricher will derive that `userId` from the signed token.
+
 Fetch a signed token from the mock JWKS server:
 
 ```sh
@@ -57,6 +72,9 @@ The enricher verifies the bearer token using `JWKS_URL`, validates `iss`, `aud`,
 `exp`, and `nbf`, then sets `context.userId` from the claim configured by
 `JWT_USER_ID_CLAIM`.
 
+The JWKS is loaded lazily on the first request that needs it and cached in the
+Node worker for `JWKS_CACHE_TTL_MS`, which defaults to 60 seconds.
+
 The Node worker inherits Edge's environment, so the compose file configures the
 enricher with:
 
@@ -65,3 +83,4 @@ enricher with:
 - `JWT_AUDIENCE=unleash-edge`
 - `JWT_USER_ID_CLAIM=sub`
 - `JWT_HEADER=x-context-jwt`
+- `JWKS_CACHE_TTL_MS=60000` by default
