@@ -1,0 +1,60 @@
+services:
+  edge:
+    build:
+      context: ../../..
+      dockerfile: examples/context-enrichers/jwt-jwks/Dockerfile
+    depends_on:
+      jwks:
+        condition: service_healthy
+    environment:
+      STRICT: true
+      UPSTREAM_URL: ${UPSTREAM_URL:?Set UPSTREAM_URL to your local or hosted Unleash URL}
+      TOKENS: ${TOKENS:?Set TOKENS to a client API token from your Unleash instance}
+      REDIS_URL: redis://redis:6379
+      CONTEXT_ENRICHER_SCRIPT: /app/context-enrichers/jwt-enricher.js
+      CONTEXT_ENRICHER_WORKERS: ${CONTEXT_ENRICHER_WORKERS:-1}
+      FEATURES_REFRESH_INTERVAL_SECONDS: 2
+      JWKS_URL: http://jwks:8080/.well-known/jwks.json
+      JWT_ISSUER: edge-context-enricher-example
+      JWT_AUDIENCE: unleash-edge
+      JWT_USER_ID_CLAIM: sub
+      JWT_HEADER: x-context-jwt
+    ports:
+      - "3063:3063"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./jwt-enricher.js:/app/context-enrichers/jwt-enricher.js:ro
+    command: ["edge"]
+    healthcheck:
+      test: ["CMD", "/app/unleash-edge", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  jwks:
+    image: docker.io/node:22-bookworm-slim
+    working_dir: /app
+    command: ["node", "/app/jwks-server.js"]
+    environment:
+      JWT_ISSUER: edge-context-enricher-example
+      JWT_AUDIENCE: unleash-edge
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./jwks-server.js:/app/jwks-server.js:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://localhost:8080/.well-known/jwks.json').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\"",
+        ]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+      start_period: 2s
+
+  redis:
+    image: redis:8-alpine
+    command: ["redis-server", "--appendonly", "yes"]
