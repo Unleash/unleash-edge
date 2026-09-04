@@ -1,4 +1,9 @@
 
+## [unleash-edge-v20.6.0] - 2026-09-04
+
+### 🚀 Features
+- expose context enrichers to public API (#1833) (by @sighphyre) - #1833
+
 ## [unleash-edge-v20.5.0] - 2026-08-27
 
 ### ⚙️ Miscellaneous Tasks
