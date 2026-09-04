@@ -30,6 +30,9 @@ use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_refresh::delta_refresh::{
     DELTA_CACHE_LIMIT, DeltaRefresher, start_streaming_delta_background_task,
 };
+use unleash_edge_feature_refresh::feature_state::{
+    HYDRATION_SOURCE, observe_feature_state_warnings, observe_last_applied_revision_id,
+};
 use unleash_edge_feature_refresh::{
     FeatureRefreshConfig, FeatureRefresher, HydratorType, start_refresh_features_background_task,
 };
@@ -170,9 +173,13 @@ async fn hydrate_from_persistent_storage(cache: CacheContainer, storage: Arc<dyn
 
         let warnings = engine_state.take_state(UpdateMessage::FullResponse(features.clone()));
         if let Some(warnings) = warnings {
+            observe_feature_state_warnings(&key, HYDRATION_SOURCE, warnings.len());
             warn!("Failed to hydrate features for {key:?}: {warnings:?}");
         }
         engine_cache.insert(key.clone(), engine_state);
+        if let Some(revision_id) = features.meta.as_ref().and_then(|meta| meta.revision_id) {
+            observe_last_applied_revision_id(&key, revision_id);
+        }
 
         if !features.features.is_empty() {
             delta_cache.insert_cache(
@@ -1018,9 +1025,43 @@ mod tests {
     use std::env::temp_dir;
     use std::sync::Arc;
     use ulid::Ulid;
+    use unleash_edge_feature_refresh::feature_state::{
+        HYDRATION_SOURCE, feature_state_warnings_total,
+    };
     use unleash_edge_persistence::EdgePersistence;
     use unleash_edge_persistence::file::FilePersister;
-    use unleash_types::client_features::{ClientFeature, ClientFeatures, Segment};
+    use unleash_types::client_features::{
+        ClientFeature, ClientFeatures, Constraint, Operator, Segment, Strategy,
+    };
+
+    fn client_features_with_invalid_single_value_constraint() -> ClientFeatures {
+        ClientFeatures {
+            version: 1,
+            features: vec![ClientFeature {
+                name: "invalid-constraint-flag".to_string(),
+                enabled: true,
+                strategies: Some(vec![Strategy {
+                    name: "default".to_string(),
+                    parameters: None,
+                    sort_order: None,
+                    segments: None,
+                    constraints: Some(vec![Constraint {
+                        context_name: "userId".to_string(),
+                        operator: Operator::NumEq,
+                        case_insensitive: false,
+                        inverted: false,
+                        values: None,
+                        value: None,
+                    }]),
+                    variants: None,
+                }]),
+                ..Default::default()
+            }],
+            segments: None,
+            query: None,
+            meta: None,
+        }
+    }
 
     #[tokio::test]
     async fn hydrates_delta_cache_from_persistent_feature_backup() {
@@ -1074,6 +1115,33 @@ mod tests {
         assert_eq!(hydration_event.event_id, 42);
         assert_eq!(hydration_event.features, vec![feature]);
         assert_eq!(hydration_event.segments, vec![segment]);
+    }
+
+    #[tokio::test]
+    async fn hydration_warnings_increment_feature_state_warnings_metric() {
+        let key = "development".to_string();
+        let backup_folder = temp_dir().join(Ulid::new().to_string());
+        let persister = FilePersister::new(&backup_folder);
+        persister
+            .save_features(vec![(
+                key.clone(),
+                client_features_with_invalid_single_value_constraint(),
+            )])
+            .await
+            .unwrap();
+
+        let initial = feature_state_warnings_total(&key, HYDRATION_SOURCE);
+        let (token_cache, features_cache, delta_cache, engine_cache) = build_caches();
+        super::hydrate_from_persistent_storage(
+            (token_cache, features_cache, delta_cache, engine_cache),
+            Arc::new(persister),
+        )
+        .await;
+
+        assert_eq!(
+            feature_state_warnings_total(&key, HYDRATION_SOURCE),
+            initial + 2
+        );
     }
 }
 
