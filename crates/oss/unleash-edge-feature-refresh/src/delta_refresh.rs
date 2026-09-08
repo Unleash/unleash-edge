@@ -1,4 +1,4 @@
-use crate::feature_state::{
+use crate::refresh_metrics::{
     DELTA_SOURCE, observe_feature_refresh_error, observe_feature_state_warnings,
     observe_last_applied_revision_id,
 };
@@ -171,7 +171,7 @@ async fn handle_sse(
                 }
                 Err(e) => {
                     observe_feature_refresh_error(
-                        &token.environment.clone().unwrap_or("*".to_string()),
+                        token.environment.as_deref().unwrap_or("*"),
                         "parse",
                     );
                     warn!("Could not parse features response to internal representation: {e:?}");
@@ -244,7 +244,7 @@ async fn run_stream_task_with_idle_timeout(
                 Ok(s) => s,
                 Err(e) => {
                     observe_feature_refresh_error(
-                        &token.environment.clone().unwrap_or("*".to_string()),
+                        token.environment.as_deref().unwrap_or("*"),
                         "stream",
                     );
                     warn!(
@@ -292,7 +292,7 @@ async fn run_stream_task_with_idle_timeout(
                         }
                         Ok(Some(Err(e))) => {
                             observe_feature_refresh_error(
-                                &token.environment.clone().unwrap_or("*".to_string()),
+                                token.environment.as_deref().unwrap_or("*"),
                                 "stream",
                             );
                             match e {
@@ -449,7 +449,7 @@ impl DeltaRefresher {
         );
         DELTA_LAST_UPDATE
             .with_label_values(&[
-                &refresh_token.environment.clone().unwrap_or("*".to_string()),
+                refresh_token.environment.as_deref().unwrap_or("*"),
                 &refresh_token.projects.join(","),
             ])
             .set(Utc::now().timestamp());
@@ -459,7 +459,7 @@ impl DeltaRefresher {
                 let warnings = engine.apply_delta(&delta);
                 if let Some(warnings) = warnings {
                     observe_feature_state_warnings(
-                        &refresh_token.environment.clone().unwrap_or("*".to_string()),
+                        refresh_token.environment.as_deref().unwrap_or("*"),
                         DELTA_SOURCE,
                         warnings.len(),
                     );
@@ -474,7 +474,7 @@ impl DeltaRefresher {
                 let warnings = new_state.apply_delta(&delta);
                 if let Some(warnings) = warnings {
                     observe_feature_state_warnings(
-                        &refresh_token.environment.clone().unwrap_or("*".to_string()),
+                        refresh_token.environment.as_deref().unwrap_or("*"),
                         DELTA_SOURCE,
                         warnings.len(),
                     );
@@ -573,7 +573,7 @@ impl DeltaRefresher {
             },
             Err(e) => {
                 observe_feature_refresh_error(
-                    &refresh.token.environment.clone().unwrap_or("*".to_string()),
+                    refresh.token.environment.as_deref().unwrap_or("*"),
                     "fetch",
                 );
                 match e {
@@ -635,7 +635,7 @@ impl DeltaRefresher {
 #[cfg(test)]
 mod tests {
     use crate::delta_refresh::DeltaRefresher;
-    use crate::feature_state::{DELTA_SOURCE, feature_state_warnings_total};
+    use crate::refresh_metrics::{DELTA_SOURCE, feature_state_warnings_total};
     use axum::Router;
     use axum::body::Body;
     use axum::extract::Request;

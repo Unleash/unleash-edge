@@ -3,10 +3,10 @@ use std::sync::LazyLock;
 use std::{sync::Arc, time::Duration};
 
 pub mod delta_refresh;
-pub mod feature_state;
+pub mod refresh_metrics;
 
 use crate::delta_refresh::DeltaRefresher;
-use crate::feature_state::{
+use crate::refresh_metrics::{
     FULL_SOURCE, observe_feature_state_warnings, observe_last_applied_revision_id,
 };
 use chrono::{TimeDelta, Utc};
@@ -361,7 +361,7 @@ impl FeatureRefresher {
         }
         POLLING_LAST_UPDATE
             .with_label_values(&[
-                &refresh_token.environment.clone().unwrap_or("*".to_string()),
+                refresh_token.environment.as_deref().unwrap_or("*"),
                 &refresh_token.projects.join(","),
             ])
             .set(Utc::now().timestamp());
@@ -382,7 +382,7 @@ impl FeatureRefresher {
                     let warnings = new_state.take_state(UpdateMessage::FullResponse(f.clone()));
                     if let Some(warnings) = warnings {
                         observe_feature_state_warnings(
-                            &refresh_token.environment.clone().unwrap_or("*".to_string()),
+                            refresh_token.environment.as_deref().unwrap_or("*"),
                             FULL_SOURCE,
                             warnings.len(),
                         );
@@ -397,7 +397,7 @@ impl FeatureRefresher {
                 let warnings = new_state.take_state(UpdateMessage::FullResponse(features));
                 if let Some(warnings) = warnings {
                     observe_feature_state_warnings(
-                        &refresh_token.environment.clone().unwrap_or("*".to_string()),
+                        refresh_token.environment.as_deref().unwrap_or("*"),
                         FULL_SOURCE,
                         warnings.len(),
                     );

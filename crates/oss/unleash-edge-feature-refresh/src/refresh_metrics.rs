@@ -5,42 +5,40 @@ const ENVIRONMENT_LABEL: &str = "environment";
 const SOURCE_LABEL: &str = "source";
 const KIND_LABEL: &str = "kind";
 
+/// Feature state restored from persistent storage during startup.
 pub const HYDRATION_SOURCE: &str = "hydration";
+/// Feature state applied from delta polling or upstream SSE events, including hydration events.
 pub const DELTA_SOURCE: &str = "delta";
+/// Feature state applied from a full polling response.
 pub const FULL_SOURCE: &str = "full";
+/// Feature state loaded or reloaded from an offline bootstrap file.
 pub const OFFLINE_SOURCE: &str = "offline";
 
 static FEATURE_STATE_WARNINGS: LazyLock<IntCounterVec> = LazyLock::new(|| {
-    match register_int_counter_vec!(
+    register_int_counter_vec!(
         "edge_feature_state_warnings_total",
         "Total number of feature state compile warnings that caused toggles to be discarded",
         &[ENVIRONMENT_LABEL, SOURCE_LABEL]
-    ) {
-        Ok(counter) => counter,
-        Err(error) => panic!("failed to register edge_feature_state_warnings_total: {error}"),
-    }
+    )
+    .expect("failed to register edge_feature_state_warnings_total")
 });
 
 static FEATURE_REFRESH_ERRORS: LazyLock<IntCounterVec> = LazyLock::new(|| {
-    match register_int_counter_vec!(
+    register_int_counter_vec!(
         "edge_feature_refresh_errors_total",
         "Total number of background feature refresh errors",
         &[ENVIRONMENT_LABEL, KIND_LABEL]
-    ) {
-        Ok(counter) => counter,
-        Err(error) => panic!("failed to register edge_feature_refresh_errors_total: {error}"),
-    }
+    )
+    .expect("failed to register edge_feature_refresh_errors_total")
 });
 
 static LAST_APPLIED_REVISION_ID: LazyLock<IntGaugeVec> = LazyLock::new(|| {
-    match register_int_gauge_vec!(
+    register_int_gauge_vec!(
         "edge_last_applied_revision_id",
         "Last feature revision ID successfully applied by Edge",
         &[ENVIRONMENT_LABEL]
-    ) {
-        Ok(gauge) => gauge,
-        Err(error) => panic!("failed to register edge_last_applied_revision_id: {error}"),
-    }
+    )
+    .expect("failed to register edge_last_applied_revision_id")
 });
 
 pub fn observe_feature_state_warnings(environment: &str, source: &str, count: usize) {

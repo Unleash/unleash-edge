@@ -10,7 +10,9 @@ use std::time::Duration;
 use tracing::warn;
 use unleash_edge_cli::OfflineArgs;
 use unleash_edge_feature_cache::FeatureCache;
-use unleash_edge_feature_refresh::feature_state::{OFFLINE_SOURCE, observe_feature_state_warnings};
+use unleash_edge_feature_refresh::refresh_metrics::{
+    OFFLINE_SOURCE, observe_feature_state_warnings,
+};
 use unleash_edge_types::EngineCache;
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::tokens::{EdgeToken, cache_key};
@@ -71,7 +73,7 @@ pub fn load_offline_engine_cache(
     engine_cache.insert(cache_key(edge_token), engine);
     if let Some(warnings) = warnings {
         observe_feature_state_warnings(
-            &edge_token.environment.clone().unwrap_or("*".to_string()),
+            edge_token.environment.as_deref().unwrap_or("*"),
             OFFLINE_SOURCE,
             warnings.len(),
         );

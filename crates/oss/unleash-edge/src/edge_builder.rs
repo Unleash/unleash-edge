@@ -30,7 +30,7 @@ use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_refresh::delta_refresh::{
     DELTA_CACHE_LIMIT, DeltaRefresher, start_streaming_delta_background_task,
 };
-use unleash_edge_feature_refresh::feature_state::{
+use unleash_edge_feature_refresh::refresh_metrics::{
     HYDRATION_SOURCE, observe_feature_state_warnings, observe_last_applied_revision_id,
 };
 use unleash_edge_feature_refresh::{
@@ -1025,7 +1025,7 @@ mod tests {
     use std::env::temp_dir;
     use std::sync::Arc;
     use ulid::Ulid;
-    use unleash_edge_feature_refresh::feature_state::{
+    use unleash_edge_feature_refresh::refresh_metrics::{
         HYDRATION_SOURCE, feature_state_warnings_total,
     };
     use unleash_edge_persistence::EdgePersistence;
