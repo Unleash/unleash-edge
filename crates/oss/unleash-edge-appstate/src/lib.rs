@@ -12,6 +12,8 @@ use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
 use unleash_edge_types::{EngineCache, TokenCache};
 use unleash_types::client_metrics::ConnectVia;
 
+pub use context_enricher::ContextEnricher;
+
 #[derive(Clone)]
 pub struct AppState {
     pub token_cache: Arc<TokenCache>,
@@ -29,8 +31,10 @@ pub struct AppState {
     pub allow_list: Vec<IpNet>,
     pub trust_proxy: bool,
     pub proxy_trusted_servers: Vec<IpNet>,
+    pub context_enricher: ContextEnricher,
     pub license_state: ApplicationLicenseState,
 }
 
+pub mod context_enricher;
 pub mod edge_token_extractor;
 pub mod token_cache_observer;

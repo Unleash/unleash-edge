@@ -7,6 +7,8 @@ use ipnet::IpNet;
 use reqwest::Client;
 use std::fmt::{Display, Formatter};
 use std::net::IpAddr;
+#[cfg(feature = "enterprise")]
+use std::num::NonZeroU32;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
@@ -265,8 +267,22 @@ pub struct EdgeArgs {
     #[clap(long, env, hide = true)]
     pub ec2_instance_id: Option<String>,
 
+    #[cfg(feature = "enterprise")]
+    #[clap(flatten)]
+    pub context_enricher: ContextEnricherArgs,
+
     #[clap(flatten)]
     pub hmac_config: HmacConfig,
+}
+
+#[cfg(feature = "enterprise")]
+#[derive(Args, Debug, Clone, Default)]
+pub struct ContextEnricherArgs {
+    #[clap(long, env, hide = true)]
+    pub context_enricher_script: Option<PathBuf>,
+
+    #[clap(long, env, hide = true, requires = "context_enricher_script")]
+    pub context_enricher_workers: Option<NonZeroU32>,
 }
 
 pub fn string_to_header_tuple(s: &str) -> Result<(String, String), String> {
@@ -789,7 +805,7 @@ impl HttpServerArgs {
 mod tests {
     use super::{CliArgs, EdgeMode, NetworkAddr};
     use axum::http;
-    use clap::Parser;
+    use clap::{CommandFactory, Parser};
     use ipnet::IpNet;
     use std::net::IpAddr;
     use std::str::FromStr;
@@ -1316,6 +1332,66 @@ mod tests {
         ];
         let args = CliArgs::try_parse_from(args);
         assert!(args.is_ok());
+    }
+
+    #[cfg(feature = "enterprise")]
+    #[test]
+    pub fn can_parse_hidden_context_enricher_args() {
+        let args = vec![
+            "unleash-edge",
+            "edge",
+            "-u",
+            "http://localhost:4242",
+            "--context-enricher-script",
+            "/tmp/enricher.js",
+            "--context-enricher-workers",
+            "2",
+        ];
+        let args = CliArgs::parse_from(args);
+        match args.mode {
+            EdgeMode::Edge(args) => {
+                assert_eq!(
+                    args.context_enricher.context_enricher_script.as_deref(),
+                    Some(std::path::Path::new("/tmp/enricher.js"))
+                );
+                assert_eq!(
+                    args.context_enricher
+                        .context_enricher_workers
+                        .map(|count| count.get()),
+                    Some(2)
+                );
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    #[cfg(feature = "enterprise")]
+    #[test]
+    pub fn context_enricher_args_are_hidden_from_help() {
+        let mut command = CliArgs::command();
+        let help = command
+            .find_subcommand_mut("edge")
+            .expect("edge subcommand should exist")
+            .render_long_help()
+            .to_string();
+
+        assert!(!help.contains("context-enricher-script"));
+        assert!(!help.contains("context-enricher-workers"));
+    }
+
+    #[cfg(feature = "enterprise")]
+    #[test]
+    pub fn context_enricher_workers_requires_context_enricher_script() {
+        let args = vec![
+            "unleash-edge",
+            "edge",
+            "-u",
+            "http://localhost:4242",
+            "--context-enricher-workers",
+            "2",
+        ];
+
+        assert!(CliArgs::try_parse_from(args).is_err());
     }
 
     #[test]

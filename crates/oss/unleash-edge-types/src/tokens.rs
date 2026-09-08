@@ -309,26 +309,26 @@ fn filter_unique_tokens(tokens: &[TokenRefresh]) -> Vec<TokenRefresh> {
 }
 
 pub fn anonymize_token(edge_token: &EdgeToken) -> EdgeToken {
-    let mut iterator = edge_token.token.split('.');
-    let project_and_environment = iterator.next();
-    let maybe_hash = iterator.next();
-    match (project_and_environment, maybe_hash) {
-        (Some(p_and_e), Some(hash)) => {
-            let safe_hash = clean_hash(hash);
-            EdgeToken {
-                token: format!("{}.{}", p_and_e, safe_hash),
-                ..edge_token.clone()
-            }
+    let parts: Vec<&str> = edge_token.token.split([':', '.', '_']).collect();
+
+    let secret = match parts.as_slice() {
+        [environment, projects, hash] => {
+            format!(
+                "{environment}:{projects}.{}****{}",
+                &hash[..6],
+                &hash[hash.len() - 6..]
+            )
         }
-        _ => edge_token.clone(),
+        [environment, projects, version, selector, _secret] => {
+            format!("{environment}:{projects}.{version}_{selector}")
+        }
+        _ => edge_token.token.to_string(),
+    };
+
+    EdgeToken {
+        token: secret,
+        ..edge_token.clone()
     }
-}
-fn clean_hash(hash: &str) -> String {
-    format!(
-        "{}****{}",
-        &hash[..6].to_string(),
-        &hash[hash.len() - 6..].to_string()
-    )
 }
 
 pub struct RequestTokensArg {
@@ -340,7 +340,8 @@ pub struct RequestTokensArg {
 
 #[cfg(test)]
 mod tests {
-    use crate::{EdgeTokens, TokenValidationStatus};
+    use super::*;
+    use crate::EdgeTokens;
     use serde_json::json;
 
     #[test]
@@ -362,5 +363,28 @@ mod tests {
             edge_tokens.tokens.first().unwrap().status,
             TokenValidationStatus::Validated
         );
+    }
+
+    #[test]
+    fn anonymize_token_strips_legacy_token_secret() {
+        let token = crate::EdgeToken {
+            token: "*:development.abcdefghijklmnopqrstuvwxyz123456".to_string(),
+            ..Default::default()
+        };
+        let anonymized = anonymize_token(&token);
+        assert_eq!(
+            anonymized.token,
+            "*:development.abcdef****123456".to_string()
+        );
+    }
+
+    #[test]
+    fn anonymize_token_strips_new_token_secret() {
+        let token = crate::EdgeToken {
+            token: "*:development.v2_selector_abcdefghijklmnopqrstuvwxyz123456".to_string(),
+            ..Default::default()
+        };
+        let anonymized = anonymize_token(&token);
+        assert_eq!(anonymized.token, "*:development.v2_selector".to_string());
     }
 }

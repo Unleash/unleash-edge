@@ -1,4 +1,9 @@
 
+## [unleash-edge-v20.5.0] - 2026-08-27
+
+### ⚙️ Miscellaneous Tasks
+- different redacted format for v2 tokens (#1803) (by @sighphyre) - #1803
+
 ## [unleash-edge-v20.4.1] - 2026-07-28
 
 ## [unleash-edge-v20.4.0] - 2026-07-17

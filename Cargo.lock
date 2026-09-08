@@ -253,9 +253,9 @@ dependencies = [
 
 [[package]]
 name = "async-trait"
-version = "0.1.91"
+version = "0.1.92"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae36dc4177970ef04fde5178d3e2429882def40e57a451f919c098f72baa6cec"
+checksum = "82f6aeea286b8eb4dd3431a1be1b59d290ace00f5bfd8e2a159bc2a05e2c1667"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -904,9 +904,9 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
 name = "base64"
-version = "0.23.0"
+version = "0.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b25655df2c3cdd83c5e5b293b88acd880332b2ddadd7c30ac43144fdc0033da9"
+checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
 
 [[package]]
 name = "base64-simd"
@@ -1927,9 +1927,9 @@ dependencies = [
 
 [[package]]
 name = "eventsource-client"
-version = "0.17.5"
+version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96df8cfa11d3c8e4e1a48b81c9c600ecbe8c11d1326f41e1524cc4d42f7bf6d9"
+checksum = "d779d24f01e43764af8a0244078c3a98e27a578243609d831cdf0e0ea0d88ce6"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -2087,9 +2087,9 @@ checksum = "42703706b716c37f96a77aea830392ad231f44c9e9a67872fa5548707e11b11c"
 
 [[package]]
 name = "futures"
-version = "0.3.33"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a88cf1f829d945f548cf8fec32c61b1f202b6d93b45848602fc02af4b12ad218"
+checksum = "9a31d2a3fbaaeb2af2368bbdd904aa8e812d3c04a1ee10d3171f52d556e5d0a3"
 dependencies = [
  "futures-channel",
  "futures-core",
@@ -2102,9 +2102,9 @@ dependencies = [
 
 [[package]]
 name = "futures-channel"
-version = "0.3.33"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "262590f4fe6afeb0bc83be1daa64e52657fe185690a958af7f3ad0e92085c5ae"
+checksum = "b1f9e3d69d39e4862ffed03ed071a76f9a13ba1d9109d355b0f0aa6b15e393c4"
 dependencies = [
  "futures-core",
  "futures-sink",
@@ -2112,15 +2112,15 @@ dependencies = [
 
 [[package]]
 name = "futures-core"
-version = "0.3.33"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2cd50c473c80f6d7c3670a752354b8e569b1a7cbfdc0419ec88e5edad85e0dc7"
+checksum = "92d699e522242e69e3003b94ecc1f960f3a5e015aa7c5d7486e65ad01dd94f5e"
 
 [[package]]
 name = "futures-executor"
-version = "0.3.33"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6754879cc9f2c66f88c6e5c35344bb0bdb0708b0352b1201815667c7eabc7458"
+checksum = "031b47cf1a3c6cc8bc2fc76cd437f521619387907d469316e7c0bc278f1f5432"
 dependencies = [
  "futures-core",
  "futures-task",
@@ -2129,38 +2129,38 @@ dependencies = [
 
 [[package]]
 name = "futures-io"
-version = "0.3.33"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4577ecaa3c4f96589d473f679a71b596316f6641bc350038b962a5daf0085d7a"
+checksum = "53c0fa8157de1303bfffdaa1cc2a673bfffb60102f76b0ef4441659124373fed"
 
 [[package]]
 name = "futures-macro"
-version = "0.3.33"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d6d3cde68c518367be28956066ddfef33813991b77a55005a69dae04bf3b10b"
+checksum = "9fb9654ba8355388abeb8dcb4fc62f511300867002afc858860463bdd9fe0c44"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.117",
+ "syn 3.0.1",
 ]
 
 [[package]]
 name = "futures-sink"
-version = "0.3.33"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e34418ac499d6305c2fb5ad0ed2f6ac998c5f8ca209b4510f7f94242c647e307"
+checksum = "1944426bf7d03f1d14f708785e4b33efd750b36d48a157b836b3efc15ede8e1d"
 
 [[package]]
 name = "futures-task"
-version = "0.3.33"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b231ed28831efb4a61a08580c4bc233ec56bc009f4cd8f52da2c3cb97df0c109"
+checksum = "cd417de3d1d015fc3bfd2b1ea46dfc7bab72ef86f1cc7cc9c78e728b34a6d1fd"
 
 [[package]]
 name = "futures-util"
-version = "0.3.33"
+version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a77a90a256fce34da66415271e30f94ee91c57b04b8a2c042d9cf3220179deaa"
+checksum = "0d50a92467f8ba5dd6e3ee5d4bd04d73ab2e4e1c44474a0674821dfce14b79bc"
 dependencies = [
  "futures-channel",
  "futures-core",
@@ -2204,11 +2204,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "899def5c37c4fd7b2664648c28120ecec138e4d395b459e5ca34f9cce2dd77fd"
 dependencies = [
  "cfg-if",
- "js-sys",
  "libc",
  "r-efi 5.3.0",
  "wasip2",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -2218,11 +2216,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0de51e6874e94e7bf76d726fc5d13ba782deca734ff60d5bb2fb2607c7406555"
 dependencies = [
  "cfg-if",
+ "js-sys",
  "libc",
  "r-efi 6.0.0",
  "rand_core 0.10.1",
  "wasip2",
  "wasip3",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -2424,9 +2424,9 @@ dependencies = [
 
 [[package]]
 name = "http-body-util"
-version = "0.1.4"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9f41fd6a08e4d4ec69df65976da761afd5ad5e58a9d4acb46bd1c953a9e3ff2"
+checksum = "23169fe34a5fbcdd3f3862e78fb9b6fccd5f02a6dc6f732547005d45631ce71c"
 dependencies = [
  "bytes",
  "futures-core",
@@ -2764,9 +2764,9 @@ dependencies = [
 
 [[package]]
 name = "ipnet"
-version = "2.12.0"
+version = "2.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d98f6fed1fde3f8c21bc40a1abb88dd75e67924f9cffc3ef95607bad8017f8e2"
+checksum = "6a756c3fac73139e83f14c2d742155dd2b78d3ee56597b419a0579b7bdd6dd78"
 
 [[package]]
 name = "ipnetwork"
@@ -3208,6 +3208,16 @@ name = "num-bigint"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a5e44f723f1133c9deac646763579fdb3ac745e418f2a7af9cd0c431da1f20b9"
+dependencies = [
+ "num-integer",
+ "num-traits",
+]
+
+[[package]]
+name = "num-bigint"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "93e7820bc0a80a0238e650327316f929ba18d5be054b647490a3a6a339f3e7c0"
 dependencies = [
  "num-integer",
  "num-traits",
@@ -3918,15 +3928,16 @@ dependencies = [
 
 [[package]]
 name = "quinn-proto"
-version = "0.11.14"
+version = "0.11.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "434b42fec591c96ef50e21e886936e66d3cc3f737104fdb9b737c40ffb94c098"
+checksum = "2f4bfc015262b9df63c8845072ce59068853ff5872180c2ce2f13038b970e560"
 dependencies = [
  "aws-lc-rs",
  "bytes",
- "getrandom 0.3.4",
+ "getrandom 0.4.2",
  "lru-slab",
- "rand 0.9.4",
+ "rand 0.10.2",
+ "rand_pcg",
  "ring",
  "rustc-hash",
  "rustls",
@@ -4029,6 +4040,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "63b8176103e19a2643978565ca18b50549f6101881c443590420e4dc998a3c69"
 
 [[package]]
+name = "rand_pcg"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "caa0f4137e1c0a72f4c651489402276c8e8e1cf081f3b0ba156d2cbeef09e86a"
+dependencies = [
+ "rand_core 0.10.1",
+]
+
+[[package]]
 name = "rand_xorshift"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4048,9 +4068,9 @@ dependencies = [
 
 [[package]]
 name = "redis"
-version = "1.5.0"
+version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3257df217f7eab0044627a268c9cc6cdb60c0c421c88f83ac41c4e31520b6b84"
+checksum = "e37a4ca5c6ca42aa3e6df2fd32b987a65d32a4c2159a6f3fe0fd1df306a2658f"
 dependencies = [
  "arcstr",
  "async-lock",
@@ -4060,7 +4080,7 @@ dependencies = [
  "crc16",
  "futures-util",
  "itoa",
- "num-bigint 0.4.6",
+ "num-bigint 0.5.1",
  "percent-encoding",
  "pin-project-lite",
  "rand 0.10.2",
@@ -4599,9 +4619,9 @@ dependencies = [
 
 [[package]]
 name = "serde_qs"
-version = "1.1.2"
+version = "1.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "67d525c8ff68aa99e5818302259bdd02d86d0303710616f39c0f44846ff6d332"
+checksum = "475b9310e272827d34113bf8679b6dfb7fa0023ee049764ba003f8f984e8b5d1"
 dependencies = [
  "axum",
  "itoa",
@@ -5537,7 +5557,7 @@ checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
 
 [[package]]
 name = "unleash-edge"
-version = "20.4.1"
+version = "20.5.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -5604,7 +5624,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-appstate"
-version = "20.4.1"
+version = "20.5.0"
 dependencies = [
  "axum",
  "dashmap",
@@ -5615,6 +5635,7 @@ dependencies = [
  "ulid",
  "unleash-edge-auth",
  "unleash-edge-cli",
+ "unleash-edge-context-enrichers",
  "unleash-edge-delta",
  "unleash-edge-feature-cache",
  "unleash-edge-feature-refresh",
@@ -5627,7 +5648,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-auth"
-version = "20.4.1"
+version = "20.5.0"
 dependencies = [
  "axum",
  "axum-test",
@@ -5648,7 +5669,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-backstage"
-version = "20.4.1"
+version = "20.5.0"
 dependencies = [
  "axum",
  "dashmap",
@@ -5671,7 +5692,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-cli"
-version = "20.4.1"
+version = "20.5.0"
 dependencies = [
  "axum",
  "cidr",
@@ -5691,7 +5712,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-client-api"
-version = "20.4.1"
+version = "20.5.0"
 dependencies = [
  "axum",
  "axum-test",
@@ -5723,8 +5744,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "unleash-edge-context-enrichers"
+version = "20.5.0"
+dependencies = [
+ "http 1.5.0",
+ "prometheus",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "tracing-test",
+ "unleash-types",
+]
+
+[[package]]
 name = "unleash-edge-delta"
-version = "20.4.1"
+version = "20.5.0"
 dependencies = [
  "ahash",
  "dashmap",
@@ -5738,7 +5774,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-edge-api"
-version = "20.4.1"
+version = "20.5.0"
 dependencies = [
  "axum",
  "tokio",
@@ -5751,7 +5787,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-enterprise"
-version = "20.4.1"
+version = "20.5.0"
 dependencies = [
  "tokio",
  "tracing",
@@ -5763,7 +5799,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-enterprise-api"
-version = "20.4.1"
+version = "20.5.0"
 dependencies = [
  "axum",
  "axum-test",
@@ -5784,7 +5820,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-enterprise-integration-tests"
-version = "20.4.1"
+version = "20.5.0"
 dependencies = [
  "ahash",
  "async-trait",
@@ -5825,7 +5861,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-feature-cache"
-version = "20.4.1"
+version = "20.5.0"
 dependencies = [
  "dashmap",
  "tokio",
@@ -5835,7 +5871,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-feature-filters"
-version = "20.4.1"
+version = "20.5.0"
 dependencies = [
  "dashmap",
  "tracing",
@@ -5847,7 +5883,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-feature-refresh"
-version = "20.4.1"
+version = "20.5.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -5886,7 +5922,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-frontend-api"
-version = "20.4.1"
+version = "20.5.0"
 dependencies = [
  "axum",
  "axum-test",
@@ -5896,6 +5932,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_qs",
+ "tempfile",
  "tokio",
  "tower 0.5.3",
  "tracing",
@@ -5913,12 +5950,12 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-http-client"
-version = "20.4.1"
+version = "20.5.0"
 dependencies = [
  "ahash",
  "axum",
  "axum-test",
- "base64 0.23.0",
+ "base64 0.23.1",
  "chrono",
  "etag",
  "hmac 0.13.0",
@@ -5946,7 +5983,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-integration-tests"
-version = "20.4.1"
+version = "20.5.0"
 dependencies = [
  "axum",
  "axum-test",
@@ -5989,11 +6026,11 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-metrics"
-version = "20.4.1"
+version = "20.5.0"
 dependencies = [
  "axum",
  "axum-test",
- "base64 0.23.0",
+ "base64 0.23.1",
  "chrono",
  "dashmap",
  "futures",
@@ -6020,7 +6057,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-offline"
-version = "20.4.1"
+version = "20.5.0"
 dependencies = [
  "axum",
  "axum-test",
@@ -6043,7 +6080,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-persistence"
-version = "20.4.1"
+version = "20.5.0"
 dependencies = [
  "ahash",
  "async-trait",
@@ -6070,7 +6107,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-request-logger"
-version = "20.4.1"
+version = "20.5.0"
 dependencies = [
  "axum",
  "http 1.5.0",
@@ -6079,7 +6116,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-streaming"
-version = "20.4.1"
+version = "20.5.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -6108,7 +6145,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-tracing"
-version = "20.4.1"
+version = "20.5.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -6125,7 +6162,7 @@ dependencies = [
 
 [[package]]
 name = "unleash-edge-types"
-version = "20.4.1"
+version = "20.5.0"
 dependencies = [
  "ahash",
  "axum",
@@ -6168,9 +6205,9 @@ dependencies = [
 
 [[package]]
 name = "unleash-yggdrasil"
-version = "0.21.4"
+version = "0.21.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56172b5dc8824e8477a010cc471a344e5e3de8ec8dedf122e3cd7cb095f45a6c"
+checksum = "8df5e1811890a75dc6ad7cd9348d630353df2cdb8d38c6b2d58e4599f3d9486b"
 dependencies = [
  "ahash",
  "chrono",
