@@ -58,7 +58,7 @@ pub fn observe_feature_refresh_error(environment: &str, kind: &str) {
 pub fn observe_last_applied_revision_id(environment: &str, revision_id: usize) {
     LAST_APPLIED_REVISION_ID
         .with_label_values(&[environment])
-        .set(revision_id as i64);
+        .set(i64::try_from(revision_id).unwrap_or(i64::MAX));
 }
 
 pub fn feature_state_warnings_total(environment: &str, source: &str) -> u64 {

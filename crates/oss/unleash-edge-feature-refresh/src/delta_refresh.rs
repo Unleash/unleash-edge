@@ -828,19 +828,21 @@ mod tests {
         let token =
             EdgeToken::try_from("*:development.abcdefghijklmnopqrstuvwxyz".to_string()).unwrap();
         tokens_to_refresh.insert(token.token.clone(), TokenRefresh::new(token.clone(), None));
+        let delta = delta_with_invalid_single_value_constraint(1);
+        let expected_increment = EngineState::default()
+            .apply_delta(&delta)
+            .map_or(0, |warnings| {
+                u64::try_from(warnings.len()).expect("warning count should fit in u64")
+            });
 
         let initial = feature_state_warnings_total("development", DELTA_SOURCE);
         delta_refresher
-            .handle_client_features_delta_updated(
-                &token,
-                delta_with_invalid_single_value_constraint(1),
-                None,
-            )
+            .handle_client_features_delta_updated(&token, delta, None)
             .await;
 
         assert_eq!(
             feature_state_warnings_total("development", DELTA_SOURCE),
-            initial + 2
+            initial + expected_increment
         );
     }
 

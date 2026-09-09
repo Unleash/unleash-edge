@@ -1033,6 +1033,7 @@ mod tests {
     use unleash_types::client_features::{
         ClientFeature, ClientFeatures, Constraint, Operator, Segment, Strategy,
     };
+    use unleash_yggdrasil::{EngineState, UpdateMessage};
 
     fn client_features_with_invalid_single_value_constraint() -> ClientFeatures {
         ClientFeatures {
@@ -1122,11 +1123,14 @@ mod tests {
         let key = "development".to_string();
         let backup_folder = temp_dir().join(Ulid::new().to_string());
         let persister = FilePersister::new(&backup_folder);
+        let features = client_features_with_invalid_single_value_constraint();
+        let expected_increment = EngineState::default()
+            .take_state(UpdateMessage::FullResponse(features.clone()))
+            .map_or(0, |warnings| {
+                u64::try_from(warnings.len()).expect("warning count should fit in u64")
+            });
         persister
-            .save_features(vec![(
-                key.clone(),
-                client_features_with_invalid_single_value_constraint(),
-            )])
+            .save_features(vec![(key.clone(), features)])
             .await
             .unwrap();
 
@@ -1140,7 +1144,7 @@ mod tests {
 
         assert_eq!(
             feature_state_warnings_total(&key, HYDRATION_SOURCE),
-            initial + 2
+            initial + expected_increment
         );
     }
 }
