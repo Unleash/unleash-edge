@@ -44,7 +44,7 @@ jobs:
       matrix: ${{ steps.platforms.outputs.matrix }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Create matrix
         id: platforms
         run: |
@@ -93,7 +93,7 @@ jobs:
           platform=${{ matrix.platform }}
           echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Download meta bake definition
         uses: actions/download-artifact@v8
         with:
@@ -224,7 +224,7 @@ jobs:
       - merge
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Update Docker Hub description
         uses: peter-evans/dockerhub-description@v5
         with:
