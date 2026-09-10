@@ -1,3 +1,7 @@
+use crate::refresh_metrics::{
+    DELTA_SOURCE, observe_feature_refresh_error, observe_feature_state_warnings,
+    observe_last_applied_revision_id,
+};
 use crate::{TokenRefreshSet, TokenRefreshStatus, client_application_from_token_and_name};
 use anyhow::Context;
 use chrono::Utc;
@@ -166,6 +170,10 @@ async fn handle_sse(
                     return event.id;
                 }
                 Err(e) => {
+                    observe_feature_refresh_error(
+                        token.environment.as_deref().unwrap_or("*"),
+                        "parse",
+                    );
                     warn!("Could not parse features response to internal representation: {e:?}");
                 }
             }
@@ -235,6 +243,10 @@ async fn run_stream_task_with_idle_timeout(
             ) {
                 Ok(s) => s,
                 Err(e) => {
+                    observe_feature_refresh_error(
+                        token.environment.as_deref().unwrap_or("*"),
+                        "stream",
+                    );
                     warn!(
                         "SSE misconfiguration detected; cannot build stream: {e:?}. Exiting stream task."
                     );
@@ -279,6 +291,10 @@ async fn run_stream_task_with_idle_timeout(
                             }
                         }
                         Ok(Some(Err(e))) => {
+                            observe_feature_refresh_error(
+                                token.environment.as_deref().unwrap_or("*"),
+                                "stream",
+                            );
                             match e {
                                 Error::UnexpectedResponse(response, _) => {
                                     if response.status() == StatusCode::UNAUTHORIZED || response.status() == StatusCode::FORBIDDEN {
@@ -415,6 +431,7 @@ impl DeltaRefresher {
             DELTA_REVISION_ID
                 .with_label_values(&[env, &refresh_token.projects.join(",")])
                 .set(max as i64);
+            observe_last_applied_revision_id(env, max);
             self.edge_instance_data.observe_api_key_refresh(
                 env.clone(),
                 refresh_token.projects.clone(),
@@ -432,20 +449,35 @@ impl DeltaRefresher {
         );
         DELTA_LAST_UPDATE
             .with_label_values(&[
-                &refresh_token.environment.clone().unwrap_or("*".to_string()),
+                refresh_token.environment.as_deref().unwrap_or("*"),
                 &refresh_token.projects.join(","),
             ])
             .set(Utc::now().timestamp());
         self.engine_cache
             .entry(key.clone())
             .and_modify(|engine| {
-                engine.apply_delta(&delta);
+                let warnings = engine.apply_delta(&delta);
+                if let Some(warnings) = warnings {
+                    observe_feature_state_warnings(
+                        refresh_token.environment.as_deref().unwrap_or("*"),
+                        DELTA_SOURCE,
+                        warnings.len(),
+                    );
+                    warn!(
+                        "The following toggle failed to compile and will be defaulted to off: {warnings:?}"
+                    );
+                };
             })
             .or_insert_with(|| {
                 let mut new_state = EngineState::default();
 
                 let warnings = new_state.apply_delta(&delta);
                 if let Some(warnings) = warnings {
+                    observe_feature_state_warnings(
+                        refresh_token.environment.as_deref().unwrap_or("*"),
+                        DELTA_SOURCE,
+                        warnings.len(),
+                    );
                     warn!("The following toggle failed to compile and will be defaulted to off: {warnings:?}");
                 };
                 new_state
@@ -540,6 +572,10 @@ impl DeltaRefresher {
                 }
             },
             Err(e) => {
+                observe_feature_refresh_error(
+                    refresh.token.environment.as_deref().unwrap_or("*"),
+                    "fetch",
+                );
                 match e {
                     EdgeError::ClientFeaturesFetchError(fe) => {
                         match fe {
@@ -599,6 +635,7 @@ impl DeltaRefresher {
 #[cfg(test)]
 mod tests {
     use crate::delta_refresh::DeltaRefresher;
+    use crate::refresh_metrics::{DELTA_SOURCE, feature_state_warnings_total};
     use axum::Router;
     use axum::body::Body;
     use axum::extract::Request;
@@ -629,7 +666,7 @@ mod tests {
     use unleash_edge_types::{RefreshState, TokenRefresh};
     use unleash_types::client_features::{
         ClientFeature, ClientFeatures, ClientFeaturesDelta, Constraint, DeltaEvent, Operator,
-        Segment,
+        Segment, Strategy,
     };
     use unleash_yggdrasil::EngineState;
 
@@ -782,6 +819,31 @@ mod tests {
 
         assert_eq!(hydration_event.event_id, 10);
         assert_eq!(feature_names, vec!["rolled-up", "post-hydration"]);
+    }
+
+    #[tokio::test]
+    async fn delta_warnings_increment_feature_state_warnings_metric() {
+        let (delta_refresher, tokens_to_refresh) =
+            build_delta_refresher_for_stream_test(Url::parse("http://localhost").unwrap());
+        let token =
+            EdgeToken::try_from("*:development.abcdefghijklmnopqrstuvwxyz".to_string()).unwrap();
+        tokens_to_refresh.insert(token.token.clone(), TokenRefresh::new(token.clone(), None));
+        let delta = delta_with_invalid_single_value_constraint(1);
+        let expected_increment = EngineState::default()
+            .apply_delta(&delta)
+            .map_or(0, |warnings| {
+                u64::try_from(warnings.len()).expect("warning count should fit in u64")
+            });
+
+        let initial = feature_state_warnings_total("development", DELTA_SOURCE);
+        delta_refresher
+            .handle_client_features_delta_updated(&token, delta, None)
+            .await;
+
+        assert_eq!(
+            feature_state_warnings_total("development", DELTA_SOURCE),
+            initial + expected_increment
+        );
     }
 
     #[derive(Clone)]
@@ -1019,6 +1081,38 @@ mod tests {
             name: name.into(),
             feature_type: Some("release".into()),
             ..Default::default()
+        }
+    }
+
+    fn feature_with_invalid_single_value_constraint(name: &str) -> ClientFeature {
+        ClientFeature {
+            name: name.into(),
+            enabled: true,
+            strategies: Some(vec![Strategy {
+                name: "default".into(),
+                parameters: None,
+                sort_order: None,
+                segments: None,
+                constraints: Some(vec![Constraint {
+                    context_name: "userId".into(),
+                    operator: Operator::NumEq,
+                    case_insensitive: false,
+                    inverted: false,
+                    values: None,
+                    value: None,
+                }]),
+                variants: None,
+            }]),
+            ..Default::default()
+        }
+    }
+
+    fn delta_with_invalid_single_value_constraint(event_id: u32) -> ClientFeaturesDelta {
+        ClientFeaturesDelta {
+            events: vec![DeltaEvent::FeatureUpdated {
+                event_id,
+                feature: feature_with_invalid_single_value_constraint("invalid-constraint-flag"),
+            }],
         }
     }
 
