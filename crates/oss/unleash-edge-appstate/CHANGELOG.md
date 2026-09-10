@@ -1,4 +1,11 @@
 
+## [unleash-edge-v20.5.1] - 2026-08-31
+
+### ⚙️ Miscellaneous Tasks
+- initial wire up of context enrichers - still fully disabled (#1826) (by @sighphyre) - #1826
+- context enrichers no longer take deep clones of headers on eve… (#1827) (by @sighphyre) - #1827
+- don't clone context unnecessarily in context enricher flow (#1828) (by @sighphyre) - #1828
+
 ## [unleash-edge-v20.5.0] - 2026-08-27
 
 ## [unleash-edge-v20.4.1] - 2026-07-28
