@@ -227,11 +227,12 @@ pub async fn build_edge(
         features_refresh_interval,
     }: EdgeBuilderArgs,
 ) -> EdgeResult<EdgeInfo> {
-    if tokens.is_empty() {
-        return Err(EdgeError::NoTokens(
-            "No tokens provided. Tokens must be specified".into(),
-        ));
-    }
+    /*    if tokens.is_empty() {
+            return Err(EdgeError::NoTokens(
+                "No tokens provided. Tokens must be specified".into(),
+            ));
+        }
+    */
     let (token_cache, feature_cache, delta_cache, engine_cache) = build_caches();
     let persistence = get_data_source(&persistence_args).await;
     tokens.iter().for_each(|token| {
@@ -545,7 +546,6 @@ pub async fn build_edge_state(
     );
 
     let instance_data_sender: Arc<InstanceDataSending> = Arc::new(InstanceDataSending::from_args(
-        args.tokens.clone(),
         args.auth_headers.clone(),
         args.upstream_url,
         &args.client_meta_information,
@@ -689,6 +689,7 @@ fn create_shutdown_tasks(
         instance_data_sender.clone(),
         edge_instance_data.clone(),
         instances_observed_for_app_context.clone(),
+        token_cache.clone(),
     ));
 
     tasks.push(create_terminate_sse_connections_task(
@@ -782,6 +783,7 @@ fn create_edge_mode_background_tasks(
             instance_data_sender.clone(),
             edge_instance_data.clone(),
             instances_observed_for_app_context.clone(),
+            token_cache.clone(),
         ),
         observe_tokens_in_background(
             edge_instance_data.app_name.clone(),
