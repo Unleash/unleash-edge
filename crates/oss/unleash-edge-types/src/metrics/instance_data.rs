@@ -40,6 +40,14 @@ pub struct EdgeApiKeyRevisionId {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct EnricherMetrics {
+    pub traffic: LatencyMetrics,
+    pub errors: u64,
+    pub timeouts: u64,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EdgeInstanceData {
     pub identifier: String,
     pub app_name: String,
@@ -62,6 +70,7 @@ pub struct EdgeInstanceData {
         deserialize_with = "deserialize_array_to_dashmap"
     )]
     pub edge_api_key_revision_ids: DashMap<ApiKeyIdentity, EdgeApiKeyRevisionId>,
+    pub enricher_metrics: Option<EnricherMetrics>,
 }
 
 fn deserialize_array_to_dashmap<'de, D>(
@@ -118,6 +127,7 @@ impl EdgeInstanceData {
                 metered_groups: DashMap::new(),
             },
             edge_api_key_revision_ids: DashMap::default(),
+            enricher_metrics: None,
         }
     }
 
