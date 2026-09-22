@@ -527,11 +527,17 @@ pub async fn build_edge_state(
     })
     .await?;
 
+    let found_tokens: Vec<EdgeToken> = token_cache
+        .clone()
+        .iter()
+        .map(|t| t.value().clone())
+        .collect();
+
     let license_state = ApplicationLicenseState::new(
         match resolve_license(
             &unleash_client,
             persistence.clone(),
-            &args.tokens,
+            &found_tokens,
             &args.client_meta_information,
         )
         .await?
@@ -966,13 +972,13 @@ fn load_hydrator(
 pub async fn resolve_license(
     unleash_client: &UnleashClient,
     persistence: Option<Arc<dyn EdgePersistence>>,
-    startup_tokens: &[EdgeToken],
+    tokens: &[EdgeToken],
     client_meta_information: &ClientMetaInformation,
 ) -> Result<LicenseState, EdgeError> {
     debug!("Starting enterprise license check");
     match unleash_client
         .send_heartbeat(
-            startup_tokens.first().unwrap(),
+            tokens.first().unwrap(),
             &client_meta_information.instance_id,
         )
         .await
