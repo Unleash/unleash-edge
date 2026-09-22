@@ -278,6 +278,10 @@ pub async fn build_edge(
     let _ = token_validator
         .register_tokens(tokens.clone().into_iter().map(|t| t.token).collect())
         .await;
+    let desired_envs: HashSet<String> = tokens
+        .iter()
+        .filter_map(|f| f.environment.clone())
+        .collect();
     if let Some(persistence) = persistence.clone() {
         hydrate_from_persistent_storage(
             (
@@ -298,6 +302,14 @@ pub async fn build_edge(
     for validated_token in token_cache
         .iter()
         .filter(|candidate| candidate.value().token_type == Some(TokenType::Backend))
+        .filter(|candidate| {
+            desired_envs.is_empty()
+                || candidate
+                    .environment
+                    .as_ref()
+                    .map(|e| desired_envs.contains(e))
+                    .unwrap_or(false)
+        })
     {
         hydrator_type
             .register_token_for_refresh(validated_token.clone(), None)
