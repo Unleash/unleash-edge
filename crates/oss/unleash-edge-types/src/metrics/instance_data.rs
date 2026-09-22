@@ -265,6 +265,8 @@ impl EdgeInstanceData {
         let mut post_requests = HashMap::default();
         let mut access_denied = HashMap::default();
         let mut no_change = HashMap::default();
+        let mut enricher_errors = 0;
+        let mut enricher_timeouts = 0;
 
         for family in gather().iter() {
             match family.name() {
@@ -414,6 +416,39 @@ impl EdgeInstanceData {
                             connected_streaming_clients.get_gauge().value() as u64;
                     }
                 }
+                "context_enricher_duration_milliseconds" => {
+                    if let Some(metric) = family.get_metric().last() {
+                        let histogram = metric.get_histogram();
+                        let count = histogram.get_sample_count();
+                        observed.enricher_metrics = Some(EnricherMetrics {
+                            traffic: LatencyMetrics {
+                                avg: if count == 0 {
+                                    0.0
+                                } else {
+                                    round_to_3_decimals(histogram.get_sample_sum() / count as f64)
+                                },
+                                count: count as f64,
+                                p99: if count == 0 {
+                                    0.0
+                                } else {
+                                    get_percentile(99, count, histogram.get_bucket())
+                                },
+                            },
+                            errors: 0,
+                            timeouts: 0,
+                        });
+                    }
+                }
+                "context_enricher_errors_total" => {
+                    if let Some(metric) = family.get_metric().last() {
+                        enricher_errors = metric.get_counter().value() as u64;
+                    }
+                }
+                "context_enricher_timeouts_total" => {
+                    if let Some(metric) = family.get_metric().last() {
+                        enricher_timeouts = metric.get_counter().value() as u64;
+                    }
+                }
                 _ => {}
             }
         }
@@ -427,6 +462,10 @@ impl EdgeInstanceData {
             cpu_usage: cpu_seconds as f64,
             memory_usage: resident_memory as f64,
         });
+        if let Some(enricher_metrics) = &mut observed.enricher_metrics {
+            enricher_metrics.errors = enricher_errors;
+            enricher_metrics.timeouts = enricher_timeouts;
+        }
         for connected_instance in connected_instances {
             observed.connected_edges.push(connected_instance.clone());
         }
@@ -461,7 +500,35 @@ fn round_to_3_decimals(number: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use prometheus::{register_histogram, register_int_counter};
     use serde_json::json;
+
+    #[test]
+    fn observes_context_enricher_metrics() {
+        let duration = register_histogram!(
+            "context_enricher_duration_milliseconds",
+            "Context enrichment duration",
+            vec![1.0, 5.0, 10.0]
+        )
+        .unwrap();
+        let errors =
+            register_int_counter!("context_enricher_errors_total", "Enrichment errors").unwrap();
+        let timeouts =
+            register_int_counter!("context_enricher_timeouts_total", "Enrichment timeouts")
+                .unwrap();
+
+        duration.observe(2.0);
+        duration.observe(4.0);
+        errors.inc();
+        timeouts.inc();
+
+        let data = EdgeInstanceData::new("test", &Ulid::new(), None).observe(vec![], "");
+        let enricher = serde_json::to_value(data.enricher_metrics).unwrap();
+        assert_eq!(enricher["traffic"]["count"], 2.0);
+        assert_eq!(enricher["traffic"]["avg"], 3.0);
+        assert_eq!(enricher["errors"], 1);
+        assert_eq!(enricher["timeouts"], 1);
+    }
 
     #[test]
     pub fn can_find_p99_of_a_range() {
