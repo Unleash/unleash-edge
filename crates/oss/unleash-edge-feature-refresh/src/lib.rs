@@ -546,7 +546,7 @@ mod tests {
             connection_consumption_since_last_report: Default::default(),
             request_consumption_since_last_report: Default::default(),
             edge_api_key_revision_ids: Default::default(),
-            enricher_metrics: None
+            enricher_metrics: None,
         }
     }
 
