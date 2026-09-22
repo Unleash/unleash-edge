@@ -184,12 +184,43 @@ pub fn create_send_instance_data_task(
 }
 
 fn find_first_valid_token(token_cache: &TokenCache) -> Option<String> {
-    token_cache.iter().find_map(|t| {
-        if t.status == TokenValidationStatus::Validated && t.token_type == Some(TokenType::Backend)
-        {
-            Some(t.value().token.clone())
-        } else {
-            None
-        }
-    })
+    token_cache
+        .iter()
+        .find_map(|t| match (&t.status, &t.token_type) {
+            (TokenValidationStatus::Validated, Some(TokenType::Backend)) => Some(t.token.clone()),
+            _ => None,
+        })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::assert_matches;
+    use unleash_edge_types::tokens::EdgeToken;
+
+    #[test]
+    pub fn find_first_valid_token_skips_any_token_not_validated() {
+        let invalid = EdgeToken::offline_token("mytoken");
+        let token_cache = TokenCache::default();
+        token_cache.insert(invalid.token.clone(), invalid);
+        assert_matches!(find_first_valid_token(&token_cache), None);
+    }
+    #[test]
+    pub fn skips_frontend_tokens_and_picks_backend_tokens() {
+        let admin = EdgeToken::admin_token("*:*.abc132");
+        let mut frontend = EdgeToken::from_trimmed_str("*:production.abc123")
+            .expect("Failed to parse frontend token");
+        frontend.status = TokenValidationStatus::Validated;
+        frontend.token_type = Some(TokenType::Frontend);
+        let mut backend = EdgeToken::from_trimmed_str("*:production.123abc")
+            .expect("Failed to parse backend token");
+        backend.status = TokenValidationStatus::Validated;
+        backend.token_type = Some(TokenType::Backend);
+        let token_cache = TokenCache::default();
+        token_cache.insert(frontend.token.clone(), frontend);
+        token_cache.insert(admin.token.clone(), admin);
+        token_cache.insert(backend.token.clone(), backend.clone());
+        let found = find_first_valid_token(&token_cache);
+        assert_eq!(found, Some(backend.token));
+    }
 }
