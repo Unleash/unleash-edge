@@ -3,8 +3,10 @@ use chrono::{Duration, Utc};
 use dashmap::DashMap;
 use http::StatusCode;
 use ipnet::IpNet;
+use std::collections::HashSet;
+
 #[cfg(feature = "enterprise")]
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 #[cfg(feature = "enterprise")]
 use std::num::NonZeroU32;
 use std::path::PathBuf;

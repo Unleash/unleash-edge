@@ -312,7 +312,7 @@ mod tests {
             let json_size = counter.count;
             println!("Batch size: {}, JSON size: {}", batch_size, json_size);
             println!("Batch as bytes:");
-            println!("{:02X?}", &b);
+            println!("{:02X?}", b);
 
             assert!(json_size <= batch_size);
         }
