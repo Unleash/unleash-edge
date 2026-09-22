@@ -227,12 +227,6 @@ pub async fn build_edge(
         features_refresh_interval,
     }: EdgeBuilderArgs,
 ) -> EdgeResult<EdgeInfo> {
-    /*    if tokens.is_empty() {
-            return Err(EdgeError::NoTokens(
-                "No tokens provided. Tokens must be specified".into(),
-            ));
-        }
-    */
     let (token_cache, feature_cache, delta_cache, engine_cache) = build_caches();
     let persistence = get_data_source(&persistence_args).await;
     tokens.iter().for_each(|token| {
