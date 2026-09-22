@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::{ClientMetaInformation, UnleashClient};
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 use unleash_edge_cli::AuthHeaders;
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
@@ -118,8 +118,9 @@ pub fn create_once_off_send_instance_data(
     let instance_data_sender = instance_data_sender.clone();
     let our_instance_data = our_instance_data.clone();
     let downstream_instance_data = downstream_instance_data.clone();
-    if let Some(our_token) = find_first_valid_token(&token_cache) {
-        Box::pin(async move {
+    let our_cache = token_cache.clone();
+    Box::pin(async move {
+        if let Some(our_token) = find_first_valid_token(&our_cache) {
             let result = send_instance_data(
                 &instance_data_sender,
                 &our_instance_data,
@@ -127,16 +128,13 @@ pub fn create_once_off_send_instance_data(
                 &our_token,
             )
             .await;
-
             if let Err(err) = result {
                 warn!("Failed to send last set of instance data during graceful exit: {err:?}");
             }
-        })
-    } else {
-        Box::pin(async move {
-            warn!("No valid token found, skipping sending instance data during graceful exit");
-        })
-    }
+        } else {
+            info!("No valid token found in cache, not sending instance data during graceful exit");
+        }
+    })
 }
 
 pub fn create_send_instance_data_task(
