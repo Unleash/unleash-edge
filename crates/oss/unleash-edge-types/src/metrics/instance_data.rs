@@ -70,6 +70,7 @@ pub struct EdgeInstanceData {
         deserialize_with = "deserialize_array_to_dashmap"
     )]
     pub edge_api_key_revision_ids: DashMap<ApiKeyIdentity, EdgeApiKeyRevisionId>,
+    #[serde(default)]
     pub enricher_metrics: Option<EnricherMetrics>,
 }
 
