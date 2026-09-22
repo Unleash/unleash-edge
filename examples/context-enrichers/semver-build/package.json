@@ -1,0 +1,13 @@
+{
+  "name": "unleash-edge-semver-context-enricher-example",
+  "private": true,
+  "scripts": {
+    "build": "esbuild src/enricher.cjs --bundle --platform=node --format=cjs --outfile=dist/enricher.cjs"
+  },
+  "dependencies": {
+    "semver": "^7.7.2"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.9"
+  }
+}
