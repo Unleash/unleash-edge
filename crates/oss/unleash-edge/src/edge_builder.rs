@@ -859,10 +859,7 @@ fn create_edge_mode_background_tasks(
 
         tasks.push(create_enterprise_heartbeat_task(
             unleash_client,
-            startup_tokens
-                .first()
-                .cloned()
-                .expect("Startup token is required for enterprise feature"),
+            token_cache,
             refresh_state_tx,
             client_meta_information.connection_id,
             license_state,
