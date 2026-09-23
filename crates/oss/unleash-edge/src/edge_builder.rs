@@ -863,10 +863,14 @@ fn create_edge_mode_background_tasks(
     #[cfg(feature = "enterprise")]
     {
         use unleash_edge_enterprise::create_enterprise_heartbeat_task;
-
+        let tokens: Vec<EdgeToken> = refresher
+            .tokens_to_refresh()
+            .iter()
+            .map(|k| k.token.clone())
+            .collect();
         tasks.push(create_enterprise_heartbeat_task(
             unleash_client,
-            token_cache,
+            tokens,
             refresh_state_tx,
             client_meta_information.connection_id,
             license_state,
