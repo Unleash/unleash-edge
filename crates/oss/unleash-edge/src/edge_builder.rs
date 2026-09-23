@@ -970,33 +970,49 @@ pub async fn resolve_license(
     client_meta_information: &ClientMetaInformation,
 ) -> Result<LicenseState, EdgeError> {
     debug!("Starting enterprise license check");
-    match unleash_client
-        .send_heartbeat(
-            tokens.first().unwrap(),
-            &client_meta_information.instance_id,
-        )
-        .await
-    {
-        Ok(license) => {
-            if let Some(persistence) = persistence {
-                let _ = persistence.save_license_state(&license).await;
-            }
-            Ok(license)
-        }
-
-        Err(_) => {
-            if let Some(persistence) = persistence {
-                persistence.load_license_state().await.map_err(|_| {
-                    EdgeError::HeartbeatError(
-                        "Could not load license from either persistence or API".into(),
-                        StatusCode::SERVICE_UNAVAILABLE,
-                    )
-                })
-            } else {
-                Err(EdgeError::HeartbeatError(
-                    "Could not reach upstream API and no cached license found".into(),
+    if tokens.is_empty() {
+        match persistence {
+            Some(p) => p.load_license_state().await.map_err(|_| {
+                EdgeError::HeartbeatError(
+                    "No tokens available to check license and failed to load from persistence"
+                        .into(),
                     StatusCode::SERVICE_UNAVAILABLE,
-                ))
+                )
+            }),
+            None => Err(EdgeError::HeartbeatError(
+                "No tokens available to check license and no cached license found".into(),
+                StatusCode::SERVICE_UNAVAILABLE,
+            )),
+        }
+    } else {
+        match unleash_client
+            .send_heartbeat(
+                tokens.first().unwrap(),
+                &client_meta_information.instance_id,
+            )
+            .await
+        {
+            Ok(license) => {
+                if let Some(persistence) = persistence {
+                    let _ = persistence.save_license_state(&license).await;
+                }
+                Ok(license)
+            }
+
+            Err(_) => {
+                if let Some(persistence) = persistence {
+                    persistence.load_license_state().await.map_err(|_| {
+                        EdgeError::HeartbeatError(
+                            "Could not load license from either persistence or API".into(),
+                            StatusCode::SERVICE_UNAVAILABLE,
+                        )
+                    })
+                } else {
+                    Err(EdgeError::HeartbeatError(
+                        "Could not reach upstream API and no cached license found".into(),
+                        StatusCode::SERVICE_UNAVAILABLE,
+                    ))
+                }
             }
         }
     }
