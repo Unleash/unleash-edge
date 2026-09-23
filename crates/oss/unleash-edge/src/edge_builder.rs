@@ -330,6 +330,7 @@ pub async fn build_edge(
         }
     }
     hydrator_type.hydrate_new_tokens().await;
+    feature_cache.keep_wanted_environments(desired_envs);
     Ok((
         (token_cache, feature_cache, delta_cache, engine_cache),
         Arc::new(token_validator),
