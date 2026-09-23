@@ -2,6 +2,7 @@ use std::{pin::Pin, sync::Arc};
 use tokio::sync::watch::Sender;
 use tracing::warn;
 use ulid::Ulid;
+use unleash_edge_feature_refresh::HydratorType;
 use unleash_edge_http_client::UnleashClient;
 use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_types::{
@@ -10,18 +11,24 @@ use unleash_edge_types::{
     tokens::EdgeToken,
 };
 
-fn find_first_valid_token(token_cache: &[EdgeToken]) -> Option<EdgeToken> {
-    token_cache
+fn find_first_valid_token(hydrator: &HydratorType) -> Option<EdgeToken> {
+    hydrator
+        .clone()
+        .tokens_to_refresh()
         .iter()
-        .find_map(|t| match (&t.status, &t.token_type) {
-            (TokenValidationStatus::Validated, Some(TokenType::Backend)) => Some(t.clone()),
-            _ => None,
+        .map(|refresh| refresh.value().clone())
+        .find_map(|refresh| {
+            let t = refresh.token;
+            match (&t.status, &t.token_type) {
+                (TokenValidationStatus::Validated, Some(TokenType::Backend)) => Some(t.clone()),
+                _ => None,
+            }
         })
 }
 
 pub fn create_enterprise_heartbeat_task(
     unleash_client: Arc<UnleashClient>,
-    refresher_tokens: Vec<EdgeToken>,
+    refresher: HydratorType,
     refresh_state_tx: Sender<RefreshState>,
     connection_id: Ulid,
     app_license_state: ApplicationLicenseState,
@@ -31,7 +38,7 @@ pub fn create_enterprise_heartbeat_task(
         let sleep_duration = tokio::time::Duration::from_secs(90);
         loop {
             tokio::time::sleep(sleep_duration).await;
-            if let Some(token) = find_first_valid_token(&refresher_tokens) {
+            if let Some(token) = find_first_valid_token(&refresher) {
                 let license_state = unleash_client.send_heartbeat(&token, &connection_id).await;
 
                 if let Ok(new_state) = license_state {
