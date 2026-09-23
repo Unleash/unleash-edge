@@ -57,7 +57,7 @@ impl FeatureCache {
         v
     }
 
-    pub fn keep_wanted_environments(&self, wanted: HashSet<String>) {
+    pub fn keep_wanted_environments(&self, wanted: &HashSet<String>) {
         self.features.retain(|k, _| wanted.contains(k));
     }
 
@@ -169,7 +169,7 @@ mod tests {
         feature_cache.insert("test".to_string(), ClientFeatures::default());
         let mut wanted = HashSet::new();
         wanted.insert("test".to_string());
-        feature_cache.keep_wanted_environments(wanted);
+        feature_cache.keep_wanted_environments(&wanted);
         assert_eq!(feature_cache.len(), 1);
         assert!(feature_cache.get("test").is_some());
         assert!(feature_cache.get("development").is_none());
