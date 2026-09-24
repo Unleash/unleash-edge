@@ -111,7 +111,7 @@ impl RedisArgs {
                 reqwest::Url::parse(&url[0]).unwrap_or_else(|_| panic!("Failed to create url from REDIS_URL: {:?}, REDIS_USERNAME: {} and REDIS_PASSWORD: {}", self.redis_url.clone().unwrap_or(vec!["NO_URL".into()]), self.redis_username.clone().unwrap_or("NO_USERNAME_SET".into()), self.redis_password.is_some()))
             })
             .or_else(|| self.redis_host.clone().map(|host| {
-                reqwest::Url::parse(format!("{}://{}", self.redis_scheme, &host).as_str()).expect("Failed to parse hostname from REDIS_HOSTNAME or --redis-hostname parameters")
+                reqwest::Url::parse(format!("{}://{}", self.redis_scheme, host).as_str()).expect("Failed to parse hostname from REDIS_HOSTNAME or --redis-hostname parameters")
             }))
             .map(|base| {
                 let mut base_url = base;

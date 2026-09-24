@@ -37,8 +37,7 @@ impl Debug for EdgeToken {
                 "token",
                 &format!(
                     "{}.[redacted]",
-                    &self
-                        .token
+                    self.token
                         .chars()
                         .take_while(|p| p != &'.')
                         .collect::<String>()

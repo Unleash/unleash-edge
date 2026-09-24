@@ -312,14 +312,9 @@ fn evaluate_feature(
     engine_cache
         .get(&cache_key(&validated_token))
         .and_then(|engine| engine.resolve(&feature_name, &context_with_ip, &None))
-        .and_then(|resolved_toggle| {
-            if validated_token.projects.contains(&"*".into())
+        .filter(|resolved_toggle| {
+            validated_token.projects.contains(&"*".into())
                 || validated_token.projects.contains(&resolved_toggle.project)
-            {
-                Some(resolved_toggle)
-            } else {
-                None
-            }
         })
         .map(|r| EvaluatedToggle {
             name: feature_name.clone(),
