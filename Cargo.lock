@@ -5793,7 +5793,6 @@ dependencies = [
  "tokio",
  "tracing",
  "ulid",
- "unleash-edge-feature-refresh",
  "unleash-edge-http-client",
  "unleash-edge-persistence",
  "unleash-edge-types",

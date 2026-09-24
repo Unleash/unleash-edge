@@ -2,33 +2,27 @@ use std::{pin::Pin, sync::Arc};
 use tokio::sync::watch::Sender;
 use tracing::warn;
 use ulid::Ulid;
-use unleash_edge_feature_refresh::HydratorType;
 use unleash_edge_http_client::UnleashClient;
 use unleash_edge_persistence::EdgePersistence;
 use unleash_edge_types::{
-    RefreshState, TokenType, TokenValidationStatus,
+    RefreshState, TokenCache, TokenType, TokenValidationStatus,
     enterprise::{ApplicationLicenseState, LicenseState},
     tokens::EdgeToken,
 };
 
-fn find_first_valid_token(hydrator: &HydratorType) -> Option<EdgeToken> {
-    hydrator
-        .clone()
-        .tokens_to_refresh()
-        .iter()
-        .map(|refresh| refresh.value().clone())
-        .find_map(|refresh| {
-            let t = refresh.token;
-            match (&t.status, &t.token_type) {
-                (TokenValidationStatus::Validated, Some(TokenType::Backend)) => Some(t.clone()),
-                _ => None,
-            }
-        })
+fn find_first_valid_token(cache: &TokenCache) -> Option<EdgeToken> {
+    cache.iter().find_map(|t| {
+        let token = t.value().clone();
+        match (token.status, token.token_type) {
+            (TokenValidationStatus::Validated, Some(TokenType::Backend)) => Some(t.value().clone()),
+            _ => None,
+        }
+    })
 }
 
 pub fn create_enterprise_heartbeat_task(
     unleash_client: Arc<UnleashClient>,
-    refresher: HydratorType,
+    token_cache: Arc<TokenCache>,
     refresh_state_tx: Sender<RefreshState>,
     connection_id: Ulid,
     app_license_state: ApplicationLicenseState,
@@ -38,7 +32,7 @@ pub fn create_enterprise_heartbeat_task(
         let sleep_duration = tokio::time::Duration::from_secs(90);
         loop {
             tokio::time::sleep(sleep_duration).await;
-            if let Some(token) = find_first_valid_token(&refresher) {
+            if let Some(token) = find_first_valid_token(&token_cache) {
                 let license_state = unleash_client.send_heartbeat(&token, &connection_id).await;
 
                 if let Ok(new_state) = license_state {

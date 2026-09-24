@@ -865,7 +865,7 @@ fn create_edge_mode_background_tasks(
         use unleash_edge_enterprise::create_enterprise_heartbeat_task;
         tasks.push(create_enterprise_heartbeat_task(
             unleash_client,
-            refresher,
+            token_cache.clone(),
             refresh_state_tx,
             client_meta_information.connection_id,
             license_state,
