@@ -1053,13 +1053,25 @@ pub async fn resolve_license(
 
 #[cfg(test)]
 mod tests {
-    use crate::edge_builder::build_caches;
+    use crate::edge_builder::{EdgeBuilderArgs, PersistenceArgs, build_caches, build_edge};
     use ahash::{HashMap, HashMapExt};
+    use axum::Json;
+    use axum::Router;
+    use axum::http::{HeaderMap, StatusCode};
+    use axum::routing::{get, post};
+    use axum_test::TestServer;
+    use chrono::Duration;
     use std::env::temp_dir;
-    use std::sync::Arc;
+    use std::str::FromStr;
+    use std::sync::{Arc, Mutex};
     use ulid::Ulid;
+    use unleash_edge_cli::AuthHeaders;
+    use unleash_edge_http_client::ClientMetaInformation;
     use unleash_edge_persistence::EdgePersistence;
     use unleash_edge_persistence::file::FilePersister;
+    use unleash_edge_types::TokenType;
+    use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
+    use unleash_edge_types::tokens::EdgeToken;
     use unleash_types::client_features::{ClientFeature, ClientFeatures, Segment};
 
     #[tokio::test]
@@ -1114,6 +1126,111 @@ mod tests {
         assert_eq!(hydration_event.event_id, 42);
         assert_eq!(hydration_event.features, vec![feature]);
         assert_eq!(hydration_event.segments, vec![segment]);
+    }
+
+    #[tokio::test]
+    async fn refreshes_only_configured_environment_and_prunes_persisted_stale_environment() {
+        let configured = "development";
+        let stale = "production";
+        let mut configured_token = EdgeToken::from_str("default:development.configured").unwrap();
+        configured_token.token_type = Some(TokenType::Backend);
+        let mut stale_token = EdgeToken::from_str("default:production.stale").unwrap();
+        stale_token.token_type = Some(TokenType::Backend);
+
+        let backup_folder = temp_dir().join(Ulid::new().to_string());
+        let persister = FilePersister::new(&backup_folder);
+        persister
+            .save_tokens(vec![configured_token.clone(), stale_token.clone()])
+            .await
+            .unwrap();
+        let features = ClientFeatures {
+            features: vec![ClientFeature {
+                name: "persisted-flag".to_string(),
+                enabled: true,
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        persister
+            .save_features(vec![
+                (configured.to_string(), features.clone()),
+                (stale.to_string(), features.clone()),
+            ])
+            .await
+            .unwrap();
+
+        let refreshed_tokens = Arc::new(Mutex::new(Vec::<String>::new()));
+        let seen_tokens = refreshed_tokens.clone();
+        let server = TestServer::builder().http_transport().build(
+            Router::new()
+                .route("/api/client/register", post(|| async { StatusCode::OK }))
+                .route(
+                    "/api/client/features",
+                    get(move |headers: HeaderMap| {
+                        let seen_tokens = seen_tokens.clone();
+                        let features = features.clone();
+                        async move {
+                            seen_tokens.lock().unwrap().push(
+                                headers
+                                    .get("authorization")
+                                    .unwrap()
+                                    .to_str()
+                                    .unwrap()
+                                    .to_string(),
+                            );
+                            Json(features)
+                        }
+                    }),
+                ),
+        );
+        let client_meta_information = ClientMetaInformation {
+            app_name: "edge-builder-test".to_string(),
+            instance_id: Ulid::new(),
+            connection_id: Ulid::new(),
+        };
+        let edge_instance_data = Arc::new(EdgeInstanceData::new(
+            &client_meta_information.app_name,
+            &client_meta_information.instance_id,
+            Some(Hosting::SelfHosted),
+        ));
+
+        let ((token_cache, feature_cache, delta_cache, engine_cache), _, hydrator, _) =
+            build_edge(EdgeBuilderArgs {
+                streaming: false,
+                delta: false,
+                upstream_url: server.server_url("/").unwrap(),
+                client_meta_information,
+                edge_instance_data,
+                auth_headers: AuthHeaders::default(),
+                http_client: reqwest::Client::new(),
+                tokens: vec![configured_token.clone()],
+                custom_client_headers: vec![],
+                persistence_args: PersistenceArgs {
+                    backup_folder: Some(backup_folder),
+                    ..Default::default()
+                },
+                tx: None,
+                pretrusted_tokens: None,
+                features_refresh_interval: Duration::seconds(30),
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(
+            *refreshed_tokens.lock().unwrap(),
+            vec![configured_token.token.clone()]
+        );
+        let refresh_tokens = hydrator.tokens_to_refresh();
+        assert!(refresh_tokens.contains_key(&configured_token.token));
+        assert!(!refresh_tokens.contains_key(&stale_token.token));
+        assert!(token_cache.contains_key(&configured_token.token));
+        assert!(!token_cache.contains_key(&stale_token.token));
+        assert!(feature_cache.get(configured).is_some());
+        assert!(feature_cache.get(stale).is_none());
+        assert!(delta_cache.get(configured).is_some());
+        assert!(delta_cache.get(stale).is_none());
+        assert!(engine_cache.contains_key(configured));
+        assert!(!engine_cache.contains_key(stale));
     }
 }
 
