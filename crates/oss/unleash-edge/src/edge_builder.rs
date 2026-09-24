@@ -227,11 +227,6 @@ pub async fn build_edge(
         features_refresh_interval,
     }: EdgeBuilderArgs,
 ) -> EdgeResult<EdgeInfo> {
-    if tokens.is_empty() {
-        return Err(EdgeError::NoTokens(
-            "No tokens provided. Tokens must be specified".into(),
-        ));
-    }
     let (token_cache, feature_cache, delta_cache, engine_cache) = build_caches();
     let persistence = get_data_source(&persistence_args).await;
     tokens.iter().for_each(|token| {
@@ -526,11 +521,17 @@ pub async fn build_edge_state(
     })
     .await?;
 
+    let found_tokens: Vec<EdgeToken> = token_cache
+        .clone()
+        .iter()
+        .map(|t| t.value().clone())
+        .collect();
+
     let license_state = ApplicationLicenseState::new(
         match resolve_license(
             &unleash_client,
             persistence.clone(),
-            &args.tokens,
+            &found_tokens,
             &args.client_meta_information,
         )
         .await?
@@ -545,7 +546,6 @@ pub async fn build_edge_state(
     );
 
     let instance_data_sender: Arc<InstanceDataSending> = Arc::new(InstanceDataSending::from_args(
-        args.tokens.clone(),
         args.auth_headers.clone(),
         args.upstream_url,
         &args.client_meta_information,
@@ -689,6 +689,7 @@ fn create_shutdown_tasks(
         instance_data_sender.clone(),
         edge_instance_data.clone(),
         instances_observed_for_app_context.clone(),
+        token_cache.clone(),
     ));
 
     tasks.push(create_terminate_sse_connections_task(
@@ -782,6 +783,7 @@ fn create_edge_mode_background_tasks(
             instance_data_sender.clone(),
             edge_instance_data.clone(),
             instances_observed_for_app_context.clone(),
+            token_cache.clone(),
         ),
         observe_tokens_in_background(
             edge_instance_data.app_name.clone(),
@@ -964,37 +966,53 @@ fn load_hydrator(
 pub async fn resolve_license(
     unleash_client: &UnleashClient,
     persistence: Option<Arc<dyn EdgePersistence>>,
-    startup_tokens: &[EdgeToken],
+    tokens: &[EdgeToken],
     client_meta_information: &ClientMetaInformation,
 ) -> Result<LicenseState, EdgeError> {
     debug!("Starting enterprise license check");
-    match unleash_client
-        .send_heartbeat(
-            startup_tokens.first().unwrap(),
-            &client_meta_information.instance_id,
-        )
-        .await
-    {
-        Ok(license) => {
-            if let Some(persistence) = persistence {
-                let _ = persistence.save_license_state(&license).await;
-            }
-            Ok(license)
-        }
-
-        Err(_) => {
-            if let Some(persistence) = persistence {
-                persistence.load_license_state().await.map_err(|_| {
-                    EdgeError::HeartbeatError(
-                        "Could not load license from either persistence or API".into(),
-                        StatusCode::SERVICE_UNAVAILABLE,
-                    )
-                })
-            } else {
-                Err(EdgeError::HeartbeatError(
-                    "Could not reach upstream API and no cached license found".into(),
+    if tokens.is_empty() {
+        match persistence {
+            Some(p) => p.load_license_state().await.map_err(|_| {
+                EdgeError::HeartbeatError(
+                    "No tokens available to check license and failed to load from persistence"
+                        .into(),
                     StatusCode::SERVICE_UNAVAILABLE,
-                ))
+                )
+            }),
+            None => Err(EdgeError::HeartbeatError(
+                "No tokens available to check license and no cached license found".into(),
+                StatusCode::SERVICE_UNAVAILABLE,
+            )),
+        }
+    } else {
+        match unleash_client
+            .send_heartbeat(
+                tokens.first().unwrap(),
+                &client_meta_information.instance_id,
+            )
+            .await
+        {
+            Ok(license) => {
+                if let Some(persistence) = persistence {
+                    let _ = persistence.save_license_state(&license).await;
+                }
+                Ok(license)
+            }
+
+            Err(_) => {
+                if let Some(persistence) = persistence {
+                    persistence.load_license_state().await.map_err(|_| {
+                        EdgeError::HeartbeatError(
+                            "Could not load license from either persistence or API".into(),
+                            StatusCode::SERVICE_UNAVAILABLE,
+                        )
+                    })
+                } else {
+                    Err(EdgeError::HeartbeatError(
+                        "Could not reach upstream API and no cached license found".into(),
+                        StatusCode::SERVICE_UNAVAILABLE,
+                    ))
+                }
             }
         }
     }

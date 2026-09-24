@@ -3,17 +3,15 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::{ClientMetaInformation, UnleashClient};
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 use unleash_edge_cli::AuthHeaders;
-use unleash_edge_types::BackgroundTask;
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
-use unleash_edge_types::tokens::EdgeToken;
+use unleash_edge_types::{BackgroundTask, TokenCache, TokenType, TokenValidationStatus};
 
 #[derive(Debug, Clone)]
 pub struct InstanceDataSender {
     pub unleash_client: Arc<UnleashClient>,
-    pub token: String,
     pub base_path: String,
 }
 
@@ -25,7 +23,6 @@ pub enum InstanceDataSending {
 
 impl InstanceDataSending {
     pub fn from_args(
-        tokens: Vec<EdgeToken>,
         auth_headers: AuthHeaders,
         upstream_url: Url,
         client_meta_information: &ClientMetaInformation,
@@ -33,31 +30,23 @@ impl InstanceDataSending {
         base_path: String,
         http_client: reqwest::Client,
     ) -> Result<Self, EdgeError> {
-        tokens
-            .first()
-            .map(|token| {
-                let unleash_client = Arc::new(
-                    UnleashClient::from_url_with_backing_client(
-                        upstream_url,
-                        auth_headers
-                            .upstream_auth_header
-                            .clone()
-                            .unwrap_or("Authorization".to_string()),
-                        http_client,
-                        client_meta_information.clone(),
-                    )
-                    .with_custom_client_headers(custom_client_headers.clone()),
-                );
-                let instance_data_sender = InstanceDataSender {
-                    unleash_client,
-                    token: token.token.clone(),
-                    base_path,
-                };
-                InstanceDataSending::SendInstanceData(instance_data_sender)
-            })
-            .ok_or(EdgeError::NoTokens(
-                "Edge requires at least one token at startup".to_string(),
-            ))
+        let unleash_client = Arc::new(
+            UnleashClient::from_url_with_backing_client(
+                upstream_url,
+                auth_headers
+                    .upstream_auth_header
+                    .clone()
+                    .unwrap_or("Authorization".to_string()),
+                http_client,
+                client_meta_information.clone(),
+            )
+            .with_custom_client_headers(custom_client_headers.clone()),
+        );
+        let instance_data_sender = InstanceDataSender {
+            unleash_client,
+            base_path,
+        };
+        Ok(InstanceDataSending::SendInstanceData(instance_data_sender))
     }
 }
 
@@ -71,6 +60,7 @@ async fn send_instance_data(
     instance_data_sender: &Arc<InstanceDataSending>,
     our_instance_data: &Arc<EdgeInstanceData>,
     downstream_instance_data: &Arc<RwLock<Vec<EdgeInstanceData>>>,
+    token: &str,
 ) -> Result<(), InstanceDataSendError> {
     match instance_data_sender.as_ref() {
         InstanceDataSending::SendNothing => {
@@ -84,7 +74,7 @@ async fn send_instance_data(
             );
             let status = instance_data_sender
                 .unleash_client
-                .post_edge_observability_data(observed_data, &instance_data_sender.token)
+                .post_edge_observability_data(observed_data, token)
                 .await;
 
             if let Err(e) = status {
@@ -123,21 +113,26 @@ pub fn create_once_off_send_instance_data(
     instance_data_sender: Arc<InstanceDataSending>,
     our_instance_data: Arc<EdgeInstanceData>,
     downstream_instance_data: Arc<RwLock<Vec<EdgeInstanceData>>>,
+    token_cache: Arc<TokenCache>,
 ) -> BackgroundTask {
     let instance_data_sender = instance_data_sender.clone();
     let our_instance_data = our_instance_data.clone();
     let downstream_instance_data = downstream_instance_data.clone();
-
+    let our_cache = token_cache.clone();
     Box::pin(async move {
-        let result = send_instance_data(
-            &instance_data_sender,
-            &our_instance_data,
-            &downstream_instance_data,
-        )
-        .await;
-
-        if let Err(err) = result {
-            warn!("Failed to send last set of instance data during graceful exit: {err:?}");
+        if let Some(our_token) = find_first_valid_token(&our_cache) {
+            let result = send_instance_data(
+                &instance_data_sender,
+                &our_instance_data,
+                &downstream_instance_data,
+                &our_token,
+            )
+            .await;
+            if let Err(err) = result {
+                warn!("Failed to send last set of instance data during graceful exit: {err:?}");
+            }
+        } else {
+            info!("No valid token found in cache, not sending instance data during graceful exit");
         }
     })
 }
@@ -146,6 +141,7 @@ pub fn create_send_instance_data_task(
     instance_data_sender: Arc<InstanceDataSending>,
     our_instance_data: Arc<EdgeInstanceData>,
     downstream_instance_data: Arc<RwLock<Vec<EdgeInstanceData>>>,
+    token_cache: Arc<TokenCache>,
 ) -> BackgroundTask {
     let mut errors = 0;
     let delay = std::time::Duration::from_secs(60);
@@ -155,30 +151,76 @@ pub fn create_send_instance_data_task(
                 std::time::Duration::from_secs(60) + delay * std::cmp::min(errors, 10),
             )
             .await;
-
-            let result = send_instance_data(
-                &instance_data_sender,
-                &our_instance_data,
-                &downstream_instance_data,
-            )
-            .await;
-            match result {
-                Ok(_) => {
-                    debug!("Successfully posted observability metrics.");
-                    errors = 0;
-                    downstream_instance_data.write().await.clear();
-                    our_instance_data.clear_time_windowed_metrics();
+            if let Some(token) = find_first_valid_token(&token_cache) {
+                let result = send_instance_data(
+                    &instance_data_sender,
+                    &our_instance_data,
+                    &downstream_instance_data,
+                    &token,
+                )
+                .await;
+                match result {
+                    Ok(_) => {
+                        debug!("Successfully posted observability metrics.");
+                        errors = 0;
+                        downstream_instance_data.write().await.clear();
+                        our_instance_data.clear_time_windowed_metrics();
+                    }
+                    Err(err) => match err {
+                        InstanceDataSendError::Backoff(message) => {
+                            warn!(message);
+                            errors += 1;
+                        }
+                        InstanceDataSendError::Unexpected(message) => {
+                            warn!(message);
+                        }
+                    },
                 }
-                Err(err) => match err {
-                    InstanceDataSendError::Backoff(message) => {
-                        warn!(message);
-                        errors += 1;
-                    }
-                    InstanceDataSendError::Unexpected(message) => {
-                        warn!(message);
-                    }
-                },
+            } else {
+                debug!("No valid token found, skipping instance data send");
             }
         }
     })
+}
+
+fn find_first_valid_token(token_cache: &TokenCache) -> Option<String> {
+    token_cache
+        .iter()
+        .find_map(|t| match (&t.status, &t.token_type) {
+            (TokenValidationStatus::Validated, Some(TokenType::Backend)) => Some(t.token.clone()),
+            _ => None,
+        })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::assert_matches;
+    use unleash_edge_types::tokens::EdgeToken;
+
+    #[test]
+    pub fn find_first_valid_token_skips_any_token_not_validated() {
+        let invalid = EdgeToken::offline_token("mytoken");
+        let token_cache = TokenCache::default();
+        token_cache.insert(invalid.token.clone(), invalid);
+        assert_matches!(find_first_valid_token(&token_cache), None);
+    }
+    #[test]
+    pub fn skips_frontend_tokens_and_picks_backend_tokens() {
+        let admin = EdgeToken::admin_token("*:*.abc132");
+        let mut frontend = EdgeToken::from_trimmed_str("*:production.abc123")
+            .expect("Failed to parse frontend token");
+        frontend.status = TokenValidationStatus::Validated;
+        frontend.token_type = Some(TokenType::Frontend);
+        let mut backend = EdgeToken::from_trimmed_str("*:production.123abc")
+            .expect("Failed to parse backend token");
+        backend.status = TokenValidationStatus::Validated;
+        backend.token_type = Some(TokenType::Backend);
+        let token_cache = TokenCache::default();
+        token_cache.insert(frontend.token.clone(), frontend);
+        token_cache.insert(admin.token.clone(), admin);
+        token_cache.insert(backend.token.clone(), backend.clone());
+        let found = find_first_valid_token(&token_cache);
+        assert_eq!(found, Some(backend.token));
+    }
 }
