@@ -72,7 +72,7 @@ launchdarkly-sdk-transport = { version = "0.1.3", features = [
 ] }
 maplit = { version = "1.0.2" }
 num_cpus = { version = "1.17.0" }
-opentelemetry = { version = "0.32.0", features = ["trace", "metrics", "logs"] }
+opentelemetry = { version = "0.33.0", features = ["trace", "metrics", "logs"] }
 opentelemetry-appender-tracing = { version = "0.32.0" }
 opentelemetry-otlp = { version = "0.32.0", features = [
     "reqwest",
