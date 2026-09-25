@@ -1,4 +1,9 @@
 
+## [unleash-edge-v20.5.1] - 2026-08-31
+
+### ⚙️ Miscellaneous Tasks
+- initial wire up of context enrichers - still fully disabled (#1826) (by @sighphyre) - #1826
+
 ## [unleash-edge-v20.5.0] - 2026-08-27
 
 ## [unleash-edge-v20.4.1] - 2026-07-28
