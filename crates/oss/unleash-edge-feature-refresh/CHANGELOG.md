@@ -1,4 +1,9 @@
 
+## [unleash-edge-v20.6.0] - 2026-09-25
+
+### ⚙️ Miscellaneous Tasks
+- instance data sending for context enrichers (#1883) (by @sighphyre) - #1883
+
 ## [unleash-edge-v20.5.0] - 2026-08-27
 
 ### 🚀 Features

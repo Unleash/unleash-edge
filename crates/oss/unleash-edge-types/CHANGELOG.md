@@ -1,4 +1,15 @@
 
+## [unleash-edge-v20.6.0] - 2026-09-25
+
+### 🚀 Features
+- expose context enrichers to public API (#1833) (by @sighphyre) - #1833
+
+### 🐛 Bug Fixes
+- only keep requested environments from HMAC/tokens (#1881) (by @chriswk) - #1881
+
+### ⚙️ Miscellaneous Tasks
+- instance data sending for context enrichers (#1883) (by @sighphyre) - #1883
+
 ## [unleash-edge-v20.5.0] - 2026-08-27
 
 ### ⚙️ Miscellaneous Tasks

@@ -1,4 +1,16 @@
 
+## [unleash-edge-v20.6.0] - 2026-09-25
+
+### 🚀 Features
+- expose context enrichers to public API (#1833) (by @sighphyre) - #1833
+
+### 🐛 Bug Fixes
+- make sure we allow startup even if Unleash can't be reached (#1875) (by @chriswk) - #1875
+- only keep requested environments from HMAC/tokens (#1881) (by @chriswk) - #1881
+
+### ⚙️ Miscellaneous Tasks
+- initial wire up of context enrichers - still fully disabled (#1826) (by @sighphyre) - #1826
+
 ## [unleash-edge-v20.5.0] - 2026-08-27
 
 ## [unleash-edge-v20.4.1] - 2026-07-28
