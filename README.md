@@ -118,6 +118,7 @@ Once Edge is up and running, your SDKs should connect to EDGE_URL/api. For examp
 - [Edge overview and concepts](https://docs.getunleash.io/unleash-edge)
 - [CLI](/docs/CLI.md)
 - [Deploying Edge](https://docs.getunleash.io/unleash-edge/deploy)
+- [Streaming mode](/docs/streaming-mode.md)
 - [How tokens work](https://docs.getunleash.io/unleash-edge/deploy#tokens)
 - [Troubleshooting](https://docs.getunleash.io/unleash-edge/deploy#troubleshooting)
 - [Migrating from Unleash Proxy](https://docs.getunleash.io/unleash-edge/migrate-from-proxy)
