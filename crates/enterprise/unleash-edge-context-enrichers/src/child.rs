@@ -15,7 +15,6 @@ use crate::{
 const MAX_IN_FLIGHT_MESSAGES: usize = 32;
 const CHILD_MEMORY_CEILING_MB: u64 = 128;
 const CHILD_READY_TIMEOUT_IN_SECONDS: u64 = 2;
-const NODE_EXECUTABLE: &str = "/usr/local/bin/node";
 // This is the message handling script that executes the messenger protocol on the Node side
 // This is absolutely critical for the whole thing to hang together, so relying on a filepath to read this
 // feels super fragile. Luckily, we don't have to do that - we can just bake the whole thing
@@ -184,7 +183,7 @@ pub(crate) async fn spawn_node_child_process(
 }
 
 fn node_worker_command(enricher_script: &Path) -> Command {
-    let mut command = Command::new(NODE_EXECUTABLE);
+    let mut command = Command::new("node");
     command
         .arg(format!("--max-old-space-size={}", CHILD_MEMORY_CEILING_MB))
         .arg("--eval")
@@ -207,7 +206,7 @@ mod tests {
     use tokio::io::AsyncWriteExt;
 
     fn node_is_available() -> bool {
-        StdCommand::new(NODE_EXECUTABLE)
+        StdCommand::new("node")
             .arg("--version")
             .output()
             .is_ok_and(|output| output.status.success())
