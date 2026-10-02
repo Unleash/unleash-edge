@@ -320,19 +320,9 @@ fn string_to_header(s: &str) -> Result<(HeaderName, HeaderValue), String> {
 }
 
 pub fn string_to_header_tuple(s: &str) -> Result<(String, String), String> {
-    let format_message = "Please pass headers in the format <headername>:<headervalue>".to_string();
-    if s.contains(':') {
-        if let Some((header_name, header_value)) = s.split_once(':') {
-            Ok((
-                header_name.trim().to_string(),
-                header_value.trim().to_string(),
-            ))
-        } else {
-            Err(format_message)
-        }
-    } else {
-        Err(format_message)
-    }
+    s.split_once(':')
+        .map(|(name, value)| (name.trim().to_owned(), value.trim().to_owned()))
+        .ok_or_else(|| "Please pass headers in the format <headername>:<headervalue>".to_owned())
 }
 
 #[derive(Args, Debug, Clone)]
