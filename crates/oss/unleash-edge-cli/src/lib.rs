@@ -1,6 +1,7 @@
 use crate::EdgeMode::Edge;
 use axum::http::header::AUTHORIZATION;
-use axum::http::{HeaderName, HeaderValue, Method};
+use axum::http::{HeaderMap, HeaderName, HeaderValue, Method};
+use base64::Engine;
 use cidr::{Ipv4Cidr, Ipv6Cidr};
 use clap::{ArgGroup, Args, Parser, Subcommand, ValueEnum};
 use ipnet::IpNet;
@@ -258,6 +259,10 @@ pub struct EdgeArgs {
     #[clap(long, env)]
     pub prometheus_password: Option<String>,
 
+    /// Sends a prometheus remote write header in `<HEADERNAME>: <HEADERVALUE>` format. Repeat for multiple headers.
+    #[clap(long, env, value_parser = string_to_header)]
+    pub prometheus_header: Vec<(HeaderName, HeaderValue)>,
+
     #[clap(long, env)]
     pub prometheus_user_id: Option<String>,
 
@@ -275,6 +280,27 @@ pub struct EdgeArgs {
     pub hmac_config: HmacConfig,
 }
 
+impl EdgeArgs {
+    pub fn parsed_prometheus_headers(&self) -> HeaderMap {
+        let mut headers: HeaderMap = self.prometheus_header.iter().cloned().collect();
+        if let Some(username) = &self.prometheus_username {
+            let credentials = format!(
+                "{}:{}",
+                username,
+                self.prometheus_password.as_deref().unwrap_or_default()
+            );
+            let mut value = HeaderValue::from_str(&format!(
+                "Basic {}",
+                base64::engine::general_purpose::STANDARD.encode(credentials)
+            ))
+            .expect("Base64 credentials are a valid header value");
+            value.set_sensitive(true);
+            headers.insert(AUTHORIZATION, value);
+        }
+        headers
+    }
+}
+
 #[cfg(feature = "enterprise")]
 #[derive(Args, Debug, Clone, Default)]
 pub struct ContextEnricherArgs {
@@ -285,20 +311,18 @@ pub struct ContextEnricherArgs {
     pub context_enricher_workers: Option<NonZeroU32>,
 }
 
+fn string_to_header(s: &str) -> Result<(HeaderName, HeaderValue), String> {
+    let (name, value) = string_to_header_tuple(s)?;
+    let name = HeaderName::from_str(&name).map_err(|err| format!("Invalid header name: {err}"))?;
+    let value =
+        HeaderValue::from_str(&value).map_err(|err| format!("Invalid header value: {err}"))?;
+    Ok((name, value))
+}
+
 pub fn string_to_header_tuple(s: &str) -> Result<(String, String), String> {
-    let format_message = "Please pass headers in the format <headername>:<headervalue>".to_string();
-    if s.contains(':') {
-        if let Some((header_name, header_value)) = s.split_once(':') {
-            Ok((
-                header_name.trim().to_string(),
-                header_value.trim().to_string(),
-            ))
-        } else {
-            Err(format_message)
-        }
-    } else {
-        Err(format_message)
-    }
+    s.split_once(':')
+        .map(|(name, value)| (name.trim().to_owned(), value.trim().to_owned()))
+        .ok_or_else(|| "Please pass headers in the format <headername>:<headervalue>".to_owned())
 }
 
 #[derive(Args, Debug, Clone)]
@@ -803,8 +827,9 @@ impl HttpServerArgs {
 
 #[cfg(test)]
 mod tests {
-    use super::{CliArgs, EdgeMode, NetworkAddr};
+    use super::{CliArgs, EdgeArgs, EdgeMode, NetworkAddr, string_to_header};
     use axum::http;
+    use axum::http::header::AUTHORIZATION;
     use clap::{CommandFactory, Parser};
     use ipnet::IpNet;
     use std::net::IpAddr;
@@ -880,6 +905,50 @@ mod tests {
                 assert_eq!(auth.1, "test:test.secret");
             }
             _ => unreachable!(),
+        }
+    }
+
+    #[test]
+    fn parses_prometheus_basic_auth_headers() {
+        for (password, expected) in [
+            (Some("password"), "Basic dXNlcm5hbWU6cGFzc3dvcmQ="),
+            (None, "Basic dXNlcm5hbWU6"),
+        ] {
+            let args = EdgeArgs {
+                prometheus_username: Some("username".into()),
+                prometheus_password: password.map(String::from),
+                prometheus_header: vec![
+                    string_to_header("Authorization: Bearer custom").unwrap(),
+                    string_to_header("X-Scope-OrgID: tenant-one").unwrap(),
+                ],
+                ..Default::default()
+            };
+            let headers = args.parsed_prometheus_headers();
+            assert_eq!(headers[AUTHORIZATION], expected);
+            assert!(headers[AUTHORIZATION].is_sensitive());
+            assert_eq!(headers["x-scope-orgid"], "tenant-one");
+        }
+    }
+
+    #[test]
+    fn rejects_invalid_prometheus_headers() {
+        for header in [
+            "MissingColon",
+            "Invalid Name: value",
+            "X-Custom: invalid\nvalue",
+        ] {
+            assert!(
+                CliArgs::try_parse_from([
+                    "unleash-edge",
+                    "edge",
+                    "--upstream-url",
+                    "http://localhost:4242",
+                    "--prometheus-header",
+                    header,
+                ])
+                .is_err(),
+                "Expected invalid header to be rejected: {header:?}"
+            );
         }
     }
 
