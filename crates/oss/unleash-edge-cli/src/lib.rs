@@ -259,9 +259,9 @@ pub struct EdgeArgs {
     #[clap(long, env)]
     pub prometheus_password: Option<String>,
 
-    /// Expects curl header format (`<HEADERNAME>: <HEADERVALUE>`) for headers sent with prometheus remote write requests
-    #[clap(long, env, value_delimiter = ',', value_parser = string_to_header)]
-    pub prometheus_headers: Vec<(HeaderName, HeaderValue)>,
+    /// Sends a prometheus remote write header in `<HEADERNAME>: <HEADERVALUE>` format. Repeat for multiple headers.
+    #[clap(long, env, value_parser = string_to_header)]
+    pub prometheus_header: Vec<(HeaderName, HeaderValue)>,
 
     #[clap(long, env)]
     pub prometheus_user_id: Option<String>,
@@ -282,7 +282,7 @@ pub struct EdgeArgs {
 
 impl EdgeArgs {
     pub fn parsed_prometheus_headers(&self) -> HeaderMap {
-        let mut headers: HeaderMap = self.prometheus_headers.iter().cloned().collect();
+        let mut headers: HeaderMap = self.prometheus_header.iter().cloned().collect();
         if let Some(username) = &self.prometheus_username {
             let credentials = format!(
                 "{}:{}",
@@ -924,18 +924,20 @@ mod tests {
             "unleash-edge",
             "edge",
             "-u http://localhost:4242",
-            "--prometheus-headers",
-            r#"X-Scope-OrgID: tenant-one,X-Custom: value"#,
+            "--prometheus-header",
+            "X-Scope-OrgID: tenant-one",
+            "--prometheus-header",
+            "X-Custom: first,second",
         ];
         let args = CliArgs::parse_from(args);
         match args.mode {
             EdgeMode::Edge(args) => {
-                let prometheus_headers = args.prometheus_headers;
+                let prometheus_headers = args.prometheus_header;
                 assert_eq!(prometheus_headers.len(), 2);
                 assert_eq!(prometheus_headers.first().unwrap().0, "X-Scope-OrgID");
                 assert_eq!(prometheus_headers.first().unwrap().1, "tenant-one");
                 assert_eq!(prometheus_headers.get(1).unwrap().0, "X-Custom");
-                assert_eq!(prometheus_headers.get(1).unwrap().1, "value");
+                assert_eq!(prometheus_headers.get(1).unwrap().1, "first,second");
             }
             _ => unreachable!(),
         }
@@ -950,7 +952,7 @@ mod tests {
             let args = EdgeArgs {
                 prometheus_username: Some("username".into()),
                 prometheus_password: password.map(String::from),
-                prometheus_headers: vec![
+                prometheus_header: vec![
                     string_to_header("Authorization: Bearer custom").unwrap(),
                     string_to_header("X-Scope-OrgID: tenant-one").unwrap(),
                 ],
@@ -967,7 +969,7 @@ mod tests {
     fn preserves_prometheus_authorization_without_username() {
         let args = EdgeArgs {
             prometheus_password: Some("password".into()),
-            prometheus_headers: vec![string_to_header("Authorization: Bearer custom").unwrap()],
+            prometheus_header: vec![string_to_header("Authorization: Bearer custom").unwrap()],
             ..Default::default()
         };
         assert_eq!(
@@ -990,7 +992,7 @@ mod tests {
                     "edge",
                     "--upstream-url",
                     "http://localhost:4242",
-                    "--prometheus-headers",
+                    "--prometheus-header",
                     header,
                 ])
                 .is_err(),

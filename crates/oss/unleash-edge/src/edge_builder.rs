@@ -1275,7 +1275,7 @@ mod enterprise_tests {
             prometheus_push_interval: 0,
             prometheus_username: None,
             prometheus_password: None,
-            prometheus_headers: vec![],
+            prometheus_header: vec![],
             prometheus_user_id: None,
             hmac_config: HmacConfig::default(),
             hostname: None,

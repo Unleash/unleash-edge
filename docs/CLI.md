@@ -218,9 +218,26 @@ Run in edge mode
   Default value: `60`
 * `--prometheus-username <PROMETHEUS_USERNAME>`
 * `--prometheus-password <PROMETHEUS_PASSWORD>`
-* `--prometheus-headers <PROMETHEUS_HEADERS>` — Expects curl header format (`<HEADERNAME>: <HEADERVALUE>`) for headers
-  sent with prometheus remote write requests
+* `--prometheus-header <PROMETHEUS_HEADER>` — Sends a prometheus remote write header in
+  `<HEADERNAME>: <HEADERVALUE>` format. Repeat the option for multiple headers. Commas in values are preserved.
+  The `PROMETHEUS_HEADER` environment variable accepts one complete header; use repeated CLI options for multiple
+  headers. CLI options override the environment variable.
 * `--prometheus-user-id <PROMETHEUS_USER_ID>`
+
+Example with multiple remote write headers:
+
+```bash
+unleash-edge edge --upstream-url http://localhost:4242 \
+  --prometheus-remote-write-url http://localhost:9090/api/v1/write \
+  --prometheus-header 'X-Scope-OrgID: tenant-one' \
+  --prometheus-header 'X-Custom: first,second'
+```
+
+For one header through the environment:
+
+```bash
+export PROMETHEUS_HEADER='X-Custom: first,second'
+```
 
 ## `unleash-edge offline`
 
