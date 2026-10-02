@@ -929,7 +929,7 @@ mod tests {
             assert_eq!(headers["x-scope-orgid"], "tenant-one");
         }
     }
-g
+
     #[test]
     fn rejects_invalid_prometheus_headers() {
         for header in [
