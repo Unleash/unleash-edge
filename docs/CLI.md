@@ -59,7 +59,7 @@ This document contains the help content for the `unleash-edge` command-line prog
 * `-w`, `--workers <WORKERS>` — Deprecated in 20.0.0 This no longer has any effect
 * `--instance-id <INSTANCE_ID>` — Instance id. Used for metrics reporting
 
-  Default value: `unleash-edge@01M3YCJSP88ZK99Y9F3SZ9030P`
+  Default value: `unleash-edge@01M3YCNDF9P9ZACKQS06C0GS4C`
 * `-a`, `--app-name <APP_NAME>` — App name. Used for metrics reporting
 
   Default value: `unleash-edge`
