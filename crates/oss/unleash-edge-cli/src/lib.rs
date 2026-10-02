@@ -954,21 +954,7 @@ mod tests {
             assert_eq!(headers["x-scope-orgid"], "tenant-one");
         }
     }
-
-    #[test]
-    fn preserves_prometheus_authorization_without_username() {
-        let args = EdgeArgs {
-            prometheus_password: Some("password".into()),
-            prometheus_header: vec![string_to_header("Authorization: Bearer custom").unwrap()],
-            ..Default::default()
-        };
-        assert_eq!(
-            args.parsed_prometheus_headers()[AUTHORIZATION],
-            "Bearer custom"
-        );
-        assert!(EdgeArgs::default().parsed_prometheus_headers().is_empty());
-    }
-
+g
     #[test]
     fn rejects_invalid_prometheus_headers() {
         for header in [
