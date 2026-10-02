@@ -1,6 +1,7 @@
 use crate::EdgeMode::Edge;
 use axum::http::header::AUTHORIZATION;
-use axum::http::{HeaderName, HeaderValue, Method};
+use axum::http::{HeaderMap, HeaderName, HeaderValue, Method};
+use base64::Engine;
 use cidr::{Ipv4Cidr, Ipv6Cidr};
 use clap::{ArgGroup, Args, Parser, Subcommand, ValueEnum};
 use ipnet::IpNet;
@@ -277,6 +278,27 @@ pub struct EdgeArgs {
 
     #[clap(flatten)]
     pub hmac_config: HmacConfig,
+}
+
+impl EdgeArgs {
+    pub fn parsed_prometheus_headers(&self) -> HeaderMap {
+        let mut headers: HeaderMap = self.prometheus_headers.iter().cloned().collect();
+        if let Some(username) = &self.prometheus_username {
+            let credentials = format!(
+                "{}:{}",
+                username,
+                self.prometheus_password.as_deref().unwrap_or_default()
+            );
+            let mut value = HeaderValue::from_str(&format!(
+                "Basic {}",
+                base64::engine::general_purpose::STANDARD.encode(credentials)
+            ))
+            .expect("Base64 credentials are a valid header value");
+            value.set_sensitive(true);
+            headers.insert(AUTHORIZATION, value);
+        }
+        headers
+    }
 }
 
 #[cfg(feature = "enterprise")]
@@ -815,8 +837,9 @@ impl HttpServerArgs {
 
 #[cfg(test)]
 mod tests {
-    use super::{CliArgs, EdgeMode, NetworkAddr};
+    use super::{CliArgs, EdgeArgs, EdgeMode, NetworkAddr, string_to_header};
     use axum::http;
+    use axum::http::header::AUTHORIZATION;
     use clap::{CommandFactory, Parser};
     use ipnet::IpNet;
     use std::net::IpAddr;
@@ -916,6 +939,42 @@ mod tests {
             }
             _ => unreachable!(),
         }
+    }
+
+    #[test]
+    fn parses_prometheus_basic_auth_headers() {
+        for (password, expected) in [
+            (Some("password"), "Basic dXNlcm5hbWU6cGFzc3dvcmQ="),
+            (None, "Basic dXNlcm5hbWU6"),
+        ] {
+            let args = EdgeArgs {
+                prometheus_username: Some("username".into()),
+                prometheus_password: password.map(String::from),
+                prometheus_headers: vec![
+                    string_to_header("Authorization: Bearer custom").unwrap(),
+                    string_to_header("X-Scope-OrgID: tenant-one").unwrap(),
+                ],
+                ..Default::default()
+            };
+            let headers = args.parsed_prometheus_headers();
+            assert_eq!(headers[AUTHORIZATION], expected);
+            assert!(headers[AUTHORIZATION].is_sensitive());
+            assert_eq!(headers["x-scope-orgid"], "tenant-one");
+        }
+    }
+
+    #[test]
+    fn preserves_prometheus_authorization_without_username() {
+        let args = EdgeArgs {
+            prometheus_password: Some("password".into()),
+            prometheus_headers: vec![string_to_header("Authorization: Bearer custom").unwrap()],
+            ..Default::default()
+        };
+        assert_eq!(
+            args.parsed_prometheus_headers()[AUTHORIZATION],
+            "Bearer custom"
+        );
+        assert!(EdgeArgs::default().parsed_prometheus_headers().is_empty());
     }
 
     #[test]
