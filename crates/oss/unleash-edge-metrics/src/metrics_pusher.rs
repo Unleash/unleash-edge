@@ -15,6 +15,7 @@ pub struct PrometheusWriteTaskArgs {
     pub ec2_instance_id: Option<String>,
     pub username: Option<String>,
     pub password: Option<String>,
+    pub headers: header::HeaderMap,
 }
 
 pub fn create_prometheus_write_task(
@@ -28,9 +29,10 @@ pub fn create_prometheus_write_task(
         ec2_instance_id,
         username,
         password,
+        headers,
     }: PrometheusWriteTaskArgs,
 ) -> BackgroundTask {
-    let client = get_client(username.clone(), password.clone());
+    let client = get_client(username, password, headers);
     Box::pin(async move {
         let sleep_duration = tokio::time::Duration::from_secs(interval);
         loop {
@@ -43,9 +45,12 @@ pub fn create_prometheus_write_task(
     })
 }
 
-fn get_client(username: Option<String>, password: Option<String>) -> Client {
+fn get_client(
+    username: Option<String>,
+    password: Option<String>,
+    mut headers: header::HeaderMap,
+) -> Client {
     if let Some(uname) = username.clone() {
-        let mut headers = header::HeaderMap::new();
         let mut value = header::HeaderValue::from_str(&format!(
             "Basic {}",
             base64::engine::general_purpose::STANDARD.encode(format!(
@@ -57,13 +62,11 @@ fn get_client(username: Option<String>, password: Option<String>) -> Client {
         .expect("Could not create header");
         value.set_sensitive(true);
         headers.insert(header::AUTHORIZATION, value);
-        Client::builder()
-            .default_headers(headers)
-            .build()
-            .expect("Could not build client")
-    } else {
-        Client::new()
     }
+    Client::builder()
+        .default_headers(headers)
+        .build()
+        .expect("Could not build client")
 }
 
 async fn remote_write_prom(
@@ -126,8 +129,15 @@ mod tests {
             .unwrap()
             .to_str()
             .unwrap();
+        let org_header = req
+            .headers()
+            .get("X-Scope-OrgID")
+            .unwrap()
+            .to_str()
+            .unwrap();
 
         assert_eq!(&b64, auth_header);
+        assert_eq!("tenant-one", org_header);
         Response::builder()
             .status(StatusCode::ACCEPTED)
             .body(Body::empty())
@@ -136,7 +146,16 @@ mod tests {
 
     #[tokio::test]
     pub async fn client_includes_username_and_password_as_base64_header() {
-        let client = super::get_client(Some("username".into()), Some("password".into()));
+        let client = super::get_client(
+            Some("username".into()),
+            Some("password".into()),
+            [(
+                reqwest::header::HeaderName::from_static("x-scope-orgid"),
+                reqwest::header::HeaderValue::from_static("tenant-one"),
+            )]
+            .into_iter()
+            .collect(),
+        );
         let router = Router::new().route("/prometheus", post(handle_posted_data));
         let srv = TestServer::builder().http_transport().build(router);
         let _ = super::remote_write_prom(

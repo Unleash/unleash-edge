@@ -218,6 +218,8 @@ Run in edge mode
   Default value: `60`
 * `--prometheus-username <PROMETHEUS_USERNAME>`
 * `--prometheus-password <PROMETHEUS_PASSWORD>`
+* `--prometheus-headers <PROMETHEUS_HEADERS>` — Expects curl header format (`<HEADERNAME>: <HEADERVALUE>`) for headers
+  sent with prometheus remote write requests
 * `--prometheus-user-id <PROMETHEUS_USER_ID>`
 
 ## `unleash-edge offline`

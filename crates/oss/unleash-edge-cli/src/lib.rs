@@ -258,6 +258,10 @@ pub struct EdgeArgs {
     #[clap(long, env)]
     pub prometheus_password: Option<String>,
 
+    /// Expects curl header format (`<HEADERNAME>: <HEADERVALUE>`) for headers sent with prometheus remote write requests
+    #[clap(long, env, value_delimiter = ',', value_parser = string_to_header)]
+    pub prometheus_headers: Vec<(HeaderName, HeaderValue)>,
+
     #[clap(long, env)]
     pub prometheus_user_id: Option<String>,
 
@@ -283,6 +287,14 @@ pub struct ContextEnricherArgs {
 
     #[clap(long, env, hide = true, requires = "context_enricher_script")]
     pub context_enricher_workers: Option<NonZeroU32>,
+}
+
+fn string_to_header(s: &str) -> Result<(HeaderName, HeaderValue), String> {
+    let (name, value) = string_to_header_tuple(s)?;
+    let name = HeaderName::from_str(&name).map_err(|err| format!("Invalid header name: {err}"))?;
+    let value =
+        HeaderValue::from_str(&value).map_err(|err| format!("Invalid header value: {err}"))?;
+    Ok((name, value))
 }
 
 pub fn string_to_header_tuple(s: &str) -> Result<(String, String), String> {
@@ -880,6 +892,51 @@ mod tests {
                 assert_eq!(auth.1, "test:test.secret");
             }
             _ => unreachable!(),
+        }
+    }
+
+    #[test]
+    pub fn can_parse_prometheus_headers() {
+        let args = vec![
+            "unleash-edge",
+            "edge",
+            "-u http://localhost:4242",
+            "--prometheus-headers",
+            r#"X-Scope-OrgID: tenant-one,X-Custom: value"#,
+        ];
+        let args = CliArgs::parse_from(args);
+        match args.mode {
+            EdgeMode::Edge(args) => {
+                let prometheus_headers = args.prometheus_headers;
+                assert_eq!(prometheus_headers.len(), 2);
+                assert_eq!(prometheus_headers.first().unwrap().0, "X-Scope-OrgID");
+                assert_eq!(prometheus_headers.first().unwrap().1, "tenant-one");
+                assert_eq!(prometheus_headers.get(1).unwrap().0, "X-Custom");
+                assert_eq!(prometheus_headers.get(1).unwrap().1, "value");
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    #[test]
+    fn rejects_invalid_prometheus_headers() {
+        for header in [
+            "MissingColon",
+            "Invalid Name: value",
+            "X-Custom: invalid\nvalue",
+        ] {
+            assert!(
+                CliArgs::try_parse_from([
+                    "unleash-edge",
+                    "edge",
+                    "--upstream-url",
+                    "http://localhost:4242",
+                    "--prometheus-headers",
+                    header,
+                ])
+                .is_err(),
+                "Expected invalid header to be rejected: {header:?}"
+            );
         }
     }
 
