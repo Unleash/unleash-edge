@@ -1,4 +1,5 @@
 use dashmap::DashMap;
+use std::collections::HashSet;
 use tokio::sync::broadcast;
 use unleash_edge_types::tokens::EdgeToken;
 use unleash_types::client_features::ClientFeaturesDelta;
@@ -54,6 +55,10 @@ impl FeatureCache {
         let v = self.features.remove(key);
         self.send_full_update(key.to_string());
         v
+    }
+
+    pub fn keep_wanted_environments(&self, wanted: &HashSet<String>) {
+        self.features.retain(|k, _| wanted.contains(k));
     }
 
     pub fn modify(&self, key: String, token: &EdgeToken, features: ClientFeatures) {
@@ -147,5 +152,27 @@ fn merge_segments_update(
         (Some(s), None) => Some(s),
         (None, Some(o)) => Some(o),
         (None, None) => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::FeatureCache;
+    use std::collections::HashSet;
+    use unleash_types::client_features::ClientFeatures;
+
+    #[test]
+    pub fn only_keeps_features_from_wanted_environments() {
+        let feature_cache = FeatureCache::default();
+        feature_cache.insert("development".to_string(), ClientFeatures::default());
+        feature_cache.insert("production".to_string(), ClientFeatures::default());
+        feature_cache.insert("test".to_string(), ClientFeatures::default());
+        let mut wanted = HashSet::new();
+        wanted.insert("test".to_string());
+        feature_cache.keep_wanted_environments(&wanted);
+        assert_eq!(feature_cache.len(), 1);
+        assert!(feature_cache.get("test").is_some());
+        assert!(feature_cache.get("development").is_none());
+        assert!(feature_cache.get("production").is_none());
     }
 }

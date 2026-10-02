@@ -129,8 +129,10 @@ FROM --platform=$BUILDPLATFORM ubuntu:25.04 AS passwdsource
 
 RUN useradd -u 10001 edgeuser
 
-# # Create a single layer image
-FROM scratch AS runtime
+FROM node:24-bookworm-slim AS node-source
+
+# Create a single layer image
+FROM scratch AS runtime-base
 
 # Make build arguments available in the runtime stage
 ARG TARGETPLATFORM
@@ -147,3 +149,17 @@ USER edgeuser
 EXPOSE 3063
 
 ENTRYPOINT ["/app/unleash-edge"]
+
+FROM runtime-base AS enterprise-runtime
+
+COPY --from=node-source /usr/local/bin/node /usr/local/bin/node
+COPY --from=node-source \
+    /lib/*-linux-gnu/libdl.so.2 \
+    /lib/*-linux-gnu/libpthread.so.0 \
+    /lib/*-linux-gnu/libstdc++.so.6 \
+    /usr/local/lib/node/
+COPY crates/enterprise/unleash-edge-context-enrichers/worker_script.js /app/worker_script.js
+
+ENV LD_LIBRARY_PATH=/usr/local/lib/node
+
+FROM runtime-base AS runtime
