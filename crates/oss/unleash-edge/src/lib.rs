@@ -145,7 +145,8 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
                 edge_args.tokens.clone(),
                 edge_args.hmac_config.clone(),
             )
-            .await?;
+            .await
+            .unwrap_or_default();
 
             let auth_headers = AuthHeaders::from(&args);
 
