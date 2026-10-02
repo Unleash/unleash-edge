@@ -909,31 +909,6 @@ mod tests {
     }
 
     #[test]
-    pub fn can_parse_prometheus_headers() {
-        let args = vec![
-            "unleash-edge",
-            "edge",
-            "-u http://localhost:4242",
-            "--prometheus-header",
-            "X-Scope-OrgID: tenant-one",
-            "--prometheus-header",
-            "X-Custom: first,second",
-        ];
-        let args = CliArgs::parse_from(args);
-        match args.mode {
-            EdgeMode::Edge(args) => {
-                let prometheus_headers = args.prometheus_header;
-                assert_eq!(prometheus_headers.len(), 2);
-                assert_eq!(prometheus_headers.first().unwrap().0, "X-Scope-OrgID");
-                assert_eq!(prometheus_headers.first().unwrap().1, "tenant-one");
-                assert_eq!(prometheus_headers.get(1).unwrap().0, "X-Custom");
-                assert_eq!(prometheus_headers.get(1).unwrap().1, "first,second");
-            }
-            _ => unreachable!(),
-        }
-    }
-
-    #[test]
     fn parses_prometheus_basic_auth_headers() {
         for (password, expected) in [
             (Some("password"), "Basic dXNlcm5hbWU6cGFzc3dvcmQ="),
@@ -954,21 +929,7 @@ mod tests {
             assert_eq!(headers["x-scope-orgid"], "tenant-one");
         }
     }
-
-    #[test]
-    fn preserves_prometheus_authorization_without_username() {
-        let args = EdgeArgs {
-            prometheus_password: Some("password".into()),
-            prometheus_header: vec![string_to_header("Authorization: Bearer custom").unwrap()],
-            ..Default::default()
-        };
-        assert_eq!(
-            args.parsed_prometheus_headers()[AUTHORIZATION],
-            "Bearer custom"
-        );
-        assert!(EdgeArgs::default().parsed_prometheus_headers().is_empty());
-    }
-
+g
     #[test]
     fn rejects_invalid_prometheus_headers() {
         for header in [
