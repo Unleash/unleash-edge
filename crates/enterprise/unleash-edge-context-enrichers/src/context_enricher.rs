@@ -1,9 +1,18 @@
 use http::HeaderMap;
-use std::{num::NonZeroU32, path::PathBuf, sync::Arc, time::Duration};
+use std::{
+    num::NonZeroU32,
+    path::PathBuf,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 use tracing::{info, warn};
 use unleash_types::client_features::Context;
 
-use crate::{EnricherError, WorkerPool, serializable_header::SerializableHeaders};
+use crate::{
+    EnricherError, WorkerPool,
+    metrics::{record_enrichment, record_error, record_timeout},
+    serializable_header::SerializableHeaders,
+};
 
 #[derive(Clone)]
 pub struct ContextEnricher {
@@ -33,20 +42,26 @@ impl ContextEnricher {
         timeout: Duration,
     ) -> Option<Context> {
         let worker_pool = self.worker_pool.as_ref()?;
+        let start = Instant::now();
 
         match worker_pool
             .request_enrichment(context, SerializableHeaders(headers), timeout)
             .await
         {
-            Ok(enriched_context) => Some(enriched_context),
+            Ok(enriched_context) => {
+                record_enrichment(start.elapsed());
+                Some(enriched_context)
+            }
             Err(error) => {
                 match error {
                     EnricherError::Timeout(message) => {
+                        record_timeout(start.elapsed());
                         info!(
                             "Context enrichment timed out, falling back to original context: {message}"
                         );
                     }
                     _ => {
+                        record_error(start.elapsed());
                         warn!(
                             "Failed to enrich frontend context, falling back to original context: {error}"
                         );

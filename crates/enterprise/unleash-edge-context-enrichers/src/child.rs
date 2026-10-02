@@ -1,8 +1,4 @@
-use std::{
-    path::{Path, PathBuf},
-    process::Stdio,
-    time::Duration,
-};
+use std::{path::Path, process::Stdio, time::Duration};
 use tokio::{
     io::{AsyncBufReadExt, BufReader, Lines},
     process::{Child, ChildStderr, ChildStdin, ChildStdout, Command},
@@ -187,7 +183,7 @@ pub(crate) async fn spawn_node_child_process(
 }
 
 fn node_worker_command(enricher_script: &Path) -> Command {
-    let mut command = Command::new(resolve_node_path());
+    let mut command = Command::new("node");
     command
         .arg(format!("--max-old-space-size={}", CHILD_MEMORY_CEILING_MB))
         .arg("--eval")
@@ -198,26 +194,8 @@ fn node_worker_command(enricher_script: &Path) -> Command {
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .env_clear()
         .kill_on_drop(true);
     command
-}
-
-// spawn_node_child_process is wiping the environment so we need to resolve the path to node ourselves
-// because now only the parent is able to see the configured env vars. Bit of a hack. Three paths to deal with this
-// 1) Throw all this in the bin and compose a JS runtime from parts - more work, out of scope for an MVP
-// 2) Don't wipe the environment before spawning the child, which gives the child more scope to do bad things
-// 3) Leave it alone - probably fine for an MVP middle ground
-fn resolve_node_path() -> PathBuf {
-    let node = PathBuf::from("node");
-    let Some(path) = std::env::var_os("PATH") else {
-        return node;
-    };
-
-    std::env::split_paths(&path)
-        .map(|path| path.join("node"))
-        .find(|path| path.is_file())
-        .unwrap_or(node)
 }
 
 #[cfg(test)]
@@ -228,7 +206,7 @@ mod tests {
     use tokio::io::AsyncWriteExt;
 
     fn node_is_available() -> bool {
-        StdCommand::new(resolve_node_path())
+        StdCommand::new("node")
             .arg("--version")
             .output()
             .is_ok_and(|output| output.status.success())

@@ -145,7 +145,8 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
                 edge_args.tokens.clone(),
                 edge_args.hmac_config.clone(),
             )
-            .await?;
+            .await
+            .unwrap_or_default();
 
             let auth_headers = AuthHeaders::from(&args);
 
@@ -197,6 +198,7 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
                 prometheus_password: edge_args.prometheus_password.clone(),
                 hostname: edge_args.hostname.clone(),
                 ec2_instance_id: edge_args.ec2_instance_id.clone(),
+                context_enricher: edge_args.into(),
             })
             .await?
         }
