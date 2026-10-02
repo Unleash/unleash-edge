@@ -135,6 +135,7 @@ mod tests {
 
     struct MockPersistence {
         license_state: EdgeResult<LicenseState>,
+        tokens: Vec<EdgeToken>,
     }
 
     #[async_trait]
@@ -148,7 +149,7 @@ mod tests {
         }
 
         async fn load_tokens(&self) -> EdgeResult<Vec<EdgeToken>> {
-            unimplemented!()
+            Ok(self.tokens.clone())
         }
 
         async fn load_features(&self) -> EdgeResult<HashMap<String, ClientFeatures>> {
@@ -300,6 +301,7 @@ mod tests {
         let persistence: Option<Arc<dyn EdgePersistence + 'static>> =
             Some(Arc::new(MockPersistence {
                 license_state: Ok(LicenseState::Valid),
+                tokens: startup_tokens.clone(),
             }));
 
         let sut = resolve_license(
@@ -337,6 +339,7 @@ mod tests {
                 license_state: Err(EdgeError::PersistenceError(
                     "You shouldn't have stored your data on a potato".into(),
                 )),
+                tokens: vec![],
             }));
 
         let sut = resolve_license(
@@ -347,5 +350,42 @@ mod tests {
         );
 
         sut.await.expect_err("Expected license resolution to fail");
+    }
+
+    #[tokio::test]
+    async fn resolving_a_license_succeeds_from_persistence_with_no_startup_tokens_and_no_upstream()
+    {
+        let client_meta_information = ClientMetaInformation {
+            app_name: "unleash-edge-test".to_string(),
+            connection_id: Ulid::new(),
+            instance_id: Ulid::new(),
+        };
+
+        let unleash_client = UnleashClient::from_url_with_backing_client(
+            Url::parse(
+                "http://this-will-fail-dns-lookup-because-rfc2606-specifies-this-url-as.invalid",
+            )
+            .unwrap(),
+            "Authorization".to_string(),
+            build_client(&client_meta_information),
+            client_meta_information.clone(),
+        );
+
+        let startup_tokens = vec![EdgeToken::from_str("*:development.hashyhashhash").unwrap()];
+
+        let persistence: Option<Arc<dyn EdgePersistence + 'static>> =
+            Some(Arc::new(MockPersistence {
+                license_state: Ok(LicenseState::Valid),
+                tokens: startup_tokens.clone(),
+            }));
+
+        let sut = resolve_license(
+            &unleash_client,
+            persistence,
+            &startup_tokens,
+            &client_meta_information,
+        );
+
+        sut.await.expect("Expected license to be resolved");
     }
 }
