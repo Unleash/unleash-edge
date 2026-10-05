@@ -319,7 +319,7 @@ fn string_to_header(s: &str) -> Result<(HeaderName, HeaderValue), String> {
     Ok((name, value))
 }
 
-pub fn string_to_header_tuple(s: &str) -> Result<(String, String), String> {
+fn string_to_header_tuple(s: &str) -> Result<(String, String), String> {
     s.split_once(':')
         .map(|(name, value)| (name.trim().to_owned(), value.trim().to_owned()))
         .ok_or_else(|| "Please pass headers in the format <headername>:<headervalue>".to_owned())
