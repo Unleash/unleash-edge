@@ -314,8 +314,11 @@ pub struct ContextEnricherArgs {
 fn string_to_header(s: &str) -> Result<(HeaderName, HeaderValue), String> {
     let (name, value) = string_to_header_tuple(s)?;
     let name = HeaderName::from_str(&name).map_err(|err| format!("Invalid header name: {err}"))?;
-    let value =
+    let mut value =
         HeaderValue::from_str(&value).map_err(|err| format!("Invalid header value: {err}"))?;
+    if name == AUTHORIZATION {
+        value.set_sensitive(true);
+    }
     Ok((name, value))
 }
 
