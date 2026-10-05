@@ -5697,6 +5697,7 @@ name = "unleash-edge-cli"
 version = "20.5.0"
 dependencies = [
  "axum",
+ "base64 0.23.1",
  "cidr",
  "clap",
  "ipnet",
