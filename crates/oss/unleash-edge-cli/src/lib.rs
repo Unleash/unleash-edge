@@ -259,8 +259,8 @@ pub struct EdgeArgs {
     #[clap(long, env)]
     pub prometheus_password: Option<String>,
 
-    /// Sends a prometheus remote write header in `<HEADERNAME>: <HEADERVALUE>` format. Repeat for multiple headers.
-    #[clap(long, env, value_parser = string_to_header)]
+    /// Sends prometheus remote write headers in `<HEADERNAME>: <HEADERVALUE>` format.
+    #[clap(long, env, value_delimiter = ',', value_parser = string_to_header)]
     pub prometheus_header: Vec<(HeaderName, HeaderValue)>,
 
     #[clap(long, env)]
@@ -906,6 +906,63 @@ mod tests {
             }
             _ => unreachable!(),
         }
+    }
+
+    #[test]
+    fn parses_prometheus_headers_from_environment() {
+        const CHILD_MARKER: &str = "EDGE_TEST_PROMETHEUS_HEADER_ENV";
+        if std::env::var_os(CHILD_MARKER).is_none() {
+            // Use a child process to avoid changing the environment of parallel tests.
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "tests::parses_prometheus_headers_from_environment",
+                ])
+                .env(CHILD_MARKER, "1")
+                .env(
+                    "PROMETHEUS_HEADER",
+                    "X-Scope-OrgID: tenant-one,X-Other: https://example.com",
+                )
+                .output()
+                .unwrap();
+            assert!(output.status.success(), "{output:?}");
+            return;
+        }
+
+        let args = CliArgs::try_parse_from([
+            "unleash-edge",
+            "edge",
+            "--upstream-url",
+            "http://localhost:4242",
+        ])
+        .unwrap();
+        let EdgeMode::Edge(args) = args.mode else {
+            unreachable!();
+        };
+        let headers = args.parsed_prometheus_headers();
+        assert_eq!(headers.len(), 2);
+        assert_eq!(headers["x-scope-orgid"], "tenant-one");
+        assert_eq!(headers["x-other"], "https://example.com");
+
+        let args = CliArgs::try_parse_from([
+            "unleash-edge",
+            "edge",
+            "--upstream-url",
+            "http://localhost:4242",
+            "--prometheus-header",
+            "X-Custom: first,X-Extra: second",
+            "--prometheus-header",
+            "X-Other: https://example.com",
+        ])
+        .unwrap();
+        let EdgeMode::Edge(args) = args.mode else {
+            unreachable!();
+        };
+        let headers = args.parsed_prometheus_headers();
+        assert_eq!(headers.len(), 3);
+        assert_eq!(headers["x-custom"], "first");
+        assert_eq!(headers["x-extra"], "second");
+        assert_eq!(headers["x-other"], "https://example.com");
     }
 
     #[test]
