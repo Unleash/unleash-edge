@@ -316,9 +316,7 @@ fn string_to_header(s: &str) -> Result<(HeaderName, HeaderValue), String> {
     let name = HeaderName::from_str(&name).map_err(|err| format!("Invalid header name: {err}"))?;
     let mut value =
         HeaderValue::from_str(&value).map_err(|err| format!("Invalid header value: {err}"))?;
-    if name == AUTHORIZATION {
-        value.set_sensitive(true);
-    }
+    value.set_sensitive(true);
     Ok((name, value))
 }
 
