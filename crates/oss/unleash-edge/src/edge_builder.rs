@@ -1,7 +1,7 @@
 use crate::{CacheContainer, EdgeInfo, OTEL_INIT, SHOULD_DEFER_VALIDATION};
 use chrono::{Duration, Utc};
 use dashmap::DashMap;
-use http::StatusCode;
+use http::{HeaderMap, StatusCode};
 use ipnet::IpNet;
 use std::collections::HashSet;
 
@@ -441,8 +441,7 @@ pub struct EdgeStateArgs {
     pub token_revalidation_interval_seconds: u64,
     pub prometheus_remote_write_url: Option<String>,
     pub prometheus_push_interval: u64,
-    pub prometheus_username: Option<String>,
-    pub prometheus_password: Option<String>,
+    pub prometheus_headers: HeaderMap,
     pub hostname: Option<String>,
     pub ec2_instance_id: Option<String>,
     pub context_enricher: ContextEnricherConfig,
@@ -606,8 +605,7 @@ pub async fn build_edge_state(
         tokens: args.tokens.clone(),
         prometheus_remote_write_url: args.prometheus_remote_write_url,
         prometheus_push_interval: args.prometheus_push_interval,
-        prometheus_username: args.prometheus_username,
-        prometheus_password: args.prometheus_password,
+        prometheus_headers: args.prometheus_headers,
         custom_client_headers: args.custom_client_headers,
         hostname: args.hostname,
         ec2_instance_id: args.ec2_instance_id,
@@ -751,8 +749,7 @@ pub(crate) struct BackgroundTaskArgs {
     tokens: Vec<EdgeToken>,
     prometheus_remote_write_url: Option<String>,
     prometheus_push_interval: u64,
-    prometheus_username: Option<String>,
-    prometheus_password: Option<String>,
+    prometheus_headers: HeaderMap,
     custom_client_headers: Vec<(String, String)>,
     hostname: Option<String>,
     ec2_instance_id: Option<String>,
@@ -782,8 +779,7 @@ fn create_edge_mode_background_tasks(
         tokens,
         prometheus_remote_write_url,
         prometheus_push_interval,
-        prometheus_username,
-        prometheus_password,
+        prometheus_headers,
         custom_client_headers,
         hostname,
         ec2_instance_id,
@@ -825,8 +821,7 @@ fn create_edge_mode_background_tasks(
             app_name,
             client_id,
             instance_id: client_meta_information.instance_id.to_string(),
-            username: prometheus_username.clone(),
-            password: prometheus_password.clone(),
+            headers: prometheus_headers.clone(),
             hostname,
             ec2_instance_id,
         }));
@@ -1280,6 +1275,7 @@ mod enterprise_tests {
             prometheus_push_interval: 0,
             prometheus_username: None,
             prometheus_password: None,
+            prometheus_header: vec![],
             prometheus_user_id: None,
             hmac_config: HmacConfig::default(),
             hostname: None,
