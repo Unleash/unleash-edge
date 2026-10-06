@@ -11,7 +11,7 @@ use tracing::warn;
 use unleash_edge_cli::OfflineArgs;
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_refresh::refresh_metrics::{
-    OFFLINE_SOURCE, observe_feature_state_warnings,
+    OFFLINE_SOURCE, initialize_feature_refresh_metrics, observe_feature_state_warnings,
 };
 use unleash_edge_types::EngineCache;
 use unleash_edge_types::errors::EdgeError;
@@ -67,6 +67,7 @@ pub fn load_offline_engine_cache(
     engine_cache: Arc<EngineCache>,
     client_features: ClientFeatures,
 ) {
+    initialize_feature_refresh_metrics(edge_token.environment.as_deref().unwrap_or("*"));
     features_cache.insert(cache_key(edge_token), client_features.clone());
     let mut engine = EngineState::default();
     let warnings = engine.take_state(UpdateMessage::FullResponse(client_features));

@@ -1,6 +1,6 @@
 use crate::refresh_metrics::{
-    DELTA_SOURCE, observe_feature_refresh_error, observe_feature_state_warnings,
-    observe_last_applied_revision_id,
+    DELTA_SOURCE, initialize_feature_refresh_metrics, observe_feature_refresh_error,
+    observe_feature_state_warnings, observe_last_applied_revision_id,
 };
 use crate::{TokenRefreshSet, TokenRefreshStatus, client_application_from_token_and_name};
 use anyhow::Context;
@@ -220,6 +220,7 @@ async fn run_stream_task_with_idle_timeout(
     mut refresh_state_rx: Receiver<RefreshState>,
     idle_config: SseIdleConfig,
 ) {
+    initialize_feature_refresh_metrics(token.environment.as_deref().unwrap_or("*"));
     let mut stream: Option<SseStream> = None;
     let mut last_event_id: Option<String> = None;
 
@@ -431,7 +432,6 @@ impl DeltaRefresher {
             DELTA_REVISION_ID
                 .with_label_values(&[env, &refresh_token.projects.join(",")])
                 .set(max as i64);
-            observe_last_applied_revision_id(env, max);
             self.edge_instance_data.observe_api_key_refresh(
                 env.clone(),
                 refresh_token.projects.clone(),
@@ -482,10 +482,14 @@ impl DeltaRefresher {
                 };
                 new_state
             });
+        if let (Some(max), Some(env)) = (max_event_id, refresh_token.environment.as_deref()) {
+            observe_last_applied_revision_id(env, max);
+        }
     }
 
     /// Registers a token for refresh, the token will be discarded if it can be subsumed by another previously registered token
     pub async fn register_token_for_refresh(&self, token: EdgeToken, etag: Option<EntityTag>) {
+        initialize_feature_refresh_metrics(token.environment.as_deref().unwrap_or("*"));
         if !self.tokens_to_refresh.contains_key(&token.token) {
             self.unleash_client
                 .register_as_client(
@@ -551,6 +555,7 @@ impl DeltaRefresher {
     }
 
     pub async fn refresh_single_delta(&self, refresh: TokenRefresh) {
+        initialize_feature_refresh_metrics(refresh.token.environment.as_deref().unwrap_or("*"));
         let delta_result = self
             .unleash_client
             .get_client_features_delta(ClientFeaturesRequest {
@@ -844,6 +849,57 @@ mod tests {
         assert_eq!(
             feature_state_warnings_total("development", DELTA_SOURCE),
             initial + expected_increment
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn applied_revision_waits_for_engine_update() {
+        use crate::refresh_metrics::{last_applied_revision_id, observe_last_applied_revision_id};
+
+        let (refresher, tokens) =
+            build_delta_refresher_for_stream_test(Url::parse("http://localhost").unwrap());
+        let token = EdgeToken::try_from("*:revision-order-test.secret".to_string()).unwrap();
+        let environment = token.environment.as_deref().unwrap();
+        tokens.insert(token.token.clone(), TokenRefresh::new(token.clone(), None));
+        refresher
+            .engine_cache
+            .insert(cache_key(&token), EngineState::default());
+        observe_last_applied_revision_id(environment, 1);
+
+        // Hold the engine shard while the worker processes the received revision.
+        // It must continue reporting the old revision until the engine can change.
+        let engine = refresher.engine_cache.get(&cache_key(&token)).unwrap();
+        let worker_refresher = refresher.clone();
+        let worker_token = token.clone();
+        let runtime = tokio::runtime::Handle::current();
+        let worker = tokio::task::spawn_blocking(move || {
+            runtime.block_on(worker_refresher.handle_client_features_delta_updated(
+                &worker_token,
+                hydration_delta(2, &["updated"]),
+                None,
+            ));
+        });
+        let received = tokio::time::timeout(StdDuration::from_secs(5), async {
+            while tokens.get(&token.token).unwrap().last_refreshed.is_none() {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await;
+        let revision_while_blocked = last_applied_revision_id(environment);
+        drop(engine);
+        worker.await.unwrap();
+        received.expect("refresh should reach the engine update");
+        assert_eq!(revision_while_blocked, 1);
+        assert_eq!(last_applied_revision_id(environment), 2);
+        assert_eq!(
+            refresher
+                .engine_cache
+                .get(&cache_key(&token))
+                .unwrap()
+                .get_state()
+                .features[0]
+                .name,
+            "updated"
         );
     }
 
