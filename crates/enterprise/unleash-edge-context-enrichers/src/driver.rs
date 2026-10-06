@@ -326,7 +326,10 @@ mod tests {
         let command = fake_child_command(
             r#"printf '%s\n' '{"messageType":"ready"}'
                IFS= read -r _line
-               printf '%s\n' 'not-json'"#,
+               printf '%s\n' 'not-json'
+               while IFS= read -r _line; do
+                   :
+               done"#,
         );
         let mut child = spawn_child(1, command)
             .await
