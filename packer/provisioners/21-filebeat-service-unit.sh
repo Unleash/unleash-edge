@@ -69,11 +69,16 @@ echo "${TAG} Filebeat installed."
 # ------------------------------------------------------------------------------
 # Write Filebeat configuration
 #
-# At runtime, the operator must supply two environment variables in
+# At runtime, the operator must supply these environment variables in
 # /etc/filebeat.env (or via the instance's user-data / secrets manager):
 #
-#   ELASTIC_HOST    — e.g. https://my-cluster.es.us-east-1.aws.elastic.cloud:443
-#   ELASTIC_API_KEY — id:api_key pair issued by Elasticsearch (format: "<id>:<api_key>")
+#   ELASTIC_HOST            — e.g. https://my-cluster.es.us-east-1.aws.elastic.cloud:443
+#   ELASTIC_API_KEY         — id:api_key pair issued by Elasticsearch (format: "<id>:<api_key>")
+#   CF_ACCESS_CLIENT_ID     — (optional) Cloudflare Access service token client ID
+#   CF_ACCESS_CLIENT_SECRET — (optional) Cloudflare Access service token client secret
+#
+# The CF_ACCESS_* vars default to empty (via ${VAR:}) so Filebeat still starts
+# when they are not set; only needed when Elasticsearch sits behind Cloudflare Access.
 #
 # Filebeat natively substitutes ${VAR} references in its config file.
 # ------------------------------------------------------------------------------
@@ -104,6 +109,9 @@ processors:
 output.elasticsearch:
   hosts: ["${ELASTIC_HOST}"]
   api_key: "${ELASTIC_API_KEY}"
+  headers:
+    CF-Access-Client-Id: "${CF_ACCESS_CLIENT_ID:}"
+    CF-Access-Client-Secret: "${CF_ACCESS_CLIENT_SECRET:}"
   index: "unleash-edge-logs"
 
 
@@ -155,6 +163,8 @@ echo "${TAG} Filebeat provisioning complete."
 echo "${TAG} At launch, provide /etc/filebeat.env with:"
 echo "${TAG}   ELASTIC_HOST=https://<your-cluster>:443"
 echo "${TAG}   ELASTIC_API_KEY=<id>:<api_key>"
+echo "${TAG}   CF_ACCESS_CLIENT_ID=<cf-access-client-id>          (optional)"
+echo "${TAG}   CF_ACCESS_CLIENT_SECRET=<cf-access-client-secret>  (optional)"
 echo "${TAG}   AWS_REGION=<region>"
 echo "${TAG}   CLIENT_ID=<client-id>"
 echo "${TAG} ====================================================="
