@@ -3,7 +3,8 @@ pub use unleash_edge_context_enrichers::ContextEnricher;
 
 #[cfg(not(feature = "enterprise"))]
 mod disabled {
-    use std::{collections::HashMap, time::Duration};
+    use axum::http::HeaderMap;
+    use std::time::Duration;
     use unleash_types::client_features::Context;
 
     #[derive(Clone, Default)]
@@ -16,11 +17,11 @@ mod disabled {
 
         pub async fn try_enrich(
             &self,
-            context: Context,
-            _: HashMap<String, String>,
+            _context: &Context,
+            _: &HeaderMap,
             _: Duration,
-        ) -> Context {
-            context
+        ) -> Option<Context> {
+            None
         }
     }
 }

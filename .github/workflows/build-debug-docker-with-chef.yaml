@@ -118,6 +118,7 @@ jobs:
           set: |
             *.tags=
             *.platform=${{ matrix.platform }}
+            *.target=enterprise-runtime
             *.cache-from=type=gha,scope=build-${{ env.PLATFORM_PAIR }}
             *.cache-to=type=gha,scope=build-${{ env.PLATFORM_PAIR }}
             *.output=type=image,"name=${{ env.GHCR_SLUG }}",push-by-digest=true,name-canonical=true,push=${{ github.event_name != 'pull_request' }}

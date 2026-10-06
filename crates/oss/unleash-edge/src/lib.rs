@@ -145,7 +145,8 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
                 edge_args.tokens.clone(),
                 edge_args.hmac_config.clone(),
             )
-            .await?;
+            .await
+            .unwrap_or_default();
 
             let auth_headers = AuthHeaders::from(&args);
 
@@ -193,10 +194,10 @@ pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<Backgrou
                 token_revalidation_interval_seconds: edge_args.token_revalidation_interval_seconds,
                 prometheus_remote_write_url: edge_args.prometheus_remote_write_url.clone(),
                 prometheus_push_interval: edge_args.prometheus_push_interval,
-                prometheus_username: edge_args.prometheus_username.clone(),
-                prometheus_password: edge_args.prometheus_password.clone(),
+                prometheus_headers: edge_args.parsed_prometheus_headers(),
                 hostname: edge_args.hostname.clone(),
                 ec2_instance_id: edge_args.ec2_instance_id.clone(),
+                context_enricher: edge_args.into(),
             })
             .await?
         }

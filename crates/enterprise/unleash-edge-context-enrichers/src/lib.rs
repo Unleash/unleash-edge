@@ -2,8 +2,10 @@ mod child;
 mod command;
 mod context_enricher;
 mod driver;
+mod metrics;
 mod pool;
 mod protocol;
+mod serializable_header;
 mod worker;
 
 const MAX_SCHEDULED_JOBS: usize = 32;

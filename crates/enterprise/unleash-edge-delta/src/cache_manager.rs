@@ -2,6 +2,7 @@ use crate::cache::DeltaCache;
 use ahash::HashMap;
 use dashmap::DashMap;
 use prometheus::{IntCounter, IntGauge, register_int_counter, register_int_gauge};
+use std::collections::HashSet;
 use std::sync::{Arc, LazyLock};
 use tokio::sync::broadcast;
 use tracing::info;
@@ -99,6 +100,10 @@ impl DeltaCacheManager {
             .iter()
             .map(|entry| (entry.key().clone(), entry.value().latest_revision()))
             .collect()
+    }
+
+    pub fn keep_wanted_environments(&self, wanted: &HashSet<String>) {
+        self.caches.retain(|k, _| wanted.contains(k));
     }
 }
 

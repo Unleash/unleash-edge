@@ -1,8 +1,8 @@
-use std::{collections::HashMap, fmt::Display};
+use std::fmt::Display;
 use tokio::{sync::oneshot::Sender as OneShotSender, time::Instant};
 use unleash_types::client_features::Context;
 
-use crate::protocol::EnrichmentResponse;
+use crate::protocol::{EnrichmentResponse, SerializedEnrichmentRequest};
 
 #[derive(Debug, Clone)]
 pub enum EnricherError {
@@ -41,8 +41,7 @@ pub(crate) enum WorkerEvent {
 pub(crate) enum WorkerCommand {
     Execute {
         id: u64,
-        context: Context,
-        headers: HashMap<String, String>,
+        request: SerializedEnrichmentRequest,
         deadline: Instant,
         respond_to: OneShotSender<Result<Context, EnricherError>>,
     },

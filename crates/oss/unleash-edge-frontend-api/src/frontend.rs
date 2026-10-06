@@ -8,7 +8,6 @@ use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use ipnet::IpNet;
-use std::collections::HashMap;
 use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -47,7 +46,9 @@ pub async fn frontend_get_all_features(
     headers: HeaderMap,
     QsQueryCfg(context): QsQueryCfg<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let context = try_enrich(&app_state, context, &headers).await;
+    let context = try_enrich(&app_state, &context, &headers)
+        .await
+        .unwrap_or(context);
     all_features(app_state, edge_token, &context, client_ip)
 }
 
@@ -72,7 +73,9 @@ pub async fn frontend_post_all_features(
     headers: HeaderMap,
     Json(context): Json<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let context = try_enrich(&app_state, context, &headers).await;
+    let context = try_enrich(&app_state, &context, &headers)
+        .await
+        .unwrap_or(context);
     all_features(app_state, edge_token, &context, client_ip)
 }
 
@@ -97,7 +100,10 @@ pub async fn frontend_get_enabled_features(
     headers: HeaderMap,
     QsQueryCfg(context): QsQueryCfg<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let context = try_enrich(&app_state, context, &headers).await;
+    let context = try_enrich(&app_state, &context, &headers)
+        .await
+        .unwrap_or(context);
+
     enabled_features(app_state, edge_token, &context, client_ip)
 }
 
@@ -122,7 +128,9 @@ pub async fn frontend_post_enabled_features(
     headers: HeaderMap,
     Json(context): Json<Context>,
 ) -> EdgeJsonResult<FrontendResult> {
-    let context = try_enrich(&app_state, context, &headers).await;
+    let context = try_enrich(&app_state, &context, &headers)
+        .await
+        .unwrap_or(context);
     enabled_features(app_state, edge_token, &context, client_ip)
 }
 
@@ -213,7 +221,9 @@ pub async fn frontend_get_feature(
     ClientIp(client_ip): ClientIp,
     headers: HeaderMap,
 ) -> EdgeJsonResult<EvaluatedToggle> {
-    let context = try_enrich(&app_state, context, &headers).await;
+    let context = try_enrich(&app_state, &context, &headers)
+        .await
+        .unwrap_or(context);
     evaluate_feature(
         &app_state.token_cache,
         &app_state.engine_cache,
@@ -251,7 +261,9 @@ pub async fn frontend_post_feature(
     headers: HeaderMap,
     Json(context): Json<Context>,
 ) -> EdgeJsonResult<EvaluatedToggle> {
-    let context = try_enrich(&app_state, context, &headers).await;
+    let context = try_enrich(&app_state, &context, &headers)
+        .await
+        .unwrap_or(context);
     evaluate_feature(
         &app_state.token_cache,
         &app_state.engine_cache,
@@ -263,27 +275,15 @@ pub async fn frontend_post_feature(
     .map(Json)
 }
 
-async fn try_enrich(app_state: &FrontendState, context: Context, headers: &HeaderMap) -> Context {
+async fn try_enrich(
+    app_state: &FrontendState,
+    context: &Context,
+    headers: &HeaderMap,
+) -> Option<Context> {
     app_state
         .context_enricher
-        .try_enrich(
-            context,
-            headers_for_context_enricher(headers),
-            CONTEXT_ENRICHER_TIMEOUT,
-        )
+        .try_enrich(context, headers, CONTEXT_ENRICHER_TIMEOUT)
         .await
-}
-
-fn headers_for_context_enricher(headers: &HeaderMap) -> HashMap<String, String> {
-    headers
-        .iter()
-        .filter_map(|(name, value)| {
-            value
-                .to_str()
-                .ok()
-                .map(|value| (name.as_str().to_string(), value.to_string()))
-        })
-        .collect()
 }
 
 #[instrument(skip(token_cache, engine_cache, edge_token, feature_name, incoming_context))]
@@ -312,14 +312,9 @@ fn evaluate_feature(
     engine_cache
         .get(&cache_key(&validated_token))
         .and_then(|engine| engine.resolve(&feature_name, &context_with_ip, &None))
-        .and_then(|resolved_toggle| {
-            if validated_token.projects.contains(&"*".into())
+        .filter(|resolved_toggle| {
+            validated_token.projects.contains(&"*".into())
                 || validated_token.projects.contains(&resolved_toggle.project)
-            {
-                Some(resolved_toggle)
-            } else {
-                None
-            }
         })
         .map(|r| EvaluatedToggle {
             name: feature_name.clone(),
