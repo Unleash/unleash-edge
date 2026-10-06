@@ -14,7 +14,7 @@ use crate::{
 
 const MAX_IN_FLIGHT_MESSAGES: usize = 32;
 const CHILD_MEMORY_CEILING_MB: u64 = 128;
-const CHILD_READY_TIMEOUT_IN_SECONDS: u64 = 2;
+const CHILD_READY_TIMEOUT_IN_SECONDS: u64 = 5;
 // This is the message handling script that executes the messenger protocol on the Node side
 // This is absolutely critical for the whole thing to hang together, so relying on a filepath to read this
 // feels super fragile. Luckily, we don't have to do that - we can just bake the whole thing
