@@ -32,6 +32,10 @@ use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_refresh::delta_refresh::{
     DELTA_CACHE_LIMIT, DeltaRefresher, start_streaming_delta_background_task,
 };
+use unleash_edge_feature_refresh::refresh_metrics::{
+    HYDRATION_SOURCE, initialize_feature_refresh_metrics, observe_feature_state_warnings,
+    observe_last_applied_revision_id,
+};
 use unleash_edge_feature_refresh::{
     FeatureRefreshConfig, FeatureRefresher, HydratorType, start_refresh_features_background_task,
 };
@@ -166,15 +170,28 @@ async fn hydrate_from_persistent_storage(cache: CacheContainer, storage: Arc<dyn
     });
 
     for (key, features) in features {
+        // A cache key can be a raw token. Only use explicit environment metadata
+        // as a metric label, including when an old backup has no matching token.
+        let environment = token_cache.iter().find_map(|token| {
+            (cache_key(token.value()) == key)
+                .then(|| token.environment.clone())
+                .flatten()
+        });
+        let environment = environment.as_deref().unwrap_or("*");
+        initialize_feature_refresh_metrics(environment);
         debug!("Hydrating features for {key:?}");
         features_cache.insert(key.clone(), features.clone());
         let mut engine_state = EngineState::default();
 
         let warnings = engine_state.take_state(UpdateMessage::FullResponse(features.clone()));
         if let Some(warnings) = warnings {
+            observe_feature_state_warnings(environment, HYDRATION_SOURCE, warnings.len());
             warn!("Failed to hydrate features for {key:?}: {warnings:?}");
         }
         engine_cache.insert(key.clone(), engine_state);
+        if let Some(revision_id) = features.meta.as_ref().and_then(|meta| meta.revision_id) {
+            observe_last_applied_revision_id(environment, revision_id);
+        }
 
         if !features.features.is_empty() {
             delta_cache.insert_cache(
@@ -1061,13 +1078,48 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use ulid::Ulid;
     use unleash_edge_cli::AuthHeaders;
+    use unleash_edge_feature_refresh::refresh_metrics::{
+        HYDRATION_SOURCE, feature_state_warnings_total,
+    };
     use unleash_edge_http_client::ClientMetaInformation;
     use unleash_edge_persistence::EdgePersistence;
     use unleash_edge_persistence::file::FilePersister;
     use unleash_edge_types::TokenType;
     use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
     use unleash_edge_types::tokens::EdgeToken;
-    use unleash_types::client_features::{ClientFeature, ClientFeatures, Segment};
+    use unleash_types::client_features::{
+        ClientFeature, ClientFeatures, Constraint, Operator, Segment, Strategy,
+    };
+    use unleash_yggdrasil::{EngineState, UpdateMessage};
+
+    fn client_features_with_invalid_single_value_constraint() -> ClientFeatures {
+        ClientFeatures {
+            version: 1,
+            features: vec![ClientFeature {
+                name: "invalid-constraint-flag".to_string(),
+                enabled: true,
+                strategies: Some(vec![Strategy {
+                    name: "default".to_string(),
+                    parameters: None,
+                    sort_order: None,
+                    segments: None,
+                    constraints: Some(vec![Constraint {
+                        context_name: "userId".to_string(),
+                        operator: Operator::NumEq,
+                        case_insensitive: false,
+                        inverted: false,
+                        values: None,
+                        value: None,
+                    }]),
+                    variants: None,
+                }]),
+                ..Default::default()
+            }],
+            segments: None,
+            query: None,
+            meta: None,
+        }
+    }
 
     #[tokio::test]
     async fn hydrates_delta_cache_from_persistent_feature_backup() {
@@ -1121,6 +1173,42 @@ mod tests {
         assert_eq!(hydration_event.event_id, 42);
         assert_eq!(hydration_event.features, vec![feature]);
         assert_eq!(hydration_event.segments, vec![segment]);
+    }
+
+    #[tokio::test]
+    async fn hydration_warnings_increment_feature_state_warnings_metric() {
+        let key = "hydration-metrics-test".to_string();
+        let backup_folder = temp_dir().join(Ulid::new().to_string());
+        let persister = FilePersister::new(&backup_folder);
+        let features = client_features_with_invalid_single_value_constraint();
+        let expected_increment = EngineState::default()
+            .take_state(UpdateMessage::FullResponse(features.clone()))
+            .map_or(0, |warnings| {
+                u64::try_from(warnings.len()).expect("warning count should fit in u64")
+            });
+        persister
+            .save_tokens(vec![
+                unleash_edge_types::tokens::EdgeToken::try_from(format!("*:{key}.secret")).unwrap(),
+            ])
+            .await
+            .unwrap();
+        persister
+            .save_features(vec![(key.clone(), features)])
+            .await
+            .unwrap();
+
+        let initial = feature_state_warnings_total(&key, HYDRATION_SOURCE);
+        let (token_cache, features_cache, delta_cache, engine_cache) = build_caches();
+        super::hydrate_from_persistent_storage(
+            (token_cache, features_cache, delta_cache, engine_cache),
+            Arc::new(persister),
+        )
+        .await;
+
+        assert_eq!(
+            feature_state_warnings_total(&key, HYDRATION_SOURCE),
+            initial + expected_increment
+        );
     }
 
     #[tokio::test]
@@ -1226,6 +1314,44 @@ mod tests {
         assert!(delta_cache.get(stale).is_none());
         assert!(engine_cache.contains_key(configured));
         assert!(!engine_cache.contains_key(stale));
+    }
+
+    #[tokio::test]
+    async fn hydration_metrics_do_not_expose_raw_cache_keys() {
+        let raw_key = "private-legacy-token-without-environment";
+        let backup_folder = temp_dir().join(Ulid::new().to_string());
+        let persister = FilePersister::new(&backup_folder);
+        let mut features = client_features_with_invalid_single_value_constraint();
+        features.meta = Some(unleash_types::client_features::Meta {
+            revision_id: Some(123),
+            ..Default::default()
+        });
+        persister
+            .save_features(vec![(raw_key.to_string(), features)])
+            .await
+            .unwrap();
+        super::hydrate_from_persistent_storage(build_caches(), Arc::new(persister)).await;
+
+        let metrics = prometheus::gather();
+        for name in [
+            "edge_feature_state_warnings_total",
+            "edge_feature_refresh_errors_total",
+            "edge_last_applied_revision_id",
+        ] {
+            let family = metrics.iter().find(|metric| metric.name() == name).unwrap();
+            assert!(family.get_metric().iter().any(|metric| {
+                metric
+                    .get_label()
+                    .iter()
+                    .any(|label| label.name() == "environment" && label.value() == "*")
+            }));
+            assert!(family.get_metric().iter().all(|metric| {
+                metric
+                    .get_label()
+                    .iter()
+                    .all(|label| label.value() != raw_key)
+            }));
+        }
     }
 }
 

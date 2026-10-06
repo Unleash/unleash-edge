@@ -1,3 +1,7 @@
+use crate::refresh_metrics::{
+    DELTA_SOURCE, initialize_feature_refresh_metrics, observe_feature_refresh_error,
+    observe_feature_state_warnings, observe_last_applied_revision_id,
+};
 use crate::{TokenRefreshSet, TokenRefreshStatus, client_application_from_token_and_name};
 use anyhow::Context;
 use chrono::Utc;
@@ -166,6 +170,10 @@ async fn handle_sse(
                     return event.id;
                 }
                 Err(e) => {
+                    observe_feature_refresh_error(
+                        token.environment.as_deref().unwrap_or("*"),
+                        "parse",
+                    );
                     warn!("Could not parse features response to internal representation: {e:?}");
                 }
             }
@@ -212,6 +220,7 @@ async fn run_stream_task_with_idle_timeout(
     mut refresh_state_rx: Receiver<RefreshState>,
     idle_config: SseIdleConfig,
 ) {
+    initialize_feature_refresh_metrics(token.environment.as_deref().unwrap_or("*"));
     let mut stream: Option<SseStream> = None;
     let mut last_event_id: Option<String> = None;
 
@@ -235,6 +244,10 @@ async fn run_stream_task_with_idle_timeout(
             ) {
                 Ok(s) => s,
                 Err(e) => {
+                    observe_feature_refresh_error(
+                        token.environment.as_deref().unwrap_or("*"),
+                        "stream",
+                    );
                     warn!(
                         "SSE misconfiguration detected; cannot build stream: {e:?}. Exiting stream task."
                     );
@@ -279,6 +292,10 @@ async fn run_stream_task_with_idle_timeout(
                             }
                         }
                         Ok(Some(Err(e))) => {
+                            observe_feature_refresh_error(
+                                token.environment.as_deref().unwrap_or("*"),
+                                "stream",
+                            );
                             match e {
                                 Error::UnexpectedResponse(response, _) => {
                                     if response.status() == StatusCode::UNAUTHORIZED || response.status() == StatusCode::FORBIDDEN {
@@ -432,28 +449,47 @@ impl DeltaRefresher {
         );
         DELTA_LAST_UPDATE
             .with_label_values(&[
-                &refresh_token.environment.clone().unwrap_or("*".to_string()),
+                refresh_token.environment.as_deref().unwrap_or("*"),
                 &refresh_token.projects.join(","),
             ])
             .set(Utc::now().timestamp());
         self.engine_cache
             .entry(key.clone())
             .and_modify(|engine| {
-                engine.apply_delta(&delta);
+                let warnings = engine.apply_delta(&delta);
+                if let Some(warnings) = warnings {
+                    observe_feature_state_warnings(
+                        refresh_token.environment.as_deref().unwrap_or("*"),
+                        DELTA_SOURCE,
+                        warnings.len(),
+                    );
+                    warn!(
+                        "The following toggle failed to compile and will be defaulted to off: {warnings:?}"
+                    );
+                };
             })
             .or_insert_with(|| {
                 let mut new_state = EngineState::default();
 
                 let warnings = new_state.apply_delta(&delta);
                 if let Some(warnings) = warnings {
+                    observe_feature_state_warnings(
+                        refresh_token.environment.as_deref().unwrap_or("*"),
+                        DELTA_SOURCE,
+                        warnings.len(),
+                    );
                     warn!("The following toggle failed to compile and will be defaulted to off: {warnings:?}");
                 };
                 new_state
             });
+        if let (Some(max), Some(env)) = (max_event_id, refresh_token.environment.as_deref()) {
+            observe_last_applied_revision_id(env, max);
+        }
     }
 
     /// Registers a token for refresh, the token will be discarded if it can be subsumed by another previously registered token
     pub async fn register_token_for_refresh(&self, token: EdgeToken, etag: Option<EntityTag>) {
+        initialize_feature_refresh_metrics(token.environment.as_deref().unwrap_or("*"));
         if !self.tokens_to_refresh.contains_key(&token.token) {
             self.unleash_client
                 .register_as_client(
@@ -519,6 +555,7 @@ impl DeltaRefresher {
     }
 
     pub async fn refresh_single_delta(&self, refresh: TokenRefresh) {
+        initialize_feature_refresh_metrics(refresh.token.environment.as_deref().unwrap_or("*"));
         let delta_result = self
             .unleash_client
             .get_client_features_delta(ClientFeaturesRequest {
@@ -540,6 +577,10 @@ impl DeltaRefresher {
                 }
             },
             Err(e) => {
+                observe_feature_refresh_error(
+                    refresh.token.environment.as_deref().unwrap_or("*"),
+                    "fetch",
+                );
                 match e {
                     EdgeError::ClientFeaturesFetchError(fe) => {
                         match fe {
@@ -599,6 +640,7 @@ impl DeltaRefresher {
 #[cfg(test)]
 mod tests {
     use crate::delta_refresh::DeltaRefresher;
+    use crate::refresh_metrics::{DELTA_SOURCE, feature_state_warnings_total};
     use axum::Router;
     use axum::body::Body;
     use axum::extract::Request;
@@ -629,7 +671,7 @@ mod tests {
     use unleash_edge_types::{RefreshState, TokenRefresh};
     use unleash_types::client_features::{
         ClientFeature, ClientFeatures, ClientFeaturesDelta, Constraint, DeltaEvent, Operator,
-        Segment,
+        Segment, Strategy,
     };
     use unleash_yggdrasil::EngineState;
 
@@ -783,6 +825,82 @@ mod tests {
 
         assert_eq!(hydration_event.event_id, 10);
         assert_eq!(feature_names, vec!["rolled-up", "post-hydration"]);
+    }
+
+    #[tokio::test]
+    async fn delta_warnings_increment_feature_state_warnings_metric() {
+        let (delta_refresher, tokens_to_refresh) =
+            build_delta_refresher_for_stream_test(Url::parse("http://localhost").unwrap());
+        let token =
+            EdgeToken::try_from("*:development.abcdefghijklmnopqrstuvwxyz".to_string()).unwrap();
+        tokens_to_refresh.insert(token.token.clone(), TokenRefresh::new(token.clone(), None));
+        let delta = delta_with_invalid_single_value_constraint(1);
+        let expected_increment = EngineState::default()
+            .apply_delta(&delta)
+            .map_or(0, |warnings| {
+                u64::try_from(warnings.len()).expect("warning count should fit in u64")
+            });
+
+        let initial = feature_state_warnings_total("development", DELTA_SOURCE);
+        delta_refresher
+            .handle_client_features_delta_updated(&token, delta, None)
+            .await;
+
+        assert_eq!(
+            feature_state_warnings_total("development", DELTA_SOURCE),
+            initial + expected_increment
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn applied_revision_waits_for_engine_update() {
+        use crate::refresh_metrics::{last_applied_revision_id, observe_last_applied_revision_id};
+
+        let (refresher, tokens) =
+            build_delta_refresher_for_stream_test(Url::parse("http://localhost").unwrap());
+        let token = EdgeToken::try_from("*:revision-order-test.secret".to_string()).unwrap();
+        let environment = token.environment.as_deref().unwrap();
+        tokens.insert(token.token.clone(), TokenRefresh::new(token.clone(), None));
+        refresher
+            .engine_cache
+            .insert(cache_key(&token), EngineState::default());
+        observe_last_applied_revision_id(environment, 1);
+
+        // Hold the engine shard while the worker processes the received revision.
+        // It must continue reporting the old revision until the engine can change.
+        let engine = refresher.engine_cache.get(&cache_key(&token)).unwrap();
+        let worker_refresher = refresher.clone();
+        let worker_token = token.clone();
+        let runtime = tokio::runtime::Handle::current();
+        let worker = tokio::task::spawn_blocking(move || {
+            runtime.block_on(worker_refresher.handle_client_features_delta_updated(
+                &worker_token,
+                hydration_delta(2, &["updated"]),
+                None,
+            ));
+        });
+        let received = tokio::time::timeout(StdDuration::from_secs(5), async {
+            while tokens.get(&token.token).unwrap().last_refreshed.is_none() {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await;
+        let revision_while_blocked = last_applied_revision_id(environment);
+        drop(engine);
+        worker.await.unwrap();
+        received.expect("refresh should reach the engine update");
+        assert_eq!(revision_while_blocked, 1);
+        assert_eq!(last_applied_revision_id(environment), 2);
+        assert_eq!(
+            refresher
+                .engine_cache
+                .get(&cache_key(&token))
+                .unwrap()
+                .get_state()
+                .features[0]
+                .name,
+            "updated"
+        );
     }
 
     #[derive(Clone)]
@@ -1020,6 +1138,38 @@ mod tests {
             name: name.into(),
             feature_type: Some("release".into()),
             ..Default::default()
+        }
+    }
+
+    fn feature_with_invalid_single_value_constraint(name: &str) -> ClientFeature {
+        ClientFeature {
+            name: name.into(),
+            enabled: true,
+            strategies: Some(vec![Strategy {
+                name: "default".into(),
+                parameters: None,
+                sort_order: None,
+                segments: None,
+                constraints: Some(vec![Constraint {
+                    context_name: "userId".into(),
+                    operator: Operator::NumEq,
+                    case_insensitive: false,
+                    inverted: false,
+                    values: None,
+                    value: None,
+                }]),
+                variants: None,
+            }]),
+            ..Default::default()
+        }
+    }
+
+    fn delta_with_invalid_single_value_constraint(event_id: u32) -> ClientFeaturesDelta {
+        ClientFeaturesDelta {
+            events: vec![DeltaEvent::FeatureUpdated {
+                event_id,
+                feature: feature_with_invalid_single_value_constraint("invalid-constraint-flag"),
+            }],
         }
     }
 
