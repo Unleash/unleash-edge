@@ -1,4 +1,12 @@
 
+## [unleash-edge-v20.6.0] - 2026-10-07
+
+### 🚀 Features
+- metrics for discarded feature state and failed background refreshes (#1755) (by @gastonfournier) - #1755
+
+### ⚙️ Miscellaneous Tasks
+- instance data sending for context enrichers (#1883) (by @sighphyre) - #1883
+
 ## [unleash-edge-v20.5.0] - 2026-08-27
 
 ### 🚀 Features
