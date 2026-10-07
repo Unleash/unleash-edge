@@ -1,4 +1,9 @@
 
+## [unleash-edge-v20.6.0] - 2026-10-07
+
+### 🚀 Features
+- metrics for discarded feature state and failed background refreshes (#1755) (by @gastonfournier) - #1755
+
 ## [unleash-edge-v20.5.0] - 2026-08-27
 
 ## [unleash-edge-v20.4.1] - 2026-07-28

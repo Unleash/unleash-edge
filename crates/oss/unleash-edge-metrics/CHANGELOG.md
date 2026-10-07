@@ -1,4 +1,12 @@
 
+## [unleash-edge-v20.6.0] - 2026-10-07
+
+### 🚀 Features
+- allow custom prom headers (#1898) (by @sighphyre) - #1898
+
+### 🐛 Bug Fixes
+- only keep requested environments from HMAC/tokens (#1881) (by @chriswk) - #1881
+
 ## [unleash-edge-v20.5.0] - 2026-08-27
 
 ### 🚀 Features
