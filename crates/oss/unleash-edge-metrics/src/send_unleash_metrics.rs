@@ -10,6 +10,7 @@ use rand::{RngExt, rng};
 use reqwest::StatusCode;
 use tracing::{debug, error, info, trace, warn};
 use unleash_edge_types::metrics::batching::MetricsBatch;
+use unleash_edge_types::metrics::payload_size::serialized_len;
 use unleash_edge_types::tokens::EdgeToken;
 
 use unleash_edge_http_client::UnleashClient;
@@ -19,11 +20,8 @@ const MAX_INFLIGHT_PER_ENV: usize = 16;
 const MAX_RETRIES: usize = 5;
 const BASE_BACKOFF_MS: u64 = 50;
 
-use crate::{
-    client_metrics::{
-        get_appropriately_sized_env_batches, get_metrics_by_environment, reinsert_batch,
-    },
-    metric_batching::size_of_batch,
+use crate::client_metrics::{
+    get_appropriately_sized_env_batches, get_metrics_by_environment, reinsert_batch,
 };
 
 lazy_static! {
@@ -98,7 +96,7 @@ async fn send_one_with_retry(
                 return match status {
                     StatusCode::PAYLOAD_TOO_LARGE => Err(MetricsSendError::NoBackoff(format!(
                         "Metrics were too large. They were {}. Dropping this bucket to avoid consuming too much memory",
-                        size_of_batch(&batch)
+                        serialized_len(&batch)
                     ))),
                     StatusCode::BAD_REQUEST => Err(MetricsSendError::NoBackoff(format!(
                         "Unleash said [{msg:?}]. Dropping this bucket to avoid consuming too much memory"
@@ -173,7 +171,7 @@ async fn send_metrics(
             results.extend(slices.into_iter().map(|slice| {
                 Err(MetricsSendError::NoBackoff(format!(
                     "No upstream token configured for environment {env}. Dropping metrics batch of {} bytes",
-                    size_of_batch(&slice)
+                    serialized_len(&slice)
                 )))
             }));
             continue;
