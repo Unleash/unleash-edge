@@ -3,8 +3,13 @@ use std::sync::LazyLock;
 use std::{sync::Arc, time::Duration};
 
 pub mod delta_refresh;
+pub mod refresh_metrics;
 
 use crate::delta_refresh::DeltaRefresher;
+use crate::refresh_metrics::{
+    FULL_SOURCE, initialize_feature_refresh_metrics, observe_feature_state_warnings,
+    observe_last_applied_revision_id,
+};
 use chrono::{TimeDelta, Utc};
 use dashmap::DashMap;
 use etag::EntityTag;
@@ -197,6 +202,8 @@ fn client_application_from_token_and_name(
             sdk_version: Some(format!("unleash-edge:{}", build::PKG_VERSION)),
             sdk_type: Some(SdkType::Backend),
             yggdrasil_version: None,
+            sdk_flavor: None,
+            sdk_flavor_version: None,
         },
     }
 }
@@ -294,6 +301,7 @@ impl FeatureRefresher {
 
     /// Registers a token for refresh, the token will be discarded if it can be subsumed by another previously registered token
     pub async fn register_token_for_refresh(&self, token: EdgeToken, etag: Option<EntityTag>) {
+        initialize_feature_refresh_metrics(token.environment.as_deref().unwrap_or("*"));
         if !self.tokens_to_refresh.contains_key(&token.token) {
             self.unleash_client
                 .register_as_client(
@@ -354,7 +362,7 @@ impl FeatureRefresher {
         }
         POLLING_LAST_UPDATE
             .with_label_values(&[
-                &refresh_token.environment.clone().unwrap_or("*".to_string()),
+                refresh_token.environment.as_deref().unwrap_or("*"),
                 &refresh_token.projects.join(","),
             ])
             .set(Utc::now().timestamp());
@@ -371,23 +379,37 @@ impl FeatureRefresher {
             .entry(key.clone())
             .and_modify(|engine| {
                 if let Some(f) = self.features_cache.get(&key) {
-                    let mut new_state = EngineState::default();
+                    let new_state = EngineState::default();
                     let warnings = new_state.take_state(UpdateMessage::FullResponse(f.clone()));
                     if let Some(warnings) = warnings {
+                        observe_feature_state_warnings(
+                            refresh_token.environment.as_deref().unwrap_or("*"),
+                            FULL_SOURCE,
+                            warnings.len(),
+                        );
                         warn!("The following toggle failed to compile and will be defaulted to off: {warnings:?}");
                     };
                     *engine = new_state;
                 }
             })
             .or_insert_with(|| {
-                let mut new_state = EngineState::default();
+                let new_state = EngineState::default();
 
                 let warnings = new_state.take_state(UpdateMessage::FullResponse(features));
                 if let Some(warnings) = warnings {
+                    observe_feature_state_warnings(
+                        refresh_token.environment.as_deref().unwrap_or("*"),
+                        FULL_SOURCE,
+                        warnings.len(),
+                    );
                     warn!("The following toggle failed to compile and will be defaulted to off: {warnings:?}");
                 };
                 new_state
             });
+        if let (Some(revision_id), Some(env)) = (revision_id, refresh_token.environment.as_deref())
+        {
+            observe_last_applied_revision_id(env, revision_id);
+        }
     }
 
     #[instrument(skip(self))]
@@ -519,8 +541,8 @@ mod tests {
                 engine_cache: Default::default(),
                 client_meta_information: ClientMetaInformation {
                     app_name: "test-application".to_string(),
-                    instance_id: Ulid::new(),
-                    connection_id: Ulid::new(),
+                    instance_id: Ulid::generate(),
+                    connection_id: Ulid::generate(),
                 },
                 edge_instance_data: Arc::new(edge_instance_data_for_feature_refresher_test()),
             }
@@ -529,7 +551,7 @@ mod tests {
 
     fn edge_instance_data_for_feature_refresher_test() -> EdgeInstanceData {
         EdgeInstanceData {
-            identifier: Ulid::new().to_string(),
+            identifier: Ulid::generate().to_string(),
             app_name: "app_testing".to_string(),
             hosting: Some(Hosting::SelfHosted),
             region: None,
@@ -544,6 +566,7 @@ mod tests {
             connection_consumption_since_last_report: Default::default(),
             request_consumption_since_last_report: Default::default(),
             edge_api_key_revision_ids: Default::default(),
+            enricher_metrics: None,
         }
     }
 
@@ -555,8 +578,8 @@ mod tests {
     fn create_test_client(TestClientOptions { client_url }: TestClientOptions) -> UnleashClient {
         let client_meta_information = ClientMetaInformation {
             app_name: "unleash-edge-test".into(),
-            instance_id: Ulid::new(),
-            connection_id: Ulid::new(),
+            instance_id: Ulid::generate(),
+            connection_id: Ulid::generate(),
         };
 
         UnleashClient::from_url_with_backing_client(
@@ -597,6 +620,58 @@ mod tests {
             .await;
 
         assert_eq!(feature_refresher.tokens_to_refresh.len(), 1);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn full_applied_revision_waits_for_engine_update() {
+        use crate::refresh_metrics::{last_applied_revision_id, observe_last_applied_revision_id};
+
+        let refresher = Arc::new(FeatureRefresher::default());
+        let token = EdgeToken::try_from("*:full-revision-order-test.secret".to_string()).unwrap();
+        let environment = token.environment.as_deref().unwrap();
+        refresher
+            .tokens_to_refresh
+            .insert(token.token.clone(), TokenRefresh::new(token.clone(), None));
+        refresher
+            .engine_cache
+            .insert(cache_key(&token), EngineState::default());
+        observe_last_applied_revision_id(environment, 1);
+        let features = ClientFeatures {
+            meta: Some(unleash_types::client_features::Meta {
+                revision_id: Some(2),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        let engine = refresher.engine_cache.get(&cache_key(&token)).unwrap();
+        let worker_refresher = refresher.clone();
+        let worker_token = token.clone();
+        let runtime = tokio::runtime::Handle::current();
+        let worker = tokio::task::spawn_blocking(move || {
+            runtime.block_on(worker_refresher.handle_client_features_updated(
+                &worker_token,
+                features,
+                None,
+            ));
+        });
+        let received = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            while refresher
+                .tokens_to_refresh
+                .get(&token.token)
+                .unwrap()
+                .last_refreshed
+                .is_none()
+            {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await;
+        let revision_while_blocked = last_applied_revision_id(environment);
+        drop(engine);
+        worker.await.unwrap();
+        received.expect("refresh should reach the engine update");
+        assert_eq!(revision_while_blocked, 1);
+        assert_eq!(last_applied_revision_id(environment), 2);
     }
 
     #[tokio::test]
@@ -996,7 +1071,7 @@ mod tests {
         upstream_token_cache.insert(valid_token.token.clone(), valid_token.clone());
         let example_features = features_from_disk("../../../examples/features.json");
         let cache_key = cache_key(&valid_token);
-        let mut engine_state = EngineState::default();
+        let engine_state = EngineState::default();
         let warnings =
             engine_state.take_state(UpdateMessage::FullResponse(example_features.clone()));
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
@@ -1048,7 +1123,7 @@ mod tests {
         upstream_token_cache.insert(eg_token.token.clone(), eg_token.clone());
         let example_features = features_from_disk("../../../examples/hostedexample.json");
         let cache_key = cache_key(&dx_token);
-        let mut engine_state = EngineState::default();
+        let engine_state = EngineState::default();
         let warnings =
             engine_state.take_state(UpdateMessage::FullResponse(example_features.clone()));
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
@@ -1134,7 +1209,7 @@ mod tests {
         let example_features = features_from_disk("../../../examples/hostedexample.json");
         let cache_key = cache_key(&eg_token);
         upstream_features_cache.insert(cache_key.clone(), example_features.clone());
-        let mut engine_state = EngineState::default();
+        let engine_state = EngineState::default();
         let warnings =
             engine_state.take_state(UpdateMessage::FullResponse(example_features.clone()));
         upstream_engine_cache.insert(cache_key.clone(), engine_state);

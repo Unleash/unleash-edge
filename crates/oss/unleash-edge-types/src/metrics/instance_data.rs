@@ -40,6 +40,14 @@ pub struct EdgeApiKeyRevisionId {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct EnricherMetrics {
+    pub traffic: LatencyMetrics,
+    pub errors: u64,
+    pub timeouts: u64,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EdgeInstanceData {
     pub identifier: String,
     pub app_name: String,
@@ -62,6 +70,8 @@ pub struct EdgeInstanceData {
         deserialize_with = "deserialize_array_to_dashmap"
     )]
     pub edge_api_key_revision_ids: DashMap<ApiKeyIdentity, EdgeApiKeyRevisionId>,
+    #[serde(default)]
+    pub enricher_metrics: Option<EnricherMetrics>,
 }
 
 fn deserialize_array_to_dashmap<'de, D>(
@@ -118,6 +128,7 @@ impl EdgeInstanceData {
                 metered_groups: DashMap::new(),
             },
             edge_api_key_revision_ids: DashMap::default(),
+            enricher_metrics: None,
         }
     }
 
@@ -255,6 +266,8 @@ impl EdgeInstanceData {
         let mut post_requests = HashMap::default();
         let mut access_denied = HashMap::default();
         let mut no_change = HashMap::default();
+        let mut enricher_errors = 0;
+        let mut enricher_timeouts = 0;
 
         for family in gather().iter() {
             match family.name() {
@@ -404,6 +417,39 @@ impl EdgeInstanceData {
                             connected_streaming_clients.get_gauge().value() as u64;
                     }
                 }
+                "context_enricher_duration_milliseconds" => {
+                    if let Some(metric) = family.get_metric().last() {
+                        let histogram = metric.get_histogram();
+                        let count = histogram.get_sample_count();
+                        observed.enricher_metrics = Some(EnricherMetrics {
+                            traffic: LatencyMetrics {
+                                avg: if count == 0 {
+                                    0.0
+                                } else {
+                                    round_to_3_decimals(histogram.get_sample_sum() / count as f64)
+                                },
+                                count: count as f64,
+                                p99: if count == 0 {
+                                    0.0
+                                } else {
+                                    get_percentile(99, count, histogram.get_bucket())
+                                },
+                            },
+                            errors: 0,
+                            timeouts: 0,
+                        });
+                    }
+                }
+                "context_enricher_errors_total" => {
+                    if let Some(metric) = family.get_metric().last() {
+                        enricher_errors = metric.get_counter().value() as u64;
+                    }
+                }
+                "context_enricher_timeouts_total" => {
+                    if let Some(metric) = family.get_metric().last() {
+                        enricher_timeouts = metric.get_counter().value() as u64;
+                    }
+                }
                 _ => {}
             }
         }
@@ -417,6 +463,10 @@ impl EdgeInstanceData {
             cpu_usage: cpu_seconds as f64,
             memory_usage: resident_memory as f64,
         });
+        if let Some(enricher_metrics) = &mut observed.enricher_metrics {
+            enricher_metrics.errors = enricher_errors;
+            enricher_metrics.timeouts = enricher_timeouts;
+        }
         for connected_instance in connected_instances {
             observed.connected_edges.push(connected_instance.clone());
         }
@@ -451,7 +501,35 @@ fn round_to_3_decimals(number: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use prometheus::{register_histogram, register_int_counter};
     use serde_json::json;
+
+    #[test]
+    fn observes_context_enricher_metrics() {
+        let duration = register_histogram!(
+            "context_enricher_duration_milliseconds",
+            "Context enrichment duration",
+            vec![1.0, 5.0, 10.0]
+        )
+        .unwrap();
+        let errors =
+            register_int_counter!("context_enricher_errors_total", "Enrichment errors").unwrap();
+        let timeouts =
+            register_int_counter!("context_enricher_timeouts_total", "Enrichment timeouts")
+                .unwrap();
+
+        duration.observe(2.0);
+        duration.observe(4.0);
+        errors.inc();
+        timeouts.inc();
+
+        let data = EdgeInstanceData::new("test", &Ulid::generate(), None).observe(vec![], "");
+        let enricher = serde_json::to_value(data.enricher_metrics).unwrap();
+        assert_eq!(enricher["traffic"]["count"], 2.0);
+        assert_eq!(enricher["traffic"]["avg"], 3.0);
+        assert_eq!(enricher["errors"], 1);
+        assert_eq!(enricher["timeouts"], 1);
+    }
 
     #[test]
     pub fn can_find_p99_of_a_range() {
@@ -499,7 +577,7 @@ mod tests {
 
     #[test]
     fn can_observe_request_consumption_and_clear_consumption_metrics() {
-        let instance_data = EdgeInstanceData::new("test", &Ulid::new(), None);
+        let instance_data = EdgeInstanceData::new("test", &Ulid::generate(), None);
 
         instance_data.observe_request_consumption();
         instance_data.observe_request_consumption();
@@ -533,7 +611,7 @@ mod tests {
 
     #[test]
     fn can_observe_connection_consumption_with_data_points() {
-        let instance_data = EdgeInstanceData::new("test", &Ulid::new(), None);
+        let instance_data = EdgeInstanceData::new("test", &Ulid::generate(), None);
 
         instance_data.observe_connection_consumption("/api/client/features", Some(0));
         instance_data.observe_connection_consumption("/api/client/features", Some(0));
@@ -677,9 +755,10 @@ mod tests {
 
     #[test]
     fn serializes_hosting_if_and_only_if_present() {
-        let self_hosted = EdgeInstanceData::new("test", &Ulid::new(), Some(Hosting::SelfHosted));
-        let hosted = EdgeInstanceData::new("test", &Ulid::new(), Some(Hosting::Hosted));
-        let no_data = EdgeInstanceData::new("test", &Ulid::new(), None);
+        let self_hosted =
+            EdgeInstanceData::new("test", &Ulid::generate(), Some(Hosting::SelfHosted));
+        let hosted = EdgeInstanceData::new("test", &Ulid::generate(), Some(Hosting::Hosted));
+        let no_data = EdgeInstanceData::new("test", &Ulid::generate(), None);
 
         let serialized_self_hosted = serde_json::to_value(&self_hosted).unwrap();
         assert_eq!(serialized_self_hosted["hosting"], "self-hosted");
@@ -698,7 +777,7 @@ mod tests {
 
     #[test]
     fn can_observe_refreshed_api_key() {
-        let self_hosted = EdgeInstanceData::new("test", &Ulid::new(), Some(Hosting::Hosted));
+        let self_hosted = EdgeInstanceData::new("test", &Ulid::generate(), Some(Hosting::Hosted));
         assert!(self_hosted.edge_api_key_revision_ids.is_empty());
         let now = Utc::now();
         self_hosted.observe_api_key_refresh(
@@ -712,7 +791,7 @@ mod tests {
 
     #[test]
     fn updating_same_key_updates_revision_id_and_timestamp() {
-        let self_hosted = EdgeInstanceData::new("test", &Ulid::new(), Some(Hosting::Hosted));
+        let self_hosted = EdgeInstanceData::new("test", &Ulid::generate(), Some(Hosting::Hosted));
         assert!(self_hosted.edge_api_key_revision_ids.is_empty());
         let now = Utc::now();
         let key = ApiKeyIdentity {
@@ -751,7 +830,7 @@ mod tests {
 
     #[test]
     pub fn unique_keys_all_get_stored() {
-        let self_hosted = EdgeInstanceData::new("test", &Ulid::new(), Some(Hosting::Hosted));
+        let self_hosted = EdgeInstanceData::new("test", &Ulid::generate(), Some(Hosting::Hosted));
         assert!(self_hosted.edge_api_key_revision_ids.is_empty());
         let now = Utc::now();
         let dev_key = ApiKeyIdentity {
@@ -798,7 +877,7 @@ mod tests {
         let requests_since_last_report: DashMap<String, RequestStats> = DashMap::default();
 
         let json = json!({
-            "identifier": Ulid::new().to_string(),
+            "identifier": Ulid::generate().to_string(),
             "appName": "test",
             "hosting": "hosted",
             "edgeVersion": "1.0.0",
@@ -823,7 +902,7 @@ mod tests {
     pub fn deserializes_list_of_edge_api_key_revision_ids_to_map_internally() {
         let requests_since_last_report: DashMap<String, RequestStats> = DashMap::default();
         let json = json!({
-                        "identifier": Ulid::new().to_string(),
+                        "identifier": Ulid::generate().to_string(),
                         "appName": "test",
                         "hosting": "hosted",
                         "edgeVersion": "1.0.0",

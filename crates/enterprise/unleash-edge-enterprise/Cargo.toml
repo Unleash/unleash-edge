@@ -12,6 +12,6 @@ license-file = "../../../LICENSE-ENTERPRISE.md"
 tokio = { workspace = true }
 tracing = { workspace = true }
 unleash-edge-http-client = { workspace = true }
+unleash-edge-persistence = { workspace = true }
 unleash-edge-types = { workspace = true }
 ulid = { workspace = true }
-unleash-edge-persistence = { workspace = true }

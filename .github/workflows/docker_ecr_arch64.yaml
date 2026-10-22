@@ -25,9 +25,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant:
-          - oss
-          - enterprise
+        include:
+          - variant: oss
+            target: runtime
+          - variant: enterprise
+            target: enterprise-runtime
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -69,6 +71,7 @@ jobs:
         with:
           context: .
           platforms: linux/arm64
+          target: ${{ matrix.target }}
           push: ${{ github.event_name != 'pull_request' }}
           labels: ${{ steps.meta.outputs.labels }}
           tags: ${{ steps.meta.outputs.tags }}

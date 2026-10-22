@@ -1,4 +1,32 @@
 
+## [unleash-edge-v20.6.1] - 2026-10-22
+
+### ⚙️ Miscellaneous Tasks
+- bump dependencies (#1952) (by @chriswk) - #1952
+
+## [unleash-edge-v20.6.0] - 2026-10-07
+
+### 🚀 Features
+- expose context enrichers to public API (#1833) (by @sighphyre) - #1833
+- allow custom prom headers (#1898) (by @sighphyre) - #1898
+- metrics for discarded feature state and failed background refreshes (#1755) (by @gastonfournier) - #1755
+
+### 🐛 Bug Fixes
+- make sure we allow startup even if Unleash can't be reached (#1875) (by @chriswk) - #1875
+- only keep requested environments from HMAC/tokens (#1881) (by @chriswk) - #1881
+
+### ⚙️ Miscellaneous Tasks
+- initial wire up of context enrichers - still fully disabled (#1826) (by @sighphyre) - #1826
+
+## [unleash-edge-v20.5.0] - 2026-08-27
+
+## [unleash-edge-v20.4.1] - 2026-07-28
+
+## [unleash-edge-v20.4.0] - 2026-07-17
+
+### 🚀 Features
+- send token usage downstream (#1709) (by @gastonfournier) - #1709
+
 ## [unleash-edge-v20.3.1] - 2026-06-18
 
 ## [unleash-edge-v20.3.0] - 2026-06-09

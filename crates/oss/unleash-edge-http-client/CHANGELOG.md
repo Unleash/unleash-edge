@@ -1,4 +1,23 @@
 
+## [unleash-edge-v20.6.1] - 2026-10-22
+
+### 🐛 Bug Fixes
+- *(instance-data)* recover from failed upstream posts (#1950) (by @irstavr)
+
+### ⚙️ Miscellaneous Tasks
+- bump dependencies (#1952) (by @chriswk) - #1952
+
+## [unleash-edge-v20.6.0] - 2026-10-07
+
+### 🐛 Bug Fixes
+- make sure we allow startup even if Unleash can't be reached (#1875) (by @chriswk) - #1875
+
+## [unleash-edge-v20.5.0] - 2026-08-27
+
+## [unleash-edge-v20.4.1] - 2026-07-28
+
+## [unleash-edge-v20.4.0] - 2026-07-17
+
 ## [unleash-edge-v20.3.1] - 2026-06-18
 
 ## [unleash-edge-v20.3.0] - 2026-06-09

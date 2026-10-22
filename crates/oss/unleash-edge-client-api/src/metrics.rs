@@ -161,7 +161,7 @@ mod tests {
                 metrics_cache,
                 connect_via: ConnectVia {
                     app_name: "test".into(),
-                    instance_id: Ulid::new().to_string(),
+                    instance_id: Ulid::generate().to_string(),
                 },
                 connected_instances: Arc::new(tokio::sync::RwLock::new(vec![])),
             },
@@ -211,6 +211,8 @@ mod tests {
                 sdk_version: None,
                 sdk_type: None,
                 yggdrasil_version: None,
+                sdk_flavor: None,
+                sdk_flavor_version: None,
             },
         };
 
@@ -278,6 +280,7 @@ mod tests {
                     applications: vec![],
                     metrics: vec![],
                     impact_metrics: None,
+                    seen_tokens: None,
                 })
                 .expect("Failed to parse Batch metrics request body"),
             )
@@ -319,6 +322,8 @@ mod tests {
                 sdk_version: Some("1.0".into()),
                 sdk_type: Some(Backend),
                 yggdrasil_version: None,
+                sdk_flavor: None,
+                sdk_flavor_version: None,
             },
         };
         let r = server
@@ -373,6 +378,8 @@ mod tests {
                             sdk_version: None,
                             sdk_type: None,
                             yggdrasil_version: None,
+                            sdk_flavor: None,
+                            sdk_flavor_version: None,
                         },
                     }],
                     metrics: vec![ClientMetricsEnv {
@@ -389,6 +396,8 @@ mod tests {
                             sdk_version: None,
                             sdk_type: None,
                             yggdrasil_version: None,
+                            sdk_flavor: None,
+                            sdk_flavor_version: None,
                         },
                     }],
                     impact_metrics: Some(vec![ImpactMetric::Counter {
@@ -402,6 +411,7 @@ mod tests {
                             ])),
                         }],
                     }]),
+                    seen_tokens: None,
                 })
                 .expect("Failed to convert to Json"),
             )

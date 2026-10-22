@@ -32,8 +32,8 @@ mod tests {
         fn test_config() -> Self {
             ClientMetaInformation {
                 app_name: "test_app".into(),
-                instance_id: Ulid::new(),
-                connection_id: Ulid::new(),
+                instance_id: Ulid::generate(),
+                connection_id: Ulid::generate(),
             }
         }
     }

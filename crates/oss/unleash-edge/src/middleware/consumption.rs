@@ -161,7 +161,7 @@ mod tests {
     async fn test_backend_consumption() {
         let edge_instance_data = Arc::new(EdgeInstanceData::new(
             "test",
-            &Ulid::new(),
+            &Ulid::generate(),
             Some(Hosting::SelfHosted),
         ));
         let app_state = ConsumptionState {
@@ -191,7 +191,7 @@ mod tests {
     async fn test_frontend_consumption() {
         let edge_instance_data = Arc::new(EdgeInstanceData::new(
             "test",
-            &Ulid::new(),
+            &Ulid::generate(),
             Some(Hosting::SelfHosted),
         ));
         let app_state = ConsumptionState {
@@ -218,7 +218,7 @@ mod tests {
     async fn test_no_consumption_on_invalid_path() {
         let edge_instance_data = Arc::new(EdgeInstanceData::new(
             "test",
-            &Ulid::new(),
+            &Ulid::generate(),
             Some(Hosting::SelfHosted),
         ));
         let app_state = ConsumptionState {
@@ -249,7 +249,7 @@ mod tests {
     async fn test_no_connection_consumption_on_frontend_client_metrics() {
         let edge_instance_data = Arc::new(EdgeInstanceData::new(
             "test",
-            &Ulid::new(),
+            &Ulid::generate(),
             Some(Hosting::SelfHosted),
         ));
         let app_state = ConsumptionState {

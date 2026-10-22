@@ -1,4 +1,26 @@
 
+## [unleash-edge-v20.6.1] - 2026-10-22
+
+### ⚙️ Miscellaneous Tasks
+- bump dependencies (#1952) (by @chriswk) - #1952
+
+## [unleash-edge-v20.6.0] - 2026-10-07
+
+### 🚀 Features
+- metrics for discarded feature state and failed background refreshes (#1755) (by @gastonfournier) - #1755
+
+### ⚙️ Miscellaneous Tasks
+- instance data sending for context enrichers (#1883) (by @sighphyre) - #1883
+
+## [unleash-edge-v20.5.0] - 2026-08-27
+
+### 🚀 Features
+- add SDK flavor to Edge's frontend client metadata (#1763) (by @irstavr) - #1763
+
+## [unleash-edge-v20.4.1] - 2026-07-28
+
+## [unleash-edge-v20.4.0] - 2026-07-17
+
 ## [unleash-edge-v20.3.1] - 2026-06-18
 
 ## [unleash-edge-v20.3.0] - 2026-06-09

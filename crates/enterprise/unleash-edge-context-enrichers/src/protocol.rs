@@ -1,0 +1,134 @@
+use serde::{Deserialize, Deserializer, Serialize};
+use unleash_types::client_features::Context;
+
+use crate::serializable_header::SerializableHeaders;
+
+#[derive(Serialize)]
+pub(crate) struct EnrichmentRequest<'a> {
+    pub(crate) id: u64,
+    pub(crate) context: &'a Context,
+    pub(crate) headers: SerializableHeaders<'a>,
+}
+
+pub(crate) struct SerializedEnrichmentRequest(Vec<u8>);
+
+impl SerializedEnrichmentRequest {
+    pub(crate) fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl TryFrom<EnrichmentRequest<'_>> for SerializedEnrichmentRequest {
+    type Error = serde_json::Error;
+
+    fn try_from(request: EnrichmentRequest<'_>) -> Result<Self, Self::Error> {
+        let mut serialized = serde_json::to_vec(&request)?;
+        serialized.push(b'\n');
+        Ok(Self(serialized))
+    }
+}
+
+pub(crate) struct EnrichmentResponse {
+    pub(crate) id: u64,
+    pub(crate) outcome: Result<Context, String>,
+}
+
+#[derive(Deserialize)]
+pub(crate) struct ReadyMessage {
+    #[serde(rename = "messageType")]
+    pub _message_type: String,
+}
+
+#[derive(Deserialize)]
+struct ProtocolEnrichmentResponse {
+    pub(crate) id: u64,
+    pub(crate) context: Option<Context>,
+    pub(crate) error: Option<String>,
+}
+
+impl<'de> Deserialize<'de> for EnrichmentResponse {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        // yeah life sucks here - this is borked on the wire, but importantly this is not
+        // a worker telling us about an error state, this is a worker who's unable to communicate with
+        // us effectively for some reason - most likely a bug in the protocol itself. Either way, this is
+        // a different type of error from a worker reporting a protocol enrichment error
+        let protocol_response = ProtocolEnrichmentResponse::deserialize(deserializer)?;
+
+        match (protocol_response.context, protocol_response.error) {
+            (Some(context), None) => Ok(EnrichmentResponse {
+                id: protocol_response.id,
+                outcome: Ok(context),
+            }),
+            (None, Some(error)) => {
+                // errors here are happy path - user defined script is having a moment, but importantly, nothing is wrong with our system
+                Ok(EnrichmentResponse {
+                    id: protocol_response.id,
+                    outcome: Err(error),
+                })
+            }
+            (Some(_), Some(_)) => Err(serde::de::Error::custom(
+                "Context enricher protocol error: both context and error are set",
+            )),
+            (None, None) => Err(serde::de::Error::custom(
+                "Context enricher protocol error: response must contain either context or error",
+            )),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_deserializing_happy_path_enrichment_response_works() {
+        let json = r#"{"id": 1, "context": {"userId": "123"}, "error": null}"#;
+        let response: EnrichmentResponse = serde_json::from_str(json)
+            .expect("Failed to deserialize happy path enrichment response");
+
+        assert_eq!(response.id, 1);
+        assert!(response.outcome.is_ok());
+        assert_eq!(response.outcome.unwrap().user_id.as_deref(), Some("123"));
+    }
+
+    #[test]
+    fn test_deserializing_error_path_enrichment_response_works() {
+        let json = r#"{"id": 2, "context": null, "error": "Some error occurred"}"#;
+        let response: EnrichmentResponse = serde_json::from_str(json)
+            .expect("Failed to deserialize error path enrichment response");
+
+        assert_eq!(response.id, 2);
+        assert!(response.outcome.is_err());
+        assert_eq!(response.outcome.unwrap_err(), "Some error occurred");
+    }
+
+    #[test]
+    fn broken_protocol_message_errors() {
+        let json = r#"{"id": 3, "context": {"userId": "123"}, "error": "Some error occurred"}"#;
+        let both_fields_set_response: Result<EnrichmentResponse, _> = serde_json::from_str(json);
+
+        let json = r#"{"id": 4, "context": null, "error": null}"#;
+        let neither_field_set_response: Result<EnrichmentResponse, _> = serde_json::from_str(json);
+
+        assert!(both_fields_set_response.is_err());
+        assert!(neither_field_set_response.is_err());
+    }
+
+    #[test]
+    fn malformed_enrichment_response_errors() {
+        let response: Result<EnrichmentResponse, _> = serde_json::from_str("not-json");
+
+        assert!(response.is_err());
+    }
+
+    #[test]
+    fn ready_message_deserializes() {
+        let ready: ReadyMessage = serde_json::from_str(r#"{"messageType":"ready"}"#)
+            .expect("Failed to deserialize ready message");
+
+        assert_eq!(ready._message_type, "ready");
+    }
+}

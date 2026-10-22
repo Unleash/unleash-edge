@@ -7,6 +7,7 @@ use tracing::{debug, instrument, trace};
 use unleash_edge_appstate::AppState;
 use unleash_edge_appstate::edge_token_extractor::AuthToken;
 use unleash_edge_auth::token_validator::{TokenRegister, TokenValidator};
+use unleash_edge_metrics::client_metrics::register_seen_token;
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::tokens::EdgeToken;
 use unleash_edge_types::{TokenType, TokenValidationStatus};
@@ -21,10 +22,13 @@ pub async fn validate_token(
     let path = req.uri().path();
     let validation_status = match (*app_state.token_validator).clone() {
         Some(ref validator) => validate_with_validator(&edge_token, path, validator).await,
-        None => validate_without_validator(app_state, &edge_token, path),
+        None => validate_without_validator(&app_state, &edge_token, path),
     };
     match validation_status {
-        Ok(_) => next.run(req).await,
+        Ok(_) => {
+            register_seen_token(&app_state.metrics_cache, &edge_token);
+            next.run(req).await
+        }
         Err(err) => match err {
             EdgeError::AuthorizationDenied => Response::builder()
                 .status(StatusCode::UNAUTHORIZED)
@@ -40,7 +44,7 @@ pub async fn validate_token(
 }
 
 fn validate_without_validator(
-    app_state: State<AppState>,
+    app_state: &State<AppState>,
     edge_token: &EdgeToken,
     path: &str,
 ) -> Result<(), EdgeError> {
