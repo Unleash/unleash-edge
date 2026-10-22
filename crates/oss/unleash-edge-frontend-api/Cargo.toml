@@ -8,6 +8,9 @@ edition.workspace = true
 publish = false
 license.workspace = true
 
+[features]
+enterprise = ["unleash-edge-appstate/enterprise"]
+
 [dependencies]
 axum = { workspace = true }
 dashmap = { workspace = true }
@@ -30,5 +33,6 @@ utoipa = { workspace = true }
 
 [dev-dependencies]
 axum-test = { workspace = true }
+tempfile = "3.23.0"
 tower = { workspace = true }
 unleash-edge-cli = { workspace = true }

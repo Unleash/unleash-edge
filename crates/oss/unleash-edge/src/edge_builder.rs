@@ -1,10 +1,14 @@
 use crate::{CacheContainer, EdgeInfo, OTEL_INIT, SHOULD_DEFER_VALIDATION};
 use chrono::{Duration, Utc};
 use dashmap::DashMap;
-use http::StatusCode;
+use http::{HeaderMap, StatusCode};
 use ipnet::IpNet;
+use std::collections::HashSet;
+
 #[cfg(feature = "enterprise")]
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
+#[cfg(feature = "enterprise")]
+use std::num::NonZeroU32;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -13,8 +17,8 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::watch::{Receiver, channel};
 use tracing::{debug, error, info, warn};
 use ulid::Ulid;
-use unleash_edge_appstate::AppState;
 use unleash_edge_appstate::token_cache_observer::observe_tokens_in_background;
+use unleash_edge_appstate::{AppState, ContextEnricher};
 use unleash_edge_auth::token_validator::{
     TokenValidator, create_deferred_validation_task, create_revalidation_of_startup_tokens_task,
     create_revalidation_task,
@@ -27,6 +31,10 @@ use unleash_edge_delta::cache_manager::{DeltaCacheManager, create_terminate_sse_
 use unleash_edge_feature_cache::FeatureCache;
 use unleash_edge_feature_refresh::delta_refresh::{
     DELTA_CACHE_LIMIT, DeltaRefresher, start_streaming_delta_background_task,
+};
+use unleash_edge_feature_refresh::refresh_metrics::{
+    HYDRATION_SOURCE, initialize_feature_refresh_metrics, observe_feature_state_warnings,
+    observe_last_applied_revision_id,
 };
 use unleash_edge_feature_refresh::{
     FeatureRefreshConfig, FeatureRefresher, HydratorType, start_refresh_features_background_task,
@@ -162,15 +170,28 @@ async fn hydrate_from_persistent_storage(cache: CacheContainer, storage: Arc<dyn
     });
 
     for (key, features) in features {
+        // A cache key can be a raw token. Only use explicit environment metadata
+        // as a metric label, including when an old backup has no matching token.
+        let environment = token_cache.iter().find_map(|token| {
+            (cache_key(token.value()) == key)
+                .then(|| token.environment.clone())
+                .flatten()
+        });
+        let environment = environment.as_deref().unwrap_or("*");
+        initialize_feature_refresh_metrics(environment);
         debug!("Hydrating features for {key:?}");
         features_cache.insert(key.clone(), features.clone());
-        let mut engine_state = EngineState::default();
+        let engine_state = EngineState::default();
 
         let warnings = engine_state.take_state(UpdateMessage::FullResponse(features.clone()));
         if let Some(warnings) = warnings {
+            observe_feature_state_warnings(environment, HYDRATION_SOURCE, warnings.len());
             warn!("Failed to hydrate features for {key:?}: {warnings:?}");
         }
         engine_cache.insert(key.clone(), engine_state);
+        if let Some(revision_id) = features.meta.as_ref().and_then(|meta| meta.revision_id) {
+            observe_last_applied_revision_id(environment, revision_id);
+        }
 
         if !features.features.is_empty() {
             delta_cache.insert_cache(
@@ -225,11 +246,6 @@ pub async fn build_edge(
         features_refresh_interval,
     }: EdgeBuilderArgs,
 ) -> EdgeResult<EdgeInfo> {
-    if tokens.is_empty() {
-        return Err(EdgeError::NoTokens(
-            "No tokens provided. Tokens must be specified".into(),
-        ));
-    }
     let (token_cache, feature_cache, delta_cache, engine_cache) = build_caches();
     let persistence = get_data_source(&persistence_args).await;
     tokens.iter().for_each(|token| {
@@ -281,6 +297,10 @@ pub async fn build_edge(
     let _ = token_validator
         .register_tokens(tokens.clone().into_iter().map(|t| t.token).collect())
         .await;
+    let desired_envs: HashSet<String> = tokens
+        .iter()
+        .filter_map(|f| f.environment.clone())
+        .collect();
     if let Some(persistence) = persistence.clone() {
         hydrate_from_persistent_storage(
             (
@@ -301,6 +321,14 @@ pub async fn build_edge(
     for validated_token in token_cache
         .iter()
         .filter(|candidate| candidate.value().token_type == Some(TokenType::Backend))
+        .filter(|candidate| {
+            desired_envs.is_empty()
+                || candidate
+                    .environment
+                    .as_ref()
+                    .map(|e| desired_envs.contains(e))
+                    .unwrap_or(false)
+        })
     {
         hydrator_type
             .register_token_for_refresh(validated_token.clone(), None)
@@ -319,6 +347,18 @@ pub async fn build_edge(
         }
     }
     hydrator_type.hydrate_new_tokens().await;
+    if !desired_envs.is_empty() {
+        token_cache.retain(|_, token| {
+            token.token_type != Some(TokenType::Backend)
+                || token
+                    .environment
+                    .as_ref()
+                    .is_some_and(|environment| desired_envs.contains(environment))
+        });
+        feature_cache.keep_wanted_environments(&desired_envs);
+        delta_cache.keep_wanted_environments(&desired_envs);
+        engine_cache.retain(|e, _| desired_envs.contains(e));
+    }
     Ok((
         (token_cache, feature_cache, delta_cache, engine_cache),
         Arc::new(token_validator),
@@ -418,10 +458,42 @@ pub struct EdgeStateArgs {
     pub token_revalidation_interval_seconds: u64,
     pub prometheus_remote_write_url: Option<String>,
     pub prometheus_push_interval: u64,
-    pub prometheus_username: Option<String>,
-    pub prometheus_password: Option<String>,
+    pub prometheus_headers: HeaderMap,
     pub hostname: Option<String>,
     pub ec2_instance_id: Option<String>,
+    pub context_enricher: ContextEnricherConfig,
+}
+
+#[derive(Debug, Clone, Default)]
+pub enum ContextEnricherConfig {
+    #[default]
+    Disabled,
+    #[cfg(feature = "enterprise")]
+    Enabled {
+        script_path: PathBuf,
+        worker_count: NonZeroU32,
+    },
+}
+
+impl From<&EdgeArgs> for ContextEnricherConfig {
+    fn from(edge_args: &EdgeArgs) -> Self {
+        #[cfg(feature = "enterprise")]
+        {
+            if let Some(script_path) = edge_args.context_enricher.context_enricher_script.clone() {
+                return Self::Enabled {
+                    script_path,
+                    worker_count: edge_args
+                        .context_enricher
+                        .context_enricher_workers
+                        .unwrap_or_else(|| NonZeroU32::new(1).unwrap()),
+                };
+            }
+        }
+
+        #[cfg(not(feature = "enterprise"))]
+        let _ = edge_args;
+        Self::Disabled
+    }
 }
 
 impl From<&EdgeStateArgs> for TracingOpts {
@@ -491,11 +563,17 @@ pub async fn build_edge_state(
     })
     .await?;
 
+    let found_tokens: Vec<EdgeToken> = token_cache
+        .clone()
+        .iter()
+        .map(|t| t.value().clone())
+        .collect();
+
     let license_state = ApplicationLicenseState::new(
         match resolve_license(
             &unleash_client,
             persistence.clone(),
-            &args.tokens,
+            &found_tokens,
             &args.client_meta_information,
         )
         .await?
@@ -510,7 +588,6 @@ pub async fn build_edge_state(
     );
 
     let instance_data_sender: Arc<InstanceDataSending> = Arc::new(InstanceDataSending::from_args(
-        args.tokens.clone(),
         args.auth_headers.clone(),
         args.upstream_url,
         &args.client_meta_information,
@@ -519,6 +596,7 @@ pub async fn build_edge_state(
         args.http_client,
     )?);
     let metrics_cache = Arc::new(MetricsCache::default());
+    let context_enricher = build_context_enricher(args.context_enricher).await?;
 
     let background_tasks = create_edge_mode_background_tasks(BackgroundTaskArgs {
         app_name: args.client_meta_information.app_name.clone(),
@@ -544,8 +622,7 @@ pub async fn build_edge_state(
         tokens: args.tokens.clone(),
         prometheus_remote_write_url: args.prometheus_remote_write_url,
         prometheus_push_interval: args.prometheus_push_interval,
-        prometheus_username: args.prometheus_username,
-        prometheus_password: args.prometheus_password,
+        prometheus_headers: args.prometheus_headers,
         custom_client_headers: args.custom_client_headers,
         hostname: args.hostname,
         ec2_instance_id: args.ec2_instance_id,
@@ -578,6 +655,7 @@ pub async fn build_edge_state(
         allow_list: args.http_allow_list.unwrap_or_default(),
         trust_proxy: args.trust_proxy,
         proxy_trusted_servers: args.proxy_trusted_servers,
+        context_enricher,
         auth_headers: args.auth_headers.clone(),
         connect_via: ConnectVia {
             app_name: args.client_meta_information.app_name.clone(),
@@ -587,6 +665,21 @@ pub async fn build_edge_state(
     };
 
     Ok((app_state, background_tasks, shutdown_tasks))
+}
+
+async fn build_context_enricher(
+    config: ContextEnricherConfig,
+) -> Result<ContextEnricher, EdgeError> {
+    match config {
+        ContextEnricherConfig::Disabled => Ok(ContextEnricher::disabled()),
+        #[cfg(feature = "enterprise")]
+        ContextEnricherConfig::Enabled {
+            script_path,
+            worker_count,
+        } => ContextEnricher::start(worker_count, script_path)
+            .await
+            .map_err(|error| EdgeError::ContextEnricherError(error.to_string())),
+    }
 }
 
 pub(crate) struct ShutdownTaskArgs {
@@ -601,6 +694,7 @@ pub(crate) struct ShutdownTaskArgs {
     edge_instance_data: Arc<EdgeInstanceData>,
     instances_observed_for_app_context: Arc<RwLock<Vec<EdgeInstanceData>>>,
 }
+
 fn create_shutdown_tasks(
     ShutdownTaskArgs {
         persistence,
@@ -636,6 +730,7 @@ fn create_shutdown_tasks(
         instance_data_sender.clone(),
         edge_instance_data.clone(),
         instances_observed_for_app_context.clone(),
+        token_cache.clone(),
     ));
 
     tasks.push(create_terminate_sse_connections_task(
@@ -671,8 +766,7 @@ pub(crate) struct BackgroundTaskArgs {
     tokens: Vec<EdgeToken>,
     prometheus_remote_write_url: Option<String>,
     prometheus_push_interval: u64,
-    prometheus_username: Option<String>,
-    prometheus_password: Option<String>,
+    prometheus_headers: HeaderMap,
     custom_client_headers: Vec<(String, String)>,
     hostname: Option<String>,
     ec2_instance_id: Option<String>,
@@ -702,8 +796,7 @@ fn create_edge_mode_background_tasks(
         tokens,
         prometheus_remote_write_url,
         prometheus_push_interval,
-        prometheus_username,
-        prometheus_password,
+        prometheus_headers,
         custom_client_headers,
         hostname,
         ec2_instance_id,
@@ -729,6 +822,7 @@ fn create_edge_mode_background_tasks(
             instance_data_sender.clone(),
             edge_instance_data.clone(),
             instances_observed_for_app_context.clone(),
+            token_cache.clone(),
         ),
         observe_tokens_in_background(
             edge_instance_data.app_name.clone(),
@@ -744,8 +838,7 @@ fn create_edge_mode_background_tasks(
             app_name,
             client_id,
             instance_id: client_meta_information.instance_id.to_string(),
-            username: prometheus_username.clone(),
-            password: prometheus_password.clone(),
+            headers: prometheus_headers.clone(),
             hostname,
             ec2_instance_id,
         }));
@@ -782,13 +875,9 @@ fn create_edge_mode_background_tasks(
     #[cfg(feature = "enterprise")]
     {
         use unleash_edge_enterprise::create_enterprise_heartbeat_task;
-
         tasks.push(create_enterprise_heartbeat_task(
             unleash_client,
-            startup_tokens
-                .first()
-                .cloned()
-                .expect("Startup token is required for enterprise feature"),
+            token_cache.clone(),
             refresh_state_tx,
             client_meta_information.connection_id,
             license_state,
@@ -911,37 +1000,53 @@ fn load_hydrator(
 pub async fn resolve_license(
     unleash_client: &UnleashClient,
     persistence: Option<Arc<dyn EdgePersistence>>,
-    startup_tokens: &[EdgeToken],
+    tokens: &[EdgeToken],
     client_meta_information: &ClientMetaInformation,
 ) -> Result<LicenseState, EdgeError> {
     debug!("Starting enterprise license check");
-    match unleash_client
-        .send_heartbeat(
-            startup_tokens.first().unwrap(),
-            &client_meta_information.instance_id,
-        )
-        .await
-    {
-        Ok(license) => {
-            if let Some(persistence) = persistence {
-                let _ = persistence.save_license_state(&license).await;
-            }
-            Ok(license)
-        }
-
-        Err(_) => {
-            if let Some(persistence) = persistence {
-                persistence.load_license_state().await.map_err(|_| {
-                    EdgeError::HeartbeatError(
-                        "Could not load license from either persistence or API".into(),
-                        StatusCode::SERVICE_UNAVAILABLE,
-                    )
-                })
-            } else {
-                Err(EdgeError::HeartbeatError(
-                    "Could not reach upstream API and no cached license found".into(),
+    if tokens.is_empty() {
+        match persistence {
+            Some(p) => p.load_license_state().await.map_err(|_| {
+                EdgeError::HeartbeatError(
+                    "No tokens available to check license and failed to load from persistence"
+                        .into(),
                     StatusCode::SERVICE_UNAVAILABLE,
-                ))
+                )
+            }),
+            None => Err(EdgeError::HeartbeatError(
+                "No tokens available to check license and no cached license found".into(),
+                StatusCode::SERVICE_UNAVAILABLE,
+            )),
+        }
+    } else {
+        match unleash_client
+            .send_heartbeat(
+                tokens.first().unwrap(),
+                &client_meta_information.instance_id,
+            )
+            .await
+        {
+            Ok(license) => {
+                if let Some(persistence) = persistence {
+                    let _ = persistence.save_license_state(&license).await;
+                }
+                Ok(license)
+            }
+
+            Err(_) => {
+                if let Some(persistence) = persistence {
+                    persistence.load_license_state().await.map_err(|_| {
+                        EdgeError::HeartbeatError(
+                            "Could not load license from either persistence or API".into(),
+                            StatusCode::SERVICE_UNAVAILABLE,
+                        )
+                    })
+                } else {
+                    Err(EdgeError::HeartbeatError(
+                        "Could not reach upstream API and no cached license found".into(),
+                        StatusCode::SERVICE_UNAVAILABLE,
+                    ))
+                }
             }
         }
     }
@@ -960,14 +1065,61 @@ pub async fn resolve_license(
 
 #[cfg(test)]
 mod tests {
-    use crate::edge_builder::build_caches;
+    use crate::edge_builder::{EdgeBuilderArgs, PersistenceArgs, build_caches, build_edge};
     use ahash::{HashMap, HashMapExt};
+    use axum::Json;
+    use axum::Router;
+    use axum::http::{HeaderMap, StatusCode};
+    use axum::routing::{get, post};
+    use axum_test::TestServer;
+    use chrono::Duration;
     use std::env::temp_dir;
-    use std::sync::Arc;
+    use std::str::FromStr;
+    use std::sync::{Arc, Mutex};
     use ulid::Ulid;
+    use unleash_edge_cli::AuthHeaders;
+    use unleash_edge_feature_refresh::refresh_metrics::{
+        HYDRATION_SOURCE, feature_state_warnings_total,
+    };
+    use unleash_edge_http_client::ClientMetaInformation;
     use unleash_edge_persistence::EdgePersistence;
     use unleash_edge_persistence::file::FilePersister;
-    use unleash_types::client_features::{ClientFeature, ClientFeatures, Segment};
+    use unleash_edge_types::TokenType;
+    use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
+    use unleash_edge_types::tokens::EdgeToken;
+    use unleash_types::client_features::{
+        ClientFeature, ClientFeatures, Constraint, Operator, Segment, Strategy,
+    };
+    use unleash_yggdrasil::{EngineState, UpdateMessage};
+
+    fn client_features_with_invalid_single_value_constraint() -> ClientFeatures {
+        ClientFeatures {
+            version: 1,
+            features: vec![ClientFeature {
+                name: "invalid-constraint-flag".to_string(),
+                enabled: true,
+                strategies: Some(vec![Strategy {
+                    name: "default".to_string(),
+                    parameters: None,
+                    sort_order: None,
+                    segments: None,
+                    constraints: Some(vec![Constraint {
+                        context_name: "userId".to_string(),
+                        operator: Operator::NumEq,
+                        case_insensitive: false,
+                        inverted: false,
+                        values: None,
+                        value: None,
+                    }]),
+                    variants: None,
+                }]),
+                ..Default::default()
+            }],
+            segments: None,
+            query: None,
+            meta: None,
+        }
+    }
 
     #[tokio::test]
     async fn hydrates_delta_cache_from_persistent_feature_backup() {
@@ -989,7 +1141,7 @@ mod tests {
             meta: None,
         };
 
-        let backup_folder = temp_dir().join(Ulid::new().to_string());
+        let backup_folder = temp_dir().join(Ulid::generate().to_string());
         let persister = FilePersister::new(&backup_folder);
         persister
             .save_features(vec![(key.clone(), features.clone())])
@@ -1021,6 +1173,185 @@ mod tests {
         assert_eq!(hydration_event.event_id, 42);
         assert_eq!(hydration_event.features, vec![feature]);
         assert_eq!(hydration_event.segments, vec![segment]);
+    }
+
+    #[tokio::test]
+    async fn hydration_warnings_increment_feature_state_warnings_metric() {
+        let key = "hydration-metrics-test".to_string();
+        let backup_folder = temp_dir().join(Ulid::generate().to_string());
+        let persister = FilePersister::new(&backup_folder);
+        let features = client_features_with_invalid_single_value_constraint();
+        let expected_increment = EngineState::default()
+            .take_state(UpdateMessage::FullResponse(features.clone()))
+            .map_or(0, |warnings| {
+                u64::try_from(warnings.len()).expect("warning count should fit in u64")
+            });
+        persister
+            .save_tokens(vec![
+                unleash_edge_types::tokens::EdgeToken::try_from(format!("*:{key}.secret")).unwrap(),
+            ])
+            .await
+            .unwrap();
+        persister
+            .save_features(vec![(key.clone(), features)])
+            .await
+            .unwrap();
+
+        let initial = feature_state_warnings_total(&key, HYDRATION_SOURCE);
+        let (token_cache, features_cache, delta_cache, engine_cache) = build_caches();
+        super::hydrate_from_persistent_storage(
+            (token_cache, features_cache, delta_cache, engine_cache),
+            Arc::new(persister),
+        )
+        .await;
+
+        assert_eq!(
+            feature_state_warnings_total(&key, HYDRATION_SOURCE),
+            initial + expected_increment
+        );
+    }
+
+    #[tokio::test]
+    async fn refreshes_only_configured_environment_and_prunes_persisted_stale_environment() {
+        let configured = "development";
+        let stale = "production";
+        let mut configured_token = EdgeToken::from_str("default:development.configured").unwrap();
+        configured_token.token_type = Some(TokenType::Backend);
+        let mut stale_token = EdgeToken::from_str("default:production.stale").unwrap();
+        stale_token.token_type = Some(TokenType::Backend);
+
+        let backup_folder = temp_dir().join(Ulid::generate().to_string());
+        let persister = FilePersister::new(&backup_folder);
+        persister
+            .save_tokens(vec![configured_token.clone(), stale_token.clone()])
+            .await
+            .unwrap();
+        let features = ClientFeatures {
+            features: vec![ClientFeature {
+                name: "persisted-flag".to_string(),
+                enabled: true,
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        persister
+            .save_features(vec![
+                (configured.to_string(), features.clone()),
+                (stale.to_string(), features.clone()),
+            ])
+            .await
+            .unwrap();
+
+        let refreshed_tokens = Arc::new(Mutex::new(Vec::<String>::new()));
+        let seen_tokens = refreshed_tokens.clone();
+        let server = TestServer::builder().http_transport().build(
+            Router::new()
+                .route("/api/client/register", post(|| async { StatusCode::OK }))
+                .route(
+                    "/api/client/features",
+                    get(move |headers: HeaderMap| {
+                        let seen_tokens = seen_tokens.clone();
+                        let features = features.clone();
+                        async move {
+                            seen_tokens.lock().unwrap().push(
+                                headers
+                                    .get("authorization")
+                                    .unwrap()
+                                    .to_str()
+                                    .unwrap()
+                                    .to_string(),
+                            );
+                            Json(features)
+                        }
+                    }),
+                ),
+        );
+        let client_meta_information = ClientMetaInformation {
+            app_name: "edge-builder-test".to_string(),
+            instance_id: Ulid::generate(),
+            connection_id: Ulid::generate(),
+        };
+        let edge_instance_data = Arc::new(EdgeInstanceData::new(
+            &client_meta_information.app_name,
+            &client_meta_information.instance_id,
+            Some(Hosting::SelfHosted),
+        ));
+
+        let ((token_cache, feature_cache, delta_cache, engine_cache), _, hydrator, _) =
+            build_edge(EdgeBuilderArgs {
+                streaming: false,
+                delta: false,
+                upstream_url: server.server_url("/").unwrap(),
+                client_meta_information,
+                edge_instance_data,
+                auth_headers: AuthHeaders::default(),
+                http_client: reqwest::Client::new(),
+                tokens: vec![configured_token.clone()],
+                custom_client_headers: vec![],
+                persistence_args: PersistenceArgs {
+                    backup_folder: Some(backup_folder),
+                    ..Default::default()
+                },
+                tx: None,
+                pretrusted_tokens: None,
+                features_refresh_interval: Duration::seconds(30),
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(
+            *refreshed_tokens.lock().unwrap(),
+            vec![configured_token.token.clone()]
+        );
+        let refresh_tokens = hydrator.tokens_to_refresh();
+        assert!(refresh_tokens.contains_key(&configured_token.token));
+        assert!(!refresh_tokens.contains_key(&stale_token.token));
+        assert!(token_cache.contains_key(&configured_token.token));
+        assert!(!token_cache.contains_key(&stale_token.token));
+        assert!(feature_cache.get(configured).is_some());
+        assert!(feature_cache.get(stale).is_none());
+        assert!(delta_cache.get(configured).is_some());
+        assert!(delta_cache.get(stale).is_none());
+        assert!(engine_cache.contains_key(configured));
+        assert!(!engine_cache.contains_key(stale));
+    }
+
+    #[tokio::test]
+    async fn hydration_metrics_do_not_expose_raw_cache_keys() {
+        let raw_key = "private-legacy-token-without-environment";
+        let backup_folder = temp_dir().join(Ulid::generate().to_string());
+        let persister = FilePersister::new(&backup_folder);
+        let mut features = client_features_with_invalid_single_value_constraint();
+        features.meta = Some(unleash_types::client_features::Meta {
+            revision_id: Some(123),
+            ..Default::default()
+        });
+        persister
+            .save_features(vec![(raw_key.to_string(), features)])
+            .await
+            .unwrap();
+        super::hydrate_from_persistent_storage(build_caches(), Arc::new(persister)).await;
+
+        let metrics = prometheus::gather();
+        for name in [
+            "edge_feature_state_warnings_total",
+            "edge_feature_refresh_errors_total",
+            "edge_last_applied_revision_id",
+        ] {
+            let family = metrics.iter().find(|metric| metric.name() == name).unwrap();
+            assert!(family.get_metric().iter().any(|metric| {
+                metric
+                    .get_label()
+                    .iter()
+                    .any(|label| label.name() == "environment" && label.value() == "*")
+            }));
+            assert!(family.get_metric().iter().all(|metric| {
+                metric
+                    .get_label()
+                    .iter()
+                    .all(|label| label.value() != raw_key)
+            }));
+        }
     }
 }
 
@@ -1070,15 +1401,17 @@ mod enterprise_tests {
             prometheus_push_interval: 0,
             prometheus_username: None,
             prometheus_password: None,
+            prometheus_header: vec![],
             prometheus_user_id: None,
             hmac_config: HmacConfig::default(),
             hostname: None,
             ec2_instance_id: None,
+            context_enricher: Default::default(),
         };
         let client_meta_information = ClientMetaInformation {
             app_name: "test_app".to_string(),
-            instance_id: Ulid::new(),
-            connection_id: Ulid::new(),
+            instance_id: Ulid::generate(),
+            connection_id: Ulid::generate(),
         };
         let edge_instance_data = Arc::new(EdgeInstanceData::new(
             &client_meta_information.app_name,

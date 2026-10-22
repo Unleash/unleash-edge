@@ -261,7 +261,7 @@ mod tests {
 
     fn get_test_dir() -> String {
         let temp_dir = temp_dir();
-        let folder = temp_dir.join(Ulid::new().to_string());
+        let folder = temp_dir.join(Ulid::generate().to_string());
         std::fs::create_dir_all(&folder).unwrap();
         folder.to_str().unwrap().to_string()
     }

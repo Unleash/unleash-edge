@@ -13,6 +13,7 @@ enterprise = []
 
 [dependencies]
 axum = { workspace = true }
+base64 = { workspace = true }
 cidr = { workspace = true }
 clap = { workspace = true }
 ipnet = { workspace = true }

@@ -270,6 +270,8 @@ mod test {
                 sdk_version: None,
                 sdk_type: None,
                 yggdrasil_version: None,
+                sdk_flavor: None,
+                sdk_flavor_version: None,
             },
         }
     }

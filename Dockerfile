@@ -1,8 +1,8 @@
-FROM --platform=linux/amd64 docker.io/lukemathwalker/cargo-chef:latest-rust-1.96-slim-bookworm AS amd64-chef
-FROM --platform=linux/arm64 docker.io/lukemathwalker/cargo-chef:latest-rust-1.96-slim-bookworm AS arm64-chef
+FROM --platform=linux/amd64 docker.io/lukemathwalker/cargo-chef:latest-rust-1.99-slim-bookworm AS amd64-chef
+FROM --platform=linux/arm64 docker.io/lukemathwalker/cargo-chef:latest-rust-1.99-slim-bookworm AS arm64-chef
 
 # Base image for the build stage - this is a multi-stage build that uses cross-compilation (thanks to --platform switch)
-FROM --platform=$BUILDPLATFORM docker.io/lukemathwalker/cargo-chef:latest-rust-1.96-slim-bookworm AS chef
+FROM --platform=$BUILDPLATFORM docker.io/lukemathwalker/cargo-chef:latest-rust-1.99-slim-bookworm AS chef
 WORKDIR /app
 
 # Planner stage
@@ -72,7 +72,6 @@ RUN dpkg --add-architecture arm64 \
     protobuf-compiler \
     g++-aarch64-linux-gnu \
     libc6-dev-arm64-cross \
-    libzip-dev:arm64 \
     ca-certificates \
     && rustup target add aarch64-unknown-linux-gnu \
     && rustup toolchain install stable-aarch64-unknown-linux-gnu --force-non-host \
@@ -130,8 +129,10 @@ FROM --platform=$BUILDPLATFORM ubuntu:25.04 AS passwdsource
 
 RUN useradd -u 10001 edgeuser
 
-# # Create a single layer image
-FROM scratch AS runtime
+FROM node:24-bookworm-slim AS node-source
+
+# Create a single layer image
+FROM scratch AS runtime-base
 
 # Make build arguments available in the runtime stage
 ARG TARGETPLATFORM
@@ -148,3 +149,17 @@ USER edgeuser
 EXPOSE 3063
 
 ENTRYPOINT ["/app/unleash-edge"]
+
+FROM runtime-base AS enterprise-runtime
+
+COPY --from=node-source /usr/local/bin/node /usr/local/bin/node
+COPY --from=node-source \
+    /lib/*-linux-gnu/libdl.so.2 \
+    /lib/*-linux-gnu/libpthread.so.0 \
+    /lib/*-linux-gnu/libstdc++.so.6 \
+    /usr/local/lib/node/
+COPY crates/enterprise/unleash-edge-context-enrichers/worker_script.js /app/worker_script.js
+
+ENV LD_LIBRARY_PATH=/usr/local/lib/node
+
+FROM runtime-base AS runtime

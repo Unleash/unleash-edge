@@ -1,4 +1,32 @@
 
+## [unleash-edge-v20.6.1] - 2026-10-22
+
+### ⚙️ Miscellaneous Tasks
+- bump dependencies (#1952) (by @chriswk) - #1952
+
+## [unleash-edge-v20.6.0] - 2026-10-07
+
+### 🚀 Features
+- expose context enrichers to public API (#1833) (by @sighphyre) - #1833
+
+### 🐛 Bug Fixes
+- only keep requested environments from HMAC/tokens (#1881) (by @chriswk) - #1881
+
+### ⚙️ Miscellaneous Tasks
+- instance data sending for context enrichers (#1883) (by @sighphyre) - #1883
+
+## [unleash-edge-v20.5.0] - 2026-08-27
+
+### ⚙️ Miscellaneous Tasks
+- different redacted format for v2 tokens (#1803) (by @sighphyre) - #1803
+
+## [unleash-edge-v20.4.1] - 2026-07-28
+
+## [unleash-edge-v20.4.0] - 2026-07-17
+
+### 🚀 Features
+- send token usage downstream (#1709) (by @gastonfournier) - #1709
+
 ## [unleash-edge-v20.3.1] - 2026-06-18
 
 ## [unleash-edge-v20.3.0] - 2026-06-09

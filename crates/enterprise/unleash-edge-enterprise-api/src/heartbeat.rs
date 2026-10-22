@@ -151,8 +151,8 @@ mod tests {
     fn create_test_client(url: Url) -> UnleashClient {
         let client_meta_information = ClientMetaInformation {
             app_name: "unleash-edge-test".into(),
-            instance_id: Ulid::new(),
-            connection_id: Ulid::new(),
+            instance_id: Ulid::generate(),
+            connection_id: Ulid::generate(),
         };
 
         UnleashClient::from_url_with_backing_client(
@@ -219,7 +219,7 @@ mod tests {
         let test_server = build_server(app_state);
 
         // poke our server a request - this should make it all the way to upstream
-        let connection_id = Ulid::new();
+        let connection_id = Ulid::generate();
         let response = test_server
             .post("/api/client/edge-licensing/heartbeat")
             .add_query_param("connectionId", connection_id.to_string())
@@ -248,7 +248,7 @@ mod tests {
         };
         let test_server = build_server(app_state);
 
-        let connection_id = Ulid::new();
+        let connection_id = Ulid::generate();
         let response = test_server
             .post("/api/client/edge-licensing/heartbeat")
             .add_query_param("connectionId", connection_id.to_string())
