@@ -69,7 +69,7 @@ pub fn load_offline_engine_cache(
 ) {
     initialize_feature_refresh_metrics(edge_token.environment.as_deref().unwrap_or("*"));
     features_cache.insert(cache_key(edge_token), client_features.clone());
-    let mut engine = EngineState::default();
+    let engine = EngineState::default();
     let warnings = engine.take_state(UpdateMessage::FullResponse(client_features));
     engine_cache.insert(cache_key(edge_token), engine);
     if let Some(warnings) = warnings {

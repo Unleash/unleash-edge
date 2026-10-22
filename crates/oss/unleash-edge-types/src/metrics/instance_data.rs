@@ -523,7 +523,7 @@ mod tests {
         errors.inc();
         timeouts.inc();
 
-        let data = EdgeInstanceData::new("test", &Ulid::new(), None).observe(vec![], "");
+        let data = EdgeInstanceData::new("test", &Ulid::generate(), None).observe(vec![], "");
         let enricher = serde_json::to_value(data.enricher_metrics).unwrap();
         assert_eq!(enricher["traffic"]["count"], 2.0);
         assert_eq!(enricher["traffic"]["avg"], 3.0);
@@ -577,7 +577,7 @@ mod tests {
 
     #[test]
     fn can_observe_request_consumption_and_clear_consumption_metrics() {
-        let instance_data = EdgeInstanceData::new("test", &Ulid::new(), None);
+        let instance_data = EdgeInstanceData::new("test", &Ulid::generate(), None);
 
         instance_data.observe_request_consumption();
         instance_data.observe_request_consumption();
@@ -611,7 +611,7 @@ mod tests {
 
     #[test]
     fn can_observe_connection_consumption_with_data_points() {
-        let instance_data = EdgeInstanceData::new("test", &Ulid::new(), None);
+        let instance_data = EdgeInstanceData::new("test", &Ulid::generate(), None);
 
         instance_data.observe_connection_consumption("/api/client/features", Some(0));
         instance_data.observe_connection_consumption("/api/client/features", Some(0));
@@ -755,9 +755,10 @@ mod tests {
 
     #[test]
     fn serializes_hosting_if_and_only_if_present() {
-        let self_hosted = EdgeInstanceData::new("test", &Ulid::new(), Some(Hosting::SelfHosted));
-        let hosted = EdgeInstanceData::new("test", &Ulid::new(), Some(Hosting::Hosted));
-        let no_data = EdgeInstanceData::new("test", &Ulid::new(), None);
+        let self_hosted =
+            EdgeInstanceData::new("test", &Ulid::generate(), Some(Hosting::SelfHosted));
+        let hosted = EdgeInstanceData::new("test", &Ulid::generate(), Some(Hosting::Hosted));
+        let no_data = EdgeInstanceData::new("test", &Ulid::generate(), None);
 
         let serialized_self_hosted = serde_json::to_value(&self_hosted).unwrap();
         assert_eq!(serialized_self_hosted["hosting"], "self-hosted");
@@ -776,7 +777,7 @@ mod tests {
 
     #[test]
     fn can_observe_refreshed_api_key() {
-        let self_hosted = EdgeInstanceData::new("test", &Ulid::new(), Some(Hosting::Hosted));
+        let self_hosted = EdgeInstanceData::new("test", &Ulid::generate(), Some(Hosting::Hosted));
         assert!(self_hosted.edge_api_key_revision_ids.is_empty());
         let now = Utc::now();
         self_hosted.observe_api_key_refresh(
@@ -790,7 +791,7 @@ mod tests {
 
     #[test]
     fn updating_same_key_updates_revision_id_and_timestamp() {
-        let self_hosted = EdgeInstanceData::new("test", &Ulid::new(), Some(Hosting::Hosted));
+        let self_hosted = EdgeInstanceData::new("test", &Ulid::generate(), Some(Hosting::Hosted));
         assert!(self_hosted.edge_api_key_revision_ids.is_empty());
         let now = Utc::now();
         let key = ApiKeyIdentity {
@@ -829,7 +830,7 @@ mod tests {
 
     #[test]
     pub fn unique_keys_all_get_stored() {
-        let self_hosted = EdgeInstanceData::new("test", &Ulid::new(), Some(Hosting::Hosted));
+        let self_hosted = EdgeInstanceData::new("test", &Ulid::generate(), Some(Hosting::Hosted));
         assert!(self_hosted.edge_api_key_revision_ids.is_empty());
         let now = Utc::now();
         let dev_key = ApiKeyIdentity {
@@ -876,7 +877,7 @@ mod tests {
         let requests_since_last_report: DashMap<String, RequestStats> = DashMap::default();
 
         let json = json!({
-            "identifier": Ulid::new().to_string(),
+            "identifier": Ulid::generate().to_string(),
             "appName": "test",
             "hosting": "hosted",
             "edgeVersion": "1.0.0",
@@ -901,7 +902,7 @@ mod tests {
     pub fn deserializes_list_of_edge_api_key_revision_ids_to_map_internally() {
         let requests_since_last_report: DashMap<String, RequestStats> = DashMap::default();
         let json = json!({
-                        "identifier": Ulid::new().to_string(),
+                        "identifier": Ulid::generate().to_string(),
                         "appName": "test",
                         "hosting": "hosted",
                         "edgeVersion": "1.0.0",

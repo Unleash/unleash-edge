@@ -181,7 +181,7 @@ async fn hydrate_from_persistent_storage(cache: CacheContainer, storage: Arc<dyn
         initialize_feature_refresh_metrics(environment);
         debug!("Hydrating features for {key:?}");
         features_cache.insert(key.clone(), features.clone());
-        let mut engine_state = EngineState::default();
+        let engine_state = EngineState::default();
 
         let warnings = engine_state.take_state(UpdateMessage::FullResponse(features.clone()));
         if let Some(warnings) = warnings {
@@ -1141,7 +1141,7 @@ mod tests {
             meta: None,
         };
 
-        let backup_folder = temp_dir().join(Ulid::new().to_string());
+        let backup_folder = temp_dir().join(Ulid::generate().to_string());
         let persister = FilePersister::new(&backup_folder);
         persister
             .save_features(vec![(key.clone(), features.clone())])
@@ -1178,7 +1178,7 @@ mod tests {
     #[tokio::test]
     async fn hydration_warnings_increment_feature_state_warnings_metric() {
         let key = "hydration-metrics-test".to_string();
-        let backup_folder = temp_dir().join(Ulid::new().to_string());
+        let backup_folder = temp_dir().join(Ulid::generate().to_string());
         let persister = FilePersister::new(&backup_folder);
         let features = client_features_with_invalid_single_value_constraint();
         let expected_increment = EngineState::default()
@@ -1220,7 +1220,7 @@ mod tests {
         let mut stale_token = EdgeToken::from_str("default:production.stale").unwrap();
         stale_token.token_type = Some(TokenType::Backend);
 
-        let backup_folder = temp_dir().join(Ulid::new().to_string());
+        let backup_folder = temp_dir().join(Ulid::generate().to_string());
         let persister = FilePersister::new(&backup_folder);
         persister
             .save_tokens(vec![configured_token.clone(), stale_token.clone()])
@@ -1268,8 +1268,8 @@ mod tests {
         );
         let client_meta_information = ClientMetaInformation {
             app_name: "edge-builder-test".to_string(),
-            instance_id: Ulid::new(),
-            connection_id: Ulid::new(),
+            instance_id: Ulid::generate(),
+            connection_id: Ulid::generate(),
         };
         let edge_instance_data = Arc::new(EdgeInstanceData::new(
             &client_meta_information.app_name,
@@ -1319,7 +1319,7 @@ mod tests {
     #[tokio::test]
     async fn hydration_metrics_do_not_expose_raw_cache_keys() {
         let raw_key = "private-legacy-token-without-environment";
-        let backup_folder = temp_dir().join(Ulid::new().to_string());
+        let backup_folder = temp_dir().join(Ulid::generate().to_string());
         let persister = FilePersister::new(&backup_folder);
         let mut features = client_features_with_invalid_single_value_constraint();
         features.meta = Some(unleash_types::client_features::Meta {
@@ -1410,8 +1410,8 @@ mod enterprise_tests {
         };
         let client_meta_information = ClientMetaInformation {
             app_name: "test_app".to_string(),
-            instance_id: Ulid::new(),
-            connection_id: Ulid::new(),
+            instance_id: Ulid::generate(),
+            connection_id: Ulid::generate(),
         };
         let edge_instance_data = Arc::new(EdgeInstanceData::new(
             &client_meta_information.app_name,

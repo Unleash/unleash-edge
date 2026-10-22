@@ -110,7 +110,7 @@ pub async fn build_offline_app_state(
     let metrics_cache = Arc::new(MetricsCache::default());
 
     let app_name = args.app_name.clone();
-    let instance_id = Ulid::new();
+    let instance_id = Ulid::generate();
 
     let app_state = AppState {
         token_cache,
