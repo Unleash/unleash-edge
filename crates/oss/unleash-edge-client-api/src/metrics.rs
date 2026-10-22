@@ -161,7 +161,7 @@ mod tests {
                 metrics_cache,
                 connect_via: ConnectVia {
                     app_name: "test".into(),
-                    instance_id: Ulid::new().to_string(),
+                    instance_id: Ulid::generate().to_string(),
                 },
                 connected_instances: Arc::new(tokio::sync::RwLock::new(vec![])),
             },

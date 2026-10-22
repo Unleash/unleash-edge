@@ -530,7 +530,7 @@ pub struct CliArgs {
         long,
         env,
         global = true,
-        default_value_t = format!("unleash-edge@{}", ulid::Ulid::new())
+        default_value_t = format!("unleash-edge@{}", ulid::Ulid::generate())
     )]
     pub instance_id: String,
 

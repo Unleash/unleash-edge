@@ -119,8 +119,8 @@ mod tests {
     ) {
         let client_meta_information = ClientMetaInformation {
             app_name: "unleash-edge-test".to_string(),
-            connection_id: Ulid::new(),
-            instance_id: Ulid::new(),
+            connection_id: Ulid::generate(),
+            instance_id: Ulid::generate(),
         };
 
         let http_client = build_client(&client_meta_information);
@@ -280,8 +280,8 @@ mod tests {
     async fn resolving_a_license_falls_back_to_persistence_when_upstream_is_unreachable() {
         let client_meta_information = ClientMetaInformation {
             app_name: "unleash-edge-test".to_string(),
-            connection_id: Ulid::new(),
-            instance_id: Ulid::new(),
+            connection_id: Ulid::generate(),
+            instance_id: Ulid::generate(),
         };
 
         let unleash_client = UnleashClient::from_url_with_backing_client(
@@ -316,8 +316,8 @@ mod tests {
     async fn resolving_a_license_fails_when_upstream_is_unreachable_and_no_persistence() {
         let client_meta_information = ClientMetaInformation {
             app_name: "unleash-edge-test".to_string(),
-            connection_id: Ulid::new(),
-            instance_id: Ulid::new(),
+            connection_id: Ulid::generate(),
+            instance_id: Ulid::generate(),
         };
 
         let unleash_client = UnleashClient::from_url_with_backing_client(
@@ -355,8 +355,8 @@ mod tests {
     {
         let client_meta_information = ClientMetaInformation {
             app_name: "unleash-edge-test".to_string(),
-            connection_id: Ulid::new(),
-            instance_id: Ulid::new(),
+            connection_id: Ulid::generate(),
+            instance_id: Ulid::generate(),
         };
 
         let unleash_client = UnleashClient::from_url_with_backing_client(

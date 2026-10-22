@@ -112,7 +112,7 @@ pub(crate) fn trusted_proxy_servers_to_ipnets(
 }
 
 pub async fn configure_server(args: CliArgs) -> EdgeResult<(Router, Vec<BackgroundTask>)> {
-    let app_id: Ulid = Ulid::new();
+    let app_id: Ulid = Ulid::generate();
     let client_meta_information = ClientMetaInformation {
         app_name: args.app_name.clone(),
         instance_id: app_id,

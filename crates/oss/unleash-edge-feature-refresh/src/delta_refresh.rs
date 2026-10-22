@@ -469,7 +469,7 @@ impl DeltaRefresher {
                 };
             })
             .or_insert_with(|| {
-                let mut new_state = EngineState::default();
+                let new_state = EngineState::default();
 
                 let warnings = new_state.apply_delta(&delta);
                 if let Some(warnings) = warnings {
@@ -681,7 +681,7 @@ mod tests {
 
     fn edge_instance_data_for_delta_refresher_test() -> EdgeInstanceData {
         EdgeInstanceData {
-            identifier: Ulid::new().to_string(),
+            identifier: Ulid::generate().to_string(),
             app_name: "app_testing".to_string(),
             hosting: Some(Hosting::SelfHosted),
             region: None,
@@ -704,8 +704,8 @@ mod tests {
         fn test_config() -> Self {
             ClientMetaInformation {
                 app_name: "test_app".into(),
-                instance_id: Ulid::new(),
-                connection_id: Ulid::new(),
+                instance_id: Ulid::generate(),
+                connection_id: Ulid::generate(),
             }
         }
     }

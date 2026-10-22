@@ -288,7 +288,7 @@ pub fn register_client_application(
             instance_id: to_write
                 .instance_id
                 .clone()
-                .unwrap_or_else(|| ulid::Ulid::new().to_string()),
+                .unwrap_or_else(|| ulid::Ulid::generate().to_string()),
         },
         to_write,
     );

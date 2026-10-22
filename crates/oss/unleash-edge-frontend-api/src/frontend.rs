@@ -523,7 +523,7 @@ mod tests {
             EdgeToken::from_str("*:development.abc123").expect("Failed to parse frontend token");
         frontend_token.token_type = Some(TokenType::Frontend);
         frontend_token.status = TokenValidationStatus::Validated;
-        let mut engine_state = EngineState::default();
+        let engine_state = EngineState::default();
         engine_state.take_state(UpdateMessage::FullResponse(
             client_features_with_one_enabled_toggle_and_one_disabled_toggle(),
         ));
@@ -548,7 +548,7 @@ mod tests {
             EdgeToken::from_str("*:development.abc123").expect("Failed to parse frontend token");
         frontend_token.token_type = Some(TokenType::Frontend);
         frontend_token.status = TokenValidationStatus::Validated;
-        let mut engine_state = EngineState::default();
+        let engine_state = EngineState::default();
         engine_state.take_state(UpdateMessage::FullResponse(
             client_features_with_one_enabled_toggle_and_one_disabled_toggle(),
         ));
@@ -574,7 +574,7 @@ mod tests {
             EdgeToken::from_str("*:development.abc123").expect("Failed to parse frontend token");
         frontend_token.token_type = Some(TokenType::Frontend);
         frontend_token.status = TokenValidationStatus::Validated;
-        let mut engine_state = EngineState::default();
+        let engine_state = EngineState::default();
         engine_state.take_state(UpdateMessage::FullResponse(
             client_features_with_constraint_requiring_user_id_of_seven(),
         ));
@@ -606,7 +606,7 @@ mod tests {
             EdgeToken::from_str("*:development.abc123").expect("Failed to parse frontend token");
         frontend_token.token_type = Some(TokenType::Frontend);
         frontend_token.status = TokenValidationStatus::Validated;
-        let mut engine_state = EngineState::default();
+        let engine_state = EngineState::default();
         engine_state.take_state(UpdateMessage::FullResponse(
             client_features_with_constraint_requiring_user_id_of_seven(),
         ));
@@ -644,7 +644,7 @@ mod tests {
             EdgeToken::from_str("*:development.abc123").expect("Failed to parse frontend token");
         frontend_token.token_type = Some(TokenType::Frontend);
         frontend_token.status = TokenValidationStatus::Validated;
-        let mut engine_state = EngineState::default();
+        let engine_state = EngineState::default();
         engine_state.take_state(UpdateMessage::FullResponse(
             client_features_with_one_enabled_toggle_and_one_disabled_toggle(),
         ));
@@ -681,7 +681,7 @@ mod tests {
         frontend_token.token_type = Some(TokenType::Frontend);
         frontend_token.status = TokenValidationStatus::Validated;
         token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
-        let mut engine_state = EngineState::default();
+        let engine_state = EngineState::default();
         engine_state.take_state(UpdateMessage::FullResponse(
             client_features_with_constraint_requiring_test_property_to_be_42(),
         ));
@@ -704,7 +704,7 @@ mod tests {
         frontend_token.token_type = Some(TokenType::Frontend);
         frontend_token.status = TokenValidationStatus::Validated;
         token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
-        let mut engine_state = EngineState::default();
+        let engine_state = EngineState::default();
         engine_state.take_state(UpdateMessage::FullResponse(features_from_disk(
             "../../../examples/hostedexample.json",
         )));
@@ -727,7 +727,7 @@ mod tests {
         frontend_token.token_type = Some(TokenType::Frontend);
         frontend_token.status = TokenValidationStatus::Validated;
         token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
-        let mut engine_state = EngineState::default();
+        let engine_state = EngineState::default();
         engine_state.take_state(UpdateMessage::FullResponse(features_from_disk(
             "../../../examples/with_custom_constraint.json",
         )));
@@ -758,7 +758,7 @@ mod tests {
         frontend_token.token_type = Some(TokenType::Frontend);
         frontend_token.status = TokenValidationStatus::Validated;
         token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
-        let mut engine_state = EngineState::default();
+        let engine_state = EngineState::default();
         engine_state.take_state(UpdateMessage::FullResponse(features_from_disk(
             "../../../examples/with_custom_constraint.json",
         )));
@@ -788,7 +788,7 @@ mod tests {
         frontend_token.token_type = Some(TokenType::Frontend);
         frontend_token.status = TokenValidationStatus::Validated;
         token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
-        let mut engine_state = EngineState::default();
+        let engine_state = EngineState::default();
         engine_state.take_state(UpdateMessage::FullResponse(features_from_disk(
             "../../../examples/ip_address_feature.json",
         )));
@@ -815,7 +815,7 @@ mod tests {
         frontend_token.token_type = Some(TokenType::Frontend);
         frontend_token.status = TokenValidationStatus::Validated;
         token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
-        let mut engine_state = EngineState::default();
+        let engine_state = EngineState::default();
         engine_state.take_state(UpdateMessage::FullResponse(features_from_disk(
             "../../../examples/ip_address_feature.json",
         )));
@@ -845,7 +845,7 @@ mod tests {
         frontend_token.token_type = Some(TokenType::Frontend);
         frontend_token.status = TokenValidationStatus::Validated;
         token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
-        let mut engine_state = EngineState::default();
+        let engine_state = EngineState::default();
         engine_state.take_state(UpdateMessage::FullResponse(features_from_disk(
             "../../../examples/ip_address_feature.json",
         )));
@@ -874,7 +874,7 @@ mod tests {
         frontend_token.token_type = Some(TokenType::Frontend);
         frontend_token.status = TokenValidationStatus::Validated;
         token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
-        let mut engine_state = EngineState::default();
+        let engine_state = EngineState::default();
         engine_state.take_state(UpdateMessage::FullResponse(features_from_disk(
             "../../../examples/ip_address_feature.json",
         )));
@@ -904,7 +904,7 @@ mod tests {
         frontend_token.token_type = Some(TokenType::Frontend);
         frontend_token.status = TokenValidationStatus::Validated;
         token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
-        let mut engine_state = EngineState::default();
+        let engine_state = EngineState::default();
         engine_state.take_state(UpdateMessage::FullResponse(features_from_disk(
             "../../../examples/ip_address_feature.json",
         )));
@@ -934,7 +934,7 @@ mod tests {
         frontend_token.token_type = Some(TokenType::Frontend);
         frontend_token.status = TokenValidationStatus::Validated;
         token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
-        let mut engine_state = EngineState::default();
+        let engine_state = EngineState::default();
         engine_state.take_state(UpdateMessage::FullResponse(features_from_disk(
             "../../../examples/ip_address_feature.json",
         )));
@@ -964,7 +964,7 @@ mod tests {
         frontend_token.token_type = Some(TokenType::Frontend);
         frontend_token.status = TokenValidationStatus::Validated;
         token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
-        let mut engine_state = EngineState::default();
+        let engine_state = EngineState::default();
         engine_state.take_state(UpdateMessage::FullResponse(features_from_disk(
             "../../../examples/ip_address_feature.json",
         )));
@@ -992,7 +992,7 @@ mod tests {
         frontend_token.token_type = Some(TokenType::Frontend);
         frontend_token.status = TokenValidationStatus::Validated;
         token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
-        let mut engine_state = EngineState::default();
+        let engine_state = EngineState::default();
         engine_state.take_state(UpdateMessage::FullResponse(features_from_disk(
             "../../../examples/ip_address_feature.json",
         )));
@@ -1025,7 +1025,7 @@ mod tests {
         frontend_token.token_type = Some(TokenType::Frontend);
         frontend_token.status = TokenValidationStatus::Validated;
         token_cache.insert(frontend_token.token.clone(), frontend_token.clone());
-        let mut engine_state = EngineState::default();
+        let engine_state = EngineState::default();
         engine_state.take_state(UpdateMessage::FullResponse(features_from_disk(
             "../../../examples/ip_address_feature.json",
         )));
@@ -1178,7 +1178,7 @@ mod tests {
                 .expect("Failed to parse frontend token");
             frontend_token.token_type = Some(TokenType::Frontend);
             frontend_token.status = TokenValidationStatus::Validated;
-            let mut engine_state = EngineState::default();
+            let engine_state = EngineState::default();
             engine_state.take_state(UpdateMessage::FullResponse(
                 client_features_with_constraint_requiring_user_id_of_seven(),
             ));
@@ -1219,7 +1219,7 @@ mod tests {
                 .expect("Failed to parse frontend token");
             frontend_token.token_type = Some(TokenType::Frontend);
             frontend_token.status = TokenValidationStatus::Validated;
-            let mut engine_state = EngineState::default();
+            let engine_state = EngineState::default();
             engine_state.take_state(UpdateMessage::FullResponse(
                 client_features_with_constraint_requiring_user_id_of_seven(),
             ));

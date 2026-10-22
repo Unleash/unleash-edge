@@ -277,7 +277,7 @@ mod tests {
     fn buffer_holding_one_report() -> Arc<RwLock<Vec<EdgeInstanceData>>> {
         Arc::new(RwLock::new(vec![EdgeInstanceData::new(
             "downstream-edge",
-            &ulid::Ulid::new(),
+            &ulid::Ulid::generate(),
             None,
         )]))
     }
@@ -288,7 +288,11 @@ mod tests {
     ) -> Result<(), InstanceDataSendError> {
         let upstream = upstream_answering(status);
         let sender = sender_posting_to(upstream.server_url("/").expect("Failed to build url"));
-        let ours = Arc::new(EdgeInstanceData::new("our-edge", &ulid::Ulid::new(), None));
+        let ours = Arc::new(EdgeInstanceData::new(
+            "our-edge",
+            &ulid::Ulid::generate(),
+            None,
+        ));
         send_instance_data(&sender, &ours, downstream, "some-backend-token").await
     }
 
