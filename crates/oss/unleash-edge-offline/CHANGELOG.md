@@ -1,4 +1,9 @@
 
+## [unleash-edge-v20.6.1] - 2026-10-22
+
+### ⚙️ Miscellaneous Tasks
+- bump dependencies (#1952) (by @chriswk) - #1952
+
 ## [unleash-edge-v20.6.0] - 2026-10-07
 
 ### 🚀 Features
