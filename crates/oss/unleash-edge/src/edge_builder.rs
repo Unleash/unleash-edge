@@ -844,6 +844,17 @@ fn create_edge_mode_background_tasks(
         }));
     }
 
+    if std::env::var("EDGE_STATE_CONSISTENCY_CHECK").as_deref() == Ok("true") {
+        tasks.push(Box::pin(
+            unleash_edge_feature_refresh::state_consistency::run(
+                unleash_client.clone(),
+                refresher.clone().tokens_to_refresh(),
+                feature_cache.clone(),
+                refresh_state_rx.clone(),
+            ),
+        ));
+    }
+
     let hydration_task = match &refresher {
         HydratorType::Streaming(delta_refresher) => create_stream_task(
             custom_client_headers,
