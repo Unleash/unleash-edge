@@ -198,16 +198,16 @@ sequenceDiagram
         A->>S: Existing snapshot GET with active refresh token
         S-->>A: Token-scoped expected configuration
         A->>A: Hash expected features + referenced segments
-        A->>C: Read same environment; project to token scope
+        A->>C: Read same environment and project to token scope
         A->>A: Hash local projection and compare
         A->>M: Match / mismatch / error
     end
-    Note over A,M: Mismatch starts monotonic timer; default threshold 30 seconds
+    Note over A,M: Mismatch starts monotonic timer with default threshold of 30 seconds
     A->>A: Later successful comparison still differs past threshold
-    A->>M: Threshold episode counter; unresolved duration gauges
+    A->>M: Threshold episode counter and unresolved duration gauges
     R->>C: Later update converges
     A->>A: Later comparison matches
-    A->>M: Record observed convergence duration; clear mismatch
+    A->>M: Record observed convergence duration and clear mismatch
 ```
 
 Enable with `EDGE_STATE_CONSISTENCY_CHECK=true`. Optional positive integer
