@@ -6026,6 +6026,7 @@ dependencies = [
  "reqwest",
  "rustls",
  "serde_json",
+ "sha2",
  "test-case",
  "tokio",
  "tracing",

@@ -1,5 +1,8 @@
 # Feature refresh alerts
 
+See [token scoping and state consistency](token-scoping-and-state-consistency.md)
+for the opt-in content consistency audit and its convergence metrics.
+
 Edge initializes warning and refresh-error counters at zero before work starts
 for an environment. This lets Prometheus observe the first increase after a
 healthy scrape. Initialization is idempotent and never resets existing counts.
