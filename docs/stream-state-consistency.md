@@ -2,9 +2,10 @@
 
 This experiment verifies an Edge replica against its connected Unleash Server
 pod without polling snapshots. Server sends an `unleash-state` checkpoint on the
-existing SSE connection approximately once a minute. Edge detects lag or a
+existing SSE connection in place of every fifth keep-alive. Edge detects lag or a
 confirmed configuration mismatch and requests fresh hydration by reconnecting
-without a replay cursor. SSE comment heartbeats continue every 30 seconds.
+without a replay cursor. The existing 30-second heartbeat schedule is unchanged:
+four comment keep-alives, then one state event, repeated per connection.
 
 Both sides are opt-in: set `EDGE_STATE_CHECKPOINTS=true` on Server and Edge.
 Edge's optional positive integer `EDGE_STATE_LAG_THRESHOLD_SECONDS` defaults to
@@ -164,7 +165,7 @@ sequenceDiagram
     S-->>E: unleash-updated with SSE id
     E->>C: Apply delta before advancing local position
     S-->>E: Existing comment keep-alive
-    S-->>E: Minute checkpoint with revision and scoped fingerprint
+    S-->>E: Every fifth heartbeat carries revision and scoped fingerprint
     E->>E: Compare at equal position or retain pending target
     E->>M: Match or mismatch or observed lag
     Note over E,M: New targets retain the oldest unresolved lag timer
@@ -207,16 +208,19 @@ revisions or hashes in labels:
 | `edge_stream_state_recoveries_total{reason}` | Fresh-hydration requests due to mismatch or threshold-exceeding lag |
 
 Status means the last verification result, not an assertion about every later
-change. Checkpoints older than 120 seconds make status unknown. No checkpoint
+change. Checkpoints older than 300 seconds make status unknown, allowing two
+five-heartbeat cycles at the current schedule. No checkpoint
 from an older Server also remains unknown; SSE comments alone do not verify
 state. Invalid includes unavailable/ambiguous local scope. Pending targets are
 bounded to 64, preserving the oldest target if the bound is reached. Restart
 resets timers and metrics. Pauses and long processing delays affect observations.
 
 A 30-second threshold measures time **since checkpoint receipt**, not since the
-original Server change. Minute checkpoints cannot promise a 30-second change-to-
-convergence SLA. The existing 30-second heartbeat scheduler also quantizes the
-first checkpoint's emission time. Missing checkpoints expose uncertainty, not
+original Server change. Every-fifth-heartbeat checkpoints cannot promise a
+30-second change-to-convergence SLA. At the current heartbeat schedule a state
+event is sent approximately every 150 seconds. The per-connection heartbeat
+counter is scheduling state only, starts over on reconnect, and has no role in
+the configuration revision or replay cursor. Missing checkpoints expose uncertainty, not
 proof that the last verified state remains current.
 
 Agreement establishes modeled configuration equality against the connected pod's
@@ -232,7 +236,7 @@ ignored. Unknown future evaluation fields may require a new fingerprint version;
 incompatible representations must not silently share version 1. Recovery cannot
 repair a persistent Server bug or a representation disagreement, hence the
 cooldown and opt-in rollout. Fingerprinting costs serialization and hashing per
-connection per minute on Server and at comparable checkpoints on Edge.
+connection every fifth heartbeat on Server and at comparable checkpoints on Edge.
 
 This MVP verifies direct Server-to-Edge streams. Edge-to-Edge relays do not emit
 or preserve origin checkpoints yet, so end-to-end verification through a relay

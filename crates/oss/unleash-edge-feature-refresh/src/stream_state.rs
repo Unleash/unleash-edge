@@ -290,7 +290,7 @@ impl Verification {
         }
         if self
             .last_checkpoint
-            .is_some_and(|t| now.duration_since(t) > Duration::from_secs(120))
+            .is_some_and(|t| now.duration_since(t) > Duration::from_secs(300))
         {
             self.status("unknown");
         }
@@ -435,7 +435,7 @@ mod tests {
         assert_eq!(state.recovery(now + Duration::from_secs(120)), None);
         state.checkpoint(&checkpoint(3), now, || Some("a".repeat(64)));
         assert_eq!(state.status, "matched");
-        assert_eq!(state.recovery(now + Duration::from_secs(121)), None);
+        assert_eq!(state.recovery(now + Duration::from_secs(301)), None);
         assert_eq!(state.status, "unknown");
     }
 }
