@@ -45,11 +45,9 @@ impl DeltaCache {
     }
 
     fn add_base_event_from_hydration(&mut self, hydration_event: &DeltaHydrationEvent) {
-        let last_feature = hydration_event
-            .features
-            .last()
-            .cloned()
-            .expect("Hydration event must have at least one feature");
+        let Some(last_feature) = hydration_event.features.last().cloned() else {
+            return;
+        };
 
         self.add_events(&[DeltaEvent::FeatureUpdated {
             event_id: hydration_event.event_id,
@@ -163,6 +161,21 @@ impl DeltaCache {
 mod tests {
     use crate::cache::{DeltaCache, DeltaHydrationEvent};
     use unleash_types::client_features::{ClientFeature, DeltaEvent, Segment};
+
+    #[test]
+    fn empty_hydration_keeps_its_revision_without_panicking() {
+        let cache = DeltaCache::from_events(
+            &[DeltaEvent::Hydration {
+                event_id: 7,
+                features: vec![],
+                segments: vec![],
+            }],
+            100,
+        )
+        .unwrap();
+        assert_eq!(cache.latest_revision(), 7);
+        assert!(cache.get_hydration_event().features.is_empty());
+    }
 
     #[test]
     fn test_update_hydration_event_and_remove_event_when_over_limit() {
