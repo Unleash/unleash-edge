@@ -160,6 +160,28 @@ jobs:
           path: /tmp/digests/*
           if-no-files-found: error
           retention-days: 1
+      - name: Install syft
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c
+      - name: Generate SBOM
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          DIGEST: ${{ fromJSON(steps.bake.outputs.metadata).image['containerimage.digest'] }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/sbom
+          # Scan the exact pushed digest (GHCR avoids Docker Hub pull rate limits).
+          # --platform matters: the pushed digest may be an index (image + BuildKit provenance).
+          syft scan "registry:${GHCR_SLUG}@${DIGEST}" \
+            --platform "${{ matrix.platform }}" \
+            -o "spdx-json=/tmp/sbom/sbom-${PLATFORM_PAIR}.spdx.json"
+      - name: Upload SBOM
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-artifact@v7
+        with:
+          name: sbom-${{ env.PLATFORM_PAIR }}
+          path: /tmp/sbom/sbom-${{ env.PLATFORM_PAIR }}.spdx.json
+          if-no-files-found: error
 
   merge:
     runs-on: ubuntu-latest
@@ -178,8 +200,19 @@ jobs:
           path: /tmp/digests
           pattern: digests-*
           merge-multiple: true
+      # Separate directory: /tmp/digests must only contain digest files (used by `printf ... *`).
+      - name: Download SBOMs
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/download-artifact@v8
+        with:
+          path: /tmp/sbom
+          pattern: sbom-*
+          merge-multiple: true
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v4
+      - name: Install cosign
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6
       - name: Login to docker hub
         uses: docker/login-action@v4.6.0
         with:
@@ -217,6 +250,39 @@ jobs:
           docker buildx imagetools inspect ${{ env.DOCKERHUB_SLUG }}:${tag}
           docker buildx imagetools inspect ${{ env.GHCR_SLUG }}:${tag}
           docker buildx imagetools inspect ${{ steps.login-ecr-public.outputs.registry }}/unleashorg/unleash-edge-enterprise:${tag}
+      # Sign the multi-arch index users actually pull (plus its per-platform manifests via
+      # --recursive) and attach one SBOM attestation per platform. Signatures are stored per
+      # repository, so this runs once for each registry. Tagged releases only.
+      - name: Sign images and attest SBOMs
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          set -euo pipefail
+          tag=$(jq -r '.target."docker-metadata-action".args.DOCKER_META_VERSION' /tmp/bake-meta.json)
+          for slug in "$DOCKERHUB_SLUG" "$GHCR_SLUG" "$ECR_SLUG"; do
+            digest=$(docker buildx imagetools inspect "${slug}:${tag}" --format '{{json .Manifest}}' | jq -r .digest)
+            ref="${slug}@${digest}"
+            echo "Signing ${ref}"
+            cosign sign --yes --recursive "$ref"
+            for sbom in /tmp/sbom/*.spdx.json; do
+              echo "Attesting $(basename "$sbom") -> ${ref}"
+              cosign attest --yes --type spdxjson --predicate "$sbom" "$ref"
+            done
+          done
+
+      - name: Verify signatures and SBOM attestations
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          set -euo pipefail
+          tag=$(jq -r '.target."docker-metadata-action".args.DOCKER_META_VERSION' /tmp/bake-meta.json)
+          ID_ARGS=(
+            --certificate-identity-regexp "^https://github.com/${GITHUB_REPOSITORY}/.github/workflows/build-docker-enterprise.yaml@"
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com
+          )
+          for slug in "$DOCKERHUB_SLUG" "$GHCR_SLUG" "$ECR_SLUG"; do
+            cosign verify "${ID_ARGS[@]}" "${slug}:${tag}" > /dev/null
+            cosign verify-attestation --type spdxjson "${ID_ARGS[@]}" "${slug}:${tag}" > /dev/null
+            echo "verified signature + SBOM: ${slug}:${tag}"
+          done
 
   update-dockerhub-description:
     runs-on: ubuntu-latest
