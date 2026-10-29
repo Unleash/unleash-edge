@@ -193,12 +193,12 @@ impl ConnectionConsumptionData {
             features_map,
             metrics_map,
         } = other;
-        add_data_points(&self.features_map, features_map);
-        add_data_points(&self.metrics_map, metrics_map);
+        add_data_points(&mut self.features_map, features_map);
+        add_data_points(&mut self.metrics_map, metrics_map);
     }
 }
 
-fn add_data_points(into: &DashMap<[u64; 2], DataPoint>, from: DashMap<[u64; 2], DataPoint>) {
+fn add_data_points(into: &mut DashMap<[u64; 2], DataPoint>, from: DashMap<[u64; 2], DataPoint>) {
     for (interval, point) in from {
         into.entry(interval)
             .or_insert_with(|| DataPoint {
