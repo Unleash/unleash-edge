@@ -3,7 +3,7 @@ mod tests {
     use axum::{Router, extract::FromRef};
     use axum_test::TestServer;
     use eventsource_stream::Eventsource;
-    use std::{sync::Arc, time::Duration};
+    use std::{collections::BTreeMap, sync::Arc, time::Duration};
     use tokio::time::timeout;
     use tokio_stream::StreamExt as _;
     use unleash_edge_appstate::edge_token_extractor::AuthState;
@@ -14,7 +14,7 @@ mod tests {
         cache_manager::DeltaCacheManager,
     };
     use unleash_types::client_features::{
-        ClientFeature, ClientFeaturesDelta, DeltaEvent, Strategy,
+        ClientFeature, ClientFeaturesDelta, DeltaEvent, Segment, Strategy,
     };
 
     use unleash_edge_types::{TokenCache, TokenType, TokenValidationStatus, tokens::EdgeToken};
@@ -57,6 +57,134 @@ mod tests {
             .nest("/api/client", streaming_router_for::<TestState>())
             .with_state(app_state);
         TestServer::builder().http_transport().build(router)
+    }
+
+    #[derive(Clone, Debug, Default, PartialEq)]
+    struct EffectiveState {
+        features: BTreeMap<(String, String), ClientFeature>,
+        segments: BTreeMap<i32, Segment>,
+    }
+
+    impl EffectiveState {
+        fn from_features_and_segments(
+            features: Vec<ClientFeature>,
+            segments: Vec<Segment>,
+        ) -> Self {
+            let mut state = Self::default();
+            state.replace(features, segments);
+            state
+        }
+
+        fn apply_delta(&mut self, delta: &ClientFeaturesDelta) {
+            for event in &delta.events {
+                match event {
+                    DeltaEvent::Hydration {
+                        features, segments, ..
+                    } => self.replace(features.clone(), segments.clone()),
+                    DeltaEvent::FeatureUpdated { feature, .. } => {
+                        self.features.insert(feature_key(feature), feature.clone());
+                    }
+                    DeltaEvent::FeatureRemoved {
+                        feature_name,
+                        project,
+                        ..
+                    } => {
+                        self.features
+                            .remove(&(project.clone(), feature_name.clone()));
+                    }
+                    DeltaEvent::SegmentUpdated { segment, .. } => {
+                        self.segments.insert(segment.id, segment.clone());
+                    }
+                    DeltaEvent::SegmentRemoved { segment_id, .. } => {
+                        self.segments.remove(segment_id);
+                    }
+                }
+            }
+        }
+
+        fn replace(&mut self, features: Vec<ClientFeature>, segments: Vec<Segment>) {
+            self.features = features
+                .into_iter()
+                .map(|feature| (feature_key(&feature), feature))
+                .collect();
+            self.segments = segments
+                .into_iter()
+                .map(|segment| (segment.id, segment))
+                .collect();
+        }
+    }
+
+    fn feature_key(feature: &ClientFeature) -> (String, String) {
+        (
+            feature.project.clone().unwrap_or_default(),
+            feature.name.clone(),
+        )
+    }
+
+    fn feature(name: &str, project: &str) -> ClientFeature {
+        ClientFeature {
+            name: name.into(),
+            project: Some(project.into()),
+            strategies: Some(vec![]),
+            ..ClientFeature::default()
+        }
+    }
+
+    fn apply_delta_to_state(
+        mut state: EffectiveState,
+        delta: &ClientFeaturesDelta,
+    ) -> EffectiveState {
+        state.apply_delta(delta);
+        state
+    }
+
+    fn backend_token(projects: &[&str], environment: &str) -> EdgeToken {
+        EdgeToken {
+            token: format!("{}:{environment}.hashhasin", projects.join(",")),
+            token_type: Some(TokenType::Backend),
+            environment: Some(environment.into()),
+            projects: projects.iter().map(|project| project.to_string()).collect(),
+            status: TokenValidationStatus::Validated,
+        }
+    }
+
+    fn delta_cache_with_state(event_id: u32, features: Vec<ClientFeature>) -> DeltaCache {
+        DeltaCache::new(
+            DeltaHydrationEvent {
+                event_id,
+                features,
+                segments: vec![],
+            },
+            10,
+        )
+    }
+
+    async fn first_stream_delta(
+        test_server: &TestServer,
+        token: &str,
+        last_event_id: Option<u32>,
+    ) -> (String, ClientFeaturesDelta) {
+        let url = test_server.server_url("/").unwrap();
+        let mut request = reqwest::Client::new()
+            .get(format!("{url}api/client/streaming"))
+            .header("Authorization", token);
+
+        if let Some(last_event_id) = last_event_id {
+            request = request.header("Last-Event-ID", last_event_id.to_string());
+        }
+
+        let mut event_stream = request.send().await.unwrap().bytes_stream().eventsource();
+
+        let first_event = timeout(Duration::from_secs(5), event_stream.next())
+            .await
+            .expect("Failed to complete")
+            .expect("stream ended unexpectedly")
+            .expect("Error in event stream");
+
+        (
+            first_event.id,
+            serde_json::from_str::<ClientFeaturesDelta>(&first_event.data).unwrap(),
+        )
     }
 
     #[tokio::test]
@@ -819,5 +947,266 @@ mod tests {
         let (_, _) = tokio::join!(stream_updates, inject_event());
 
         assert!(event_data.len() == 1);
+    }
+
+    #[tokio::test]
+    async fn streaming_staggered_nodes_return_same_effective_state_on_initial_connect() {
+        let token = backend_token(&["*"], "development");
+        let token_cache_a = Arc::new(TokenCache::default());
+        let token_cache_b = Arc::new(TokenCache::default());
+        let delta_cache_manager_a = Arc::new(DeltaCacheManager::new());
+        let delta_cache_manager_b = Arc::new(DeltaCacheManager::new());
+
+        token_cache_a.insert(token.token.clone(), token.clone());
+        token_cache_b.insert(token.token.clone(), token.clone());
+
+        delta_cache_manager_a.insert_cache(
+            "development",
+            delta_cache_with_state(0, vec![feature("Inigo Montoya", "project-a")]),
+        );
+        delta_cache_manager_a.update_cache(
+            "development",
+            &[DeltaEvent::FeatureUpdated {
+                event_id: 1,
+                feature: feature("Westley", "project-a"),
+            }],
+        );
+
+        delta_cache_manager_b.insert_cache(
+            "development",
+            delta_cache_with_state(
+                1,
+                vec![
+                    feature("Inigo Montoya", "project-a"),
+                    feature("Westley", "project-a"),
+                ],
+            ),
+        );
+
+        let server_a = client_api_test_server(token_cache_a, delta_cache_manager_a).await;
+        let server_b = client_api_test_server(token_cache_b, delta_cache_manager_b).await;
+
+        let (id_a, delta_a) = first_stream_delta(&server_a, &token.token, None).await;
+        let (id_b, delta_b) = first_stream_delta(&server_b, &token.token, None).await;
+
+        assert_eq!(id_a, "1");
+        assert_eq!(id_b, "1");
+        assert!(matches!(delta_a.events[0], DeltaEvent::Hydration { .. }));
+        assert!(matches!(delta_b.events[0], DeltaEvent::Hydration { .. }));
+        assert_eq!(
+            apply_delta_to_state(
+                EffectiveState::from_features_and_segments(vec![], vec![]),
+                &delta_a
+            ),
+            apply_delta_to_state(
+                EffectiveState::from_features_and_segments(vec![], vec![]),
+                &delta_b
+            )
+        );
+    }
+
+    #[tokio::test]
+    async fn streaming_cross_node_reconnect_falls_back_to_hydration_without_losing_state() {
+        let token = backend_token(&["*"], "development");
+        let token_cache_a = Arc::new(TokenCache::default());
+        let token_cache_b = Arc::new(TokenCache::default());
+        let delta_cache_manager_a = Arc::new(DeltaCacheManager::new());
+        let delta_cache_manager_b = Arc::new(DeltaCacheManager::new());
+
+        token_cache_a.insert(token.token.clone(), token.clone());
+        token_cache_b.insert(token.token.clone(), token.clone());
+
+        delta_cache_manager_a.insert_cache(
+            "development",
+            delta_cache_with_state(0, vec![feature("Inigo Montoya", "project-a")]),
+        );
+        delta_cache_manager_a.update_cache(
+            "development",
+            &[DeltaEvent::FeatureUpdated {
+                event_id: 1,
+                feature: feature("Inigo Montoya", "project-a"),
+            }],
+        );
+        delta_cache_manager_a.update_cache(
+            "development",
+            &[DeltaEvent::FeatureUpdated {
+                event_id: 2,
+                feature: feature("Westley", "project-a"),
+            }],
+        );
+
+        delta_cache_manager_b.insert_cache(
+            "development",
+            delta_cache_with_state(
+                2,
+                vec![
+                    feature("Inigo Montoya", "project-a"),
+                    feature("Westley", "project-a"),
+                ],
+            ),
+        );
+
+        let server_a = client_api_test_server(token_cache_a, delta_cache_manager_a).await;
+        let server_b = client_api_test_server(token_cache_b, delta_cache_manager_b).await;
+
+        let (_, replay_delta) = first_stream_delta(&server_a, &token.token, Some(1)).await;
+        let (_, hydration_delta) = first_stream_delta(&server_b, &token.token, Some(1)).await;
+
+        assert!(!matches!(
+            replay_delta.events[0],
+            DeltaEvent::Hydration { .. }
+        ));
+        assert!(matches!(
+            hydration_delta.events[0],
+            DeltaEvent::Hydration { .. }
+        ));
+
+        let prior_state = EffectiveState::from_features_and_segments(
+            vec![feature("Inigo Montoya", "project-a")],
+            vec![],
+        );
+        let expected_state = EffectiveState::from_features_and_segments(
+            vec![
+                feature("Inigo Montoya", "project-a"),
+                feature("Westley", "project-a"),
+            ],
+            vec![],
+        );
+
+        let replay_state = apply_delta_to_state(prior_state.clone(), &replay_delta);
+        let hydration_state = apply_delta_to_state(prior_state, &hydration_delta);
+
+        assert_eq!(replay_state, expected_state);
+        assert_eq!(hydration_state, expected_state);
+    }
+
+    #[tokio::test]
+    async fn streaming_cross_node_reconnect_preserves_project_scoped_effective_state() {
+        let token = backend_token(&["project-a"], "development");
+        let token_cache_a = Arc::new(TokenCache::default());
+        let token_cache_b = Arc::new(TokenCache::default());
+        let delta_cache_manager_a = Arc::new(DeltaCacheManager::new());
+        let delta_cache_manager_b = Arc::new(DeltaCacheManager::new());
+
+        token_cache_a.insert(token.token.clone(), token.clone());
+        token_cache_b.insert(token.token.clone(), token.clone());
+
+        delta_cache_manager_a.insert_cache(
+            "development",
+            delta_cache_with_state(0, vec![feature("Alpha", "project-a")]),
+        );
+        delta_cache_manager_a.update_cache(
+            "development",
+            &[DeltaEvent::FeatureUpdated {
+                event_id: 1,
+                feature: feature("Alpha", "project-a"),
+            }],
+        );
+        delta_cache_manager_a.update_cache(
+            "development",
+            &[DeltaEvent::FeatureUpdated {
+                event_id: 2,
+                feature: feature("Bravo", "project-b"),
+            }],
+        );
+        delta_cache_manager_a.update_cache(
+            "development",
+            &[DeltaEvent::FeatureUpdated {
+                event_id: 3,
+                feature: feature("Charlie", "project-a"),
+            }],
+        );
+
+        delta_cache_manager_b.insert_cache(
+            "development",
+            delta_cache_with_state(
+                3,
+                vec![
+                    feature("Alpha", "project-a"),
+                    feature("Bravo", "project-b"),
+                    feature("Charlie", "project-a"),
+                ],
+            ),
+        );
+
+        let server_a = client_api_test_server(token_cache_a, delta_cache_manager_a).await;
+        let server_b = client_api_test_server(token_cache_b, delta_cache_manager_b).await;
+
+        let (_, replay_delta) = first_stream_delta(&server_a, &token.token, Some(1)).await;
+        let (_, hydration_delta) = first_stream_delta(&server_b, &token.token, Some(1)).await;
+
+        let prior_state =
+            EffectiveState::from_features_and_segments(vec![feature("Alpha", "project-a")], vec![]);
+        let expected_state = EffectiveState::from_features_and_segments(
+            vec![
+                feature("Alpha", "project-a"),
+                feature("Charlie", "project-a"),
+            ],
+            vec![],
+        );
+
+        let replay_state = apply_delta_to_state(prior_state.clone(), &replay_delta);
+        let hydration_state = apply_delta_to_state(prior_state, &hydration_delta);
+
+        assert_eq!(replay_state, expected_state);
+        assert_eq!(hydration_state, expected_state);
+        assert!(
+            replay_state
+                .features
+                .keys()
+                .all(|(project, _)| project == "project-a")
+        );
+        assert!(
+            hydration_state
+                .features
+                .keys()
+                .all(|(project, _)| project == "project-a")
+        );
+    }
+
+    #[tokio::test]
+    async fn streaming_stale_node_is_semantically_different_from_fresh_node() {
+        let token = backend_token(&["*"], "development");
+        let token_cache_a = Arc::new(TokenCache::default());
+        let token_cache_b = Arc::new(TokenCache::default());
+        let delta_cache_manager_a = Arc::new(DeltaCacheManager::new());
+        let delta_cache_manager_b = Arc::new(DeltaCacheManager::new());
+
+        token_cache_a.insert(token.token.clone(), token.clone());
+        token_cache_b.insert(token.token.clone(), token.clone());
+
+        delta_cache_manager_a.insert_cache(
+            "development",
+            delta_cache_with_state(0, vec![feature("Inigo Montoya", "project-a")]),
+        );
+        delta_cache_manager_a.update_cache(
+            "development",
+            &[DeltaEvent::FeatureUpdated {
+                event_id: 1,
+                feature: feature("Westley", "project-a"),
+            }],
+        );
+
+        delta_cache_manager_b.insert_cache(
+            "development",
+            delta_cache_with_state(0, vec![feature("Inigo Montoya", "project-a")]),
+        );
+
+        let server_a = client_api_test_server(token_cache_a, delta_cache_manager_a).await;
+        let server_b = client_api_test_server(token_cache_b, delta_cache_manager_b).await;
+
+        let (_, fresh_delta) = first_stream_delta(&server_a, &token.token, None).await;
+        let (_, stale_delta) = first_stream_delta(&server_b, &token.token, None).await;
+
+        let fresh_state = apply_delta_to_state(
+            EffectiveState::from_features_and_segments(vec![], vec![]),
+            &fresh_delta,
+        );
+        let stale_state = apply_delta_to_state(
+            EffectiveState::from_features_and_segments(vec![], vec![]),
+            &stale_delta,
+        );
+
+        assert_ne!(fresh_state, stale_state);
     }
 }
