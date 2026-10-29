@@ -6280,6 +6280,7 @@ dependencies = [
  "http",
  "pretty_assertions",
  "prometheus",
+ "proptest",
  "redis",
  "reqwest",
  "serde",

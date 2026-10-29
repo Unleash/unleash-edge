@@ -1,6 +1,5 @@
 use prometheus::{Histogram, IntGauge, register_histogram, register_int_gauge};
 use reqwest::{StatusCode, Url};
-use std::collections::HashSet;
 use std::sync::{Arc, LazyLock};
 use tokio::sync::RwLock;
 
@@ -8,7 +7,7 @@ use crate::{ClientMetaInformation, UnleashClient};
 use tracing::{debug, info, warn};
 use unleash_edge_cli::AuthHeaders;
 use unleash_edge_types::errors::EdgeError;
-use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
+use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, merge_reports, report_counts};
 use unleash_edge_types::metrics::payload_size::{
     TARGET_BODY_SIZE, UPSTREAM_MAX_BODY_SIZE, serialized_len,
 };
@@ -107,12 +106,15 @@ enum InstanceDataSendError {
     Backoff(String),
 }
 
-async fn clear_reported_data(
-    our_instance_data: &Arc<EdgeInstanceData>,
+/// Hand the reports back after a failure we will retry. Reports that arrived while the post was
+/// in flight are folded on top, so they count as the newer ones.
+async fn retain_reports(
     downstream_instance_data: &Arc<RwLock<Vec<EdgeInstanceData>>>,
+    mut reports: Vec<EdgeInstanceData>,
 ) {
-    downstream_instance_data.write().await.clear();
-    our_instance_data.clear_time_windowed_metrics();
+    let mut buffer = downstream_instance_data.write().await;
+    merge_reports(&mut reports, std::mem::take(&mut buffer));
+    *buffer = reports;
 }
 
 struct PayloadSize {
@@ -120,20 +122,6 @@ struct PayloadSize {
     root: usize,
     reports: usize,
     distinct: usize,
-}
-
-fn report_counts(instances: &[EdgeInstanceData]) -> (usize, usize) {
-    let mut pending: Vec<&EdgeInstanceData> = instances.iter().collect();
-    let mut total = 0;
-    let mut distinct = HashSet::new();
-
-    while let Some(instance) = pending.pop() {
-        total += 1;
-        distinct.insert(instance.identifier.as_str());
-        pending.extend(instance.connected_edges.iter());
-    }
-
-    (total, distinct.len())
 }
 
 fn measure_payload(mut payload: EdgeInstanceData) -> (EdgeInstanceData, PayloadSize) {
@@ -171,10 +159,12 @@ async fn send_instance_data(
             Ok(())
         }
         InstanceDataSending::SendInstanceData(instance_data_sender) => {
-            let observed_data = our_instance_data.observe(
-                downstream_instance_data.read().await.clone(),
-                &instance_data_sender.base_path,
-            );
+            // Take the buffer rather than copy it: a report that arrives while this post is
+            // in flight then lands in a fresh buffer instead of being cleared along with the
+            // ones we sent. The failures we mean to retry hand these back.
+            let reports = std::mem::take(&mut *downstream_instance_data.write().await);
+            let observed_data =
+                our_instance_data.observe(reports.clone(), &instance_data_sender.base_path);
             let (observed_data, size) = measure_payload(observed_data);
             let status = instance_data_sender
                 .unleash_client
@@ -186,21 +176,18 @@ async fn send_instance_data(
                     EdgeError::EdgeMetricsRequestError(status, _) => {
                         match status {
                             StatusCode::NOT_FOUND => {
-                                clear_reported_data(our_instance_data, downstream_instance_data)
-                                    .await;
+                                our_instance_data.clear_time_windowed_metrics();
                                 Err(InstanceDataSendError::Backoff("Our upstream is not running a version that supports edge metrics.".into()))
                             }
                             StatusCode::FORBIDDEN => {
-                                clear_reported_data(our_instance_data, downstream_instance_data)
-                                    .await;
+                                our_instance_data.clear_time_windowed_metrics();
                                 Err(InstanceDataSendError::Backoff("Upstream edge metrics said our token wasn't allowed to post data".into()))
                             }
 
                             StatusCode::PAYLOAD_TOO_LARGE | StatusCode::BAD_REQUEST => {
                                 // drop the buffer - upstream will never take a body this big
                                 // so the next is small enough to get through
-                                clear_reported_data(our_instance_data, downstream_instance_data)
-                                    .await;
+                                our_instance_data.clear_time_windowed_metrics();
                                 Err(InstanceDataSendError::NoBackoff(format!(
                                     "Upstream rejected our instance data with {status}. It was \
                                      {} bytes against a {UPSTREAM_MAX_BODY_SIZE} byte limit, \
@@ -210,18 +197,24 @@ async fn send_instance_data(
                                     size.total, size.root, size.reports, size.distinct
                                 )))
                             }
-                            _ => Err(InstanceDataSendError::Backoff(format!(
-                                "Failed to post instance data: {e:?}"
-                            ))),
+                            _ => {
+                                retain_reports(downstream_instance_data, reports).await;
+                                Err(InstanceDataSendError::Backoff(format!(
+                                    "Failed to post instance data: {e:?}"
+                                )))
+                            }
                         }
                     }
 
-                    _ => Err(InstanceDataSendError::Backoff(format!(
-                        "Failed to post instance data: {e:?}"
-                    ))),
+                    _ => {
+                        retain_reports(downstream_instance_data, reports).await;
+                        Err(InstanceDataSendError::Backoff(format!(
+                            "Failed to post instance data: {e:?}"
+                        )))
+                    }
                 }
             } else {
-                clear_reported_data(our_instance_data, downstream_instance_data).await;
+                our_instance_data.clear_time_windowed_metrics();
                 Ok(())
             }
         }
@@ -386,7 +379,13 @@ mod tests {
         status: StatusCode,
         downstream: &Arc<RwLock<Vec<EdgeInstanceData>>>,
     ) -> Result<(), InstanceDataSendError> {
-        let upstream = upstream_answering(status);
+        post_to(&upstream_answering(status), downstream).await
+    }
+
+    async fn post_to(
+        upstream: &axum_test::TestServer,
+        downstream: &Arc<RwLock<Vec<EdgeInstanceData>>>,
+    ) -> Result<(), InstanceDataSendError> {
         let sender = sender_posting_to(upstream.server_url("/").expect("Failed to build url"));
         let ours = Arc::new(EdgeInstanceData::new(
             "our-edge",
@@ -448,6 +447,64 @@ mod tests {
         let result = post_to_upstream_answering(StatusCode::ACCEPTED, &downstream).await;
         assert!(result.is_ok(), "expected a successful post, got {result:?}");
         assert!(downstream.read().await.is_empty());
+    }
+
+    /// An upstream that answers `status`, after a report from `identifier` reaches our buffer
+    /// while it is handling the post.
+    fn upstream_racing_a_report(
+        status: StatusCode,
+        downstream: &Arc<RwLock<Vec<EdgeInstanceData>>>,
+        identifier: ulid::Ulid,
+    ) -> axum_test::TestServer {
+        let downstream = downstream.clone();
+        let router = axum::Router::new().route(
+            "/api/client/metrics/edge",
+            axum::routing::post(move || async move {
+                let late = EdgeInstanceData::new("downstream-edge", &identifier, None);
+                late.observe_request_consumption();
+                downstream.write().await.push(late);
+                status
+            }),
+        );
+        axum_test::TestServer::builder()
+            .http_transport()
+            .build(router)
+    }
+
+    #[tokio::test]
+    async fn a_report_arriving_during_a_successful_post_waits_for_the_next_one() {
+        let downstream = buffer_holding_one_report();
+        let upstream =
+            upstream_racing_a_report(StatusCode::ACCEPTED, &downstream, ulid::Ulid::generate());
+
+        assert!(post_to(&upstream, &downstream).await.is_ok());
+
+        assert_eq!(
+            downstream.read().await.len(),
+            1,
+            "only the report we sent is cleared, not one that came in while we sent it"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_report_arriving_during_a_failed_post_folds_into_the_retained_one() {
+        let identifier = ulid::Ulid::generate();
+        let held = EdgeInstanceData::new("downstream-edge", &identifier, None);
+        held.observe_request_consumption();
+        let downstream = Arc::new(RwLock::new(vec![held]));
+        let upstream =
+            upstream_racing_a_report(StatusCode::INTERNAL_SERVER_ERROR, &downstream, identifier);
+
+        assert!(post_to(&upstream, &downstream).await.is_err());
+
+        let buffer = downstream.read().await;
+        assert_eq!(buffer.len(), 1, "two windows from one instance, one entry");
+        assert_eq!(
+            buffer[0]
+                .request_consumption_since_last_report
+                .get_requests("default"),
+            2
+        );
     }
 
     #[test]

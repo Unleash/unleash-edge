@@ -185,6 +185,29 @@ impl ConnectionConsumptionData {
         self.features_map.clear();
         self.metrics_map.clear();
     }
+
+    /// Fold another window's counts into this one. Both sides are keyed by interval bucket, so
+    /// a bucket present in both is the same bucket counted over two windows.
+    pub(crate) fn absorb(&mut self, other: Self) {
+        let Self {
+            features_map,
+            metrics_map,
+        } = other;
+        add_data_points(&self.features_map, features_map);
+        add_data_points(&self.metrics_map, metrics_map);
+    }
+}
+
+fn add_data_points(into: &DashMap<[u64; 2], DataPoint>, from: DashMap<[u64; 2], DataPoint>) {
+    for (interval, point) in from {
+        into.entry(interval)
+            .or_insert_with(|| DataPoint {
+                interval,
+                requests: AtomicU64::new(0),
+            })
+            .requests
+            .fetch_add(point.requests.into_inner(), Ordering::Relaxed);
+    }
 }
 
 #[derive(Debug, Default)]
@@ -268,6 +291,17 @@ impl RequestConsumptionData {
     pub fn reset(&self) {
         for mut entry in self.metered_groups.iter_mut() {
             entry.value_mut().store(0, Ordering::Relaxed);
+        }
+    }
+
+    /// Fold another window's counts into this one, per metered group.
+    pub(crate) fn absorb(&mut self, other: Self) {
+        let Self { metered_groups } = other;
+        for (metered_group, requests) in metered_groups {
+            self.metered_groups
+                .entry(metered_group)
+                .or_default()
+                .fetch_add(requests.into_inner(), Ordering::Relaxed);
         }
     }
 }

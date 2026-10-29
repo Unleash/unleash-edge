@@ -5,7 +5,7 @@ use crate::metrics::{
     InstanceTraffic, LatencyMetrics, MAX_BUCKET_INTERVAL, METHOD_LABEL, ProcessMetrics,
     RequestConsumptionData, RequestStats, STATUS_LABEL, UpstreamLatency,
 };
-use ahash::HashMap;
+use ahash::{HashMap, HashSet};
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use prometheus::gather;
@@ -107,6 +107,58 @@ pub enum Hosting {
     EnterpriseSelfHosted,
 }
 
+/// Most distinct instances we hold reports from, nested ones included. Folding stops the buffer
+/// growing with time, but a restarted instance comes back under a new identifier and nothing
+/// evicts the old one, so without a cap a long upstream outage still grows it.
+pub const MAX_DISTINCT_INSTANCES: usize = 250;
+
+/// How many reports there are and how many distinct instances they came from, nested ones
+/// included.
+pub fn report_counts<'a>(
+    reports: impl IntoIterator<Item = &'a EdgeInstanceData>,
+) -> (usize, usize) {
+    let mut pending: Vec<&EdgeInstanceData> = reports.into_iter().collect();
+    let mut total = 0;
+    let mut distinct: HashSet<&str> = HashSet::default();
+
+    while let Some(report) = pending.pop() {
+        total += 1;
+        distinct.insert(report.identifier.as_str());
+        pending.extend(report.connected_edges.iter());
+    }
+
+    (total, distinct.len())
+}
+
+/// Fold a report into a buffer holding at most one entry per instance.
+///
+/// Reports from the same instance are not interchangeable. The `*_since_last_report` fields are
+/// deltas covering the window since that instance last posted, and `connected_edges` holds
+/// whatever reached it during that same window - so keeping only the newest report would throw
+/// away a window of consumption and a whole set of downstream reports.
+pub fn merge_report(into: &mut Vec<EdgeInstanceData>, mut report: EdgeInstanceData) {
+    match into
+        .iter_mut()
+        .find(|held| held.identifier == report.identifier)
+    {
+        Some(held) => held.absorb(report),
+        None => {
+            // An instance running a version without this fold can send us duplicates of its
+            // own, so flatten the report's subtree before we take it on.
+            let connected_edges = std::mem::take(&mut report.connected_edges);
+            merge_reports(&mut report.connected_edges, connected_edges);
+            into.push(report);
+        }
+    }
+}
+
+/// [`merge_report`] over a batch.
+pub fn merge_reports(into: &mut Vec<EdgeInstanceData>, incoming: Vec<EdgeInstanceData>) {
+    for report in incoming {
+        merge_report(into, report);
+    }
+}
+
 impl EdgeInstanceData {
     pub fn new(app_name: &str, identifier: &Ulid, hosting: Option<Hosting>) -> Self {
         let build_info = BuildInfo::default();
@@ -136,6 +188,65 @@ impl EdgeInstanceData {
         self.requests_since_last_report.clear();
         self.connection_consumption_since_last_report.reset();
         self.request_consumption_since_last_report.reset();
+    }
+
+    /// Absorb a later report from this same instance.
+    ///
+    /// Destructured on purpose: add a field to this struct and this stops compiling until
+    /// someone decides whether it accumulates or is superseded.
+    fn absorb(&mut self, newer: Self) {
+        let Self {
+            identifier: _,
+            app_name,
+            hosting,
+            region,
+            edge_version,
+            process_metrics,
+            started,
+            traffic,
+            latency_upstream,
+            requests_since_last_report,
+            connected_streaming_clients,
+            connected_edges,
+            connection_consumption_since_last_report,
+            request_consumption_since_last_report,
+            edge_api_key_revision_ids,
+            enricher_metrics,
+        } = newer;
+
+        // Superseded: point in time, or counted since that process started, so the newer
+        // value already covers what the older report said.
+        self.app_name = app_name;
+        self.hosting = hosting;
+        self.region = region;
+        self.edge_version = edge_version;
+        self.process_metrics = process_metrics;
+        self.started = started;
+        self.traffic = traffic;
+        self.latency_upstream = latency_upstream;
+        self.connected_streaming_clients = connected_streaming_clients;
+        self.enricher_metrics = enricher_metrics;
+        self.edge_api_key_revision_ids = edge_api_key_revision_ids;
+
+        // Accumulated. Each report covers a different window, so the windows add up.
+        for (endpoint, stats) in requests_since_last_report {
+            let RequestStats {
+                requests_200,
+                requests_304,
+            } = stats;
+            let held = self.requests_since_last_report.entry(endpoint).or_default();
+            held.requests_200
+                .fetch_add(requests_200.into_inner(), Ordering::Relaxed);
+            held.requests_304
+                .fetch_add(requests_304.into_inner(), Ordering::Relaxed);
+        }
+        self.connection_consumption_since_last_report
+            .absorb(connection_consumption_since_last_report);
+        self.request_consumption_since_last_report
+            .absorb(request_consumption_since_last_report);
+
+        // The same downstream instance can appear in both windows, with different deltas.
+        merge_reports(&mut self.connected_edges, connected_edges);
     }
 
     pub fn observe_request_consumption(&self) {
@@ -467,9 +578,7 @@ impl EdgeInstanceData {
             enricher_metrics.errors = enricher_errors;
             enricher_metrics.timeouts = enricher_timeouts;
         }
-        for connected_instance in connected_instances {
-            observed.connected_edges.push(connected_instance.clone());
-        }
+        merge_reports(&mut observed.connected_edges, connected_instances);
         observed
     }
 }
@@ -503,6 +612,131 @@ mod tests {
     use super::*;
     use prometheus::{register_histogram, register_int_counter};
     use serde_json::json;
+
+    #[test]
+    fn two_reports_from_one_instance_add_their_consumption() {
+        let id = Ulid::generate();
+        let first = EdgeInstanceData::new("downstream", &id, None);
+        first.observe_request_consumption();
+        first.observe_request_consumption();
+        let second = EdgeInstanceData::new("downstream", &id, None);
+        second.observe_request_consumption();
+
+        let mut buffer = vec![first];
+        merge_reports(&mut buffer, vec![second]);
+
+        assert_eq!(buffer.len(), 1, "one instance should hold one entry");
+        assert_eq!(
+            buffer[0]
+                .request_consumption_since_last_report
+                .get_requests("default"),
+            3,
+            "each report covers its own window, so the windows add up"
+        );
+    }
+
+    #[test]
+    fn a_grandchild_seen_in_two_windows_has_its_deltas_added() {
+        let parent_id = Ulid::generate();
+        let child_id = Ulid::generate();
+
+        let mut first = EdgeInstanceData::new("parent", &parent_id, None);
+        let child_first = EdgeInstanceData::new("child", &child_id, None);
+        child_first.observe_request_consumption();
+        child_first.observe_request_consumption();
+        first.connected_edges = vec![child_first];
+
+        let mut second = EdgeInstanceData::new("parent", &parent_id, None);
+        let child_second = EdgeInstanceData::new("child", &child_id, None);
+        child_second.observe_request_consumption();
+        second.connected_edges = vec![
+            child_second,
+            EdgeInstanceData::new("other-child", &Ulid::generate(), None),
+        ];
+
+        first.absorb(second);
+
+        assert_eq!(first.connected_edges.len(), 2);
+        let child = first
+            .connected_edges
+            .iter()
+            .find(|held| held.identifier == child_id.to_string())
+            .expect("the child seen in both windows should survive");
+        assert_eq!(
+            child
+                .request_consumption_since_last_report
+                .get_requests("default"),
+            3,
+            "each report carries only the window it saw, so a child in both windows adds up"
+        );
+    }
+
+    #[test]
+    fn two_reports_add_their_per_endpoint_request_counts() {
+        let id = Ulid::generate();
+        let first = EdgeInstanceData::new("downstream", &id, None);
+        first.observe_request("/api/client/features", 200);
+        first.observe_request("/api/client/features", 200);
+        let second = EdgeInstanceData::new("downstream", &id, None);
+        second.observe_request("/api/client/features", 200);
+        second.observe_request("/api/client/features", 304);
+
+        let mut buffer = vec![first];
+        merge_reports(&mut buffer, vec![second]);
+
+        let stats = buffer[0]
+            .requests_since_last_report
+            .get("/api/client/features")
+            .expect("the endpoint we observed should be there");
+        assert_eq!(stats.requests_200.load(Ordering::Relaxed), 3);
+        assert_eq!(stats.requests_304.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn two_reports_add_their_connection_consumption() {
+        let id = Ulid::generate();
+        let first = EdgeInstanceData::new("downstream", &id, None);
+        first.observe_connection_consumption("/api/client/features", Some(15000));
+        first.observe_connection_consumption("/api/client/features", Some(15000));
+        let second = EdgeInstanceData::new("downstream", &id, None);
+        second.observe_connection_consumption("/api/client/features", Some(15000));
+
+        let mut buffer = vec![first];
+        merge_reports(&mut buffer, vec![second]);
+
+        let serialized = serde_json::to_value(&buffer[0]).expect("should serialize");
+        assert_eq!(
+            serialized["connectionConsumptionSinceLastReport"]["features"][0]["dataPoints"][0]["requests"],
+            json!(3),
+            "the same interval bucket in two windows is one bucket counted twice over"
+        );
+    }
+
+    #[test]
+    fn cumulative_fields_are_superseded_rather_than_summed() {
+        let id = Ulid::generate();
+        let mut first = EdgeInstanceData::new("downstream", &id, None);
+        first.connected_streaming_clients = 5;
+        let mut second = EdgeInstanceData::new("downstream", &id, None);
+        second.connected_streaming_clients = 3;
+
+        first.absorb(second);
+
+        assert_eq!(
+            first.connected_streaming_clients, 3,
+            "a gauge reports a level, not a delta, so the newer reading wins"
+        );
+    }
+
+    #[test]
+    fn reports_from_different_instances_stay_separate() {
+        let mut buffer = vec![EdgeInstanceData::new("one", &Ulid::generate(), None)];
+        merge_reports(
+            &mut buffer,
+            vec![EdgeInstanceData::new("two", &Ulid::generate(), None)],
+        );
+        assert_eq!(buffer.len(), 2);
+    }
 
     #[test]
     fn observes_context_enricher_metrics() {
@@ -932,6 +1166,74 @@ mod tests {
         match instance_data {
             Ok(data) => assert_eq!(data.edge_api_key_revision_ids.len(), 2),
             Err(e) => panic!("Failed to deserialize instance data: {}", e),
+        }
+    }
+
+    mod folding {
+        use super::*;
+        use proptest::prelude::*;
+
+        fn report(
+            identifier: u8,
+            requests: u64,
+            connected_edges: Vec<EdgeInstanceData>,
+        ) -> EdgeInstanceData {
+            let mut report = EdgeInstanceData::new("edge", &Ulid::generate(), None);
+            report.identifier = identifier.to_string();
+            for _ in 0..requests {
+                report.observe_request_consumption();
+            }
+            report.connected_edges = connected_edges;
+            report
+        }
+
+        // Identifiers come from a small pool so one instance turns up in several reports, at
+        // any depth, the way it does when an upstream has been failing for a while.
+        fn reports() -> impl Strategy<Value = Vec<EdgeInstanceData>> {
+            let leaf = (0..4u8, 0..5u64).prop_map(|(id, requests)| report(id, requests, vec![]));
+            let tree = leaf.prop_recursive(3, 32, 4, |inner| {
+                (0..4u8, 0..5u64, prop::collection::vec(inner, 0..4))
+                    .prop_map(|(id, requests, children)| report(id, requests, children))
+            });
+            prop::collection::vec(tree, 0..6)
+        }
+
+        fn requests(reports: &[EdgeInstanceData]) -> u64 {
+            reports
+                .iter()
+                .map(|report| {
+                    report
+                        .request_consumption_since_last_report
+                        .get_requests("default")
+                        + requests(&report.connected_edges)
+                })
+                .sum()
+        }
+
+        fn one_entry_per_instance(reports: &[EdgeInstanceData]) -> bool {
+            let identifiers: HashSet<&str> = reports
+                .iter()
+                .map(|report| report.identifier.as_str())
+                .collect();
+            identifiers.len() == reports.len()
+                && reports
+                    .iter()
+                    .all(|report| one_entry_per_instance(&report.connected_edges))
+        }
+
+        proptest! {
+            #[test]
+            fn folding_neither_gains_nor_loses_consumption(reports in reports()) {
+                let consumption = requests(&reports);
+                let (_, distinct) = report_counts(&reports);
+
+                let mut buffer = vec![];
+                merge_reports(&mut buffer, reports);
+
+                prop_assert_eq!(requests(&buffer), consumption);
+                prop_assert_eq!(report_counts(&buffer).1, distinct);
+                prop_assert!(one_entry_per_instance(&buffer));
+            }
         }
     }
 }
