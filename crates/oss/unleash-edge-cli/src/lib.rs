@@ -557,8 +557,8 @@ pub struct CliArgs {
     #[clap(long, env, default_value_t = 5)]
     pub edge_request_timeout: u64,
 
-    /// Keepalive timeout for requests to Edge
-    #[clap(long, env, default_value_t = 5)]
+    /// Keepalive timeout in seconds for client connections to Edge. Idle HTTP/1 connections are closed after this long; HTTP/2 connections are pinged at this interval and closed if a ping isn't acknowledged within it
+    #[clap(long, env, default_value_t = 15)]
     pub edge_keepalive_timeout: u64,
 
     /// Which log format should Edge use
