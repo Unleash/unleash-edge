@@ -1182,6 +1182,10 @@ mod tests {
             report.identifier = identifier.to_string();
             for _ in 0..requests {
                 report.observe_request_consumption();
+                report.observe_request("/api/client/features", 200);
+                report.observe_request("/api/client/features", 304);
+                report.observe_connection_consumption("/api/client/features", Some(15_000));
+                report.observe_connection_consumption("/api/client/metrics", Some(15_000));
             }
             report.connected_edges = connected_edges;
             report
@@ -1198,15 +1202,38 @@ mod tests {
             prop::collection::vec(tree, 0..6)
         }
 
-        fn requests(reports: &[EdgeInstanceData]) -> u64 {
+        /// Sum `of` across a forest of reports, nested ones included.
+        fn total(reports: &[EdgeInstanceData], of: &impl Fn(&EdgeInstanceData) -> u64) -> u64 {
             reports
                 .iter()
-                .map(|report| {
-                    report
-                        .request_consumption_since_last_report
-                        .get_requests("default")
-                        + requests(&report.connected_edges)
+                .map(|report| of(report) + total(&report.connected_edges, of))
+                .sum()
+        }
+
+        fn request_consumption(report: &EdgeInstanceData) -> u64 {
+            report
+                .request_consumption_since_last_report
+                .get_requests("default")
+        }
+
+        fn endpoint_requests(report: &EdgeInstanceData) -> u64 {
+            report
+                .requests_since_last_report
+                .iter()
+                .map(|stats| {
+                    stats.requests_200.load(Ordering::Relaxed)
+                        + stats.requests_304.load(Ordering::Relaxed)
                 })
+                .sum()
+        }
+
+        fn connection_requests(report: &EdgeInstanceData) -> u64 {
+            let consumption = &report.connection_consumption_since_last_report;
+            consumption
+                .features_map
+                .iter()
+                .chain(consumption.metrics_map.iter())
+                .map(|point| point.requests.load(Ordering::Relaxed))
                 .sum()
         }
 
@@ -1223,14 +1250,23 @@ mod tests {
 
         proptest! {
             #[test]
-            fn folding_neither_gains_nor_loses_consumption(reports in reports()) {
-                let consumption = requests(&reports);
+            fn folding_neither_gains_nor_loses_a_window(reports in reports()) {
+                let before = (
+                    total(&reports, &request_consumption),
+                    total(&reports, &endpoint_requests),
+                    total(&reports, &connection_requests),
+                );
                 let (_, distinct) = report_counts(&reports);
 
                 let mut buffer = vec![];
                 merge_reports(&mut buffer, reports);
 
-                prop_assert_eq!(requests(&buffer), consumption);
+                let after = (
+                    total(&buffer, &request_consumption),
+                    total(&buffer, &endpoint_requests),
+                    total(&buffer, &connection_requests),
+                );
+                prop_assert_eq!(after, before);
                 prop_assert_eq!(report_counts(&buffer).1, distinct);
                 prop_assert!(one_entry_per_instance(&buffer));
             }

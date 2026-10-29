@@ -248,6 +248,7 @@ pub fn create_once_off_send_instance_data(
         }
     })
 }
+const MAX_BACKOFF_STEPS: u32 = 8;
 
 pub fn create_send_instance_data_task(
     instance_data_sender: Arc<InstanceDataSending>,
@@ -260,7 +261,8 @@ pub fn create_send_instance_data_task(
     Box::pin(async move {
         loop {
             tokio::time::sleep(
-                std::time::Duration::from_secs(60) + delay * std::cmp::min(errors, 10),
+                std::time::Duration::from_secs(60)
+                    + delay * std::cmp::min(errors, MAX_BACKOFF_STEPS),
             )
             .await;
             if let Some(token) = find_first_valid_token(&token_cache) {
