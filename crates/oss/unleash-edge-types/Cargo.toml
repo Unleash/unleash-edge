@@ -30,6 +30,7 @@ utoipa = { workspace = true }
 
 [dev-dependencies]
 pretty_assertions = { workspace = true }
+proptest = { workspace = true }
 test-case = { workspace = true }
 axum-test = { workspace = true }
 tokio = { workspace = true }
