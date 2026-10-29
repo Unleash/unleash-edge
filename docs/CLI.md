@@ -87,9 +87,11 @@ This document contains the help content for the `unleash-edge` command-line prog
 * `--edge-request-timeout <EDGE_REQUEST_TIMEOUT>` — Timeout for requests to Edge
 
   Default value: `5`
-* `--edge-keepalive-timeout <EDGE_KEEPALIVE_TIMEOUT>` — Keepalive timeout for requests to Edge
+* `--edge-keepalive-timeout <EDGE_KEEPALIVE_TIMEOUT>` — Keepalive timeout in seconds for client connections to Edge.
+  Idle HTTP/1 connections are closed after this long; HTTP/2 connections are pinged at this interval and closed if a
+  ping isn't acknowledged within it
 
-  Default value: `5`
+  Default value: `15`
 * `-l`, `--log-format <LOG_FORMAT>` — Which log format should Edge use
 
   Default value: `plain`

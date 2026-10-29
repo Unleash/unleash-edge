@@ -9,7 +9,8 @@ use futures::future::join_all;
 use http::Uri;
 use http::uri::Authority;
 use http_body_util::BodyExt;
-use hyper_util::rt::TokioTimer;
+use hyper_util::rt::{TokioExecutor, TokioTimer};
+use hyper_util::server::conn::auto::Builder as AutoBuilder;
 use socket2::{Domain, Protocol, Socket, Type};
 use std::net::{IpAddr, SocketAddr, TcpListener as StdTcpListener};
 use std::pin::pin;
@@ -87,9 +88,19 @@ pub struct HttpAppCfg {
     pub https_port: u16,
 }
 
-const H1_HEADER_TIMEOUT: Duration = Duration::from_secs(15); // protects against slowloris
-const KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(20);
-const KEEP_ALIVE_TIMEOUT: Duration = Duration::from_secs(20);
+// For HTTP/1 the header read timeout doubles as the idle keep-alive timeout and protects against slowloris
+fn configure_http_builder(builder: &mut AutoBuilder<TokioExecutor>, keepalive_timeout: Duration) {
+    builder
+        .http1()
+        .timer(TokioTimer::new())
+        .keep_alive(true)
+        .header_read_timeout(keepalive_timeout);
+    builder
+        .http2()
+        .timer(TokioTimer::new())
+        .keep_alive_interval(Some(keepalive_timeout))
+        .keep_alive_timeout(keepalive_timeout);
+}
 
 fn make_listener(bind_ip: IpAddr, port: u16) -> EdgeResult<StdTcpListener> {
     let (domain, sock_addr) = match bind_ip {
@@ -135,6 +146,7 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
             Request::from_parts(parts, Body::from_stream(stream))
         });
     let server = svc.into_make_service_with_connect_info::<SocketAddr>();
+    let keepalive_timeout = Duration::from_secs(args.edge_keepalive_timeout);
 
     if args.http.tls.tls_enable {
         let https_handle = Handle::new();
@@ -172,17 +184,7 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
             let mut builder = axum_server::from_tcp_rustls(https_listener, config)
                 .map_err(|e| EdgeError::SocketBindError(e.to_string()))?
                 .handle(https_handle.clone());
-            let https_builder = builder.http_builder();
-            https_builder
-                .http1()
-                .timer(TokioTimer::new())
-                .keep_alive(true)
-                .header_read_timeout(H1_HEADER_TIMEOUT);
-            https_builder
-                .http2()
-                .timer(TokioTimer::new())
-                .keep_alive_interval(Some(KEEP_ALIVE_INTERVAL))
-                .keep_alive_timeout(KEEP_ALIVE_TIMEOUT);
+            configure_http_builder(builder.http_builder(), keepalive_timeout);
             let https = builder.serve(server.clone());
             _ = try_join!(http, https);
         } else {
@@ -191,17 +193,7 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
             let mut builder = axum_server::from_tcp_rustls(https_listener, config)
                 .map_err(|e| EdgeError::SocketBindError(e.to_string()))?
                 .handle(https_handle.clone());
-            let https_builder = builder.http_builder();
-            https_builder
-                .http1()
-                .timer(TokioTimer::new())
-                .keep_alive(true)
-                .header_read_timeout(H1_HEADER_TIMEOUT);
-            https_builder
-                .http2()
-                .timer(TokioTimer::new())
-                .keep_alive_interval(Some(KEEP_ALIVE_INTERVAL))
-                .keep_alive_timeout(KEEP_ALIVE_TIMEOUT);
+            configure_http_builder(builder.http_builder(), keepalive_timeout);
             _ = builder.serve(server.clone()).await;
         }
     } else {
@@ -222,17 +214,7 @@ async fn run_server(args: CliArgs) -> EdgeResult<()> {
         let mut builder = axum_server::from_tcp(http_listener)
             .map_err(|e| EdgeError::SocketBindError(e.to_string()))?
             .handle(handle);
-        let http_builder = builder.http_builder();
-        http_builder
-            .http1()
-            .timer(TokioTimer::new())
-            .keep_alive(true)
-            .header_read_timeout(H1_HEADER_TIMEOUT);
-        http_builder
-            .http2()
-            .timer(TokioTimer::new())
-            .keep_alive_interval(Some(KEEP_ALIVE_INTERVAL))
-            .keep_alive_timeout(KEEP_ALIVE_TIMEOUT);
+        configure_http_builder(builder.http_builder(), keepalive_timeout);
         _ = builder.serve(server).await;
     }
     Ok(())
