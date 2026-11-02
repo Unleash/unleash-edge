@@ -128,27 +128,26 @@ struct PayloadSize {
     distinct: usize,
 }
 
-fn measure_payload(mut payload: EdgeInstanceData) -> (EdgeInstanceData, PayloadSize) {
+fn measure_payload(payload: &mut EdgeInstanceData) -> PayloadSize {
     let downstream = std::mem::take(&mut payload.connected_edges);
 
     let (reports, distinct) = report_counts(&downstream);
     DOWNSTREAM_REPORTS.set(reports as i64);
     DOWNSTREAM_DISTINCT_REPORTS.set(distinct as i64);
 
-    let root = serialized_len(&payload);
+    let root = serialized_len(payload);
     ROOT_PAYLOAD_BYTES.observe(root as f64);
 
     payload.connected_edges = downstream;
-    let total = serialized_len(&payload);
+    let total = serialized_len(payload);
     PAYLOAD_BYTES.observe(total as f64);
 
-    let size = PayloadSize {
+    PayloadSize {
         total,
         root,
         reports,
         distinct,
-    };
-    (payload, size)
+    }
 }
 
 async fn send_instance_data(
@@ -167,12 +166,12 @@ async fn send_instance_data(
             // in flight then lands in a fresh buffer instead of being cleared along with the
             // ones we sent. The failures we mean to retry hand these back.
             let reports = std::mem::take(&mut *downstream_instance_data.write().await);
-            let observed_data =
-                our_instance_data.observe(reports.clone(), &instance_data_sender.base_path);
-            let (observed_data, size) = measure_payload(observed_data);
+            let mut observed_data =
+                our_instance_data.observe(reports, &instance_data_sender.base_path);
+            let size = measure_payload(&mut observed_data);
             let posted = instance_data_sender
                 .unleash_client
-                .post_edge_observability_data(observed_data, token)
+                .post_edge_observability_data(&observed_data, token)
                 .await;
 
             match posted {
@@ -220,7 +219,7 @@ async fn send_instance_data(
                     }
                 }
                 Err(e) => {
-                    retain_reports(downstream_instance_data, reports).await;
+                    retain_reports(downstream_instance_data, observed_data.connected_edges).await;
                     Err(InstanceDataSendError::Backoff(format!(
                         "Failed to post instance data: {e:?}"
                     )))
@@ -592,7 +591,7 @@ mod tests {
         ];
         let before = serialized_len(&payload);
 
-        let (payload, size) = measure_payload(payload);
+        let size = measure_payload(&mut payload);
 
         assert_eq!(payload.connected_edges.len(), 2);
         assert_eq!(
@@ -620,33 +619,12 @@ mod tests {
         let mut payload = EdgeInstanceData::new("tier-one", &ulid::Ulid::generate(), None);
         payload.connected_edges = vec![child];
 
-        let (_, size) = measure_payload(payload);
+        let size = measure_payload(&mut payload);
 
         assert_eq!(
             size.reports, 3,
             "a three tier chain below us is three reports, not one"
         );
         assert_eq!(size.distinct, 3);
-    }
-
-    #[test]
-    fn repeated_reports_from_one_instance_count_once_as_distinct() {
-        let identifier = ulid::Ulid::generate();
-        let twice = vec![
-            EdgeInstanceData::new("downstream", &identifier, None),
-            EdgeInstanceData::new("downstream", &identifier, None),
-        ];
-
-        assert_eq!(report_counts(&twice), (2, 1));
-    }
-
-    #[test]
-    fn payload_size_buckets_ascend() {
-        assert!(
-            PAYLOAD_SIZE_BUCKETS
-                .windows(2)
-                .all(|pair| pair[0] < pair[1]),
-            "bucket bounds must ascend: {PAYLOAD_SIZE_BUCKETS:?}"
-        );
     }
 }

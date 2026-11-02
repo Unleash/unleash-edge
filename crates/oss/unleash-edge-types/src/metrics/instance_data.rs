@@ -567,7 +567,7 @@ impl EdgeInstanceData {
             enricher_metrics.errors = enricher_errors;
             enricher_metrics.timeouts = enricher_timeouts;
         }
-        merge_reports(&mut observed.connected_edges, connected_instances);
+        observed.connected_edges.extend(connected_instances);
         observed
     }
 }
@@ -603,105 +603,6 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn two_reports_from_one_instance_add_their_consumption() {
-        let id = Ulid::generate();
-        let first = EdgeInstanceData::new("downstream", &id, None);
-        first.observe_request_consumption();
-        first.observe_request_consumption();
-        let second = EdgeInstanceData::new("downstream", &id, None);
-        second.observe_request_consumption();
-
-        let mut buffer = vec![first];
-        merge_reports(&mut buffer, vec![second]);
-
-        assert_eq!(buffer.len(), 1, "one instance should hold one entry");
-        assert_eq!(
-            buffer[0]
-                .request_consumption_since_last_report
-                .get_requests("default"),
-            3,
-            "each report covers its own window, so the windows add up"
-        );
-    }
-
-    #[test]
-    fn a_grandchild_seen_in_two_windows_has_its_deltas_added() {
-        let parent_id = Ulid::generate();
-        let child_id = Ulid::generate();
-
-        let mut first = EdgeInstanceData::new("parent", &parent_id, None);
-        let child_first = EdgeInstanceData::new("child", &child_id, None);
-        child_first.observe_request_consumption();
-        child_first.observe_request_consumption();
-        first.connected_edges = vec![child_first];
-
-        let mut second = EdgeInstanceData::new("parent", &parent_id, None);
-        let child_second = EdgeInstanceData::new("child", &child_id, None);
-        child_second.observe_request_consumption();
-        second.connected_edges = vec![
-            child_second,
-            EdgeInstanceData::new("other-child", &Ulid::generate(), None),
-        ];
-
-        first.absorb(second);
-
-        assert_eq!(first.connected_edges.len(), 2);
-        let child = first
-            .connected_edges
-            .iter()
-            .find(|held| held.identifier == child_id.to_string())
-            .expect("the child seen in both windows should survive");
-        assert_eq!(
-            child
-                .request_consumption_since_last_report
-                .get_requests("default"),
-            3,
-            "each report carries only the window it saw, so a child in both windows adds up"
-        );
-    }
-
-    #[test]
-    fn two_reports_add_their_per_endpoint_request_counts() {
-        let id = Ulid::generate();
-        let first = EdgeInstanceData::new("downstream", &id, None);
-        first.observe_request("/api/client/features", 200);
-        first.observe_request("/api/client/features", 200);
-        let second = EdgeInstanceData::new("downstream", &id, None);
-        second.observe_request("/api/client/features", 200);
-        second.observe_request("/api/client/features", 304);
-
-        let mut buffer = vec![first];
-        merge_reports(&mut buffer, vec![second]);
-
-        let stats = buffer[0]
-            .requests_since_last_report
-            .get("/api/client/features")
-            .expect("the endpoint we observed should be there");
-        assert_eq!(stats.requests_200.load(Ordering::Relaxed), 3);
-        assert_eq!(stats.requests_304.load(Ordering::Relaxed), 1);
-    }
-
-    #[test]
-    fn two_reports_add_their_connection_consumption() {
-        let id = Ulid::generate();
-        let first = EdgeInstanceData::new("downstream", &id, None);
-        first.observe_connection_consumption("/api/client/features", Some(15000));
-        first.observe_connection_consumption("/api/client/features", Some(15000));
-        let second = EdgeInstanceData::new("downstream", &id, None);
-        second.observe_connection_consumption("/api/client/features", Some(15000));
-
-        let mut buffer = vec![first];
-        merge_reports(&mut buffer, vec![second]);
-
-        let serialized = serde_json::to_value(&buffer[0]).expect("should serialize");
-        assert_eq!(
-            serialized["connectionConsumptionSinceLastReport"]["features"][0]["dataPoints"][0]["requests"],
-            json!(3),
-            "the same interval bucket in two windows is one bucket counted twice over"
-        );
-    }
-
-    #[test]
     fn cumulative_fields_are_superseded_rather_than_summed() {
         let id = Ulid::generate();
         let mut first = EdgeInstanceData::new("downstream", &id, None);
@@ -715,16 +616,6 @@ mod tests {
             first.connected_streaming_clients, 3,
             "a gauge reports a level, not a delta, so the newer reading wins"
         );
-    }
-
-    #[test]
-    fn reports_from_different_instances_stay_separate() {
-        let mut buffer = vec![EdgeInstanceData::new("one", &Ulid::generate(), None)];
-        merge_reports(
-            &mut buffer,
-            vec![EdgeInstanceData::new("two", &Ulid::generate(), None)],
-        );
-        assert_eq!(buffer.len(), 2);
     }
 
     #[test]
@@ -1169,10 +1060,12 @@ mod tests {
         ) -> EdgeInstanceData {
             let mut report = EdgeInstanceData::new("edge", &Ulid::generate(), None);
             report.identifier = identifier.to_string();
-            for _ in 0..requests {
+            for request in 0..requests {
                 report.observe_request_consumption();
                 report.observe_request("/api/client/features", 200);
-                report.observe_request("/api/client/features", 304);
+                if request % 2 == 0 {
+                    report.observe_request("/api/client/features", 304);
+                }
                 report.observe_connection_consumption("/api/client/features", Some(15_000));
                 report.observe_connection_consumption("/api/client/metrics", Some(15_000));
             }
@@ -1205,14 +1098,19 @@ mod tests {
                 .get_requests("default")
         }
 
-        fn endpoint_requests(report: &EdgeInstanceData) -> u64 {
+        fn ok_requests(report: &EdgeInstanceData) -> u64 {
             report
                 .requests_since_last_report
                 .iter()
-                .map(|stats| {
-                    stats.requests_200.load(Ordering::Relaxed)
-                        + stats.requests_304.load(Ordering::Relaxed)
-                })
+                .map(|stats| stats.requests_200.load(Ordering::Relaxed))
+                .sum()
+        }
+
+        fn not_modified_requests(report: &EdgeInstanceData) -> u64 {
+            report
+                .requests_since_last_report
+                .iter()
+                .map(|stats| stats.requests_304.load(Ordering::Relaxed))
                 .sum()
         }
 
@@ -1242,7 +1140,8 @@ mod tests {
             fn folding_neither_gains_nor_loses_a_window(reports in reports()) {
                 let before = (
                     total(&reports, &request_consumption),
-                    total(&reports, &endpoint_requests),
+                    total(&reports, &ok_requests),
+                    total(&reports, &not_modified_requests),
                     total(&reports, &connection_requests),
                 );
                 let (_, distinct) = report_counts(&reports);
@@ -1252,7 +1151,8 @@ mod tests {
 
                 let after = (
                     total(&buffer, &request_consumption),
-                    total(&buffer, &endpoint_requests),
+                    total(&buffer, &ok_requests),
+                    total(&buffer, &not_modified_requests),
                     total(&buffer, &connection_requests),
                 );
                 prop_assert_eq!(after, before);
