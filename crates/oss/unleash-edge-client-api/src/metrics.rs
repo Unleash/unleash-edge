@@ -1,8 +1,9 @@
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 use axum::Json;
 use axum::extract::{FromRef, State};
 use axum::routing::{Router, post};
+use prometheus::{IntCounter, register_int_counter};
 use tracing::{instrument, warn};
 use unleash_edge_appstate::AppState;
 use unleash_edge_appstate::edge_token_extractor::{AuthState, AuthToken};
@@ -66,6 +67,14 @@ pub async fn post_bulk_metrics(
     Ok(AcceptedJson { body: () })
 }
 
+static REFUSED_INSTANCE_REPORTS: LazyLock<IntCounter> = LazyLock::new(|| {
+    register_int_counter!(
+        "edge_instance_data_refused_reports_total",
+        "Total number of downstream instance reports turned away because our buffer was full"
+    )
+    .expect("failed to register edge_instance_data_refused_reports_total")
+});
+
 #[instrument(skip(app_state, _edge_token, instance_data))]
 pub async fn post_edge_instance_data(
     State(app_state): State<MetricsState>,
@@ -73,15 +82,15 @@ pub async fn post_edge_instance_data(
     Json(instance_data): Json<EdgeInstanceData>,
 ) -> EdgeAcceptedJsonResult<()> {
     let mut connected_instances = app_state.connected_instances.write().await;
-    // Counted with the report folded in, so new instances cannot slip past the cap by
-    // arriving nested under one we already hold. A repeat that brings nothing new always fits.
-    // The 503 makes the sender keep its report and retry once our next post upstream has
-    // emptied the buffer, so turning a report away here loses nothing.
+
+    // Reject if at cap. Count includes incoming report to prevent cap violations.
+    // Sender will retry on 503 until next successful post clears the buffer
     let (_, distinct) = report_counts(connected_instances.iter().chain([&instance_data]));
-    if distinct > MAX_DISTINCT_INSTANCES {
+    if distinct > MAX_DISTINCT_INSTANCES && !connected_instances.is_empty() {
+        REFUSED_INSTANCE_REPORTS.inc();
         warn!(
-            "Holding reports from {MAX_DISTINCT_INSTANCES} instances already, so turning away \
-             the report from {}. Check whether our upstream is accepting instance data.",
+            "Already at the cap of {MAX_DISTINCT_INSTANCES} instances, so turning away the \
+             report from {}. Check whether our upstream is accepting instance data.",
             instance_data.identifier
         );
         return Err(EdgeError::NotReady);
@@ -522,5 +531,26 @@ mod tests {
             report_counts(buffer.read().await.iter()),
             (MAX_DISTINCT_INSTANCES, MAX_DISTINCT_INSTANCES)
         );
+    }
+
+    #[tokio::test]
+    pub async fn an_empty_buffer_takes_a_report_from_a_relay_that_is_full_itself() {
+        let buffer = Arc::new(tokio::sync::RwLock::new(vec![]));
+        let server = build_server(Arc::new(MetricsCache::default()), buffer.clone());
+        let full_relay = downstream_report(
+            &Ulid::generate(),
+            (0..MAX_DISTINCT_INSTANCES)
+                .map(|_| downstream_report(&Ulid::generate(), vec![]))
+                .collect(),
+        );
+
+        let status = post_instance_data(&server, &full_relay).await;
+
+        assert_eq!(
+            status,
+            StatusCode::ACCEPTED,
+            "turning it away here would hold it at the relay forever, with nothing to make room"
+        );
+        assert_eq!(buffer.read().await.len(), 1);
     }
 }
