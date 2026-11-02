@@ -107,9 +107,8 @@ pub enum Hosting {
     EnterpriseSelfHosted,
 }
 
-/// Most distinct instances we hold reports from, nested ones included. Folding stops the buffer
-/// growing with time, but a restarted instance comes back under a new identifier and nothing
-/// evicts the old one, so without a cap a long upstream outage still grows it.
+/// Caps distinct instances to bound memory during outages. Note: limits throughput,
+/// not total buffer size—in-flight + folded reports may exceed this temporarily.
 pub const MAX_DISTINCT_INSTANCES: usize = 250;
 
 /// How many reports there are and how many distinct instances they came from, nested ones
