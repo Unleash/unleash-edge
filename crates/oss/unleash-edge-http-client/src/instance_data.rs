@@ -24,6 +24,10 @@ const PAYLOAD_SIZE_BUCKETS: [f64; 8] = [
     1024.0 * 1024.0,
 ];
 
+/// max backoff: 9mins (60s + 60s × 8). Beyond this, healthy edges drop from UI
+/// (upstream only tracks edges reporting in last 10mins)
+const MAX_BACKOFF_STEPS: u32 = 8;
+
 static PAYLOAD_BYTES: LazyLock<Histogram> = LazyLock::new(|| {
     register_histogram!(
         "edge_instance_data_payload_bytes",
@@ -45,7 +49,8 @@ static ROOT_PAYLOAD_BYTES: LazyLock<Histogram> = LazyLock::new(|| {
 static DOWNSTREAM_REPORTS: LazyLock<IntGauge> = LazyLock::new(|| {
     register_int_gauge!(
         "edge_instance_data_downstream_reports",
-        "Downstream instance reports in the payload we last sent, counted through the whole tree"
+        "Downstream instance reports in the payload we last tried to send, counted through the \
+        whole tree"
     )
     .expect("failed to register edge_instance_data_downstream_reports")
 });
@@ -53,8 +58,7 @@ static DOWNSTREAM_REPORTS: LazyLock<IntGauge> = LazyLock::new(|| {
 static DOWNSTREAM_DISTINCT_REPORTS: LazyLock<IntGauge> = LazyLock::new(|| {
     register_int_gauge!(
         "edge_instance_data_distinct_downstream_reports",
-        "How many of those came from a distinct instance. Well below the total means the same \
-        instances reported several times over, which is what grows this payload past the budget"
+        "Distinct instances among the downstream reports in the payload we last tried to send"
     )
     .expect("failed to register edge_instance_data_distinct_downstream_reports")
 });
@@ -192,17 +196,28 @@ async fn send_instance_data(
                     status @ (StatusCode::PAYLOAD_TOO_LARGE | StatusCode::BAD_REQUEST),
                     _,
                 )) => {
-                    // drop the buffer - upstream will never take a body this big
-                    // so the next is small enough to get through
+                    // Upstream refused this body, so the reports we took for it stay dropped:
+                    // sending them again would only be refused again.
                     our_instance_data.clear_time_windowed_metrics();
-                    Err(InstanceDataSendError::NoBackoff(format!(
+                    let refused = format!(
                         "Upstream rejected our instance data with {status}. It was \
                          {} bytes against a {UPSTREAM_MAX_BODY_SIZE} byte limit, \
                          {} of it our own instance, carrying {} report(s) from {} \
-                         distinct downstream instance(s). Dropped the buffered \
-                         reports so the next payload fits.",
+                         distinct downstream instance(s).",
                         size.total, size.root, size.reports, size.distinct
-                    )))
+                    );
+                    if size.reports == 0 {
+                        // Nothing was dropped, so the next payload is just as big. Back off
+                        // instead of sending one we know is refused every minute.
+                        Err(InstanceDataSendError::Backoff(format!(
+                            "{refused} There were no downstream reports to drop, so the next \
+                             payload would be refused too. Backing off."
+                        )))
+                    } else {
+                        Err(InstanceDataSendError::NoBackoff(format!(
+                            "{refused} Dropped the buffered reports so the next payload fits."
+                        )))
+                    }
                 }
                 Err(e) => {
                     retain_reports(downstream_instance_data, reports).await;
@@ -242,11 +257,6 @@ pub fn create_once_off_send_instance_data(
         }
     })
 }
-
-/// How far the send interval can back off: 60s, plus 60s per failure, up to 9 minutes.
-/// Upstream only lists an Edge that has reported in the last 10 minutes, so backing off any
-/// further would make a healthy Edge drop out of the Edge UI and the version counts.
-const MAX_BACKOFF_STEPS: u32 = 8;
 
 pub fn create_send_instance_data_task(
     instance_data_sender: Arc<InstanceDataSending>,
@@ -375,30 +385,43 @@ mod tests {
         )]))
     }
 
+    /// Our own Edge, with one request counted in the window it has not reported yet.
+    fn our_edge_with_an_open_window() -> Arc<EdgeInstanceData> {
+        let ours = EdgeInstanceData::new("our-edge", &ulid::Ulid::generate(), None);
+        ours.observe_request_consumption();
+        Arc::new(ours)
+    }
+
+    fn requests_in_our_window(ours: &EdgeInstanceData) -> u64 {
+        ours.request_consumption_since_last_report
+            .get_requests("default")
+    }
+
     async fn post_to_upstream_answering(
         status: StatusCode,
+        ours: &Arc<EdgeInstanceData>,
         downstream: &Arc<RwLock<Vec<EdgeInstanceData>>>,
     ) -> Result<(), InstanceDataSendError> {
-        post_to(&upstream_answering(status), downstream).await
+        post_to(&upstream_answering(status), ours, downstream).await
     }
 
     async fn post_to(
         upstream: &axum_test::TestServer,
+        ours: &Arc<EdgeInstanceData>,
         downstream: &Arc<RwLock<Vec<EdgeInstanceData>>>,
     ) -> Result<(), InstanceDataSendError> {
         let sender = sender_posting_to(upstream.server_url("/").expect("Failed to build url"));
-        let ours = Arc::new(EdgeInstanceData::new(
-            "our-edge",
-            &ulid::Ulid::generate(),
-            None,
-        ));
-        send_instance_data(&sender, &ours, downstream, "some-backend-token").await
+        send_instance_data(&sender, ours, downstream, "some-backend-token").await
     }
 
     #[tokio::test]
     async fn too_large_a_payload_is_dropped_so_the_next_one_can_get_through() {
+        let ours = our_edge_with_an_open_window();
         let downstream = buffer_holding_one_report();
-        let result = post_to_upstream_answering(StatusCode::PAYLOAD_TOO_LARGE, &downstream).await;
+
+        let result =
+            post_to_upstream_answering(StatusCode::PAYLOAD_TOO_LARGE, &ours, &downstream).await;
+
         assert!(
             matches!(result, Err(InstanceDataSendError::NoBackoff(_))),
             "a dropped payload should not stretch the send interval, got {result:?}"
@@ -407,29 +430,66 @@ mod tests {
             downstream.read().await.is_empty(),
             "the buffer that made the payload too large should have been dropped"
         );
+        assert_eq!(
+            requests_in_our_window(&ours),
+            0,
+            "our own window goes with it, as it always has"
+        );
     }
 
     #[tokio::test]
-    async fn a_struggling_upstream_does_not_cost_us_the_buffered_reports() {
-        let downstream = buffer_holding_one_report();
+    async fn too_large_a_payload_with_nothing_to_drop_backs_off() {
+        let ours = our_edge_with_an_open_window();
+        let nothing_buffered = Arc::new(RwLock::new(vec![]));
+
         let result =
-            post_to_upstream_answering(StatusCode::INTERNAL_SERVER_ERROR, &downstream).await;
+            post_to_upstream_answering(StatusCode::PAYLOAD_TOO_LARGE, &ours, &nothing_buffered)
+                .await;
+
         assert!(
             matches!(result, Err(InstanceDataSendError::Backoff(_))),
-            "a struggling upstream should make us back off, got {result:?}"
+            "the next payload is just as big, so resending it every minute only repeats the \
+             413, got {result:?}"
         );
-        assert_eq!(
-            downstream.read().await.len(),
-            1,
-            "the report is still good, so it should survive for the next attempt"
-        );
+    }
+
+    #[tokio::test]
+    async fn a_struggling_upstream_does_not_cost_us_any_reports() {
+        for status in [
+            StatusCode::TOO_MANY_REQUESTS,
+            StatusCode::INTERNAL_SERVER_ERROR,
+            StatusCode::SERVICE_UNAVAILABLE,
+        ] {
+            let ours = our_edge_with_an_open_window();
+            let downstream = buffer_holding_one_report();
+
+            let result = post_to_upstream_answering(status, &ours, &downstream).await;
+
+            assert!(
+                matches!(result, Err(InstanceDataSendError::Backoff(_))),
+                "{status} should make us back off, got {result:?}"
+            );
+            assert_eq!(
+                downstream.read().await.len(),
+                1,
+                "{status}: the report is still good, so it should survive for the next attempt"
+            );
+            assert_eq!(
+                requests_in_our_window(&ours),
+                1,
+                "{status}: nothing landed, so our own window stays open"
+            );
+        }
     }
 
     #[tokio::test]
     async fn forbidden_and_not_found_keep_clearing_and_backing_off() {
         for status in [StatusCode::FORBIDDEN, StatusCode::NOT_FOUND] {
+            let ours = our_edge_with_an_open_window();
             let downstream = buffer_holding_one_report();
-            let result = post_to_upstream_answering(status, &downstream).await;
+
+            let result = post_to_upstream_answering(status, &ours, &downstream).await;
+
             assert!(
                 matches!(result, Err(InstanceDataSendError::Backoff(_))),
                 "{status} should back off, got {result:?}"
@@ -438,15 +498,24 @@ mod tests {
                 downstream.read().await.is_empty(),
                 "{status} should clear the buffer, as it always has"
             );
+            assert_eq!(
+                requests_in_our_window(&ours),
+                0,
+                "{status} should clear our window"
+            );
         }
     }
 
     #[tokio::test]
     async fn a_successful_post_closes_the_window() {
+        let ours = our_edge_with_an_open_window();
         let downstream = buffer_holding_one_report();
-        let result = post_to_upstream_answering(StatusCode::ACCEPTED, &downstream).await;
+
+        let result = post_to_upstream_answering(StatusCode::ACCEPTED, &ours, &downstream).await;
+
         assert!(result.is_ok(), "expected a successful post, got {result:?}");
         assert!(downstream.read().await.is_empty());
+        assert_eq!(requests_in_our_window(&ours), 0);
     }
 
     /// An upstream that answers `status`, after a report from `identifier` reaches our buffer
@@ -477,7 +546,11 @@ mod tests {
         let upstream =
             upstream_racing_a_report(StatusCode::ACCEPTED, &downstream, ulid::Ulid::generate());
 
-        assert!(post_to(&upstream, &downstream).await.is_ok());
+        assert!(
+            post_to(&upstream, &our_edge_with_an_open_window(), &downstream)
+                .await
+                .is_ok()
+        );
 
         assert_eq!(
             downstream.read().await.len(),
@@ -495,7 +568,11 @@ mod tests {
         let upstream =
             upstream_racing_a_report(StatusCode::INTERNAL_SERVER_ERROR, &downstream, identifier);
 
-        assert!(post_to(&upstream, &downstream).await.is_err());
+        assert!(
+            post_to(&upstream, &our_edge_with_an_open_window(), &downstream)
+                .await
+                .is_err()
+        );
 
         let buffer = downstream.read().await;
         assert_eq!(buffer.len(), 1, "two windows from one instance, one entry");
