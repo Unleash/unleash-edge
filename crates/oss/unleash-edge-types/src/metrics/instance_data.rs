@@ -107,12 +107,11 @@ pub enum Hosting {
     EnterpriseSelfHosted,
 }
 
-/// Caps distinct instances to bound memory during outages. Note: limits throughput,
-/// not total buffer size—in-flight + folded reports may exceed this temporarily.
+/// caps distinct instances to bound memory during outages. Note: limits throughput,
+/// not total buffer size—in-flight + folded reports may exceed this temporarily
 pub const MAX_DISTINCT_INSTANCES: usize = 250;
 
-/// How many reports there are and how many distinct instances they came from, nested ones
-/// included.
+/// num of reports and how many distinct instances they came from, nested ones included
 pub fn report_counts<'a>(
     reports: impl IntoIterator<Item = &'a EdgeInstanceData>,
 ) -> (usize, usize) {
@@ -129,12 +128,8 @@ pub fn report_counts<'a>(
     (total, distinct.len())
 }
 
-/// Fold a report into a buffer holding at most one entry per instance.
-///
-/// Reports from the same instance are not interchangeable. The `*_since_last_report` fields are
-/// deltas covering the window since that instance last posted, and `connected_edges` holds
-/// whatever reached it during that same window - so keeping only the newest report would throw
-/// away a window of consumption and a whole set of downstream reports.
+/// merge report into buffer, one per instance. Newer vs complete: fields are deltas since
+/// last report + that window's edges. Flatten subtree on insert (handles old versions)
 pub fn merge_report(into: &mut Vec<EdgeInstanceData>, mut report: EdgeInstanceData) {
     match into
         .iter_mut()
@@ -142,8 +137,7 @@ pub fn merge_report(into: &mut Vec<EdgeInstanceData>, mut report: EdgeInstanceDa
     {
         Some(held) => held.absorb(report),
         None => {
-            // An instance running a version without this fold can send us duplicates of its
-            // own, so flatten the report's subtree before we take it on.
+            // deduple - old instances may send duplicate edges, flatten before adding
             let connected_edges = std::mem::take(&mut report.connected_edges);
             merge_reports(&mut report.connected_edges, connected_edges);
             into.push(report);
@@ -151,7 +145,6 @@ pub fn merge_report(into: &mut Vec<EdgeInstanceData>, mut report: EdgeInstanceDa
     }
 }
 
-/// [`merge_report`] over a batch.
 pub fn merge_reports(into: &mut Vec<EdgeInstanceData>, incoming: Vec<EdgeInstanceData>) {
     for report in incoming {
         merge_report(into, report);
@@ -189,10 +182,8 @@ impl EdgeInstanceData {
         self.request_consumption_since_last_report.reset();
     }
 
-    /// Absorb a later report from this same instance.
-    ///
-    /// Destructured on purpose: add a field to this struct and this stops compiling until
-    /// someone decides whether it accumulates or is superseded.
+    /// merge a later report from the same instance. Destructuring ensures each field
+    /// is intentionally handled (accumulate vs. replace)
     fn absorb(&mut self, newer: Self) {
         let Self {
             identifier: _,
@@ -213,8 +204,7 @@ impl EdgeInstanceData {
             enricher_metrics,
         } = newer;
 
-        // Superseded: point in time, or counted since that process started, so the newer
-        // value already covers what the older report said.
+        // supersede: newer value already covers prior state (point-in-time metrics)
         self.app_name = app_name;
         self.hosting = hosting;
         self.region = region;
@@ -227,7 +217,7 @@ impl EdgeInstanceData {
         self.enricher_metrics = enricher_metrics;
         self.edge_api_key_revision_ids = edge_api_key_revision_ids;
 
-        // Accumulated. Each report covers a different window, so the windows add up.
+        // accumulate: windows are independent; deltas sum.
         for (endpoint, stats) in requests_since_last_report {
             let RequestStats {
                 requests_200,
@@ -244,7 +234,7 @@ impl EdgeInstanceData {
         self.request_consumption_since_last_report
             .absorb(request_consumption_since_last_report);
 
-        // The same downstream instance can appear in both windows, with different deltas.
+        // merge edges: same downstream instance may appear in both windows
         merge_reports(&mut self.connected_edges, connected_edges);
     }
 

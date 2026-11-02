@@ -49,8 +49,7 @@ static ROOT_PAYLOAD_BYTES: LazyLock<Histogram> = LazyLock::new(|| {
 static DOWNSTREAM_REPORTS: LazyLock<IntGauge> = LazyLock::new(|| {
     register_int_gauge!(
         "edge_instance_data_downstream_reports",
-        "Downstream instance reports in the payload we last tried to send, counted through the \
-        whole tree"
+        "Downstream instance reports in the payload we last sent, counted through the whole tree"
     )
     .expect("failed to register edge_instance_data_downstream_reports")
 });
@@ -58,7 +57,8 @@ static DOWNSTREAM_REPORTS: LazyLock<IntGauge> = LazyLock::new(|| {
 static DOWNSTREAM_DISTINCT_REPORTS: LazyLock<IntGauge> = LazyLock::new(|| {
     register_int_gauge!(
         "edge_instance_data_distinct_downstream_reports",
-        "Distinct instances among the downstream reports in the payload we last tried to send"
+        "How many of those came from a distinct instance. Well below the total means the same \
+        instances reported several times over, which is what grows this payload past the budget"
     )
     .expect("failed to register edge_instance_data_distinct_downstream_reports")
 });
@@ -376,7 +376,7 @@ mod tests {
         )
     }
 
-    /// One downstream Edge has reported in since our last successful post.
+    /// one downstream Edge has reported in since our last successful post
     fn buffer_holding_one_report() -> Arc<RwLock<Vec<EdgeInstanceData>>> {
         Arc::new(RwLock::new(vec![EdgeInstanceData::new(
             "downstream-edge",
@@ -385,7 +385,6 @@ mod tests {
         )]))
     }
 
-    /// Our own Edge, with one request counted in the window it has not reported yet.
     fn our_edge_with_an_open_window() -> Arc<EdgeInstanceData> {
         let ours = EdgeInstanceData::new("our-edge", &ulid::Ulid::generate(), None);
         ours.observe_request_consumption();
@@ -518,7 +517,7 @@ mod tests {
         assert_eq!(requests_in_our_window(&ours), 0);
     }
 
-    /// An upstream that answers `status`, after a report from `identifier` reaches our buffer
+    /// an upstream that answers `status`, after a report from `identifier` reaches our buffer
     /// while it is handling the post.
     fn upstream_racing_a_report(
         status: StatusCode,

@@ -186,8 +186,7 @@ impl ConnectionConsumptionData {
         self.metrics_map.clear();
     }
 
-    /// Fold another window's counts into this one. Both sides are keyed by interval bucket, so
-    /// a bucket present in both is the same bucket counted over two windows.
+    /// merge another window's deltas. Matching bucket keys represent the same interval
     pub(crate) fn absorb(&mut self, other: Self) {
         let Self {
             features_map,
@@ -294,7 +293,7 @@ impl RequestConsumptionData {
         }
     }
 
-    /// Fold another window's counts into this one, per metered group.
+    /// Sum another window's request deltas per group.
     pub(crate) fn absorb(&mut self, other: Self) {
         let Self { metered_groups } = other;
         for (metered_group, requests) in metered_groups {
