@@ -456,7 +456,7 @@ impl DeltaRefresher {
     async fn handle_client_features_delta_updated(
         &self,
         refresh_token: &EdgeToken,
-        mut delta: ClientFeaturesDelta,
+        delta: ClientFeaturesDelta,
         etag: Option<EntityTag>,
     ) {
         let updated_len = delta.events.len();
@@ -466,38 +466,10 @@ impl DeltaRefresher {
         );
 
         let key: String = cache_key(refresh_token);
-        if delta.events.iter().any(|e| {
-            matches!(
-                e,
-                unleash_types::client_features::DeltaEvent::Hydration { .. }
-            )
-        }) {
-            // Fresh hydration is authoritative for this token's projects only.
-            // Preserve other upstream tokens sharing the environment cache.
-            let snapshot =
-                unleash_types::client_features::ClientFeatures::create_from_delta(&delta);
-            if refresh_token.projects.iter().any(|p| p == "*") {
-                self.features_cache.insert(key.clone(), snapshot);
-            } else {
-                self.features_cache
-                    .modify(key.clone(), refresh_token, snapshot);
-            }
-            let combined = self.features_cache.get(&key).unwrap();
-            delta = ClientFeaturesDelta {
-                events: vec![unleash_types::client_features::DeltaEvent::Hydration {
-                    event_id: delta
-                        .events
-                        .iter()
-                        .map(|e| e.get_event_id())
-                        .max()
-                        .unwrap_or(0),
-                    features: combined.features.clone(),
-                    segments: combined.segments.clone().unwrap_or_default(),
-                }],
-            };
-        } else {
-            self.features_cache.apply_delta(key.clone(), &delta);
-        }
+        // Startup enforces one upstream token per environment in delta/streaming mode
+        // (enforce_single_backend_token_per_env). Hydration therefore replaces the
+        // entire environment snapshot, even when that token has a limited project scope.
+        self.features_cache.apply_delta(key.clone(), &delta);
 
         if !self.delta_cache_manager.contains(&key)
             && let Some(delta_cache) = DeltaCache::from_events(&delta.events, DELTA_CACHE_LIMIT)
@@ -1140,29 +1112,20 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn scoped_hydration_preserves_other_projects_and_supports_empty_recovery() {
+    async fn hydration_replaces_environment_and_supports_empty_recovery() {
         let (refresher, _) =
             build_delta_refresher_for_stream_test(Url::parse("http://localhost:4242").unwrap());
-        for project in ["a", "b", "a"] {
-            let token = EdgeToken {
-                projects: vec![project.into()],
-                environment: Some("production".into()),
+        let token = EdgeToken {
+            projects: vec!["a".into(), "b".into()],
+            environment: Some("production".into()),
+            ..Default::default()
+        };
+        for project in ["a", "b"] {
+            let features = vec![ClientFeature {
+                name: project.into(),
+                project: Some(project.into()),
                 ..Default::default()
-            };
-            let features = if project == "a"
-                && refresher
-                    .features_cache
-                    .get("production")
-                    .is_some_and(|s| s.features.len() == 2)
-            {
-                vec![]
-            } else {
-                vec![ClientFeature {
-                    name: project.into(),
-                    project: Some(project.into()),
-                    ..Default::default()
-                }]
-            };
+            }];
             refresher
                 .handle_client_features_delta_updated(
                     &token,
@@ -1198,11 +1161,6 @@ mod tests {
                 .name,
             "b"
         );
-        let token = EdgeToken {
-            projects: vec!["*".into()],
-            environment: Some("production".into()),
-            ..Default::default()
-        };
         refresher
             .handle_client_features_delta_updated(
                 &token,
@@ -1221,6 +1179,15 @@ mod tests {
                 .features_cache
                 .get("production")
                 .unwrap()
+                .features
+                .is_empty()
+        );
+        assert!(
+            refresher
+                .delta_cache_manager
+                .get("production")
+                .unwrap()
+                .get_hydration_event()
                 .features
                 .is_empty()
         );

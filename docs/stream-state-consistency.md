@@ -64,7 +64,8 @@ path enforces the backend subsumption check.
 
 The [feature cache](../crates/oss/unleash-edge-feature-cache/src/lib.rs) is keyed
 by environment, falling back to the raw token if environment is absent. Multiple
-upstream scopes can contribute to that cache. Narrow full updates replace their
+upstream scopes can contribute to that cache in polling mode. Delta/streaming
+startup enforces one upstream token per environment. Narrow polling full updates replace their
 projects and retain other projects; segments are merged. Overlapping scopes can
 overwrite each other's features, and even disjoint projects can share segments.
 Token revalidation and data retention are separate: successful revalidation
@@ -184,14 +185,13 @@ targets because their Server pod and revision baseline may differ. Recovery
 retains its cooldown across those connections. Failed or unsupported checkpoint
 messages do not trigger recovery.
 
-Fresh scoped hydration preserves other projects sharing the environment. Its
-combined environment snapshot updates the downstream delta cache and engine;
-empty hydration is supported. **Content verification currently requires one
-active upstream refresh token per environment.** With multiple upstream streams
-sharing features or segments, local content can be newer than an individual
-stream's position. Edge reports content verification unknown instead of claiming
-a confirmed mismatch. Per-stream lag detection still works. Many narrower
-downstream SDK tokens covered by one broad upstream token remain supported.
+Fresh hydration replaces the entire environment snapshot in the feature cache,
+downstream delta cache and engine; empty hydration is supported. Startup enforces
+one upstream token per environment in delta/streaming mode, so this snapshot is
+authoritative even when the token covers only selected projects. A defensive
+content-verification guard reports unknown if multiple upstream refresh tokens
+are nevertheless present for an environment. Many narrower downstream SDK tokens
+covered by one broad upstream token remain supported.
 
 ## Metrics and practical limits
 
