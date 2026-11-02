@@ -73,9 +73,10 @@ pub async fn post_edge_instance_data(
     Json(instance_data): Json<EdgeInstanceData>,
 ) -> EdgeAcceptedJsonResult<()> {
     let mut connected_instances = app_state.connected_instances.write().await;
-    // Counted with the report folded in, so nesting cannot slip new instances past the cap,
-    // while a repeat report from instances we already hold always fits. The 503 makes the
-    // sender keep its report and retry once our next post upstream has emptied the buffer.
+    // Counted with the report folded in, so new instances cannot slip past the cap by
+    // arriving nested under one we already hold. A repeat that brings nothing new always fits.
+    // The 503 makes the sender keep its report and retry once our next post upstream has
+    // emptied the buffer, so turning a report away here loses nothing.
     let (_, distinct) = report_counts(connected_instances.iter().chain([&instance_data]));
     if distinct > MAX_DISTINCT_INSTANCES {
         warn!(
