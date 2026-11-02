@@ -188,9 +188,7 @@ messages do not trigger recovery.
 Fresh hydration replaces the entire environment snapshot in the feature cache,
 downstream delta cache and engine; empty hydration is supported. Startup enforces
 one upstream token per environment in delta/streaming mode, so this snapshot is
-authoritative even when the token covers only selected projects. A defensive
-content-verification guard reports unknown if multiple upstream refresh tokens
-are nevertheless present for an environment. Many narrower downstream SDK tokens
+authoritative even when the token covers only selected projects. Many narrower downstream SDK tokens
 covered by one broad upstream token remain supported.
 
 ## Metrics and practical limits

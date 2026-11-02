@@ -320,7 +320,7 @@ async fn run_stream_task_with_idle_timeout(
                                 && event.event_type == "unleash-state" {
                                 if let Some(tracker) = &mut verification {
                                     tracker.checkpoint(&event.data, Instant::now(), ||
-                                        delta_refresher.state_fingerprint(&token));
+                                        crate::stream_state::fingerprint(&delta_refresher.features_cache, &token));
                                 }
                                 continue;
                             }
@@ -331,7 +331,7 @@ async fn run_stream_task_with_idle_timeout(
                             {
                                 if let Some(tracker) = &mut verification {
                                     tracker.applied(&id, Instant::now(), ||
-                                        delta_refresher.state_fingerprint(&token));
+                                        crate::stream_state::fingerprint(&delta_refresher.features_cache, &token));
                                 }
                                 last_event_id = Some(id);
                             }
@@ -426,18 +426,6 @@ pub struct DeltaRefresher {
 }
 
 impl DeltaRefresher {
-    fn state_fingerprint(&self, token: &EdgeToken) -> Option<String> {
-        // The cache is shared by environment, including segments. Another
-        // upstream scope may already have applied newer content. Without a
-        // per-scope snapshot we cannot call that a confirmed content mismatch.
-        if self.tokens_to_refresh.iter().any(|entry| {
-            entry.token.token != token.token && entry.token.environment == token.environment
-        }) {
-            return None;
-        }
-        crate::stream_state::fingerprint(&self.features_cache, token)
-    }
-
     pub async fn hydrate_new_tokens(&self) {
         let tokens_never_refreshed = self.tokens_to_refresh.get_tokens_never_refreshed();
 
@@ -1003,31 +991,6 @@ mod tests {
             .header(http::header::CONTENT_TYPE, "text/event-stream")
             .body(Body::from_stream(stream))
             .unwrap()
-    }
-
-    #[tokio::test]
-    async fn shared_environment_sources_are_not_misreported_as_content_mismatches() {
-        let (refresher, tokens) =
-            build_delta_refresher_for_stream_test(Url::parse("http://localhost:4242").unwrap());
-        let a = EdgeToken {
-            token: "a".into(),
-            projects: vec!["a".into()],
-            environment: Some("production".into()),
-            ..Default::default()
-        };
-        let b = EdgeToken {
-            token: "b".into(),
-            projects: vec!["b".into()],
-            ..a.clone()
-        };
-        refresher
-            .features_cache
-            .insert("production".into(), ClientFeatures::default());
-        tokens.insert(a.token.clone(), TokenRefresh::new(a.clone(), None));
-        tokens.insert(b.token.clone(), TokenRefresh::new(b.clone(), None));
-        assert!(refresher.state_fingerprint(&a).is_none());
-        tokens.remove(&b.token);
-        assert!(refresher.state_fingerprint(&a).is_some());
     }
 
     async fn assert_checkpoint_recovery(lag: bool) {
