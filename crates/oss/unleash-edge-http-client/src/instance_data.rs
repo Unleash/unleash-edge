@@ -166,56 +166,50 @@ async fn send_instance_data(
             let observed_data =
                 our_instance_data.observe(reports.clone(), &instance_data_sender.base_path);
             let (observed_data, size) = measure_payload(observed_data);
-            let status = instance_data_sender
+            let posted = instance_data_sender
                 .unleash_client
                 .post_edge_observability_data(observed_data, token)
                 .await;
 
-            if let Err(e) = status {
-                match e {
-                    EdgeError::EdgeMetricsRequestError(status, _) => {
-                        match status {
-                            StatusCode::NOT_FOUND => {
-                                our_instance_data.clear_time_windowed_metrics();
-                                Err(InstanceDataSendError::Backoff("Our upstream is not running a version that supports edge metrics.".into()))
-                            }
-                            StatusCode::FORBIDDEN => {
-                                our_instance_data.clear_time_windowed_metrics();
-                                Err(InstanceDataSendError::Backoff("Upstream edge metrics said our token wasn't allowed to post data".into()))
-                            }
-
-                            StatusCode::PAYLOAD_TOO_LARGE | StatusCode::BAD_REQUEST => {
-                                // drop the buffer - upstream will never take a body this big
-                                // so the next is small enough to get through
-                                our_instance_data.clear_time_windowed_metrics();
-                                Err(InstanceDataSendError::NoBackoff(format!(
-                                    "Upstream rejected our instance data with {status}. It was \
-                                     {} bytes against a {UPSTREAM_MAX_BODY_SIZE} byte limit, \
-                                     {} of it our own instance, carrying {} report(s) from {} \
-                                     distinct downstream instance(s). Dropped the buffered \
-                                     reports so the next payload fits.",
-                                    size.total, size.root, size.reports, size.distinct
-                                )))
-                            }
-                            _ => {
-                                retain_reports(downstream_instance_data, reports).await;
-                                Err(InstanceDataSendError::Backoff(format!(
-                                    "Failed to post instance data: {e:?}"
-                                )))
-                            }
-                        }
-                    }
-
-                    _ => {
-                        retain_reports(downstream_instance_data, reports).await;
-                        Err(InstanceDataSendError::Backoff(format!(
-                            "Failed to post instance data: {e:?}"
-                        )))
-                    }
+            match posted {
+                Ok(_) => {
+                    our_instance_data.clear_time_windowed_metrics();
+                    Ok(())
                 }
-            } else {
-                our_instance_data.clear_time_windowed_metrics();
-                Ok(())
+                Err(EdgeError::EdgeMetricsRequestError(StatusCode::NOT_FOUND, _)) => {
+                    our_instance_data.clear_time_windowed_metrics();
+                    Err(InstanceDataSendError::Backoff(
+                        "Our upstream is not running a version that supports edge metrics.".into(),
+                    ))
+                }
+                Err(EdgeError::EdgeMetricsRequestError(StatusCode::FORBIDDEN, _)) => {
+                    our_instance_data.clear_time_windowed_metrics();
+                    Err(InstanceDataSendError::Backoff(
+                        "Upstream edge metrics said our token wasn't allowed to post data".into(),
+                    ))
+                }
+                Err(EdgeError::EdgeMetricsRequestError(
+                    status @ (StatusCode::PAYLOAD_TOO_LARGE | StatusCode::BAD_REQUEST),
+                    _,
+                )) => {
+                    // drop the buffer - upstream will never take a body this big
+                    // so the next is small enough to get through
+                    our_instance_data.clear_time_windowed_metrics();
+                    Err(InstanceDataSendError::NoBackoff(format!(
+                        "Upstream rejected our instance data with {status}. It was \
+                         {} bytes against a {UPSTREAM_MAX_BODY_SIZE} byte limit, \
+                         {} of it our own instance, carrying {} report(s) from {} \
+                         distinct downstream instance(s). Dropped the buffered \
+                         reports so the next payload fits.",
+                        size.total, size.root, size.reports, size.distinct
+                    )))
+                }
+                Err(e) => {
+                    retain_reports(downstream_instance_data, reports).await;
+                    Err(InstanceDataSendError::Backoff(format!(
+                        "Failed to post instance data: {e:?}"
+                    )))
+                }
             }
         }
     }
@@ -248,6 +242,10 @@ pub fn create_once_off_send_instance_data(
         }
     })
 }
+
+/// How far the send interval can back off: 60s, plus 60s per failure, up to 9 minutes.
+/// Upstream only lists an Edge that has reported in the last 10 minutes, so backing off any
+/// further would make a healthy Edge drop out of the Edge UI and the version counts.
 const MAX_BACKOFF_STEPS: u32 = 8;
 
 pub fn create_send_instance_data_task(
@@ -368,7 +366,7 @@ mod tests {
         )
     }
 
-    /// one downstream Edge has reported in since our last successful post
+    /// One downstream Edge has reported in since our last successful post.
     fn buffer_holding_one_report() -> Arc<RwLock<Vec<EdgeInstanceData>>> {
         Arc::new(RwLock::new(vec![EdgeInstanceData::new(
             "downstream-edge",
