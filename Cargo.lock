@@ -5049,7 +5049,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix 1.1.5",
  "windows-sys 0.59.0",
@@ -6311,9 +6311,9 @@ dependencies = [
 
 [[package]]
 name = "unleash-yggdrasil"
-version = "0.21.6"
+version = "0.21.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5ff568e5b1523ac9a320e384b56ff7d6e3d34d69a8836f14977c531142778ec"
+checksum = "57ed9c1a7c50cbef7ae8e9b502a6589cb7703ffb3d836b449cfb49485143ec30"
 dependencies = [
  "ahash",
  "arc-swap",
