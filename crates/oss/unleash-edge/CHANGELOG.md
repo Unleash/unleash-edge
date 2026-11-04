@@ -1,4 +1,9 @@
 
+## [unleash-edge-v20.6.4] - 2026-11-04
+
+### 🐛 Bug Fixes
+- pretrusted tokens for proxy migration (#1998) (by @gastonfournier) - #1998
+
 ## [unleash-edge-v20.6.3] - 2026-10-29
 
 ## [unleash-edge-v20.6.2] - 2026-10-27
