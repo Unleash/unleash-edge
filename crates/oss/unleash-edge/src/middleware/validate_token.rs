@@ -30,7 +30,10 @@ pub async fn validate_token(
     };
     match validation_status {
         Ok(_) => {
-            register_seen_token(&app_state.metrics_cache, &edge_token);
+            // Locally trusted credentials have no upstream token usage to report.
+            if edge_token.status != TokenValidationStatus::Trusted {
+                register_seen_token(&app_state.metrics_cache, &edge_token);
+            }
             next.run(req).await
         }
         Err(err) => match err {
@@ -148,6 +151,9 @@ mod tests {
             let (secret, token) = parse_trusted_token_pair("test@development").unwrap();
             assert_eq!(secret, "test");
             token_cache.insert(secret, token.clone());
+            let (secret, pretrusted_token) =
+                parse_trusted_token_pair("*:development.pretrusted").unwrap();
+            token_cache.insert(secret, pretrusted_token);
             // Keep the existing cached-token paths covered alongside pretrusted tokens.
             for (secret, token_type) in [
                 ("*:development.frontend", TokenType::Frontend),
@@ -209,6 +215,7 @@ mod tests {
                 context_enricher: ContextEnricher::disabled(),
                 license_state: ApplicationLicenseState::new(LicenseState::Valid),
             };
+            let metrics_cache = app.metrics_cache.clone();
             let router = Router::new()
                 .nest(
                     "/api",
@@ -275,6 +282,20 @@ mod tests {
                 let toggle = response.json::<serde_json::Value>();
                 assert_eq!(toggle["name"], "existing-feature");
                 assert_eq!(toggle["enabled"], false);
+            }
+            server
+                .get("/api/frontend")
+                .add_header("Authorization", "*:development.pretrusted")
+                .await
+                .assert_status_ok();
+            // Only ordinary Unleash tokens should be reported upstream as seen.
+            assert_eq!(metrics_cache.seen_tokens.len(), 2);
+            for secret in ["*:development.frontend", "*:development.backend"] {
+                assert!(
+                    metrics_cache
+                        .seen_tokens
+                        .contains(&secret.parse::<EdgeToken>().unwrap())
+                );
             }
         }
     }
