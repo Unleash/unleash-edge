@@ -5,9 +5,9 @@ use std::str::FromStr;
 use std::sync::Arc;
 use tracing::trace;
 use unleash_edge_cli::AuthHeaders;
-use unleash_edge_types::TokenCache;
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::tokens::EdgeToken;
+use unleash_edge_types::{TokenCache, TokenValidationStatus};
 
 pub struct AuthToken(pub EdgeToken);
 
@@ -40,7 +40,15 @@ where
             .headers
             .get(state.auth_headers.edge_header_name())
             .and_then(|h| h.to_str().ok())
-            .and_then(|t| EdgeToken::from_str(t).ok())
+            .and_then(|t| {
+                // Legacy proxy secrets have no parseable project/environment prefix.
+                state
+                    .token_cache
+                    .get(t)
+                    .filter(|token| token.status == TokenValidationStatus::Trusted)
+                    .map(|token| token.value().clone())
+                    .or_else(|| EdgeToken::from_str(t).ok())
+            })
         {
             Ok(AuthToken(edge_token))
         } else {

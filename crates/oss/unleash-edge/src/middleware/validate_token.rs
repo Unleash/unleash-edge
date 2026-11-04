@@ -20,7 +20,11 @@ pub async fn validate_token(
     next: Next,
 ) -> impl IntoResponse {
     let path = req.uri().path();
-    let validation_status = match (*app_state.token_validator).clone() {
+    // Pretrusted tokens use local authorization even when an upstream validator exists.
+    let validator = (*app_state.token_validator)
+        .clone()
+        .filter(|_| edge_token.status != TokenValidationStatus::Trusted);
+    let validation_status = match validator {
         Some(ref validator) => validate_with_validator(&edge_token, path, validator).await,
         None => validate_without_validator(&app_state, &edge_token, path),
     };
@@ -48,16 +52,22 @@ fn validate_without_validator(
     edge_token: &EdgeToken,
     path: &str,
 ) -> Result<(), EdgeError> {
-    match app_state.token_cache.get(&edge_token.token) {
-        Some(t) => {
-            let token = t.value();
-            match token.token_type {
-                Some(TokenType::Frontend) => check_frontend_path(path),
-                Some(TokenType::Backend) => check_backend_path(path),
-                None => Ok(()),
-                _ => Err(EdgeError::Forbidden("Unknown token type".into())),
-            }
-        }
+    let token = if edge_token.status == TokenValidationStatus::Trusted {
+        // The extractor already resolved the trusted entry using the original secret.
+        Some(edge_token.clone())
+    } else {
+        app_state
+            .token_cache
+            .get(&edge_token.token)
+            .map(|token| token.value().clone())
+    };
+    match token {
+        Some(token) => match token.token_type {
+            Some(TokenType::Frontend) => check_frontend_path(path),
+            Some(TokenType::Backend) => check_backend_path(path),
+            None => Ok(()),
+            _ => Err(EdgeError::Forbidden("Unknown token type".into())),
+        },
         None => Err(EdgeError::Forbidden("No access allowed for token".into())),
     }
 }
@@ -106,5 +116,142 @@ fn check_backend_path(path: &str) -> Result<(), EdgeError> {
         Err(EdgeError::Forbidden(format!(
             "Backend Token was not allowed to access {path}"
         )))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::Router;
+    use axum::middleware::from_fn_with_state;
+    use axum_test::TestServer;
+    use std::sync::Arc;
+    use tokio::sync::RwLock;
+    use unleash_edge_appstate::ContextEnricher;
+    use unleash_edge_cli::AuthHeaders;
+    use unleash_edge_feature_cache::FeatureCache;
+    use unleash_edge_http_client::UnleashClient;
+    use unleash_edge_types::enterprise::{ApplicationLicenseState, LicenseState};
+    use unleash_edge_types::metrics::MetricsCache;
+    use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
+    use unleash_edge_types::tokens::{cache_key, parse_trusted_token_pair};
+    use unleash_edge_types::{EngineCache, TokenCache};
+    use unleash_types::client_features::ClientFeatures;
+    use unleash_types::client_metrics::ConnectVia;
+    use unleash_yggdrasil::{EngineState, UpdateMessage};
+
+    #[tokio::test]
+    async fn pretrusted_legacy_secret_authorizes_frontend_and_proxy() {
+        for with_validator in [false, true] {
+            let token_cache = Arc::new(TokenCache::new());
+            // Mirror startup insertion: the key is the secret, not secret@environment.
+            let (secret, token) = parse_trusted_token_pair("test@development").unwrap();
+            assert_eq!(secret, "test");
+            token_cache.insert(secret, token.clone());
+            // Keep the existing cached-token paths covered alongside pretrusted tokens.
+            for (secret, token_type) in [
+                ("*:development.frontend", TokenType::Frontend),
+                ("*:development.backend", TokenType::Backend),
+            ] {
+                let mut cached_token: EdgeToken = secret.parse().unwrap();
+                cached_token.token_type = Some(token_type);
+                cached_token.status = TokenValidationStatus::Validated;
+                token_cache.insert(secret.into(), cached_token);
+            }
+            let engine_cache = Arc::new(EngineCache::new());
+            let engine = EngineState::default();
+            engine.take_state(UpdateMessage::FullResponse(ClientFeatures::default()));
+            engine_cache.insert(cache_key(&token), engine);
+            let upstream = Arc::new(UnleashClient::from_url_with_backing_client(
+                "http://127.0.0.1:1".parse().unwrap(),
+                "Authorization".into(),
+                reqwest::Client::new(),
+                unleash_edge_http_client::ClientMetaInformation {
+                    app_name: "migration-check".into(),
+                    instance_id: ulid::Ulid::generate(),
+                    connection_id: ulid::Ulid::generate(),
+                },
+            ));
+            let app = AppState {
+                token_validator: Arc::new(
+                    with_validator
+                        .then(|| TokenValidator::new(upstream, token_cache.clone(), None)),
+                ),
+                token_cache,
+                engine_cache,
+                features_cache: Arc::new(FeatureCache::new(Default::default())),
+                metrics_cache: Arc::new(MetricsCache::default()),
+                hydrator: None,
+                delta_cache_manager: None,
+                auth_headers: AuthHeaders::default(),
+                connect_via: ConnectVia {
+                    app_name: "migration-check".into(),
+                    instance_id: "test".into(),
+                },
+                edge_instance_data: Arc::new(EdgeInstanceData::new(
+                    "migration-check",
+                    &ulid::Ulid::generate(),
+                    None,
+                )),
+                connected_instances: Arc::new(RwLock::new(vec![])),
+                deny_list: vec![],
+                allow_list: vec![],
+                trust_proxy: false,
+                proxy_trusted_servers: vec![],
+                context_enricher: ContextEnricher::disabled(),
+                license_state: ApplicationLicenseState::new(LicenseState::Valid),
+            };
+            let router = Router::new()
+                .nest(
+                    "/api",
+                    unleash_edge_frontend_api::router(false)
+                        .route(
+                            "/client/features",
+                            axum::routing::get(|| async { "backend" }),
+                        )
+                        .layer(from_fn_with_state(app.clone(), validate_token)),
+                )
+                .with_state(app);
+            let server = TestServer::new(router);
+            server
+                .get("/api/client/features")
+                .add_header("Authorization", "*:development.backend")
+                .await
+                .assert_status_ok();
+            server
+                .get("/api/client/features")
+                .add_header("Authorization", "test")
+                .await
+                .assert_status_forbidden();
+            for path in ["/api/frontend", "/api/proxy"] {
+                server
+                    .get(path)
+                    .add_header("Authorization", "*:development.frontend")
+                    .await
+                    .assert_status_ok();
+                server
+                    .get(path)
+                    .add_header("Authorization", "*:development.backend")
+                    .await
+                    .assert_status_forbidden();
+                let response = server
+                    .get(path)
+                    .add_header("Authorization", "test")
+                    .add_header("Unleash-Appname", "migration-check")
+                    .await;
+                response.assert_status_ok();
+                response.assert_json(&serde_json::json!({"toggles": []}));
+                server
+                    .get(path)
+                    .add_header("Authorization", "test@development")
+                    .await
+                    .assert_status_forbidden();
+                server
+                    .get(path)
+                    .add_header("Authorization", "unconfigured-secret")
+                    .await
+                    .assert_status_forbidden();
+            }
+        }
     }
 }
