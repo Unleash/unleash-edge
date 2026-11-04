@@ -136,7 +136,7 @@ mod tests {
     use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
     use unleash_edge_types::tokens::{cache_key, parse_trusted_token_pair};
     use unleash_edge_types::{EngineCache, TokenCache};
-    use unleash_types::client_features::ClientFeatures;
+    use unleash_types::client_features::{ClientFeature, ClientFeatures};
     use unleash_types::client_metrics::ConnectVia;
     use unleash_yggdrasil::{EngineState, UpdateMessage};
 
@@ -160,7 +160,15 @@ mod tests {
             }
             let engine_cache = Arc::new(EngineCache::new());
             let engine = EngineState::default();
-            engine.take_state(UpdateMessage::FullResponse(ClientFeatures::default()));
+            engine.take_state(UpdateMessage::FullResponse(ClientFeatures {
+                features: vec![ClientFeature {
+                    name: "existing-feature".into(),
+                    project: Some("default".into()),
+                    enabled: false,
+                    ..Default::default()
+                }],
+                ..Default::default()
+            }));
             engine_cache.insert(cache_key(&token), engine);
             let upstream = Arc::new(UnleashClient::from_url_with_backing_client(
                 "http://127.0.0.1:1".parse().unwrap(),
@@ -251,6 +259,22 @@ mod tests {
                     .add_header("Authorization", "unconfigured-secret")
                     .await
                     .assert_status_forbidden();
+            }
+            // Single-feature evaluation requires a lookup by the extracted token's identity.
+            for request in [
+                server.get("/api/frontend/features/existing-feature"),
+                server
+                    .post("/api/frontend/features/existing-feature")
+                    .json(&serde_json::json!({})),
+            ] {
+                let response = request
+                    .add_header("Authorization", "test")
+                    .add_header("Unleash-Appname", "migration-check")
+                    .await;
+                response.assert_status_ok();
+                let toggle = response.json::<serde_json::Value>();
+                assert_eq!(toggle["name"], "existing-feature");
+                assert_eq!(toggle["enabled"], false);
             }
         }
     }

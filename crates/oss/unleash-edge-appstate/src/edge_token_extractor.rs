@@ -46,7 +46,11 @@ where
                     .token_cache
                     .get(t)
                     .filter(|token| token.status == TokenValidationStatus::Trusted)
-                    .map(|token| token.value().clone())
+                    .map(|token| EdgeToken {
+                        // Downstream cache lookups use the secret presented by the client.
+                        token: t.to_owned(),
+                        ..token.value().clone()
+                    })
                     .or_else(|| EdgeToken::from_str(t).ok())
             })
         {
