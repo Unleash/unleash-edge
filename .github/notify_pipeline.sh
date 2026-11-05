@@ -34,5 +34,14 @@ EOT
 generate_buildinfo buildinfo.json
 script_echo "$(cat buildinfo.json)"
 
-curl -X POST -H "Content-Type: application/json" https://platform.getunleash.io/pipeline/build_info -d @buildinfo.json
+: "${PIPELINE_CF_ACCESS_CLIENT_ID:?PIPELINE_CF_ACCESS_CLIENT_ID is required}"
+: "${PIPELINE_CF_ACCESS_CLIENT_SECRET:?PIPELINE_CF_ACCESS_CLIENT_SECRET is required}"
+
+curl --fail-with-body \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -H "CF-Access-Client-Id: ${PIPELINE_CF_ACCESS_CLIENT_ID}" \
+  -H "CF-Access-Client-Secret: ${PIPELINE_CF_ACCESS_CLIENT_SECRET}" \
+  https://platform.getunleash.dev/pipeline/build_info \
+  -d @buildinfo.json
 
