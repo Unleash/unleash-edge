@@ -95,9 +95,13 @@ jobs:
         env:
           PROJECT: "unleash-edge"
           DOCKER_IMAGE: "726824350591.dkr.ecr.eu-north-1.amazonaws.com/unleash-edge"
+          PIPELINE_CF_ACCESS_CLIENT_ID: ${{ secrets.PIPELINE_CF_ACCESS_CLIENT_ID }}
+          PIPELINE_CF_ACCESS_CLIENT_SECRET: ${{ secrets.PIPELINE_CF_ACCESS_CLIENT_SECRET }}
       - name: Send to enterprise pipeline
         run: |
           bash ./.github/notify_pipeline.sh
         env:
           PROJECT: "unleash-edge-enterprise"
           DOCKER_IMAGE: "726824350591.dkr.ecr.eu-north-1.amazonaws.com/unleash-edge-enterprise"
+          PIPELINE_CF_ACCESS_CLIENT_ID: ${{ secrets.PIPELINE_CF_ACCESS_CLIENT_ID }}
+          PIPELINE_CF_ACCESS_CLIENT_SECRET: ${{ secrets.PIPELINE_CF_ACCESS_CLIENT_SECRET }}
