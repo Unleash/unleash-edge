@@ -1,5 +1,7 @@
+use prometheus::{Histogram, IntGauge, register_histogram, register_int_gauge};
 use reqwest::{StatusCode, Url};
-use std::sync::Arc;
+use std::collections::HashSet;
+use std::sync::{Arc, LazyLock};
 use tokio::sync::RwLock;
 
 use crate::{ClientMetaInformation, UnleashClient};
@@ -7,7 +9,56 @@ use tracing::{debug, info, warn};
 use unleash_edge_cli::AuthHeaders;
 use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
+use unleash_edge_types::metrics::payload_size::{
+    TARGET_BODY_SIZE, UPSTREAM_MAX_BODY_SIZE, serialized_len,
+};
 use unleash_edge_types::{BackgroundTask, TokenCache, TokenType, TokenValidationStatus};
+
+const PAYLOAD_SIZE_BUCKETS: [f64; 8] = [
+    8.0 * 1024.0,
+    20.0 * 1024.0,
+    50.0 * 1024.0,
+    64.0 * 1024.0,
+    TARGET_BODY_SIZE as f64,
+    UPSTREAM_MAX_BODY_SIZE as f64,
+    256.0 * 1024.0,
+    1024.0 * 1024.0,
+];
+
+static PAYLOAD_BYTES: LazyLock<Histogram> = LazyLock::new(|| {
+    register_histogram!(
+        "edge_instance_data_payload_bytes",
+        "Serialized size of the instance data payload posted upstream",
+        PAYLOAD_SIZE_BUCKETS.to_vec()
+    )
+    .expect("failed to register edge_instance_data_payload_bytes")
+});
+
+static ROOT_PAYLOAD_BYTES: LazyLock<Histogram> = LazyLock::new(|| {
+    register_histogram!(
+        "edge_instance_data_root_payload_bytes",
+        "Serialized size of our own instance data, excluding downstream reports",
+        PAYLOAD_SIZE_BUCKETS.to_vec()
+    )
+    .expect("failed to register edge_instance_data_root_payload_bytes")
+});
+
+static DOWNSTREAM_REPORTS: LazyLock<IntGauge> = LazyLock::new(|| {
+    register_int_gauge!(
+        "edge_instance_data_downstream_reports",
+        "Downstream instance reports in the payload we last sent, counted through the whole tree"
+    )
+    .expect("failed to register edge_instance_data_downstream_reports")
+});
+
+static DOWNSTREAM_DISTINCT_REPORTS: LazyLock<IntGauge> = LazyLock::new(|| {
+    register_int_gauge!(
+        "edge_instance_data_distinct_downstream_reports",
+        "How many of those came from a distinct instance. Well below the total means the same \
+        instances reported several times over, which is what grows this payload past the budget"
+    )
+    .expect("failed to register edge_instance_data_distinct_downstream_reports")
+});
 
 #[derive(Debug, Clone)]
 pub struct InstanceDataSender {
@@ -64,6 +115,50 @@ async fn clear_reported_data(
     our_instance_data.clear_time_windowed_metrics();
 }
 
+struct PayloadSize {
+    total: usize,
+    root: usize,
+    reports: usize,
+    distinct: usize,
+}
+
+fn report_counts(instances: &[EdgeInstanceData]) -> (usize, usize) {
+    let mut pending: Vec<&EdgeInstanceData> = instances.iter().collect();
+    let mut total = 0;
+    let mut distinct = HashSet::new();
+
+    while let Some(instance) = pending.pop() {
+        total += 1;
+        distinct.insert(instance.identifier.as_str());
+        pending.extend(instance.connected_edges.iter());
+    }
+
+    (total, distinct.len())
+}
+
+fn measure_payload(mut payload: EdgeInstanceData) -> (EdgeInstanceData, PayloadSize) {
+    let downstream = std::mem::take(&mut payload.connected_edges);
+
+    let (reports, distinct) = report_counts(&downstream);
+    DOWNSTREAM_REPORTS.set(reports as i64);
+    DOWNSTREAM_DISTINCT_REPORTS.set(distinct as i64);
+
+    let root = serialized_len(&payload);
+    ROOT_PAYLOAD_BYTES.observe(root as f64);
+
+    payload.connected_edges = downstream;
+    let total = serialized_len(&payload);
+    PAYLOAD_BYTES.observe(total as f64);
+
+    let size = PayloadSize {
+        total,
+        root,
+        reports,
+        distinct,
+    };
+    (payload, size)
+}
+
 async fn send_instance_data(
     instance_data_sender: &Arc<InstanceDataSending>,
     our_instance_data: &Arc<EdgeInstanceData>,
@@ -80,6 +175,7 @@ async fn send_instance_data(
                 downstream_instance_data.read().await.clone(),
                 &instance_data_sender.base_path,
             );
+            let (observed_data, size) = measure_payload(observed_data);
             let status = instance_data_sender
                 .unleash_client
                 .post_edge_observability_data(observed_data, token)
@@ -103,11 +199,15 @@ async fn send_instance_data(
                             StatusCode::PAYLOAD_TOO_LARGE | StatusCode::BAD_REQUEST => {
                                 // drop the buffer - upstream will never take a body this big
                                 // so the next is small enough to get through
-                                let dropped = downstream_instance_data.read().await.len();
                                 clear_reported_data(our_instance_data, downstream_instance_data)
                                     .await;
                                 Err(InstanceDataSendError::NoBackoff(format!(
-                                    "Upstream rejected our instance data with {status}. Dropped {dropped} downstream instance(s) so the next report fits."
+                                    "Upstream rejected our instance data with {status}. It was \
+                                     {} bytes against a {UPSTREAM_MAX_BODY_SIZE} byte limit, \
+                                     {} of it our own instance, carrying {} report(s) from {} \
+                                     distinct downstream instance(s). Dropped the buffered \
+                                     reports so the next payload fits.",
+                                    size.total, size.root, size.reports, size.distinct
                                 )))
                             }
                             _ => Err(InstanceDataSendError::Backoff(format!(
@@ -273,7 +373,7 @@ mod tests {
         )
     }
 
-    /// One downstream Edge has reported in since our last successful post.
+    /// one downstream Edge has reported in since our last successful post
     fn buffer_holding_one_report() -> Arc<RwLock<Vec<EdgeInstanceData>>> {
         Arc::new(RwLock::new(vec![EdgeInstanceData::new(
             "downstream-edge",
@@ -348,5 +448,72 @@ mod tests {
         let result = post_to_upstream_answering(StatusCode::ACCEPTED, &downstream).await;
         assert!(result.is_ok(), "expected a successful post, got {result:?}");
         assert!(downstream.read().await.is_empty());
+    }
+
+    #[test]
+    fn measuring_a_payload_does_not_change_it() {
+        let mut payload = EdgeInstanceData::new("our-edge", &ulid::Ulid::generate(), None);
+        payload.connected_edges = vec![
+            EdgeInstanceData::new("downstream-one", &ulid::Ulid::generate(), None),
+            EdgeInstanceData::new("downstream-two", &ulid::Ulid::generate(), None),
+        ];
+        let before = serialized_len(&payload);
+
+        let (payload, size) = measure_payload(payload);
+
+        assert_eq!(payload.connected_edges.len(), 2);
+        assert_eq!(
+            serialized_len(&payload),
+            before,
+            "measuring a payload must leave it byte for byte the same"
+        );
+        assert_eq!(size.total, before);
+        assert!(
+            size.root < size.total,
+            "our own instance cannot be as big as the payload carrying two reports"
+        );
+    }
+
+    #[test]
+    fn reports_are_counted_through_the_whole_tree() {
+        let mut grandchild = EdgeInstanceData::new("tier-three", &ulid::Ulid::generate(), None);
+        grandchild.connected_edges = vec![EdgeInstanceData::new(
+            "tier-four",
+            &ulid::Ulid::generate(),
+            None,
+        )];
+        let mut child = EdgeInstanceData::new("tier-two", &ulid::Ulid::generate(), None);
+        child.connected_edges = vec![grandchild];
+        let mut payload = EdgeInstanceData::new("tier-one", &ulid::Ulid::generate(), None);
+        payload.connected_edges = vec![child];
+
+        let (_, size) = measure_payload(payload);
+
+        assert_eq!(
+            size.reports, 3,
+            "a three tier chain below us is three reports, not one"
+        );
+        assert_eq!(size.distinct, 3);
+    }
+
+    #[test]
+    fn repeated_reports_from_one_instance_count_once_as_distinct() {
+        let identifier = ulid::Ulid::generate();
+        let twice = vec![
+            EdgeInstanceData::new("downstream", &identifier, None),
+            EdgeInstanceData::new("downstream", &identifier, None),
+        ];
+
+        assert_eq!(report_counts(&twice), (2, 1));
+    }
+
+    #[test]
+    fn payload_size_buckets_ascend() {
+        assert!(
+            PAYLOAD_SIZE_BUCKETS
+                .windows(2)
+                .all(|pair| pair[0] < pair[1]),
+            "bucket bounds must ascend: {PAYLOAD_SIZE_BUCKETS:?}"
+        );
     }
 }
