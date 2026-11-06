@@ -5,7 +5,7 @@ use crate::metrics::{
     InstanceTraffic, LatencyMetrics, MAX_BUCKET_INTERVAL, METHOD_LABEL, ProcessMetrics,
     RequestConsumptionData, RequestStats, STATUS_LABEL, UpstreamLatency,
 };
-use ahash::HashMap;
+use ahash::{HashMap, HashSet};
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use prometheus::gather;
@@ -107,6 +107,50 @@ pub enum Hosting {
     EnterpriseSelfHosted,
 }
 
+/// caps distinct instances to bound memory during outages. Note: limits throughput,
+/// not total buffer size—in-flight + folded reports may exceed this temporarily
+pub const MAX_DISTINCT_INSTANCES: usize = 250;
+
+/// num of reports and how many distinct instances they came from, nested ones included
+pub fn report_counts<'a>(
+    reports: impl IntoIterator<Item = &'a EdgeInstanceData>,
+) -> (usize, usize) {
+    let mut pending: Vec<&EdgeInstanceData> = reports.into_iter().collect();
+    let mut total = 0;
+    let mut distinct: HashSet<&str> = HashSet::default();
+
+    while let Some(report) = pending.pop() {
+        total += 1;
+        distinct.insert(report.identifier.as_str());
+        pending.extend(report.connected_edges.iter());
+    }
+
+    (total, distinct.len())
+}
+
+/// merge report into buffer, one per instance. Newer vs complete: fields are deltas since
+/// last report + that window's edges. Flatten subtree on insert (handles old versions)
+pub fn merge_report(into: &mut Vec<EdgeInstanceData>, mut report: EdgeInstanceData) {
+    match into
+        .iter_mut()
+        .find(|held| held.identifier == report.identifier)
+    {
+        Some(held) => held.absorb(report),
+        None => {
+            // deduple - old instances may send duplicate edges, flatten before adding
+            let connected_edges = std::mem::take(&mut report.connected_edges);
+            merge_reports(&mut report.connected_edges, connected_edges);
+            into.push(report);
+        }
+    }
+}
+
+pub fn merge_reports(into: &mut Vec<EdgeInstanceData>, incoming: Vec<EdgeInstanceData>) {
+    for report in incoming {
+        merge_report(into, report);
+    }
+}
+
 impl EdgeInstanceData {
     pub fn new(app_name: &str, identifier: &Ulid, hosting: Option<Hosting>) -> Self {
         let build_info = BuildInfo::default();
@@ -136,6 +180,62 @@ impl EdgeInstanceData {
         self.requests_since_last_report.clear();
         self.connection_consumption_since_last_report.reset();
         self.request_consumption_since_last_report.reset();
+    }
+
+    /// merge a later report from the same instance. Destructuring ensures each field
+    /// is intentionally handled (accumulate vs. replace)
+    fn absorb(&mut self, newer: Self) {
+        let Self {
+            identifier: _,
+            app_name,
+            hosting,
+            region,
+            edge_version,
+            process_metrics,
+            started,
+            traffic,
+            latency_upstream,
+            requests_since_last_report,
+            connected_streaming_clients,
+            connected_edges,
+            connection_consumption_since_last_report,
+            request_consumption_since_last_report,
+            edge_api_key_revision_ids,
+            enricher_metrics,
+        } = newer;
+
+        // supersede: newer value already covers prior state (point-in-time metrics)
+        self.app_name = app_name;
+        self.hosting = hosting;
+        self.region = region;
+        self.edge_version = edge_version;
+        self.process_metrics = process_metrics;
+        self.started = started;
+        self.traffic = traffic;
+        self.latency_upstream = latency_upstream;
+        self.connected_streaming_clients = connected_streaming_clients;
+        self.enricher_metrics = enricher_metrics;
+        self.edge_api_key_revision_ids = edge_api_key_revision_ids;
+
+        // accumulate: windows are independent; deltas sum.
+        for (endpoint, stats) in requests_since_last_report {
+            let RequestStats {
+                requests_200,
+                requests_304,
+            } = stats;
+            let held = self.requests_since_last_report.entry(endpoint).or_default();
+            held.requests_200
+                .fetch_add(requests_200.into_inner(), Ordering::Relaxed);
+            held.requests_304
+                .fetch_add(requests_304.into_inner(), Ordering::Relaxed);
+        }
+        self.connection_consumption_since_last_report
+            .absorb(connection_consumption_since_last_report);
+        self.request_consumption_since_last_report
+            .absorb(request_consumption_since_last_report);
+
+        // merge edges: same downstream instance may appear in both windows
+        merge_reports(&mut self.connected_edges, connected_edges);
     }
 
     pub fn observe_request_consumption(&self) {
@@ -467,9 +567,7 @@ impl EdgeInstanceData {
             enricher_metrics.errors = enricher_errors;
             enricher_metrics.timeouts = enricher_timeouts;
         }
-        for connected_instance in connected_instances {
-            observed.connected_edges.push(connected_instance.clone());
-        }
+        observed.connected_edges.extend(connected_instances);
         observed
     }
 }
@@ -503,6 +601,22 @@ mod tests {
     use super::*;
     use prometheus::{register_histogram, register_int_counter};
     use serde_json::json;
+
+    #[test]
+    fn cumulative_fields_are_superseded_rather_than_summed() {
+        let id = Ulid::generate();
+        let mut first = EdgeInstanceData::new("downstream", &id, None);
+        first.connected_streaming_clients = 5;
+        let mut second = EdgeInstanceData::new("downstream", &id, None);
+        second.connected_streaming_clients = 3;
+
+        first.absorb(second);
+
+        assert_eq!(
+            first.connected_streaming_clients, 3,
+            "a gauge reports a level, not a delta, so the newer reading wins"
+        );
+    }
 
     #[test]
     fn observes_context_enricher_metrics() {
@@ -932,6 +1046,119 @@ mod tests {
         match instance_data {
             Ok(data) => assert_eq!(data.edge_api_key_revision_ids.len(), 2),
             Err(e) => panic!("Failed to deserialize instance data: {}", e),
+        }
+    }
+
+    mod folding {
+        use super::*;
+        use proptest::prelude::*;
+
+        fn report(
+            identifier: u8,
+            requests: u64,
+            connected_edges: Vec<EdgeInstanceData>,
+        ) -> EdgeInstanceData {
+            let mut report = EdgeInstanceData::new("edge", &Ulid::generate(), None);
+            report.identifier = identifier.to_string();
+            for request in 0..requests {
+                report.observe_request_consumption();
+                report.observe_request("/api/client/features", 200);
+                if request % 2 == 0 {
+                    report.observe_request("/api/client/features", 304);
+                }
+                report.observe_connection_consumption("/api/client/features", Some(15_000));
+                report.observe_connection_consumption("/api/client/metrics", Some(15_000));
+            }
+            report.connected_edges = connected_edges;
+            report
+        }
+
+        // Identifiers come from a small pool so one instance turns up in several reports, at
+        // any depth, the way it does when an upstream has been failing for a while.
+        fn reports() -> impl Strategy<Value = Vec<EdgeInstanceData>> {
+            let leaf = (0..4u8, 0..5u64).prop_map(|(id, requests)| report(id, requests, vec![]));
+            let tree = leaf.prop_recursive(3, 32, 4, |inner| {
+                (0..4u8, 0..5u64, prop::collection::vec(inner, 0..4))
+                    .prop_map(|(id, requests, children)| report(id, requests, children))
+            });
+            prop::collection::vec(tree, 0..6)
+        }
+
+        /// Sum `of` across a forest of reports, nested ones included.
+        fn total(reports: &[EdgeInstanceData], of: &impl Fn(&EdgeInstanceData) -> u64) -> u64 {
+            reports
+                .iter()
+                .map(|report| of(report) + total(&report.connected_edges, of))
+                .sum()
+        }
+
+        fn request_consumption(report: &EdgeInstanceData) -> u64 {
+            report
+                .request_consumption_since_last_report
+                .get_requests("default")
+        }
+
+        fn ok_requests(report: &EdgeInstanceData) -> u64 {
+            report
+                .requests_since_last_report
+                .iter()
+                .map(|stats| stats.requests_200.load(Ordering::Relaxed))
+                .sum()
+        }
+
+        fn not_modified_requests(report: &EdgeInstanceData) -> u64 {
+            report
+                .requests_since_last_report
+                .iter()
+                .map(|stats| stats.requests_304.load(Ordering::Relaxed))
+                .sum()
+        }
+
+        fn connection_requests(report: &EdgeInstanceData) -> u64 {
+            let consumption = &report.connection_consumption_since_last_report;
+            consumption
+                .features_map
+                .iter()
+                .chain(consumption.metrics_map.iter())
+                .map(|point| point.requests.load(Ordering::Relaxed))
+                .sum()
+        }
+
+        fn one_entry_per_instance(reports: &[EdgeInstanceData]) -> bool {
+            let identifiers: HashSet<&str> = reports
+                .iter()
+                .map(|report| report.identifier.as_str())
+                .collect();
+            identifiers.len() == reports.len()
+                && reports
+                    .iter()
+                    .all(|report| one_entry_per_instance(&report.connected_edges))
+        }
+
+        proptest! {
+            #[test]
+            fn folding_neither_gains_nor_loses_a_window(reports in reports()) {
+                let before = (
+                    total(&reports, &request_consumption),
+                    total(&reports, &ok_requests),
+                    total(&reports, &not_modified_requests),
+                    total(&reports, &connection_requests),
+                );
+                let (_, distinct) = report_counts(&reports);
+
+                let mut buffer = vec![];
+                merge_reports(&mut buffer, reports);
+
+                let after = (
+                    total(&buffer, &request_consumption),
+                    total(&buffer, &ok_requests),
+                    total(&buffer, &not_modified_requests),
+                    total(&buffer, &connection_requests),
+                );
+                prop_assert_eq!(after, before);
+                prop_assert_eq!(report_counts(&buffer).1, distinct);
+                prop_assert!(one_entry_per_instance(&buffer));
+            }
         }
     }
 }

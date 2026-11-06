@@ -23,3 +23,5 @@ heaptrack.*
 htmlreport
 test-results.lcov
 *-manifest.json
+# proptest saves failing-case seeds here; we do not commit them
+proptest-regressions/

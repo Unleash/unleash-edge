@@ -1,5 +1,5 @@
 use tracing::instrument;
-use unleash_edge_types::metrics::batching::{EMPTY_BATCH_JSON_OVERHEAD, MetricsBatch};
+use unleash_edge_types::metrics::batching::MetricsBatch;
 use unleash_edge_types::metrics::payload_size::{
     TARGET_BODY_SIZE, UPSTREAM_MAX_BODY_SIZE, serialized_len,
 };
@@ -8,6 +8,10 @@ use unleash_types::client_metrics::{ClientApplication, ClientMetricsEnv, ImpactM
 pub(crate) fn sendable(batch: &MetricsBatch) -> bool {
     serialized_len(batch) < UPSTREAM_MAX_BODY_SIZE
 }
+
+/// Overhead for empty MetricsBatch JSON (all four lists, commas counted).
+/// Keep in sync with struct. prop tests below catch changes.
+const EMPTY_BATCH_JSON_OVERHEAD: usize = 67;
 
 struct SizedItem {
     size: usize,
@@ -22,7 +26,7 @@ enum SizedItemKind {
 }
 
 impl SizedItemKind {
-    fn serialized_len(&self) -> usize {
+    pub fn serialized_len(&self) -> usize {
         match self {
             SizedItemKind::App(app) => serialized_len(app),
             SizedItemKind::Metric(metric) => serialized_len(metric),
@@ -33,7 +37,7 @@ impl SizedItemKind {
 }
 
 impl SizedItem {
-    fn new(item: SizedItemKind) -> SizedItem {
+    pub fn new(item: SizedItemKind) -> SizedItem {
         SizedItem {
             size: item.serialized_len(),
             item,
