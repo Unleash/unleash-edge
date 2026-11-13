@@ -185,6 +185,28 @@ impl ConnectionConsumptionData {
         self.features_map.clear();
         self.metrics_map.clear();
     }
+
+    /// merge another window's deltas. Matching bucket keys represent the same interval
+    pub(crate) fn absorb(&mut self, other: Self) {
+        let Self {
+            features_map,
+            metrics_map,
+        } = other;
+        add_data_points(&mut self.features_map, features_map);
+        add_data_points(&mut self.metrics_map, metrics_map);
+    }
+}
+
+fn add_data_points(into: &mut DashMap<[u64; 2], DataPoint>, from: DashMap<[u64; 2], DataPoint>) {
+    for (interval, point) in from {
+        into.entry(interval)
+            .or_insert_with(|| DataPoint {
+                interval,
+                requests: AtomicU64::new(0),
+            })
+            .requests
+            .fetch_add(point.requests.into_inner(), Ordering::Relaxed);
+    }
 }
 
 #[derive(Debug, Default)]
@@ -268,6 +290,17 @@ impl RequestConsumptionData {
     pub fn reset(&self) {
         for mut entry in self.metered_groups.iter_mut() {
             entry.value_mut().store(0, Ordering::Relaxed);
+        }
+    }
+
+    /// Sum another window's request deltas per group.
+    pub(crate) fn absorb(&mut self, other: Self) {
+        let Self { metered_groups } = other;
+        for (metered_group, requests) in metered_groups {
+            self.metered_groups
+                .entry(metered_group)
+                .or_default()
+                .fetch_add(requests.into_inner(), Ordering::Relaxed);
         }
     }
 }
