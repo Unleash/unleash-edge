@@ -9,6 +9,7 @@ use utoipa::ToSchema;
 
 pub mod batching;
 pub mod instance_data;
+pub mod payload_size;
 
 pub const HTTP_REQUESTS_TOTAL: &str = "http_requests_total";
 pub const HTTP_REQUESTS_DURATION: &str = "http_server_duration_milliseconds";
