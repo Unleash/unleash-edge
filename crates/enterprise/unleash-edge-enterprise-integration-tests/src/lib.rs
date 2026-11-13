@@ -4,7 +4,7 @@ mod tests {
     use async_trait::async_trait;
     use axum::Json;
     use axum::extract::State;
-    use axum::http::StatusCode;
+    use axum::http::{HeaderMap, StatusCode};
     use axum::routing::post;
     use axum::{Router, response::IntoResponse};
     use axum_test::TestServer;
@@ -24,11 +24,11 @@ mod tests {
         ClientMetaInformation, HttpClientArgs, UnleashClient, new_reqwest_client,
     };
     use unleash_edge_persistence::EdgePersistence;
-    use unleash_edge_types::EdgeResult;
     use unleash_edge_types::enterprise::LicenseState;
     use unleash_edge_types::errors::EdgeError;
     use unleash_edge_types::metrics::instance_data::{EdgeInstanceData, Hosting};
-    use unleash_edge_types::tokens::EdgeToken;
+    use unleash_edge_types::tokens::{EdgeToken, parse_trusted_token_pair};
+    use unleash_edge_types::{EdgeResult, TokenType, TokenValidationStatus};
     use unleash_types::client_features::ClientFeatures;
 
     #[derive(Clone)]
@@ -71,15 +71,17 @@ mod tests {
             self.server.server_url("/").unwrap()
         }
 
-        async fn heartbeat(State(s): State<MockState>) -> impl IntoResponse {
+        async fn heartbeat(State(s): State<MockState>, headers: HeaderMap) -> impl IntoResponse {
+            // Like Unleash, only accept the heartbeat from the backend token
+            let token = headers.get("Authorization").and_then(|h| h.to_str().ok());
             match s.license_result {
-                Ok(license_state) => (
+                Ok(license_state) if token == Some("*:development.hashyhashhash") => (
                     StatusCode::ACCEPTED,
                     Json(json!({
                         "edgeLicenseState": license_state
                     })),
                 ),
-                Err(_) => (
+                _ => (
                     StatusCode::FORBIDDEN,
                     Json(json!({"message": "License verification failed"})),
                 ),
@@ -385,5 +387,39 @@ mod tests {
         );
 
         sut.await.expect("Expected license to be resolved");
+    }
+
+    #[tokio::test]
+    async fn resolving_a_license_uses_the_backend_token_not_a_pretrusted_token() {
+        let upstream = UpstreamMock::new(Ok(LicenseState::Valid)).await;
+        let client_meta_information = ClientMetaInformation {
+            app_name: "unleash-edge-test".to_string(),
+            connection_id: Ulid::generate(),
+            instance_id: Ulid::generate(),
+        };
+
+        let unleash_client = UnleashClient::from_url_with_backing_client(
+            upstream.as_url(),
+            "Authorization".to_string(),
+            build_client(&client_meta_information),
+            client_meta_information.clone(),
+        );
+
+        let (_, pretrusted_token) = parse_trusted_token_pair("secret@development").unwrap();
+        let backend_token = EdgeToken {
+            token_type: Some(TokenType::Backend),
+            status: TokenValidationStatus::Validated,
+            ..EdgeToken::from_str("*:development.hashyhashhash").unwrap()
+        };
+
+        let license = resolve_license(
+            &unleash_client,
+            None,
+            &[pretrusted_token, backend_token],
+            &client_meta_information,
+        )
+        .await;
+
+        assert!(matches!(license, Ok(LicenseState::Valid)));
     }
 }
