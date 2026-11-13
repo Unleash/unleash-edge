@@ -4,6 +4,7 @@ use std::{sync::Arc, time::Duration};
 
 pub mod delta_refresh;
 pub mod refresh_metrics;
+mod stream_state;
 
 use crate::delta_refresh::DeltaRefresher;
 use crate::refresh_metrics::{

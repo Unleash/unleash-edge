@@ -1,5 +1,8 @@
 # Feature refresh alerts
 
+See [streaming state consistency](stream-state-consistency.md) for opt-in
+checkpoint verification, lag metrics and fresh-hydration recovery.
+
 Edge initializes warning and refresh-error counters at zero before work starts
 for an environment. This lets Prometheus observe the first increase after a
 healthy scrape. Initialization is idempotent and never resets existing counts.

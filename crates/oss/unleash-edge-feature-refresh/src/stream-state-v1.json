@@ -1,0 +1,10 @@
+{
+  "features": [
+    {"name":"z-flag","enabled":false,"project":"b","variants":null,"impressionData":null},
+    {"name":"a-flag","enabled":true,"project":"a","strategies":[{"name":"flexibleRollout","parameters":{"rollout":"50","groupId":"雪","2":"two","10":"ten"},"segments":[7],"constraints":[{"contextName":"userId","operator":"IN","values":["a","b"]}]}],"dependencies":[{"feature":"parent","enabled":false,"variants":[]}],"variants":[{"name":"blue","weight":1000,"payload":{"type":"json","value":"{\"a\":1}"}}]}
+  ],
+  "segments": [
+    {"id":9,"name":"unused","constraints":[]},
+    {"id":7,"name":"emails","constraints":[{"contextName":"email","operator":"STR_ENDS_WITH","value":"@example.com","inverted":false,"caseInsensitive":true}]}
+  ]
+}
