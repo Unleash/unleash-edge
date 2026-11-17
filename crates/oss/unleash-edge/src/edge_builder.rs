@@ -1004,6 +1004,15 @@ pub async fn resolve_license(
     client_meta_information: &ClientMetaInformation,
 ) -> Result<LicenseState, EdgeError> {
     debug!("Starting enterprise license check");
+    // Only a validated backend token can authenticate the heartbeat. The caller passes the whole
+    // token cache, which has no stable order and also holds pretrusted frontend tokens.
+    let tokens: Vec<&EdgeToken> = tokens
+        .iter()
+        .filter(|token| {
+            token.status == TokenValidationStatus::Validated
+                && token.token_type == Some(TokenType::Backend)
+        })
+        .collect();
     if tokens.is_empty() {
         match persistence {
             Some(p) => p.load_license_state().await.map_err(|_| {
