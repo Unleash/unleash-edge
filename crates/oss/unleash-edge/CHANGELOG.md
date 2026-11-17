@@ -1,4 +1,9 @@
 
+## [unleash-edge-v20.6.5] - 2026-11-17
+
+### 🐛 Bug Fixes
+- send the startup license heartbeat with a validated backend token (#2019) (by @HenrikBacher) - #2019
+
 ## [unleash-edge-v20.6.4] - 2026-11-04
 
 ### 🐛 Bug Fixes
