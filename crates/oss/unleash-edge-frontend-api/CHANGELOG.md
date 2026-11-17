@@ -1,4 +1,9 @@
 
+## [unleash-edge-v20.6.5] - 2026-11-17
+
+### 🐛 Bug Fixes
+- raise the context enricher timeout to 250ms (#2031) (by @HenrikBacher) - #2031
+
 ## [unleash-edge-v20.6.4] - 2026-11-04
 
 ## [unleash-edge-v20.6.3] - 2026-10-29
