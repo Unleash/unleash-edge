@@ -23,7 +23,7 @@ use unleash_types::client_features::Context;
 use unleash_types::client_metrics::{ClientApplication, ClientMetrics, ConnectVia};
 use unleash_types::frontend::{EvaluatedToggle, EvaluatedVariant, FrontendResult};
 
-const CONTEXT_ENRICHER_TIMEOUT: Duration = Duration::from_millis(100);
+const CONTEXT_ENRICHER_TIMEOUT: Duration = Duration::from_millis(250);
 
 #[utoipa::path(
     get,
