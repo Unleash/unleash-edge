@@ -14,7 +14,7 @@ use reqwest::StatusCode;
 use std::collections::HashSet;
 use std::pin::Pin;
 use std::sync::{Arc, LazyLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::sync::watch::Receiver;
 use tokio::time::{sleep, timeout};
 use tracing::{debug, error, info, warn};
@@ -48,6 +48,7 @@ const SSE_IDLE_RECONNECT_DELAY: Duration = Duration::from_secs(5);
 struct SseIdleConfig {
     timeout: Duration,
     reconnect_delay: Duration,
+    state_lag_threshold: Option<Duration>,
 }
 
 impl Default for SseIdleConfig {
@@ -55,6 +56,16 @@ impl Default for SseIdleConfig {
         Self {
             timeout: SSE_IDLE_TIMEOUT,
             reconnect_delay: SSE_IDLE_RECONNECT_DELAY,
+            state_lag_threshold: (std::env::var("EDGE_STATE_CHECKPOINTS").as_deref() == Ok("true"))
+                .then(|| {
+                    Duration::from_secs(
+                        std::env::var("EDGE_STATE_LAG_THRESHOLD_SECONDS")
+                            .ok()
+                            .and_then(|v| v.parse::<u64>().ok())
+                            .filter(|v| *v > 0)
+                            .unwrap_or(30),
+                    )
+                }),
         }
     }
 }
@@ -223,6 +234,12 @@ async fn run_stream_task_with_idle_timeout(
     initialize_feature_refresh_metrics(token.environment.as_deref().unwrap_or("*"));
     let mut stream: Option<SseStream> = None;
     let mut last_event_id: Option<String> = None;
+    let mut verification = idle_config
+        .state_lag_threshold
+        .map(crate::stream_state::Verification::new);
+    let mut verification_tick = tokio::time::interval(Duration::from_secs(1));
+    verification_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    let mut last_activity = Instant::now();
 
     loop {
         let state = *refresh_state_rx.borrow_and_update();
@@ -256,6 +273,7 @@ async fn run_stream_task_with_idle_timeout(
             };
 
             stream = Some(s);
+            last_activity = Instant::now();
             info!(
                 "SSE connected (app: {}, instance: {})",
                 client_meta_information.app_name, client_meta_information.instance_id
@@ -272,7 +290,18 @@ async fn run_stream_task_with_idle_timeout(
                         return;
                     }
                 }
-                next = timeout(idle_config.timeout, s.next()) => {
+                _ = verification_tick.tick(), if verification.is_some() => {
+                    let tracker = verification.as_mut().unwrap();
+                    if let Some(reason) = tracker.recovery(Instant::now()) {
+                        warn!("Upstream state verification requested fresh hydration ({reason})");
+                        // Construct a new EventSource client with no replay cursor.
+                        // Reusing the old client would retain its internal Last-Event-ID.
+                        stream = None;
+                        last_event_id = None;
+                        sleep(idle_config.reconnect_delay).await;
+                    }
+                }
+                next = timeout(idle_config.timeout.saturating_sub(last_activity.elapsed()), s.next()) => {
                     match next {
                         Err(_) => {
                             info!(
@@ -281,13 +310,29 @@ async fn run_stream_task_with_idle_timeout(
                                 idle_config.reconnect_delay
                             );
                             stream = None;
+                            if let Some(tracker) = &mut verification { tracker.disconnected(); }
                             sleep(idle_config.reconnect_delay).await;
                             continue;
                         }
                         Ok(Some(Ok(sse))) => {
+                            last_activity = Instant::now();
+                            if let eventsource_client::SSE::Event(event) = &sse
+                                && event.event_type == "unleash-state" {
+                                if let Some(tracker) = &mut verification {
+                                    tracker.checkpoint(&event.data, Instant::now(), ||
+                                        crate::stream_state::fingerprint(&delta_refresher.features_cache, &token));
+                                }
+                                continue;
+                            }
+                            if matches!(&sse, eventsource_client::SSE::Connected(_))
+                                && let Some(tracker) = &mut verification { tracker.disconnected(); }
                             if let Some(id) =
                                 handle_sse(sse, &delta_refresher, &token).await
                             {
+                                if let Some(tracker) = &mut verification {
+                                    tracker.applied(&id, Instant::now(), ||
+                                        crate::stream_state::fingerprint(&delta_refresher.features_cache, &token));
+                                }
                                 last_event_id = Some(id);
                             }
                         }
@@ -306,6 +351,7 @@ async fn run_stream_task_with_idle_timeout(
                                 _ => {
                                     info!("SSE stream error: {e:?}; reconnecting immediately");
                                     stream = None;
+                                    if let Some(tracker) = &mut verification { tracker.disconnected(); }
                                     continue;
                                 }
                             }
@@ -313,6 +359,7 @@ async fn run_stream_task_with_idle_timeout(
                         Ok(None) => {
                             info!("SSE stream ended; reconnecting immediately");
                             stream = None;
+                            if let Some(tracker) = &mut verification { tracker.disconnected(); }
                             continue;
                         }
                     }
@@ -407,6 +454,9 @@ impl DeltaRefresher {
         );
 
         let key: String = cache_key(refresh_token);
+        // Startup enforces one upstream token per environment in delta/streaming mode
+        // (enforce_single_backend_token_per_env). Hydration therefore replaces the
+        // entire environment snapshot, even when that token has a limited project scope.
         self.features_cache.apply_delta(key.clone(), &delta);
 
         if !self.delta_cache_manager.contains(&key)
@@ -909,6 +959,203 @@ mod tests {
         last_event_id_tx: Arc<Mutex<Option<oneshot::Sender<Option<String>>>>>,
     }
 
+    async fn checkpoint_recovery_handler(
+        State((state, lag)): State<(StreamingServerState, bool)>,
+        request: Request,
+    ) -> impl IntoResponse {
+        let count = state.request_count.fetch_add(1, Ordering::SeqCst) + 1;
+        let body = if count == 1 {
+            let delta = serde_json::json!({"events":[{"type":"feature-updated","eventId":1,
+                "feature":{"name":"flag","project":"default","enabled":false}}]});
+            let checkpoint = serde_json::json!({"version":1,"revision":if lag {2} else {1},"stateHash":"a".repeat(64)});
+            format!(
+                "id: 1\nevent: unleash-updated\ndata: {delta}\n\nevent: unleash-state\ndata: {checkpoint}\n\n"
+            )
+        } else {
+            let id = request
+                .headers()
+                .get("last-event-id")
+                .and_then(|v| v.to_str().ok())
+                .map(str::to_owned);
+            if let Some(tx) = state.last_event_id_tx.lock().await.take() {
+                let _ = tx.send(id);
+            }
+            let delta = serde_json::json!({"events":[{"type":"hydration","eventId":2,
+                "features":[{"name":"recovered","project":"default","enabled":true}],"segments":[]}]});
+            format!("id: 2\nevent: unleash-connected\ndata: {delta}\n\n")
+        };
+        // Keep the connection open: only verification, not EOF, can reconnect it.
+        let stream = futures::stream::once(async move { Ok::<_, Infallible>(body) })
+            .chain(futures::stream::pending());
+        Response::builder()
+            .header(http::header::CONTENT_TYPE, "text/event-stream")
+            .body(Body::from_stream(stream))
+            .unwrap()
+    }
+
+    async fn assert_checkpoint_recovery(lag: bool) {
+        let (tx, rx) = oneshot::channel();
+        let state = StreamingServerState {
+            request_count: Arc::new(AtomicUsize::new(0)),
+            last_event_id_tx: Arc::new(Mutex::new(Some(tx))),
+        };
+        let server = TestServer::builder().http_transport().build(
+            Router::new()
+                .route("/api/client/streaming", get(checkpoint_recovery_handler))
+                .with_state((state.clone(), lag)),
+        );
+        let (refresher, tokens) =
+            build_delta_refresher_for_stream_test(server.server_url("/").unwrap());
+        let token = EdgeToken::try_from("*:development.secret".to_string()).unwrap();
+        tokens.insert(token.token.clone(), TokenRefresh::new(token.clone(), None));
+        refresher.features_cache.insert(
+            "development".into(),
+            ClientFeatures {
+                features: vec![ClientFeature {
+                    name: "ghost".into(),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            },
+        );
+        let (pause_tx, pause_rx) = watch::channel(RefreshState::Running);
+        let join = tokio::spawn(super::run_stream_task_with_idle_timeout(
+            refresher.clone(),
+            token,
+            server
+                .server_url("/api/client/streaming")
+                .unwrap()
+                .to_string(),
+            ClientMetaInformation::test_config(),
+            vec![],
+            pause_rx,
+            super::SseIdleConfig {
+                timeout: StdDuration::from_secs(90),
+                reconnect_delay: StdDuration::ZERO,
+                state_lag_threshold: Some(StdDuration::from_millis(10)),
+            },
+        ));
+        assert_eq!(
+            tokio::time::timeout(StdDuration::from_secs(5), rx)
+                .await
+                .unwrap()
+                .unwrap(),
+            None
+        );
+        tokio::time::timeout(StdDuration::from_secs(5), async {
+            loop {
+                if refresher
+                    .features_cache
+                    .get("development")
+                    .is_some_and(|s| s.features.len() == 1 && s.features[0].name == "recovered")
+                {
+                    break;
+                }
+                tokio::time::sleep(StdDuration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(state.request_count.load(Ordering::SeqCst), 2);
+        drop(pause_tx);
+        tokio::time::timeout(StdDuration::from_secs(5), join)
+            .await
+            .unwrap()
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn confirmed_mismatch_reconnects_without_cursor_and_hydrates() {
+        assert_checkpoint_recovery(false).await;
+    }
+
+    #[tokio::test]
+    async fn sustained_lag_reconnects_without_cursor_and_hydrates() {
+        assert_checkpoint_recovery(true).await;
+    }
+
+    #[tokio::test]
+    async fn hydration_replaces_environment_and_supports_empty_recovery() {
+        let (refresher, _) =
+            build_delta_refresher_for_stream_test(Url::parse("http://localhost:4242").unwrap());
+        let token = EdgeToken {
+            projects: vec!["a".into(), "b".into()],
+            environment: Some("production".into()),
+            ..Default::default()
+        };
+        for project in ["a", "b"] {
+            let features = vec![ClientFeature {
+                name: project.into(),
+                project: Some(project.into()),
+                ..Default::default()
+            }];
+            refresher
+                .handle_client_features_delta_updated(
+                    &token,
+                    ClientFeaturesDelta {
+                        events: vec![DeltaEvent::Hydration {
+                            event_id: 10,
+                            features,
+                            segments: vec![],
+                        }],
+                    },
+                    None,
+                )
+                .await;
+        }
+        assert_eq!(
+            refresher
+                .features_cache
+                .get("production")
+                .unwrap()
+                .features
+                .iter()
+                .map(|f| f.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["b"]
+        );
+        assert_eq!(
+            refresher
+                .delta_cache_manager
+                .get("production")
+                .unwrap()
+                .get_hydration_event()
+                .features[0]
+                .name,
+            "b"
+        );
+        refresher
+            .handle_client_features_delta_updated(
+                &token,
+                ClientFeaturesDelta {
+                    events: vec![DeltaEvent::Hydration {
+                        event_id: 11,
+                        features: vec![],
+                        segments: vec![],
+                    }],
+                },
+                None,
+            )
+            .await;
+        assert!(
+            refresher
+                .features_cache
+                .get("production")
+                .unwrap()
+                .features
+                .is_empty()
+        );
+        assert!(
+            refresher
+                .delta_cache_manager
+                .get("production")
+                .unwrap()
+                .get_hydration_event()
+                .features
+                .is_empty()
+        );
+    }
+
     async fn streaming_handler(
         State(state): State<StreamingServerState>,
         request: Request,
@@ -1005,6 +1252,7 @@ mod tests {
             super::SseIdleConfig {
                 timeout: StdDuration::from_millis(100),
                 reconnect_delay: StdDuration::ZERO,
+                state_lag_threshold: None,
             },
         ));
 
