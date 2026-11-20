@@ -706,7 +706,7 @@ impl UnleashClient {
     #[tracing::instrument(skip(self, instance_data, token))]
     pub async fn post_edge_observability_data(
         &self,
-        instance_data: EdgeInstanceData,
+        instance_data: &EdgeInstanceData,
         token: &str,
     ) -> EdgeResult<()> {
         let started_at = Utc::now();
@@ -715,7 +715,7 @@ impl UnleashClient {
             .post(self.urls.edge_instance_data_url.to_string())
             .headers(self.header_map(Some(token.into())))
             .timeout(Duration::seconds(3).to_std().unwrap())
-            .json(&instance_data)
+            .json(instance_data)
             .send()
             .await
             .map_err(|e| {
