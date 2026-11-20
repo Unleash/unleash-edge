@@ -1,25 +1,13 @@
-use std::io::{self, Write};
 use tracing::instrument;
-use unleash_edge_types::metrics::batching::MetricsBatch;
+use unleash_edge_types::metrics::batching::{EMPTY_BATCH_JSON_OVERHEAD, MetricsBatch};
+use unleash_edge_types::metrics::payload_size::{
+    TARGET_BODY_SIZE, UPSTREAM_MAX_BODY_SIZE, serialized_len,
+};
 use unleash_types::client_metrics::{ClientApplication, ClientMetricsEnv, ImpactMetricEnv};
 
-pub const UPSTREAM_MAX_BODY_SIZE: usize = 100 * 1024;
-pub const BATCH_BODY_SIZE: usize = 95 * 1024;
-
 pub(crate) fn sendable(batch: &MetricsBatch) -> bool {
-    size_of_batch(batch) < UPSTREAM_MAX_BODY_SIZE
+    serialized_len(batch) < UPSTREAM_MAX_BODY_SIZE
 }
-
-pub(crate) fn size_of_batch<T: serde::Serialize>(value: &T) -> usize {
-    let mut counter = ByteCounter { count: 0 };
-    serde_json::to_writer(&mut counter, &value).unwrap();
-    counter.count
-}
-
-// This is the number of bytes that are not part of the actual items in the batch.
-// It includes the opening and closing brackets, commas between items, and the JSON structure overhead.
-// If you patch the MetricsBatch struct, you may need to adjust this value. Prop tests will catch it.
-const EMPTY_BATCH_JSON_OVERHEAD: usize = 67;
 
 struct SizedItem {
     size: usize,
@@ -34,36 +22,22 @@ enum SizedItemKind {
 }
 
 impl SizedItemKind {
-    pub fn serialized_len(&self) -> usize {
+    fn serialized_len(&self) -> usize {
         match self {
-            SizedItemKind::App(app) => size_of_batch(app),
-            SizedItemKind::Metric(metric) => size_of_batch(metric),
-            SizedItemKind::Impact(impact) => size_of_batch(impact),
-            SizedItemKind::SeenToken(token) => size_of_batch(token),
+            SizedItemKind::App(app) => serialized_len(app),
+            SizedItemKind::Metric(metric) => serialized_len(metric),
+            SizedItemKind::Impact(impact) => serialized_len(impact),
+            SizedItemKind::SeenToken(token) => serialized_len(token),
         }
     }
 }
 
 impl SizedItem {
-    pub fn new(item: SizedItemKind) -> SizedItem {
+    fn new(item: SizedItemKind) -> SizedItem {
         SizedItem {
             size: item.serialized_len(),
             item,
         }
-    }
-}
-struct ByteCounter {
-    count: usize,
-}
-
-impl Write for ByteCounter {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.count += buf.len();
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
     }
 }
 
@@ -139,7 +113,7 @@ fn partition_batch(mut batch: MetricsBatch, max_batch_size: usize) -> Vec<Metric
 
 #[instrument(skip(batch))]
 pub(crate) fn cut_into_sendable_batches(batch: MetricsBatch) -> Vec<MetricsBatch> {
-    partition_batch(batch, BATCH_BODY_SIZE)
+    partition_batch(batch, TARGET_BODY_SIZE)
 }
 
 #[cfg(test)]
@@ -307,14 +281,11 @@ mod tests {
         assert_eq!(total_seen_tokens, output_seen_tokens);
 
         for b in batches {
-            let mut counter = ByteCounter { count: 0 };
-            serde_json::to_writer(&mut counter, &b).unwrap();
-            let json_size = counter.count;
-            println!("Batch size: {}, JSON size: {}", batch_size, json_size);
-            println!("Batch as bytes:");
-            println!("{:02X?}", b);
-
-            assert!(json_size <= batch_size);
+            let json_size = serialized_len(&b);
+            assert!(
+                json_size <= batch_size,
+                "a batch of {json_size} bytes broke the {batch_size} byte budget: {b:02X?}"
+            );
         }
     }
 

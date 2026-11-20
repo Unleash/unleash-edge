@@ -1,5 +1,5 @@
 use crate::client_impact_metrics::{convert_to_impact_metrics_env, sink_impact_metrics};
-use crate::metric_batching::{cut_into_sendable_batches, sendable, size_of_batch};
+use crate::metric_batching::{cut_into_sendable_batches, sendable};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use prometheus::{Histogram, IntCounterVec, register_histogram, register_int_counter_vec};
@@ -8,6 +8,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use tracing::debug;
 use unleash_edge_types::metrics::batching::MetricsBatch;
+use unleash_edge_types::metrics::payload_size::serialized_len;
 use unleash_edge_types::metrics::{ApplicationKey, ImpactMetricsKey, MetricsCache};
 use unleash_edge_types::tokens::EdgeToken;
 use unleash_edge_types::{BatchMetricsRequestBody, MetricsKey};
@@ -132,7 +133,7 @@ pub fn get_appropriately_sized_env_batches(
     for metric in batch.metrics.clone() {
         cache.metrics.remove(&MetricsKey::from(metric.clone()));
     }
-    METRICS_SIZE_HISTOGRAM.observe(size_of_batch(&batch) as f64);
+    METRICS_SIZE_HISTOGRAM.observe(serialized_len(&batch) as f64);
     if sendable(&batch) {
         vec![batch]
     } else {
