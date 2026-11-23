@@ -5,6 +5,12 @@ FROM --platform=linux/arm64 docker.io/lukemathwalker/cargo-chef:latest-rust-1.99
 FROM --platform=$BUILDPLATFORM docker.io/lukemathwalker/cargo-chef:latest-rust-1.99-slim-bookworm AS chef
 WORKDIR /app
 
+# sbom-attest, used to write an SPDX SBOM of the built binary into the image.
+# Separate stage so it builds in parallel with the app and stays cached.
+FROM chef AS sbom-tool
+ARG SBOM_ATTEST_VERSION=0.4.9
+RUN cargo install sbom-attest --version "${SBOM_ATTEST_VERSION}" --locked
+
 # Planner stage
 FROM chef AS planner
 COPY . .
@@ -114,6 +120,30 @@ RUN set -ex; \
     esac; \
     # Copy files from the target folder to app folder
     cp $target/unleash-edge     /all-files/${TARGETPLATFORM}/app
+
+# Write an SPDX SBOM for the binary into the image so image scanners (syft with
+# `--select-catalogers +sbom-cataloger`) report the Rust crates compiled into it.
+# Resolved for the same target and features as the build above, and hashes the binary itself.
+COPY --from=sbom-tool /usr/local/cargo/bin/sbom-attest /usr/local/bin/sbom-attest
+RUN set -eux; \
+    case ${TARGETARCH} in \
+    arm64) triple='aarch64-unknown-linux-gnu';; \
+    amd64) triple='x86_64-unknown-linux-gnu';; \
+    *) exit 1 ;; \
+    esac; \
+    feature_flags=""; \
+    if [ -n "${CARGO_FEATURES}" ]; then \
+        feature_flags="--features ${CARGO_FEATURES}"; \
+    fi; \
+    mkdir -p /all-files/${TARGETPLATFORM}/app/sbom; \
+    sbom-attest generate --locked \
+        --package unleash-edge \
+        --target "${triple}" ${feature_flags} \
+        --binary /all-files/${TARGETPLATFORM}/app/unleash-edge \
+        --name "unleash-edge-${triple}" \
+        --author "Bricks Software AS" \
+        --producer "Bricks Software AS" \
+        --spdx "/all-files/${TARGETPLATFORM}/app/sbom/unleash-edge-${triple}.spdx.json"
 
 # Always include MIT license in the image (OSS + enterprise)
 RUN cp /app/LICENSE /all-files/${TARGETPLATFORM}/LICENSE

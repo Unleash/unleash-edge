@@ -172,8 +172,12 @@ jobs:
           mkdir -p /tmp/sbom
           # Scan the exact pushed digest (GHCR avoids Docker Hub pull rate limits).
           # --platform matters: the pushed digest may be an index (image + BuildKit provenance).
+          # +sbom-cataloger: read the SPDX SBOM the Dockerfile writes to /app/sbom/. Syft does not
+          # enable that cataloger for image scans by default, and the scratch image has no other
+          # record of the Rust crates compiled into the binary.
           syft scan "registry:${GHCR_SLUG}@${DIGEST}" \
             --platform "${{ matrix.platform }}" \
+            --select-catalogers "+sbom-cataloger" \
             -o "spdx-json=/tmp/sbom/sbom-${PLATFORM_PAIR}.spdx.json"
       - name: Upload SBOM
         if: startsWith(github.ref, 'refs/tags/')

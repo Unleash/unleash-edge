@@ -21,21 +21,74 @@ on:
 jobs:
   sbom:
     runs-on: "ubuntu-24.04"
+    strategy:
+      fail-fast: false
+      # Keep in sync with `targets` in dist-workspace.toml. Dependencies are resolved per target
+      # with `cargo tree --target`, so no cross toolchain is needed and Linux runners suffice.
+      matrix:
+        target:
+          - aarch64-apple-darwin
+          - aarch64-unknown-linux-gnu
+          - x86_64-unknown-linux-gnu
+          - x86_64-pc-windows-msvc
+    env:
+      SBOM_ATTEST_VERSION: "0.4.9"
+      SBOM_TARGET: ${{ matrix.target }}
+      TAG_FROM_INPUT: ${{ inputs.tag }}
+      TAG_FROM_EVENT_INPUT: ${{ github.event.inputs.tag }}
+      TAG_FROM_RELEASE: ${{ github.event.release.tag_name }}
     steps:
+      - name: Resolve tag
+        id: tag
+        run: |
+          TAG="${TAG_FROM_INPUT:-${TAG_FROM_EVENT_INPUT:-${TAG_FROM_RELEASE:-}}}"
+          if [ -z "$TAG" ]; then
+            echo "Could not determine release tag from workflow inputs or release event."
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+      # The SBOM must describe the tagged release, not whatever the default branch is now.
       - uses: actions/checkout@v7
-      - name: Install cargo-sbom
-        run: cargo install cargo-sbom
-      - name: Run sbom
+        with:
+          ref: ${{ steps.tag.outputs.tag }}
+      - name: Install sbom-attest
+        run: cargo install sbom-attest --version "$SBOM_ATTEST_VERSION" --locked
+      # --name puts the target in the SPDX document name (and the root component's display
+      # name); the purl stays pkg:cargo/unleash-edge@<version> so scanners still match it.
+      - name: Generate SBOMs (CycloneDX + SPDX)
         shell: bash
         run: |
           set -euo pipefail
-          cargo sbom --output-format=cyclone_dx_json_1_6 \
-                     --cargo-package unleash-edge > unleash-edge-cyclone-dx.sbom.json
+          sbom-attest generate --locked \
+            --package unleash-edge \
+            --target "$SBOM_TARGET" \
+            --name "unleash-edge-${SBOM_TARGET}" \
+            --author "Bricks Software AS" \
+            --producer "Bricks Software AS" \
+            --cdx "unleash-edge-${SBOM_TARGET}.cdx.json" \
+            --spdx "unleash-edge-${SBOM_TARGET}.spdx.json"
+      # Fails the job if the SBOM disagrees with Cargo.lock / the crate graph for this target.
+      # no-license is waived: the enterprise crates declare `license-file` (proprietary, no SPDX
+      # expression) and the libgit2 C library vendored by libgit2-sys (build-time, via shadow-rs)
+      # carries no declared license. The waiver is recorded in the report.
+      - name: Audit SBOM
+        shell: bash
+        run: |
+          set -euo pipefail
+          sbom-attest audit "unleash-edge-${SBOM_TARGET}.cdx.json" --locked \
+            --package unleash-edge \
+            --target "$SBOM_TARGET" \
+            --waive no-license \
+            --summary "$GITHUB_STEP_SUMMARY" \
+            --json "unleash-edge-${SBOM_TARGET}.sbom-audit.json"
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: sbom-artifact
-          path: unleash-edge-cyclone-dx.sbom.json
+          name: sbom-${{ matrix.target }}
+          path: |
+            unleash-edge-${{ matrix.target }}.cdx.json
+            unleash-edge-${{ matrix.target }}.spdx.json
+            unleash-edge-${{ matrix.target }}.sbom-audit.json
           if-no-files-found: error
           retention-days: 3
   attach-to-release:
@@ -44,10 +97,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         name: Checkout code
-      - name: Download sbom artifact
+      - name: Download sbom artifacts
         uses: actions/download-artifact@v8
         with:
-          name: sbom-artifact
+          pattern: sbom-*
+          merge-multiple: true
           path: ./downloaded
       - name: Upload file to existing release
         env:
@@ -61,5 +115,4 @@ jobs:
             echo "Could not determine release tag from workflow inputs or release event."
             exit 1
           fi
-          FILE=downloaded/unleash-edge-cyclone-dx.sbom.json
-          gh release upload "$TAG" "$FILE" --clobber
+          gh release upload "$TAG" downloaded/unleash-edge-*.json --clobber
