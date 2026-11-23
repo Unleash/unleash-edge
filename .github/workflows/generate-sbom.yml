@@ -27,7 +27,15 @@ jobs:
       # Each SBOM is generated and audited on the runner that builds that release: `--target`
       # only selects target dependencies, while build dependencies (proc macros, build scripts)
       # resolve for the host running cargo, so a Linux host would describe a cross-build.
+      # Every target ships two binaries (see release.yml): the OSS build from cargo-dist and the
+      # enterprise build (`--features enterprise`), so each gets its own SBOM.
       matrix:
+        edition: [oss, enterprise]
+        target:
+          - aarch64-apple-darwin
+          - aarch64-unknown-linux-gnu
+          - x86_64-unknown-linux-gnu
+          - x86_64-pc-windows-msvc
         include:
           - target: aarch64-apple-darwin
             runner: macos-latest
@@ -37,6 +45,14 @@ jobs:
             runner: ubuntu-24.04
           - target: x86_64-pc-windows-msvc
             runner: windows-latest
+          - edition: oss
+            features: ""
+            # Matches the cargo-dist archive names (unleash-edge-<target>).
+            sbom_name: unleash-edge
+          - edition: enterprise
+            features: enterprise
+            # Matches the enterprise archive names (unleash-edge-enterprise-<version>-<target>).
+            sbom_name: unleash-edge-enterprise
     # Bash on every runner, including Windows (Git Bash), so the scripts behave the same.
     defaults:
       run:
@@ -44,6 +60,8 @@ jobs:
     env:
       SBOM_ATTEST_VERSION: "0.4.9"
       SBOM_TARGET: ${{ matrix.target }}
+      SBOM_FEATURES: ${{ matrix.features }}
+      SBOM_BASENAME: ${{ matrix.sbom_name }}-${{ matrix.target }}
       TAG_FROM_INPUT: ${{ inputs.tag }}
       TAG_FROM_EVENT_INPUT: ${{ github.event.inputs.tag }}
       TAG_FROM_RELEASE: ${{ github.event.release.tag_name }}
@@ -68,17 +86,22 @@ jobs:
           cargo install sbom-attest --version "$SBOM_ATTEST_VERSION" --locked
       # --name puts the target in the SPDX document name (and the root component's display
       # name); the purl stays pkg:cargo/unleash-edge@<version> so scanners still match it.
+      # --features must match the release build, or the SBOM omits the feature-gated crates.
       - name: Generate SBOMs (CycloneDX + SPDX)
         run: |
           set -euo pipefail
+          feature_args=()
+          if [ -n "$SBOM_FEATURES" ]; then
+            feature_args=(--features "$SBOM_FEATURES")
+          fi
           sbom-attest generate --locked \
             --package unleash-edge \
-            --target "$SBOM_TARGET" \
-            --name "unleash-edge-${SBOM_TARGET}" \
+            --target "$SBOM_TARGET" ${feature_args[@]+"${feature_args[@]}"} \
+            --name "$SBOM_BASENAME" \
             --author "Bricks Software AS" \
             --producer "Bricks Software AS" \
-            --cdx "unleash-edge-${SBOM_TARGET}.cdx.json" \
-            --spdx "unleash-edge-${SBOM_TARGET}.spdx.json"
+            --cdx "${SBOM_BASENAME}.cdx.json" \
+            --spdx "${SBOM_BASENAME}.spdx.json"
       # Fails the job if the SBOM disagrees with Cargo.lock / the crate graph for this target.
       # no-license is waived: the enterprise crates declare `license-file` (proprietary, no SPDX
       # expression) and the libgit2 C library vendored by libgit2-sys (build-time, via shadow-rs)
@@ -86,20 +109,24 @@ jobs:
       - name: Audit SBOM
         run: |
           set -euo pipefail
-          sbom-attest audit "unleash-edge-${SBOM_TARGET}.cdx.json" --locked \
+          feature_args=()
+          if [ -n "$SBOM_FEATURES" ]; then
+            feature_args=(--features "$SBOM_FEATURES")
+          fi
+          sbom-attest audit "${SBOM_BASENAME}.cdx.json" --locked \
             --package unleash-edge \
-            --target "$SBOM_TARGET" \
+            --target "$SBOM_TARGET" ${feature_args[@]+"${feature_args[@]}"} \
             --waive no-license \
             --summary "$GITHUB_STEP_SUMMARY" \
-            --json "unleash-edge-${SBOM_TARGET}.sbom-audit.json"
+            --json "${SBOM_BASENAME}.sbom-audit.json"
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: sbom-${{ matrix.target }}
+          name: sbom-${{ matrix.edition }}-${{ matrix.target }}
           path: |
-            unleash-edge-${{ matrix.target }}.cdx.json
-            unleash-edge-${{ matrix.target }}.spdx.json
-            unleash-edge-${{ matrix.target }}.sbom-audit.json
+            ${{ env.SBOM_BASENAME }}.cdx.json
+            ${{ env.SBOM_BASENAME }}.spdx.json
+            ${{ env.SBOM_BASENAME }}.sbom-audit.json
           if-no-files-found: error
           retention-days: 3
   attach-to-release:
