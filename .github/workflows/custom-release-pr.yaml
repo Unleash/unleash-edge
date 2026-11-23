@@ -223,6 +223,9 @@ jobs:
       - name: Prepare release changes
         if: steps.semver.outputs.level != 'none'
         shell: bash
+        env:
+          # git-cliff uses this for [remote.github] API lookups; unauthenticated calls get rate-limited (403)
+          GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
         run: |
           set -euo pipefail
 
