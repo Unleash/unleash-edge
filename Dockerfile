@@ -161,6 +161,19 @@ RUN useradd -u 10001 edgeuser
 
 FROM node:24-bookworm-slim AS node-source
 
+# Debian package records for the shared libraries copied into the enterprise image below
+# (libdl/libpthread are from libc6, libstdc++ from libstdc++6), in the distroless
+# /var/lib/dpkg/status.d layout that syft's dpkg cataloger reads. os-release lets syft
+# give them debian-12 purls so vulnerability matching works; copyright files carry licenses.
+RUN set -eux; \
+    mkdir -p /dpkg/var/lib/dpkg/status.d /dpkg/etc; \
+    for pkg in libc6 libstdc++6; do \
+        dpkg-query -s "$pkg" > "/dpkg/var/lib/dpkg/status.d/$pkg"; \
+        mkdir -p "/dpkg/usr/share/doc/$pkg"; \
+        cp "/usr/share/doc/$pkg/copyright" "/dpkg/usr/share/doc/$pkg/copyright"; \
+    done; \
+    cp /etc/os-release /dpkg/etc/os-release
+
 # Create a single layer image
 FROM scratch AS runtime-base
 
@@ -189,6 +202,8 @@ COPY --from=node-source \
     /lib/*-linux-gnu/libstdc++.so.6 \
     /usr/local/lib/node/
 COPY crates/enterprise/unleash-edge-context-enrichers/worker_script.js /app/worker_script.js
+
+COPY --from=node-source /dpkg/ /
 
 ENV LD_LIBRARY_PATH=/usr/local/lib/node
 
