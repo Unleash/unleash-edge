@@ -20,17 +20,27 @@ on:
 
 jobs:
   sbom:
-    runs-on: "ubuntu-24.04"
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
-      # Keep in sync with `targets` in dist-workspace.toml. Dependencies are resolved per target
-      # with `cargo tree --target`, so no cross toolchain is needed and Linux runners suffice.
+      # Keep in sync with `targets` and `github-custom-runners` in dist-workspace.toml.
+      # Each SBOM is generated and audited on the runner that builds that release: `--target`
+      # only selects target dependencies, while build dependencies (proc macros, build scripts)
+      # resolve for the host running cargo, so a Linux host would describe a cross-build.
       matrix:
-        target:
-          - aarch64-apple-darwin
-          - aarch64-unknown-linux-gnu
-          - x86_64-unknown-linux-gnu
-          - x86_64-pc-windows-msvc
+        include:
+          - target: aarch64-apple-darwin
+            runner: macos-latest
+          - target: aarch64-unknown-linux-gnu
+            runner: ubuntu-24.04-arm
+          - target: x86_64-unknown-linux-gnu
+            runner: ubuntu-24.04
+          - target: x86_64-pc-windows-msvc
+            runner: windows-latest
+    # Bash on every runner, including Windows (Git Bash), so the scripts behave the same.
+    defaults:
+      run:
+        shell: bash
     env:
       SBOM_ATTEST_VERSION: "0.4.9"
       SBOM_TARGET: ${{ matrix.target }}
@@ -41,6 +51,7 @@ jobs:
       - name: Resolve tag
         id: tag
         run: |
+          set -euo pipefail
           TAG="${TAG_FROM_INPUT:-${TAG_FROM_EVENT_INPUT:-${TAG_FROM_RELEASE:-}}}"
           if [ -z "$TAG" ]; then
             echo "Could not determine release tag from workflow inputs or release event."
@@ -52,11 +63,12 @@ jobs:
         with:
           ref: ${{ steps.tag.outputs.tag }}
       - name: Install sbom-attest
-        run: cargo install sbom-attest --version "$SBOM_ATTEST_VERSION" --locked
+        run: |
+          set -euo pipefail
+          cargo install sbom-attest --version "$SBOM_ATTEST_VERSION" --locked
       # --name puts the target in the SPDX document name (and the root component's display
       # name); the purl stays pkg:cargo/unleash-edge@<version> so scanners still match it.
       - name: Generate SBOMs (CycloneDX + SPDX)
-        shell: bash
         run: |
           set -euo pipefail
           sbom-attest generate --locked \
@@ -72,7 +84,6 @@ jobs:
       # expression) and the libgit2 C library vendored by libgit2-sys (build-time, via shadow-rs)
       # carries no declared license. The waiver is recorded in the report.
       - name: Audit SBOM
-        shell: bash
         run: |
           set -euo pipefail
           sbom-attest audit "unleash-edge-${SBOM_TARGET}.cdx.json" --locked \
