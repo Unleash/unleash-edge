@@ -78,7 +78,9 @@ jobs:
           retention-days: 1
 
   build:
-    runs-on: ubuntu-latest
+    # Native runner per platform: no QEMU, and the SBOM step in the Dockerfile resolves the binary's
+    # shared libraries against the target's own system libraries and dpkg database.
+    runs-on: ${{ matrix.platform == 'linux/arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     needs:
       - prepare-bake-file
     strategy:
@@ -97,9 +99,6 @@ jobs:
         with:
           name: bake-meta
           path: /tmp
-      - name: Setup QEMU
-        uses: docker/setup-qemu-action@v4
-
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v4
 

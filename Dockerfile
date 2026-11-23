@@ -1,9 +1,16 @@
 FROM --platform=linux/amd64 docker.io/lukemathwalker/cargo-chef:latest-rust-1.99-slim-bookworm AS amd64-chef
 FROM --platform=linux/arm64 docker.io/lukemathwalker/cargo-chef:latest-rust-1.99-slim-bookworm AS arm64-chef
 
-# Base image for the build stage - this is a multi-stage build that uses cross-compilation (thanks to --platform switch)
+# Base image for the build stage. It runs on the build platform: CI builds each image on a runner of
+# its own architecture (native build), and amd64 hosts can also cross-compile the arm64 image.
 FROM --platform=$BUILDPLATFORM docker.io/lukemathwalker/cargo-chef:latest-rust-1.99-slim-bookworm AS chef
 WORKDIR /app
+
+# sbom-attest, used to write an SPDX SBOM of the built binary into the image.
+# Separate stage so it builds in parallel with the app and stays cached.
+FROM chef AS sbom-tool
+ARG SBOM_ATTEST_VERSION=0.4.9
+RUN cargo install sbom-attest --version "${SBOM_ATTEST_VERSION}" --locked
 
 # Planner stage
 FROM chef AS planner
@@ -16,6 +23,7 @@ COPY --from=planner /app/recipe.json recipe.json
 
 ARG TARGETPLATFORM
 ARG TARGETARCH
+ARG BUILDARCH
 ARG CARGO_FEATURES=""
 ENV CARGO_FEATURES=${CARGO_FEATURES}
 
@@ -65,17 +73,20 @@ COPY --from=arm64-chef \
 
 WORKDIR /app
 
-# Install dependencies for cross-compilation and protobuf
-RUN dpkg --add-architecture arm64 \
-    && apt-get update \
-    && apt-get install -y \
-    protobuf-compiler \
-    g++-aarch64-linux-gnu \
-    libc6-dev-arm64-cross \
-    ca-certificates \
-    && rustup target add aarch64-unknown-linux-gnu \
-    && rustup toolchain install stable-aarch64-unknown-linux-gnu --force-non-host \
-    && rm -rf /var/lib/apt/lists/*
+# Install protobuf, plus the arm64 cross toolchain when cross-compiling (amd64 host, arm64 image)
+RUN set -eux; \
+    case "${BUILDARCH}-${TARGETARCH}" in \
+        amd64-amd64|arm64-arm64) cross_pkgs="" ;; \
+        amd64-arm64) dpkg --add-architecture arm64; cross_pkgs="g++-aarch64-linux-gnu libc6-dev-arm64-cross" ;; \
+        *) echo "unsupported build/target: ${BUILDARCH} -> ${TARGETARCH}"; exit 1 ;; \
+    esac; \
+    apt-get update; \
+    apt-get install -y protobuf-compiler ca-certificates ${cross_pkgs}; \
+    if [ -n "${cross_pkgs}" ]; then \
+        rustup target add aarch64-unknown-linux-gnu; \
+        rustup toolchain install stable-aarch64-unknown-linux-gnu --force-non-host; \
+    fi; \
+    rm -rf /var/lib/apt/lists/*
 
 # Build dependencies - this is the caching Docker layer!
 RUN set -eux; \
@@ -83,9 +94,9 @@ RUN set -eux; \
     if [ -n "${CARGO_FEATURES}" ]; then \
         feature_flags="--features ${CARGO_FEATURES}"; \
     fi; \
-    case ${TARGETARCH} in \
-        arm64) PKG_CONFIG_SYSROOT_DIR=/ CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc cargo chef cook --target=aarch64-unknown-linux-gnu --release --recipe-path recipe.json ${feature_flags} ;; \
-        amd64) cargo chef cook --release --recipe-path recipe.json ${feature_flags} ;; \
+    case "${BUILDARCH}-${TARGETARCH}" in \
+        amd64-arm64) PKG_CONFIG_SYSROOT_DIR=/ CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc cargo chef cook --target=aarch64-unknown-linux-gnu --release --recipe-path recipe.json ${feature_flags} ;; \
+        amd64-amd64|arm64-arm64) cargo chef cook --release --recipe-path recipe.json ${feature_flags} ;; \
         *) exit 1 ;; \
     esac
 
@@ -98,22 +109,49 @@ RUN set -eux; \
     if [ -n "${CARGO_FEATURES}" ]; then \
         feature_flags="--features ${CARGO_FEATURES}"; \
     fi; \
-    case ${TARGETARCH} in \
-        arm64) PKG_CONFIG_SYSROOT_DIR=/ CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc cargo build --target=aarch64-unknown-linux-gnu --release ${feature_flags} ;; \
-        amd64) cargo build --release ${feature_flags} ;; \
+    case "${BUILDARCH}-${TARGETARCH}" in \
+        amd64-arm64) PKG_CONFIG_SYSROOT_DIR=/ CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc cargo build --target=aarch64-unknown-linux-gnu --release ${feature_flags} ;; \
+        amd64-amd64|arm64-arm64) cargo build --release ${feature_flags} ;; \
         *) exit 1 ;; \
     esac
 
 # Copy all the dependencies to a separate folder
 RUN set -ex; \
     # Determine target (source folder for the binary and env files)
-    case ${TARGETARCH} in \
-    arm64) target='/app/target/aarch64-unknown-linux-gnu/release';; \
-    amd64) target='/app/target/release';; \
+    case "${BUILDARCH}-${TARGETARCH}" in \
+    amd64-arm64) target='/app/target/aarch64-unknown-linux-gnu/release';; \
+    amd64-amd64|arm64-arm64) target='/app/target/release';; \
     *) exit 1 ;; \
     esac; \
     # Copy files from the target folder to app folder
     cp $target/unleash-edge     /all-files/${TARGETPLATFORM}/app
+
+# Write an SPDX SBOM for the binary into the image so image scanners (syft with
+# `--select-catalogers +sbom-cataloger`) report the Rust crates compiled into it.
+# Resolved for the same target and features as the build above, and hashes the binary itself.
+# The binary's shared libraries are resolved against this stage's system libraries and dpkg
+# database, which describe the shipped libraries only in a native build (BUILDARCH == TARGETARCH),
+# as CI does. In a local amd64 -> arm64 cross build they stay unversioned platform dependencies.
+COPY --from=sbom-tool /usr/local/cargo/bin/sbom-attest /usr/local/bin/sbom-attest
+RUN set -eux; \
+    case ${TARGETARCH} in \
+    arm64) triple='aarch64-unknown-linux-gnu';; \
+    amd64) triple='x86_64-unknown-linux-gnu';; \
+    *) exit 1 ;; \
+    esac; \
+    feature_flags=""; \
+    if [ -n "${CARGO_FEATURES}" ]; then \
+        feature_flags="--features ${CARGO_FEATURES}"; \
+    fi; \
+    mkdir -p /all-files/${TARGETPLATFORM}/app/sbom; \
+    sbom-attest generate --locked \
+        --package unleash-edge \
+        --target "${triple}" ${feature_flags} \
+        --binary /all-files/${TARGETPLATFORM}/app/unleash-edge \
+        --name "unleash-edge-${triple}" \
+        --author "Bricks Software AS" \
+        --producer "Bricks Software AS" \
+        --spdx "/all-files/${TARGETPLATFORM}/app/sbom/unleash-edge-${triple}.spdx.json"
 
 # Always include MIT license in the image (OSS + enterprise)
 RUN cp /app/LICENSE /all-files/${TARGETPLATFORM}/LICENSE
@@ -130,6 +168,19 @@ FROM --platform=$BUILDPLATFORM ubuntu:25.04 AS passwdsource
 RUN useradd -u 10001 edgeuser
 
 FROM node:24-bookworm-slim AS node-source
+
+# Debian package records for the shared libraries copied into the enterprise image below
+# (libdl/libpthread are from libc6, libstdc++ from libstdc++6), in the distroless
+# /var/lib/dpkg/status.d layout that syft's dpkg cataloger reads. os-release lets syft
+# give them debian-12 purls so vulnerability matching works; copyright files carry licenses.
+RUN set -eux; \
+    mkdir -p /dpkg/var/lib/dpkg/status.d /dpkg/etc; \
+    for pkg in libc6 libstdc++6; do \
+        dpkg-query -s "$pkg" > "/dpkg/var/lib/dpkg/status.d/$pkg"; \
+        mkdir -p "/dpkg/usr/share/doc/$pkg"; \
+        cp "/usr/share/doc/$pkg/copyright" "/dpkg/usr/share/doc/$pkg/copyright"; \
+    done; \
+    cp /etc/os-release /dpkg/etc/os-release
 
 # Create a single layer image
 FROM scratch AS runtime-base
@@ -159,6 +210,8 @@ COPY --from=node-source \
     /lib/*-linux-gnu/libstdc++.so.6 \
     /usr/local/lib/node/
 COPY crates/enterprise/unleash-edge-context-enrichers/worker_script.js /app/worker_script.js
+
+COPY --from=node-source /dpkg/ /
 
 ENV LD_LIBRARY_PATH=/usr/local/lib/node
 

@@ -21,7 +21,8 @@ permissions:
 jobs:
   docker:
     name: Build docker image (${{ matrix.variant }})
-    runs-on: ubuntu-latest
+    # Native arm64 runner: no cross-compilation, so the SBOM step resolves the target's own libraries.
+    runs-on: ubuntu-24.04-arm
     strategy:
       fail-fast: false
       matrix:
