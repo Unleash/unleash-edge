@@ -1,4 +1,6 @@
 
+## [unleash-edge-v20.6.6] - 2026-11-27
+
 ## [unleash-edge-v20.6.5] - 2026-11-17
 
 ### 🐛 Bug Fixes
