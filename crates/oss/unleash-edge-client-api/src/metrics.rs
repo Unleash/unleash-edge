@@ -1,14 +1,18 @@
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 use axum::Json;
 use axum::extract::{FromRef, State};
 use axum::routing::{Router, post};
-use tracing::instrument;
+use prometheus::{IntCounter, register_int_counter};
+use tracing::{instrument, warn};
 use unleash_edge_appstate::AppState;
 use unleash_edge_appstate::edge_token_extractor::{AuthState, AuthToken};
 use unleash_edge_metrics::client_metrics::{register_bulk_metrics, register_client_metrics};
+use unleash_edge_types::errors::EdgeError;
 use unleash_edge_types::metrics::MetricsCache;
-use unleash_edge_types::metrics::instance_data::EdgeInstanceData;
+use unleash_edge_types::metrics::instance_data::{
+    EdgeInstanceData, MAX_DISTINCT_INSTANCES, merge_report, report_counts,
+};
 use unleash_edge_types::{AcceptedJson, BatchMetricsRequestBody, EdgeAcceptedJsonResult};
 use unleash_types::client_metrics::{ClientMetrics, ConnectVia};
 
@@ -63,17 +67,35 @@ pub async fn post_bulk_metrics(
     Ok(AcceptedJson { body: () })
 }
 
+static REFUSED_INSTANCE_REPORTS: LazyLock<IntCounter> = LazyLock::new(|| {
+    register_int_counter!(
+        "edge_instance_data_refused_reports_total",
+        "Total number of downstream instance reports turned away because our buffer was full"
+    )
+    .expect("failed to register edge_instance_data_refused_reports_total")
+});
+
 #[instrument(skip(app_state, _edge_token, instance_data))]
 pub async fn post_edge_instance_data(
     State(app_state): State<MetricsState>,
     AuthToken(_edge_token): AuthToken,
     Json(instance_data): Json<EdgeInstanceData>,
 ) -> EdgeAcceptedJsonResult<()> {
-    app_state
-        .connected_instances
-        .write()
-        .await
-        .push(instance_data);
+    let mut connected_instances = app_state.connected_instances.write().await;
+
+    // Reject if at cap. Count includes incoming report to prevent cap violations.
+    // Sender will retry on 503 until next successful post clears the buffer
+    let (_, distinct) = report_counts(connected_instances.iter().chain([&instance_data]));
+    if distinct > MAX_DISTINCT_INSTANCES && !connected_instances.is_empty() {
+        REFUSED_INSTANCE_REPORTS.inc();
+        warn!(
+            "Already at the cap of {MAX_DISTINCT_INSTANCES} instances, so turning away the \
+             report from {}. Check whether our upstream is accepting instance data.",
+            instance_data.identifier
+        );
+        return Err(EdgeError::NotReady);
+    }
+    merge_report(&mut connected_instances, instance_data);
     Ok(AcceptedJson { body: () })
 }
 
@@ -123,6 +145,9 @@ mod tests {
     use ulid::Ulid;
     use unleash_edge_appstate::edge_token_extractor::AuthState;
     use unleash_edge_cli::AuthHeaders;
+    use unleash_edge_types::metrics::instance_data::{
+        EdgeInstanceData, MAX_DISTINCT_INSTANCES, report_counts,
+    };
     use unleash_edge_types::metrics::{ImpactMetricsKey, MetricsCache};
     use unleash_edge_types::tokens::EdgeToken;
     use unleash_edge_types::{BatchMetricsRequestBody, MetricsKey, TokenCache};
@@ -152,6 +177,13 @@ mod tests {
     }
 
     async fn build_metrics_server(metrics_cache: Arc<MetricsCache>) -> TestServer {
+        build_server(metrics_cache, Arc::new(tokio::sync::RwLock::new(vec![])))
+    }
+
+    fn build_server(
+        metrics_cache: Arc<MetricsCache>,
+        connected_instances: Arc<tokio::sync::RwLock<Vec<EdgeInstanceData>>>,
+    ) -> TestServer {
         let test_state = TestState {
             auth: AuthState {
                 auth_headers: AuthHeaders::default(),
@@ -163,7 +195,7 @@ mod tests {
                     app_name: "test".into(),
                     instance_id: Ulid::generate().to_string(),
                 },
-                connected_instances: Arc::new(tokio::sync::RwLock::new(vec![])),
+                connected_instances,
             },
         };
 
@@ -417,5 +449,108 @@ mod tests {
             )
             .await;
         assert_eq!(r.status_code(), StatusCode::ACCEPTED);
+    }
+
+    fn downstream_report(
+        identifier: &Ulid,
+        connected_edges: Vec<EdgeInstanceData>,
+    ) -> EdgeInstanceData {
+        let mut report = EdgeInstanceData::new("downstream", identifier, None);
+        report.connected_edges = connected_edges;
+        report
+    }
+
+    async fn post_instance_data(server: &TestServer, report: &EdgeInstanceData) -> StatusCode {
+        server
+            .post("/metrics/edge")
+            .add_header("Authorization", "*:development.abc123def")
+            .json(&serde_json::to_value(report).expect("Invalid json"))
+            .await
+            .status_code()
+    }
+
+    #[tokio::test]
+    pub async fn repeat_reports_from_one_instance_fold_into_a_single_entry() {
+        let buffer = Arc::new(tokio::sync::RwLock::new(vec![]));
+        let server = build_server(Arc::new(MetricsCache::default()), buffer.clone());
+        let instance = Ulid::generate();
+        let nested = Ulid::generate();
+
+        for _ in 0..3 {
+            let report = downstream_report(&instance, vec![downstream_report(&nested, vec![])]);
+            assert_eq!(
+                post_instance_data(&server, &report).await,
+                StatusCode::ACCEPTED
+            );
+        }
+
+        let held = buffer.read().await;
+        assert_eq!(held.len(), 1, "three reports, one instance, one entry");
+        assert_eq!(
+            held[0].connected_edges.len(),
+            1,
+            "the fold reaches nested reports too"
+        );
+    }
+
+    #[tokio::test]
+    pub async fn a_full_buffer_turns_away_reports_that_would_grow_it() {
+        let full: Vec<EdgeInstanceData> = (0..MAX_DISTINCT_INSTANCES)
+            .map(|_| downstream_report(&Ulid::generate(), vec![]))
+            .collect();
+        let already_held = full[0].identifier.clone();
+        let buffer = Arc::new(tokio::sync::RwLock::new(full));
+        let server = build_server(Arc::new(MetricsCache::default()), buffer.clone());
+
+        let unseen = downstream_report(&Ulid::generate(), vec![]);
+        assert_eq!(
+            post_instance_data(&server, &unseen).await,
+            StatusCode::SERVICE_UNAVAILABLE,
+            "a status that leaves the report with the Edge that produced it"
+        );
+
+        let mut smuggling = downstream_report(
+            &Ulid::generate(),
+            vec![downstream_report(&Ulid::generate(), vec![])],
+        );
+        smuggling.identifier = already_held.clone();
+        assert_eq!(
+            post_instance_data(&server, &smuggling).await,
+            StatusCode::SERVICE_UNAVAILABLE,
+            "an instance we hold cannot bring new ones in underneath it"
+        );
+
+        let mut repeat = downstream_report(&Ulid::generate(), vec![]);
+        repeat.identifier = already_held;
+        assert_eq!(
+            post_instance_data(&server, &repeat).await,
+            StatusCode::ACCEPTED,
+            "a full buffer never costs us a window from an instance we hold"
+        );
+        assert_eq!(
+            report_counts(buffer.read().await.iter()),
+            (MAX_DISTINCT_INSTANCES, MAX_DISTINCT_INSTANCES)
+        );
+    }
+
+    #[tokio::test]
+    pub async fn an_empty_buffer_takes_a_report_from_a_relay_that_is_full_itself() {
+        let buffer = Arc::new(tokio::sync::RwLock::new(vec![]));
+        let server = build_server(Arc::new(MetricsCache::default()), buffer.clone());
+        let full_relay = downstream_report(
+            &Ulid::generate(),
+            (0..MAX_DISTINCT_INSTANCES)
+                .map(|_| downstream_report(&Ulid::generate(), vec![]))
+                .collect(),
+        );
+
+        let status = post_instance_data(&server, &full_relay).await;
+
+        assert_eq!(
+            status,
+            StatusCode::ACCEPTED,
+            "turning it away here would hold it at the relay forever, with nothing to make room"
+        );
+        assert_eq!(buffer.read().await.len(), 1);
     }
 }
